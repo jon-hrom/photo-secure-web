@@ -44,9 +44,7 @@ const AuthPage = ({ onAuth }: AuthPageProps) => {
               <Icon name="Camera" size={48} className="text-white" />
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            PhotoStudio Pro
-          </CardTitle>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Foto-Mix </CardTitle>
           <CardDescription className="text-lg">
             Войдите в систему для продолжения
           </CardDescription>
