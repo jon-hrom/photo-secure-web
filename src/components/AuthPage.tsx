@@ -26,7 +26,7 @@ const AuthPage = ({ onAuth }: AuthPageProps) => {
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-2xl border-2 animate-fade-in">
         <CardHeader className="text-center space-y-2">
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-4 bg-[#ffffff]">
             <div className="bg-gradient-to-br from-primary to-secondary p-4 rounded-full">
               <Icon name="Camera" size={48} className="text-white" />
             </div>
