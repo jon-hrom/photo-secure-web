@@ -41,7 +41,7 @@ const Index = () => {
             <div className="flex items-center space-x-2">
               <Icon name="Camera" className="text-primary" size={32} />
               <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                PhotoStudio Pro
+                Foto-Mix
               </h1>
             </div>
             
