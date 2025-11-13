@@ -25,15 +25,34 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [twoFactorType, setTwoFactorType] = useState<'sms' | 'email'>('email');
 
   useEffect(() => {
+    const savedBlockData = localStorage.getItem('loginBlock');
+    if (savedBlockData) {
+      const { blockUntil, attempts } = JSON.parse(savedBlockData);
+      const now = Date.now();
+      if (blockUntil > now) {
+        const remainingSeconds = Math.floor((blockUntil - now) / 1000);
+        setBlockTimeRemaining(remainingSeconds);
+        setIsBlocked(true);
+        setRemainingAttempts(0);
+      } else {
+        localStorage.removeItem('loginBlock');
+        setRemainingAttempts(attempts || 5);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (blockTimeRemaining > 0) {
       const timer = setInterval(() => {
         setBlockTimeRemaining((prev) => {
-          if (prev <= 1) {
+          const newValue = prev - 1;
+          if (newValue <= 0) {
             setIsBlocked(false);
             setRemainingAttempts(5);
+            localStorage.removeItem('loginBlock');
             return 0;
           }
-          return prev - 1;
+          return newValue;
         });
       }, 1000);
       return () => clearInterval(timer);
@@ -74,6 +93,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           toast.success(`Код отправлен на ${data.twoFactorType === 'sms' ? 'телефон' : 'email'}`);
         } else {
           setRemainingAttempts(5);
+          localStorage.removeItem('loginBlock');
           toast.success('Вход выполнен успешно!');
           onLoginSuccess(data.userId);
         }
@@ -82,10 +102,13 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         setRemainingAttempts(newAttempts);
         
         if (newAttempts <= 0) {
+          const blockUntil = Date.now() + 600000;
+          localStorage.setItem('loginBlock', JSON.stringify({ blockUntil, attempts: 0 }));
           setIsBlocked(true);
           setBlockTimeRemaining(600);
           toast.error('Превышен лимит попыток. Доступ заблокирован на 10 минут');
         } else {
+          localStorage.setItem('loginBlock', JSON.stringify({ blockUntil: 0, attempts: newAttempts }));
           toast.error(`Неверные данные. Осталось попыток: ${newAttempts}`);
         }
       }
