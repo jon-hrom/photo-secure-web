@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Get all admin settings",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Save admin settings",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-User-Id": "admin@example.com"
+      },
+      "body": {
+        "settings": {
+          "darkMode": true
+        }
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

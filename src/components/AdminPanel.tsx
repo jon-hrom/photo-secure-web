@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -45,9 +45,89 @@ const AdminPanel = () => {
     { id: 5, name: 'Аналитика посещений', enabled: true, order: 5 },
   ]);
 
-  const handleToggle = (key: string) => {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/68eb5b20-e2c3-4741-aa83-500a5301ff4a');
+      const data = await response.json();
+      
+      if (data.settings) {
+        setSettings(prev => ({
+          ...prev,
+          ...data.settings,
+          maxFileSize: String(data.settings.maxFileSize || 10),
+          sessionTimeout: String(data.settings.sessionTimeout || 7),
+          maxLoginAttempts: String(data.settings.maxLoginAttempts || 5),
+          passwordMinLength: String(data.settings.passwordMinLength || 8),
+        }));
+      }
+      
+      if (data.colors) {
+        setColors(data.colors);
+      }
+      
+      if (data.widgets) {
+        const mappedWidgets = data.widgets.map((w: any, idx: number) => ({
+          id: idx + 1,
+          name: w.widget_name,
+          enabled: w.enabled,
+          order: w.display_order,
+        }));
+        setWidgets(mappedWidgets);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки настроек:', error);
+      toast.error('Не удалось загрузить настройки');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/68eb5b20-e2c3-4741-aa83-500a5301ff4a', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': 'jonhrom2012@gmail.com',
+        },
+        body: JSON.stringify({
+          settings: {
+            ...settings,
+            maxFileSize: parseInt(settings.maxFileSize),
+            sessionTimeout: parseInt(settings.sessionTimeout),
+            maxLoginAttempts: parseInt(settings.maxLoginAttempts),
+            passwordMinLength: parseInt(settings.passwordMinLength),
+          },
+          colors,
+          widgets: widgets.map(w => ({
+            widget_name: w.name,
+            enabled: w.enabled,
+            display_order: w.order,
+            config_data: {},
+          })),
+        }),
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        toast.success('Все настройки сохранены в базе данных');
+      }
+    } catch (error) {
+      console.error('Ошибка сохранения:', error);
+      toast.error('Не удалось сохранить настройки');
+    }
+  };
+
+  const handleToggle = async (key: string) => {
     setSettings(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
     toast.success('Настройка обновлена');
+    setTimeout(saveSettings, 500);
   };
 
   const handleInputChange = (key: string, value: string) => {
@@ -58,11 +138,11 @@ const AdminPanel = () => {
     setColors(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSaveColors = () => {
-    toast.success('Цветовая схема сохранена');
+  const handleSaveColors = async () => {
+    await saveSettings();
   };
 
-  const moveWidget = (id: number, direction: 'up' | 'down') => {
+  const moveWidget = async (id: number, direction: 'up' | 'down') => {
     const index = widgets.findIndex(w => w.id === id);
     if (
       (direction === 'up' && index === 0) ||
@@ -81,14 +161,27 @@ const AdminPanel = () => {
 
     setWidgets(newWidgets);
     toast.success('Порядок виджетов обновлен');
+    setTimeout(saveSettings, 500);
   };
 
-  const toggleWidget = (id: number) => {
+  const toggleWidget = async (id: number) => {
     setWidgets(prev =>
       prev.map(w => (w.id === id ? { ...w, enabled: !w.enabled } : w))
     );
     toast.success('Виджет обновлен');
+    setTimeout(saveSettings, 500);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <Icon name="Loader2" size={48} className="animate-spin text-orange-500 mx-auto" />
+          <p className="mt-4 text-muted-foreground">Загрузка настроек...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
