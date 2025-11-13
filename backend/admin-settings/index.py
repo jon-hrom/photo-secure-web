@@ -84,6 +84,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             body_data = json.loads(event.get('body', '{}'))
             user_email = event.get('headers', {}).get('x-user-id', 'unknown')
             
+            change_data = {
+                'settings': body_data.get('settings', {}),
+                'colors': body_data.get('colors', {}),
+                'widgets': body_data.get('widgets', [])
+            }
+            
+            description_parts = []
+            if 'settings' in body_data:
+                description_parts.append(f"изменено {len(body_data['settings'])} настроек")
+            if 'colors' in body_data:
+                description_parts.append(f"обновлено {len(body_data['colors'])} цветов")
+            if 'widgets' in body_data:
+                description_parts.append(f"обновлено {len(body_data['widgets'])} виджетов")
+            
+            description = ', '.join(description_parts)
+            
+            cur.execute("""
+                INSERT INTO t_p28211681_photo_secure_web.settings_history 
+                (change_type, change_data, changed_by, description)
+                VALUES (%s, %s, %s, %s)
+            """, ('update', json.dumps(change_data), user_email, description))
+            
             if 'settings' in body_data:
                 for key, value in body_data['settings'].items():
                     if isinstance(value, bool):

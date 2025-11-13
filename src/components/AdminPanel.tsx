@@ -46,9 +46,12 @@ const AdminPanel = () => {
   ]);
 
   const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState<any[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     loadSettings();
+    loadHistory();
   }, []);
 
   const loadSettings = async () => {
@@ -88,6 +91,18 @@ const AdminPanel = () => {
     }
   };
 
+  const loadHistory = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/ceedefc9-0cb9-4dbc-87aa-4865e7011d43');
+      const data = await response.json();
+      if (data.history) {
+        setHistory(data.history);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки истории:', error);
+    }
+  };
+
   const saveSettings = async () => {
     try {
       const response = await fetch('https://functions.poehali.dev/68eb5b20-e2c3-4741-aa83-500a5301ff4a', {
@@ -117,10 +132,34 @@ const AdminPanel = () => {
       const result = await response.json();
       if (result.success) {
         toast.success('Все настройки сохранены в базе данных');
+        loadHistory();
       }
     } catch (error) {
       console.error('Ошибка сохранения:', error);
       toast.error('Не удалось сохранить настройки');
+    }
+  };
+
+  const rollbackToVersion = async (historyId: number) => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/ceedefc9-0cb9-4dbc-87aa-4865e7011d43', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': 'jonhrom2012@gmail.com',
+        },
+        body: JSON.stringify({ historyId }),
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        toast.success('Откат выполнен успешно');
+        await loadSettings();
+        await loadHistory();
+      }
+    } catch (error) {
+      console.error('Ошибка отката:', error);
+      toast.error('Не удалось выполнить откат');
     }
   };
 
@@ -194,8 +233,76 @@ const AdminPanel = () => {
             Полный контроль над настройками и функциями сайта
           </p>
         </div>
-        <Icon name="ShieldCheck" size={48} className="text-orange-500" />
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={() => setShowHistory(!showHistory)}
+            variant={showHistory ? "default" : "outline"}
+            className="gap-2"
+          >
+            <Icon name="History" size={20} />
+            История изменений ({history.length})
+          </Button>
+          <Icon name="ShieldCheck" size={48} className="text-orange-500" />
+        </div>
       </div>
+
+      {showHistory && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="History" size={24} />
+              История изменений настроек
+            </CardTitle>
+            <CardDescription>
+              Все изменения сохраняются. Вы можете откатиться к любой версии.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {history.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                История изменений пока пуста
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {history.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">#{item.id}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(item.createdAt).toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-sm">{item.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Изменено: {item.changedBy}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => rollbackToVersion(item.id)}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <Icon name="RotateCcw" size={16} />
+                      Откатить
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-5">

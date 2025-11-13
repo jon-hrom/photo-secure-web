@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Get settings history",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Rollback requires history ID",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-User-Id": "admin@example.com"
+      },
+      "body": {},
+      "expectedStatus": 400
+    }
+  ]
+}
