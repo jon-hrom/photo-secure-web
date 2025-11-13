@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 
@@ -17,6 +18,7 @@ interface Booking {
   time: string;
   description: string;
   notificationEnabled: boolean;
+  clientId: number;
 }
 
 interface Client {
@@ -25,6 +27,7 @@ interface Client {
   phone: string;
   email: string;
   address: string;
+  vkProfile?: string;
   bookings: Booking[];
 }
 
@@ -36,6 +39,7 @@ const ClientsPage = () => {
       phone: '+7 (999) 123-45-67',
       email: 'maria@mail.ru',
       address: 'г. Москва, ул. Ленина, д. 10',
+      vkProfile: 'mariaivanova',
       bookings: [
         {
           id: 1,
@@ -43,6 +47,7 @@ const ClientsPage = () => {
           time: '14:00',
           description: 'Свадебная фотосессия в студии',
           notificationEnabled: true,
+          clientId: 1,
         },
       ],
     },
@@ -52,6 +57,7 @@ const ClientsPage = () => {
       phone: '+7 (999) 987-65-43',
       email: 'sergey@mail.ru',
       address: 'г. Москва, ул. Пушкина, д. 5',
+      vkProfile: 'sergey_petrov',
       bookings: [
         {
           id: 2,
@@ -59,6 +65,7 @@ const ClientsPage = () => {
           time: '16:30',
           description: 'Консультация по выбору пакета услуг',
           notificationEnabled: true,
+          clientId: 2,
         },
       ],
     },
@@ -67,17 +74,19 @@ const ClientsPage = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
-  const [isEditBookingDialogOpen, setIsEditBookingDialogOpen] = useState(false);
+  const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [messageTab, setMessageTab] = useState<'vk' | 'email'>('vk');
 
   const [newClient, setNewClient] = useState({
     name: '',
     phone: '',
     email: '',
     address: '',
+    vkProfile: '',
   });
 
   const [newBooking, setNewBooking] = useState({
@@ -85,6 +94,10 @@ const ClientsPage = () => {
     description: '',
     notificationEnabled: true,
   });
+
+  const [vkMessage, setVkMessage] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
 
   const timeSlots = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30',
@@ -103,7 +116,7 @@ const ClientsPage = () => {
       bookings: [],
     };
     setClients([...clients, client]);
-    setNewClient({ name: '', phone: '', email: '', address: '' });
+    setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
     setIsAddDialogOpen(false);
     toast.success('Клиент успешно добавлен');
   };
@@ -133,6 +146,7 @@ const ClientsPage = () => {
       time: newBooking.time,
       description: newBooking.description,
       notificationEnabled: newBooking.notificationEnabled,
+      clientId: selectedClient.id,
     };
     
     setClients(clients.map(c => 
@@ -152,44 +166,68 @@ const ClientsPage = () => {
     }
   };
 
-  const handleUpdateBooking = () => {
-    if (!selectedClient || !editingBooking) return;
-    
-    setClients(clients.map(c => 
-      c.id === selectedClient.id 
-        ? {
-            ...c,
-            bookings: c.bookings.map(b => 
-              b.id === editingBooking.id ? editingBooking : b
-            )
-          }
-        : c
-    ));
-    
-    setIsEditBookingDialogOpen(false);
-    setEditingBooking(null);
-    toast.success('Бронирование обновлено');
-  };
-
   const handleDeleteBooking = (bookingId: number) => {
-    if (!selectedClient) return;
-    
-    setClients(clients.map(c => 
-      c.id === selectedClient.id 
-        ? { ...c, bookings: c.bookings.filter(b => b.id !== bookingId) }
-        : c
-    ));
-    
-    setIsEditBookingDialogOpen(false);
-    setEditingBooking(null);
+    setClients(clients.map(c => ({
+      ...c,
+      bookings: c.bookings.filter(b => b.id !== bookingId)
+    })));
+    setIsBookingDetailsOpen(false);
+    setSelectedBooking(null);
     toast.success('Бронирование удалено');
   };
 
-  const allBookedDates = clients.flatMap(c => c.bookings.map(b => b.date));
+  const handleDateClick = (date: Date | undefined) => {
+    if (!date) return;
+    
+    const bookingsOnDate = clients.flatMap(c => 
+      c.bookings
+        .filter(b => b.date.toDateString() === date.toDateString())
+        .map(b => ({ ...b, client: c }))
+    );
 
-  const handleClientSelect = (client: Client) => {
-    setSelectedClient(client);
+    if (bookingsOnDate.length > 0) {
+      const booking = bookingsOnDate[0];
+      const client = clients.find(c => c.id === booking.clientId);
+      if (client) {
+        setSelectedClient(client);
+        setSelectedBooking(booking);
+        setIsBookingDetailsOpen(true);
+      }
+    } else {
+      setSelectedDate(date);
+    }
   };
+
+  const handleSearchVK = () => {
+    if (!selectedClient) return;
+    const searchQuery = selectedClient.vkProfile || encodeURIComponent(selectedClient.name);
+    window.open(`https://vk.com/${searchQuery}`, '_blank');
+    toast.success('Поиск во ВКонтакте открыт в новой вкладке');
+  };
+
+  const handleSendVKMessage = () => {
+    if (!selectedClient?.vkProfile) {
+      toast.error('У клиента не указан профиль ВКонтакте');
+      return;
+    }
+    window.open(`https://vk.com/im?sel=${selectedClient.vkProfile}`, '_blank');
+    toast.success('Открыто окно сообщений ВКонтакте');
+    setVkMessage('');
+  };
+
+  const handleSendEmail = () => {
+    if (!selectedClient?.email) {
+      toast.error('У клиента не указан email');
+      return;
+    }
+    const mailtoLink = `mailto:${selectedClient.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    window.location.href = mailtoLink;
+    toast.success('Открыт почтовый клиент');
+    setEmailSubject('');
+    setEmailBody('');
+  };
+
+  const allBookedDates = clients.flatMap(c => c.bookings.map(b => b.date));
 
   const openEditDialog = (client: Client) => {
     setEditingClient({ ...client });
@@ -199,11 +237,6 @@ const ClientsPage = () => {
   const openBookingDialog = (client: Client) => {
     setSelectedClient(client);
     setIsBookingDialogOpen(true);
-  };
-
-  const openEditBookingDialog = (booking: Booking) => {
-    setEditingBooking({ ...booking });
-    setIsEditBookingDialogOpen(true);
   };
 
   return (
@@ -254,6 +287,16 @@ const ClientsPage = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="vkProfile">Профиль ВК</Label>
+                <Input
+                  id="vkProfile"
+                  placeholder="username или id12345678"
+                  value={newClient.vkProfile}
+                  onChange={(e) => setNewClient({ ...newClient, vkProfile: e.target.value })}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="address">Адрес</Label>
                 <Input
                   id="address"
@@ -285,7 +328,7 @@ const ClientsPage = () => {
                 <Card
                   key={client.id}
                   className="hover:shadow-md transition-all cursor-pointer border-2"
-                  onClick={() => handleClientSelect(client)}
+                  onClick={() => setSelectedClient(client)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
@@ -306,10 +349,6 @@ const ClientsPage = () => {
                       <Icon name="Mail" size={14} />
                       <span>{client.email || 'Не указан'}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                      <Icon name="MapPin" size={14} />
-                      <span>{client.address || 'Не указан'}</span>
-                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -329,13 +368,13 @@ const ClientsPage = () => {
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={setSelectedDate}
+                onSelect={handleDateClick}
                 className="rounded-xl border shadow-sm"
                 modifiers={{
                   booked: allBookedDates,
                 }}
                 modifiersClassNames={{
-                  booked: 'bg-primary text-white hover:bg-primary/90 font-bold',
+                  booked: 'bg-primary text-white hover:bg-primary/90 font-bold cursor-pointer',
                 }}
               />
               <div className="mt-4 p-4 bg-muted/50 rounded-xl">
@@ -344,7 +383,7 @@ const ClientsPage = () => {
                   <div className="text-sm">
                     <p className="font-semibold mb-1">Подсказка:</p>
                     <p className="text-muted-foreground">
-                      Забронированные даты выделены. Выберите клиента и дату для создания встречи.
+                      Нажмите на выделенную дату для просмотра деталей бронирования
                     </p>
                   </div>
                 </div>
@@ -393,17 +432,26 @@ const ClientsPage = () => {
                     <Label className="text-muted-foreground text-xs">Адрес</Label>
                     <p className="font-semibold">{selectedClient.address || 'Не указан'}</p>
                   </div>
+                  {selectedClient.vkProfile && (
+                    <div>
+                      <Label className="text-muted-foreground text-xs">ВКонтакте</Label>
+                      <p className="font-semibold">{selectedClient.vkProfile}</p>
+                    </div>
+                  )}
                 </div>
 
                 {selectedClient.bookings.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-sm font-semibold">Встречи ({selectedClient.bookings.length})</Label>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
                       {selectedClient.bookings.map((booking) => (
                         <Card 
                           key={booking.id} 
                           className="cursor-pointer hover:shadow-md transition-all"
-                          onClick={() => openEditBookingDialog(booking)}
+                          onClick={() => {
+                            setSelectedBooking(booking);
+                            setIsBookingDetailsOpen(true);
+                          }}
                         >
                           <CardContent className="p-3">
                             <div className="flex items-start justify-between mb-2">
@@ -420,12 +468,6 @@ const ClientsPage = () => {
                             {booking.description && (
                               <p className="text-sm text-muted-foreground">{booking.description}</p>
                             )}
-                            {booking.notificationEnabled && (
-                              <div className="flex items-center gap-1 mt-2">
-                                <Icon name="Bell" size={12} className="text-green-500" />
-                                <span className="text-xs text-green-600">Уведомление включено</span>
-                              </div>
-                            )}
                           </CardContent>
                         </Card>
                       ))}
@@ -437,6 +479,148 @@ const ClientsPage = () => {
           )}
         </div>
       </div>
+
+      <Dialog open={isBookingDetailsOpen} onOpenChange={setIsBookingDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Детали бронирования</DialogTitle>
+          </DialogHeader>
+          {selectedBooking && selectedClient && (
+            <div className="space-y-6 pt-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-xl">
+                <div>
+                  <Label className="text-muted-foreground text-xs">Дата</Label>
+                  <p className="font-bold text-lg">{selectedBooking.date.toLocaleDateString('ru-RU')}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Время</Label>
+                  <p className="font-bold text-lg">{selectedBooking.time}</p>
+                </div>
+              </div>
+
+              {selectedBooking.description && (
+                <div>
+                  <Label className="text-sm font-semibold mb-2 block">Описание</Label>
+                  <p className="p-3 bg-muted/30 rounded-xl">{selectedBooking.description}</p>
+                </div>
+              )}
+
+              <div className="space-y-3 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
+                <h4 className="font-bold flex items-center gap-2">
+                  <Icon name="User" size={20} className="text-primary" />
+                  Контакты клиента
+                </h4>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Имя</Label>
+                    <p className="font-semibold">{selectedClient.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Телефон</Label>
+                    <p className="font-semibold">{selectedClient.phone}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <p className="font-semibold">{selectedClient.email || 'Не указан'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Адрес</Label>
+                    <p className="font-semibold">{selectedClient.address || 'Не указан'}</p>
+                  </div>
+                  {selectedClient.vkProfile && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">ВКонтакте</Label>
+                      <p className="font-semibold">{selectedClient.vkProfile}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSearchVK}
+                  className="flex-1 rounded-xl"
+                  variant="outline"
+                >
+                  <Icon name="Search" size={18} className="mr-2" />
+                  Найти во ВКонтакте
+                </Button>
+                <Button
+                  onClick={() => handleDeleteBooking(selectedBooking.id)}
+                  variant="destructive"
+                  className="rounded-xl"
+                >
+                  <Icon name="Trash2" size={18} />
+                </Button>
+              </div>
+
+              <div className="border-t pt-4">
+                <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'vk' | 'email')}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="vk">
+                      <Icon name="MessageCircle" size={16} className="mr-2" />
+                      ВКонтакте
+                    </TabsTrigger>
+                    <TabsTrigger value="email">
+                      <Icon name="Mail" size={16} className="mr-2" />
+                      Email
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="vk" className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Сообщение</Label>
+                      <Textarea
+                        placeholder="Напишите сообщение клиенту..."
+                        value={vkMessage}
+                        onChange={(e) => setVkMessage(e.target.value)}
+                        className="rounded-xl min-h-[100px]"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSendVKMessage}
+                      className="w-full rounded-xl"
+                      disabled={!selectedClient.vkProfile}
+                    >
+                      <Icon name="Send" size={18} className="mr-2" />
+                      Отправить через ВКонтакте
+                    </Button>
+                  </TabsContent>
+
+                  <TabsContent value="email" className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Тема письма</Label>
+                      <Input
+                        placeholder="Тема..."
+                        value={emailSubject}
+                        onChange={(e) => setEmailSubject(e.target.value)}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Сообщение</Label>
+                      <Textarea
+                        placeholder="Текст письма..."
+                        value={emailBody}
+                        onChange={(e) => setEmailBody(e.target.value)}
+                        className="rounded-xl min-h-[100px]"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSendEmail}
+                      className="w-full rounded-xl"
+                      disabled={!selectedClient.email}
+                    >
+                      <Icon name="Send" size={18} className="mr-2" />
+                      Отправить Email
+                    </Button>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-md">
@@ -464,8 +648,17 @@ const ClientsPage = () => {
               <div className="space-y-2">
                 <Label>Email</Label>
                 <Input
+                  type="email"
                   value={editingClient.email}
                   onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Профиль ВК</Label>
+                <Input
+                  value={editingClient.vkProfile || ''}
+                  onChange={(e) => setEditingClient({ ...editingClient, vkProfile: e.target.value })}
                   className="rounded-xl"
                 />
               </div>
@@ -481,9 +674,12 @@ const ClientsPage = () => {
                 <Button onClick={handleUpdateClient} className="flex-1 rounded-xl">
                   Сохранить
                 </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => handleDeleteClient(editingClient.id)}
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    handleDeleteClient(editingClient.id);
+                    setIsEditDialogOpen(false);
+                  }}
                   className="rounded-xl"
                 >
                   <Icon name="Trash2" size={18} />
@@ -497,7 +693,7 @@ const ClientsPage = () => {
       <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Новое бронирование</DialogTitle>
+            <DialogTitle>Новая встреча</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
@@ -507,23 +703,19 @@ const ClientsPage = () => {
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 className="rounded-xl border"
-                modifiers={{
-                  booked: allBookedDates,
-                }}
-                modifiersClassNames={{
-                  booked: 'bg-primary/20',
-                }}
               />
             </div>
             <div className="space-y-2">
               <Label>Время</Label>
-              <Select value={newBooking.time} onValueChange={(v) => setNewBooking({ ...newBooking, time: v })}>
+              <Select value={newBooking.time} onValueChange={(val) => setNewBooking({ ...newBooking, time: val })}>
                 <SelectTrigger className="rounded-xl">
                   <SelectValue placeholder="Выберите время" />
                 </SelectTrigger>
                 <SelectContent>
-                  {timeSlots.map(slot => (
-                    <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                  {timeSlots.map((slot) => (
+                    <SelectItem key={slot} value={slot}>
+                      {slot}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -531,99 +723,16 @@ const ClientsPage = () => {
             <div className="space-y-2">
               <Label>Описание</Label>
               <Textarea
-                placeholder="Фотосессия, консультация..."
+                placeholder="Детали встречи..."
                 value={newBooking.description}
                 onChange={(e) => setNewBooking({ ...newBooking, description: e.target.value })}
                 className="rounded-xl"
-                rows={3}
               />
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="notification"
-                checked={newBooking.notificationEnabled}
-                onChange={(e) => setNewBooking({ ...newBooking, notificationEnabled: e.target.checked })}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="notification" className="cursor-pointer">
-                Включить уведомления
-              </Label>
             </div>
             <Button onClick={handleAddBooking} className="w-full rounded-xl">
-              Создать бронирование
+              Создать встречу
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isEditBookingDialogOpen} onOpenChange={setIsEditBookingDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Редактирование встречи</DialogTitle>
-          </DialogHeader>
-          {editingBooking && (
-            <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Дата</Label>
-                <Input
-                  type="date"
-                  value={editingBooking.date.toISOString().split('T')[0]}
-                  onChange={(e) => setEditingBooking({ ...editingBooking, date: new Date(e.target.value) })}
-                  className="rounded-xl"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Время</Label>
-                <Select 
-                  value={editingBooking.time} 
-                  onValueChange={(v) => setEditingBooking({ ...editingBooking, time: v })}
-                >
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeSlots.map(slot => (
-                      <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Описание</Label>
-                <Textarea
-                  value={editingBooking.description}
-                  onChange={(e) => setEditingBooking({ ...editingBooking, description: e.target.value })}
-                  className="rounded-xl"
-                  rows={3}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="edit-notification"
-                  checked={editingBooking.notificationEnabled}
-                  onChange={(e) => setEditingBooking({ ...editingBooking, notificationEnabled: e.target.checked })}
-                  className="w-4 h-4"
-                />
-                <Label htmlFor="edit-notification" className="cursor-pointer">
-                  Включить уведомления
-                </Label>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleUpdateBooking} className="flex-1 rounded-xl">
-                  Сохранить
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => handleDeleteBooking(editingBooking.id)}
-                  className="rounded-xl"
-                >
-                  <Icon name="Trash2" size={18} />
-                </Button>
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>
