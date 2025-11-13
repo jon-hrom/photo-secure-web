@@ -4,7 +4,8 @@ import Icon from '@/components/ui/icon';
 import Dashboard from '@/components/Dashboard';
 import ClientsPage from '@/components/ClientsPage';
 import PhotobookPage from '@/components/PhotobookPage';
-import AuthPage from '@/components/AuthPage';
+import LoginPage from '@/components/LoginPage';
+import SettingsPage from '@/components/SettingsPage';
 import FeaturesPage from '@/components/FeaturesPage';
 import {
   DropdownMenu,
@@ -14,23 +15,24 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const Index = () => {
-  const [currentPage, setCurrentPage] = useState<'auth' | 'dashboard' | 'clients' | 'photobook' | 'features'>('auth');
+  const [currentPage, setCurrentPage] = useState<'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings'>('auth');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<'user' | 'admin'>('user');
+  const [userId, setUserId] = useState<number | null>(null);
 
-  const handleAuth = (role: 'user' | 'admin') => {
+  const handleLoginSuccess = (uid: number) => {
     setIsAuthenticated(true);
-    setUserRole(role);
+    setUserId(uid);
     setCurrentPage('dashboard');
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setUserId(null);
     setCurrentPage('auth');
   };
 
   if (!isAuthenticated) {
-    return <AuthPage onAuth={handleAuth} />;
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
@@ -76,15 +78,14 @@ const Index = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              {userRole === 'admin' && (
-                <Button
-                  variant="outline"
-                  className="rounded-full border-2 border-primary"
-                >
-                  <Icon name="Settings" size={18} className="mr-2" />
-                  Админка
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={() => setCurrentPage('settings')}
+                className="rounded-full border-2 border-primary"
+              >
+                <Icon name="Settings" size={18} className="mr-2" />
+                Настройки
+              </Button>
               <Button
                 variant="ghost"
                 onClick={handleLogout}
@@ -98,10 +99,11 @@ const Index = () => {
       </nav>
 
       <main className="container mx-auto px-4 py-8">
-        {currentPage === 'dashboard' && <Dashboard userRole={userRole} />}
+        {currentPage === 'dashboard' && <Dashboard userRole="user" />}
         {currentPage === 'clients' && <ClientsPage />}
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'features' && <FeaturesPage />}
+        {currentPage === 'settings' && userId && <SettingsPage userId={userId} />}
       </main>
     </div>
   );
