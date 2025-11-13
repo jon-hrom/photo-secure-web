@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 
 interface LoginPageProps {
-  onLoginSuccess: (userId: number) => void;
+  onLoginSuccess: (userId: number, email?: string) => void;
 }
 
 const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
@@ -95,7 +95,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           setRemainingAttempts(5);
           localStorage.removeItem('loginBlock');
           toast.success('Вход выполнен успешно!');
-          onLoginSuccess(data.userId);
+          onLoginSuccess(data.userId, email);
         }
       } else {
         const newAttempts = remainingAttempts - 1;
@@ -166,7 +166,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       if (response.ok) {
         toast.success('Вход выполнен успешно!');
         setIs2FADialogOpen(false);
-        onLoginSuccess(pendingUserId);
+        onLoginSuccess(pendingUserId, email);
       } else {
         toast.error(data.error || 'Неверный код');
       }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import Dashboard from '@/components/Dashboard';
@@ -7,6 +7,7 @@ import PhotobookPage from '@/components/PhotobookPage';
 import LoginPage from '@/components/LoginPage';
 import SettingsPage from '@/components/SettingsPage';
 import FeaturesPage from '@/components/FeaturesPage';
+import AdminPanel from '@/components/AdminPanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,21 +16,58 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const Index = () => {
-  const [currentPage, setCurrentPage] = useState<'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings'>('auth');
+  const [currentPage, setCurrentPage] = useState<'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin'>('auth');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const lastActivityRef = useRef<number>(Date.now());
+  const SESSION_TIMEOUT = 7 * 60 * 1000;
 
-  const handleLoginSuccess = (uid: number) => {
+  const handleLoginSuccess = (uid: number, email?: string) => {
     setIsAuthenticated(true);
     setUserId(uid);
+    setUserEmail(email || '');
+    setIsAdmin(email === 'jonhrom2012@gmail.com');
     setCurrentPage('dashboard');
+    lastActivityRef.current = Date.now();
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserId(null);
+    setUserEmail('');
+    setIsAdmin(false);
     setCurrentPage('auth');
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const updateActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    const checkSession = () => {
+      const now = Date.now();
+      const timeSinceLastActivity = now - lastActivityRef.current;
+      
+      if (timeSinceLastActivity > SESSION_TIMEOUT) {
+        handleLogout();
+        alert('Сессия истекла. Пожалуйста, войдите снова.');
+      }
+    };
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(event => window.addEventListener(event, updateActivity));
+
+    const interval = setInterval(checkSession, 30000);
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, updateActivity));
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
 
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
@@ -86,6 +124,16 @@ const Index = () => {
                 <Icon name="Settings" size={18} className="mr-2" />
                 Настройки
               </Button>
+              {isAdmin && (
+                <Button
+                  variant="default"
+                  onClick={() => setCurrentPage('admin')}
+                  className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+                >
+                  <Icon name="ShieldCheck" size={18} className="mr-2" />
+                  Админ-панель
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 onClick={handleLogout}
@@ -104,6 +152,7 @@ const Index = () => {
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'features' && <FeaturesPage />}
         {currentPage === 'settings' && userId && <SettingsPage userId={userId} />}
+        {currentPage === 'admin' && isAdmin && <AdminPanel />}
       </main>
     </div>
   );
