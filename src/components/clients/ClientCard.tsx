@@ -12,6 +12,26 @@ interface Booking {
   clientId: number;
 }
 
+interface Project {
+  id: number;
+  name: string;
+  status: 'new' | 'in_progress' | 'completed' | 'cancelled';
+  budget: number;
+  startDate: string;
+  endDate?: string;
+  description: string;
+}
+
+interface Payment {
+  id: number;
+  amount: number;
+  date: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  method: 'card' | 'cash' | 'transfer';
+  description: string;
+  projectId?: number;
+}
+
 interface Client {
   id: number;
   name: string;
@@ -20,6 +40,8 @@ interface Client {
   address: string;
   vkProfile?: string;
   bookings: Booking[];
+  projects?: Project[];
+  payments?: Payment[];
 }
 
 interface ClientCardProps {
@@ -33,6 +55,11 @@ interface ClientCardProps {
 const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: ClientCardProps) => {
   const activeBookings = client.bookings.filter(b => b.date >= new Date());
   const pastBookings = client.bookings.filter(b => b.date < new Date());
+  
+  const projects = client.projects || [];
+  const payments = client.payments || [];
+  const activeProjects = projects.filter(p => p.status === 'in_progress' || p.status === 'new');
+  const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <Card className="hover-scale cursor-pointer" onClick={onSelect}>
@@ -92,8 +119,23 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: Client
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
+          {activeProjects.length > 0 && (
+            <div className="flex items-center gap-1 text-blue-600">
+              <Icon name="Briefcase" size={14} />
+              <span>{activeProjects.length} проект(-ов)</span>
+            </div>
+          )}
+          {totalPaid > 0 && (
+            <div className="flex items-center gap-1 text-green-600">
+              <Icon name="DollarSign" size={14} />
+              <span>{totalPaid.toLocaleString('ru-RU')} ₽</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex gap-2 flex-wrap">
             {activeBookings.length > 0 && (
               <Badge variant="default">
                 <Icon name="Calendar" size={12} className="mr-1" />

@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import ClientCard from '@/components/clients/ClientCard';
 import ClientDialogs from '@/components/clients/ClientDialogs';
 import BookingDialogs from '@/components/clients/BookingDialogs';
 import MessageDialog from '@/components/clients/MessageDialog';
+import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
 
 interface Booking {
   id: number;
@@ -18,6 +21,50 @@ interface Booking {
   clientId: number;
 }
 
+interface Project {
+  id: number;
+  name: string;
+  status: 'new' | 'in_progress' | 'completed' | 'cancelled';
+  budget: number;
+  startDate: string;
+  endDate?: string;
+  description: string;
+}
+
+interface Document {
+  id: number;
+  name: string;
+  type: 'contract' | 'specification' | 'invoice' | 'other';
+  uploadDate: string;
+  url: string;
+  notes?: string;
+}
+
+interface Payment {
+  id: number;
+  amount: number;
+  date: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  method: 'card' | 'cash' | 'transfer';
+  description: string;
+  projectId?: number;
+}
+
+interface Message {
+  id: number;
+  date: string;
+  type: 'email' | 'vk' | 'phone' | 'meeting';
+  content: string;
+  author: string;
+}
+
+interface Comment {
+  id: number;
+  date: string;
+  author: string;
+  text: string;
+}
+
 interface Client {
   id: number;
   name: string;
@@ -26,6 +73,11 @@ interface Client {
   address: string;
   vkProfile?: string;
   bookings: Booking[];
+  projects?: Project[];
+  documents?: Document[];
+  payments?: Payment[];
+  messages?: Message[];
+  comments?: Comment[];
 }
 
 const ClientsPage = () => {
@@ -47,6 +99,51 @@ const ClientsPage = () => {
           clientId: 1,
         },
       ],
+      projects: [
+        {
+          id: 1,
+          name: 'Свадебная фотосессия',
+          status: 'in_progress',
+          budget: 80000,
+          startDate: new Date(2025, 9, 1).toISOString(),
+          description: 'Съёмка свадебного дня, включая утро невесты, церемонию и банкет',
+        },
+      ],
+      payments: [
+        {
+          id: 1,
+          amount: 40000,
+          date: new Date(2025, 9, 1).toISOString(),
+          status: 'completed',
+          method: 'card',
+          description: 'Предоплата 50%',
+        },
+        {
+          id: 2,
+          amount: 40000,
+          date: new Date(2025, 10, 15).toISOString(),
+          status: 'pending',
+          method: 'card',
+          description: 'Окончательный расчёт',
+        },
+      ],
+      comments: [
+        {
+          id: 1,
+          date: new Date(2025, 9, 1).toISOString(),
+          author: 'Администратор',
+          text: 'Клиент очень ответственный, внесла предоплату сразу после консультации',
+        },
+      ],
+      messages: [
+        {
+          id: 1,
+          date: new Date(2025, 9, 1).toISOString(),
+          type: 'email',
+          content: 'Отправлено коммерческое предложение на свадебную съёмку',
+          author: 'Администратор',
+        },
+      ],
     },
     {
       id: 2,
@@ -65,6 +162,19 @@ const ClientsPage = () => {
           clientId: 2,
         },
       ],
+      projects: [
+        {
+          id: 2,
+          name: 'Корпоративная фотосъёмка',
+          status: 'new',
+          budget: 50000,
+          startDate: new Date(2025, 10, 10).toISOString(),
+          description: 'Фотосъёмка команды для корпоративного сайта',
+        },
+      ],
+      payments: [],
+      comments: [],
+      messages: [],
     },
   ]);
 
@@ -73,11 +183,14 @@ const ClientsPage = () => {
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [messageTab, setMessageTab] = useState<'vk' | 'email'>('vk');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   const [newClient, setNewClient] = useState({
     name: '',
@@ -119,7 +232,7 @@ const ClientsPage = () => {
     toast.success('Клиент успешно добавлен');
   };
 
-  const handleUpdateClient = () => {
+  const handleUpdateClientFromEdit = () => {
     if (!editingClient) return;
     setClients(clients.map(c => c.id === editingClient.id ? editingClient : c));
     setIsEditDialogOpen(false);
@@ -242,11 +355,36 @@ const ClientsPage = () => {
     setIsMessageDialogOpen(true);
   };
 
+  const openDetailDialog = (client: Client) => {
+    setSelectedClient(client);
+    setIsDetailDialogOpen(true);
+  };
+
+  const handleUpdateClient = (updatedClient: Client) => {
+    setClients(clients.map(c => c.id === updatedClient.id ? updatedClient : c));
+    toast.success('Данные клиента обновлены');
+  };
+
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         client.phone.includes(searchQuery) ||
+                         client.email.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (statusFilter === 'all') return matchesSearch;
+    
+    const hasActiveBookings = client.bookings.some(b => b.date >= new Date());
+    if (statusFilter === 'active') return matchesSearch && hasActiveBookings;
+    if (statusFilter === 'inactive') return matchesSearch && !hasActiveBookings;
+    
+    return matchesSearch;
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold">Система учёта клиентов</h2>
-        <ClientDialogs
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold">Система учёта клиентов</h2>
+          <ClientDialogs
           isAddDialogOpen={isAddDialogOpen}
           setIsAddDialogOpen={setIsAddDialogOpen}
           isEditDialogOpen={isEditDialogOpen}
@@ -256,22 +394,69 @@ const ClientsPage = () => {
           editingClient={editingClient}
           setEditingClient={setEditingClient}
           handleAddClient={handleAddClient}
-          handleUpdateClient={handleUpdateClient}
+          handleUpdateClient={handleUpdateClientFromEdit}
         />
+      </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Поиск по имени, телефону или email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter('all')}
+            >
+              Все ({clients.length})
+            </Button>
+            <Button
+              variant={statusFilter === 'active' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter('active')}
+            >
+              <Icon name="CheckCircle" size={16} className="mr-2" />
+              Активные
+            </Button>
+            <Button
+              variant={statusFilter === 'inactive' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter('inactive')}
+            >
+              <Icon name="XCircle" size={16} className="mr-2" />
+              Неактивные
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {clients.map(client => (
-            <ClientCard
-              key={client.id}
-              client={client}
-              onSelect={() => openMessageDialog(client)}
-              onEdit={() => openEditDialog(client)}
-              onDelete={() => handleDeleteClient(client.id)}
-              onAddBooking={() => openBookingDialog(client)}
-            />
-          ))}
+          {filteredClients.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Icon name="Search" size={48} className="mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">Клиенты не найдены</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Попробуйте изменить параметры поиска
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredClients.map(client => (
+              <ClientCard
+                key={client.id}
+                client={client}
+                onSelect={() => openDetailDialog(client)}
+                onEdit={() => openEditDialog(client)}
+                onDelete={() => handleDeleteClient(client.id)}
+                onAddBooking={() => openBookingDialog(client)}
+              />
+            ))
+          )}
         </div>
 
         <div className="space-y-4">
@@ -354,6 +539,13 @@ const ClientsPage = () => {
         handleAddBooking={handleAddBooking}
         handleDeleteBooking={handleDeleteBooking}
         clients={clients}
+      />
+
+      <ClientDetailDialog
+        open={isDetailDialogOpen}
+        onOpenChange={setIsDetailDialogOpen}
+        client={selectedClient}
+        onUpdate={handleUpdateClient}
       />
 
       <MessageDialog
