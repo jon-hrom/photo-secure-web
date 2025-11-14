@@ -63,7 +63,7 @@ const Dashboard = ({ userRole, onOpenClientBooking }: DashboardProps) => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-4xl font-bold mb-2">{formatTime(currentTime)}</h2>
-              <p className="text-lg opacity-90 capitalize">{formatDate(currentTime)}</p>
+              <p className="text-lg opacity-90 capitalize text-center font-light">{formatDate(currentTime)}</p>
             </div>
             <Icon name="Clock" size={64} className="opacity-30" />
           </div>
