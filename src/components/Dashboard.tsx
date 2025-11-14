@@ -5,10 +5,11 @@ import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 
 interface DashboardProps {
-  userRole: 'user' | 'admin';
+  userRole: 'user' | 'admin' | 'guest';
+  onOpenClientBooking?: (clientName: string) => void;
 }
 
-const Dashboard = ({ userRole }: DashboardProps) => {
+const Dashboard = ({ userRole, onOpenClientBooking }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -39,6 +40,21 @@ const Dashboard = ({ userRole }: DashboardProps) => {
   };
 
   const isTrialPeriod = trialDaysLeft > 0 && subscriptionDaysLeft === 0;
+
+  const upcomingMeetings = [
+    { id: 1, name: 'Иванова Мария Петровна', date: '15 ноября', time: '14:00', type: 'Свадебная фотосессия' },
+    { id: 2, name: 'Петров Сергей Иванович', date: '16 ноября', time: '16:30', type: 'Консультация' },
+    { id: 3, name: 'Смирнова Елена', date: '18 ноября', time: '10:00', type: 'Выдача фотокниги' },
+    { id: 4, name: 'Козлов Дмитрий', date: '19 ноября', time: '15:00', type: 'Корпоративная съёмка' },
+    { id: 5, name: 'Новикова Анна', date: '20 ноября', time: '12:00', type: 'Семейная фотосессия' },
+    { id: 6, name: 'Морозов Игорь', date: '21 ноября', time: '17:00', type: 'Портретная съёмка' },
+  ];
+
+  const handleMeetingClick = (clientName: string) => {
+    if (onOpenClientBooking) {
+      onOpenClientBooking(clientName);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -151,28 +167,30 @@ const Dashboard = ({ userRole }: DashboardProps) => {
               Ближайшие встречи
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {[
-              { name: 'Иванова Мария', date: '15 ноября', time: '14:00', type: 'Фотосессия' },
-              { name: 'Петров Сергей', date: '16 ноября', time: '16:30', type: 'Консультация' },
-              { name: 'Смирнова Елена', date: '18 ноября', time: '10:00', type: 'Выдача фотокниги' },
-            ].map((meeting, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-primary/10 p-2 rounded-full">
-                    <Icon name="User" size={18} className="text-primary" />
+          <CardContent>
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+              {upcomingMeetings.map((meeting) => (
+                <div
+                  key={meeting.id}
+                  onClick={() => handleMeetingClick(meeting.name)}
+                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer hover:shadow-md"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <Icon name="User" size={18} className="text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">{meeting.name}</p>
+                      <p className="text-sm text-muted-foreground">{meeting.type}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold">{meeting.name}</p>
-                    <p className="text-sm text-muted-foreground">{meeting.type}</p>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{meeting.date}</p>
+                    <p className="text-sm text-muted-foreground">{meeting.time}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium">{meeting.date}</p>
-                  <p className="text-sm text-muted-foreground">{meeting.time}</p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -209,13 +227,50 @@ const Dashboard = ({ userRole }: DashboardProps) => {
               <div className="pt-4 border-t">
                 <div className="flex justify-between items-center">
                   <span className="text-sm">Доход за месяц:</span>
-                  <span className="text-2xl font-bold text-green-600">124,500₽</span>
+                  <span className="text-2xl font-bold text-green-600">125,000₽</span>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Card className="shadow-lg border-2 bg-gradient-to-r from-blue-50 to-purple-50">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Icon name="Lightbulb" className="mr-2 text-accent" size={24} />
+            Быстрые действия
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover-scale">
+              <div className="bg-primary/10 p-3 rounded-full mb-2">
+                <Icon name="UserPlus" className="text-primary" size={24} />
+              </div>
+              <span className="text-sm font-medium text-center">Добавить клиента</span>
+            </div>
+            <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover-scale">
+              <div className="bg-secondary/10 p-3 rounded-full mb-2">
+                <Icon name="Calendar" className="text-secondary" size={24} />
+              </div>
+              <span className="text-sm font-medium text-center">Новая запись</span>
+            </div>
+            <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover-scale">
+              <div className="bg-accent/10 p-3 rounded-full mb-2">
+                <Icon name="BookOpen" className="text-accent" size={24} />
+              </div>
+              <span className="text-sm font-medium text-center">Создать фотокнигу</span>
+            </div>
+            <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover-scale">
+              <div className="bg-green-100 p-3 rounded-full mb-2">
+                <Icon name="FileText" className="text-green-600" size={24} />
+              </div>
+              <span className="text-sm font-medium text-center">Отчёты</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

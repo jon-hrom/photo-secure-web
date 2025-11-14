@@ -139,7 +139,12 @@ const Index = () => {
               Вы просматриваете сайт как гость. <button onClick={() => setCurrentPage('auth')} className="underline font-semibold">Войдите</button>, чтобы получить полный доступ.
             </p>
           </div>
-          <Dashboard userRole="guest" />
+          <Dashboard 
+            userRole="guest" 
+            onOpenClientBooking={(clientName) => {
+              setCurrentPage('auth');
+            }}
+          />
         </main>
       </div>
     );
@@ -172,7 +177,7 @@ const Index = () => {
                 <DropdownMenuContent align="start" className="w-56">
                   <DropdownMenuItem onClick={() => setCurrentPage('dashboard')}>
                     <Icon name="LayoutDashboard" size={18} className="mr-2" />
-                    Дашборд
+                    Главная
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCurrentPage('clients')}>
                     <Icon name="Users" size={18} className="mr-2" />
@@ -219,7 +224,14 @@ const Index = () => {
       </nav>
 
       <main className="container mx-auto px-4 py-8">
-        {currentPage === 'dashboard' && <Dashboard userRole="user" />}
+        {currentPage === 'dashboard' && (
+          <Dashboard 
+            userRole="user" 
+            onOpenClientBooking={(clientName) => {
+              setCurrentPage('clients');
+            }}
+          />
+        )}
         {currentPage === 'clients' && <ClientsPage />}
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'features' && <FeaturesPage />}
