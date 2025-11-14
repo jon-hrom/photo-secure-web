@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import ClientsHeader from '@/components/clients/ClientsHeader';
 import ClientsListSection from '@/components/clients/ClientsListSection';
@@ -8,7 +8,11 @@ import MessageDialog from '@/components/clients/MessageDialog';
 import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
 import { Client, Booking } from '@/components/clients/ClientsTypes';
 
-const ClientsPage = () => {
+interface ClientsPageProps {
+  autoOpenClient?: string;
+}
+
+const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
   const [clients, setClients] = useState<Client[]>([
     {
       id: 1,
@@ -306,6 +310,18 @@ const ClientsPage = () => {
     
     return matchesSearch;
   });
+
+  useEffect(() => {
+    if (autoOpenClient) {
+      const client = clients.find(c => c.name === autoOpenClient);
+      if (client) {
+        setSelectedClient(client);
+        setIsDetailDialogOpen(true);
+      } else {
+        toast.info(`Клиент "${autoOpenClient}" не найден в базе`);
+      }
+    }
+  }, [autoOpenClient, clients]);
 
   return (
     <div className="space-y-6 animate-fade-in">

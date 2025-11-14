@@ -42,8 +42,8 @@ const Dashboard = ({ userRole, onOpenClientBooking }: DashboardProps) => {
   const isTrialPeriod = trialDaysLeft > 0 && subscriptionDaysLeft === 0;
 
   const upcomingMeetings = [
-    { id: 1, name: 'Иванова Мария Петровна', date: '15 ноября', time: '14:00', type: 'Свадебная фотосессия' },
-    { id: 2, name: 'Петров Сергей Иванович', date: '16 ноября', time: '16:30', type: 'Консультация' },
+    { id: 1, name: 'Иванова Мария Петровна', date: '15 ноября', time: '14:00', type: 'Свадебная фотосессия в студии' },
+    { id: 2, name: 'Петров Сергей Иванович', date: '16 ноября', time: '16:30', type: 'Консультация по выбору пакета услуг' },
     { id: 3, name: 'Смирнова Елена', date: '18 ноября', time: '10:00', type: 'Выдача фотокниги' },
     { id: 4, name: 'Козлов Дмитрий', date: '19 ноября', time: '15:00', type: 'Корпоративная съёмка' },
     { id: 5, name: 'Новикова Анна', date: '20 ноября', time: '12:00', type: 'Семейная фотосессия' },

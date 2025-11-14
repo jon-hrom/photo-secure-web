@@ -25,6 +25,7 @@ const Index = () => {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [guestAccess, setGuestAccess] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
   const lastActivityRef = useRef<number>(Date.now());
   const SESSION_TIMEOUT = 7 * 60 * 1000;
 
@@ -88,6 +89,12 @@ const Index = () => {
     };
     checkSettings();
   }, []);
+
+  useEffect(() => {
+    if (currentPage !== 'clients') {
+      setSelectedClientName(undefined);
+    }
+  }, [currentPage]);
 
   if (loading) {
     return (
@@ -228,11 +235,12 @@ const Index = () => {
           <Dashboard 
             userRole="user" 
             onOpenClientBooking={(clientName) => {
+              setSelectedClientName(clientName);
               setCurrentPage('clients');
             }}
           />
         )}
-        {currentPage === 'clients' && <ClientsPage />}
+        {currentPage === 'clients' && <ClientsPage autoOpenClient={selectedClientName} />}
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'features' && <FeaturesPage />}
         {currentPage === 'settings' && userId && <SettingsPage userId={userId} />}
