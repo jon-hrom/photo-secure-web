@@ -30,12 +30,22 @@ const Index = () => {
   const SESSION_TIMEOUT = 7 * 60 * 1000;
 
   const handleLoginSuccess = (uid: number, email?: string) => {
+    const isAdminUser = email === 'jonhrom2012@gmail.com';
     setIsAuthenticated(true);
     setUserId(uid);
     setUserEmail(email || '');
-    setIsAdmin(email === 'jonhrom2012@gmail.com');
+    setIsAdmin(isAdminUser);
     setCurrentPage('dashboard');
     lastActivityRef.current = Date.now();
+    
+    localStorage.setItem('authSession', JSON.stringify({
+      isAuthenticated: true,
+      userId: uid,
+      userEmail: email || '',
+      isAdmin: isAdminUser,
+      currentPage: 'dashboard',
+      lastActivity: Date.now(),
+    }));
   };
 
   const handleLogout = () => {
@@ -44,13 +54,28 @@ const Index = () => {
     setUserEmail('');
     setIsAdmin(false);
     setCurrentPage('auth');
+    localStorage.removeItem('authSession');
   };
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const updateActivity = () => {
-      lastActivityRef.current = Date.now();
+      const now = Date.now();
+      lastActivityRef.current = now;
+      
+      const savedSession = localStorage.getItem('authSession');
+      if (savedSession) {
+        try {
+          const session = JSON.parse(savedSession);
+          localStorage.setItem('authSession', JSON.stringify({
+            ...session,
+            lastActivity: now,
+          }));
+        } catch (error) {
+          console.error('Ошибка обновления активности:', error);
+        }
+      }
     };
 
     const checkSession = () => {
@@ -75,6 +100,31 @@ const Index = () => {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    const restoreSession = () => {
+      const savedSession = localStorage.getItem('authSession');
+      if (savedSession) {
+        try {
+          const session = JSON.parse(savedSession);
+          const now = Date.now();
+          const timeSinceLastActivity = now - (session.lastActivity || 0);
+          
+          if (timeSinceLastActivity < SESSION_TIMEOUT) {
+            setIsAuthenticated(session.isAuthenticated);
+            setUserId(session.userId);
+            setUserEmail(session.userEmail);
+            setIsAdmin(session.isAdmin);
+            setCurrentPage(session.currentPage || 'dashboard');
+            lastActivityRef.current = now;
+          } else {
+            localStorage.removeItem('authSession');
+          }
+        } catch (error) {
+          console.error('Ошибка восстановления сессии:', error);
+          localStorage.removeItem('authSession');
+        }
+      }
+    };
+
     const checkSettings = async () => {
       try {
         const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0');
@@ -87,6 +137,8 @@ const Index = () => {
         setLoading(false);
       }
     };
+    
+    restoreSession();
     checkSettings();
   }, []);
 
@@ -94,7 +146,23 @@ const Index = () => {
     if (currentPage !== 'clients') {
       setSelectedClientName(undefined);
     }
-  }, [currentPage]);
+    
+    if (isAuthenticated) {
+      const savedSession = localStorage.getItem('authSession');
+      if (savedSession) {
+        try {
+          const session = JSON.parse(savedSession);
+          localStorage.setItem('authSession', JSON.stringify({
+            ...session,
+            currentPage,
+            lastActivity: Date.now(),
+          }));
+        } catch (error) {
+          console.error('Ошибка обновления сессии:', error);
+        }
+      }
+    }
+  }, [currentPage, isAuthenticated]);
 
   if (loading) {
     return (
