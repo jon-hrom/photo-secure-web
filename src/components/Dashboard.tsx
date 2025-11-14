@@ -23,12 +23,13 @@ const Dashboard = ({ userRole, onOpenClientBooking }: DashboardProps) => {
   }, []);
 
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('ru-RU', {
+    const formatted = new Intl.DateTimeFormat('ru-RU', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     }).format(date);
+    return formatted.replace(' г.', '');
   };
 
   const formatTime = (date: Date) => {
