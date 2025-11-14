@@ -8,25 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import Icon from '@/components/ui/icon';
-
-interface Booking {
-  id: number;
-  date: Date;
-  time: string;
-  description: string;
-  notificationEnabled: boolean;
-  clientId: number;
-}
-
-interface Client {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  vkProfile?: string;
-  bookings: Booking[];
-}
+import { Client, Booking } from '@/components/clients/ClientsTypes';
 
 interface BookingDialogsProps {
   isBookingDialogOpen: boolean;

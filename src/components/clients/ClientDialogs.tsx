@@ -3,16 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
-
-interface Client {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  vkProfile?: string;
-  bookings: any[];
-}
+import { Client } from '@/components/clients/ClientsTypes';
 
 interface ClientDialogsProps {
   isAddDialogOpen: boolean;

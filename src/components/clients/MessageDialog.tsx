@@ -5,16 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
-
-interface Client {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  vkProfile?: string;
-  bookings: any[];
-}
+import { Client } from '@/components/clients/ClientsTypes';
 
 interface MessageDialogProps {
   isOpen: boolean;

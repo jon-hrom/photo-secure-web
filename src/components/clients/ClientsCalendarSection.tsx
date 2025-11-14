@@ -1,0 +1,159 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar } from '@/components/ui/calendar';
+import { Badge } from '@/components/ui/badge';
+import Icon from '@/components/ui/icon';
+import { Client, Booking } from '@/components/clients/ClientsTypes';
+
+interface ClientsCalendarSectionProps {
+  selectedDate: Date | undefined;
+  allBookedDates: Date[];
+  onDateClick: (date: Date | undefined) => void;
+  selectedClient: Client | null;
+  onMessageClient: (client: Client) => void;
+  clients: Client[];
+}
+
+const ClientsCalendarSection = ({
+  selectedDate,
+  allBookedDates,
+  onDateClick,
+  selectedClient,
+  onMessageClient,
+  clients,
+}: ClientsCalendarSectionProps) => {
+  const upcomingBookings = clients
+    .flatMap(c => c.bookings.map(b => ({ ...b, client: c })))
+    .filter(b => b.date >= new Date())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Icon name="Calendar" className="text-primary" />
+            Календарь бронирований
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={onDateClick}
+            modifiers={{
+              booked: allBookedDates,
+            }}
+            modifiersStyles={{
+              booked: {
+                backgroundColor: 'hsl(var(--primary))',
+                color: 'white',
+                fontWeight: 'bold',
+              },
+            }}
+            className="rounded-md border"
+          />
+          <div className="mt-4 p-3 bg-blue-50 rounded-xl border-2 border-blue-200">
+            <p className="text-sm text-blue-700 flex items-center gap-2">
+              <Icon name="Info" size={16} />
+              Даты с бронированиями отмечены цветом
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {selectedClient && (
+        <Card className="border-2 border-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="User" className="text-primary" />
+              Выбранный клиент
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <p className="font-semibold text-lg">{selectedClient.name}</p>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <Icon name="Phone" size={16} className="text-muted-foreground" />
+                  <span>{selectedClient.phone}</span>
+                </div>
+                {selectedClient.email && (
+                  <div className="flex items-center gap-2">
+                    <Icon name="Mail" size={16} className="text-muted-foreground" />
+                    <span>{selectedClient.email}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {selectedClient.bookings.length > 0 && (
+              <div className="space-y-2 pt-2 border-t">
+                <p className="text-sm font-medium">Бронирования:</p>
+                {selectedClient.bookings.map(booking => (
+                  <div key={booking.id} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Icon name="Calendar" size={14} className="text-primary" />
+                      <span>
+                        {booking.date.toLocaleDateString('ru-RU')} в {booking.time}
+                      </span>
+                    </div>
+                    <Badge variant={booking.date >= new Date() ? 'default' : 'secondary'}>
+                      {booking.date >= new Date() ? 'Активно' : 'Завершено'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div
+              className="mt-4 p-3 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl cursor-pointer hover:from-primary/20 hover:to-secondary/20 transition-all"
+              onClick={() => onMessageClient(selectedClient)}
+            >
+              <p className="text-sm font-medium text-center flex items-center justify-center gap-2">
+                <Icon name="MessageCircle" size={16} />
+                Написать сообщение
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {upcomingBookings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="Clock" className="text-primary" />
+              Ближайшие записи
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {upcomingBookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="p-3 border rounded-xl hover:bg-muted/50 transition-colors space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm">{booking.client.name}</span>
+                  <Badge variant="outline">
+                    {booking.date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Icon name="Clock" size={12} />
+                  <span>{booking.time}</span>
+                  {booking.description && (
+                    <>
+                      <span>•</span>
+                      <span className="line-clamp-1">{booking.description}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+export default ClientsCalendarSection;

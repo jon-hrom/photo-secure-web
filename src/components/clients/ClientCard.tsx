@@ -2,47 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-
-interface Booking {
-  id: number;
-  date: Date;
-  time: string;
-  description: string;
-  notificationEnabled: boolean;
-  clientId: number;
-}
-
-interface Project {
-  id: number;
-  name: string;
-  status: 'new' | 'in_progress' | 'completed' | 'cancelled';
-  budget: number;
-  startDate: string;
-  endDate?: string;
-  description: string;
-}
-
-interface Payment {
-  id: number;
-  amount: number;
-  date: string;
-  status: 'pending' | 'completed' | 'cancelled';
-  method: 'card' | 'cash' | 'transfer';
-  description: string;
-  projectId?: number;
-}
-
-interface Client {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  vkProfile?: string;
-  bookings: Booking[];
-  projects?: Project[];
-  payments?: Payment[];
-}
+import { Client } from '@/components/clients/ClientsTypes';
 
 interface ClientCardProps {
   client: Client;
