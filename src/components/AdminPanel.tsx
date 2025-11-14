@@ -56,26 +56,41 @@ const AdminPanel = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/68eb5b20-e2c3-4741-aa83-500a5301ff4a');
-      const data = await response.json();
+      const [oldSettingsResponse, appSettingsResponse] = await Promise.all([
+        fetch('https://functions.poehali.dev/68eb5b20-e2c3-4741-aa83-500a5301ff4a'),
+        fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0')
+      ]);
       
-      if (data.settings) {
+      const oldData = await oldSettingsResponse.json();
+      const appSettings = await appSettingsResponse.json();
+      
+      if (oldData.settings) {
         setSettings(prev => ({
           ...prev,
-          ...data.settings,
-          maxFileSize: String(data.settings.maxFileSize || 10),
-          sessionTimeout: String(data.settings.sessionTimeout || 7),
-          maxLoginAttempts: String(data.settings.maxLoginAttempts || 5),
-          passwordMinLength: String(data.settings.passwordMinLength || 8),
+          ...oldData.settings,
+          registrationEnabled: appSettings.registration_enabled ?? prev.registrationEnabled,
+          maintenanceMode: appSettings.maintenance_mode ?? prev.maintenanceMode,
+          guestAccess: appSettings.guest_access ?? prev.guestAccess,
+          maxFileSize: String(oldData.settings.maxFileSize || 10),
+          sessionTimeout: String(oldData.settings.sessionTimeout || 7),
+          maxLoginAttempts: String(oldData.settings.maxLoginAttempts || 5),
+          passwordMinLength: String(oldData.settings.passwordMinLength || 8),
+        }));
+      } else {
+        setSettings(prev => ({
+          ...prev,
+          registrationEnabled: appSettings.registration_enabled ?? prev.registrationEnabled,
+          maintenanceMode: appSettings.maintenance_mode ?? prev.maintenanceMode,
+          guestAccess: appSettings.guest_access ?? prev.guestAccess,
         }));
       }
       
-      if (data.colors) {
-        setColors(data.colors);
+      if (oldData.colors) {
+        setColors(oldData.colors);
       }
       
-      if (data.widgets) {
-        const mappedWidgets = data.widgets.map((w: any, idx: number) => ({
+      if (oldData.widgets) {
+        const mappedWidgets = oldData.widgets.map((w: any, idx: number) => ({
           id: idx + 1,
           name: w.widget_name,
           enabled: w.enabled,
@@ -164,9 +179,36 @@ const AdminPanel = () => {
   };
 
   const handleToggle = async (key: string) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
-    toast.success('Настройка обновлена');
-    setTimeout(saveSettings, 500);
+    const newValue = !settings[key as keyof typeof settings];
+    setSettings(prev => ({ ...prev, [key]: newValue }));
+    
+    if (key === 'registrationEnabled' || key === 'maintenanceMode' || key === 'guestAccess') {
+      const settingKeyMap: Record<string, string> = {
+        registrationEnabled: 'registration_enabled',
+        maintenanceMode: 'maintenance_mode',
+        guestAccess: 'guest_access'
+      };
+      
+      try {
+        await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key: settingKeyMap[key],
+            value: newValue
+          })
+        });
+        toast.success('Настройка обновлена');
+      } catch (error) {
+        console.error('Ошибка сохранения настройки:', error);
+        toast.error('Не удалось сохранить настройку');
+        setSettings(prev => ({ ...prev, [key]: !newValue }));
+        return;
+      }
+    } else {
+      toast.success('Настройка обновлена');
+      setTimeout(saveSettings, 500);
+    }
   };
 
   const handleInputChange = (key: string, value: string) => {

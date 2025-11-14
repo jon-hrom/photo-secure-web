@@ -8,6 +8,7 @@ import LoginPage from '@/components/LoginPage';
 import SettingsPage from '@/components/SettingsPage';
 import FeaturesPage from '@/components/FeaturesPage';
 import AdminPanel from '@/components/AdminPanel';
+import MaintenancePage from '@/components/MaintenancePage';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +22,9 @@ const Index = () => {
   const [userId, setUserId] = useState<number | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [guestAccess, setGuestAccess] = useState(false);
+  const [loading, setLoading] = useState(true);
   const lastActivityRef = useRef<number>(Date.now());
   const SESSION_TIMEOUT = 7 * 60 * 1000;
 
@@ -69,8 +73,76 @@ const Index = () => {
     };
   }, [isAuthenticated]);
 
-  if (!isAuthenticated) {
+  useEffect(() => {
+    const checkSettings = async () => {
+      try {
+        const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0');
+        const settings = await response.json();
+        setMaintenanceMode(settings.maintenance_mode || false);
+        setGuestAccess(settings.guest_access || false);
+      } catch (error) {
+        console.error('Ошибка загрузки настроек:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkSettings();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (maintenanceMode && !isAdmin) {
+    return <MaintenancePage />;
+  }
+
+  if (!isAuthenticated && !guestAccess) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (!isAuthenticated && guestAccess && currentPage === 'auth') {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (!isAuthenticated && guestAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30">
+        <nav className="bg-white/80 backdrop-blur-md border-b border-border sticky top-0 z-50 shadow-sm">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Icon name="Camera" className="text-primary" size={32} />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  Foto-Mix
+                </h1>
+              </div>
+              <Button
+                variant="default"
+                onClick={() => setCurrentPage('auth')}
+                className="rounded-full"
+              >
+                <Icon name="LogIn" size={18} className="mr-2" />
+                Войти
+              </Button>
+            </div>
+          </div>
+        </nav>
+        <main className="container mx-auto px-4 py-8">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+            <Icon name="Info" className="text-blue-500" size={24} />
+            <p className="text-blue-700">
+              Вы просматриваете сайт как гость. <button onClick={() => setCurrentPage('auth')} className="underline font-semibold">Войдите</button>, чтобы получить полный доступ.
+            </p>
+          </div>
+          <Dashboard userRole="guest" />
+        </main>
+      </div>
+    );
   }
 
   return (

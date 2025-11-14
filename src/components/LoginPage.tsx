@@ -14,6 +14,7 @@ interface LoginPageProps {
 const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [phone, setPhone] = useState('');
   const [isBlocked, setIsBlocked] = useState(false);
@@ -23,6 +24,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [pendingUserId, setPendingUserId] = useState<number | null>(null);
   const [twoFactorType, setTwoFactorType] = useState<'sms' | 'email'>('email');
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     const savedBlockData = localStorage.getItem('loginBlock');
@@ -123,7 +125,22 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       return;
     }
 
+    if (password.length < 8) {
+      toast.error('Пароль должен содержать минимум 8 символов');
+      setPasswordError('Минимум 8 символов');
+      return;
+    }
+    setPasswordError('');
+
     try {
+      const settingsResponse = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0');
+      const settings = await settingsResponse.json();
+      
+      if (!settings.registration_enabled) {
+        toast.error('Регистрация новых пользователей временно отключена');
+        return;
+      }
+
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -221,16 +238,41 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isBlocked}
-                className="rounded-xl"
-                onKeyDown={(e) => e.key === 'Enter' && !isRegistering && handleLogin()}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (isRegistering && e.target.value.length > 0 && e.target.value.length < 8) {
+                      setPasswordError('Минимум 8 символов');
+                    } else {
+                      setPasswordError('');
+                    }
+                  }}
+                  disabled={isBlocked}
+                  className="rounded-xl pr-10"
+                  onKeyDown={(e) => e.key === 'Enter' && !isRegistering && handleLogin()}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isBlocked}
+                >
+                  <Icon name={showPassword ? "EyeOff" : "Eye"} size={18} className="text-muted-foreground" />
+                </Button>
+              </div>
+              {isRegistering && passwordError && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <Icon name="AlertCircle" size={14} />
+                  {passwordError}
+                </p>
+              )}
             </div>
 
             {isRegistering && (

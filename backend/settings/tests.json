@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Get all settings",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "registration_enabled": "boolean",
+        "maintenance_mode": "boolean",
+        "guest_access": "boolean"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Update setting",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "key": "test_setting",
+        "value": true
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
