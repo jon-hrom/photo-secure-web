@@ -224,25 +224,28 @@ const AdminPanel = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
             Панель администратора
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">
             Полный контроль над настройками и функциями сайта
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <Button
             onClick={() => setShowHistory(!showHistory)}
             variant={showHistory ? "default" : "outline"}
-            className="gap-2"
+            className="gap-1 sm:gap-2 flex-1 sm:flex-initial"
+            size="sm"
           >
-            <Icon name="History" size={20} />
-            История изменений ({history.length})
+            <Icon name="History" size={18} />
+            <span className="hidden sm:inline">История изменений</span>
+            <span className="sm:hidden">История</span>
+            <span>({history.length})</span>
           </Button>
-          <Icon name="ShieldCheck" size={48} className="text-orange-500" />
+          <Icon name="ShieldCheck" size={36} className="text-orange-500 hidden sm:block sm:w-12 sm:h-12" />
         </div>
       </div>
 
@@ -267,12 +270,12 @@ const AdminPanel = () => {
                 {history.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3"
                   >
                     <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">#{item.id}</span>
-                        <span className="text-sm text-muted-foreground">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                        <span className="font-medium text-sm">#{item.id}</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground">
                           {new Date(item.createdAt).toLocaleString('ru-RU', {
                             day: '2-digit',
                             month: '2-digit',
@@ -282,7 +285,7 @@ const AdminPanel = () => {
                           })}
                         </span>
                       </div>
-                      <p className="text-sm">{item.description}</p>
+                      <p className="text-xs sm:text-sm">{item.description}</p>
                       <p className="text-xs text-muted-foreground">
                         Изменено: {item.changedBy}
                       </p>
@@ -291,7 +294,7 @@ const AdminPanel = () => {
                       onClick={() => rollbackToVersion(item.id)}
                       variant="outline"
                       size="sm"
-                      className="gap-2"
+                      className="gap-2 w-full sm:w-auto"
                     >
                       <Icon name="RotateCcw" size={16} />
                       Откатить
@@ -305,25 +308,28 @@ const AdminPanel = () => {
       )}
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="general">
-            <Icon name="Settings" size={16} className="mr-2" />
-            Общие
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto">
+          <TabsTrigger value="general" className="gap-1 sm:gap-2 py-2 text-xs sm:text-sm">
+            <Icon name="Settings" size={14} className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Общие</span>
+            <span className="sm:hidden">Настройки</span>
           </TabsTrigger>
-          <TabsTrigger value="security">
-            <Icon name="Lock" size={16} className="mr-2" />
-            Безопасность
+          <TabsTrigger value="security" className="gap-1 sm:gap-2 py-2 text-xs sm:text-sm">
+            <Icon name="Lock" size={14} className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Безопасность</span>
+            <span className="sm:hidden">Безоп.</span>
           </TabsTrigger>
-          <TabsTrigger value="appearance">
-            <Icon name="Palette" size={16} className="mr-2" />
-            Внешний вид
+          <TabsTrigger value="appearance" className="gap-1 sm:gap-2 py-2 text-xs sm:text-sm">
+            <Icon name="Palette" size={14} className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Внешний вид</span>
+            <span className="sm:hidden">Вид</span>
           </TabsTrigger>
-          <TabsTrigger value="widgets">
-            <Icon name="LayoutGrid" size={16} className="mr-2" />
+          <TabsTrigger value="widgets" className="gap-1 sm:gap-2 py-2 text-xs sm:text-sm">
+            <Icon name="LayoutGrid" size={14} className="sm:w-4 sm:h-4" />
             Виджеты
           </TabsTrigger>
-          <TabsTrigger value="users">
-            <Icon name="Users" size={16} className="mr-2" />
+          <TabsTrigger value="users" className="gap-1 sm:gap-2 py-2 text-xs sm:text-sm col-span-2 sm:col-span-1">
+            <Icon name="Users" size={14} className="sm:w-4 sm:h-4" />
             Пользователи
           </TabsTrigger>
         </TabsList>
@@ -335,10 +341,10 @@ const AdminPanel = () => {
               <CardDescription>Управление основными функциями сайта</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="registration">Регистрация новых пользователей</Label>
-                  <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+                <div className="space-y-0.5 flex-1">
+                  <Label htmlFor="registration" className="text-sm sm:text-base">Регистрация новых пользователей</Label>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Разрешить регистрацию на сайте
                   </p>
                 </div>
@@ -350,10 +356,10 @@ const AdminPanel = () => {
               </div>
               <Separator />
               
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="maintenance">Режим обслуживания</Label>
-                  <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+                <div className="space-y-0.5 flex-1">
+                  <Label htmlFor="maintenance" className="text-sm sm:text-base">Режим обслуживания</Label>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Закрыть сайт для технических работ
                   </p>
                 </div>
@@ -365,10 +371,10 @@ const AdminPanel = () => {
               </div>
               <Separator />
               
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="guestAccess">Гостевой доступ</Label>
-                  <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+                <div className="space-y-0.5 flex-1">
+                  <Label htmlFor="guestAccess" className="text-sm sm:text-base">Гостевой доступ</Label>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Разрешить просмотр без авторизации
                   </p>
                 </div>
@@ -380,10 +386,10 @@ const AdminPanel = () => {
               </div>
               <Separator />
               
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="fileUpload">Загрузка файлов</Label>
-                  <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+                <div className="space-y-0.5 flex-1">
+                  <Label htmlFor="fileUpload" className="text-sm sm:text-base">Загрузка файлов</Label>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Разрешить пользователям загружать файлы
                   </p>
                 </div>
@@ -396,13 +402,13 @@ const AdminPanel = () => {
               <Separator />
               
               <div className="space-y-2">
-                <Label htmlFor="maxFileSize">Максимальный размер файла (МБ)</Label>
+                <Label htmlFor="maxFileSize" className="text-sm sm:text-base">Максимальный размер файла (МБ)</Label>
                 <Input
                   id="maxFileSize"
                   type="number"
                   value={settings.maxFileSize}
                   onChange={(e) => handleInputChange('maxFileSize', e.target.value)}
-                  className="max-w-xs"
+                  className="w-full sm:max-w-xs"
                 />
               </div>
             </CardContent>
