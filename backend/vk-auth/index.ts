@@ -290,10 +290,14 @@ exports.handler = async (event, context) => {
         { expiresIn: '30d' }
       );
       
+      const redirectUrl = `${BASE_URL}/?vk_auth=success&token=${sessionToken}`;
+      console.log('🚀 VK Auth Success! Redirecting to:', redirectUrl);
+      console.log('📦 Token payload:', { userId, vk_user_id: tokenData.user_id, name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim() });
+      
       return {
         statusCode: 302,
         headers: { 
-          'Location': `${BASE_URL}/?vk_auth=success&token=${sessionToken}`,
+          'Location': redirectUrl,
           'Set-Cookie': `vk_session=${sessionToken}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax`,
           'Access-Control-Allow-Origin': '*'
         },
