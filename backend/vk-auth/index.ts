@@ -45,7 +45,7 @@ async function discoverVKIssuer() {
   return {
     issuer: 'https://id.vk.com',
     authorization_endpoint: 'https://id.vk.com/authorize',
-    token_endpoint: 'https://id.vk.com/oauth2/token',
+    token_endpoint: 'https://oauth.vk.com/access_token',
     userinfo_endpoint: 'https://id.vk.com/oauth2/user_info',
     jwks_uri: 'https://id.vk.com/.well-known/jwks.json'
   };
