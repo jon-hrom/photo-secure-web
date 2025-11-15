@@ -350,7 +350,7 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout }: DashboardProps) 
                 setShowLogoutDialog(false);
                 onLogout?.();
               }}
-              className="bg-[#0077FF] hover:bg-[#0066DD]"
+              className="bg-primary hover:bg-primary/90"
             >
               <Icon name="LogOut" size={16} className="mr-2" />
               Выйти
