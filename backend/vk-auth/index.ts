@@ -310,10 +310,8 @@ exports.handler = async (event, context) => {
 </head>
 <body>
   <script>
-    const userData = ${JSON.stringify(userData)};
     const token = ${JSON.stringify(sessionToken)};
-    const encodedData = btoa(JSON.stringify({userData: userData, token: token}));
-    window.location.replace('${BASE_URL}/?vk_data=' + encodedData);
+    window.location.replace('${BASE_URL}/?vk_token=' + encodeURIComponent(token));
   </script>
 </body>
 </html>`;

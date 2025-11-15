@@ -112,26 +112,38 @@ const Index = () => {
       console.log('🔄 Restoring session...');
       
       const urlParams = new URLSearchParams(window.location.search);
-      const vkData = urlParams.get('vk_data');
+      const vkToken = urlParams.get('vk_token');
       
-      // Check if VK auth data in URL
-      if (vkData) {
-        console.log('📦 VK data in URL detected!');
+      // Check if VK token in URL
+      if (vkToken) {
+        console.log('📦 VK token in URL detected!');
         try {
-          const decodedData = JSON.parse(atob(vkData));
-          const userData = decodedData.userData;
-          const token = decodedData.token;
+          // Decode JWT token (simple base64 decode without verification for client-side)
+          const base64Url = vkToken.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const payload = JSON.parse(atob(base64));
+          
+          console.log('📦 Decoded JWT payload:', payload);
+          
+          const userData = {
+            user_id: payload.user_id,
+            vk_id: payload.vk_user_id,
+            name: payload.name,
+            avatar: payload.avatar,
+            verified: payload.verified,
+            email: ''
+          };
           
           // Save to localStorage
           localStorage.setItem('vk_user', JSON.stringify(userData));
-          localStorage.setItem('auth_token', token);
+          localStorage.setItem('auth_token', vkToken);
           
-          console.log('✅ VK data saved to localStorage from URL:', userData);
+          console.log('✅ VK data saved to localStorage from token:', userData);
           
           // Clean URL
           window.history.replaceState({}, '', '/');
         } catch (error) {
-          console.error('❌ Error parsing VK data from URL:', error);
+          console.error('❌ Error parsing VK token from URL:', error);
         }
       }
       
@@ -141,7 +153,7 @@ const Index = () => {
       console.log('📦 LocalStorage check:', { 
         hasVkUser: !!vkUser, 
         vkAuthCompleted,
-        vkData: !!vkData,
+        vkToken: !!vkToken,
         vkUserData: vkUser ? JSON.parse(vkUser) : null 
       });
       
