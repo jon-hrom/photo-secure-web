@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Test OPTIONS CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Test DELETE without user_id",
+      "method": "DELETE",
+      "path": "/",
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "user_id is required"
+      },
+      "bodyMatcher": "exact"
+    }
+  ]
+}

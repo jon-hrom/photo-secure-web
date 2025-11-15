@@ -303,7 +303,7 @@ const AdminPanel = () => {
 
   const deleteUser = async (userId: string | number) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a', {
+      const response = await fetch('https://functions.poehali.dev/9df9d28d-b7ea-448c-9d93-054c04b6a52b', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId }),
@@ -311,12 +311,13 @@ const AdminPanel = () => {
 
       const data = await response.json();
       if (data.success) {
-        toast.success('Пользователь удален');
+        toast.success('Пользователь и все его данные удалены');
         loadUsers();
       } else {
-        toast.error('Ошибка удаления');
+        toast.error(data.error || 'Ошибка удаления');
       }
     } catch (error) {
+      console.error('Ошибка удаления пользователя:', error);
       toast.error('Ошибка подключения к серверу');
     }
   };
