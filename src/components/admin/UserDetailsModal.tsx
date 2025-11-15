@@ -6,9 +6,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 
 interface User {
-  id: number;
-  email: string;
+  id: string | number;
+  source: 'email' | 'vk' | 'google' | 'yandex';
+  email: string | null;
   phone: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
   created_at: string;
   is_active: boolean;
   is_blocked: boolean;
@@ -24,9 +27,9 @@ interface UserDetailsModalProps {
   user: User | null;
   isOpen: boolean;
   onClose: () => void;
-  onBlock: (userId: number, reason: string) => void;
-  onUnblock: (userId: number) => void;
-  onDelete: (userId: number) => void;
+  onBlock: (userId: string | number, reason: string) => void;
+  onUnblock: (userId: string | number) => void;
+  onDelete: (userId: string | number) => void;
 }
 
 const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete }: UserDetailsModalProps) => {
@@ -74,6 +77,27 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
         </DialogHeader>
 
         <div className="space-y-6">
+          {user.avatar_url && (
+            <div className="flex items-center gap-4">
+              <img 
+                src={user.avatar_url} 
+                alt={user.full_name || 'User avatar'} 
+                className="w-20 h-20 rounded-full object-cover border-4 border-primary/20"
+              />
+              <div>
+                {user.full_name && (
+                  <h3 className="text-xl font-semibold">{user.full_name}</h3>
+                )}
+                <Badge variant="outline" className="mt-1">
+                  {user.source === 'vk' && 'VK ID'}
+                  {user.source === 'email' && 'Email'}
+                  {user.source === 'google' && 'Google'}
+                  {user.source === 'yandex' && 'Яндекс'}
+                </Badge>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             {user.is_blocked ? (
               <Badge variant="destructive" className="gap-1">
@@ -89,16 +113,31 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
             {user.is_active && (
               <Badge variant="outline">Подтвержден</Badge>
             )}
+            <Badge variant="outline">
+              Источник: {user.source === 'vk' ? 'VK ID' : user.source === 'email' ? 'Email' : user.source}
+            </Badge>
           </div>
 
           <div className="grid gap-4">
-            <div className="border-l-4 border-primary pl-4 py-2 bg-muted/30 rounded-r">
-              <div className="text-sm text-muted-foreground mb-1">Email</div>
-              <div className="font-medium flex items-center gap-2">
-                <Icon name="Mail" size={16} className="text-primary" />
-                {user.email}
+            {user.full_name && (
+              <div className="border-l-4 border-purple-500 pl-4 py-2 bg-muted/30 rounded-r">
+                <div className="text-sm text-muted-foreground mb-1">Имя</div>
+                <div className="font-medium flex items-center gap-2">
+                  <Icon name="User" size={16} className="text-purple-500" />
+                  {user.full_name}
+                </div>
               </div>
-            </div>
+            )}
+
+            {user.email && (
+              <div className="border-l-4 border-primary pl-4 py-2 bg-muted/30 rounded-r">
+                <div className="text-sm text-muted-foreground mb-1">Email</div>
+                <div className="font-medium flex items-center gap-2">
+                  <Icon name="Mail" size={16} className="text-primary" />
+                  {user.email}
+                </div>
+              </div>
+            )}
 
             {user.phone && (
               <div className="border-l-4 border-blue-500 pl-4 py-2 bg-muted/30 rounded-r">

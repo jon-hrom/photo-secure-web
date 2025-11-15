@@ -9,9 +9,12 @@ import { useState, useMemo } from 'react';
 import UserDetailsModal from './UserDetailsModal';
 
 interface User {
-  id: number;
-  email: string;
+  id: string | number;
+  source: 'email' | 'vk' | 'google' | 'yandex';
+  email: string | null;
   phone: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
   created_at: string;
   is_active: boolean;
   is_blocked: boolean;
@@ -25,9 +28,9 @@ interface User {
 
 interface EnhancedAdminUsersProps {
   users: User[];
-  onBlock: (userId: number, reason: string) => void;
-  onUnblock: (userId: number) => void;
-  onDelete: (userId: number) => void;
+  onBlock: (userId: string | number, reason: string) => void;
+  onUnblock: (userId: string | number) => void;
+  onDelete: (userId: string | number) => void;
 }
 
 const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdminUsersProps) => {
@@ -87,9 +90,21 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
     setIsModalOpen(true);
   };
 
+  const getSourceLabel = (source: string) => {
+    const labels: Record<string, string> = {
+      'email': 'Email',
+      'vk': 'VK ID',
+      'google': 'Google',
+      'yandex': 'Яндекс'
+    };
+    return labels[source] || source;
+  };
+
   const exportToCSV = () => {
     const csvHeaders = [
       'ID',
+      'Источник',
+      'Имя',
       'Email',
       'Телефон',
       'Статус',
@@ -103,7 +118,9 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
 
     const csvRows = filteredAndSortedUsers.map(user => [
       user.id,
-      user.email,
+      getSourceLabel(user.source),
+      user.full_name || '',
+      user.email || '',
       user.phone || '',
       user.is_active ? 'Активен' : 'Неактивен',
       user.is_blocked ? 'Да' : 'Нет',
@@ -127,76 +144,111 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
     document.body.removeChild(link);
   };
 
-  const renderUserCard = (user: User) => (
-    <div
-      key={user.id}
-      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl bg-card gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
-      onClick={() => openUserDetails(user)}
-    >
-      <div className="flex-1 space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Icon name="Mail" size={16} className="text-muted-foreground" />
-          <span className="font-medium text-sm sm:text-base break-all">{user.email}</span>
-          {user.is_blocked ? (
-            <Badge variant="destructive" className="ml-auto sm:ml-2 gap-1">
-              <Icon name="Ban" size={12} />
-              Заблокирован
-            </Badge>
-          ) : (
-            <Badge variant="default" className="ml-auto sm:ml-2 gap-1">
-              <Icon name="CheckCircle" size={12} />
-              Активен
-            </Badge>
-          )}
-        </div>
+  const renderUserCard = (user: User) => {
+    const sourceColors: Record<string, string> = {
+      'email': 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+      'vk': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
+      'google': 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+      'yandex': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
+    };
 
-        {user.phone && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Icon name="Phone" size={14} />
-            <span>{user.phone}</span>
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <Icon name="Calendar" size={14} />
-            <span>{formatDate(user.registered_at || user.created_at)}</span>
-          </div>
-          {user.last_login && (
-            <div className="flex items-center gap-1.5">
-              <Icon name="Clock" size={14} />
-              <span>Вход: {formatDate(user.last_login)}</span>
-            </div>
-          )}
-          {user.ip_address && (
-            <div className="flex items-center gap-1.5">
-              <Icon name="Globe" size={14} />
-              <span>{user.ip_address}</span>
-            </div>
-          )}
-        </div>
-
-        {user.is_blocked && user.blocked_reason && (
-          <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded">
-            <Icon name="AlertTriangle" size={12} className="mt-0.5" />
-            <span>{user.blocked_reason}</span>
-          </div>
-        )}
-      </div>
-
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full sm:w-auto gap-2"
-        onClick={(e) => {
-          e.stopPropagation();
-          openUserDetails(user);
-        }}
+    return (
+      <div
+        key={user.id}
+        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl bg-card gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => openUserDetails(user)}
       >
-        <Icon name="Eye" size={16} />
-        Подробнее
-      </Button>
-    </div>
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {user.avatar_url && (
+              <img 
+                src={user.avatar_url} 
+                alt={user.full_name || 'User'} 
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            )}
+            
+            <div className="flex flex-col">
+              {user.full_name && (
+                <span className="font-medium text-sm sm:text-base">{user.full_name}</span>
+              )}
+              {user.email && (
+                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground">
+                  <Icon name="Mail" size={12} />
+                  <span className="break-all">{user.email}</span>
+                </div>
+              )}
+              {!user.email && !user.full_name && user.phone && (
+                <span className="font-medium text-sm sm:text-base">{user.phone}</span>
+              )}
+            </div>
+
+            <Badge variant="outline" className={`ml-2 text-xs ${sourceColors[user.source] || ''}`}>
+              {getSourceLabel(user.source)}
+            </Badge>
+
+            {user.is_blocked ? (
+              <Badge variant="destructive" className="ml-auto sm:ml-2 gap-1">
+                <Icon name="Ban" size={12} />
+                Заблокирован
+              </Badge>
+            ) : (
+              <Badge variant="default" className="ml-auto sm:ml-2 gap-1">
+                <Icon name="CheckCircle" size={12} />
+                Активен
+              </Badge>
+            )}
+          </div>
+
+          {user.phone && user.email && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Icon name="Phone" size={14} />
+              <span>{user.phone}</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Icon name="Calendar" size={14} />
+              <span>{formatDate(user.registered_at || user.created_at)}</span>
+            </div>
+            {user.last_login && (
+              <div className="flex items-center gap-1.5">
+                <Icon name="Clock" size={14} />
+                <span>Вход: {formatDate(user.last_login)}</span>
+              </div>
+            )}
+            {user.ip_address && (
+              <div className="flex items-center gap-1.5">
+                <Icon name="Globe" size={14} />
+                <span>{user.ip_address}</span>
+              </div>
+            )}
+          </div>
+
+          {user.is_blocked && user.blocked_reason && (
+            <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded">
+              <Icon name="AlertTriangle" size={12} className="mt-0.5" />
+              <span>{user.blocked_reason}</span>
+            </div>
+          )}
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto gap-2"
+          onClick={(e) => {
+            e.stopPropagation();
+            openUserDetails(user);
+          }}
+        >
+          <Icon name="Eye" size={16} />
+          Подробнее
+        </Button>
+      </div>
+    );
+  };
   );
 
   return (

@@ -301,7 +301,7 @@ const AdminPanel = () => {
     setTimeout(saveSettings, 500);
   };
 
-  const deleteUser = async (userId: number) => {
+  const deleteUser = async (userId: string | number) => {
     try {
       const response = await fetch('https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a', {
         method: 'DELETE',
@@ -321,7 +321,7 @@ const AdminPanel = () => {
     }
   };
 
-  const blockUser = async (userId: number, reason: string) => {
+  const blockUser = async (userId: string | number, reason: string) => {
     try {
       const response = await fetch('https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a', {
         method: 'PUT',
@@ -341,7 +341,7 @@ const AdminPanel = () => {
     }
   };
 
-  const unblockUser = async (userId: number) => {
+  const unblockUser = async (userId: string | number) => {
     try {
       const response = await fetch('https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a', {
         method: 'PUT',
