@@ -216,13 +216,10 @@ exports.handler = async (event, context) => {
       
       const state = generateState();
       const nonce = generateNonce();
-      const codeVerifier = generateCodeVerifier();
-      const codeChallenge = generateCodeChallenge(codeVerifier);
       
       sessionsStorage.set(state, {
         state,
         nonce,
-        code_verifier: codeVerifier,
         provider: 'vkid',
         timestamp: Date.now()
       });
@@ -231,11 +228,8 @@ exports.handler = async (event, context) => {
         client_id: VK_CLIENT_ID,
         redirect_uri: 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c',
         response_type: 'code',
-        scope: 'openid email phone offline_access',
-        state,
-        nonce,
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256'
+        scope: 'email phone',
+        state
       });
       
       const authUrl = `${authEndpoint}?${authParams}`;
@@ -275,8 +269,7 @@ exports.handler = async (event, context) => {
         client_secret: VK_CLIENT_SECRET,
         code,
         redirect_uri: 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c',
-        grant_type: 'authorization_code',
-        code_verifier: sessionData.code_verifier
+        grant_type: 'authorization_code'
       });
       
       console.log('=== VK TOKEN EXCHANGE START ===');
