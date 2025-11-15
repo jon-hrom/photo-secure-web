@@ -293,24 +293,52 @@ exports.handler = async (event, context) => {
       console.log('🚀 VK Auth Success!');
       console.log('📦 Token payload:', { userId, vk_user_id: tokenData.user_id, name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim() });
       
+      const userData = {
+        user_id: userId,
+        vk_id: tokenData.user_id,
+        name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim(),
+        avatar: vkUserInfo.photo_max || vkUserInfo.photo_200,
+        verified: vkUserInfo.verified === 1,
+        email: ''
+      };
+      
+      const htmlResponse = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>VK Authorization</title>
+</head>
+<body>
+  <p>Вход выполнен! Перенаправление...</p>
+  <script>
+    try {
+      const userData = ${JSON.stringify(userData)};
+      const token = ${JSON.stringify(sessionToken)};
+      
+      localStorage.setItem('vk_user', JSON.stringify(userData));
+      localStorage.setItem('auth_token', token);
+      
+      console.log('✅ VK auth data saved to localStorage');
+      
+      setTimeout(function() {
+        window.location.replace('${BASE_URL}/');
+      }, 500);
+    } catch (error) {
+      console.error('Error saving VK auth:', error);
+      window.location.replace('${BASE_URL}/');
+    }
+  </script>
+</body>
+</html>`;
+      
       return {
         statusCode: 200,
         headers: { 
-          'Content-Type': 'application/json',
+          'Content-Type': 'text/html; charset=utf-8',
           'Set-Cookie': `vk_session=${sessionToken}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax`,
           'Access-Control-Allow-Origin': '*'
         },
-        body: JSON.stringify({
-          success: true,
-          token: sessionToken,
-          user: {
-            user_id: userId,
-            vk_user_id: tokenData.user_id,
-            name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim(),
-            avatar: vkUserInfo.photo_max || vkUserInfo.photo_200,
-            verified: vkUserInfo.verified === 1
-          }
-        }),
+        body: htmlResponse,
         isBase64Encoded: false
       };
     }

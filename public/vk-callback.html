@@ -4,62 +4,24 @@
   <meta charset="utf-8">
   <title>VK Authorization</title>
   <script>
-    (async function() {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      const state = params.get('state');
-      const deviceId = params.get('device_id');
+    // Простой редирект на backend
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const deviceId = params.get('device_id');
+    
+    if (code && state) {
+      const vkAuthUrl = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
+      let redirectUrl = vkAuthUrl + '?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state);
       
-      if (code && state) {
-        try {
-          const vkAuthUrl = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
-          let apiUrl = vkAuthUrl + '?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state);
-          
-          if (deviceId) {
-            apiUrl += '&device_id=' + encodeURIComponent(deviceId);
-          }
-          
-          console.log('🔄 Fetching VK auth response...');
-          
-          const response = await fetch(apiUrl, { 
-            credentials: 'include'
-          });
-          
-          if (!response.ok) {
-            throw new Error('VK auth failed');
-          }
-          
-          const data = await response.json();
-          console.log('✅ VK auth response:', data);
-          
-          if (data.success && data.token) {
-            // Сохраняем данные пользователя
-            const userData = {
-              user_id: data.user.user_id,
-              vk_id: data.user.vk_user_id,
-              name: data.user.name,
-              avatar: data.user.avatar,
-              verified: data.user.verified,
-              email: data.user.email || ''
-            };
-            
-            localStorage.setItem('vk_user', JSON.stringify(userData));
-            localStorage.setItem('auth_token', data.token);
-            
-            console.log('✅ VK auth data saved to localStorage:', userData);
-          }
-          
-          window.location.replace('/');
-        } catch (error) {
-          console.error('❌ VK auth error:', error);
-          alert('Ошибка авторизации VK: ' + error.message);
-          window.location.replace('/');
-        }
-      } else {
-        console.log('⚠️ No code or state in URL');
-        window.location.replace('/');
+      if (deviceId) {
+        redirectUrl += '&device_id=' + encodeURIComponent(deviceId);
       }
-    })();
+      
+      window.location.replace(redirectUrl);
+    } else {
+      window.location.replace('/');
+    }
   </script>
 </head>
 <body>
