@@ -1,4 +1,4 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import AdminGeneralSettings from '@/components/admin/AdminGeneralSettings';
 import AdminAppearance from '@/components/admin/AdminAppearance';
 import AdminWidgets from '@/components/admin/AdminWidgets';
@@ -41,55 +41,62 @@ const AdminPanelTabs = ({
   onUnblockUser,
 }: AdminPanelTabsProps) => {
   return (
-    <Tabs defaultValue="general" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-2 mb-6 relative z-10">
-        <TabsTrigger value="general" className="text-xs sm:text-sm">Основные</TabsTrigger>
-        <TabsTrigger value="auth" className="text-xs sm:text-sm">Авторизация</TabsTrigger>
-        <TabsTrigger value="appearance" className="text-xs sm:text-sm">Внешний вид</TabsTrigger>
-        <TabsTrigger value="widgets" className="text-xs sm:text-sm">Виджеты</TabsTrigger>
-        <TabsTrigger value="users" className="text-xs sm:text-sm">Пользователи</TabsTrigger>
-      </TabsList>
+    <Accordion type="multiple" className="space-y-4">
+      <AccordionItem value="general">
+        <AccordionTrigger className="text-lg font-semibold">Основные настройки</AccordionTrigger>
+        <AccordionContent>
+          <AdminGeneralSettings
+            settings={settings}
+            onToggle={onToggle}
+            onInputChange={onInputChange}
+          />
+        </AccordionContent>
+      </AccordionItem>
 
-      <TabsContent value="general">
-        <AdminGeneralSettings
-          settings={settings}
-          onToggle={onToggle}
-          onInputChange={onInputChange}
-        />
-      </TabsContent>
+      <AccordionItem value="auth">
+        <AccordionTrigger className="text-lg font-semibold">Авторизация</AccordionTrigger>
+        <AccordionContent>
+          <AdminAuthProviders
+            authProviders={authProviders}
+            onToggleProvider={onToggleAuthProvider}
+          />
+        </AccordionContent>
+      </AccordionItem>
 
-      <TabsContent value="auth">
-        <AdminAuthProviders
-          authProviders={authProviders}
-          onToggleProvider={onToggleAuthProvider}
-        />
-      </TabsContent>
+      <AccordionItem value="appearance">
+        <AccordionTrigger className="text-lg font-semibold">Внешний вид</AccordionTrigger>
+        <AccordionContent>
+          <AdminAppearance
+            colors={colors}
+            onColorChange={onColorChange}
+            onSave={onSaveColors}
+          />
+        </AccordionContent>
+      </AccordionItem>
 
-      <TabsContent value="appearance">
-        <AdminAppearance
-          colors={colors}
-          onColorChange={onColorChange}
-          onSave={onSaveColors}
-        />
-      </TabsContent>
+      <AccordionItem value="widgets">
+        <AccordionTrigger className="text-lg font-semibold">Виджеты</AccordionTrigger>
+        <AccordionContent>
+          <AdminWidgets
+            widgets={widgets}
+            onToggle={onToggleWidget}
+            onMove={onMoveWidget}
+          />
+        </AccordionContent>
+      </AccordionItem>
 
-      <TabsContent value="widgets">
-        <AdminWidgets
-          widgets={widgets}
-          onToggle={onToggleWidget}
-          onMove={onMoveWidget}
-        />
-      </TabsContent>
-
-      <TabsContent value="users">
-        <EnhancedAdminUsers 
-          users={users} 
-          onDelete={onDeleteUser}
-          onBlock={onBlockUser}
-          onUnblock={onUnblockUser}
-        />
-      </TabsContent>
-    </Tabs>
+      <AccordionItem value="users">
+        <AccordionTrigger className="text-lg font-semibold">Пользователи</AccordionTrigger>
+        <AccordionContent>
+          <EnhancedAdminUsers 
+            users={users} 
+            onDelete={onDeleteUser}
+            onBlock={onBlockUser}
+            onUnblock={onUnblockUser}
+          />
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 };
 
