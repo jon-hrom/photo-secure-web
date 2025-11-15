@@ -8,10 +8,17 @@
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
+    const deviceId = params.get('device_id');
     
     if (code && state) {
       const vkAuthUrl = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
-      window.location.replace(vkAuthUrl + '?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state));
+      let redirectUrl = vkAuthUrl + '?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state);
+      
+      if (deviceId) {
+        redirectUrl += '&device_id=' + encodeURIComponent(deviceId);
+      }
+      
+      window.location.replace(redirectUrl);
     } else {
       window.location.replace('/');
     }
