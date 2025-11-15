@@ -85,21 +85,6 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
           </CardContent>
         </Card>
       )}
-
-      <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
-        <Button
-          variant="outline"
-          onClick={onToggleHistory}
-          className="w-full sm:w-auto"
-        >
-          <Icon name="History" size={18} className="mr-2" />
-          <span className="sm:inline">История</span>
-        </Button>
-        <Button onClick={onSaveSettings} className="w-full sm:w-auto">
-          <Icon name="Save" size={18} className="mr-2" />
-          Сохранить все
-        </Button>
-      </div>
     </div>
   );
 };

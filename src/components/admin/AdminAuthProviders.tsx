@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -13,6 +14,8 @@ interface AuthProvidersProps {
 }
 
 const AdminAuthProviders = ({ authProviders, onToggleProvider }: AuthProvidersProps) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   const providers = [
     {
       key: 'yandex',
@@ -40,16 +43,27 @@ const AdminAuthProviders = ({ authProviders, onToggleProvider }: AuthProvidersPr
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Icon name="Key" className="text-primary" />
-            Способы входа
-          </CardTitle>
-          <CardDescription>
-            Управляйте доступными способами входа на сайт. Отключенные способы не будут отображаться на странице входа.
-          </CardDescription>
+        <CardHeader 
+          className="cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Icon name="Key" className="text-primary" />
+                Способы входа
+              </CardTitle>
+              <CardDescription>
+                Управляйте доступными способами входа на сайт
+              </CardDescription>
+            </div>
+            <Icon 
+              name={isExpanded ? 'ChevronUp' : 'ChevronDown'} 
+              className="text-muted-foreground" 
+            />
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        {isExpanded && <CardContent className="space-y-4">
           {providers.map((provider) => (
             <div
               key={provider.key}
@@ -73,10 +87,10 @@ const AdminAuthProviders = ({ authProviders, onToggleProvider }: AuthProvidersPr
               />
             </div>
           ))}
-        </CardContent>
+        </CardContent>}
       </Card>
 
-      <Card className="border-blue-200 bg-blue-50/50">
+      {isExpanded && <Card className="border-blue-200 bg-blue-50/50">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
             <Icon name="Info" className="text-blue-500 mt-0.5" size={20} />
@@ -89,7 +103,7 @@ const AdminAuthProviders = ({ authProviders, onToggleProvider }: AuthProvidersPr
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 };

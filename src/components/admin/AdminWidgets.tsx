@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -17,13 +18,26 @@ interface AdminWidgetsProps {
 }
 
 const AdminWidgets = ({ widgets, onMove, onToggle }: AdminWidgetsProps) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Управление виджетами</CardTitle>
-        <CardDescription>Настройка отображения виджетов на дашборде</CardDescription>
+      <CardHeader 
+        className="cursor-pointer hover:bg-accent/50 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Управление виджетами</CardTitle>
+            <CardDescription>Настройка отображения виджетов на дашборде</CardDescription>
+          </div>
+          <Icon 
+            name={isExpanded ? 'ChevronUp' : 'ChevronDown'} 
+            className="text-muted-foreground" 
+          />
+        </div>
       </CardHeader>
-      <CardContent>
+      {isExpanded && <CardContent>
         <div className="space-y-3">
           {widgets.map((widget) => (
             <div
@@ -65,7 +79,7 @@ const AdminWidgets = ({ widgets, onMove, onToggle }: AdminWidgetsProps) => {
             </div>
           ))}
         </div>
-      </CardContent>
+      </CardContent>}
     </Card>
   );
 };

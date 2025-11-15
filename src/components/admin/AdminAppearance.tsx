@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -18,13 +19,26 @@ interface AdminAppearanceProps {
 }
 
 const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Цветовая схема</CardTitle>
-        <CardDescription>Настройка внешнего вида сайта</CardDescription>
+      <CardHeader 
+        className="cursor-pointer hover:bg-accent/50 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Цветовая схема</CardTitle>
+            <CardDescription>Настройка внешнего вида сайта</CardDescription>
+          </div>
+          <Icon 
+            name={isExpanded ? 'ChevronUp' : 'ChevronDown'} 
+            className="text-muted-foreground" 
+          />
+        </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      {isExpanded && <CardContent className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="primaryColor" className="text-sm sm:text-base">Основной цвет</Label>
@@ -128,7 +142,7 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
           <Icon name="Save" size={18} className="mr-2" />
           Сохранить цвета
         </Button>
-      </CardContent>
+      </CardContent>}}
     </Card>
   );
 };
