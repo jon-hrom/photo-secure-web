@@ -290,18 +290,27 @@ exports.handler = async (event, context) => {
         { expiresIn: '30d' }
       );
       
-      const redirectUrl = `${BASE_URL}/?vk_auth=success&token=${sessionToken}`;
-      console.log('🚀 VK Auth Success! Redirecting to:', redirectUrl);
+      console.log('🚀 VK Auth Success!');
       console.log('📦 Token payload:', { userId, vk_user_id: tokenData.user_id, name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim() });
       
       return {
-        statusCode: 302,
+        statusCode: 200,
         headers: { 
-          'Location': redirectUrl,
+          'Content-Type': 'application/json',
           'Set-Cookie': `vk_session=${sessionToken}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax`,
           'Access-Control-Allow-Origin': '*'
         },
-        body: '',
+        body: JSON.stringify({
+          success: true,
+          token: sessionToken,
+          user: {
+            user_id: userId,
+            vk_user_id: tokenData.user_id,
+            name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim(),
+            avatar: vkUserInfo.photo_max || vkUserInfo.photo_200,
+            verified: vkUserInfo.verified === 1
+          }
+        }),
         isBase64Encoded: false
       };
     }
