@@ -57,8 +57,47 @@ const Dashboard = ({ userRole, onOpenClientBooking }: DashboardProps) => {
     }
   };
 
+  const vkUserData = localStorage.getItem('vk_user');
+  const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {vkUser && (
+        <Card className="bg-gradient-to-br from-blue-500 to-purple-600 text-white border-0 shadow-xl">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              {vkUser.avatar && (
+                <div className="relative">
+                  <img 
+                    src={vkUser.avatar} 
+                    alt={vkUser.name}
+                    className="w-16 h-16 rounded-full border-4 border-white shadow-lg"
+                  />
+                  {vkUser.is_verified && (
+                    <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1">
+                      <Icon name="BadgeCheck" size={16} className="text-blue-500" />
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-xl font-bold">{vkUser.name || 'Пользователь VK'}</h3>
+                  {vkUser.is_verified && (
+                    <Icon name="BadgeCheck" size={20} className="text-white" />
+                  )}
+                </div>
+                <p className="text-sm opacity-90">{vkUser.email || 'Вход через VK ID'}</p>
+                {vkUser.phone && (
+                  <p className="text-xs opacity-75 mt-1">{vkUser.phone}</p>
+                )}
+              </div>
+              <Icon name="User" size={48} className="opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       <Card className="bg-gradient-to-br from-primary to-secondary text-white border-0 shadow-xl">
         <CardContent className="p-8">
           <div className="flex items-center justify-between">

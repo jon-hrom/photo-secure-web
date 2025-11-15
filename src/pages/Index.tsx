@@ -21,6 +21,9 @@ const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
+  const [userAvatar, setUserAvatar] = useState<string>('');
+  const [isVerified, setIsVerified] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [guestAccess, setGuestAccess] = useState(false);
@@ -52,6 +55,9 @@ const Index = () => {
     setIsAuthenticated(false);
     setUserId(null);
     setUserEmail('');
+    setUserName('');
+    setUserAvatar('');
+    setIsVerified(false);
     setIsAdmin(false);
     setCurrentPage('auth');
     localStorage.removeItem('authSession');
@@ -111,6 +117,9 @@ const Index = () => {
           setIsAuthenticated(true);
           setUserId(userData.user_id || userData.vk_id);
           setUserEmail(userData.email || '');
+          setUserName(userData.name || 'Пользователь VK');
+          setUserAvatar(userData.avatar || '');
+          setIsVerified(userData.is_verified || false);
           setIsAdmin(isAdminUser);
           setCurrentPage('dashboard');
           lastActivityRef.current = Date.now();
@@ -257,7 +266,33 @@ const Index = () => {
               </h1>
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
+              {userAvatar && (
+                <div className="flex items-center space-x-3 mr-2">
+                  <div className="relative">
+                    <img 
+                      src={userAvatar} 
+                      alt={userName}
+                      className="w-10 h-10 rounded-full border-2 border-primary shadow-sm"
+                    />
+                    {isVerified && (
+                      <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
+                        <Icon name="Check" size={12} className="text-white" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        {userName}
+                      </span>
+                      {isVerified && (
+                        <Icon name="BadgeCheck" size={16} className="text-blue-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -306,13 +341,41 @@ const Index = () => {
                   Админ-панель
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                onClick={handleLogout}
-                className="rounded-full"
-              >
-                <Icon name="LogOut" size={18} />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="rounded-full px-2"
+                  >
+                    {userAvatar ? (
+                      <img 
+                        src={userAvatar} 
+                        alt={userName}
+                        className="w-8 h-8 rounded-full border border-gray-200"
+                      />
+                    ) : (
+                      <Icon name="User" size={20} />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {userName && (
+                    <div className="px-2 py-2 border-b">
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-sm font-medium">{userName}</p>
+                        {isVerified && (
+                          <Icon name="BadgeCheck" size={16} className="text-blue-500" />
+                        )}
+                      </div>
+                      {userEmail && <p className="text-xs text-gray-500">{userEmail}</p>}
+                    </div>
+                  )}
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <Icon name="LogOut" size={18} className="mr-2" />
+                    Выйти
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
