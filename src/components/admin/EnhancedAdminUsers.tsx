@@ -2,8 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import UserDetailsModal from './UserDetailsModal';
 
 interface User {
@@ -31,9 +33,44 @@ interface EnhancedAdminUsersProps {
 const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdminUsersProps) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'email' | 'lastLogin'>('date');
+  const [filterByActivity, setFilterByActivity] = useState<'all' | 'active' | 'inactive'>('all');
 
-  const activeUsers = users.filter(u => !u.is_blocked);
-  const blockedUsers = users.filter(u => u.is_blocked);
+  const filteredAndSortedUsers = useMemo(() => {
+    const filtered = users.filter(user => {
+      const matchesSearch = 
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.phone && user.phone.includes(searchQuery)) ||
+        (user.ip_address && user.ip_address.includes(searchQuery));
+      
+      const matchesActivity = 
+        filterByActivity === 'all' ? true :
+        filterByActivity === 'active' ? user.is_active :
+        !user.is_active;
+      
+      return matchesSearch && matchesActivity;
+    });
+
+    filtered.sort((a, b) => {
+      if (sortBy === 'email') {
+        return a.email.localeCompare(b.email);
+      } else if (sortBy === 'lastLogin') {
+        const aDate = a.last_login ? new Date(a.last_login).getTime() : 0;
+        const bDate = b.last_login ? new Date(b.last_login).getTime() : 0;
+        return bDate - aDate;
+      } else {
+        const aDate = new Date(a.registered_at || a.created_at).getTime();
+        const bDate = new Date(b.registered_at || b.created_at).getTime();
+        return bDate - aDate;
+      }
+    });
+
+    return filtered;
+  }, [users, searchQuery, sortBy, filterByActivity]);
+
+  const activeUsers = filteredAndSortedUsers.filter(u => !u.is_blocked);
+  const blockedUsers = filteredAndSortedUsers.filter(u => u.is_blocked);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('ru-RU', {
@@ -135,6 +172,61 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="space-y-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Поиск по email, телефону или IP адресу..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Сортировка" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">По дате регистрации</SelectItem>
+                  <SelectItem value="email">По email</SelectItem>
+                  <SelectItem value="lastLogin">По последнему входу</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterByActivity} onValueChange={(value: any) => setFilterByActivity(value)}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Активность" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все</SelectItem>
+                  <SelectItem value="active">Активные</SelectItem>
+                  <SelectItem value="inactive">Неактивные</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {searchQuery && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon name="Info" size={16} />
+                <span>Найдено: {filteredAndSortedUsers.length} из {users.length}</span>
+                {filteredAndSortedUsers.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchQuery('')}
+                    className="ml-auto h-7 gap-1"
+                  >
+                    <Icon name="X" size={14} />
+                    Сбросить
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
           <Tabs defaultValue="whitelist" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="whitelist" className="gap-2">
