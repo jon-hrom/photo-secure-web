@@ -3,6 +3,7 @@ Business: Безопасная авторизация через VK ID с PKCE �
 Args: event - dict с httpMethod, queryStringParameters для OAuth callback
       context - object с request_id и другими атрибутами
 Returns: HTTP response dict с редиректом на VK или JSON профилем пользователя
+Version: 1.1
 """
 
 import json
