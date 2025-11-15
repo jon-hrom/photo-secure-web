@@ -307,26 +307,49 @@ exports.handler = async (event, context) => {
 <head>
   <meta charset="utf-8">
   <title>VK Authorization</title>
+  <style>
+    body { font-family: Arial; padding: 20px; text-align: center; }
+    .success { color: green; margin: 10px 0; }
+    .info { color: blue; margin: 5px 0; font-size: 14px; }
+  </style>
 </head>
 <body>
-  <p>Вход выполнен! Перенаправление...</p>
+  <h2>✅ Вход выполнен!</h2>
+  <div id="status"></div>
   <script>
+    const status = document.getElementById('status');
+    
     try {
       const userData = ${JSON.stringify(userData)};
       const token = ${JSON.stringify(sessionToken)};
+      
+      status.innerHTML += '<p class="info">Сохраняю данные...</p>';
       
       localStorage.setItem('vk_user', JSON.stringify(userData));
       localStorage.setItem('auth_token', token);
       localStorage.setItem('vk_auth_completed', 'true');
       
-      console.log('✅ VK auth data saved:', userData);
-      console.log('✅ Token saved');
+      status.innerHTML += '<p class="success">✅ Данные сохранены!</p>';
+      status.innerHTML += '<p class="info">Имя: ' + userData.name + '</p>';
+      status.innerHTML += '<p class="info">ID: ' + userData.user_id + '</p>';
       
-      window.location.href = '${BASE_URL}/';
+      const saved = localStorage.getItem('vk_user');
+      if (saved) {
+        status.innerHTML += '<p class="success">✅ Проверка: данные в localStorage</p>';
+      } else {
+        status.innerHTML += '<p style="color:red">❌ Ошибка: данные не сохранились!</p>';
+      }
+      
+      status.innerHTML += '<p class="info">Перенаправление через 2 секунды...</p>';
+      
+      setTimeout(function() {
+        window.location.href = '${BASE_URL}/';
+      }, 2000);
     } catch (error) {
-      console.error('❌ Error saving VK auth:', error);
-      alert('Ошибка сохранения: ' + error.message);
-      window.location.href = '${BASE_URL}/';
+      status.innerHTML = '<p style="color:red">❌ Ошибка: ' + error.message + '</p>';
+      setTimeout(function() {
+        window.location.href = '${BASE_URL}/';
+      }, 3000);
     }
   </script>
 </body>
