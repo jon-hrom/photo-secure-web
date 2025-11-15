@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
+import VKAuthButton from '@/components/VKAuthButton';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string) => void;
@@ -342,41 +343,38 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
                 </div>
               </div>
 
-              <div className="flex justify-center gap-3">
-                {authProviders.yandex && (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOAuthLogin('yandex')}
-                    disabled={isBlocked}
-                    className="rounded-xl flex-1"
-                    title="Войти через Яндекс"
-                  >
-                    <Icon name="Circle" size={20} className="text-red-500" />
-                  </Button>
-                )}
-                {authProviders.vk && (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOAuthLogin('vk')}
-                    disabled={isBlocked}
-                    className="rounded-xl flex-1"
-                    title="Войти через VK"
-                  >
-                    <Icon name="MessageCircle" size={20} className="text-blue-500" />
-                  </Button>
-                )}
-                {authProviders.google && (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleOAuthLogin('google')}
-                    disabled={isBlocked}
-                    className="rounded-xl flex-1"
-                    title="Войти через Google"
-                  >
-                    <Icon name="Mail" size={20} className="text-red-600" />
-                  </Button>
-                )}
-              </div>
+              {authProviders.vk && (
+                <div className="flex justify-center">
+                  <VKAuthButton onSuccess={onLoginSuccess} disabled={isBlocked} />
+                </div>
+              )}
+
+              {(authProviders.yandex || authProviders.google) && (
+                <div className="flex justify-center gap-3">
+                  {authProviders.yandex && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleOAuthLogin('yandex')}
+                      disabled={isBlocked}
+                      className="rounded-xl flex-1"
+                      title="Войти через Яндекс"
+                    >
+                      <Icon name="Circle" size={20} className="text-red-500" />
+                    </Button>
+                  )}
+                  {authProviders.google && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleOAuthLogin('google')}
+                      disabled={isBlocked}
+                      className="rounded-xl flex-1"
+                      title="Войти через Google"
+                    >
+                      <Icon name="Mail" size={20} className="text-red-600" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </>
           )}
         </CardContent>
