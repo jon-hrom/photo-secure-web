@@ -226,7 +226,7 @@ exports.handler = async (event, context) => {
       
       const authParams = new URLSearchParams({
         client_id: VK_CLIENT_ID,
-        redirect_uri: 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c',
+        redirect_uri: `${BASE_URL}/auth/callback/vkid`,
         response_type: 'code',
         scope: 'email phone',
         state
@@ -268,7 +268,7 @@ exports.handler = async (event, context) => {
         client_id: VK_CLIENT_ID,
         client_secret: VK_CLIENT_SECRET,
         code,
-        redirect_uri: 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c',
+        redirect_uri: `${BASE_URL}/auth/callback/vkid`,
         grant_type: 'authorization_code'
       });
       
@@ -276,7 +276,7 @@ exports.handler = async (event, context) => {
       console.log('Token endpoint:', tokenEndpoint);
       console.log('Request params:', {
         client_id: VK_CLIENT_ID,
-        redirect_uri: 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c',
+        redirect_uri: `${BASE_URL}/auth/callback/vkid`,
         grant_type: 'authorization_code',
         code_length: code.length
       });
