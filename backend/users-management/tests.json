@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Получение списка пользователей",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "users": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Блокировка пользователя",
+      "method": "PUT",
+      "path": "/",
+      "body": {
+        "user_id": 1,
+        "action": "block",
+        "reason": "Test block"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

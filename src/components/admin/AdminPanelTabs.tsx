@@ -2,7 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminGeneralSettings from '@/components/admin/AdminGeneralSettings';
 import AdminAppearance from '@/components/admin/AdminAppearance';
 import AdminWidgets from '@/components/admin/AdminWidgets';
-import AdminUsers from '@/components/admin/AdminUsers';
+import EnhancedAdminUsers from '@/components/admin/EnhancedAdminUsers';
 import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
 
 interface AdminPanelTabsProps {
@@ -19,6 +19,8 @@ interface AdminPanelTabsProps {
   onToggleWidget: (id: number) => void;
   onMoveWidget: (id: number, direction: 'up' | 'down') => void;
   onDeleteUser: (userId: number) => void;
+  onBlockUser: (userId: number, reason: string) => void;
+  onUnblockUser: (userId: number) => void;
 }
 
 const AdminPanelTabs = ({
@@ -35,6 +37,8 @@ const AdminPanelTabs = ({
   onToggleWidget,
   onMoveWidget,
   onDeleteUser,
+  onBlockUser,
+  onUnblockUser,
 }: AdminPanelTabsProps) => {
   return (
     <Tabs defaultValue="general" className="space-y-6">
@@ -78,7 +82,12 @@ const AdminPanelTabs = ({
       </TabsContent>
 
       <TabsContent value="users">
-        <AdminUsers users={users} onDelete={onDeleteUser} />
+        <EnhancedAdminUsers 
+          users={users} 
+          onDelete={onDeleteUser}
+          onBlock={onBlockUser}
+          onUnblock={onUnblockUser}
+        />
       </TabsContent>
     </Tabs>
   );

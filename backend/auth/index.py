@@ -121,9 +121,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 password_hash = hash_password(password)
+                user_agent = event.get('headers', {}).get('User-Agent', '')
+                
                 cursor.execute(
-                    "INSERT INTO users (email, password_hash, phone) VALUES (%s, %s, %s) RETURNING id",
-                    (email, password_hash, phone)
+                    "INSERT INTO users (email, password_hash, phone, ip_address, user_agent, last_login) VALUES (%s, %s, %s, %s, %s, NOW()) RETURNING id",
+                    (email, password_hash, phone, ip_address, user_agent)
                 )
                 user_id = cursor.fetchone()['id']
                 
@@ -163,7 +165,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT id, password_hash, two_factor_sms, two_factor_email FROM users WHERE email = %s",
+                    "SELECT id, password_hash, two_factor_sms, two_factor_email, is_blocked FROM users WHERE email = %s",
                     (email,)
                 )
                 user = cursor.fetchone()
@@ -179,6 +181,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'body': json.dumps({'error': 'Неверные учетные данные'}),
                         'isBase64Encoded': False
                     }
+                
+                if user['is_blocked']:
+                    return {
+                        'statusCode': 403,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Доступ заблокирован администратором'}),
+                        'isBase64Encoded': False
+                    }
+                
+                user_agent = event.get('headers', {}).get('User-Agent', '')
+                cursor.execute(
+                    "UPDATE users SET last_login = NOW(), ip_address = %s, user_agent = %s WHERE id = %s",
+                    (ip_address, user_agent, user['id'])
+                )
+                conn.commit()
                 
                 record_login_attempt(conn, ip_address, email, True)
                 
