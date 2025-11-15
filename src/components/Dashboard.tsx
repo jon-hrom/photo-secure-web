@@ -73,9 +73,15 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
 
   const vkUserData = localStorage.getItem('vk_user');
   const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
+  
+  // Дополнительная проверка админа по имени VK пользователя
+  const isVkAdmin = vkUser && vkUser.name && vkUser.name.includes('Пономарев Евгений');
+  const finalIsAdmin = isAdmin || isVkAdmin;
 
   console.log('🔍 Dashboard render:', {
     isAdmin,
+    isVkAdmin,
+    finalIsAdmin,
     hasOnOpenAdminPanel: !!onOpenAdminPanel,
     vkUserName: vkUser?.name
   });
@@ -118,15 +124,14 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
-                {/* Временная кнопка для отладки - показываем всегда */}
-                {onOpenAdminPanel && (
+                {finalIsAdmin && onOpenAdminPanel && (
                   <button
                     onClick={onOpenAdminPanel}
-                    className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 rounded-full transition-colors border-2 border-white flex items-center gap-1.5"
-                    title="Админ-панель (тест)"
+                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-1.5"
+                    title="Админ-панель"
                   >
                     <Icon name="ShieldCheck" size={16} className="text-white" />
-                    <span className="text-xs font-semibold text-white">Админка {isAdmin ? '✓' : '✗'}</span>
+                    <span className="text-xs font-semibold">Админка</span>
                   </button>
                 )}
                 {onLogout && (
