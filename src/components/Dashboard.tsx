@@ -98,57 +98,57 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
     <div className="space-y-6 animate-fade-in">
       {vkUser && (
         <Card className="bg-gradient-to-br from-blue-500 to-purple-600 text-white border-0 shadow-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               {vkUser.avatar && (
-                <div className="relative">
+                <div className="relative flex-shrink-0">
                   <img 
                     src={vkUser.avatar} 
                     alt={vkUser.name}
-                    className="w-16 h-16 rounded-full border-4 border-white shadow-lg"
+                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-4 border-white shadow-lg object-cover"
                   />
                   {vkUser.is_verified && (
                     <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1">
-                      <Icon name="BadgeCheck" size={16} className="text-blue-500" />
+                      <Icon name="BadgeCheck" size={14} className="text-blue-500" />
                     </div>
                   )}
                 </div>
               )}
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-xl font-bold">{vkUser.name || 'Пользователь VK'}</h3>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                  <h3 className="text-lg sm:text-xl font-bold truncate">{vkUser.name || 'Пользователь VK'}</h3>
                   {vkUser.is_verified && (
-                    <Icon name="BadgeCheck" size={20} className="text-white" />
+                    <Icon name="BadgeCheck" size={18} className="text-white hidden sm:block" />
                   )}
                   {(vkUser.name && vkUser.name.includes('Пономарев Евгений')) && (
-                    <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
+                    <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30 w-fit">
                       Администратор
                     </span>
                   )}
                 </div>
-                <p className="text-sm opacity-90">{vkUser.email || 'Вход через VK ID'}</p>
+                <p className="text-xs sm:text-sm opacity-90 truncate">{vkUser.email || 'Вход через VK ID'}</p>
                 {vkUser.phone && (
-                  <p className="text-xs opacity-75 mt-1">{vkUser.phone}</p>
+                  <p className="text-xs opacity-75 mt-1 truncate">{vkUser.phone}</p>
                 )}
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-row sm:flex-col items-center gap-2 w-full sm:w-auto sm:items-end">
                 {finalIsAdmin && onOpenAdminPanel && (
                   <button
                     onClick={onOpenAdminPanel}
-                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-1.5"
+                    className="px-2.5 py-1.5 sm:px-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-1.5 flex-1 sm:flex-initial justify-center"
                     title="Админ-панель"
                   >
-                    <Icon name="ShieldCheck" size={16} className="text-white" />
+                    <Icon name="ShieldCheck" size={14} className="text-white" />
                     <span className="text-xs font-semibold">Админка</span>
                   </button>
                 )}
                 {onLogout && (
                   <button
                     onClick={() => setShowLogoutDialog(true)}
-                    className="p-2 hover:bg-white/20 rounded-full transition-colors self-end"
+                    className="p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-colors"
                     title="Выйти"
                   >
-                    <Icon name="LogOut" size={20} className="text-white" />
+                    <Icon name="LogOut" size={18} className="text-white" />
                   </button>
                 )}
               </div>
