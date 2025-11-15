@@ -25,15 +25,20 @@ const VKCallback = () => {
         const data = await response.json();
 
         if (data.success && data.profile) {
-          const { profile } = data;
+          const { profile, user_id } = data;
           
-          localStorage.setItem('vk_user', JSON.stringify({
-            id: profile.sub,
+          const userData = {
+            user_id: user_id,
+            vk_id: profile.sub,
             email: profile.email,
             name: profile.name,
             avatar: profile.picture,
-            is_verified: profile.is_verified
-          }));
+            is_verified: profile.is_verified,
+            phone: profile.phone_number
+          };
+          
+          localStorage.setItem('vk_user', JSON.stringify(userData));
+          localStorage.setItem('auth_token', data.session_id);
 
           toast.success(`Добро пожаловать, ${profile.name || 'пользователь'}!`);
           navigate('/');

@@ -14,10 +14,13 @@ import time
 from typing import Dict, Any, Optional
 from urllib.parse import urlencode, parse_qs
 import requests
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 BASE_URL = os.environ.get('BASE_URL', 'https://foto-mix.ru')
 VK_CLIENT_ID = os.environ.get('VK_CLIENT_ID')
 VK_CLIENT_SECRET = os.environ.get('VK_CLIENT_SECRET')
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 sessions_storage: Dict[str, Dict[str, Any]] = {}
 
@@ -109,6 +112,58 @@ def decode_id_token_simple(id_token: str) -> Dict[str, Any]:
         return json.loads(decoded)
     except:
         return {}
+
+def get_db_connection():
+    if not DATABASE_URL:
+        raise Exception('DATABASE_URL not configured')
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+def upsert_vk_user(profile: Dict[str, Any]) -> int:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        vk_sub = profile.get('sub')
+        if not vk_sub:
+            raise ValueError('VK sub is required')
+        
+        cursor.execute(
+            "SELECT user_id FROM vk_users WHERE vk_sub = %s",
+            (vk_sub,)
+        )
+        existing = cursor.fetchone()
+        
+        raw_profile_json = json.dumps(profile.get('raw', {}))
+        
+        if existing:
+            user_id = existing['user_id']
+            cursor.execute(
+                """UPDATE vk_users 
+                   SET email = %s, phone_number = %s, full_name = %s, 
+                       avatar_url = %s, is_verified = %s, raw_profile = %s, 
+                       last_login = CURRENT_TIMESTAMP
+                   WHERE user_id = %s""",
+                (profile.get('email'), profile.get('phone_number'), 
+                 profile.get('name'), profile.get('picture'), 
+                 profile.get('is_verified', False), raw_profile_json, user_id)
+            )
+        else:
+            cursor.execute(
+                """INSERT INTO vk_users 
+                   (vk_sub, email, phone_number, full_name, avatar_url, is_verified, raw_profile)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)
+                   RETURNING user_id""",
+                (vk_sub, profile.get('email'), profile.get('phone_number'),
+                 profile.get('name'), profile.get('picture'),
+                 profile.get('is_verified', False), raw_profile_json)
+            )
+            user_id = cursor.fetchone()['user_id']
+        
+        conn.commit()
+        return user_id
+    finally:
+        cursor.close()
+        conn.close()
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
@@ -244,12 +299,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             profile = normalize_profile(id_token_claims, userinfo, vk_users_get, token_data)
             
+            user_id = None
+            try:
+                user_id = upsert_vk_user(profile)
+            except Exception as db_error:
+                print(f'DB upsert error: {db_error}')
+            
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
                     'success': True,
                     'profile': profile,
+                    'user_id': user_id,
                     'session_id': secrets.token_urlsafe(32)
                 })
             }

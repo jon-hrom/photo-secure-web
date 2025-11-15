@@ -55,6 +55,8 @@ const Index = () => {
     setIsAdmin(false);
     setCurrentPage('auth');
     localStorage.removeItem('authSession');
+    localStorage.removeItem('vk_user');
+    localStorage.removeItem('auth_token');
   };
 
   useEffect(() => {
@@ -101,6 +103,24 @@ const Index = () => {
 
   useEffect(() => {
     const restoreSession = () => {
+      const vkUser = localStorage.getItem('vk_user');
+      if (vkUser) {
+        try {
+          const userData = JSON.parse(vkUser);
+          const isAdminUser = userData.email === 'jonhrom2012@gmail.com';
+          setIsAuthenticated(true);
+          setUserId(userData.user_id || userData.vk_id);
+          setUserEmail(userData.email || '');
+          setIsAdmin(isAdminUser);
+          setCurrentPage('dashboard');
+          lastActivityRef.current = Date.now();
+          return;
+        } catch (error) {
+          console.error('Ошибка восстановления VK сессии:', error);
+          localStorage.removeItem('vk_user');
+        }
+      }
+      
       const savedSession = localStorage.getItem('authSession');
       if (savedSession) {
         try {
