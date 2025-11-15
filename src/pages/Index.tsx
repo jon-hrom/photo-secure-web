@@ -150,8 +150,10 @@ const Index = () => {
               setUserAvatar(userData.avatar || '');
               setIsVerified(userData.verified || false);
               setIsAdmin(isAdminUser);
-              setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
+              setCurrentPage('dashboard');
               lastActivityRef.current = Date.now();
+              
+              console.log('✅ isAdmin set to:', isAdminUser);
               
               // Clean URL
               window.history.replaceState({}, '', '/');
@@ -199,8 +201,10 @@ const Index = () => {
           setUserAvatar(userData.avatar || '');
           setIsVerified(userData.is_verified || userData.verified || false);
           setIsAdmin(isAdminUser);
-          setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
+          setCurrentPage('dashboard');
           lastActivityRef.current = Date.now();
+          
+          console.log('✅ isAdmin restored to:', isAdminUser);
           
           if (vkAuthCompleted) {
             localStorage.removeItem('vk_auth_completed');

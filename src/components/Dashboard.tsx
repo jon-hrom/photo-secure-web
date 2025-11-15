@@ -74,6 +74,12 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
   const vkUserData = localStorage.getItem('vk_user');
   const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
 
+  console.log('🔍 Dashboard - Admin check:', {
+    isAdmin,
+    vkUser,
+    onOpenAdminPanel: !!onOpenAdminPanel
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
       {vkUser && (
