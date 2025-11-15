@@ -476,6 +476,7 @@ const Index = () => {
               setCurrentPage('clients');
             }}
             onLogout={handleLogout}
+            onOpenAdminPanel={() => setCurrentPage('admin')}
           />
         )}
         {currentPage === 'clients' && <ClientsPage autoOpenClient={selectedClientName} />}
