@@ -38,7 +38,7 @@ const Index = () => {
     setUserId(uid);
     setUserEmail(email || '');
     setIsAdmin(isAdminUser);
-    setCurrentPage('dashboard');
+    setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
     lastActivityRef.current = Date.now();
     
     localStorage.setItem('authSession', JSON.stringify({
@@ -126,7 +126,8 @@ const Index = () => {
             
             if (data.userData && data.token) {
               const userData = data.userData;
-              const isAdminUser = userData.email === 'jonhrom2012@gmail.com';
+              const isAdminUser = userData.email === 'jonhrom2012@gmail.com' || 
+                                  (userData.name && userData.name.includes('Пономарев Евгений'));
               
               // Save to localStorage
               localStorage.setItem('vk_user', JSON.stringify(userData));
@@ -142,7 +143,7 @@ const Index = () => {
               setUserAvatar(userData.avatar || '');
               setIsVerified(userData.verified || false);
               setIsAdmin(isAdminUser);
-              setCurrentPage('dashboard');
+              setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
               lastActivityRef.current = Date.now();
               
               // Clean URL
@@ -172,7 +173,8 @@ const Index = () => {
       if (vkUser) {
         try {
           const userData = JSON.parse(vkUser);
-          const isAdminUser = userData.email === 'jonhrom2012@gmail.com';
+          const isAdminUser = userData.email === 'jonhrom2012@gmail.com' || 
+                              (userData.name && userData.name.includes('Пономарев Евгений'));
           
           console.log('✅ VK user found in localStorage:', userData);
           
@@ -183,7 +185,7 @@ const Index = () => {
           setUserAvatar(userData.avatar || '');
           setIsVerified(userData.is_verified || userData.verified || false);
           setIsAdmin(isAdminUser);
-          setCurrentPage('dashboard');
+          setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
           lastActivityRef.current = Date.now();
           
           if (vkAuthCompleted) {
