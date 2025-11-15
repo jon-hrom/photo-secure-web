@@ -220,19 +220,13 @@ exports.handler = async (event, context) => {
         code: code,
         redirect_uri: `${BASE_URL}/vk-callback.html`,
         code_verifier: session.code_verifier,
-        client_id: VK_CLIENT_ID,
-        client_secret: VK_CLIENT_SECRET
+        client_id: VK_CLIENT_ID
       });
-      
-      if (deviceId) {
-        tokenBody.append('device_id', deviceId);
-      }
       
       const tokenResponse = await fetch('https://id.vk.com/oauth2/auth', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: tokenBody.toString()
       });
