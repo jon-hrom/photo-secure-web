@@ -212,8 +212,7 @@ exports.handler = async (event, context) => {
         await client.connect();
         
         const result = await client.query(
-          'SELECT data FROM vk_temp_sessions WHERE session_id = $1 AND expires_at > NOW()',
-          [sessionId]
+          `SELECT data FROM vk_temp_sessions WHERE session_id = ${escapeSQL(sessionId)} AND expires_at > NOW()`
         );
         
         if (result.rows.length === 0) {
@@ -358,11 +357,11 @@ exports.handler = async (event, context) => {
       const tempClient = new Client({ connectionString: DATABASE_URL });
       try {
         await tempClient.connect();
+        const dataJSON = escapeSQL(JSON.stringify(tempSessionData));
         await tempClient.query(
           `INSERT INTO vk_temp_sessions (session_id, data, expires_at) 
-           VALUES ($1, $2, NOW() + INTERVAL '5 minutes')
-           ON CONFLICT (session_id) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL '5 minutes'`,
-          [sessionId, JSON.stringify(tempSessionData)]
+           VALUES (${escapeSQL(sessionId)}, ${dataJSON}, NOW() + INTERVAL '5 minutes')
+           ON CONFLICT (session_id) DO UPDATE SET data = ${dataJSON}, expires_at = NOW() + INTERVAL '5 minutes'`
         );
         console.log('💾 Saved temp session:', sessionId);
       } finally {
