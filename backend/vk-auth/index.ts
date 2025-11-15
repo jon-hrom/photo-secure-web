@@ -110,6 +110,19 @@ function decodeIdTokenSimple(idToken) {
   }
 }
 
+function escapeSQL(value) {
+  if (value === null || value === undefined) {
+    return 'NULL';
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'TRUE' : 'FALSE';
+  }
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  return "'" + String(value).replace(/'/g, "''") + "'";
+}
+
 async function upsertVKUser(profile) {
   const client = new Client({ connectionString: DATABASE_URL });
   
@@ -122,8 +135,7 @@ async function upsertVKUser(profile) {
     }
     
     const existingResult = await client.query(
-      'SELECT user_id FROM vk_users WHERE vk_sub = $1',
-      [vkSub]
+      `SELECT user_id FROM vk_users WHERE vk_sub = ${escapeSQL(vkSub)}`
     );
     
     const rawProfileJson = JSON.stringify(profile.raw);
@@ -132,22 +144,24 @@ async function upsertVKUser(profile) {
       const userId = existingResult.rows[0].user_id;
       await client.query(
         `UPDATE vk_users 
-         SET email = $1, phone_number = $2, full_name = $3, 
-             avatar_url = $4, is_verified = $5, raw_profile = $6, 
+         SET email = ${escapeSQL(profile.email)}, 
+             phone_number = ${escapeSQL(profile.phone_number)}, 
+             full_name = ${escapeSQL(profile.name)}, 
+             avatar_url = ${escapeSQL(profile.picture)}, 
+             is_verified = ${escapeSQL(profile.is_verified)}, 
+             raw_profile = ${escapeSQL(rawProfileJson)}, 
              last_login = CURRENT_TIMESTAMP
-         WHERE user_id = $7`,
-        [profile.email, profile.phone_number, profile.name, 
-         profile.picture, profile.is_verified, rawProfileJson, userId]
+         WHERE user_id = ${escapeSQL(userId)}`
       );
       return userId;
     } else {
       const insertResult = await client.query(
         `INSERT INTO vk_users 
          (vk_sub, email, phone_number, full_name, avatar_url, is_verified, raw_profile)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING user_id`,
-        [vkSub, profile.email, profile.phone_number, profile.name,
-         profile.picture, profile.is_verified, rawProfileJson]
+         VALUES (${escapeSQL(vkSub)}, ${escapeSQL(profile.email)}, ${escapeSQL(profile.phone_number)}, 
+                 ${escapeSQL(profile.name)}, ${escapeSQL(profile.picture)}, ${escapeSQL(profile.is_verified)}, 
+                 ${escapeSQL(rawProfileJson)})
+         RETURNING user_id`
       );
       return insertResult.rows[0].user_id;
     }
