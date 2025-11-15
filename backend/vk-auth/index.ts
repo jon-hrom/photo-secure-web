@@ -229,7 +229,7 @@ exports.handler = async (event, context) => {
       
       const authParams = new URLSearchParams({
         client_id: VK_CLIENT_ID,
-        redirect_uri: `${BASE_URL}/auth/callback/vkid`,
+        redirect_uri: 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c',
         response_type: 'code',
         scope: 'openid email phone offline_access',
         state,
@@ -274,7 +274,7 @@ exports.handler = async (event, context) => {
         client_id: VK_CLIENT_ID,
         client_secret: VK_CLIENT_SECRET,
         code,
-        redirect_uri: `${BASE_URL}/auth/callback/vkid`,
+        redirect_uri: 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c',
         grant_type: 'authorization_code',
         code_verifier: sessionData.code_verifier
       });
@@ -369,15 +369,38 @@ exports.handler = async (event, context) => {
         console.error('DB upsert error:', dbError);
       }
       
+      const sessionId = crypto.randomBytes(32).toString('base64url');
+      const userData = {
+        user_id: userId,
+        vk_id: profile.sub,
+        email: profile.email,
+        name: profile.name,
+        avatar: profile.picture,
+        is_verified: profile.is_verified,
+        phone: profile.phone_number,
+        session_id: sessionId
+      };
+      
+      const redirectHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>VK Authorization</title>
+</head>
+<body>
+  <script>
+    localStorage.setItem('vk_user', JSON.stringify(${JSON.stringify(userData)}));
+    localStorage.setItem('auth_token', '${sessionId}');
+    window.location.href = '${BASE_URL}';
+  </script>
+  <p>Перенаправление...</p>
+</body>
+</html>`;
+      
       return {
         statusCode: 200,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({
-          success: true,
-          profile,
-          user_id: userId,
-          session_id: crypto.randomBytes(32).toString('base64url')
-        }),
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
+        body: redirectHTML,
         isBase64Encoded: false
       };
     }
