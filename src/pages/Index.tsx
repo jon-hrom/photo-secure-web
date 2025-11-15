@@ -147,7 +147,7 @@ const Index = () => {
       console.log('📦 LocalStorage check:', { 
         hasVkUser: !!vkUser, 
         vkAuthCompleted,
-        vkToken: !!vkToken,
+        vkSessionId: !!vkSessionId,
         vkUserData: vkUser ? JSON.parse(vkUser) : null 
       });
       
