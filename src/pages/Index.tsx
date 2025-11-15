@@ -417,16 +417,6 @@ const Index = () => {
                 <Icon name="Settings" size={18} className="mr-2" />
                 Настройки
               </Button>
-              {isAdmin && (
-                <Button
-                  variant="default"
-                  onClick={() => setCurrentPage('admin')}
-                  className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-                >
-                  <Icon name="ShieldCheck" size={18} className="mr-2" />
-                  Админ-панель
-                </Button>
-              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
