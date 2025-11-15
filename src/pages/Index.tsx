@@ -112,39 +112,33 @@ const Index = () => {
       console.log('🔄 Restoring session...');
       
       const urlParams = new URLSearchParams(window.location.search);
-      const vkToken = urlParams.get('vk_token');
+      const vkSessionId = urlParams.get('vk_session');
       
-      // Check if VK token in URL
-      if (vkToken) {
-        console.log('📦 VK token in URL detected!');
-        try {
-          // Decode JWT token (simple base64 decode without verification for client-side)
-          const base64Url = vkToken.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const payload = JSON.parse(atob(base64));
-          
-          console.log('📦 Decoded JWT payload:', payload);
-          
-          const userData = {
-            user_id: payload.user_id,
-            vk_id: payload.vk_user_id,
-            name: payload.name,
-            avatar: payload.avatar,
-            verified: payload.verified,
-            email: ''
-          };
-          
-          // Save to localStorage
-          localStorage.setItem('vk_user', JSON.stringify(userData));
-          localStorage.setItem('auth_token', vkToken);
-          
-          console.log('✅ VK data saved to localStorage from token:', userData);
-          
-          // Clean URL
-          window.history.replaceState({}, '', '/');
-        } catch (error) {
-          console.error('❌ Error parsing VK token from URL:', error);
-        }
+      // Check if VK session ID in URL
+      if (vkSessionId) {
+        console.log('📦 VK session ID in URL detected:', vkSessionId);
+        
+        // Fetch session data from backend
+        fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${vkSessionId}`)
+          .then(res => res.json())
+          .then(data => {
+            console.log('📦 Session data received:', data);
+            
+            if (data.userData && data.token) {
+              // Save to localStorage
+              localStorage.setItem('vk_user', JSON.stringify(data.userData));
+              localStorage.setItem('auth_token', data.token);
+              
+              console.log('✅ VK data saved to localStorage from session:', data.userData);
+              
+              // Clean URL and reload
+              window.history.replaceState({}, '', '/');
+              window.location.reload();
+            }
+          })
+          .catch(error => {
+            console.error('❌ Error fetching VK session:', error);
+          });
       }
       
       const vkUser = localStorage.getItem('vk_user');

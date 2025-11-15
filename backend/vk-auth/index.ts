@@ -203,6 +203,40 @@ exports.handler = async (event, context) => {
       };
     }
     
+    // Get session data by session_id
+    if (httpMethod === 'GET' && queryParams.session_id) {
+      const sessionId = queryParams.session_id;
+      
+      const result = await client.query(
+        'SELECT data FROM vk_temp_sessions WHERE session_id = $1 AND expires_at > NOW()',
+        [sessionId]
+      );
+      
+      if (result.rows.length === 0) {
+        return {
+          statusCode: 404,
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Access-Control-Allow-Origin': '*'
+          },
+          body: JSON.stringify({ error: 'Session not found or expired' }),
+          isBase64Encoded: false
+        };
+      }
+      
+      const sessionData = result.rows[0].data;
+      
+      return {
+        statusCode: 200,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify(sessionData),
+        isBase64Encoded: false
+      };
+    }
+    
     if (httpMethod === 'GET' && code && stateParam) {
       const session = await getSession(stateParam);
       
@@ -302,6 +336,27 @@ exports.handler = async (event, context) => {
         email: ''
       };
       
+      // Generate short session ID and save to temp storage (5 min TTL)
+      const sessionId = Array.from({ length: 16 }, () => 
+        Math.random().toString(36).charAt(2)
+      ).join('');
+      
+      const tempSessionData = {
+        token: sessionToken,
+        userData: userData,
+        created: Date.now()
+      };
+      
+      // Save to database with TTL
+      await client.query(
+        `INSERT INTO vk_temp_sessions (session_id, data, expires_at) 
+         VALUES ($1, $2, NOW() + INTERVAL '5 minutes')
+         ON CONFLICT (session_id) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL '5 minutes'`,
+        [sessionId, JSON.stringify(tempSessionData)]
+      );
+      
+      console.log('💾 Saved temp session:', sessionId);
+      
       const htmlResponse = `<!DOCTYPE html>
 <html>
 <head>
@@ -310,8 +365,7 @@ exports.handler = async (event, context) => {
 </head>
 <body>
   <script>
-    const token = ${JSON.stringify(sessionToken)};
-    window.location.replace('${BASE_URL}/?vk_token=' + encodeURIComponent(token));
+    window.location.replace('${BASE_URL}/?vk_session=' + ${JSON.stringify(sessionId)});
   </script>
 </body>
 </html>`;
