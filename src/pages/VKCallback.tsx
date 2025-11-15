@@ -13,7 +13,10 @@ const VKCallback = () => {
       const code = searchParams.get('code');
       const state = searchParams.get('state');
 
+      console.log('VKCallback: code=', code, 'state=', state);
+
       if (!code || !state) {
+        console.error('VKCallback: Missing code or state');
         toast.error('Некорректные параметры авторизации');
         navigate('/');
         return;
@@ -21,8 +24,11 @@ const VKCallback = () => {
 
       try {
         const vkAuthUrl = funcUrls['vk-auth'];
+        console.log('VKCallback: Calling backend:', vkAuthUrl);
         const response = await fetch(`${vkAuthUrl}?code=${code}&state=${state}`);
         const data = await response.json();
+
+        console.log('VKCallback: Backend response:', data);
 
         if (data.success && data.profile) {
           const { profile, user_id } = data;
@@ -43,11 +49,12 @@ const VKCallback = () => {
           toast.success(`Добро пожаловать, ${profile.name || 'пользователь'}!`);
           navigate('/');
         } else {
+          console.error('VKCallback: Auth failed:', data);
           toast.error(data.error || 'Ошибка авторизации');
           navigate('/');
         }
       } catch (error) {
-        console.error('VK callback error:', error);
+        console.error('VKCallback: Exception:', error);
         toast.error('Ошибка обработки авторизации');
         navigate('/');
       } finally {
