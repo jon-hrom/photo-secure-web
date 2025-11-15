@@ -4,14 +4,15 @@ import Icon from '@/components/ui/icon';
 
 interface AdminPanelHeaderProps {
   vkUser: any;
+  emailUser?: { email: string; isAdmin: boolean };
   showHistory: boolean;
   onToggleHistory: () => void;
   onSaveSettings: () => void;
 }
 
-const AdminPanelHeader = ({ vkUser, showHistory, onToggleHistory, onSaveSettings }: AdminPanelHeaderProps) => {
+const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onSaveSettings }: AdminPanelHeaderProps) => {
   return (
-    <>
+    <div className="space-y-6">
       {vkUser && (
         <Card className="bg-gradient-to-br from-blue-500 to-purple-600 text-white border-0 shadow-xl">
           <CardContent className="p-6">
@@ -58,6 +59,33 @@ const AdminPanelHeader = ({ vkUser, showHistory, onToggleHistory, onSaveSettings
         </Card>
       )}
 
+      {!vkUser && emailUser && (
+        <Card className="bg-gradient-to-br from-green-500 to-blue-600 text-white border-0 shadow-xl">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full border-4 border-white shadow-lg bg-white/20 flex items-center justify-center">
+                <Icon name="Mail" size={32} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-xl font-bold">Администратор</h3>
+                  <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
+                    Email авторизация
+                  </span>
+                </div>
+                <p className="text-sm opacity-90">{emailUser.email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <div className="text-xs opacity-75">Роль</div>
+                  <div className="font-semibold">Главный администратор</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Панель администратора</h1>
@@ -79,7 +107,7 @@ const AdminPanelHeader = ({ vkUser, showHistory, onToggleHistory, onSaveSettings
           </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

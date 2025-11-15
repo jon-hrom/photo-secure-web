@@ -335,11 +335,15 @@ const AdminPanel = () => {
 
   const vkUserData = localStorage.getItem('vk_user');
   const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
+  
+  const savedSession = localStorage.getItem('authSession');
+  const emailUser = savedSession ? JSON.parse(savedSession) : null;
 
   return (
     <div className="space-y-6">
       <AdminPanelHeader
         vkUser={vkUser}
+        emailUser={emailUser}
         showHistory={showHistory}
         onToggleHistory={() => setShowHistory(!showHistory)}
         onSaveSettings={saveSettings}
