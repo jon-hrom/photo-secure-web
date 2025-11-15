@@ -324,7 +324,7 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
   }, [autoOpenClient, clients]);
 
   return (
-    <div className="space-y-6 animate-fade-in p-4 md:p-6 pt-24 md:pt-8">
+    <div className="space-y-6 animate-fade-in">
       <ClientsHeader
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
