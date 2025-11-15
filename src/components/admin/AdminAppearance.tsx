@@ -142,7 +142,7 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
           <Icon name="Save" size={18} className="mr-2" />
           Сохранить цвета
         </Button>
-      </CardContent>}}
+      </CardContent>}
     </Card>
   );
 };
