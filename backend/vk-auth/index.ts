@@ -204,37 +204,44 @@ exports.handler = async (event, context) => {
     }
     
     // Get session data by session_id
-    if (httpMethod === 'GET' && queryParams.session_id) {
-      const sessionId = queryParams.session_id;
+    if (httpMethod === 'GET' && queryStringParameters.session_id) {
+      const sessionId = queryStringParameters.session_id;
       
-      const result = await client.query(
-        'SELECT data FROM vk_temp_sessions WHERE session_id = $1 AND expires_at > NOW()',
-        [sessionId]
-      );
-      
-      if (result.rows.length === 0) {
+      const client = new Client({ connectionString: DATABASE_URL });
+      try {
+        await client.connect();
+        
+        const result = await client.query(
+          'SELECT data FROM vk_temp_sessions WHERE session_id = $1 AND expires_at > NOW()',
+          [sessionId]
+        );
+        
+        if (result.rows.length === 0) {
+          return {
+            statusCode: 404,
+            headers: { 
+              'Content-Type': 'application/json', 
+              'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({ error: 'Session not found or expired' }),
+            isBase64Encoded: false
+          };
+        }
+        
+        const sessionData = result.rows[0].data;
+        
         return {
-          statusCode: 404,
+          statusCode: 200,
           headers: { 
-            'Content-Type': 'application/json', 
+            'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           },
-          body: JSON.stringify({ error: 'Session not found or expired' }),
+          body: JSON.stringify(sessionData),
           isBase64Encoded: false
         };
+      } finally {
+        await client.end();
       }
-      
-      const sessionData = result.rows[0].data;
-      
-      return {
-        statusCode: 200,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify(sessionData),
-        isBase64Encoded: false
-      };
     }
     
     if (httpMethod === 'GET' && code && stateParam) {
@@ -348,14 +355,19 @@ exports.handler = async (event, context) => {
       };
       
       // Save to database with TTL
-      await client.query(
-        `INSERT INTO vk_temp_sessions (session_id, data, expires_at) 
-         VALUES ($1, $2, NOW() + INTERVAL '5 minutes')
-         ON CONFLICT (session_id) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL '5 minutes'`,
-        [sessionId, JSON.stringify(tempSessionData)]
-      );
-      
-      console.log('💾 Saved temp session:', sessionId);
+      const tempClient = new Client({ connectionString: DATABASE_URL });
+      try {
+        await tempClient.connect();
+        await tempClient.query(
+          `INSERT INTO vk_temp_sessions (session_id, data, expires_at) 
+           VALUES ($1, $2, NOW() + INTERVAL '5 minutes')
+           ON CONFLICT (session_id) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL '5 minutes'`,
+          [sessionId, JSON.stringify(tempSessionData)]
+        );
+        console.log('💾 Saved temp session:', sessionId);
+      } finally {
+        await tempClient.end();
+      }
       
       const htmlResponse = `<!DOCTYPE html>
 <html>
