@@ -42,7 +42,7 @@ const AdminPanelTabs = ({
 }: AdminPanelTabsProps) => {
   return (
     <Tabs defaultValue="general" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-2">
+      <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-2 mb-6 relative z-10">
         <TabsTrigger value="general" className="text-xs sm:text-sm">Основные</TabsTrigger>
         <TabsTrigger value="auth" className="text-xs sm:text-sm">Авторизация</TabsTrigger>
         <TabsTrigger value="appearance" className="text-xs sm:text-sm">Внешний вид</TabsTrigger>
