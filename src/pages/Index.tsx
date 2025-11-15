@@ -127,13 +127,13 @@ const Index = () => {
             if (data.userData && data.token) {
               const userData = data.userData;
               const isAdminUser = userData.email === 'jonhrom2012@gmail.com' || 
-                                  (userData.name && userData.name.includes('Пономарев Евгений'));
+                                  (userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений')));
               
               console.log('🔍 Checking admin status:', {
                 userName: userData.name,
                 userEmail: userData.email,
                 isAdminUser,
-                nameIncludes: userData.name && userData.name.includes('Пономарев Евгений')
+                nameCheck: userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений'))
               });
               
               // Save to localStorage
@@ -181,13 +181,13 @@ const Index = () => {
         try {
           const userData = JSON.parse(vkUser);
           const isAdminUser = userData.email === 'jonhrom2012@gmail.com' || 
-                              (userData.name && userData.name.includes('Пономарев Евгений'));
+                              (userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений')));
           
           console.log('🔍 Checking admin status (localStorage):', {
             userName: userData.name,
             userEmail: userData.email,
             isAdminUser,
-            nameIncludes: userData.name && userData.name.includes('Пономарев Евгений')
+            nameCheck: userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений'))
           });
           
           console.log('✅ VK user found in localStorage:', userData);
