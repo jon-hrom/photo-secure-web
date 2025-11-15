@@ -112,11 +112,27 @@ const Index = () => {
       console.log('🔄 Restoring session...');
       
       const urlParams = new URLSearchParams(window.location.search);
-      const vkReload = urlParams.get('vk_reload');
+      const vkData = urlParams.get('vk_data');
       
-      if (vkReload) {
-        console.log('🔄 VK reload detected, checking localStorage...');
-        window.history.replaceState({}, '', '/');
+      // Check if VK auth data in URL
+      if (vkData) {
+        console.log('📦 VK data in URL detected!');
+        try {
+          const decodedData = JSON.parse(atob(vkData));
+          const userData = decodedData.userData;
+          const token = decodedData.token;
+          
+          // Save to localStorage
+          localStorage.setItem('vk_user', JSON.stringify(userData));
+          localStorage.setItem('auth_token', token);
+          
+          console.log('✅ VK data saved to localStorage from URL:', userData);
+          
+          // Clean URL
+          window.history.replaceState({}, '', '/');
+        } catch (error) {
+          console.error('❌ Error parsing VK data from URL:', error);
+        }
       }
       
       const vkUser = localStorage.getItem('vk_user');
@@ -125,7 +141,7 @@ const Index = () => {
       console.log('📦 LocalStorage check:', { 
         hasVkUser: !!vkUser, 
         vkAuthCompleted,
-        vkReload,
+        vkData: !!vkData,
         vkUserData: vkUser ? JSON.parse(vkUser) : null 
       });
       

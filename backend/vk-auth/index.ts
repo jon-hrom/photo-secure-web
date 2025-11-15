@@ -343,12 +343,8 @@ exports.handler = async (event, context) => {
       status.innerHTML += '<p class="info">Перенаправление...</p>';
       
       setTimeout(function() {
-        if (window.opener) {
-          window.opener.postMessage({ vk_auth: 'success', userData: userData, token: token }, '${BASE_URL}');
-          window.close();
-        } else {
-          window.location.replace('${BASE_URL}/?vk_reload=1');
-        }
+        const encodedData = btoa(JSON.stringify({userData: userData, token: token}));
+        window.location.replace('${BASE_URL}/?vk_data=' + encodedData);
       }, 1500);
     } catch (error) {
       status.innerHTML = '<p style="color:red">❌ Ошибка: ' + error.message + '</p>';
