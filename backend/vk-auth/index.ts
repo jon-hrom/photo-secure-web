@@ -172,41 +172,10 @@ exports.handler = async (event, context) => {
     const code = queryStringParameters.code;
     const stateParam = queryStringParameters.state;
     const deviceId = queryStringParameters.device_id;
+    const sessionId = queryStringParameters.session_id;
     
-    if (httpMethod === 'GET' && !code) {
-      const state = generateState();
-      const codeVerifier = generateCodeVerifier();
-      const codeChallenge = generateCodeChallenge(codeVerifier);
-      
-      await saveSession(state, codeVerifier, codeChallenge);
-      
-      const authParams = new URLSearchParams({
-        response_type: 'code',
-        client_id: VK_CLIENT_ID,
-        redirect_uri: `${BASE_URL}/vk-callback.html`,
-        state: state,
-        scope: 'email phone',
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256'
-      });
-      
-      const authUrl = `https://id.vk.com/authorize?${authParams}`;
-      
-      return {
-        statusCode: 302,
-        headers: {
-          'Location': authUrl,
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: '',
-        isBase64Encoded: false
-      };
-    }
-    
-    // Get session data by session_id
-    if (httpMethod === 'GET' && queryStringParameters.session_id) {
-      const sessionId = queryStringParameters.session_id;
-      
+    // Get session data by session_id - FIRST priority
+    if (httpMethod === 'GET' && sessionId) {
       const client = new Client({ connectionString: DATABASE_URL });
       try {
         await client.connect();
@@ -243,6 +212,38 @@ exports.handler = async (event, context) => {
       }
     }
     
+    // Initial OAuth flow - redirect to VK
+    if (httpMethod === 'GET' && !code && !sessionId) {
+      const state = generateState();
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+      
+      await saveSession(state, codeVerifier, codeChallenge);
+      
+      const authParams = new URLSearchParams({
+        response_type: 'code',
+        client_id: VK_CLIENT_ID,
+        redirect_uri: `${BASE_URL}/vk-callback.html`,
+        state: state,
+        scope: 'email phone',
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256'
+      });
+      
+      const authUrl = `https://id.vk.com/authorize?${authParams}`;
+      
+      return {
+        statusCode: 302,
+        headers: {
+          'Location': authUrl,
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: '',
+        isBase64Encoded: false
+      };
+    }
+    
+    // OAuth callback - exchange code for token
     if (httpMethod === 'GET' && code && stateParam) {
       const session = await getSession(stateParam);
       
