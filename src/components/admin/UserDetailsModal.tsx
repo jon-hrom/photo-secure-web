@@ -35,6 +35,7 @@ interface UserDetailsModalProps {
 const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete }: UserDetailsModalProps) => {
   const [blockReason, setBlockReason] = useState('');
   const [showBlockForm, setShowBlockForm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!user) return null;
 
@@ -59,7 +60,7 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
     onClose();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     const userName = user.full_name || user.email || user.phone || 'этого пользователя';
     const confirmMessage = `⚠️ ВНИМАНИЕ! Вы собираетесь удалить пользователя:\n\n${userName}\n\nБудут удалены:\n• Профиль пользователя\n• История входов\n• Все связанные данные\n• OAuth сессии\n\nЭто действие НЕЛЬЗЯ отменить!\n\nВы уверены?`;
     
@@ -67,8 +68,12 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
       const secondConfirm = `🔴 ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ!\n\nВы действительно хотите БЕЗВОЗВРАТНО удалить пользователя ${userName}?\n\nНажмите OK для окончательного удаления.`;
       
       if (confirm(secondConfirm)) {
-        onDelete(user.id);
-        onClose();
+        setIsDeleting(true);
+        await onDelete(user.id);
+        setTimeout(() => {
+          setIsDeleting(false);
+          onClose();
+        }, 1500);
       }
     }
   };
@@ -76,6 +81,15 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        {isDeleting && (
+          <div className="absolute inset-0 bg-background/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4">
+            <div className="w-64 h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-red-500 via-orange-500 to-red-500 animate-shimmer bg-[length:200%_100%]" />
+            </div>
+            <p className="text-lg font-medium text-muted-foreground animate-pulse">Удаление пользователя...</p>
+          </div>
+        )}
+        
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <Icon name="User" size={24} />
