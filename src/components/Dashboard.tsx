@@ -3,6 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DashboardProps {
   userRole: 'user' | 'admin' | 'guest';
@@ -15,6 +25,7 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout }: DashboardProps) 
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
   const [balance] = useState(0);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -95,7 +106,7 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout }: DashboardProps) 
               </div>
               {onLogout && (
                 <button
-                  onClick={onLogout}
+                  onClick={() => setShowLogoutDialog(true)}
                   className="p-2 hover:bg-white/20 rounded-full transition-colors"
                   title="Выйти"
                 >
@@ -320,6 +331,33 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout }: DashboardProps) 
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Icon name="LogOut" className="text-orange-500" size={24} />
+              Выход из аккаунта
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите выйти? Вам потребуется снова войти в систему для доступа к своему аккаунту.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowLogoutDialog(false);
+                onLogout?.();
+              }}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              <Icon name="LogOut" size={16} className="mr-2" />
+              Выйти
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
