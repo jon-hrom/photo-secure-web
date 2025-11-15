@@ -368,27 +368,15 @@ exports.handler = async (event, context) => {
         await tempClient.end();
       }
       
-      const htmlResponse = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>VK Authorization</title>
-</head>
-<body>
-  <script>
-    window.location.replace('${BASE_URL}/?vk_session=${sessionId}');
-  </script>
-</body>
-</html>`;
-      
+      // HTTP 302 redirect instead of HTML with script
       return {
-        statusCode: 200,
+        statusCode: 302,
         headers: { 
-          'Content-Type': 'text/html; charset=utf-8',
+          'Location': `${BASE_URL}/?vk_session=${sessionId}`,
           'Set-Cookie': `vk_session=${sessionToken}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax`,
           'Access-Control-Allow-Origin': '*'
         },
-        body: htmlResponse,
+        body: '',
         isBase64Encoded: false
       };
     }
