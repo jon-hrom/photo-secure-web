@@ -279,17 +279,46 @@ exports.handler = async (event, context) => {
         code_verifier: sessionData.code_verifier
       });
       
+      console.log('=== VK TOKEN EXCHANGE START ===');
+      console.log('Token endpoint:', tokenEndpoint);
+      console.log('Request params:', {
+        client_id: VK_CLIENT_ID,
+        redirect_uri: `${BASE_URL}/auth/callback/vkid`,
+        grant_type: 'authorization_code',
+        code_verifier_length: sessionData.code_verifier.length,
+        code_length: code.length
+      });
+      
       const tokenResponse = await fetch(tokenEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: tokenParams
       });
       
-      const tokenData = await tokenResponse.json();
+      console.log('VK response status:', tokenResponse.status);
+      console.log('VK response headers:', JSON.stringify(Object.fromEntries(tokenResponse.headers.entries())));
       
-      console.log('VK token response:', JSON.stringify(tokenData));
-      console.log('Token endpoint:', tokenEndpoint);
-      console.log('Request params:', Object.fromEntries(tokenParams.entries()));
+      const responseText = await tokenResponse.text();
+      console.log('VK response body (raw):', responseText);
+      
+      let tokenData;
+      try {
+        tokenData = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse VK response as JSON:', e);
+        return {
+          statusCode: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          body: JSON.stringify({ 
+            error: 'Invalid VK response', 
+            raw: responseText
+          }),
+          isBase64Encoded: false
+        };
+      }
+      
+      console.log('VK token data (parsed):', JSON.stringify(tokenData));
+      console.log('=== VK TOKEN EXCHANGE END ===');
       
       if (tokenData.error) {
         return {
@@ -297,7 +326,8 @@ exports.handler = async (event, context) => {
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
           body: JSON.stringify({ 
             error: 'Token exchange failed', 
-            details: tokenData,
+            vk_error: tokenData.error,
+            vk_error_description: tokenData.error_description,
             endpoint: tokenEndpoint,
             status: tokenResponse.status
           }),
