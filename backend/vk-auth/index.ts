@@ -248,7 +248,7 @@ exports.handler = async (event, context) => {
       
       const authParams = new URLSearchParams({
         client_id: VK_CLIENT_ID,
-        redirect_uri: `${BASE_URL}/vk-callback`,
+        redirect_uri: `${BASE_URL}/vk-callback.html`,
         response_type: 'code',
         scope: 'email phone',
         state,
@@ -293,7 +293,7 @@ exports.handler = async (event, context) => {
         client_id: VK_CLIENT_ID,
         client_secret: VK_CLIENT_SECRET,
         code,
-        redirect_uri: `${BASE_URL}/vk-callback`,
+        redirect_uri: `${BASE_URL}/vk-callback.html`,
         grant_type: 'authorization_code',
         code_verifier: sessionData.code_verifier
       });
@@ -302,7 +302,7 @@ exports.handler = async (event, context) => {
       console.log('Token endpoint:', tokenEndpoint);
       console.log('Request params:', {
         client_id: VK_CLIENT_ID,
-        redirect_uri: `${BASE_URL}/vk-callback`,
+        redirect_uri: `${BASE_URL}/vk-callback.html`,
         grant_type: 'authorization_code',
         code_length: code.length
       });

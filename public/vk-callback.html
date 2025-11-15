@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>VK Authorization</title>
+  <script>
+    // Мгновенный редирект БЕЗ загрузки React
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    
+    if (code && state) {
+      const vkAuthUrl = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
+      window.location.replace(vkAuthUrl + '?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state));
+    } else {
+      window.location.replace('/');
+    }
+  </script>
+</head>
+<body>
+  <p>Обработка авторизации VK...</p>
+</body>
+</html>
