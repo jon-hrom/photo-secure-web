@@ -109,6 +109,44 @@ const Index = () => {
 
   useEffect(() => {
     const restoreSession = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const vkAuthSuccess = urlParams.get('vk_auth');
+      const token = urlParams.get('token');
+      
+      if (vkAuthSuccess === 'success' && token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const isAdminUser = payload.email === 'jonhrom2012@gmail.com';
+          
+          const userData = {
+            user_id: payload.user_id,
+            vk_id: payload.vk_user_id,
+            name: payload.name,
+            avatar: payload.avatar,
+            verified: payload.verified,
+            email: payload.email || ''
+          };
+          
+          localStorage.setItem('vk_user', JSON.stringify(userData));
+          localStorage.setItem('auth_token', token);
+          
+          setIsAuthenticated(true);
+          setUserId(payload.user_id);
+          setUserEmail(payload.email || '');
+          setUserName(payload.name || 'Пользователь VK');
+          setUserAvatar(payload.avatar || '');
+          setIsVerified(payload.verified || false);
+          setIsAdmin(isAdminUser);
+          setCurrentPage('dashboard');
+          lastActivityRef.current = Date.now();
+          
+          window.history.replaceState({}, '', '/');
+          return;
+        } catch (error) {
+          console.error('Ошибка обработки VK токена:', error);
+        }
+      }
+      
       const vkUser = localStorage.getItem('vk_user');
       if (vkUser) {
         try {
@@ -119,7 +157,7 @@ const Index = () => {
           setUserEmail(userData.email || '');
           setUserName(userData.name || 'Пользователь VK');
           setUserAvatar(userData.avatar || '');
-          setIsVerified(userData.is_verified || false);
+          setIsVerified(userData.is_verified || userData.verified || false);
           setIsAdmin(isAdminUser);
           setCurrentPage('dashboard');
           lastActivityRef.current = Date.now();
