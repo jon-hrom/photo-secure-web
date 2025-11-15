@@ -74,6 +74,12 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
   const vkUserData = localStorage.getItem('vk_user');
   const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
 
+  console.log('🔍 Dashboard render:', {
+    isAdmin,
+    hasOnOpenAdminPanel: !!onOpenAdminPanel,
+    vkUserName: vkUser?.name
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
       {vkUser && (
@@ -112,14 +118,15 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
-                {isAdmin && onOpenAdminPanel && (
+                {/* Временная кнопка для отладки - показываем всегда */}
+                {onOpenAdminPanel && (
                   <button
                     onClick={onOpenAdminPanel}
-                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-1.5"
-                    title="Админ-панель"
+                    className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 rounded-full transition-colors border-2 border-white flex items-center gap-1.5"
+                    title="Админ-панель (тест)"
                   >
                     <Icon name="ShieldCheck" size={16} className="text-white" />
-                    <span className="text-xs font-semibold">Админка</span>
+                    <span className="text-xs font-semibold text-white">Админка {isAdmin ? '✓' : '✗'}</span>
                   </button>
                 )}
                 {onLogout && (
