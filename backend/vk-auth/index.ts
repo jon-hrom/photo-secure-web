@@ -105,7 +105,7 @@ function escapeSQL(value) {
   return "'" + String(value).replace(/'/g, "''") + "'";
 }
 
-async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified) {
+async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified, email, phone, ipAddress, userAgent) {
   const client = new Client({ connectionString: DATABASE_URL });
   
   try {
@@ -123,7 +123,11 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
         `UPDATE vk_users 
          SET full_name = ${escapeSQL(fullName)}, 
              avatar_url = ${escapeSQL(avatarUrl)}, 
-             is_verified = ${escapeSQL(isVerified)}, 
+             is_verified = ${escapeSQL(isVerified)},
+             email = ${escapeSQL(email)},
+             phone_number = ${escapeSQL(phone)},
+             ip_address = ${escapeSQL(ipAddress)},
+             user_agent = ${escapeSQL(userAgent)},
              last_login = CURRENT_TIMESTAMP
          WHERE user_id = ${escapeSQL(userId)}`
       );
@@ -131,8 +135,8 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     } else {
       const insertResult = await client.query(
         `INSERT INTO vk_users 
-         (vk_sub, full_name, avatar_url, is_verified)
-         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)})
+         (vk_sub, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent)
+         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)})
          RETURNING user_id`
       );
       return insertResult.rows[0].user_id;
@@ -311,12 +315,21 @@ exports.handler = async (event, context) => {
         };
       }
       
+      const ipAddress = event.requestContext?.identity?.sourceIp || 'unknown';
+      const userAgent = event.headers?.['User-Agent'] || event.headers?.['user-agent'] || '';
+      const email = tokenData.email || '';
+      const phone = tokenData.phone || '';
+      
       const userId = await upsertVKUser(
         String(tokenData.user_id),
         vkUserInfo.first_name || '',
         vkUserInfo.last_name || '',
         vkUserInfo.photo_max || vkUserInfo.photo_200 || '',
-        vkUserInfo.verified === 1 || vkUserInfo.verified === true
+        vkUserInfo.verified === 1 || vkUserInfo.verified === true,
+        email,
+        phone,
+        ipAddress,
+        userAgent
       );
       
       const sessionToken = jwt.sign(
@@ -340,7 +353,7 @@ exports.handler = async (event, context) => {
         name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim(),
         avatar: vkUserInfo.photo_max || vkUserInfo.photo_200,
         verified: vkUserInfo.verified === 1,
-        email: ''
+        email: email || ''
       };
       
       // Generate short session ID and save to temp storage (5 min TTL)

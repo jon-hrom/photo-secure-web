@@ -1,0 +1,3 @@
+ALTER TABLE t_p28211681_photo_secure_web.vk_users 
+ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45),
+ADD COLUMN IF NOT EXISTS user_agent TEXT;

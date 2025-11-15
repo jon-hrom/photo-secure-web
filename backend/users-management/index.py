@@ -88,7 +88,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     is_verified,
                     is_blocked,
                     blocked_at,
-                    blocked_reason
+                    blocked_reason,
+                    ip_address,
+                    user_agent
                 FROM t_p28211681_photo_secure_web.vk_users
             """)
             
@@ -103,9 +105,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'created_at': row[6].isoformat() if row[6] else None,
                     'is_active': row[8] if row[8] is not None else True,
                     'is_blocked': row[9] if row[9] is not None else False,
-                    'ip_address': None,
+                    'ip_address': row[12],
                     'last_login': row[7].isoformat() if row[7] else None,
-                    'user_agent': None,
+                    'user_agent': row[13],
                     'blocked_at': row[10].isoformat() if row[10] else None,
                     'blocked_reason': row[11],
                     'registered_at': row[6].isoformat() if row[6] else None
