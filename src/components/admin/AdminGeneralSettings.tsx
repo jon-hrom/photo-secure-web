@@ -6,11 +6,11 @@ import { Separator } from '@/components/ui/separator';
 
 interface AdminGeneralSettingsProps {
   settings: any;
-  handleToggle: (key: string) => void;
-  handleInputChange: (key: string, value: string) => void;
+  onToggle: (key: string) => void;
+  onInputChange: (key: string, value: string) => void;
 }
 
-const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: AdminGeneralSettingsProps) => {
+const AdminGeneralSettings = ({ settings, onToggle, onInputChange }: AdminGeneralSettingsProps) => {
   return (
     <>
       <Card>
@@ -29,7 +29,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
             <Switch
               id="registration"
               checked={settings.registrationEnabled}
-              onCheckedChange={() => handleToggle('registrationEnabled')}
+              onCheckedChange={() => onToggle('registrationEnabled')}
             />
           </div>
           <Separator />
@@ -44,7 +44,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
             <Switch
               id="maintenance"
               checked={settings.maintenanceMode}
-              onCheckedChange={() => handleToggle('maintenanceMode')}
+              onCheckedChange={() => onToggle('maintenanceMode')}
             />
           </div>
           <Separator />
@@ -59,7 +59,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
             <Switch
               id="guestAccess"
               checked={settings.guestAccess}
-              onCheckedChange={() => handleToggle('guestAccess')}
+              onCheckedChange={() => onToggle('guestAccess')}
             />
           </div>
           <Separator />
@@ -74,7 +74,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
             <Switch
               id="fileUpload"
               checked={settings.fileUploadEnabled}
-              onCheckedChange={() => handleToggle('fileUploadEnabled')}
+              onCheckedChange={() => onToggle('fileUploadEnabled')}
             />
           </div>
           <Separator />
@@ -85,7 +85,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
               id="maxFileSize"
               type="number"
               value={settings.maxFileSize}
-              onChange={(e) => handleInputChange('maxFileSize', e.target.value)}
+              onChange={(e) => onInputChange('maxFileSize', e.target.value)}
               className="w-full sm:max-w-xs"
             />
           </div>
@@ -108,7 +108,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
             <Switch
               id="emailNotif"
               checked={settings.emailNotifications}
-              onCheckedChange={() => handleToggle('emailNotifications')}
+              onCheckedChange={() => onToggle('emailNotifications')}
             />
           </div>
           <Separator />
@@ -123,7 +123,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
             <Switch
               id="smsNotif"
               checked={settings.smsNotifications}
-              onCheckedChange={() => handleToggle('smsNotifications')}
+              onCheckedChange={() => onToggle('smsNotifications')}
             />
           </div>
         </CardContent>
@@ -145,7 +145,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
             <Switch
               id="twoFactor"
               checked={settings.twoFactorEnabled}
-              onCheckedChange={() => handleToggle('twoFactorEnabled')}
+              onCheckedChange={() => onToggle('twoFactorEnabled')}
             />
           </div>
           <Separator />
@@ -156,7 +156,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
               id="sessionTimeout"
               type="number"
               value={settings.sessionTimeout}
-              onChange={(e) => handleInputChange('sessionTimeout', e.target.value)}
+              onChange={(e) => onInputChange('sessionTimeout', e.target.value)}
               className="w-full sm:max-w-xs"
             />
             <p className="text-xs sm:text-sm text-muted-foreground">
@@ -171,7 +171,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
               id="maxAttempts"
               type="number"
               value={settings.maxLoginAttempts}
-              onChange={(e) => handleInputChange('maxLoginAttempts', e.target.value)}
+              onChange={(e) => onInputChange('maxLoginAttempts', e.target.value)}
               className="w-full sm:max-w-xs"
             />
             <p className="text-xs sm:text-sm text-muted-foreground">
@@ -186,7 +186,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
               id="passwordLength"
               type="number"
               value={settings.passwordMinLength}
-              onChange={(e) => handleInputChange('passwordMinLength', e.target.value)}
+              onChange={(e) => onInputChange('passwordMinLength', e.target.value)}
               className="w-full sm:max-w-xs"
             />
           </div>
@@ -202,7 +202,7 @@ const AdminGeneralSettings = ({ settings, handleToggle, handleInputChange }: Adm
             <Switch
               id="apiAccess"
               checked={settings.apiAccess}
-              onCheckedChange={() => handleToggle('apiAccess')}
+              onCheckedChange={() => onToggle('apiAccess')}
             />
           </div>
         </CardContent>

@@ -13,10 +13,10 @@ interface User {
 
 interface AdminUsersProps {
   users: User[];
-  deleteUser: (userId: number) => void;
+  onDelete: (userId: number) => void;
 }
 
-const AdminUsers = ({ users, deleteUser }: AdminUsersProps) => {
+const AdminUsers = ({ users, onDelete }: AdminUsersProps) => {
   return (
     <Card>
       <CardHeader>
@@ -69,7 +69,7 @@ const AdminUsers = ({ users, deleteUser }: AdminUsersProps) => {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => deleteUser(user.id)}
+                  onClick={() => onDelete(user.id)}
                   className="w-full sm:w-auto"
                 >
                   <Icon name="Trash2" size={16} className="mr-2" />

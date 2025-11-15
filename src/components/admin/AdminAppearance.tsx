@@ -13,11 +13,11 @@ interface AdminAppearanceProps {
     background: string;
     text: string;
   };
-  handleColorChange: (key: string, value: string) => void;
-  handleSaveColors: () => void;
+  onColorChange: (key: string, value: string) => void;
+  onSave: () => void;
 }
 
-const AdminAppearance = ({ colors, handleColorChange, handleSaveColors }: AdminAppearanceProps) => {
+const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps) => {
   return (
     <Card>
       <CardHeader>
@@ -33,13 +33,13 @@ const AdminAppearance = ({ colors, handleColorChange, handleSaveColors }: AdminA
                 id="primaryColor"
                 type="color"
                 value={colors.primary}
-                onChange={(e) => handleColorChange('primary', e.target.value)}
+                onChange={(e) => onColorChange('primary', e.target.value)}
                 className="w-20 h-10"
               />
               <Input
                 type="text"
                 value={colors.primary}
-                onChange={(e) => handleColorChange('primary', e.target.value)}
+                onChange={(e) => onColorChange('primary', e.target.value)}
                 className="flex-1"
               />
             </div>
@@ -52,13 +52,13 @@ const AdminAppearance = ({ colors, handleColorChange, handleSaveColors }: AdminA
                 id="secondaryColor"
                 type="color"
                 value={colors.secondary}
-                onChange={(e) => handleColorChange('secondary', e.target.value)}
+                onChange={(e) => onColorChange('secondary', e.target.value)}
                 className="w-20 h-10"
               />
               <Input
                 type="text"
                 value={colors.secondary}
-                onChange={(e) => handleColorChange('secondary', e.target.value)}
+                onChange={(e) => onColorChange('secondary', e.target.value)}
                 className="flex-1"
               />
             </div>
@@ -71,13 +71,13 @@ const AdminAppearance = ({ colors, handleColorChange, handleSaveColors }: AdminA
                 id="accentColor"
                 type="color"
                 value={colors.accent}
-                onChange={(e) => handleColorChange('accent', e.target.value)}
+                onChange={(e) => onColorChange('accent', e.target.value)}
                 className="w-20 h-10"
               />
               <Input
                 type="text"
                 value={colors.accent}
-                onChange={(e) => handleColorChange('accent', e.target.value)}
+                onChange={(e) => onColorChange('accent', e.target.value)}
                 className="flex-1"
               />
             </div>
@@ -90,13 +90,13 @@ const AdminAppearance = ({ colors, handleColorChange, handleSaveColors }: AdminA
                 id="backgroundColor"
                 type="color"
                 value={colors.background}
-                onChange={(e) => handleColorChange('background', e.target.value)}
+                onChange={(e) => onColorChange('background', e.target.value)}
                 className="w-20 h-10"
               />
               <Input
                 type="text"
                 value={colors.background}
-                onChange={(e) => handleColorChange('background', e.target.value)}
+                onChange={(e) => onColorChange('background', e.target.value)}
                 className="flex-1"
               />
             </div>
@@ -109,13 +109,13 @@ const AdminAppearance = ({ colors, handleColorChange, handleSaveColors }: AdminA
                 id="textColor"
                 type="color"
                 value={colors.text}
-                onChange={(e) => handleColorChange('text', e.target.value)}
+                onChange={(e) => onColorChange('text', e.target.value)}
                 className="w-20 h-10"
               />
               <Input
                 type="text"
                 value={colors.text}
-                onChange={(e) => handleColorChange('text', e.target.value)}
+                onChange={(e) => onColorChange('text', e.target.value)}
                 className="flex-1"
               />
             </div>
@@ -124,7 +124,7 @@ const AdminAppearance = ({ colors, handleColorChange, handleSaveColors }: AdminA
         
         <Separator />
         
-        <Button onClick={handleSaveColors} className="w-full">
+        <Button onClick={onSave} className="w-full">
           <Icon name="Save" size={18} className="mr-2" />
           Сохранить цвета
         </Button>

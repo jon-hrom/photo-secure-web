@@ -12,11 +12,11 @@ interface Widget {
 
 interface AdminWidgetsProps {
   widgets: Widget[];
-  moveWidget: (id: number, direction: 'up' | 'down') => void;
-  toggleWidget: (id: number) => void;
+  onMove: (id: number, direction: 'up' | 'down') => void;
+  onToggle: (id: number) => void;
 }
 
-const AdminWidgets = ({ widgets, moveWidget, toggleWidget }: AdminWidgetsProps) => {
+const AdminWidgets = ({ widgets, onMove, onToggle }: AdminWidgetsProps) => {
   return (
     <Card>
       <CardHeader>
@@ -40,7 +40,7 @@ const AdminWidgets = ({ widgets, moveWidget, toggleWidget }: AdminWidgetsProps) 
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => moveWidget(widget.id, 'up')}
+                    onClick={() => onMove(widget.id, 'up')}
                     disabled={widget.order === 1}
                     className="h-8 w-8 p-0"
                   >
@@ -49,7 +49,7 @@ const AdminWidgets = ({ widgets, moveWidget, toggleWidget }: AdminWidgetsProps) 
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => moveWidget(widget.id, 'down')}
+                    onClick={() => onMove(widget.id, 'down')}
                     disabled={widget.order === widgets.length}
                     className="h-8 w-8 p-0"
                   >
@@ -59,7 +59,7 @@ const AdminWidgets = ({ widgets, moveWidget, toggleWidget }: AdminWidgetsProps) 
                 
                 <Switch
                   checked={widget.enabled}
-                  onCheckedChange={() => toggleWidget(widget.id)}
+                  onCheckedChange={() => onToggle(widget.id)}
                 />
               </div>
             </div>

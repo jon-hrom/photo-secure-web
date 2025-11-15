@@ -57,7 +57,7 @@ const AdminPanelTabs = ({
       <TabsContent value="auth">
         <AdminAuthProviders
           authProviders={authProviders}
-          onToggle={onToggleAuthProvider}
+          onToggleProvider={onToggleAuthProvider}
         />
       </TabsContent>
 
