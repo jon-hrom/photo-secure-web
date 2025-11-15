@@ -340,12 +340,16 @@ exports.handler = async (event, context) => {
         status.innerHTML += '<p style="color:red">❌ Ошибка: данные не сохранились!</p>';
       }
       
-      status.innerHTML += '<p class="info">Перенаправление через 2 секунды...</p>';
+      status.innerHTML += '<p class="info">Перенаправление...</p>';
       
       setTimeout(function() {
-        window.location.replace('${BASE_URL}/');
-        setTimeout(function() { window.location.reload(); }, 100);
-      }, 2000);
+        if (window.opener) {
+          window.opener.postMessage({ vk_auth: 'success', userData: userData, token: token }, '${BASE_URL}');
+          window.close();
+        } else {
+          window.location.replace('${BASE_URL}/?vk_reload=1');
+        }
+      }, 1500);
     } catch (error) {
       status.innerHTML = '<p style="color:red">❌ Ошибка: ' + error.message + '</p>';
       setTimeout(function() {

@@ -111,12 +111,21 @@ const Index = () => {
     const restoreSession = () => {
       console.log('🔄 Restoring session...');
       
+      const urlParams = new URLSearchParams(window.location.search);
+      const vkReload = urlParams.get('vk_reload');
+      
+      if (vkReload) {
+        console.log('🔄 VK reload detected, checking localStorage...');
+        window.history.replaceState({}, '', '/');
+      }
+      
       const vkUser = localStorage.getItem('vk_user');
       const vkAuthCompleted = localStorage.getItem('vk_auth_completed');
       
       console.log('📦 LocalStorage check:', { 
         hasVkUser: !!vkUser, 
         vkAuthCompleted,
+        vkReload,
         vkUserData: vkUser ? JSON.parse(vkUser) : null 
       });
       
