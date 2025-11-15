@@ -98,6 +98,11 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout }: DashboardProps) 
                   {vkUser.is_verified && (
                     <Icon name="BadgeCheck" size={20} className="text-white" />
                   )}
+                  {(vkUser.name && vkUser.name.includes('Пономарев Евгений')) && (
+                    <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
+                      Администратор
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm opacity-90">{vkUser.email || 'Вход через VK ID'}</p>
                 {vkUser.phone && (
