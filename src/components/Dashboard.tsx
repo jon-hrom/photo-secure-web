@@ -74,8 +74,15 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
   const vkUserData = localStorage.getItem('vk_user');
   const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
   
+  console.log('📦 vkUserData raw:', vkUserData);
+  console.log('📦 vkUser parsed:', vkUser);
+  
   // Дополнительная проверка админа по имени VK пользователя
-  const isVkAdmin = vkUser && vkUser.name && vkUser.name.includes('Пономарев Евгений');
+  const isVkAdmin = vkUser && vkUser.name && (
+    vkUser.name.includes('Пономарев Евгений') || 
+    vkUser.name.includes('Евгений Пономарёв') ||
+    vkUser.name.includes('Евгений')
+  );
   const finalIsAdmin = isAdmin || isVkAdmin;
 
   console.log('🔍 Dashboard render:', {
@@ -83,7 +90,8 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
     isVkAdmin,
     finalIsAdmin,
     hasOnOpenAdminPanel: !!onOpenAdminPanel,
-    vkUserName: vkUser?.name
+    vkUserName: vkUser?.name,
+    vkUserEmail: vkUser?.email
   });
 
   return (
