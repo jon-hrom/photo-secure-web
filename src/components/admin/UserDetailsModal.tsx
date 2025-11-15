@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Textarea } from '@/components/ui/textarea';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface User {
   id: string | number;
@@ -36,6 +36,27 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
   const [blockReason, setBlockReason] = useState('');
   const [showBlockForm, setShowBlockForm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [geoData, setGeoData] = useState<{country: string; city: string; flag: string} | null>(null);
+  const [loadingGeo, setLoadingGeo] = useState(false);
+
+  useEffect(() => {
+    if (user?.ip_address && user.ip_address !== 'unknown' && isOpen) {
+      setLoadingGeo(true);
+      fetch(`https://ipapi.co/${user.ip_address}/json/`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.country_name && data.city) {
+            setGeoData({
+              country: data.country_name,
+              city: data.city,
+              flag: data.country_code ? `https://flagcdn.com/24x18/${data.country_code.toLowerCase()}.png` : ''
+            });
+          }
+        })
+        .catch(() => setGeoData(null))
+        .finally(() => setLoadingGeo(false));
+    }
+  }, [user?.ip_address, isOpen]);
 
   if (!user) return null;
 
@@ -171,10 +192,26 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
             )}
 
             <div className="border-l-4 border-green-500 pl-4 py-2 bg-muted/30 rounded-r">
-              <div className="text-sm text-muted-foreground mb-1">IP адрес</div>
-              <div className="font-medium flex items-center gap-2">
-                <Icon name="Globe" size={16} className="text-green-500" />
-                {user.ip_address || 'Не указан'}
+              <div className="text-sm text-muted-foreground mb-1">IP адрес и геолокация</div>
+              <div className="space-y-1">
+                <div className="font-medium flex items-center gap-2">
+                  <Icon name="Globe" size={16} className="text-green-500" />
+                  {user.ip_address || 'Не указан'}
+                </div>
+                {loadingGeo && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Icon name="Loader2" size={12} className="animate-spin" />
+                    Определение местоположения...
+                  </div>
+                )}
+                {!loadingGeo && geoData && (
+                  <div className="flex items-center gap-2 text-sm">
+                    {geoData.flag && <img src={geoData.flag} alt={geoData.country} className="w-6 h-4" />}
+                    <span className="text-muted-foreground">
+                      {geoData.city}, {geoData.country}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
