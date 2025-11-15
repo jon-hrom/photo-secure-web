@@ -343,7 +343,8 @@ exports.handler = async (event, context) => {
       status.innerHTML += '<p class="info">Перенаправление через 2 секунды...</p>';
       
       setTimeout(function() {
-        window.location.href = '${BASE_URL}/';
+        window.location.replace('${BASE_URL}/');
+        setTimeout(function() { window.location.reload(); }, 100);
       }, 2000);
     } catch (error) {
       status.innerHTML = '<p style="color:red">❌ Ошибка: ' + error.message + '</p>';
