@@ -54,15 +54,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     conn = psycopg2.connect(dsn)
+    conn.autocommit = False
     cursor = conn.cursor()
     
-    cursor.execute(f"DELETE FROM t_p28211681_photo_secure_web.vk_users WHERE user_id = {user_id}")
-    cursor.execute(f"DELETE FROM t_p28211681_photo_secure_web.user_profiles WHERE user_id = {user_id}")
-    cursor.execute(f"DELETE FROM t_p28211681_photo_secure_web.oauth_sessions WHERE user_id = {user_id}")
-    cursor.execute(f"DELETE FROM t_p28211681_photo_secure_web.email_verifications WHERE user_id = {user_id}")
-    cursor.execute(f"DELETE FROM t_p28211681_photo_secure_web.login_attempts WHERE user_id = {user_id}")
-    cursor.execute(f"DELETE FROM t_p28211681_photo_secure_web.two_factor_codes WHERE user_id = {user_id}")
+    deleted_tables = []
+    
+    tables_to_delete = [
+        ('vk_users', 'user_id'),
+        ('user_profiles', 'user_id'),
+        ('email_verifications', 'user_id'),
+        ('login_attempts', 'user_id'),
+        ('two_factor_codes', 'user_id'),
+        ('vk_temp_sessions', 'user_id'),
+    ]
+    
+    for table_name, column_name in tables_to_delete:
+        try:
+            cursor.execute(f"DELETE FROM t_p28211681_photo_secure_web.{table_name} WHERE {column_name} = {user_id}")
+            deleted_tables.append(table_name)
+        except Exception:
+            pass
+    
     cursor.execute(f"DELETE FROM t_p28211681_photo_secure_web.users WHERE id = {user_id}")
+    deleted_tables.append('users')
     
     conn.commit()
     cursor.close()
