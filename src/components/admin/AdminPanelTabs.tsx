@@ -18,9 +18,9 @@ interface AdminPanelTabsProps {
   onSaveColors: () => void;
   onToggleWidget: (id: number) => void;
   onMoveWidget: (id: number, direction: 'up' | 'down') => void;
-  onDeleteUser: (userId: number) => void;
-  onBlockUser: (userId: number, reason: string) => void;
-  onUnblockUser: (userId: number) => void;
+  onDeleteUser: (userId: string | number) => void;
+  onBlockUser: (userId: string | number, reason: string) => void;
+  onUnblockUser: (userId: string | number) => void;
 }
 
 const AdminPanelTabs = ({

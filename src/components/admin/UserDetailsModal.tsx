@@ -60,7 +60,8 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
   };
 
   const handleDelete = () => {
-    if (confirm(`Вы уверены, что хотите удалить пользователя ${user.email}? Это действие нельзя отменить.`)) {
+    const userName = user.email || user.full_name || user.phone || 'этого пользователя';
+    if (confirm(`Вы уверены, что хотите удалить пользователя ${userName}? Это действие нельзя отменить.`)) {
       onDelete(user.id);
       onClose();
     }

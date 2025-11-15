@@ -41,11 +41,14 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
   const [filterByActivity, setFilterByActivity] = useState<'all' | 'active' | 'inactive'>('all');
 
   const filteredAndSortedUsers = useMemo(() => {
+    if (!users || users.length === 0) return [];
+    
     const filtered = users.filter(user => {
       const matchesSearch = 
-        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (user.phone && user.phone.includes(searchQuery)) ||
-        (user.ip_address && user.ip_address.includes(searchQuery));
+        (user.ip_address && user.ip_address.includes(searchQuery)) ||
+        (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
       
       const matchesActivity = 
         filterByActivity === 'all' ? true :
@@ -57,7 +60,9 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
 
     filtered.sort((a, b) => {
       if (sortBy === 'email') {
-        return a.email.localeCompare(b.email);
+        const aEmail = a.email || a.full_name || '';
+        const bEmail = b.email || b.full_name || '';
+        return aEmail.localeCompare(bEmail);
       } else if (sortBy === 'lastLogin') {
         const aDate = a.last_login ? new Date(a.last_login).getTime() : 0;
         const bDate = b.last_login ? new Date(b.last_login).getTime() : 0;
