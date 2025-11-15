@@ -276,9 +276,8 @@ exports.handler = async (event, context) => {
       console.log('Token endpoint:', tokenEndpoint);
       console.log('Request params:', {
         client_id: VK_CLIENT_ID,
-        redirect_uri: `${BASE_URL}/auth/callback/vkid`,
+        redirect_uri: 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c',
         grant_type: 'authorization_code',
-        code_verifier_length: sessionData.code_verifier.length,
         code_length: code.length
       });
       
