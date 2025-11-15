@@ -125,20 +125,38 @@ const Index = () => {
             console.log('📦 Session data received:', data);
             
             if (data.userData && data.token) {
+              const userData = data.userData;
+              const isAdminUser = userData.email === 'jonhrom2012@gmail.com';
+              
               // Save to localStorage
-              localStorage.setItem('vk_user', JSON.stringify(data.userData));
+              localStorage.setItem('vk_user', JSON.stringify(userData));
               localStorage.setItem('auth_token', data.token);
               
-              console.log('✅ VK data saved to localStorage from session:', data.userData);
+              console.log('✅ VK data saved to localStorage from session:', userData);
               
-              // Clean URL and reload
+              // Set state immediately - no reload needed
+              setIsAuthenticated(true);
+              setUserId(userData.user_id || userData.vk_id);
+              setUserEmail(userData.email || '');
+              setUserName(userData.name || 'Пользователь VK');
+              setUserAvatar(userData.avatar || '');
+              setIsVerified(userData.verified || false);
+              setIsAdmin(isAdminUser);
+              setCurrentPage('dashboard');
+              lastActivityRef.current = Date.now();
+              
+              // Clean URL
               window.history.replaceState({}, '', '/');
-              window.location.reload();
+              
+              console.log('✅ VK auth complete, showing dashboard');
             }
           })
           .catch(error => {
             console.error('❌ Error fetching VK session:', error);
           });
+        
+        // Return early to prevent checking localStorage during VK auth
+        return;
       }
       
       const vkUser = localStorage.getItem('vk_user');
