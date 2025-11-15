@@ -12,8 +12,6 @@ const VK_CLIENT_ID = process.env.VK_CLIENT_ID || '';
 const VK_CLIENT_SECRET = process.env.VK_CLIENT_SECRET || '';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 
-const sessionsStorage = new Map();
-
 function generateCodeVerifier() {
   return crypto.randomBytes(32).toString('base64url');
 }
@@ -30,14 +28,43 @@ function generateNonce() {
   return crypto.randomBytes(32).toString('base64url');
 }
 
-function cleanOldSessions() {
-  const now = Date.now();
-  const maxAge = 600000;
-  
-  for (const [key, value] of sessionsStorage.entries()) {
-    if (now - value.timestamp > maxAge) {
-      sessionsStorage.delete(key);
-    }
+async function saveSession(state, nonce, codeVerifier) {
+  const client = new Client({ connectionString: DATABASE_URL });
+  try {
+    await client.connect();
+    const expiresAt = new Date(Date.now() + 600000);
+    await client.query(
+      `INSERT INTO oauth_sessions (state, nonce, code_verifier, provider, expires_at)
+       VALUES (${escapeSQL(state)}, ${escapeSQL(nonce)}, ${escapeSQL(codeVerifier)}, 'vkid', ${escapeSQL(expiresAt.toISOString())})`
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+async function getSession(state) {
+  const client = new Client({ connectionString: DATABASE_URL });
+  try {
+    await client.connect();
+    const result = await client.query(
+      `SELECT state, nonce, code_verifier FROM oauth_sessions 
+       WHERE state = ${escapeSQL(state)} AND expires_at > CURRENT_TIMESTAMP`
+    );
+    return result.rows[0] || null;
+  } finally {
+    await client.end();
+  }
+}
+
+async function deleteSession(state) {
+  const client = new Client({ connectionString: DATABASE_URL });
+  try {
+    await client.connect();
+    await client.query(
+      `UPDATE oauth_sessions SET expires_at = CURRENT_TIMESTAMP WHERE state = ${escapeSQL(state)}`
+    );
+  } finally {
+    await client.end();
   }
 }
 
@@ -188,8 +215,6 @@ exports.handler = async (event, context) => {
   }
   
   try {
-    cleanOldSessions();
-    
     if (!VK_CLIENT_ID || !VK_CLIENT_SECRET) {
       return {
         statusCode: 500,
@@ -219,13 +244,7 @@ exports.handler = async (event, context) => {
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = generateCodeChallenge(codeVerifier);
       
-      sessionsStorage.set(state, {
-        state,
-        nonce,
-        code_verifier: codeVerifier,
-        provider: 'vkid',
-        timestamp: Date.now()
-      });
+      await saveSession(state, nonce, codeVerifier);
       
       const authParams = new URLSearchParams({
         client_id: VK_CLIENT_ID,
@@ -253,7 +272,9 @@ exports.handler = async (event, context) => {
     if (httpMethod === 'GET' && code) {
       const state = queryStringParameters.state;
       
-      if (!state || !sessionsStorage.has(state)) {
+      const sessionData = await getSession(state);
+      
+      if (!sessionData) {
         return {
           statusCode: 400,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
@@ -262,8 +283,7 @@ exports.handler = async (event, context) => {
         };
       }
       
-      const sessionData = sessionsStorage.get(state);
-      sessionsStorage.delete(state);
+      await deleteSession(state);
       
       const oidcConfig = await discoverVKIssuer();
       const tokenEndpoint = oidcConfig.token_endpoint;
