@@ -109,53 +109,24 @@ const Index = () => {
 
   useEffect(() => {
     const restoreSession = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const vkAuthSuccess = urlParams.get('vk_auth');
-      const token = urlParams.get('token');
-      
-      console.log('🔍 Checking URL params:', { vkAuthSuccess, hasToken: !!token });
-      
-      if (vkAuthSuccess === 'success' && token) {
-        console.log('✅ VK auth detected, processing token...');
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log('✅ Token decoded:', payload);
-          const isAdminUser = payload.email === 'jonhrom2012@gmail.com';
-          
-          const userData = {
-            user_id: payload.user_id,
-            vk_id: payload.vk_user_id,
-            name: payload.name,
-            avatar: payload.avatar,
-            verified: payload.verified,
-            email: payload.email || ''
-          };
-          
-          localStorage.setItem('vk_user', JSON.stringify(userData));
-          localStorage.setItem('auth_token', token);
-          
-          setIsAuthenticated(true);
-          setUserId(payload.user_id);
-          setUserEmail(payload.email || '');
-          setUserName(payload.name || 'Пользователь VK');
-          setUserAvatar(payload.avatar || '');
-          setIsVerified(payload.verified || false);
-          setIsAdmin(isAdminUser);
-          setCurrentPage('dashboard');
-          lastActivityRef.current = Date.now();
-          
-          window.history.replaceState({}, '', '/');
-          return;
-        } catch (error) {
-          console.error('Ошибка обработки VK токена:', error);
-        }
-      }
+      console.log('🔄 Restoring session...');
       
       const vkUser = localStorage.getItem('vk_user');
+      const vkAuthCompleted = localStorage.getItem('vk_auth_completed');
+      
+      console.log('📦 LocalStorage check:', { 
+        hasVkUser: !!vkUser, 
+        vkAuthCompleted,
+        vkUserData: vkUser ? JSON.parse(vkUser) : null 
+      });
+      
       if (vkUser) {
         try {
           const userData = JSON.parse(vkUser);
           const isAdminUser = userData.email === 'jonhrom2012@gmail.com';
+          
+          console.log('✅ VK user found in localStorage:', userData);
+          
           setIsAuthenticated(true);
           setUserId(userData.user_id || userData.vk_id);
           setUserEmail(userData.email || '');
@@ -165,10 +136,17 @@ const Index = () => {
           setIsAdmin(isAdminUser);
           setCurrentPage('dashboard');
           lastActivityRef.current = Date.now();
+          
+          if (vkAuthCompleted) {
+            localStorage.removeItem('vk_auth_completed');
+          }
+          
+          console.log('✅ VK session restored, redirecting to dashboard');
           return;
         } catch (error) {
-          console.error('Ошибка восстановления VK сессии:', error);
+          console.error('❌ Error restoring VK session:', error);
           localStorage.removeItem('vk_user');
+          localStorage.removeItem('vk_auth_completed');
         }
       }
       

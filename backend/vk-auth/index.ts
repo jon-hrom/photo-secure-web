@@ -317,15 +317,16 @@ exports.handler = async (event, context) => {
       
       localStorage.setItem('vk_user', JSON.stringify(userData));
       localStorage.setItem('auth_token', token);
+      localStorage.setItem('vk_auth_completed', 'true');
       
-      console.log('✅ VK auth data saved to localStorage');
+      console.log('✅ VK auth data saved:', userData);
+      console.log('✅ Token saved');
       
-      setTimeout(function() {
-        window.location.replace('${BASE_URL}/');
-      }, 500);
+      window.location.href = '${BASE_URL}/';
     } catch (error) {
-      console.error('Error saving VK auth:', error);
-      window.location.replace('${BASE_URL}/');
+      console.error('❌ Error saving VK auth:', error);
+      alert('Ошибка сохранения: ' + error.message);
+      window.location.href = '${BASE_URL}/';
     }
   </script>
 </body>
