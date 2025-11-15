@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Start VK OAuth flow",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 302,
+      "bodyMatcher": "ignore"
+    },
+    {
+      "name": "Handle invalid state",
+      "method": "GET",
+      "path": "/?code=test&state=invalid",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
