@@ -111,24 +111,24 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
                   <p className="text-xs opacity-75 mt-1">{vkUser.phone}</p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-end gap-2">
                 {isAdmin && onOpenAdminPanel && (
                   <button
                     onClick={onOpenAdminPanel}
-                    className="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-2"
+                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-1.5"
                     title="Админ-панель"
                   >
-                    <Icon name="ShieldCheck" size={18} className="text-white" />
-                    <span className="text-sm font-semibold">Админ-панель</span>
+                    <Icon name="ShieldCheck" size={16} className="text-white" />
+                    <span className="text-xs font-semibold">Админка</span>
                   </button>
                 )}
                 {onLogout && (
                   <button
                     onClick={() => setShowLogoutDialog(true)}
-                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                    className="p-2 hover:bg-white/20 rounded-full transition-colors self-end"
                     title="Выйти"
                   >
-                    <Icon name="LogOut" size={24} className="text-white" />
+                    <Icon name="LogOut" size={20} className="text-white" />
                   </button>
                 )}
               </div>

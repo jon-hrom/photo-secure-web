@@ -86,26 +86,19 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
         </Card>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Панель администратора</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Управление настройками системы</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            onClick={onToggleHistory}
-            className="w-full sm:w-auto"
-          >
-            <Icon name="History" size={18} className="mr-2" />
-            <span className="sm:inline">История</span>
-          </Button>
-          <Button onClick={onSaveSettings} className="w-full sm:w-auto">
-            <Icon name="Save" size={18} className="mr-2" />
-            Сохранить все
-          </Button>
-        </div>
+      <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+        <Button
+          variant="outline"
+          onClick={onToggleHistory}
+          className="w-full sm:w-auto"
+        >
+          <Icon name="History" size={18} className="mr-2" />
+          <span className="sm:inline">История</span>
+        </Button>
+        <Button onClick={onSaveSettings} className="w-full sm:w-auto">
+          <Icon name="Save" size={18} className="mr-2" />
+          Сохранить все
+        </Button>
       </div>
     </div>
   );
