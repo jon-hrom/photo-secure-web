@@ -1,14 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
-import AdminGeneralSettings from '@/components/admin/AdminGeneralSettings';
-import AdminAppearance from '@/components/admin/AdminAppearance';
-import AdminWidgets from '@/components/admin/AdminWidgets';
-import AdminUsers from '@/components/admin/AdminUsers';
-import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
+import AdminPanelHeader from '@/components/admin/AdminPanelHeader';
+import AdminPanelHistory from '@/components/admin/AdminPanelHistory';
+import AdminPanelTabs from '@/components/admin/AdminPanelTabs';
 
 const AdminPanel = () => {
   const [settings, setSettings] = useState({
@@ -344,175 +338,34 @@ const AdminPanel = () => {
 
   return (
     <div className="space-y-6">
-      {vkUser && (
-        <Card className="bg-gradient-to-br from-blue-500 to-purple-600 text-white border-0 shadow-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              {vkUser.avatar && (
-                <div className="relative">
-                  <img 
-                    src={vkUser.avatar} 
-                    alt={vkUser.name}
-                    className="w-16 h-16 rounded-full border-4 border-white shadow-lg"
-                  />
-                  {vkUser.is_verified && (
-                    <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1">
-                      <Icon name="BadgeCheck" size={16} className="text-blue-500" />
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-xl font-bold">{vkUser.name || 'Пользователь VK'}</h3>
-                  {vkUser.is_verified && (
-                    <Icon name="BadgeCheck" size={20} className="text-white" />
-                  )}
-                  {(vkUser.name && vkUser.name.includes('Пономарев Евгений')) && (
-                    <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
-                      Администратор
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm opacity-90">{vkUser.email || 'Вход через VK ID'}</p>
-                {vkUser.phone && (
-                  <p className="text-xs opacity-75 mt-1">{vkUser.phone}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="text-right">
-                  <div className="text-xs opacity-75">Роль</div>
-                  <div className="font-semibold">Главный администратор</div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <AdminPanelHeader
+        vkUser={vkUser}
+        showHistory={showHistory}
+        onToggleHistory={() => setShowHistory(!showHistory)}
+        onSaveSettings={saveSettings}
+      />
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Панель администратора</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Управление настройками системы</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowHistory(!showHistory)}
-            className="w-full sm:w-auto"
-          >
-            <Icon name="History" size={18} className="mr-2" />
-            <span className="sm:inline">История</span>
-          </Button>
-          <Button onClick={saveSettings} className="w-full sm:w-auto">
-            <Icon name="Save" size={18} className="mr-2" />
-            Сохранить все
-          </Button>
-        </div>
-      </div>
+      <AdminPanelHistory
+        history={history}
+        showHistory={showHistory}
+        onRollback={rollbackToVersion}
+      />
 
-      {showHistory && history.length > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold mb-4">История изменений</h3>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {history.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl bg-card gap-3"
-                >
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium">
-                      Версия #{item.id}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(item.changed_at).toLocaleString('ru-RU')}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => rollbackToVersion(item.id)}
-                    className="w-full sm:w-auto"
-                  >
-                    <Icon name="RotateCcw" size={16} className="mr-2" />
-                    Откатить
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto gap-2">
-          <TabsTrigger value="general" className="text-xs sm:text-sm">
-            <Icon name="Settings" size={16} className="mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Общие</span>
-            <span className="sm:hidden">Общ.</span>
-          </TabsTrigger>
-          <TabsTrigger value="auth" className="text-xs sm:text-sm">
-            <Icon name="Key" size={16} className="mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Способы входа</span>
-            <span className="sm:hidden">Вход</span>
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="text-xs sm:text-sm">
-            <Icon name="Palette" size={16} className="mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Внешний вид</span>
-            <span className="sm:hidden">Вид</span>
-          </TabsTrigger>
-          <TabsTrigger value="widgets" className="text-xs sm:text-sm">
-            <Icon name="LayoutGrid" size={16} className="mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Виджеты</span>
-            <span className="sm:hidden">Видж.</span>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="text-xs sm:text-sm">
-            <Icon name="Users" size={16} className="mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Пользователи</span>
-            <span className="sm:hidden">Польз.</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="general" className="space-y-4">
-          <AdminGeneralSettings
-            settings={settings}
-            handleToggle={handleToggle}
-            handleInputChange={handleInputChange}
-          />
-        </TabsContent>
-
-        <TabsContent value="auth" className="space-y-4">
-          <AdminAuthProviders
-            authProviders={authProviders}
-            onToggleProvider={handleToggleAuthProvider}
-          />
-        </TabsContent>
-
-        <TabsContent value="appearance" className="space-y-4">
-          <AdminAppearance
-            colors={colors}
-            handleColorChange={handleColorChange}
-            handleSaveColors={handleSaveColors}
-          />
-        </TabsContent>
-
-        <TabsContent value="widgets" className="space-y-4">
-          <AdminWidgets
-            widgets={widgets}
-            moveWidget={moveWidget}
-            toggleWidget={toggleWidget}
-          />
-        </TabsContent>
-
-        <TabsContent value="users" className="space-y-4">
-          <AdminUsers
-            users={users}
-            deleteUser={deleteUser}
-          />
-        </TabsContent>
-      </Tabs>
+      <AdminPanelTabs
+        settings={settings}
+        authProviders={authProviders}
+        colors={colors}
+        widgets={widgets}
+        users={users}
+        onToggle={handleToggle}
+        onInputChange={handleInputChange}
+        onToggleAuthProvider={handleToggleAuthProvider}
+        onColorChange={handleColorChange}
+        onSaveColors={handleSaveColors}
+        onToggleWidget={toggleWidget}
+        onMoveWidget={moveWidget}
+        onDeleteUser={deleteUser}
+      />
     </div>
   );
 };
