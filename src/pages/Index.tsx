@@ -113,9 +113,13 @@ const Index = () => {
       const vkAuthSuccess = urlParams.get('vk_auth');
       const token = urlParams.get('token');
       
+      console.log('🔍 Checking URL params:', { vkAuthSuccess, hasToken: !!token });
+      
       if (vkAuthSuccess === 'success' && token) {
+        console.log('✅ VK auth detected, processing token...');
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
+          console.log('✅ Token decoded:', payload);
           const isAdminUser = payload.email === 'jonhrom2012@gmail.com';
           
           const userData = {
