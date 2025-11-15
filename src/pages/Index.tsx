@@ -317,6 +317,7 @@ const Index = () => {
             onOpenClientBooking={(clientName) => {
               setCurrentPage('auth');
             }}
+            onLogout={handleLogout}
           />
         </main>
       </div>
@@ -458,6 +459,7 @@ const Index = () => {
               setSelectedClientName(clientName);
               setCurrentPage('clients');
             }}
+            onLogout={handleLogout}
           />
         )}
         {currentPage === 'clients' && <ClientsPage autoOpenClient={selectedClientName} />}

@@ -7,9 +7,10 @@ import Icon from '@/components/ui/icon';
 interface DashboardProps {
   userRole: 'user' | 'admin' | 'guest';
   onOpenClientBooking?: (clientName: string) => void;
+  onLogout?: () => void;
 }
 
-const Dashboard = ({ userRole, onOpenClientBooking }: DashboardProps) => {
+const Dashboard = ({ userRole, onOpenClientBooking, onLogout }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -92,7 +93,15 @@ const Dashboard = ({ userRole, onOpenClientBooking }: DashboardProps) => {
                   <p className="text-xs opacity-75 mt-1">{vkUser.phone}</p>
                 )}
               </div>
-              <Icon name="User" size={48} className="opacity-20" />
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                  title="Выйти"
+                >
+                  <Icon name="LogOut" size={24} className="text-white" />
+                </button>
+              )}
             </div>
           </CardContent>
         </Card>
