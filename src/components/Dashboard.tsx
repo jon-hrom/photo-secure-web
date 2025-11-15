@@ -19,9 +19,10 @@ interface DashboardProps {
   onOpenClientBooking?: (clientName: string) => void;
   onLogout?: () => void;
   onOpenAdminPanel?: () => void;
+  isAdmin?: boolean;
 }
 
-const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel }: DashboardProps) => {
+const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, isAdmin }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -111,7 +112,7 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel }
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {(vkUser.email === 'jonhrom2012@gmail.com' || (vkUser.name && vkUser.name.includes('Пономарев Евгений'))) && onOpenAdminPanel && (
+                {isAdmin && onOpenAdminPanel && (
                   <button
                     onClick={onOpenAdminPanel}
                     className="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-2"
