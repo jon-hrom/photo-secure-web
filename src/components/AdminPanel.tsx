@@ -248,17 +248,23 @@ const AdminPanel = () => {
 
   const handleToggleAuthProvider = async (provider: string) => {
     const newValue = !authProviders[provider as keyof typeof authProviders];
-    setAuthProviders(prev => ({ ...prev, [provider]: newValue }));
+    const updatedProviders = { ...authProviders, [provider]: newValue };
+    setAuthProviders(updatedProviders);
     
     try {
-      await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0', {
+      const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key: 'auth_providers',
-          value: { ...authProviders, [provider]: newValue }
+          value: updatedProviders
         })
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save');
+      }
+      
       toast.success(`${provider === 'yandex' ? 'Яндекс ID' : provider === 'vk' ? 'VK ID' : 'Google'} ${newValue ? 'включен' : 'отключен'}`);
     } catch (error) {
       console.error('Ошибка сохранения настройки:', error);

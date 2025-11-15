@@ -42,6 +42,43 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cursor = conn.cursor()
     
     if method == 'GET':
+        # Check if specific key is requested
+        query_params = event.get('queryStringParameters') or {}
+        requested_key = query_params.get('key')
+        
+        if requested_key:
+            # Get specific setting
+            cursor.execute("SELECT setting_value FROM app_settings WHERE setting_key = %s", (requested_key,))
+            row = cursor.fetchone()
+            
+            if row:
+                value = row[0]
+                # Try to parse as JSON first
+                try:
+                    parsed_value = json.loads(value)
+                    result = {'value': parsed_value}
+                except (json.JSONDecodeError, ValueError):
+                    # If not JSON, check if it's a boolean
+                    if value.lower() in ('true', 'false'):
+                        result = {'value': value.lower() == 'true'}
+                    else:
+                        result = {'value': value}
+            else:
+                result = {'value': None}
+            
+            cursor.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps(result),
+                'isBase64Encoded': False
+            }
+        
         # Get all settings
         cursor.execute("SELECT setting_key, setting_value FROM app_settings")
         rows = cursor.fetchall()
@@ -49,11 +86,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         settings = {}
         for row in rows:
             key, value = row
-            # Convert string boolean to actual boolean
-            if value.lower() in ('true', 'false'):
-                settings[key] = value.lower() == 'true'
-            else:
-                settings[key] = value
+            # Try to parse as JSON first
+            try:
+                settings[key] = json.loads(value)
+            except (json.JSONDecodeError, ValueError):
+                # If not JSON, check if it's a boolean
+                if value.lower() in ('true', 'false'):
+                    settings[key] = value.lower() == 'true'
+                else:
+                    settings[key] = value
         
         cursor.close()
         conn.close()
@@ -72,7 +113,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Update a setting
         body_data = json.loads(event.get('body', '{}'))
         setting_key = body_data.get('key')
-        setting_value = str(body_data.get('value', 'false'))
+        setting_value_raw = body_data.get('value')
         
         if not setting_key:
             cursor.close()
@@ -86,6 +127,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({'error': 'Setting key is required'}),
                 'isBase64Encoded': False
             }
+        
+        # Convert value to string for storage
+        # If it's a dict or list, store as JSON string
+        if isinstance(setting_value_raw, (dict, list)):
+            setting_value = json.dumps(setting_value_raw)
+        elif isinstance(setting_value_raw, bool):
+            setting_value = str(setting_value_raw).lower()
+        else:
+            setting_value = str(setting_value_raw)
         
         # Update or insert setting
         cursor.execute("""
@@ -105,7 +155,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({'success': True, 'key': setting_key, 'value': setting_value}),
+            'body': json.dumps({'success': True, 'key': setting_key, 'value': setting_value_raw}),
             'isBase64Encoded': False
         }
     

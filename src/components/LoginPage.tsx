@@ -36,8 +36,10 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       try {
         const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=auth_providers');
         const data = await response.json();
+        console.log('Loaded auth providers:', data);
         if (data.value) {
           setAuthProviders(data.value);
+          console.log('Auth providers set to:', data.value);
         }
       } catch (error) {
         console.error('Ошибка загрузки настроек провайдеров:', error);
