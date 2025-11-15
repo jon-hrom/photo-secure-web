@@ -273,11 +273,20 @@ exports.handler = async (event, context) => {
       
       const tokenData = await tokenResponse.json();
       
+      console.log('VK token response:', JSON.stringify(tokenData));
+      console.log('Token endpoint:', tokenEndpoint);
+      console.log('Request params:', Object.fromEntries(tokenParams.entries()));
+      
       if (tokenData.error) {
         return {
           statusCode: 400,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify({ error: 'Token exchange failed', details: tokenData }),
+          body: JSON.stringify({ 
+            error: 'Token exchange failed', 
+            details: tokenData,
+            endpoint: tokenEndpoint,
+            status: tokenResponse.status
+          }),
           isBase64Encoded: false
         };
       }
