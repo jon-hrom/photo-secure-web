@@ -250,7 +250,8 @@ exports.handler = async (event, context) => {
         redirect_uri: `${BASE_URL}/vk-callback.html`,
         response_type: 'code',
         scope: 'email phone',
-        state
+        state,
+        prompt: 'login'
       });
       
       const authUrl = `${authEndpoint}?${authParams}`;
