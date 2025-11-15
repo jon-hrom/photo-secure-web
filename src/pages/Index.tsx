@@ -153,8 +153,6 @@ const Index = () => {
               setCurrentPage('dashboard');
               lastActivityRef.current = Date.now();
               
-              console.log('✅ isAdmin set to:', isAdminUser);
-              
               // Clean URL
               window.history.replaceState({}, '', '/');
               
@@ -203,8 +201,6 @@ const Index = () => {
           setIsAdmin(isAdminUser);
           setCurrentPage('dashboard');
           lastActivityRef.current = Date.now();
-          
-          console.log('✅ isAdmin restored to:', isAdminUser);
           
           if (vkAuthCompleted) {
             localStorage.removeItem('vk_auth_completed');
