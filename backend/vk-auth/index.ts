@@ -42,20 +42,13 @@ function cleanOldSessions() {
 }
 
 async function discoverVKIssuer() {
-  const candidates = ['https://id.vk.com', 'https://id.vk.ru'];
-  
-  for (const baseUrl of candidates) {
-    try {
-      const response = await fetch(`${baseUrl}/.well-known/openid-configuration`);
-      if (response.ok) {
-        return await response.json();
-      }
-    } catch (e) {
-      continue;
-    }
-  }
-  
-  throw new Error('VK ID OIDC discovery failed');
+  return {
+    issuer: 'https://id.vk.com',
+    authorization_endpoint: 'https://id.vk.com/authorize',
+    token_endpoint: 'https://id.vk.com/oauth2/auth',
+    userinfo_endpoint: 'https://id.vk.com/oauth2/user_info',
+    jwks_uri: 'https://id.vk.com/.well-known/jwks.json'
+  };
 }
 
 async function fetchVKUserInfo(accessToken, userId) {
