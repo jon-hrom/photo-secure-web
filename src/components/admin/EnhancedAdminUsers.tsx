@@ -249,7 +249,6 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
       </div>
     );
   };
-  );
 
   return (
     <>
