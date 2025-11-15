@@ -376,7 +376,7 @@ exports.handler = async (event, context) => {
 </head>
 <body>
   <script>
-    window.location.replace('${BASE_URL}/?vk_session=' + ${JSON.stringify(sessionId)});
+    window.location.replace('${BASE_URL}/?vk_session=${sessionId}');
   </script>
 </body>
 </html>`;
