@@ -215,12 +215,15 @@ exports.handler = async (event, context) => {
       
       await deleteSession(stateParam);
       
+      const generatedDeviceId = deviceId || crypto.randomUUID();
+      
       const tokenBody = new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
         redirect_uri: `${BASE_URL}/vk-callback.html`,
         code_verifier: session.code_verifier,
-        client_id: VK_CLIENT_ID
+        client_id: VK_CLIENT_ID,
+        device_id: generatedDeviceId
       });
       
       const tokenResponse = await fetch('https://id.vk.com/oauth2/auth', {
