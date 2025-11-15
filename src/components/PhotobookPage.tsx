@@ -60,9 +60,9 @@ const PhotobookPage = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold">Макет фотокниг</h2>
+    <div className="space-y-6 animate-fade-in p-4 md:p-6 pt-24 md:pt-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h2 className="text-2xl md:text-3xl font-bold">Макет фотокниг</h2>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button className="rounded-full shadow-lg hover-scale">

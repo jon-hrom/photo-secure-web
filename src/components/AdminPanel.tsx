@@ -340,7 +340,7 @@ const AdminPanel = () => {
   const emailUser = savedSession ? JSON.parse(savedSession) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6 pt-24 md:pt-8">
       <AdminPanelHeader
         vkUser={vkUser}
         emailUser={emailUser}

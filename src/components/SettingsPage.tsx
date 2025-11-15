@@ -112,11 +112,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4 md:p-6 pt-24 md:pt-8">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
           <Icon name="Settings" size={32} className="text-primary" />
-          <h1 className="text-3xl font-bold">Настройки</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Настройки</h1>
         </div>
 
         <Card className="shadow-xl">

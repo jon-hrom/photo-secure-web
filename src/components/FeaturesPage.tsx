@@ -81,9 +81,9 @@ const FeaturesPage = () => {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 md:p-6 pt-24 md:pt-8">
       <div className="text-center">
-        <h2 className="text-4xl font-bold mb-4">
+        <h2 className="text-3xl md:text-4xl font-bold mb-4">
           <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
             Все возможности
           </span>
