@@ -25,6 +25,26 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [pendingUserId, setPendingUserId] = useState<number | null>(null);
   const [twoFactorType, setTwoFactorType] = useState<'sms' | 'email'>('email');
   const [passwordError, setPasswordError] = useState('');
+  const [authProviders, setAuthProviders] = useState({
+    yandex: true,
+    vk: true,
+    google: true,
+  });
+
+  useEffect(() => {
+    const loadAuthProviders = async () => {
+      try {
+        const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=auth_providers');
+        const data = await response.json();
+        if (data.value) {
+          setAuthProviders(data.value);
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки настроек провайдеров:', error);
+      }
+    };
+    loadAuthProviders();
+  }, []);
 
   useEffect(() => {
     const savedBlockData = localStorage.getItem('loginBlock');
@@ -309,41 +329,54 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
             </Button>
           </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Или войти через</span>
-            </div>
-          </div>
+          {(authProviders.yandex || authProviders.vk || authProviders.google) && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Или войти через</span>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <Button
-              variant="outline"
-              onClick={() => handleOAuthLogin('yandex')}
-              disabled={isBlocked}
-              className="rounded-xl"
-            >
-              <Icon name="Circle" size={20} className="text-red-500" />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleOAuthLogin('vk')}
-              disabled={isBlocked}
-              className="rounded-xl"
-            >
-              <Icon name="MessageCircle" size={20} className="text-blue-500" />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleOAuthLogin('google')}
-              disabled={isBlocked}
-              className="rounded-xl"
-            >
-              <Icon name="Mail" size={20} className="text-red-600" />
-            </Button>
-          </div>
+              <div className="flex justify-center gap-3">
+                {authProviders.yandex && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleOAuthLogin('yandex')}
+                    disabled={isBlocked}
+                    className="rounded-xl flex-1"
+                    title="Войти через Яндекс"
+                  >
+                    <Icon name="Circle" size={20} className="text-red-500" />
+                  </Button>
+                )}
+                {authProviders.vk && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleOAuthLogin('vk')}
+                    disabled={isBlocked}
+                    className="rounded-xl flex-1"
+                    title="Войти через VK"
+                  >
+                    <Icon name="MessageCircle" size={20} className="text-blue-500" />
+                  </Button>
+                )}
+                {authProviders.google && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleOAuthLogin('google')}
+                    disabled={isBlocked}
+                    className="rounded-xl flex-1"
+                    title="Войти через Google"
+                  >
+                    <Icon name="Mail" size={20} className="text-red-600" />
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

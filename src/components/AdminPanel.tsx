@@ -8,6 +8,7 @@ import AdminGeneralSettings from '@/components/admin/AdminGeneralSettings';
 import AdminAppearance from '@/components/admin/AdminAppearance';
 import AdminWidgets from '@/components/admin/AdminWidgets';
 import AdminUsers from '@/components/admin/AdminUsers';
+import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
 
 const AdminPanel = () => {
   const [settings, setSettings] = useState({
@@ -27,6 +28,12 @@ const AdminPanel = () => {
     sessionTimeout: '7',
     maxLoginAttempts: '5',
     passwordMinLength: '8',
+  });
+
+  const [authProviders, setAuthProviders] = useState({
+    yandex: true,
+    vk: true,
+    google: true,
   });
 
   const [colors, setColors] = useState({
@@ -58,13 +65,19 @@ const AdminPanel = () => {
 
   const loadSettings = async () => {
     try {
-      const [oldSettingsResponse, appSettingsResponse] = await Promise.all([
+      const [oldSettingsResponse, appSettingsResponse, authProvidersResponse] = await Promise.all([
         fetch('https://functions.poehali.dev/68eb5b20-e2c3-4741-aa83-500a5301ff4a'),
-        fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0')
+        fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0'),
+        fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=auth_providers')
       ]);
       
       const oldData = await oldSettingsResponse.json();
       const appSettings = await appSettingsResponse.json();
+      const authProvidersData = await authProvidersResponse.json();
+      
+      if (authProvidersData.value) {
+        setAuthProviders(authProvidersData.value);
+      }
       
       if (oldData.settings) {
         setSettings(prev => ({
@@ -200,7 +213,7 @@ const AdminPanel = () => {
       const settingKeyMap: Record<string, string> = {
         registrationEnabled: 'registration_enabled',
         maintenanceMode: 'maintenance_mode',
-        guestAccess: 'guest_access'
+        guestAccess: 'guest_access',
       };
       
       try {
@@ -231,6 +244,27 @@ const AdminPanel = () => {
 
   const handleColorChange = (key: string, value: string) => {
     setColors(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleToggleAuthProvider = async (provider: string) => {
+    const newValue = !authProviders[provider as keyof typeof authProviders];
+    setAuthProviders(prev => ({ ...prev, [provider]: newValue }));
+    
+    try {
+      await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'auth_providers',
+          value: { ...authProviders, [provider]: newValue }
+        })
+      });
+      toast.success(`${provider === 'yandex' ? 'Яндекс ID' : provider === 'vk' ? 'VK ID' : 'Google'} ${newValue ? 'включен' : 'отключен'}`);
+    } catch (error) {
+      console.error('Ошибка сохранения настройки:', error);
+      toast.error('Не удалось сохранить настройку');
+      setAuthProviders(prev => ({ ...prev, [provider]: !newValue }));
+    }
   };
 
   const handleSaveColors = async () => {
@@ -358,11 +392,16 @@ const AdminPanel = () => {
       )}
 
       <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto gap-2">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto gap-2">
           <TabsTrigger value="general" className="text-xs sm:text-sm">
             <Icon name="Settings" size={16} className="mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Общие</span>
             <span className="sm:hidden">Общ.</span>
+          </TabsTrigger>
+          <TabsTrigger value="auth" className="text-xs sm:text-sm">
+            <Icon name="Key" size={16} className="mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Способы входа</span>
+            <span className="sm:hidden">Вход</span>
           </TabsTrigger>
           <TabsTrigger value="appearance" className="text-xs sm:text-sm">
             <Icon name="Palette" size={16} className="mr-1 sm:mr-2" />
@@ -386,6 +425,13 @@ const AdminPanel = () => {
             settings={settings}
             handleToggle={handleToggle}
             handleInputChange={handleInputChange}
+          />
+        </TabsContent>
+
+        <TabsContent value="auth" className="space-y-4">
+          <AdminAuthProviders
+            authProviders={authProviders}
+            onToggleProvider={handleToggleAuthProvider}
           />
         </TabsContent>
 
