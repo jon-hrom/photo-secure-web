@@ -1,17 +1,19 @@
 /**
- * Business: Авторизация через VK ID с правильным OAuth flow (application/x-www-form-urlencoded)
+ * Business: Авторизация через VK ID с JWT сессиями и автоматическим редиректом
  * Args: event с httpMethod, queryStringParameters для OAuth callback
- * Returns: HTTP response с редиректом на VK или JSON профилем пользователя
+ * Returns: HTTP response с редиректом на VK или главную страницу с JWT токеном
  */
 
 const crypto = require('crypto');
 const { Client } = require('pg');
+const jwt = require('jsonwebtoken');
 
 const BASE_URL = process.env.BASE_URL || 'https://foto-mix.ru';
 const VK_CLIENT_ID = process.env.VK_CLIENT_ID || '';
 const VK_CLIENT_SECRET = process.env.VK_CLIENT_SECRET || '';
 const VK_SERVICE_TOKEN = process.env.VK_SERVICE_TOKEN || '';
 const DATABASE_URL = process.env.DATABASE_URL || '';
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
 
 function generateState() {
   return crypto.randomBytes(32).toString('base64url');
@@ -276,22 +278,26 @@ exports.handler = async (event, context) => {
         vkUserInfo.verified === 1 || vkUserInfo.verified === true
       );
       
-      return {
-        statusCode: 200,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({
-          success: true,
+      const sessionToken = jwt.sign(
+        {
           user_id: userId,
           vk_user_id: tokenData.user_id,
-          profile: {
-            name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim(),
-            avatar: vkUserInfo.photo_max || vkUserInfo.photo_200,
-            verified: vkUserInfo.verified === 1
-          }
-        }),
+          name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim(),
+          avatar: vkUserInfo.photo_max || vkUserInfo.photo_200,
+          verified: vkUserInfo.verified === 1
+        },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+      
+      return {
+        statusCode: 302,
+        headers: { 
+          'Location': `${BASE_URL}/?vk_auth=success&token=${sessionToken}`,
+          'Set-Cookie': `vk_session=${sessionToken}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax`,
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: '',
         isBase64Encoded: false
       };
     }
