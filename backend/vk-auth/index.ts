@@ -216,10 +216,13 @@ exports.handler = async (event, context) => {
       
       const state = generateState();
       const nonce = generateNonce();
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
       
       sessionsStorage.set(state, {
         state,
         nonce,
+        code_verifier: codeVerifier,
         provider: 'vkid',
         timestamp: Date.now()
       });
@@ -229,7 +232,9 @@ exports.handler = async (event, context) => {
         redirect_uri: `${BASE_URL}/auth/callback/vkid`,
         response_type: 'code',
         scope: 'email phone',
-        state
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256'
       });
       
       const authUrl = `${authEndpoint}?${authParams}`;
@@ -269,7 +274,8 @@ exports.handler = async (event, context) => {
         client_secret: VK_CLIENT_SECRET,
         code,
         redirect_uri: `${BASE_URL}/auth/callback/vkid`,
-        grant_type: 'authorization_code'
+        grant_type: 'authorization_code',
+        code_verifier: sessionData.code_verifier
       });
       
       console.log('=== VK TOKEN EXCHANGE START ===');
