@@ -87,6 +87,46 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
     setIsModalOpen(true);
   };
 
+  const exportToCSV = () => {
+    const csvHeaders = [
+      'ID',
+      'Email',
+      'Телефон',
+      'Статус',
+      'Заблокирован',
+      'IP адрес',
+      'Дата регистрации',
+      'Последний вход',
+      'Браузер/Устройство',
+      'Причина блокировки'
+    ].join(',');
+
+    const csvRows = filteredAndSortedUsers.map(user => [
+      user.id,
+      user.email,
+      user.phone || '',
+      user.is_active ? 'Активен' : 'Неактивен',
+      user.is_blocked ? 'Да' : 'Нет',
+      user.ip_address || '',
+      user.registered_at || user.created_at,
+      user.last_login || '',
+      user.user_agent || '',
+      user.blocked_reason || ''
+    ].map(value => `"${String(value).replace(/"/g, '""')}"`).join(','));
+
+    const csvContent = [csvHeaders, ...csvRows].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `users_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const renderUserCard = (user: User) => (
     <div
       key={user.id}
@@ -208,23 +248,38 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
               </Select>
             </div>
 
-            {searchQuery && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Icon name="Info" size={16} />
-                <span>Найдено: {filteredAndSortedUsers.length} из {users.length}</span>
-                {filteredAndSortedUsers.length > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              {searchQuery ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Icon name="Info" size={16} />
+                  <span>Найдено: {filteredAndSortedUsers.length} из {users.length}</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setSearchQuery('')}
-                    className="ml-auto h-7 gap-1"
+                    className="h-7 gap-1"
                   >
                     <Icon name="X" size={14} />
                     Сбросить
                   </Button>
-                )}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Всего пользователей: {users.length}
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportToCSV}
+                className="gap-2"
+                disabled={filteredAndSortedUsers.length === 0}
+              >
+                <Icon name="Download" size={16} />
+                Экспорт в CSV
+              </Button>
+            </div>
           </div>
 
           <Tabs defaultValue="whitelist" className="w-full">
