@@ -391,7 +391,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
                   Экспорт в CSV
                 </Button>
               </div>
-          </div>
+            </div>
 
           <Tabs defaultValue="whitelist" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
