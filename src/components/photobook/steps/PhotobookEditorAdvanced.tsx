@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { PhotobookConfig, UploadedPhoto, PhotoSlot } from '../PhotobookCreator';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { useAutoSave } from '@/hooks/useAutoSave';
 import EditorTopToolbar from '../editor/EditorTopToolbar';
 import EditorLeftPanel from '../editor/EditorLeftPanel';
 import EditorCanvas from '../editor/EditorCanvas';
@@ -63,6 +64,9 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
     },
   ];
 
+  const savedSpreads = localStorage.getItem('photobook-editor-spreads');
+  const initialState = savedSpreads ? JSON.parse(savedSpreads) : initialSpreads;
+
   const {
     state: spreads,
     setState: setSpreads,
@@ -72,11 +76,32 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
     canRedo,
     historySize,
     currentIndex,
-  } = useUndoRedo<Spread[]>(initialSpreads, 100);
+  } = useUndoRedo<Spread[]>(initialState, 100);
 
-  const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
+  const { clearSaved } = useAutoSave(spreads, {
+    key: 'photobook-editor-spreads',
+    delay: 2000,
+    enabled: true
+  });
+
+  const savedSpreadIndex = localStorage.getItem('photobook-editor-spread-index');
+  const savedAdjustments = localStorage.getItem('photobook-editor-adjustments');
+
+  const [currentSpreadIndex, setCurrentSpreadIndex] = useState(savedSpreadIndex ? parseInt(savedSpreadIndex) : 0);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [photoAdjustments, setPhotoAdjustments] = useState<Record<string, DraggablePhoto>>({});
+  const [photoAdjustments, setPhotoAdjustments] = useState<Record<string, DraggablePhoto>>(
+    savedAdjustments ? JSON.parse(savedAdjustments) : {}
+  );
+
+  useAutoSave(currentSpreadIndex, {
+    key: 'photobook-editor-spread-index',
+    delay: 1000
+  });
+
+  useAutoSave(photoAdjustments, {
+    key: 'photobook-editor-adjustments',
+    delay: 2000
+  });
   const [leftPanelTab, setLeftPanelTab] = useState<'photos' | 'text' | 'templates' | 'bg' | 'collages' | 'stickers' | 'frames'>('photos');
   
   const [showFrameSelector, setShowFrameSelector] = useState(false);
@@ -125,6 +150,9 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
   }, [undo, redo]);
 
   const handleComplete = () => {
+    clearSaved();
+    localStorage.removeItem('photobook-editor-spread-index');
+    localStorage.removeItem('photobook-editor-adjustments');
     onComplete(spreads);
   };
 
