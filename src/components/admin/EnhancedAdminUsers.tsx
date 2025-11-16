@@ -96,6 +96,9 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
 
   const activeUsers = filteredAndSortedUsers.filter(u => !u.is_blocked);
   const blockedUsers = filteredAndSortedUsers.filter(u => u.is_blocked);
+  
+  const onlineCount = activeUsers.filter(u => isUserOnline(u.last_login)).length;
+  const offlineCount = activeUsers.filter(u => !isUserOnline(u.last_login)).length;
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('ru-RU', {
@@ -286,8 +289,18 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
             <Icon name="Users" size={24} />
             Управление пользователями
           </CardTitle>
-          <CardDescription>
-            Белый и черный списки пользователей с детальной информацией
+          <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
+            <span>Белый и черный списки пользователей с детальной информацией</span>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                <span className="font-medium">Онлайн: {onlineCount}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-red-600"></div>
+                <span className="font-medium">Офлайн: {offlineCount}</span>
+              </div>
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent>
