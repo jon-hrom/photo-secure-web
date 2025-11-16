@@ -108,43 +108,48 @@ const BackgroundGallery = ({
           
           {searchResults.length > 0 && (
             <div className="space-y-3">
-              <h4 className="font-medium text-sm">Результаты поиска ({searchResults.length})</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
-                {searchResults.map((image) => {
-                  const isAdded = backgroundImages.some(bg => bg.id === image.id);
-                  return (
-                    <div
-                      key={image.id}
-                      className="relative group rounded-lg overflow-hidden border-2 border-gray-200"
-                    >
-                      <div className="aspect-video bg-gray-100">
-                        <img
-                          src={image.url}
-                          alt={image.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => onAddFromSearch(image)}
-                        disabled={isAdded}
-                        className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-sm">Результаты поиска ({searchResults.length})</h4>
+                <p className="text-xs text-muted-foreground">Листайте влево/вправо →</p>
+              </div>
+              <div className="relative">
+                <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                  {searchResults.map((image) => {
+                    const isAdded = backgroundImages.some(bg => bg.id === image.id);
+                    return (
+                      <div
+                        key={image.id}
+                        className="relative group flex-none w-64 rounded-lg overflow-hidden border-2 border-gray-200 snap-start"
                       >
-                        {isAdded ? (
-                          <>
-                            <Icon name="Check" size={14} className="mr-1" />
-                            Добавлено
-                          </>
-                        ) : (
-                          <>
-                            <Icon name="Plus" size={14} className="mr-1" />
-                            Добавить
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  );
-                })}
+                        <div className="aspect-video bg-gray-100">
+                          <img
+                            src={image.url}
+                            alt={image.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => onAddFromSearch(image)}
+                          disabled={isAdded}
+                          className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          {isAdded ? (
+                            <>
+                              <Icon name="Check" size={14} className="mr-1" />
+                              Добавлено
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="Plus" size={14} className="mr-1" />
+                              Добавить
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

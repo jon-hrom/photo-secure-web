@@ -105,12 +105,26 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://pixabay.com/api/?key=47579633-d22b93cb4732806e64d4d8f28&q=${encodeURIComponent(searchQuery)}&image_type=photo&orientation=horizontal&per_page=12&lang=ru`
+        `https://pixabay.com/api/?key=47579633-d22b93cb4732806e64d4d8f28&q=${encodeURIComponent(searchQuery)}&image_type=photo&orientation=horizontal&per_page=20&lang=ru`
       );
 
-      if (!response.ok) throw new Error('Search failed');
+      if (!response.ok) {
+        console.error('Pixabay API error:', response.status, response.statusText);
+        throw new Error('Search failed');
+      }
 
       const data = await response.json();
+      console.log('Pixabay response:', data);
+
+      if (!data.hits || data.hits.length === 0) {
+        toast({
+          title: 'Ничего не найдено',
+          description: 'Попробуйте другой запрос',
+        });
+        setSearchResults([]);
+        return;
+      }
+
       const results: BackgroundImage[] = data.hits.map((photo: any) => ({
         id: `pixabay-${photo.id}`,
         url: photo.largeImageURL,
@@ -123,6 +137,7 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
         description: `Найдено ${results.length} изображений`,
       });
     } catch (error) {
+      console.error('Search error:', error);
       toast({
         title: 'Ошибка поиска',
         description: 'Не удалось найти изображения. Попробуйте позже.',
