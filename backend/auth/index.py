@@ -316,6 +316,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'success': True}),
                     'isBase64Encoded': False
                 }
+            
+            elif action == 'update-activity':
+                email = body.get('email')
+                
+                if not email:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Email обязателен'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor = conn.cursor()
+                user_agent = event.get('headers', {}).get('User-Agent', '')
+                cursor.execute(
+                    "UPDATE users SET last_login = NOW(), ip_address = %s, user_agent = %s WHERE email = %s",
+                    (ip_address, user_agent, email)
+                )
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': headers,
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
         
         elif method == 'GET':
             user_id = params.get('userId')

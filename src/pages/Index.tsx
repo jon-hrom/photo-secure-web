@@ -69,6 +69,29 @@ const Index = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    const updateActivityOnServer = async () => {
+      try {
+        const vkUser = localStorage.getItem('vk_user');
+        
+        if (vkUser) {
+          const userData = JSON.parse(vkUser);
+          await fetch('https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update-activity', vk_id: userData.vk_id || userData.user_id })
+          });
+        } else if (userEmail) {
+          await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update-activity', email: userEmail })
+          });
+        }
+      } catch (error) {
+        console.error('Ошибка обновления активности на сервере:', error);
+      }
+    };
+
     const updateActivity = () => {
       const now = Date.now();
       lastActivityRef.current = now;
@@ -100,13 +123,17 @@ const Index = () => {
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     events.forEach(event => window.addEventListener(event, updateActivity));
 
-    const interval = setInterval(checkSession, 30000);
+    const sessionCheckInterval = setInterval(checkSession, 30000);
+    const activityUpdateInterval = setInterval(updateActivityOnServer, 60000);
+    
+    updateActivityOnServer();
 
     return () => {
       events.forEach(event => window.removeEventListener(event, updateActivity));
-      clearInterval(interval);
+      clearInterval(sessionCheckInterval);
+      clearInterval(activityUpdateInterval);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userEmail]);
 
   useEffect(() => {
     const restoreSession = () => {

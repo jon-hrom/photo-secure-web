@@ -395,6 +395,38 @@ exports.handler = async (event, context) => {
       };
     }
     
+    // Update VK user activity
+    if (httpMethod === 'POST') {
+      const body = JSON.parse(event.body || '{}');
+      const { action, vk_id } = body;
+      
+      if (action === 'update-activity' && vk_id) {
+        const client = new Client({ connectionString: DATABASE_URL });
+        try {
+          await client.connect();
+          const ipAddress = event.requestContext?.identity?.sourceIp || 'unknown';
+          const userAgent = event.headers?.['User-Agent'] || '';
+          
+          await client.query(
+            `UPDATE vk_users 
+             SET last_login = CURRENT_TIMESTAMP,
+                 ip_address = ${escapeSQL(ipAddress)},
+                 user_agent = ${escapeSQL(userAgent)}
+             WHERE vk_sub = ${escapeSQL(vk_id)}`
+          );
+          
+          return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ success: true }),
+            isBase64Encoded: false
+          };
+        } finally {
+          await client.end();
+        }
+      }
+    }
+    
     return {
       statusCode: 400,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
