@@ -270,9 +270,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
             <Icon name="Lock" size={32} className="text-primary" />
           </div>
           <CardTitle className="text-2xl">Foto-Mix</CardTitle>
-          <CardDescription className="text-base">
-            Профессиональная платформа для фотографов
-          </CardDescription>
+          <CardDescription className="text-base">Платформа для фотографов</CardDescription>
           <div className="mt-3 text-sm text-muted-foreground">
             {isRegistering ? 'Создайте новый аккаунт' : 'Вход в систему'}
           </div>
