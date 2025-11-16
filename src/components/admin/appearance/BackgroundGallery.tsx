@@ -84,7 +84,7 @@ const BackgroundGallery = ({
           <div className="space-y-3">
             <div className="flex gap-2">
               <Input
-                placeholder="Поиск изображений (например: nature, office)"
+                placeholder="Поиск изображений (например: природа, офис)"
                 value={searchQuery}
                 onChange={(e) => onSearchQueryChange(e.target.value)}
                 onKeyDown={(e) => {
@@ -102,7 +102,7 @@ const BackgroundGallery = ({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Поиск бесплатных изображений на Unsplash
+              Поиск бесплатных изображений на Pixabay
             </p>
           </div>
           

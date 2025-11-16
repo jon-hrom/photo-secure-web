@@ -105,21 +105,16 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=12&orientation=landscape`,
-        {
-          headers: {
-            Authorization: 'Client-ID 5K3wm_3kZ8vJYH-w5vBz0TFZL8B8hqZvFXvVqjKXZiE',
-          },
-        }
+        `https://pixabay.com/api/?key=47579633-d22b93cb4732806e64d4d8f28&q=${encodeURIComponent(searchQuery)}&image_type=photo&orientation=horizontal&per_page=12&lang=ru`
       );
 
       if (!response.ok) throw new Error('Search failed');
 
       const data = await response.json();
-      const results: BackgroundImage[] = data.results.map((photo: any) => ({
-        id: `unsplash-${photo.id}`,
-        url: photo.urls.regular,
-        name: photo.description || photo.alt_description || 'Unsplash Image',
+      const results: BackgroundImage[] = data.hits.map((photo: any) => ({
+        id: `pixabay-${photo.id}`,
+        url: photo.largeImageURL,
+        name: photo.tags || 'Pixabay Image',
       }));
 
       setSearchResults(results);
