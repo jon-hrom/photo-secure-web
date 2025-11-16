@@ -78,7 +78,7 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
     currentIndex,
   } = useUndoRedo<Spread[]>(initialState, 100);
 
-  const { clearSaved } = useAutoSave(spreads, {
+  const { clearSaved, lastSaved, isSaving } = useAutoSave(spreads, {
     key: 'photobook-editor-spreads',
     delay: 2000,
     enabled: true
@@ -290,6 +290,8 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
         currentIndex={currentIndex}
         historySize={historySize}
         onShowHistory={() => setShowHistoryPanel(true)}
+        lastSaved={lastSaved}
+        isSaving={isSaving}
       />
 
       <div className="flex-1 flex overflow-hidden">

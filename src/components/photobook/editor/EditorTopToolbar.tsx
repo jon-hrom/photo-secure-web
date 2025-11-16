@@ -11,6 +11,8 @@ interface EditorTopToolbarProps {
   currentIndex: number;
   historySize: number;
   onShowHistory: () => void;
+  lastSaved: Date | null;
+  isSaving: boolean;
 }
 
 const EditorTopToolbar = ({
@@ -22,7 +24,13 @@ const EditorTopToolbar = ({
   currentIndex,
   historySize,
   onShowHistory,
+  lastSaved,
+  isSaving,
 }: EditorTopToolbarProps) => {
+  const formatTime = (date: Date | null) => {
+    if (!date) return '';
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  };
   return (
     <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -87,6 +95,23 @@ const EditorTopToolbar = ({
             )}
           </Button>
         </div>
+        
+        {lastSaved && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {isSaving ? (
+              <>
+                <Icon name="Loader2" size={14} className="animate-spin" />
+                <span>Сохранение...</span>
+              </>
+            ) : (
+              <>
+                <Icon name="Check" size={14} className="text-green-500" />
+                <span>Сохранено {formatTime(lastSaved)}</span>
+              </>
+            )}
+          </div>
+        )}
+        
         <div className="h-6 w-px bg-gray-300" />
         <Button variant="outline" size="sm">
           <Icon name="Eye" size={18} className="mr-2" />

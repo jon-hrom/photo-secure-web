@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface AutoSaveOptions {
   key: string;
@@ -6,12 +6,21 @@ interface AutoSaveOptions {
   enabled?: boolean;
 }
 
+interface AutoSaveReturn {
+  loadSaved: () => any | null;
+  clearSaved: () => void;
+  lastSaved: Date | null;
+  isSaving: boolean;
+}
+
 export function useAutoSave<T>(
   data: T,
   { key, delay = 2000, enabled = true }: AutoSaveOptions
-) {
+): AutoSaveReturn {
   const timeoutRef = useRef<NodeJS.Timeout>();
   const isFirstRender = useRef(true);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -25,14 +34,17 @@ export function useAutoSave<T>(
       clearTimeout(timeoutRef.current);
     }
 
+    setIsSaving(true);
+
     timeoutRef.current = setTimeout(() => {
       try {
         const serialized = JSON.stringify(data);
         localStorage.setItem(key, serialized);
-        const timestamp = new Date().toLocaleTimeString('ru-RU');
-        console.log(`💾 Автосохранение: ${timestamp}`);
+        setLastSaved(new Date());
+        setIsSaving(false);
       } catch (error) {
         console.error('Ошибка автосохранения:', error);
+        setIsSaving(false);
       }
     }, delay);
 
@@ -43,7 +55,7 @@ export function useAutoSave<T>(
     };
   }, [data, key, delay, enabled]);
 
-  const loadSaved = (): T | null => {
+  const loadSaved = useCallback((): T | null => {
     try {
       const saved = localStorage.getItem(key);
       if (saved) {
@@ -53,16 +65,16 @@ export function useAutoSave<T>(
       console.error('Ошибка загрузки:', error);
     }
     return null;
-  };
+  }, [key]);
 
-  const clearSaved = () => {
+  const clearSaved = useCallback(() => {
     try {
       localStorage.removeItem(key);
-      console.log('🗑️ Автосохранение очищено');
+      setLastSaved(null);
     } catch (error) {
       console.error('Ошибка очистки:', error);
     }
-  };
+  }, [key]);
 
-  return { loadSaved, clearSaved };
+  return { loadSaved, clearSaved, lastSaved, isSaving };
 }
