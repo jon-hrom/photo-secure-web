@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
@@ -9,7 +9,9 @@ import FrameSelector from '../FrameSelector';
 import CropTool from '../CropTool';
 import TransparencyTool from '../TransparencyTool';
 import StyleSelector from '../StyleSelector';
+import HistoryPanel from '../HistoryPanel';
 import { Input } from '@/components/ui/input';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 
 interface Spread {
   id: string;
@@ -36,7 +38,7 @@ interface DraggablePhoto {
 }
 
 const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: PhotobookEditorAdvancedProps) => {
-  const [spreads, setSpreads] = useState<Spread[]>([
+  const initialSpreads: Spread[] = [
     {
       id: 'cover',
       type: 'cover',
@@ -61,7 +63,18 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
         { id: 's2-slot2', orientation: 'horizontal', x: 520, y: 20, width: 480, height: 360 },
       ]
     },
-  ]);
+  ];
+
+  const {
+    state: spreads,
+    setState: setSpreads,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    historySize,
+    currentIndex,
+  } = useUndoRedo<Spread[]>(initialSpreads, 100);
 
   const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -72,6 +85,7 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
   const [showCropTool, setShowCropTool] = useState(false);
   const [showTransparencyTool, setShowTransparencyTool] = useState(false);
   const [showStyleSelector, setShowStyleSelector] = useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [textToAdd, setTextToAdd] = useState('');
 
   const currentSpread = spreads[currentSpreadIndex];
@@ -93,6 +107,24 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
       )
     })));
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      
+      if (((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') || 
+          ((e.ctrlKey || e.metaKey) && e.key === 'y')) {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   const handleComplete = () => {
     onComplete(spreads);
@@ -240,12 +272,53 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm">
-            <Icon name="Undo" size={18} className="mr-2" />
-          </Button>
-          <Button variant="ghost" size="sm">
-            <Icon name="Redo" size={18} className="mr-2" />
-          </Button>
+          <div className="flex items-center gap-1 bg-gray-50 rounded-lg px-2 py-1">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={undo}
+              disabled={!canUndo}
+              title="Отменить (Ctrl+Z)"
+              className="h-8 relative"
+            >
+              <Icon name="Undo" size={18} />
+              {canUndo && currentIndex > 0 && (
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  {currentIndex}
+                </span>
+              )}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={redo}
+              disabled={!canRedo}
+              title="Повторить (Ctrl+Shift+Z)"
+              className="h-8 relative"
+            >
+              <Icon name="Redo" size={18} />
+              {canRedo && (historySize - currentIndex - 1) > 0 && (
+                <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  {historySize - currentIndex - 1}
+                </span>
+              )}
+            </Button>
+            <div className="h-6 w-px bg-gray-300 mx-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHistoryPanel(true)}
+              title="История изменений"
+              className="h-8"
+            >
+              <Icon name="History" size={18} />
+              {historySize > 1 && (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  {historySize}
+                </span>
+              )}
+            </Button>
+          </div>
           <div className="h-6 w-px bg-gray-300" />
           <Button variant="outline" size="sm">
             <Icon name="Eye" size={18} className="mr-2" />
@@ -649,6 +722,18 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
           />
         </>
       )}
+
+      {/* History Panel */}
+      <HistoryPanel
+        open={showHistoryPanel}
+        onClose={() => setShowHistoryPanel(false)}
+        historySize={historySize}
+        currentIndex={currentIndex}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
+      />
     </div>
   );
 };
