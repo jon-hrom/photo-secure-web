@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import Icon from '@/components/ui/icon';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import PhotobookFormatSelector from './PhotobookFormatSelector';
-import PhotobookLayoutDesigner from './PhotobookLayoutDesigner';
-import PhotobookPhotoUploader from './PhotobookPhotoUploader';
-import PhotobookPreview from './PhotobookPreview';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import PhotobookConfigStep from './steps/PhotobookConfigStep';
+import PhotobookMethodStep from './steps/PhotobookMethodStep';
+import PhotobookTemplateStep from './steps/PhotobookTemplateStep';
+import PhotobookFillMethodStep from './steps/PhotobookFillMethodStep';
+import PhotobookUploadStep from './steps/PhotobookUploadStep';
+import PhotobookEditorStep from './steps/PhotobookEditorStep';
+import PhotobookFinalStep from './steps/PhotobookFinalStep';
 
-export type PhotobookFormat = '20x20' | '21x30' | '30x30';
+export type PhotobookFormat = '20x20' | '21x30' | '25x25' | '30x20' | '30x30';
+export type PhotobookLayer = 'none' | '1mm' | '2mm';
+export type PhotobookMethod = 'template' | 'package';
+export type PhotobookFillMethod = 'auto' | 'manual';
 
 export interface PhotoSlot {
   id: string;
@@ -19,6 +20,7 @@ export interface PhotoSlot {
   y: number;
   width: number;
   height: number;
+  photoId?: string;
 }
 
 export interface UploadedPhoto {
@@ -29,17 +31,35 @@ export interface UploadedPhoto {
   height: number;
 }
 
+export interface PhotobookTemplate {
+  id: string;
+  name: string;
+  category: string;
+  thumbnail: string;
+  spreads: number;
+}
+
+export interface PhotobookConfig {
+  format: PhotobookFormat;
+  layer: PhotobookLayer;
+  spreadsCount: number;
+  copiesCount: number;
+  price: number;
+}
+
 export interface PhotobookData {
   id: string;
   title: string;
-  format: PhotobookFormat;
-  photosPerSpread: number;
-  photoSlots: PhotoSlot[];
+  config: PhotobookConfig;
+  method: PhotobookMethod;
+  fillMethod: PhotobookFillMethod;
+  template?: PhotobookTemplate;
   photos: UploadedPhoto[];
-  photoSpacing: number;
+  spreads: Array<{ id: string; slots: PhotoSlot[] }>;
   createdAt: Date;
   enableClientLink: boolean;
   clientLinkId?: string;
+  clientComments?: Array<{ id: string; text: string; page: number; x: number; y: number; date: Date }>;
 }
 
 interface PhotobookCreatorProps {
@@ -48,47 +68,72 @@ interface PhotobookCreatorProps {
   onComplete?: (photobook: PhotobookData) => void;
 }
 
-type Step = 'format' | 'layout' | 'upload' | 'preview';
+type Step = 'config' | 'method' | 'template' | 'fillMethod' | 'upload' | 'editor' | 'final';
 
 const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) => {
-  const [currentStep, setCurrentStep] = useState<Step>('format');
-  const [selectedFormat, setSelectedFormat] = useState<PhotobookFormat | null>(null);
-  const [photosPerSpread, setPhotosPerSpread] = useState<number>(4);
-  const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>([]);
+  const [currentStep, setCurrentStep] = useState<Step>('config');
+  const [config, setConfig] = useState<PhotobookConfig>({
+    format: '20x20',
+    layer: 'none',
+    spreadsCount: 3,
+    copiesCount: 1,
+    price: 727
+  });
+  const [method, setMethod] = useState<PhotobookMethod | null>(null);
+  const [fillMethod, setFillMethod] = useState<PhotobookFillMethod | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<PhotobookTemplate | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
-  const [photoSpacing, setPhotoSpacing] = useState<number>(5);
-  const [title, setTitle] = useState<string>('');
+  const [spreads, setSpreads] = useState<Array<{ id: string; slots: PhotoSlot[] }>>([]);
   const [enableClientLink, setEnableClientLink] = useState<boolean>(false);
 
-  const handleFormatSelect = (format: PhotobookFormat) => {
-    setSelectedFormat(format);
-    setCurrentStep('layout');
+  const handleConfigComplete = (newConfig: PhotobookConfig) => {
+    setConfig(newConfig);
+    setCurrentStep('method');
   };
 
-  const handleLayoutConfirm = (slots: PhotoSlot[], spacing: number) => {
-    setPhotoSlots(slots);
-    setPhotoSpacing(spacing);
+  const handleMethodSelect = (selectedMethod: PhotobookMethod) => {
+    setMethod(selectedMethod);
+    if (selectedMethod === 'template') {
+      setCurrentStep('template');
+    } else {
+      setCurrentStep('upload');
+    }
+  };
+
+  const handleTemplateSelect = (template: PhotobookTemplate | null) => {
+    setSelectedTemplate(template);
+    setCurrentStep('fillMethod');
+  };
+
+  const handleFillMethodSelect = (selected: PhotobookFillMethod) => {
+    setFillMethod(selected);
     setCurrentStep('upload');
   };
 
   const handlePhotosUploaded = (photos: UploadedPhoto[]) => {
     setUploadedPhotos(photos);
-    setCurrentStep('preview');
+    setCurrentStep('editor');
   };
 
-  const handleComplete = () => {
-    if (onComplete && selectedFormat) {
+  const handleEditorComplete = (editedSpreads: Array<{ id: string; slots: PhotoSlot[] }>) => {
+    setSpreads(editedSpreads);
+    setCurrentStep('final');
+  };
+
+  const handleComplete = (title: string, clientLinkEnabled: boolean) => {
+    if (onComplete) {
       const photobookData: PhotobookData = {
         id: `photobook-${Date.now()}`,
-        title: title || `Фотокнига ${selectedFormat.replace('x', '×')} см`,
-        format: selectedFormat,
-        photosPerSpread,
-        photoSlots,
+        title,
+        config,
+        method: method!,
+        fillMethod: fillMethod || 'manual',
+        template: selectedTemplate || undefined,
         photos: uploadedPhotos,
-        photoSpacing,
+        spreads,
         createdAt: new Date(),
-        enableClientLink,
-        clientLinkId: enableClientLink ? `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` : undefined,
+        enableClientLink: clientLinkEnabled,
+        clientLinkId: clientLinkEnabled ? `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` : undefined,
       };
       onComplete(photobookData);
     }
@@ -96,108 +141,97 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
   };
 
   const handleClose = () => {
-    setCurrentStep('format');
-    setSelectedFormat(null);
-    setPhotosPerSpread(4);
-    setPhotoSlots([]);
+    setCurrentStep('config');
+    setConfig({
+      format: '20x20',
+      layer: 'none',
+      spreadsCount: 3,
+      copiesCount: 1,
+      price: 727
+    });
+    setMethod(null);
+    setFillMethod(null);
+    setSelectedTemplate(null);
     setUploadedPhotos([]);
-    setPhotoSpacing(5);
-    setTitle('');
+    setSpreads([]);
     setEnableClientLink(false);
     onClose();
   };
 
   const handleBack = () => {
-    if (currentStep === 'layout') {
-      setCurrentStep('format');
-      setSelectedFormat(null);
-    } else if (currentStep === 'upload') {
-      setCurrentStep('layout');
-      setUploadedPhotos([]);
-    } else if (currentStep === 'preview') {
-      setCurrentStep('upload');
+    if (currentStep === 'method') setCurrentStep('config');
+    else if (currentStep === 'template') setCurrentStep('method');
+    else if (currentStep === 'fillMethod') setCurrentStep('template');
+    else if (currentStep === 'upload') {
+      if (method === 'template') {
+        setCurrentStep('fillMethod');
+      } else {
+        setCurrentStep('method');
+      }
     }
+    else if (currentStep === 'editor') setCurrentStep('upload');
+    else if (currentStep === 'final') setCurrentStep('editor');
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center gap-2">
-            <Icon name="BookOpen" size={28} className="text-primary" />
-            Создание фотокниги
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto p-0">
+        {currentStep === 'config' && (
+          <PhotobookConfigStep
+            config={config}
+            onComplete={handleConfigComplete}
+            onClose={handleClose}
+          />
+        )}
 
-        <div className="py-4">
-          <div className="flex items-center justify-center mb-8">
-            <div className="flex items-center gap-2">
-              <div className={`flex items-center gap-2 ${currentStep === 'format' ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'format' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
-                  1
-                </div>
-                <span className="hidden sm:inline">Формат</span>
-              </div>
-              <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
-              <div className={`flex items-center gap-2 ${currentStep === 'layout' ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'layout' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
-                  2
-                </div>
-                <span className="hidden sm:inline">Макет</span>
-              </div>
-              <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
-              <div className={`flex items-center gap-2 ${currentStep === 'upload' ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'upload' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
-                  3
-                </div>
-                <span className="hidden sm:inline">Загрузка</span>
-              </div>
-              <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
-              <div className={`flex items-center gap-2 ${currentStep === 'preview' ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'preview' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
-                  4
-                </div>
-                <span className="hidden sm:inline">Просмотр</span>
-              </div>
-            </div>
-          </div>
+        {currentStep === 'method' && (
+          <PhotobookMethodStep
+            onSelect={handleMethodSelect}
+            onBack={handleBack}
+          />
+        )}
 
-          {currentStep === 'format' && (
-            <PhotobookFormatSelector onSelect={handleFormatSelect} />
-          )}
+        {currentStep === 'template' && (
+          <PhotobookTemplateStep
+            onSelect={handleTemplateSelect}
+            onBack={handleBack}
+          />
+        )}
 
-          {currentStep === 'layout' && selectedFormat && (
-            <PhotobookLayoutDesigner
-              format={selectedFormat}
-              photosPerSpread={photosPerSpread}
-              onPhotosPerSpreadChange={setPhotosPerSpread}
-              onConfirm={handleLayoutConfirm}
-              onBack={handleBack}
-            />
-          )}
+        {currentStep === 'fillMethod' && (
+          <PhotobookFillMethodStep
+            onSelect={handleFillMethodSelect}
+            onBack={handleBack}
+          />
+        )}
 
-          {currentStep === 'upload' && (
-            <PhotobookPhotoUploader
-              requiredPhotos={photoSlots.length}
-              onUpload={handlePhotosUploaded}
-              onBack={handleBack}
-            />
-          )}
+        {currentStep === 'upload' && (
+          <PhotobookUploadStep
+            requiredPhotos={config.spreadsCount * 4}
+            onComplete={handlePhotosUploaded}
+            onBack={handleBack}
+          />
+        )}
 
-          {currentStep === 'preview' && selectedFormat && (
-            <PhotobookPreview
-              format={selectedFormat}
-              photoSlots={photoSlots}
-              photos={uploadedPhotos}
-              title={title}
-              onTitleChange={setTitle}
-              enableClientLink={enableClientLink}
-              onEnableClientLinkChange={setEnableClientLink}
-              onComplete={handleComplete}
-              onBack={handleBack}
-            />
-          )}
-        </div>
+        {currentStep === 'editor' && (
+          <PhotobookEditorStep
+            config={config}
+            photos={uploadedPhotos}
+            fillMethod={fillMethod || 'manual'}
+            onComplete={handleEditorComplete}
+            onBack={handleBack}
+          />
+        )}
+
+        {currentStep === 'final' && (
+          <PhotobookFinalStep
+            config={config}
+            spreads={spreads}
+            photos={uploadedPhotos}
+            onComplete={handleComplete}
+            onBack={handleBack}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
