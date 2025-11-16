@@ -3,8 +3,10 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Icon from '@/components/ui/icon';
 import type { PhotobookConfig, PhotoSlot, UploadedPhoto } from './PhotobookCreator';
+import { exportAsJPEG, exportAsPSD, exportAsPDF, downloadFile } from '@/utils/photobookExport';
 
 interface Photobook3DPreviewProps {
   open: boolean;
@@ -12,7 +14,6 @@ interface Photobook3DPreviewProps {
   spreads: Array<{ id: string; slots: PhotoSlot[] }>;
   photos: UploadedPhoto[];
   onClose: () => void;
-  onDownload: () => void;
   onOrder: () => void;
 }
 
@@ -22,12 +23,12 @@ const Photobook3DPreview = ({
   spreads,
   photos,
   onClose,
-  onDownload,
   onOrder
 }: Photobook3DPreviewProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [acceptResponsibility, setAcceptResponsibility] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const totalPages = spreads.length * 2; // Each spread has 2 pages
 
@@ -49,6 +50,42 @@ const Photobook3DPreview = ({
 
   const getPhotoUrl = (photoId?: string) => {
     return photos.find(p => p.id === photoId)?.url;
+  };
+
+  const handleDownloadJPEG = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await exportAsJPEG(spreads, photos);
+      downloadFile(blob, 'photobook-jpeg.zip');
+    } catch (error) {
+      console.error('Export error:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDownloadPSD = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await exportAsPSD(spreads, photos);
+      downloadFile(blob, 'photobook-psd.zip');
+    } catch (error) {
+      console.error('Export error:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await exportAsPDF(spreads, photos);
+      downloadFile(blob, 'photobook.pdf');
+    } catch (error) {
+      console.error('Export error:', error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const currentSpreadIndex = Math.floor(currentPage / 2);
@@ -204,14 +241,28 @@ const Photobook3DPreview = ({
                 </label>
               </div>
               <div className="flex items-center gap-3 ml-6">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={onDownload}
-                >
-                  <Icon name="Download" size={20} className="mr-2" />
-                  Скачать дизайн
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="lg" disabled={isExporting}>
+                      <Icon name="Download" size={20} className="mr-2" />
+                      {isExporting ? 'Экспорт...' : 'Скачать дизайн'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleDownloadPDF}>
+                      <Icon name="FileText" size={16} className="mr-2" />
+                      PDF файл
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadJPEG}>
+                      <Icon name="Image" size={16} className="mr-2" />
+                      JPEG архив (.zip)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadPSD}>
+                      <Icon name="Layers" size={16} className="mr-2" />
+                      PSD архив (.zip)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
                   size="lg"
                   className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8"

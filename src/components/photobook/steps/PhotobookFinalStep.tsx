@@ -17,9 +17,7 @@ const PhotobookFinalStep = ({ config, spreads, photos, onComplete, onBack }: Pho
   const [show3DPreview, setShow3DPreview] = useState(true);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
-  const handleDownload = () => {
-    console.log('Downloading photobook PDF...');
-  };
+
 
   const handleOrder = () => {
     setShow3DPreview(false);
@@ -73,7 +71,6 @@ const PhotobookFinalStep = ({ config, spreads, photos, onComplete, onBack }: Pho
         spreads={spreads}
         photos={photos}
         onClose={() => setShow3DPreview(false)}
-        onDownload={handleDownload}
         onOrder={handleOrder}
       />
 
