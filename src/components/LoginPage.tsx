@@ -27,6 +27,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [twoFactorType, setTwoFactorType] = useState<'sms' | 'email'>('email');
   const [passwordError, setPasswordError] = useState('');
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
+  const [backgroundOpacity, setBackgroundOpacity] = useState<number>(20);
   const [authProviders, setAuthProviders] = useState({
     yandex: true,
     vk: true,
@@ -44,6 +45,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           setBackgroundImage(selectedImage.url);
         }
       }
+    }
+    
+    const savedOpacity = localStorage.getItem('loginPageBackgroundOpacity');
+    if (savedOpacity) {
+      setBackgroundOpacity(Number(savedOpacity));
     }
   }, []);
 
@@ -241,7 +247,14 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         backgroundColor: backgroundImage ? undefined : '#f8f9fa',
       }}
     >
-      {backgroundImage && <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />}
+      {backgroundImage && (
+        <div 
+          className="absolute inset-0 backdrop-blur-sm" 
+          style={{
+            backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity / 100})`
+          }}
+        />
+      )}
       <Card className="w-full max-w-md shadow-2xl relative z-10">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
