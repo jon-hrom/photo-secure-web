@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import PhotobookCreator from '@/components/photobook/PhotobookCreator';
 
 interface Photo {
   id: number;
@@ -40,12 +40,6 @@ const PhotobookPage = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedPhotobook, setSelectedPhotobook] = useState<Photobook | null>(null);
 
-  const layouts = [
-    { id: 'classic', name: 'Классический', description: 'Традиционное расположение фото' },
-    { id: 'modern', name: 'Современный', description: 'Динамичное размещение' },
-    { id: 'magazine', name: 'Журнальный', description: 'Стиль глянцевого журнала' },
-  ];
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft':
@@ -59,44 +53,29 @@ const PhotobookPage = () => {
     }
   };
 
+  const handlePhotobookComplete = (photobookData: any) => {
+    console.log('Фотокнига создана:', photobookData);
+    setIsCreateDialogOpen(false);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold">Макет фотокниг</h2>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="rounded-full shadow-lg hover-scale">
-              <Icon name="Plus" size={20} className="mr-2" />
-              Создать фотокнигу
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Новая фотокнига</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <p className="text-muted-foreground">
-                Выберите макет для автоматической вёрстки фотокниги
-              </p>
-              <div className="grid gap-4">
-                {layouts.map((layout) => (
-                  <Card key={layout.id} className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-primary">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">{layout.name}</h3>
-                          <p className="text-sm text-muted-foreground">{layout.description}</p>
-                        </div>
-                        <Icon name="ChevronRight" className="text-muted-foreground" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          className="rounded-full shadow-lg hover-scale"
+          onClick={() => setIsCreateDialogOpen(true)}
+        >
+          <Icon name="Plus" size={20} className="mr-2" />
+          Создать фотокнигу
+        </Button>
       </div>
+
+      <PhotobookCreator
+        open={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        onComplete={handlePhotobookComplete}
+      />
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
@@ -119,7 +98,7 @@ const PhotobookPage = () => {
                       <div className="flex-1">
                         <h3 className="font-bold text-lg">{book.title}</h3>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Макет: {layouts.find(l => l.id === book.layout)?.name}
+                          Макет: {book.layout}
                         </p>
                       </div>
                       {getStatusBadge(book.status)}
