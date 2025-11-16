@@ -216,14 +216,14 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
                 Заблокирован
               </Badge>
             ) : isUserOnline(user.last_login) ? (
-              <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-green-500 hover:bg-green-600">
-                <Icon name="Circle" size={8} className="fill-current animate-pulse" />
-                На сайте
+              <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-purple-600 hover:bg-purple-700">
+                <Icon name="CheckCircle" size={12} />
+                Активен
               </Badge>
             ) : (
-              <Badge variant="outline" className="ml-auto sm:ml-2 gap-1">
-                <Icon name="Circle" size={8} className="fill-muted-foreground" />
-                Оффлайн
+              <Badge variant="destructive" className="ml-auto sm:ml-2 gap-1 bg-red-600 hover:bg-red-700">
+                <Icon name="XCircle" size={12} />
+                Не активен
               </Badge>
             )}
           </div>
