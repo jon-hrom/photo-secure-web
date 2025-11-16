@@ -4,6 +4,12 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { PhotobookConfig, UploadedPhoto, PhotoSlot } from '../PhotobookCreator';
+import PhotoToolbar from '../PhotoToolbar';
+import FrameSelector from '../FrameSelector';
+import CropTool from '../CropTool';
+import TransparencyTool from '../TransparencyTool';
+import StyleSelector from '../StyleSelector';
+import { Input } from '@/components/ui/input';
 
 interface Spread {
   id: string;
@@ -24,6 +30,9 @@ interface DraggablePhoto {
   scale: number;
   offsetX: number;
   offsetY: number;
+  opacity?: number;
+  filter?: string;
+  frameId?: string | null;
 }
 
 const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: PhotobookEditorAdvancedProps) => {
@@ -58,6 +67,12 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [photoAdjustments, setPhotoAdjustments] = useState<Record<string, DraggablePhoto>>({});
   const [leftPanelTab, setLeftPanelTab] = useState<'photos' | 'text' | 'templates' | 'bg' | 'collages' | 'stickers' | 'frames'>('photos');
+  
+  const [showFrameSelector, setShowFrameSelector] = useState(false);
+  const [showCropTool, setShowCropTool] = useState(false);
+  const [showTransparencyTool, setShowTransparencyTool] = useState(false);
+  const [showStyleSelector, setShowStyleSelector] = useState(false);
+  const [textToAdd, setTextToAdd] = useState('');
 
   const currentSpread = spreads[currentSpreadIndex];
 
@@ -88,6 +103,123 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
     if (!slot?.photoId) return null;
     return photos.find(p => p.id === slot.photoId);
   };
+
+  const handleToolFrame = () => {
+    if (selectedSlot) {
+      setShowFrameSelector(true);
+    }
+  };
+
+  const handleToolCrop = () => {
+    if (selectedSlot) {
+      setShowCropTool(true);
+    }
+  };
+
+  const handleToolTransparency = () => {
+    if (selectedSlot) {
+      setShowTransparencyTool(true);
+    }
+  };
+
+  const handleToolStyle = () => {
+    if (selectedSlot) {
+      setShowStyleSelector(true);
+    }
+  };
+
+  const handleToolReplace = () => {
+    if (selectedSlot) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const newPhoto: UploadedPhoto = {
+              id: `photo-${Date.now()}`,
+              url: e.target?.result as string,
+              file: file,
+              width: 800,
+              height: 600
+            };
+            handleAddPhotoToSlot(selectedSlot, newPhoto.id);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+    }
+  };
+
+  const handleToolMakeBackground = () => {
+    if (selectedSlot) {
+      const photo = getPhotoForSlot(selectedSlot);
+      if (photo) {
+        console.log('Making background from', photo.id);
+      }
+    }
+  };
+
+  const handleToolClear = () => {
+    if (selectedSlot) {
+      handleRemovePhotoFromSlot(selectedSlot);
+    }
+  };
+
+  const handleApplyFrame = (frameId: string | null) => {
+    if (selectedSlot) {
+      setPhotoAdjustments(prev => ({
+        ...prev,
+        [selectedSlot]: {
+          ...prev[selectedSlot],
+          frameId
+        }
+      }));
+    }
+  };
+
+  const handleApplyCrop = (crop: { x: number; y: number; width: number; height: number; scale: number }) => {
+    if (selectedSlot) {
+      setPhotoAdjustments(prev => ({
+        ...prev,
+        [selectedSlot]: {
+          ...prev[selectedSlot],
+          scale: crop.scale,
+          offsetX: crop.x,
+          offsetY: crop.y
+        }
+      }));
+    }
+  };
+
+  const handleApplyOpacity = (opacity: number) => {
+    if (selectedSlot) {
+      setPhotoAdjustments(prev => ({
+        ...prev,
+        [selectedSlot]: {
+          ...prev[selectedSlot],
+          opacity
+        }
+      }));
+    }
+  };
+
+  const handleApplyStyle = (filter: string) => {
+    if (selectedSlot) {
+      setPhotoAdjustments(prev => ({
+        ...prev,
+        [selectedSlot]: {
+          ...prev[selectedSlot],
+          filter
+        }
+      }));
+    }
+  };
+
+  const selectedPhoto = selectedSlot ? getPhotoForSlot(selectedSlot) : null;
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -238,16 +370,86 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
             )}
 
             {leftPanelTab === 'text' && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Icon name="Type" size={48} className="mx-auto mb-2" />
-                <p>Добавление текста</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Добавить текст</label>
+                  <Input
+                    placeholder="Введите текст..."
+                    value={textToAdd}
+                    onChange={(e) => setTextToAdd(e.target.value)}
+                    className="mb-2"
+                  />
+                  <Button variant="outline" className="w-full">
+                    <Icon name="Plus" size={18} className="mr-2" />
+                    Добавить на страницу
+                  </Button>
+                </div>
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Стили текста</p>
+                  <div className="space-y-2">
+                    <Button variant="outline" className="w-full justify-start" size="sm">
+                      <span className="font-bold">Жирный</span>
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" size="sm">
+                      <span className="italic">Курсив</span>
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start" size="sm">
+                      <span className="underline">Подчеркнутый</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 
             {leftPanelTab === 'templates' && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Icon name="Layout" size={48} className="mx-auto mb-2" />
-                <p>Шаблоны коллажей</p>
+              <div className="space-y-2">
+                <p className="text-sm font-medium mb-2">Шаблоны раскладки</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {['2 фото', '3 фото', '4 фото', '5 фото', '6 фото'].map((template) => (
+                    <Button
+                      key={template}
+                      variant="outline"
+                      className="h-20 flex flex-col gap-1"
+                      size="sm"
+                    >
+                      <Icon name="LayoutGrid" size={24} />
+                      <span className="text-xs">{template}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {leftPanelTab === 'bg' && (
+              <div className="space-y-4">
+                <p className="text-sm font-medium">Цвет фона</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {['#FFFFFF', '#F3F4F6', '#E5E7EB', '#FEF3C7', '#FEE2E2', '#DBEAFE', '#D1FAE5'].map((color) => (
+                    <button
+                      key={color}
+                      className="w-full aspect-square rounded border-2 hover:border-yellow-400"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {leftPanelTab === 'frames' && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium mb-2">Рамки для фото</p>
+                <div className="space-y-2">
+                  {['Без рамки', 'Белая', 'Черная', 'Золотая'].map((frame) => (
+                    <Button
+                      key={frame}
+                      variant="outline"
+                      className="w-full justify-start"
+                      size="sm"
+                    >
+                      {frame}
+                    </Button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -332,18 +534,25 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
                             src={photo.url}
                             alt="Slot"
                             className="w-full h-full object-cover"
+                            style={{
+                              opacity: photoAdjustments[slot.id]?.opacity ?? 1,
+                              filter: photoAdjustments[slot.id]?.filter ?? 'none',
+                              transform: `scale(${photoAdjustments[slot.id]?.scale ?? 1})`
+                            }}
                           />
                           {selectedSlot === slot.id && (
-                            <div className="absolute inset-0 border-2 border-blue-500">
-                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-2">
-                                <Button size="icon" variant="secondary" className="w-8 h-8">
-                                  <Icon name="Move" size={16} />
-                                </Button>
-                                <Button size="icon" variant="secondary" className="w-8 h-8">
-                                  <Icon name="ZoomIn" size={16} />
-                                </Button>
-                              </div>
-                            </div>
+                            <>
+                              <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none" />
+                              <PhotoToolbar
+                                onFrame={handleToolFrame}
+                                onReplace={handleToolReplace}
+                                onCrop={handleToolCrop}
+                                onTransparency={handleToolTransparency}
+                                onMakeBackground={handleToolMakeBackground}
+                                onClear={handleToolClear}
+                                onStyle={handleToolStyle}
+                              />
+                            </>
                           )}
                           <Button
                             size="icon"
@@ -407,6 +616,39 @@ const PhotobookEditorAdvanced = ({ config, photos, onComplete, onBack }: Photobo
           </div>
         </div>
       </div>
+
+      {/* Tool Dialogs */}
+      {selectedPhoto && (
+        <>
+          <FrameSelector
+            open={showFrameSelector}
+            onClose={() => setShowFrameSelector(false)}
+            onSelectFrame={handleApplyFrame}
+          />
+          
+          <CropTool
+            open={showCropTool}
+            onClose={() => setShowCropTool(false)}
+            photoUrl={selectedPhoto.url}
+            onApply={handleApplyCrop}
+          />
+          
+          <TransparencyTool
+            open={showTransparencyTool}
+            onClose={() => setShowTransparencyTool(false)}
+            photoUrl={selectedPhoto.url}
+            currentOpacity={photoAdjustments[selectedSlot!]?.opacity}
+            onApply={handleApplyOpacity}
+          />
+          
+          <StyleSelector
+            open={showStyleSelector}
+            onClose={() => setShowStyleSelector(false)}
+            photoUrl={selectedPhoto.url}
+            onApplyStyle={handleApplyStyle}
+          />
+        </>
+      )}
     </div>
   );
 };
