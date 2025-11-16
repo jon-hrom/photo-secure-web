@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import type { PhotobookFormat, PhotoSlot } from './PhotobookCreator';
 
@@ -10,11 +11,12 @@ interface PhotobookLayoutDesignerProps {
   format: PhotobookFormat;
   photosPerSpread: number;
   onPhotosPerSpreadChange: (count: number) => void;
-  onConfirm: (slots: PhotoSlot[]) => void;
+  onConfirm: (slots: PhotoSlot[], photoSpacing: number) => void;
   onBack: () => void;
 }
 
 const SAFE_MARGIN = 5;
+const DEFAULT_PHOTO_SPACING = 5;
 
 const getFormatDimensions = (format: PhotobookFormat): { width: number; height: number } => {
   switch (format) {
@@ -30,17 +32,23 @@ const getFormatDimensions = (format: PhotobookFormat): { width: number; height: 
 const generateLayout = (
   photosCount: number,
   spreadWidth: number,
-  spreadHeight: number
+  spreadHeight: number,
+  spacing: number
 ): PhotoSlot[] => {
   const slots: PhotoSlot[] = [];
   const safeWidth = spreadWidth - SAFE_MARGIN * 2;
   const safeHeight = spreadHeight - SAFE_MARGIN * 2;
   
+  if (photosCount === 0) return slots;
+  
   const rows = Math.ceil(Math.sqrt(photosCount));
   const cols = Math.ceil(photosCount / rows);
   
-  const slotWidth = safeWidth / cols - 10;
-  const slotHeight = safeHeight / rows - 10;
+  const totalSpacingWidth = spacing * (cols - 1);
+  const totalSpacingHeight = spacing * (rows - 1);
+  
+  const slotWidth = (safeWidth - totalSpacingWidth) / cols;
+  const slotHeight = (safeHeight - totalSpacingHeight) / rows;
   
   for (let i = 0; i < photosCount; i++) {
     const row = Math.floor(i / cols);
@@ -51,8 +59,8 @@ const generateLayout = (
     slots.push({
       id: `slot-${i}`,
       orientation: isHorizontal ? 'horizontal' : 'vertical',
-      x: SAFE_MARGIN + col * (slotWidth + 10) + 5,
-      y: SAFE_MARGIN + row * (slotHeight + 10) + 5,
+      x: SAFE_MARGIN + col * (slotWidth + spacing),
+      y: SAFE_MARGIN + row * (slotHeight + spacing),
       width: slotWidth,
       height: slotHeight,
     });
@@ -64,31 +72,54 @@ const generateLayout = (
 const generateRandomLayout = (
   photosCount: number,
   spreadWidth: number,
-  spreadHeight: number
+  spreadHeight: number,
+  spacing: number
 ): PhotoSlot[] => {
   const slots: PhotoSlot[] = [];
   const safeWidth = spreadWidth - SAFE_MARGIN * 2;
   const safeHeight = spreadHeight - SAFE_MARGIN * 2;
   
+  if (photosCount === 0) return slots;
+  
   const minSlotSize = Math.min(safeWidth, safeHeight) / 4;
-  const maxSlotSize = Math.min(safeWidth, safeHeight) / 2;
+  const maxSlotSize = Math.min(safeWidth, safeHeight) / 2.5;
+  
+  const attempts = 100;
   
   for (let i = 0; i < photosCount; i++) {
-    const isHorizontal = Math.random() > 0.5;
-    const width = minSlotSize + Math.random() * (maxSlotSize - minSlotSize);
-    const height = minSlotSize + Math.random() * (maxSlotSize - minSlotSize);
+    let placed = false;
     
-    const x = SAFE_MARGIN + Math.random() * (safeWidth - width);
-    const y = SAFE_MARGIN + Math.random() * (safeHeight - height);
+    for (let attempt = 0; attempt < attempts && !placed; attempt++) {
+      const isHorizontal = Math.random() > 0.5;
+      const width = minSlotSize + Math.random() * (maxSlotSize - minSlotSize);
+      const height = minSlotSize + Math.random() * (maxSlotSize - minSlotSize);
+      
+      const x = SAFE_MARGIN + Math.random() * (safeWidth - width);
+      const y = SAFE_MARGIN + Math.random() * (safeHeight - height);
+      
+      const hasOverlap = slots.some(existingSlot => {
+        const dx = Math.abs((x + width/2) - (existingSlot.x + existingSlot.width/2));
+        const dy = Math.abs((y + height/2) - (existingSlot.y + existingSlot.height/2));
+        return dx < (width/2 + existingSlot.width/2 + spacing) && 
+               dy < (height/2 + existingSlot.height/2 + spacing);
+      });
+      
+      if (!hasOverlap) {
+        slots.push({
+          id: `slot-${i}`,
+          orientation: isHorizontal ? 'horizontal' : 'vertical',
+          x,
+          y,
+          width,
+          height,
+        });
+        placed = true;
+      }
+    }
     
-    slots.push({
-      id: `slot-${i}`,
-      orientation: isHorizontal ? 'horizontal' : 'vertical',
-      x,
-      y,
-      width,
-      height,
-    });
+    if (!placed) {
+      return generateLayout(photosCount, spreadWidth, spreadHeight, spacing);
+    }
   }
   
   return slots;
@@ -103,28 +134,30 @@ const PhotobookLayoutDesigner = ({
 }: PhotobookLayoutDesignerProps) => {
   const [layoutVariant, setLayoutVariant] = useState(0);
   const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>([]);
+  const [photoSpacing, setPhotoSpacing] = useState(DEFAULT_PHOTO_SPACING);
+  const [customSpacing, setCustomSpacing] = useState(false);
   
   const dimensions = getFormatDimensions(format);
 
   useEffect(() => {
-    const newSlots = generateLayout(photosPerSpread, dimensions.width, dimensions.height);
+    const newSlots = generateLayout(photosPerSpread, dimensions.width, dimensions.height, photoSpacing);
     setPhotoSlots(newSlots);
-  }, [photosPerSpread, format, dimensions.width, dimensions.height]);
+  }, [photosPerSpread, format, dimensions.width, dimensions.height, photoSpacing]);
 
   const handleNextVariant = () => {
-    const newSlots = generateRandomLayout(photosPerSpread, dimensions.width, dimensions.height);
+    const newSlots = generateRandomLayout(photosPerSpread, dimensions.width, dimensions.height, photoSpacing);
     setPhotoSlots(newSlots);
     setLayoutVariant((prev) => prev + 1);
   };
 
   const handlePrevVariant = () => {
-    const newSlots = generateRandomLayout(photosPerSpread, dimensions.width, dimensions.height);
+    const newSlots = generateRandomLayout(photosPerSpread, dimensions.width, dimensions.height, photoSpacing);
     setPhotoSlots(newSlots);
     setLayoutVariant((prev) => Math.max(0, prev - 1));
   };
 
   const handleConfirm = () => {
-    onConfirm(photoSlots);
+    onConfirm(photoSlots, photoSpacing);
   };
 
   return (
@@ -138,23 +171,61 @@ const PhotobookLayoutDesigner = ({
 
       <Card className="border-2">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
               <Label htmlFor="photosCount">Количество фото на развороте</Label>
               <Input
                 id="photosCount"
                 type="number"
-                min="1"
+                min="0"
                 max="20"
                 value={photosPerSpread}
-                onChange={(e) => onPhotosPerSpreadChange(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  onPhotosPerSpreadChange(isNaN(val) ? 0 : Math.max(0, Math.min(20, val)));
+                }}
                 className="mt-2"
               />
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground flex flex-col justify-end">
               <div>Разворот = 2 страницы</div>
               <div>Безопасная зона: {SAFE_MARGIN} мм</div>
             </div>
+          </div>
+
+          <div className="border-t pt-4 space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="customSpacing"
+                checked={customSpacing}
+                onCheckedChange={(checked) => setCustomSpacing(checked as boolean)}
+              />
+              <Label htmlFor="customSpacing" className="cursor-pointer">
+                Настроить расстояние между фотографиями
+              </Label>
+            </div>
+            
+            {customSpacing && (
+              <div>
+                <Label htmlFor="photoSpacing">Расстояние между фото (мм)</Label>
+                <Input
+                  id="photoSpacing"
+                  type="number"
+                  min="0"
+                  max="50"
+                  step="1"
+                  value={photoSpacing}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setPhotoSpacing(isNaN(val) ? 0 : Math.max(0, Math.min(50, val)));
+                  }}
+                  className="mt-2"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Рекомендуется: 5-10 мм
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

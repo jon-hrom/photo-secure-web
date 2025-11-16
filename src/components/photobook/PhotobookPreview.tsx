@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import type { PhotobookFormat, PhotoSlot, UploadedPhoto } from './PhotobookCreator';
 
@@ -8,6 +11,10 @@ interface PhotobookPreviewProps {
   format: PhotobookFormat;
   photoSlots: PhotoSlot[];
   photos: UploadedPhoto[];
+  title: string;
+  onTitleChange: (title: string) => void;
+  enableClientLink: boolean;
+  onEnableClientLinkChange: (enabled: boolean) => void;
   onComplete: () => void;
   onBack: () => void;
 }
@@ -49,6 +56,10 @@ const PhotobookPreview = ({
   format,
   photoSlots,
   photos,
+  title,
+  onTitleChange,
+  enableClientLink,
+  onEnableClientLinkChange,
   onComplete,
   onBack,
 }: PhotobookPreviewProps) => {
@@ -76,6 +87,40 @@ const PhotobookPreview = ({
           Разворот {currentSpread + 1} из {totalSpreads}
         </p>
       </div>
+
+      <Card className="border-2">
+        <CardContent className="p-6 space-y-4">
+          <div>
+            <Label htmlFor="photobookTitle">Название фотокниги</Label>
+            <Input
+              id="photobookTitle"
+              type="text"
+              placeholder={`Фотокнига ${format.replace('x', '×')} см`}
+              value={title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+
+          <div className="border-t pt-4 space-y-3">
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="enableClientLink"
+                checked={enableClientLink}
+                onCheckedChange={(checked) => onEnableClientLinkChange(checked as boolean)}
+              />
+              <div className="flex-1">
+                <Label htmlFor="enableClientLink" className="cursor-pointer">
+                  Создать ссылку для клиента
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Клиент сможет просматривать макет и оставлять комментарии к каждому развороту
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-2">
         <CardContent className="p-6">
@@ -183,16 +228,18 @@ const PhotobookPreview = ({
             </svg>
           </div>
 
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Icon name="Info" size={16} />
-              <span>Фотографии автоматически подогнаны под размер макета</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Icon name="CheckCircle" size={16} className="text-green-500" />
-              <span>
-                Использовано {photos.length} {photos.length === 1 ? 'фотография' : 'фотографий'}
-              </span>
+          <div className="mt-4 flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon name="Info" size={16} />
+                <span>Фотографии автоматически подогнаны под размер макета</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon name="CheckCircle" size={16} className="text-green-500" />
+                <span>
+                  Использовано {photos.length} {photos.length === 1 ? 'фотография' : 'фотографий'}
+                </span>
+              </div>
             </div>
           </div>
         </CardContent>

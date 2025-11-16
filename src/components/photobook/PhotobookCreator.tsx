@@ -29,10 +29,23 @@ export interface UploadedPhoto {
   height: number;
 }
 
+export interface PhotobookData {
+  id: string;
+  title: string;
+  format: PhotobookFormat;
+  photosPerSpread: number;
+  photoSlots: PhotoSlot[];
+  photos: UploadedPhoto[];
+  photoSpacing: number;
+  createdAt: Date;
+  enableClientLink: boolean;
+  clientLinkId?: string;
+}
+
 interface PhotobookCreatorProps {
   open: boolean;
   onClose: () => void;
-  onComplete?: (photobook: any) => void;
+  onComplete?: (photobook: PhotobookData) => void;
 }
 
 type Step = 'format' | 'layout' | 'upload' | 'preview';
@@ -43,14 +56,18 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
   const [photosPerSpread, setPhotosPerSpread] = useState<number>(4);
   const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>([]);
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
+  const [photoSpacing, setPhotoSpacing] = useState<number>(5);
+  const [title, setTitle] = useState<string>('');
+  const [enableClientLink, setEnableClientLink] = useState<boolean>(false);
 
   const handleFormatSelect = (format: PhotobookFormat) => {
     setSelectedFormat(format);
     setCurrentStep('layout');
   };
 
-  const handleLayoutConfirm = (slots: PhotoSlot[]) => {
+  const handleLayoutConfirm = (slots: PhotoSlot[], spacing: number) => {
     setPhotoSlots(slots);
+    setPhotoSpacing(spacing);
     setCurrentStep('upload');
   };
 
@@ -60,13 +77,20 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
   };
 
   const handleComplete = () => {
-    if (onComplete) {
-      onComplete({
+    if (onComplete && selectedFormat) {
+      const photobookData: PhotobookData = {
+        id: `photobook-${Date.now()}`,
+        title: title || `Фотокнига ${selectedFormat.replace('x', '×')} см`,
         format: selectedFormat,
         photosPerSpread,
         photoSlots,
         photos: uploadedPhotos,
-      });
+        photoSpacing,
+        createdAt: new Date(),
+        enableClientLink,
+        clientLinkId: enableClientLink ? `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` : undefined,
+      };
+      onComplete(photobookData);
     }
     handleClose();
   };
@@ -77,6 +101,9 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
     setPhotosPerSpread(4);
     setPhotoSlots([]);
     setUploadedPhotos([]);
+    setPhotoSpacing(5);
+    setTitle('');
+    setEnableClientLink(false);
     onClose();
   };
 
@@ -162,6 +189,10 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
               format={selectedFormat}
               photoSlots={photoSlots}
               photos={uploadedPhotos}
+              title={title}
+              onTitleChange={setTitle}
+              enableClientLink={enableClientLink}
+              onEnableClientLinkChange={setEnableClientLink}
               onComplete={handleComplete}
               onBack={handleBack}
             />
