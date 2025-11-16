@@ -31,15 +31,17 @@ interface EnhancedAdminUsersProps {
   onBlock: (userId: string | number, reason: string) => void;
   onUnblock: (userId: string | number) => void;
   onDelete: (userId: string | number) => void;
+  onRefresh?: () => void;
 }
 
-const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdminUsersProps) => {
+const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: EnhancedAdminUsersProps) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'email' | 'lastLogin'>('date');
   const [filterByActivity, setFilterByActivity] = useState<'all' | 'active' | 'inactive'>('all');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -361,17 +363,34 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
                 </div>
               )}
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportToCSV}
-                className="gap-2"
-                disabled={filteredAndSortedUsers.length === 0}
-              >
-                <Icon name="Download" size={16} />
-                Экспорт в CSV
-              </Button>
-            </div>
+              <div className="flex items-center gap-2">
+                {onRefresh && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      setIsRefreshing(true);
+                      await onRefresh();
+                      setTimeout(() => setIsRefreshing(false), 500);
+                    }}
+                    disabled={isRefreshing}
+                    className="gap-2"
+                  >
+                    <Icon name="RefreshCw" size={16} className={isRefreshing ? 'animate-spin' : ''} />
+                    {isRefreshing ? 'Обновление...' : 'Обновить'}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToCSV}
+                  className="gap-2"
+                  disabled={filteredAndSortedUsers.length === 0}
+                >
+                  <Icon name="Download" size={16} />
+                  Экспорт в CSV
+                </Button>
+              </div>
           </div>
 
           <Tabs defaultValue="whitelist" className="w-full">

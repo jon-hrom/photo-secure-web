@@ -414,6 +414,7 @@ const AdminPanel = () => {
         onDeleteUser={deleteUser}
         onBlockUser={blockUser}
         onUnblockUser={unblockUser}
+        onRefreshUsers={loadUsers}
       />
     </div>
   );

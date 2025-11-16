@@ -21,6 +21,7 @@ interface AdminPanelTabsProps {
   onDeleteUser: (userId: string | number) => void;
   onBlockUser: (userId: string | number, reason: string) => void;
   onUnblockUser: (userId: string | number) => void;
+  onRefreshUsers?: () => void;
 }
 
 const AdminPanelTabs = ({
@@ -39,6 +40,7 @@ const AdminPanelTabs = ({
   onDeleteUser,
   onBlockUser,
   onUnblockUser,
+  onRefreshUsers,
 }: AdminPanelTabsProps) => {
   return (
     <Accordion type="multiple" className="space-y-4">
@@ -93,6 +95,7 @@ const AdminPanelTabs = ({
             onDelete={onDeleteUser}
             onBlock={onBlockUser}
             onUnblock={onUnblockUser}
+            onRefresh={onRefreshUsers}
           />
         </AccordionContent>
       </AccordionItem>

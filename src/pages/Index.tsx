@@ -34,11 +34,12 @@ const Index = () => {
 
   const handleLoginSuccess = (uid: number, email?: string) => {
     const isAdminUser = email === 'jonhrom2012@gmail.com';
+    const page = isAdminUser ? 'admin' : 'dashboard';
     setIsAuthenticated(true);
     setUserId(uid);
     setUserEmail(email || '');
     setIsAdmin(isAdminUser);
-    setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
+    setCurrentPage(page);
     lastActivityRef.current = Date.now();
     
     localStorage.setItem('authSession', JSON.stringify({
@@ -46,7 +47,7 @@ const Index = () => {
       userId: uid,
       userEmail: email || '',
       isAdmin: isAdminUser,
-      currentPage: 'dashboard',
+      currentPage: page,
       lastActivity: Date.now(),
     }));
   };
@@ -150,7 +151,7 @@ const Index = () => {
               setUserAvatar(userData.avatar || '');
               setIsVerified(userData.verified || false);
               setIsAdmin(isAdminUser);
-              setCurrentPage('dashboard');
+              setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
               lastActivityRef.current = Date.now();
               
               // Clean URL
@@ -199,7 +200,7 @@ const Index = () => {
           setUserAvatar(userData.avatar || '');
           setIsVerified(userData.is_verified || userData.verified || false);
           setIsAdmin(isAdminUser);
-          setCurrentPage('dashboard');
+          setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
           lastActivityRef.current = Date.now();
           
           if (vkAuthCompleted) {
