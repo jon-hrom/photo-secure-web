@@ -105,18 +105,23 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://pixabay.com/api/?key=47579633-d22b93cb4732806e64d4d8f28&q=${encodeURIComponent(searchQuery)}&image_type=photo&orientation=horizontal&per_page=20&lang=ru`
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchQuery)}&per_page=20&orientation=landscape`,
+        {
+          headers: {
+            Authorization: 'gVZM9g4F4wKz8Mv6T95F2B0kVGrTXbqeVYa8Iz6FGzVMk0veBNrOPBzi'
+          }
+        }
       );
 
       if (!response.ok) {
-        console.error('Pixabay API error:', response.status, response.statusText);
+        console.error('Pexels API error:', response.status, response.statusText);
         throw new Error('Search failed');
       }
 
       const data = await response.json();
-      console.log('Pixabay response:', data);
+      console.log('Pexels response:', data);
 
-      if (!data.hits || data.hits.length === 0) {
+      if (!data.photos || data.photos.length === 0) {
         toast({
           title: 'Ничего не найдено',
           description: 'Попробуйте другой запрос',
@@ -125,10 +130,10 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
         return;
       }
 
-      const results: BackgroundImage[] = data.hits.map((photo: any) => ({
-        id: `pixabay-${photo.id}`,
-        url: photo.largeImageURL,
-        name: photo.tags || 'Pixabay Image',
+      const results: BackgroundImage[] = data.photos.map((photo: any) => ({
+        id: `pexels-${photo.id}`,
+        url: photo.src.large,
+        name: photo.alt || 'Pexels Image',
       }));
 
       setSearchResults(results);

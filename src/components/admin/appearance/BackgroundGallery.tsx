@@ -102,7 +102,7 @@ const BackgroundGallery = ({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Поиск бесплатных изображений на Pixabay
+              Поиск бесплатных изображений на Pexels
             </p>
           </div>
           
