@@ -55,6 +55,12 @@ const AdminPanel = () => {
     loadSettings();
     loadHistory();
     loadUsers();
+    
+    const usersInterval = setInterval(() => {
+      loadUsers();
+    }, 30000);
+    
+    return () => clearInterval(usersInterval);
   }, []);
 
   const loadSettings = async () => {
