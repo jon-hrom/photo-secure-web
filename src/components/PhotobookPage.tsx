@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import PhotobookCreator, { type PhotobookData } from '@/components/photobook/PhotobookCreator';
-import PhotobookEditor from '@/components/photobook/PhotobookEditor';
+import SavedDesigns from '@/components/photobook/SavedDesigns';
+import Photobook3DPreview from '@/components/photobook/Photobook3DPreview';
 
 
 
@@ -12,8 +12,7 @@ const PhotobookPage = () => {
   const [photobooks, setPhotobooks] = useState<PhotobookData[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedPhotobook, setSelectedPhotobook] = useState<PhotobookData | null>(null);
-
-
+  const [show3DPreview, setShow3DPreview] = useState(false);
 
   const handlePhotobookComplete = (photobookData: PhotobookData) => {
     setPhotobooks(prev => [...prev, photobookData]);
@@ -22,15 +21,20 @@ const PhotobookPage = () => {
 
   const handleSelectPhotobook = (photobook: PhotobookData) => {
     setSelectedPhotobook(photobook);
+    setShow3DPreview(true);
   };
 
-  const handleCloseEditor = () => {
-    setSelectedPhotobook(null);
+  const handleDeletePhotobook = (id: string) => {
+    setPhotobooks(prev => prev.filter(p => p.id !== id));
   };
 
-  const handleSavePhotobook = (updatedPhotobook: PhotobookData) => {
-    setPhotobooks(prev => prev.map(p => p.id === updatedPhotobook.id ? updatedPhotobook : p));
-    setSelectedPhotobook(null);
+  const handleDownload = () => {
+    console.log('Downloading...');
+  };
+
+  const handleOrder = () => {
+    console.log('Ordering...');
+    setShow3DPreview(false);
   };
 
   return (
@@ -53,68 +57,37 @@ const PhotobookPage = () => {
       />
 
       {selectedPhotobook && (
-        <PhotobookEditor
-          photobook={selectedPhotobook}
-          onClose={handleCloseEditor}
-          onSave={handleSavePhotobook}
+        <Photobook3DPreview
+          open={show3DPreview}
+          config={selectedPhotobook.config}
+          spreads={selectedPhotobook.spreads}
+          photos={selectedPhotobook.photos}
+          onClose={() => {
+            setShow3DPreview(false);
+            setSelectedPhotobook(null);
+          }}
+          onDownload={handleDownload}
+          onOrder={handleOrder}
         />
       )}
 
+      <Card className="shadow-lg border-2 mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Icon name="Book" className="mr-2 text-primary" size={24} />
+            Мои дизайны ({photobooks.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SavedDesigns
+            designs={photobooks}
+            onOpen={handleSelectPhotobook}
+            onDelete={handleDeletePhotobook}
+          />
+        </CardContent>
+      </Card>
+
       <div className="grid md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <Card className="shadow-lg border-2">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Icon name="Book" className="mr-2 text-primary" size={24} />
-                Мои проекты ({photobooks.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {photobooks.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Icon name="BookOpen" size={48} className="mx-auto mb-3 opacity-50" />
-                  <p>Пока нет созданных фотокниг</p>
-                  <p className="text-sm">Создайте первую фотокнигу!</p>
-                </div>
-              ) : (
-                photobooks.map((book) => (
-                  <Card
-                    key={book.id}
-                    className="cursor-pointer hover:shadow-md transition-all border-2"
-                    onClick={() => handleSelectPhotobook(book)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg">{book.title}</h3>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Формат: {book.format.replace('x', '×')} см
-                          </p>
-                          {book.enableClientLink && (
-                            <Badge variant="outline" className="mt-2">
-                              <Icon name="Link" size={12} className="mr-1" />
-                              Ссылка для клиента
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Icon name="Image" size={16} />
-                          <span>{book.photos.length} фото</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Icon name="FileText" size={16} />
-                          <span>{Math.ceil(book.photos.length / book.photosPerSpread)} разворотов</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
         <div className="space-y-4">
           <Card className="shadow-lg border-2 bg-gradient-to-br from-purple-50 to-blue-50">
