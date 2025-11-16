@@ -41,15 +41,43 @@ const fitPhotoToSlot = (
   let height = slot.height;
 
   if (photoAspect > slotAspect) {
-    height = slot.width / photoAspect;
-  } else {
     width = slot.height * photoAspect;
+  } else {
+    height = slot.width / photoAspect;
   }
 
   const x = slot.x + (slot.width - width) / 2;
   const y = slot.y + (slot.height - height) / 2;
 
   return { x, y, width, height };
+};
+
+const adjustSlotToPhoto = (
+  photo: UploadedPhoto,
+  slot: PhotoSlot
+): PhotoSlot => {
+  const photoIsHorizontal = photo.width > photo.height;
+  const photoAspect = photo.width / photo.height;
+  
+  if (photoIsHorizontal) {
+    const newHeight = slot.width / photoAspect;
+    const heightDiff = slot.height - newHeight;
+    return {
+      ...slot,
+      y: slot.y + heightDiff / 2,
+      height: newHeight,
+      orientation: 'horizontal',
+    };
+  } else {
+    const newWidth = slot.height * photoAspect;
+    const widthDiff = slot.width - newWidth;
+    return {
+      ...slot,
+      x: slot.x + widthDiff / 2,
+      width: newWidth,
+      orientation: 'vertical',
+    };
+  }
 };
 
 const PhotobookPreview = ({
@@ -177,50 +205,53 @@ const PhotobookPreview = ({
                 
                 if (!photo) {
                   return (
-                    <rect
-                      key={`empty-${index}`}
-                      x={slot.x}
-                      y={slot.y}
-                      width={slot.width}
-                      height={slot.height}
-                      fill="#f3f4f6"
-                      stroke="#d1d5db"
-                      strokeWidth="2"
-                      rx="4"
-                    />
+                    <g key={`empty-${index}`}>
+                      <rect
+                        x={slot.x}
+                        y={slot.y}
+                        width={slot.width}
+                        height={slot.height}
+                        fill="#f3f4f6"
+                        stroke="#d1d5db"
+                        strokeWidth="2"
+                        strokeDasharray="4"
+                        rx="4"
+                      />
+                      <text
+                        x={slot.x + slot.width / 2}
+                        y={slot.y + slot.height / 2}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#9ca3af"
+                        fontSize="12"
+                      >
+                        {slot.orientation === 'horizontal' ? '📐 Гориз.' : '📏 Верт.'}
+                      </text>
+                    </g>
                   );
                 }
 
-                const fitted = fitPhotoToSlot(photo, slot);
+                const adjustedSlot = adjustSlotToPhoto(photo, slot);
 
                 return (
-                  <g key={`photo-${index}`}>
+                  <g key={`photo-${index}`} className="animate-fade-in">
                     <rect
-                      x={slot.x}
-                      y={slot.y}
-                      width={slot.width}
-                      height={slot.height}
-                      fill="#e5e7eb"
+                      x={adjustedSlot.x}
+                      y={adjustedSlot.y}
+                      width={adjustedSlot.width}
+                      height={adjustedSlot.height}
+                      fill="#ffffff"
+                      stroke="#9ca3af"
+                      strokeWidth="1"
                       rx="4"
                     />
                     <image
                       href={photo.url}
-                      x={fitted.x}
-                      y={fitted.y}
-                      width={fitted.width}
-                      height={fitted.height}
-                      clipPath={`url(#clip-${currentSpread}-${index})`}
-                      preserveAspectRatio="xMidYMid slice"
-                    />
-                    <rect
-                      x={slot.x}
-                      y={slot.y}
-                      width={slot.width}
-                      height={slot.height}
-                      fill="none"
-                      stroke="#9ca3af"
-                      strokeWidth="1"
-                      rx="4"
+                      x={adjustedSlot.x}
+                      y={adjustedSlot.y}
+                      width={adjustedSlot.width}
+                      height={adjustedSlot.height}
+                      preserveAspectRatio="xMidYMid meet"
                     />
                   </g>
                 );
@@ -232,7 +263,7 @@ const PhotobookPreview = ({
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Icon name="Info" size={16} />
-                <span>Фотографии автоматически подогнаны под размер макета</span>
+                <span>Рамки автоматически подстраиваются под ориентацию фото, фото не обрезаются</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Icon name="CheckCircle" size={16} className="text-green-500" />

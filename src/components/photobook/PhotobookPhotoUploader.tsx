@@ -17,11 +17,13 @@ const PhotobookPhotoUploader = ({
 }: PhotobookPhotoUploaderProps) => {
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files) return;
 
+    setIsUploading(true);
     const newPhotos: UploadedPhoto[] = [];
 
     for (let i = 0; i < files.length; i++) {
@@ -50,6 +52,7 @@ const PhotobookPhotoUploader = ({
     }
 
     setUploadedPhotos((prev) => [...prev, ...newPhotos]);
+    setIsUploading(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -144,21 +147,40 @@ const PhotobookPhotoUploader = ({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {uploadedPhotos.map((photo) => (
-                <div key={photo.id} className="relative group">
-                  <img
-                    src={photo.url}
-                    alt="Uploaded"
-                    className="w-full h-24 object-cover rounded-lg border-2 border-gray-200"
-                  />
-                  <button
-                    onClick={() => handleRemovePhoto(photo.id)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              {uploadedPhotos.map((photo, index) => {
+                const isHorizontal = photo.width > photo.height;
+                return (
+                  <div 
+                    key={photo.id} 
+                    className="relative group animate-scale-in"
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    <Icon name="X" size={16} />
-                  </button>
+                    <div className={`relative overflow-hidden rounded-lg border-2 border-gray-200 ${
+                      isHorizontal ? 'aspect-[4/3]' : 'aspect-[3/4]'
+                    }`}>
+                      <img
+                        src={photo.url}
+                        alt="Uploaded"
+                        className="w-full h-full object-contain bg-gray-50"
+                      />
+                      <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                        {isHorizontal ? '📐 Гориз.' : '📏 Верт.'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemovePhoto(photo.id)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    >
+                      <Icon name="X" size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+              {isUploading && (
+                <div className="aspect-[4/3] rounded-lg border-2 border-dashed border-primary bg-primary/5 flex items-center justify-center animate-pulse">
+                  <Icon name="Loader2" size={32} className="text-primary animate-spin" />
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
