@@ -269,10 +269,13 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
             <Icon name="Lock" size={32} className="text-primary" />
           </div>
-          <CardTitle className="text-2xl">{isRegistering ? 'Регистрация' : 'Вход в систему'}</CardTitle>
-          <CardDescription>
-            {isRegistering ? 'Создайте новый аккаунт' : 'Войдите в свой аккаунт'}
+          <CardTitle className="text-2xl">Foto-Mix</CardTitle>
+          <CardDescription className="text-base">
+            Профессиональная платформа для фотографов
           </CardDescription>
+          <div className="mt-3 text-sm text-muted-foreground">
+            {isRegistering ? 'Создайте новый аккаунт' : 'Вход в систему'}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {isBlocked && (
