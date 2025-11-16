@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
@@ -18,7 +18,22 @@ const PhotobookPhotoUploader = ({
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const selectedBgId = localStorage.getItem('uploadPageBackground');
+    if (selectedBgId) {
+      const savedImages = localStorage.getItem('backgroundImages');
+      if (savedImages) {
+        const images = JSON.parse(savedImages);
+        const selectedImage = images.find((img: any) => img.id === selectedBgId);
+        if (selectedImage) {
+          setBackgroundImage(selectedImage.url);
+        }
+      }
+    }
+  }, []);
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files) return;
@@ -79,15 +94,24 @@ const PhotobookPhotoUploader = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h3 className="text-xl font-semibold mb-2">Загрузите фотографии</h3>
-        <p className="text-muted-foreground">
-          Требуется минимум {requiredPhotos} {requiredPhotos === 1 ? 'фотография' : 'фотографий'}
-        </p>
-      </div>
+    <div 
+      className="min-h-screen p-6 -m-6"
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      <div className={`space-y-6 ${backgroundImage ? 'bg-white/95 backdrop-blur-sm rounded-xl p-6 shadow-lg' : ''}`}>
+        <div className="text-center">
+          <h3 className="text-xl font-semibold mb-2">Загрузите фотографии</h3>
+          <p className="text-muted-foreground">
+            Требуется минимум {requiredPhotos} {requiredPhotos === 1 ? 'фотография' : 'фотографий'}
+          </p>
+        </div>
 
-      <Card className="border-2">
+        <Card className="border-2">
         <CardContent className="p-6">
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
@@ -129,10 +153,10 @@ const PhotobookPhotoUploader = ({
             </div>
           </div>
         </CardContent>
-      </Card>
+        </Card>
 
-      {uploadedPhotos.length > 0 && (
-        <Card className="border-2">
+        {uploadedPhotos.length > 0 && (
+          <Card className="border-2">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold">
@@ -183,22 +207,23 @@ const PhotobookPhotoUploader = ({
               )}
             </div>
           </CardContent>
-        </Card>
-      )}
+          </Card>
+        )}
 
-      <div className="flex justify-between gap-4">
-        <Button variant="outline" onClick={onBack} className="rounded-full">
-          <Icon name="ArrowLeft" size={18} className="mr-2" />
-          Назад
-        </Button>
-        <Button
-          onClick={handleContinue}
-          disabled={uploadedPhotos.length < requiredPhotos}
-          className="rounded-full"
-        >
-          Далее
-          <Icon name="ArrowRight" size={18} className="ml-2" />
-        </Button>
+        <div className="flex justify-between gap-4">
+          <Button variant="outline" onClick={onBack} className="rounded-full">
+            <Icon name="ArrowLeft" size={18} className="mr-2" />
+            Назад
+          </Button>
+          <Button
+            onClick={handleContinue}
+            disabled={uploadedPhotos.length < requiredPhotos}
+            className="rounded-full"
+          >
+            Далее
+            <Icon name="ArrowRight" size={18} className="ml-2" />
+          </Button>
+        </div>
       </div>
     </div>
   );
