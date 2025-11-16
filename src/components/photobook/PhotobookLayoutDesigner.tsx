@@ -136,6 +136,8 @@ const PhotobookLayoutDesigner = ({
   const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>([]);
   const [photoSpacing, setPhotoSpacing] = useState(DEFAULT_PHOTO_SPACING);
   const [customSpacing, setCustomSpacing] = useState(false);
+  const [photosInputValue, setPhotosInputValue] = useState(String(photosPerSpread));
+  const [spacingInputValue, setSpacingInputValue] = useState(String(photoSpacing));
   
   const dimensions = getFormatDimensions(format);
 
@@ -179,16 +181,25 @@ const PhotobookLayoutDesigner = ({
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                value={photosPerSpread}
+                value={photosInputValue}
                 onChange={(e) => {
                   const val = e.target.value.replace(/\D/g, '');
+                  setPhotosInputValue(val);
+                  
                   if (val === '') {
-                    onPhotosPerSpreadChange(0);
-                  } else {
-                    const num = parseInt(val);
-                    if (!isNaN(num)) {
-                      onPhotosPerSpreadChange(Math.max(0, Math.min(20, num)));
-                    }
+                    return;
+                  }
+                  
+                  const num = parseInt(val);
+                  if (!isNaN(num)) {
+                    const clamped = Math.max(0, Math.min(20, num));
+                    onPhotosPerSpreadChange(clamped);
+                  }
+                }}
+                onBlur={() => {
+                  if (photosInputValue === '') {
+                    setPhotosInputValue('4');
+                    onPhotosPerSpreadChange(4);
                   }
                 }}
                 placeholder="От 0 до 20"
@@ -221,16 +232,25 @@ const PhotobookLayoutDesigner = ({
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  value={photoSpacing}
+                  value={spacingInputValue}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '');
+                    setSpacingInputValue(val);
+                    
                     if (val === '') {
-                      setPhotoSpacing(0);
-                    } else {
-                      const num = parseInt(val);
-                      if (!isNaN(num)) {
-                        setPhotoSpacing(Math.max(0, Math.min(50, num)));
-                      }
+                      return;
+                    }
+                    
+                    const num = parseInt(val);
+                    if (!isNaN(num)) {
+                      const clamped = Math.max(0, Math.min(50, num));
+                      setPhotoSpacing(clamped);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (spacingInputValue === '') {
+                      setSpacingInputValue('5');
+                      setPhotoSpacing(5);
                     }
                   }}
                   placeholder="От 0 до 50"
