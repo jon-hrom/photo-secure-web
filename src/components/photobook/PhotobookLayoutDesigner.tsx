@@ -176,16 +176,22 @@ const PhotobookLayoutDesigner = ({
               <Label htmlFor="photosCount">Количество фото на развороте</Label>
               <Input
                 id="photosCount"
-                type="number"
-                min="0"
-                max="20"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={photosPerSpread}
                 onChange={(e) => {
-                  const val = e.target.value === '' ? 0 : parseInt(e.target.value);
-                  if (!isNaN(val)) {
-                    onPhotosPerSpreadChange(Math.max(0, Math.min(20, val)));
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (val === '') {
+                    onPhotosPerSpreadChange(0);
+                  } else {
+                    const num = parseInt(val);
+                    if (!isNaN(num)) {
+                      onPhotosPerSpreadChange(Math.max(0, Math.min(20, num)));
+                    }
                   }
                 }}
+                placeholder="От 0 до 20"
                 className="mt-2"
               />
             </div>
@@ -212,17 +218,22 @@ const PhotobookLayoutDesigner = ({
                 <Label htmlFor="photoSpacing">Расстояние между фото (мм)</Label>
                 <Input
                   id="photoSpacing"
-                  type="number"
-                  min="0"
-                  max="50"
-                  step="1"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={photoSpacing}
                   onChange={(e) => {
-                    const val = e.target.value === '' ? 0 : parseInt(e.target.value);
-                    if (!isNaN(val)) {
-                      setPhotoSpacing(Math.max(0, Math.min(50, val)));
+                    const val = e.target.value.replace(/\D/g, '');
+                    if (val === '') {
+                      setPhotoSpacing(0);
+                    } else {
+                      const num = parseInt(val);
+                      if (!isNaN(num)) {
+                        setPhotoSpacing(Math.max(0, Math.min(50, num)));
+                      }
                     }
                   }}
+                  placeholder="От 0 до 50"
                   className="mt-2"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
