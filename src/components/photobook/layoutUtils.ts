@@ -102,6 +102,88 @@ export const generateLayout = (
   return slots;
 };
 
+interface LayoutCell {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  occupied: boolean;
+}
+
+const generateGridCells = (
+  safeWidth: number,
+  safeHeight: number,
+  cellSize: number
+): LayoutCell[][] => {
+  const cols = Math.floor(safeWidth / cellSize);
+  const rows = Math.floor(safeHeight / cellSize);
+  const grid: LayoutCell[][] = [];
+
+  for (let row = 0; row < rows; row++) {
+    grid[row] = [];
+    for (let col = 0; col < cols; col++) {
+      grid[row][col] = {
+        x: SAFE_MARGIN + col * cellSize,
+        y: SAFE_MARGIN + row * cellSize,
+        width: cellSize,
+        height: cellSize,
+        occupied: false
+      };
+    }
+  }
+  
+  return grid;
+};
+
+const findBestFit = (
+  grid: LayoutCell[][],
+  minCols: number,
+  minRows: number,
+  maxCols: number,
+  maxRows: number
+): { startRow: number; startCol: number; cols: number; rows: number } | null => {
+  const gridRows = grid.length;
+  const gridCols = grid[0]?.length || 0;
+
+  for (let rows = maxRows; rows >= minRows; rows--) {
+    for (let cols = maxCols; cols >= minCols; cols--) {
+      for (let startRow = 0; startRow <= gridRows - rows; startRow++) {
+        for (let startCol = 0; startCol <= gridCols - cols; startCol++) {
+          let canPlace = true;
+          
+          for (let r = startRow; r < startRow + rows && canPlace; r++) {
+            for (let c = startCol; c < startCol + cols && canPlace; c++) {
+              if (grid[r][c].occupied) {
+                canPlace = false;
+              }
+            }
+          }
+          
+          if (canPlace) {
+            return { startRow, startCol, cols, rows };
+          }
+        }
+      }
+    }
+  }
+  
+  return null;
+};
+
+const markOccupied = (
+  grid: LayoutCell[][],
+  startRow: number,
+  startCol: number,
+  rows: number,
+  cols: number
+): void => {
+  for (let r = startRow; r < startRow + rows; r++) {
+    for (let c = startCol; c < startCol + cols; c++) {
+      grid[r][c].occupied = true;
+    }
+  }
+};
+
 export const generateRandomLayout = (
   photosCount: number,
   spreadWidth: number,
@@ -114,44 +196,78 @@ export const generateRandomLayout = (
   
   if (photosCount === 0) return slots;
   
-  const minSlotSize = Math.min(safeWidth, safeHeight) / 4;
-  const maxSlotSize = Math.min(safeWidth, safeHeight) / 2.5;
+  const baseCellSize = Math.min(safeWidth, safeHeight) / 6;
+  const grid = generateGridCells(safeWidth, safeHeight, baseCellSize);
   
-  const attempts = 100;
+  if (grid.length === 0 || grid[0].length === 0) {
+    return generateLayout(photosCount, spreadWidth, spreadHeight, spacing);
+  }
+
+  const photoSizes = [];
+  for (let i = 0; i < photosCount; i++) {
+    const isLarge = Math.random() < 0.3;
+    const isHorizontal = Math.random() > 0.4;
+    
+    if (isLarge) {
+      photoSizes.push({
+        minCols: isHorizontal ? 3 : 2,
+        minRows: isHorizontal ? 2 : 3,
+        maxCols: isHorizontal ? 4 : 3,
+        maxRows: isHorizontal ? 3 : 4,
+        orientation: isHorizontal ? 'horizontal' : 'vertical'
+      });
+    } else {
+      photoSizes.push({
+        minCols: 2,
+        minRows: 2,
+        maxCols: 3,
+        maxRows: 3,
+        orientation: isHorizontal ? 'horizontal' : 'vertical'
+      });
+    }
+  }
+  
+  photoSizes.sort(() => Math.random() - 0.5);
   
   for (let i = 0; i < photosCount; i++) {
-    let placed = false;
+    const size = photoSizes[i];
+    const fit = findBestFit(grid, size.minCols, size.minRows, size.maxCols, size.maxRows);
     
-    for (let attempt = 0; attempt < attempts && !placed; attempt++) {
-      const isHorizontal = Math.random() > 0.5;
-      const width = minSlotSize + Math.random() * (maxSlotSize - minSlotSize);
-      const height = minSlotSize + Math.random() * (maxSlotSize - minSlotSize);
+    if (fit) {
+      const x = grid[fit.startRow][fit.startCol].x;
+      const y = grid[fit.startRow][fit.startCol].y;
+      const width = fit.cols * baseCellSize - spacing;
+      const height = fit.rows * baseCellSize - spacing;
       
-      const x = SAFE_MARGIN + Math.random() * (safeWidth - width);
-      const y = SAFE_MARGIN + Math.random() * (safeHeight - height);
-      
-      const hasOverlap = slots.some(existingSlot => {
-        const dx = Math.abs((x + width/2) - (existingSlot.x + existingSlot.width/2));
-        const dy = Math.abs((y + height/2) - (existingSlot.y + existingSlot.height/2));
-        return dx < (width/2 + existingSlot.width/2 + spacing) && 
-               dy < (height/2 + existingSlot.height/2 + spacing);
+      slots.push({
+        id: `slot-${i}`,
+        orientation: size.orientation as 'horizontal' | 'vertical',
+        x,
+        y,
+        width,
+        height,
       });
       
-      if (!hasOverlap) {
+      markOccupied(grid, fit.startRow, fit.startCol, fit.rows, fit.cols);
+    } else {
+      const smallFit = findBestFit(grid, 1, 1, 2, 2);
+      if (smallFit) {
+        const x = grid[smallFit.startRow][smallFit.startCol].x;
+        const y = grid[smallFit.startRow][smallFit.startCol].y;
+        const width = smallFit.cols * baseCellSize - spacing;
+        const height = smallFit.rows * baseCellSize - spacing;
+        
         slots.push({
           id: `slot-${i}`,
-          orientation: isHorizontal ? 'horizontal' : 'vertical',
+          orientation: width > height ? 'horizontal' : 'vertical',
           x,
           y,
           width,
           height,
         });
-        placed = true;
+        
+        markOccupied(grid, smallFit.startRow, smallFit.startCol, smallFit.rows, smallFit.cols);
       }
-    }
-    
-    if (!placed) {
-      return generateLayout(photosCount, spreadWidth, spreadHeight, spacing);
     }
   }
   
