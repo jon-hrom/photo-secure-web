@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Icon from '@/components/ui/icon';
 import type { PhotobookConfig, PhotoSlot, UploadedPhoto } from './PhotobookCreator';
-import { exportAsJPEG, exportAsPSD, exportAsPDF, downloadFile } from '@/utils/photobookExport';
+import ExportDialog from './ExportDialog';
 
 interface Photobook3DPreviewProps {
   open: boolean;
@@ -28,7 +28,8 @@ const Photobook3DPreview = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [acceptResponsibility, setAcceptResponsibility] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'jpeg' | 'psd'>('pdf');
 
   const totalPages = spreads.length * 2; // Each spread has 2 pages
 
@@ -52,40 +53,9 @@ const Photobook3DPreview = ({
     return photos.find(p => p.id === photoId)?.url;
   };
 
-  const handleDownloadJPEG = async () => {
-    setIsExporting(true);
-    try {
-      const blob = await exportAsJPEG(spreads, photos);
-      downloadFile(blob, 'photobook-jpeg.zip');
-    } catch (error) {
-      console.error('Export error:', error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleDownloadPSD = async () => {
-    setIsExporting(true);
-    try {
-      const blob = await exportAsPSD(spreads, photos);
-      downloadFile(blob, 'photobook-psd.zip');
-    } catch (error) {
-      console.error('Export error:', error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleDownloadPDF = async () => {
-    setIsExporting(true);
-    try {
-      const blob = await exportAsPDF(spreads, photos);
-      downloadFile(blob, 'photobook.pdf');
-    } catch (error) {
-      console.error('Export error:', error);
-    } finally {
-      setIsExporting(false);
-    }
+  const handleExportClick = (format: 'pdf' | 'jpeg' | 'psd') => {
+    setExportFormat(format);
+    setShowExportDialog(true);
   };
 
   const currentSpreadIndex = Math.floor(currentPage / 2);
@@ -243,21 +213,21 @@ const Photobook3DPreview = ({
               <div className="flex items-center gap-3 ml-6">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="lg" disabled={isExporting}>
+                    <Button variant="outline" size="lg">
                       <Icon name="Download" size={20} className="mr-2" />
-                      {isExporting ? 'Экспорт...' : 'Скачать дизайн'}
+                      Скачать дизайн
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleDownloadPDF}>
+                    <DropdownMenuItem onClick={() => handleExportClick('pdf')}>
                       <Icon name="FileText" size={16} className="mr-2" />
                       PDF файл
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleDownloadJPEG}>
+                    <DropdownMenuItem onClick={() => handleExportClick('jpeg')}>
                       <Icon name="Image" size={16} className="mr-2" />
                       JPEG архив (.zip)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleDownloadPSD}>
+                    <DropdownMenuItem onClick={() => handleExportClick('psd')}>
                       <Icon name="Layers" size={16} className="mr-2" />
                       PSD архив (.zip)
                     </DropdownMenuItem>
@@ -276,6 +246,14 @@ const Photobook3DPreview = ({
           </div>
         </div>
       </DialogContent>
+
+      <ExportDialog
+        open={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        spreads={spreads}
+        photos={photos}
+        format={exportFormat}
+      />
     </Dialog>
   );
 };

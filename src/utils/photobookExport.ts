@@ -9,7 +9,10 @@ interface Spread {
 
 export async function exportAsJPEG(
   spreads: Spread[],
-  photos: UploadedPhoto[]
+  photos: UploadedPhoto[],
+  quality: number = 95,
+  canvasWidth: number = 2000,
+  canvasHeight: number = 1000
 ): Promise<Blob> {
   const zip = new JSZip();
   const folder = zip.folder('photobook-jpeg');
@@ -23,8 +26,8 @@ export async function exportAsJPEG(
     
     if (!ctx) continue;
 
-    canvas.width = 2000;
-    canvas.height = 1000;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -60,7 +63,7 @@ export async function exportAsJPEG(
     }
 
     const jpegBlob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.95);
+      canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', quality / 100);
     });
 
     const pageNumber = String(i + 1).padStart(3, '0');
@@ -72,7 +75,9 @@ export async function exportAsJPEG(
 
 export async function exportAsPSD(
   spreads: Spread[],
-  photos: UploadedPhoto[]
+  photos: UploadedPhoto[],
+  canvasWidth: number = 2000,
+  canvasHeight: number = 1000
 ): Promise<Blob> {
   const zip = new JSZip();
   const folder = zip.folder('photobook-psd');
@@ -99,7 +104,7 @@ export async function exportAsPSD(
       });
     }
 
-    const psdData = generatePSDFile(layers, 2000, 1000);
+    const psdData = generatePSDFile(layers, canvasWidth, canvasHeight);
     
     const pageNumber = String(i + 1).padStart(3, '0');
     folder.file(`spread_${pageNumber}.psd`, psdData);
@@ -166,15 +171,17 @@ function generatePSDFile(
 
 export async function exportAsPDF(
   spreads: Spread[],
-  photos: UploadedPhoto[]
+  photos: UploadedPhoto[],
+  canvasWidth: number = 2000,
+  canvasHeight: number = 1000
 ): Promise<Blob> {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
   if (!ctx) throw new Error('Canvas not supported');
 
-  canvas.width = 2000;
-  canvas.height = 1000;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
 
   let pdfData = '%PDF-1.4\n';
   
