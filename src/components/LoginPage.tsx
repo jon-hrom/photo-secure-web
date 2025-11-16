@@ -26,11 +26,26 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [pendingUserId, setPendingUserId] = useState<number | null>(null);
   const [twoFactorType, setTwoFactorType] = useState<'sms' | 'email'>('email');
   const [passwordError, setPasswordError] = useState('');
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [authProviders, setAuthProviders] = useState({
     yandex: true,
     vk: true,
     google: true,
   });
+
+  useEffect(() => {
+    const selectedBgId = localStorage.getItem('loginPageBackground');
+    if (selectedBgId) {
+      const savedImages = localStorage.getItem('backgroundImages');
+      if (savedImages) {
+        const images = JSON.parse(savedImages);
+        const selectedImage = images.find((img: any) => img.id === selectedBgId);
+        if (selectedImage) {
+          setBackgroundImage(selectedImage.url);
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const loadAuthProviders = async () => {
@@ -216,8 +231,18 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: backgroundImage ? undefined : '#f8f9fa',
+      }}
+    >
+      {backgroundImage && <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />}
+      <Card className="w-full max-w-md shadow-2xl relative z-10">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
             <Icon name="Lock" size={32} className="text-primary" />

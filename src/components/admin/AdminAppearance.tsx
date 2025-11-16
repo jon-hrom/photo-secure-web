@@ -29,7 +29,7 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const [isExpanded, setIsExpanded] = useState(true);
   const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>([]);
   const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(
-    localStorage.getItem('uploadPageBackground') || null
+    localStorage.getItem('loginPageBackground') || null
   );
   const [isUploadingBg, setIsUploadingBg] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,11 +79,11 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
 
   const handleSelectBackground = (imageId: string) => {
     setSelectedBackgroundId(imageId);
-    localStorage.setItem('uploadPageBackground', imageId);
+    localStorage.setItem('loginPageBackground', imageId);
     
     toast({
       title: 'Фон применен',
-      description: 'Фон страницы загрузки обновлен',
+      description: 'Фон страницы входа обновлен',
     });
   };
 
@@ -94,7 +94,7 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     
     if (selectedBackgroundId === imageId) {
       setSelectedBackgroundId(null);
-      localStorage.removeItem('uploadPageBackground');
+      localStorage.removeItem('loginPageBackground');
     }
 
     toast({
@@ -235,9 +235,9 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
 
         <div className="space-y-4">
           <div>
-            <h3 className="text-lg font-semibold mb-2">Фон страницы загрузки</h3>
+            <h3 className="text-lg font-semibold mb-2">Фон страницы входа</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Загрузите изображения для фона страницы загрузки фотографий
+              Загрузите изображения для фона страницы входа на сайт
             </p>
           </div>
 
