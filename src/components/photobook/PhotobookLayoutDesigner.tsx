@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import type { PhotobookFormat, PhotoSlot } from './PhotobookCreator';
 
@@ -18,15 +19,63 @@ interface PhotobookLayoutDesignerProps {
 const SAFE_MARGIN = 5;
 const DEFAULT_PHOTO_SPACING = 5;
 
-const getFormatDimensions = (format: PhotobookFormat): { width: number; height: number } => {
-  switch (format) {
-    case '20x20':
-      return { width: 400, height: 200 };
-    case '21x30':
-      return { width: 420, height: 300 };
-    case '30x30':
-      return { width: 600, height: 300 };
+interface FormatSpecs {
+  width: number;
+  height: number;
+  spreadMM: string;
+  spreadPX: string;
+  coverMM: string;
+  coverPX: string;
+  spineMM: string;
+  spinePX: string;
+  spreadsRange: string;
+}
+
+const SPREAD_SPECS_20x20 = [
+  { range: '10-60', spreads: '10-13', spread: '400×203 мм (4724×2398 px)', cover: '457×240 мм (5390×2835 px)', spine: '8 мм (94 px)' },
+  { range: '10-60', spreads: '14-17', spread: '400×203 мм (4724×2398 px)', cover: '458×240 мм (5402×2835 px)', spine: '9 мм (106 px)' },
+  { range: '10-60', spreads: '18-21', spread: '400×203 мм (4724×2398 px)', cover: '461×240 мм (5445×2835 px)', spine: '12 мм (142 px)' },
+  { range: '10-60', spreads: '22-25', spread: '400×203 мм (4724×2398 px)', cover: '463×240 мм (5469×2835 px)', spine: '14 мм (165 px)' },
+];
+
+const FORMAT_SPECS: Record<PhotobookFormat, FormatSpecs> = {
+  '20x20': {
+    width: 400,
+    height: 200,
+    spreadMM: '400×203',
+    spreadPX: '4724×2398',
+    coverMM: '457-463×240',
+    coverPX: '5390-5469×2835',
+    spineMM: '8-14',
+    spinePX: '94-165',
+    spreadsRange: 'от 10 до 25'
+  },
+  '21x30': {
+    width: 420,
+    height: 300,
+    spreadMM: '420×300',
+    spreadPX: '4961×3543',
+    coverMM: '477×330',
+    coverPX: '5634×3898',
+    spineMM: '10',
+    spinePX: '118',
+    spreadsRange: 'стандарт'
+  },
+  '30x30': {
+    width: 600,
+    height: 300,
+    spreadMM: '600×300',
+    spreadPX: '7087×3543',
+    coverMM: '657×330',
+    coverPX: '7756×3898',
+    spineMM: '12',
+    spinePX: '142',
+    spreadsRange: 'большой'
   }
+};
+
+const getFormatDimensions = (format: PhotobookFormat): { width: number; height: number } => {
+  return FORMAT_SPECS[format];
 };
 
 const generateLayout = (
@@ -138,6 +187,7 @@ const PhotobookLayoutDesigner = ({
   const [customSpacing, setCustomSpacing] = useState(false);
   const [photosInputValue, setPhotosInputValue] = useState(String(photosPerSpread));
   const [spacingInputValue, setSpacingInputValue] = useState(String(photoSpacing));
+  const [showSpecsDialog, setShowSpecsDialog] = useState(false);
   
   const dimensions = getFormatDimensions(format);
 
@@ -173,6 +223,30 @@ const PhotobookLayoutDesigner = ({
 
       <Card className="border-2">
         <CardContent className="p-6 space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <div className="flex items-start justify-between">
+              <div className="text-sm space-y-1 flex-1">
+                <div className="font-semibold text-blue-900">Размеры для типографии (формат {format}):</div>
+                <div className="grid grid-cols-2 gap-x-4 text-blue-800">
+                  <div>• Разворот: {FORMAT_SPECS[format].spreadMM} мм ({FORMAT_SPECS[format].spreadPX} px)</div>
+                  <div>• Обложка: {FORMAT_SPECS[format].coverMM} мм ({FORMAT_SPECS[format].coverPX} px)</div>
+                  <div>• Корешок: {FORMAT_SPECS[format].spineMM} мм ({FORMAT_SPECS[format].spinePX} px)</div>
+                  <div>• Количество разворотов: {FORMAT_SPECS[format].spreadsRange}</div>
+                </div>
+              </div>
+              {format === '20x20' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSpecsDialog(true)}
+                  className="text-blue-700 hover:text-blue-900"
+                >
+                  <Icon name="Info" size={18} className="mr-1" />
+                  Детали
+                </Button>
+              )}
+            </div>
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="photosCount">Количество фото на развороте</Label>
@@ -298,6 +372,26 @@ const PhotobookLayoutDesigner = ({
               className="mx-auto border-2 border-gray-300"
               style={{ backgroundColor: 'white' }}
             >
+              <line
+                x1={dimensions.width / 2}
+                y1={0}
+                x2={dimensions.width / 2}
+                y2={dimensions.height}
+                stroke="#ef4444"
+                strokeWidth="2"
+                strokeDasharray="8,4"
+                opacity="0.6"
+              />
+              <text
+                x={dimensions.width / 2}
+                y={15}
+                textAnchor="middle"
+                fill="#ef4444"
+                fontSize="10"
+                fontWeight="bold"
+              >
+                Центральный сгиб
+              </text>
               <rect
                 x={SAFE_MARGIN}
                 y={SAFE_MARGIN}
@@ -354,6 +448,53 @@ const PhotobookLayoutDesigner = ({
           <Icon name="ArrowRight" size={18} className="ml-2" />
         </Button>
       </div>
+
+      <Dialog open={showSpecsDialog} onOpenChange={setShowSpecsDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Детальные размеры макетов 20×20 см для типографии</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="text-sm text-muted-foreground mb-4">
+              Размеры разворота, обложки и корешка в зависимости от количества разворотов
+            </div>
+            <div className="space-y-3">
+              {SPREAD_SPECS_20x20.map((spec, index) => (
+                <Card key={index} className="border-l-4 border-l-primary">
+                  <CardContent className="p-4">
+                    <div className="font-semibold text-primary mb-2">
+                      Развороты: {spec.spreads}
+                    </div>
+                    <div className="grid md:grid-cols-3 gap-2 text-sm">
+                      <div>
+                        <span className="font-medium">Разворот:</span>
+                        <div className="text-muted-foreground">{spec.spread}</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">Обложка:</span>
+                        <div className="text-muted-foreground">{spec.cover}</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">Корешок:</span>
+                        <div className="text-muted-foreground">{spec.spine}</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4">
+              <div className="flex items-start gap-2">
+                <Icon name="AlertTriangle" size={18} className="text-yellow-600 mt-0.5" />
+                <div className="text-sm text-yellow-800">
+                  <strong>Важно:</strong> Данные для разворотов от 26 до 40 будут добавлены позже. 
+                  Используйте указанные размеры для точной подготовки макетов в типографию.
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
