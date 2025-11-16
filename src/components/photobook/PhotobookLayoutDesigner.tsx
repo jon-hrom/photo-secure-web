@@ -181,8 +181,10 @@ const PhotobookLayoutDesigner = ({
                 max="20"
                 value={photosPerSpread}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  onPhotosPerSpreadChange(isNaN(val) ? 0 : Math.max(0, Math.min(20, val)));
+                  const val = e.target.value === '' ? 0 : parseInt(e.target.value);
+                  if (!isNaN(val)) {
+                    onPhotosPerSpreadChange(Math.max(0, Math.min(20, val)));
+                  }
                 }}
                 className="mt-2"
               />
@@ -216,8 +218,10 @@ const PhotobookLayoutDesigner = ({
                   step="1"
                   value={photoSpacing}
                   onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    setPhotoSpacing(isNaN(val) ? 0 : Math.max(0, Math.min(50, val)));
+                    const val = e.target.value === '' ? 0 : parseInt(e.target.value);
+                    if (!isNaN(val)) {
+                      setPhotoSpacing(Math.max(0, Math.min(50, val)));
+                    }
                   }}
                   className="mt-2"
                 />
