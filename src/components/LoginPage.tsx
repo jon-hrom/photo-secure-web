@@ -238,7 +238,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4"
+      className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
         backgroundSize: 'cover',
@@ -255,7 +255,18 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           }}
         />
       )}
-      <Card className="w-full max-w-md shadow-2xl relative z-10">
+      <Card 
+        className="w-full max-w-md shadow-2xl relative z-10 overflow-hidden"
+        style={backgroundImage ? {
+          backgroundImage: `url(${backgroundImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : {}}
+      >
+        {backgroundImage && (
+          <div className="absolute inset-0 bg-background/95 backdrop-blur-md z-0" />
+        )}
+        <div className="relative z-10">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
             <Icon name="Lock" size={32} className="text-primary" />
@@ -416,6 +427,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
             </>
           )}
         </CardContent>
+        </div>
       </Card>
 
       <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
