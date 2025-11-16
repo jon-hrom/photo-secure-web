@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import UserDetailsModal from './UserDetailsModal';
 
 interface User {
@@ -39,6 +39,22 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'email' | 'lastLogin'>('date');
   const [filterByActivity, setFilterByActivity] = useState<'all' | 'active' | 'inactive'>('all');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isUserOnline = (lastLogin: string | null): boolean => {
+    if (!lastLogin) return false;
+    const lastLoginDate = new Date(lastLogin);
+    const now = new Date();
+    const diffInMinutes = (now.getTime() - lastLoginDate.getTime()) / 1000 / 60;
+    return diffInMinutes < 5;
+  };
 
   const filteredAndSortedUsers = useMemo(() => {
     if (!users || users.length === 0) return [];
@@ -50,10 +66,11 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
         (user.ip_address && user.ip_address.includes(searchQuery)) ||
         (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
       
+      const isOnline = isUserOnline(user.last_login);
       const matchesActivity = 
         filterByActivity === 'all' ? true :
-        filterByActivity === 'active' ? user.is_active :
-        !user.is_active;
+        filterByActivity === 'active' ? isOnline :
+        !isOnline;
       
       return matchesSearch && matchesActivity;
     });
@@ -75,13 +92,14 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
     });
 
     return filtered;
-  }, [users, searchQuery, sortBy, filterByActivity]);
+  }, [users, searchQuery, sortBy, filterByActivity, currentTime]);
 
   const activeUsers = filteredAndSortedUsers.filter(u => !u.is_blocked);
   const blockedUsers = filteredAndSortedUsers.filter(u => u.is_blocked);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('ru-RU', {
+      timeZone: 'Europe/Samara',
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -197,10 +215,15 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete }: EnhancedAdm
                 <Icon name="Ban" size={12} />
                 Заблокирован
               </Badge>
+            ) : isUserOnline(user.last_login) ? (
+              <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-green-500 hover:bg-green-600">
+                <Icon name="Circle" size={8} className="fill-current animate-pulse" />
+                На сайте
+              </Badge>
             ) : (
-              <Badge variant="default" className="ml-auto sm:ml-2 gap-1">
-                <Icon name="CheckCircle" size={12} />
-                Активен
+              <Badge variant="outline" className="ml-auto sm:ml-2 gap-1">
+                <Icon name="Circle" size={8} className="fill-muted-foreground" />
+                Оффлайн
               </Badge>
             )}
           </div>
