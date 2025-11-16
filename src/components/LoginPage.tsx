@@ -257,15 +257,13 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       )}
       <Card 
         className="w-full max-w-md shadow-2xl relative z-10 overflow-hidden"
-        style={backgroundImage ? {
-          backgroundImage: `url(${backgroundImage})`,
+        style={{
+          backgroundImage: `url(https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg)`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-        } : {}}
+        }}
       >
-        {backgroundImage && (
-          <div className="absolute inset-0 bg-background/95 backdrop-blur-md z-0" />
-        )}
+        <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-0" />
         <div className="relative z-10">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
