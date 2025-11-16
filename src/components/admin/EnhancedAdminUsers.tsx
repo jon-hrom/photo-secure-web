@@ -220,7 +220,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
                 <Icon name="Ban" size={12} />
                 Заблокирован
               </Badge>
-            ) : isUserOnline(user.last_login) ? (
+            ) : user.is_active ? (
               <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-purple-600 hover:bg-purple-700">
                 <Icon name="CheckCircle" size={12} />
                 Активен
