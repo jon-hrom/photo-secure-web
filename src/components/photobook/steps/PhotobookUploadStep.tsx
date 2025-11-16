@@ -194,8 +194,8 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
                     {uploadedPhotos.map(photo => (
                       <Card
                         key={photo.id}
-                        className={`cursor-pointer transition-all hover:shadow-lg ${
-                          selectedPhotos.has(photo.id) ? 'ring-2 ring-yellow-400' : ''
+                        className={`cursor-pointer transition-all hover:shadow-lg relative ${
+                          selectedPhotos.has(photo.id) ? 'ring-4 ring-blue-400' : ''
                         }`}
                         onClick={() => togglePhotoSelection(photo.id)}
                       >
@@ -204,12 +204,17 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
                             <img 
                               src={photo.url} 
                               alt="Uploaded"
-                              className="w-full h-full object-cover"
+                              className={`w-full h-full object-cover transition-opacity ${
+                                selectedPhotos.has(photo.id) ? 'opacity-90' : ''
+                              }`}
                             />
                             {selectedPhotos.has(photo.id) && (
-                              <div className="absolute top-2 right-2 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
-                                <Icon name="Check" size={16} />
-                              </div>
+                              <>
+                                <div className="absolute inset-0 bg-blue-500/20" />
+                                <div className="absolute top-2 left-2 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                                  <Icon name="Check" size={20} className="text-white" />
+                                </div>
+                              </>
                             )}
                           </div>
                         ) : (
