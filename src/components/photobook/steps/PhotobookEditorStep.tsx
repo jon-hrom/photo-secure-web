@@ -56,7 +56,7 @@ const PhotobookEditorStep = ({ config, photos, fillMethod, onComplete, onBack }:
         </Button>
         <h2 className="text-xl font-bold">Редактор макета</h2>
         <Button 
-          className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+          className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
           onClick={handleComplete}
         >
           Далее

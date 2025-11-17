@@ -6,6 +6,7 @@ import PhotobookTemplateStep from './steps/PhotobookTemplateStep';
 import PhotobookFillMethodStep from './steps/PhotobookFillMethodStep';
 import PhotobookUploadStep from './steps/PhotobookUploadStep';
 import PhotobookEditorStep from './steps/PhotobookEditorStep';
+import SmartPhotobookEditor from './SmartPhotobookEditor';
 import PhotobookFinalStep from './steps/PhotobookFinalStep';
 
 export type PhotobookFormat = '20x20' | '21x30' | '25x25' | '30x20' | '30x30';
@@ -83,7 +84,7 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
   const [fillMethod, setFillMethod] = useState<PhotobookFillMethod | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<PhotobookTemplate | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
-  const [spreads, setSpreads] = useState<Array<{ id: string; slots: PhotoSlot[] }>>([]);
+  const [spreads, setSpreads] = useState<Array<{ id: string; slots: PhotoSlot[]; photos?: any[] }>>([]);
   const [enableClientLink, setEnableClientLink] = useState<boolean>(false);
 
   const handleConfigComplete = (newConfig: PhotobookConfig) => {
@@ -115,7 +116,7 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
     setCurrentStep('editor');
   };
 
-  const handleEditorComplete = (editedSpreads: Array<{ id: string; slots: PhotoSlot[] }>) => {
+  const handleEditorComplete = (editedSpreads: Array<{ id: string; slots?: PhotoSlot[]; photos?: any[] }>) => {
     setSpreads(editedSpreads);
     setCurrentStep('final');
   };
@@ -214,10 +215,9 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
         )}
 
         {currentStep === 'editor' && (
-          <PhotobookEditorStep
+          <SmartPhotobookEditor
             config={config}
             photos={uploadedPhotos}
-            fillMethod={fillMethod || 'manual'}
             onComplete={handleEditorComplete}
             onBack={handleBack}
           />
