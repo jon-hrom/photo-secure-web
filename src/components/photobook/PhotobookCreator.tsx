@@ -7,7 +7,9 @@ import PhotobookFillMethodStep from './steps/PhotobookFillMethodStep';
 import PhotobookUploadStep from './steps/PhotobookUploadStep';
 import PhotobookEditorStep from './steps/PhotobookEditorStep';
 import SmartPhotobookEditor from './SmartPhotobookEditor';
+import CollageBasedEditor from './CollageBasedEditor';
 import PhotobookFinalStep from './steps/PhotobookFinalStep';
+import EditorTypeStep from './steps/EditorTypeStep';
 
 export type PhotobookFormat = '20x20' | '21x30' | '25x25' | '30x20' | '30x30';
 export type PhotobookLayer = 'none' | '1mm' | '2mm';
@@ -69,7 +71,9 @@ interface PhotobookCreatorProps {
   onComplete?: (photobook: PhotobookData) => void;
 }
 
-type Step = 'config' | 'method' | 'template' | 'fillMethod' | 'upload' | 'editor' | 'final';
+export type EditorType = 'smart' | 'collage';
+
+type Step = 'config' | 'method' | 'template' | 'fillMethod' | 'upload' | 'editorType' | 'editor' | 'final';
 
 const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) => {
   const [currentStep, setCurrentStep] = useState<Step>('config');
@@ -86,6 +90,7 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [spreads, setSpreads] = useState<Array<{ id: string; slots: PhotoSlot[]; photos?: any[] }>>([]);
   const [enableClientLink, setEnableClientLink] = useState<boolean>(false);
+  const [editorType, setEditorType] = useState<EditorType>('smart');
 
   const handleConfigComplete = (newConfig: PhotobookConfig) => {
     setConfig(newConfig);
@@ -113,6 +118,11 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
 
   const handlePhotosUploaded = (photos: UploadedPhoto[]) => {
     setUploadedPhotos(photos);
+    setCurrentStep('editorType');
+  };
+
+  const handleEditorTypeSelect = (type: EditorType) => {
+    setEditorType(type);
     setCurrentStep('editor');
   };
 
@@ -156,6 +166,7 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
     setUploadedPhotos([]);
     setSpreads([]);
     setEnableClientLink(false);
+    setEditorType('smart');
     onClose();
   };
 
@@ -170,7 +181,8 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
         setCurrentStep('method');
       }
     }
-    else if (currentStep === 'editor') setCurrentStep('upload');
+    else if (currentStep === 'editorType') setCurrentStep('upload');
+    else if (currentStep === 'editor') setCurrentStep('editorType');
     else if (currentStep === 'final') setCurrentStep('editor');
   };
 
@@ -214,8 +226,24 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
           />
         )}
 
-        {currentStep === 'editor' && (
+        {currentStep === 'editorType' && (
+          <EditorTypeStep
+            onSelect={handleEditorTypeSelect}
+            onBack={handleBack}
+          />
+        )}
+
+        {currentStep === 'editor' && editorType === 'smart' && (
           <SmartPhotobookEditor
+            config={config}
+            photos={uploadedPhotos}
+            onComplete={handleEditorComplete}
+            onBack={handleBack}
+          />
+        )}
+
+        {currentStep === 'editor' && editorType === 'collage' && (
+          <CollageBasedEditor
             config={config}
             photos={uploadedPhotos}
             onComplete={handleEditorComplete}
