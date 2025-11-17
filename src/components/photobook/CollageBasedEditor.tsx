@@ -1,12 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
 import type { PhotobookConfig, UploadedPhoto } from './PhotobookCreator';
 import { getFormatDimensions } from './layoutUtils';
 import { COLLAGES_1_PHOTO, COLLAGES_2_PHOTO, COLLAGES_3_PHOTO } from './collageTemplates';
+import CollageSelector from './CollageSelector';
+import SpreadCanvas from './SpreadCanvas';
+import PhotoPanel from './PhotoPanel';
 
 interface CollageSlot {
   x: number;
@@ -44,7 +44,6 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeCorner, setResizeCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
-  const canvasRef = useRef<SVGSVGElement>(null);
   
   const [spreads, setSpreads] = useState<Spread[]>(() => {
     const initialSpreads: Spread[] = [];
@@ -113,7 +112,7 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
     setSelectedSlotIndex(slotIndex);
     setIsDragging(true);
     
-    const svg = canvasRef.current;
+    const svg = (e.target as SVGElement).ownerSVGElement;
     if (!svg) return;
     
     const rect = svg.getBoundingClientRect();
@@ -134,7 +133,7 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
     setIsResizing(true);
     setResizeCorner(corner);
     
-    const svg = canvasRef.current;
+    const svg = (e.target as SVGElement).ownerSVGElement;
     if (!svg) return;
     
     const rect = svg.getBoundingClientRect();
@@ -150,7 +149,7 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!manualMode || (!isDragging && !isResizing) || !dragStart) return;
     
-    const svg = canvasRef.current;
+    const svg = e.currentTarget;
     if (!svg) return;
     
     const rect = svg.getBoundingClientRect();
@@ -425,213 +424,37 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
       )}
 
       <div className="flex gap-4 flex-1 overflow-hidden">
-        {/* Левая панель - коллажи */}
-        <Card className="w-64 p-4 flex flex-col">
-          <h3 className="font-semibold mb-2">Коллажи</h3>
-          
-          <div className="mb-4">
-            <label className="text-sm text-muted-foreground mb-2 block">Количество фото</label>
-            <Select
-              value={photosPerCollage.toString()}
-              onValueChange={(value) => setPhotosPerCollage(parseInt(value) as 1 | 2 | 3)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 фото в коллаже</SelectItem>
-                <SelectItem value="2">2 фото в коллаже</SelectItem>
-                <SelectItem value="3">3 фото в коллаже</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <CollageSelector
+          photosPerCollage={photosPerCollage}
+          onPhotosPerCollageChange={setPhotosPerCollage}
+          collages={collages}
+          selectedCollageId={selectedSpread.collageId}
+          onCollageSelect={handleCollageSelect}
+        />
 
-          <ScrollArea className="flex-1">
-            <div className="grid grid-cols-2 gap-2">
-              {collages.map((collage) => (
-                <button
-                  key={collage.id}
-                  onClick={() => handleCollageSelect(collage.id)}
-                  className={`border-2 rounded p-1 hover:border-purple-500 transition-colors ${
-                    selectedSpread.collageId === collage.id ? 'border-purple-600 ring-2 ring-purple-200' : 'border-gray-200'
-                  }`}
-                >
-                  <img src={collage.thumbnail} alt={`Коллаж ${collage.id}`} className="w-full h-auto" />
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        </Card>
-
-        {/* Центральная часть - предпросмотр разворота */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handlePrevSpread}
-              disabled={selectedSpreadIndex === 0}
-            >
-              <Icon name="ChevronLeft" size={20} />
-            </Button>
-            
-            <span className="text-lg font-semibold">
-              {selectedSpread.type === 'cover' ? 'Обложка' : `Разворот ${selectedSpreadIndex}`}
-            </span>
-            
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleNextSpread}
-              disabled={selectedSpreadIndex === spreads.length - 1}
-            >
-              <Icon name="ChevronRight" size={20} />
-            </Button>
-          </div>
-
-          <div className="flex-1 flex items-center justify-center bg-gray-100 rounded-lg p-8">
-            <svg
-              ref={canvasRef}
-              viewBox={`0 0 ${dimensions.width * 2} ${dimensions.height}`}
-              className="max-w-full max-h-full border-2 border-gray-300 bg-white"
-              style={{ aspectRatio: `${dimensions.width * 2} / ${dimensions.height}` }}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            >
-              <rect x={0} y={0} width={dimensions.width} height={dimensions.height} fill="#ffffff" />
-              <rect x={dimensions.width} y={0} width={dimensions.width} height={dimensions.height} fill="#ffffff" />
-              <rect
-                x={spinePosition - spineWidth / 2}
-                y={0}
-                width={spineWidth}
-                height={dimensions.height}
-                fill="#e5e7eb"
-              />
-
-              {selectedSpread.slots.map((slot, idx) => {
-                const isSelected = manualMode && selectedSlotIndex === idx;
-                const photo = slot.photoId ? photos.find(p => p.id === slot.photoId) : null;
-                
-                return (
-                  <g key={idx}>
-                    {photo ? (
-                      <image
-                        href={photo.url}
-                        x={slot.x}
-                        y={slot.y}
-                        width={slot.width}
-                        height={slot.height}
-                        preserveAspectRatio="xMidYMid slice"
-                        style={{ cursor: manualMode ? 'move' : 'default' }}
-                        onMouseDown={(e: any) => handleSlotMouseDown(e, idx)}
-                      />
-                    ) : (
-                      <>
-                        <rect
-                          x={slot.x}
-                          y={slot.y}
-                          width={slot.width}
-                          height={slot.height}
-                          fill="#f3f4f6"
-                          stroke={isSelected ? '#8b5cf6' : '#d1d5db'}
-                          strokeWidth={isSelected ? '3' : '2'}
-                          style={{ cursor: manualMode ? 'move' : 'default' }}
-                          onMouseDown={(e: any) => handleSlotMouseDown(e, idx)}
-                        />
-                        <circle
-                          cx={slot.x + slot.width / 2}
-                          cy={slot.y + slot.height / 2}
-                          r="20"
-                          fill="#d1d5db"
-                        />
-                        <text
-                          x={slot.x + slot.width / 2}
-                          y={slot.y + slot.height / 2}
-                          fontSize="24"
-                          fill="#9ca3af"
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                        >
-                          📷
-                        </text>
-                      </>
-                    )}
-                    
-                    {isSelected && manualMode && (
-                      <>
-                        <circle cx={slot.x} cy={slot.y} r="6" fill="#8b5cf6" style={{ cursor: 'nwse-resize' }} onMouseDown={(e: any) => handleResizeMouseDown(e, idx, 'tl')} />
-                        <circle cx={slot.x + slot.width} cy={slot.y} r="6" fill="#8b5cf6" style={{ cursor: 'nesw-resize' }} onMouseDown={(e: any) => handleResizeMouseDown(e, idx, 'tr')} />
-                        <circle cx={slot.x} cy={slot.y + slot.height} r="6" fill="#8b5cf6" style={{ cursor: 'nesw-resize' }} onMouseDown={(e: any) => handleResizeMouseDown(e, idx, 'bl')} />
-                        <circle cx={slot.x + slot.width} cy={slot.y + slot.height} r="6" fill="#8b5cf6" style={{ cursor: 'nwse-resize' }} onMouseDown={(e: any) => handleResizeMouseDown(e, idx, 'br')} />
-                      </>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-
-          {/* Менеджер разворотов */}
-          <div className="mt-4 border-t pt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Icon name="BookOpen" size={16} />
-              <span className="text-sm font-semibold">Менеджер разворотов</span>
-            </div>
-            
-            <ScrollArea className="w-full">
-              <div className="flex gap-3 pb-2">
-                {spreads.map((spread, idx) => (
-                  <button
-                    key={spread.id}
-                    onClick={() => handleSpreadClick(idx)}
-                    className={`flex-shrink-0 w-32 border-2 rounded p-2 transition-all ${
-                      selectedSpreadIndex === idx
-                        ? 'border-purple-600 ring-2 ring-purple-200 bg-purple-50'
-                        : 'border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    <div className="aspect-video bg-gray-100 rounded mb-1 flex items-center justify-center">
-                      <Icon name="LayoutTemplate" size={20} className="text-gray-400" />
-                    </div>
-                    <p className="text-xs text-center">
-                      {spread.type === 'cover' ? 'Обложка' : `Разворот ${idx}`}
-                    </p>
-                  </button>
-                ))}
-                
-                <button className="flex-shrink-0 w-32 border-2 border-dashed border-gray-300 rounded p-2 flex items-center justify-center hover:border-gray-400 transition-colors">
-                  <Icon name="Plus" size={24} className="text-gray-400" />
-                </button>
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
+        <SpreadCanvas
+          spreads={spreads}
+          selectedSpreadIndex={selectedSpreadIndex}
+          photos={photos}
+          dimensions={dimensions}
+          spinePosition={spinePosition}
+          spineWidth={spineWidth}
+          manualMode={manualMode}
+          selectedSlotIndex={selectedSlotIndex}
+          onPrevSpread={handlePrevSpread}
+          onNextSpread={handleNextSpread}
+          onSpreadClick={handleSpreadClick}
+          onSlotMouseDown={handleSlotMouseDown}
+          onResizeMouseDown={handleResizeMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        />
 
         {manualMode && (
-          <Card className="w-64 p-4 flex flex-col">
-            <h3 className="font-semibold mb-2">Фотографии</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              Кликните на фото, затем на слот чтобы применить
-            </p>
-            <ScrollArea className="flex-1">
-              <div className="grid grid-cols-2 gap-2">
-                {photos.map((photo) => (
-                  <button
-                    key={photo.id}
-                    onClick={() => handlePhotoSelect(photo.id)}
-                    className="border-2 rounded overflow-hidden hover:border-blue-500 transition-colors aspect-square"
-                  >
-                    <img 
-                      src={photo.url} 
-                      alt="Фото" 
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            </ScrollArea>
-          </Card>
+          <PhotoPanel
+            photos={photos}
+            onPhotoSelect={handlePhotoSelect}
+          />
         )}
       </div>
     </div>
