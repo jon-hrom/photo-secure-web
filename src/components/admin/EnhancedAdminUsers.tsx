@@ -200,7 +200,6 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
     };
 
     const isOnline = isUserOnline(user.last_login);
-    console.log(`User ${user.full_name || user.email}: last_login=${user.last_login}, is_active=${user.is_active}, isOnline=${isOnline}`);
 
     return (
       <div
@@ -237,32 +236,27 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
               {getSourceLabel(user.source)}
             </Badge>
 
-            <div className="flex items-center gap-2 ml-auto">
-              {user.is_blocked ? (
-                <Badge variant="destructive" className="gap-1">
-                  <Icon name="Ban" size={12} />
-                  Заблокирован
-                </Badge>
-              ) : user.is_active ? (
-                <>
-                  <Badge variant="default" className="gap-1 bg-purple-600 hover:bg-purple-700">
-                    <Icon name="CheckCircle" size={12} />
-                    Активен
-                  </Badge>
-                  {isUserOnline(user.last_login) && (
-                    <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                      Онлайн
-                    </Badge>
-                  )}
-                </>
-              ) : (
-                <Badge variant="destructive" className="gap-1 bg-red-600 hover:bg-red-700">
-                  <Icon name="XCircle" size={12} />
-                  Не активен
-                </Badge>
-              )}
-            </div>
+            {user.is_blocked ? (
+              <Badge variant="destructive" className="ml-auto sm:ml-2 gap-1">
+                <Icon name="Ban" size={12} />
+                Заблокирован
+              </Badge>
+            ) : isOnline ? (
+              <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-green-600 hover:bg-green-700">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                Онлайн
+              </Badge>
+            ) : user.is_active ? (
+              <Badge variant="secondary" className="ml-auto sm:ml-2 gap-1">
+                <Icon name="Circle" size={12} />
+                Офлайн
+              </Badge>
+            ) : (
+              <Badge variant="destructive" className="ml-auto sm:ml-2 gap-1 bg-red-600 hover:bg-red-700">
+                <Icon name="XCircle" size={12} />
+                Не активен
+              </Badge>
+            )}
           </div>
 
           {user.phone && user.email && (
@@ -327,11 +321,11 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
             <span>Белый и черный списки пользователей с детальной информацией</span>
             <div className="flex items-center gap-3 text-sm">
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                <div className="w-2 h-2 rounded-full bg-green-600 animate-pulse"></div>
                 <span className="font-medium">Онлайн: {onlineCount}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-red-600"></div>
+                <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                 <span className="font-medium">Офлайн: {offlineCount}</span>
               </div>
             </div>
