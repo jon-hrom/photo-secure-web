@@ -25,7 +25,7 @@ export default function FaceBlurEditor() {
   const loadModels = async () => {
     try {
       setLoading(true);
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+      const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
       
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
