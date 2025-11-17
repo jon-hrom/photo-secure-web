@@ -62,6 +62,10 @@ export const useAuth = () => {
   };
 
   useEffect(() => {
+    console.log('🚀 useAuth useEffect STARTED');
+    console.log('🌐 Initial URL:', window.location.href);
+    console.log('🔍 Initial search params:', window.location.search);
+    
     const restoreSession = async () => {
       console.log('🔄 Restoring session...');
       console.log('🌐 Current URL:', window.location.href);
