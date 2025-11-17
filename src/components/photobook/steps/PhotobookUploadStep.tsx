@@ -190,7 +190,7 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
                     </div>
                   </div>
                 ) : (
-                  <div className={view === 'grid' ? 'grid grid-cols-6 gap-3' : 'space-y-2'}>
+                  <div className={view === 'grid' ? 'grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3' : 'space-y-2'}>
                     {uploadedPhotos.map(photo => (
                       <Card
                         key={photo.id}
@@ -200,11 +200,11 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
                         onClick={() => togglePhotoSelection(photo.id)}
                       >
                         {view === 'grid' ? (
-                          <div className="aspect-square relative overflow-hidden">
+                          <div className="relative overflow-hidden bg-gray-50" style={{ aspectRatio: `${photo.width} / ${photo.height}` }}>
                             <img 
                               src={photo.url} 
                               alt="Uploaded"
-                              className={`w-full h-full object-cover transition-opacity ${
+                              className={`w-full h-full object-contain transition-opacity ${
                                 selectedPhotos.has(photo.id) ? 'opacity-90' : ''
                               }`}
                             />

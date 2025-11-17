@@ -74,6 +74,90 @@ export const generateLayout = (
   
   if (photosCount === 0) return slots;
   
+  if (photosCount === 1) {
+    slots.push({
+      id: `slot-0`,
+      orientation: safeWidth > safeHeight ? 'horizontal' : 'vertical',
+      x: SAFE_MARGIN,
+      y: SAFE_MARGIN,
+      width: safeWidth,
+      height: safeHeight,
+    });
+    return slots;
+  }
+  
+  if (photosCount === 2) {
+    const slotWidth = (safeWidth - spacing) / 2;
+    slots.push({
+      id: `slot-0`,
+      orientation: 'horizontal',
+      x: SAFE_MARGIN,
+      y: SAFE_MARGIN,
+      width: slotWidth,
+      height: safeHeight,
+    });
+    slots.push({
+      id: `slot-1`,
+      orientation: 'horizontal',
+      x: SAFE_MARGIN + slotWidth + spacing,
+      y: SAFE_MARGIN,
+      width: slotWidth,
+      height: safeHeight,
+    });
+    return slots;
+  }
+  
+  if (photosCount === 3) {
+    const topHeight = safeHeight * 0.6 - spacing / 2;
+    const bottomHeight = safeHeight * 0.4 - spacing / 2;
+    const bottomWidth = (safeWidth - spacing) / 2;
+    
+    slots.push({
+      id: `slot-0`,
+      orientation: 'horizontal',
+      x: SAFE_MARGIN,
+      y: SAFE_MARGIN,
+      width: safeWidth,
+      height: topHeight,
+    });
+    slots.push({
+      id: `slot-1`,
+      orientation: 'horizontal',
+      x: SAFE_MARGIN,
+      y: SAFE_MARGIN + topHeight + spacing,
+      width: bottomWidth,
+      height: bottomHeight,
+    });
+    slots.push({
+      id: `slot-2`,
+      orientation: 'horizontal',
+      x: SAFE_MARGIN + bottomWidth + spacing,
+      y: SAFE_MARGIN + topHeight + spacing,
+      width: bottomWidth,
+      height: bottomHeight,
+    });
+    return slots;
+  }
+  
+  if (photosCount === 4) {
+    const slotWidth = (safeWidth - spacing) / 2;
+    const slotHeight = (safeHeight - spacing) / 2;
+    
+    for (let i = 0; i < 4; i++) {
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      slots.push({
+        id: `slot-${i}`,
+        orientation: slotWidth > slotHeight ? 'horizontal' : 'vertical',
+        x: SAFE_MARGIN + col * (slotWidth + spacing),
+        y: SAFE_MARGIN + row * (slotHeight + spacing),
+        width: slotWidth,
+        height: slotHeight,
+      });
+    }
+    return slots;
+  }
+  
   const rows = Math.ceil(Math.sqrt(photosCount));
   const cols = Math.ceil(photosCount / rows);
   
