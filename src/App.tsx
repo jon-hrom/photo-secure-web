@@ -10,6 +10,7 @@ import VKCallback from "./pages/VKCallback";
 import VKCallbackDirect from "./pages/VKCallbackDirect";
 import ClientPhotobook from "./pages/ClientPhotobook";
 import BackButton from "./components/BackButton";
+import FaceBlurEditor from "./components/FaceBlurEditor";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
         <BackButton />
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/face-blur" element={<FaceBlurEditor />} />
           <Route path="/vk-callback" element={<VKCallbackDirect />} />
           <Route path="/auth/callback/vkid" element={<VKCallback />} />
           <Route path="/client/photobook/:id" element={<ClientPhotobook />} />
