@@ -85,7 +85,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     avatar_url,
                     registered_at,
                     last_login,
-                    is_verified,
+                    is_active,
                     is_blocked,
                     blocked_at,
                     blocked_reason,

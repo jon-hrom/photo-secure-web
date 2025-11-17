@@ -128,6 +128,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
              phone_number = ${escapeSQL(phone)},
              ip_address = ${escapeSQL(ipAddress)},
              user_agent = ${escapeSQL(userAgent)},
+             is_active = TRUE,
              last_login = CURRENT_TIMESTAMP
          WHERE user_id = ${escapeSQL(userId)}`
       );
@@ -135,8 +136,8 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     } else {
       const insertResult = await client.query(
         `INSERT INTO vk_users 
-         (vk_sub, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent)
-         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)})
+         (vk_sub, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active)
+         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE)
          RETURNING user_id`
       );
       return insertResult.rows[0].user_id;

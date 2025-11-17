@@ -192,7 +192,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 user_agent = event.get('headers', {}).get('User-Agent', '')
                 cursor.execute(
-                    "UPDATE users SET last_login = NOW(), ip_address = %s, user_agent = %s WHERE id = %s",
+                    "UPDATE users SET last_login = NOW(), ip_address = %s, user_agent = %s, is_active = true WHERE id = %s",
                     (ip_address, user_agent, user['id'])
                 )
                 conn.commit()

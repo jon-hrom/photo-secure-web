@@ -46,9 +46,12 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
+      if (onRefresh) {
+        onRefresh();
+      }
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [onRefresh]);
 
   const isUserOnline = (lastLogin: string | null): boolean => {
     if (!lastLogin) return false;
@@ -111,6 +114,22 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getRelativeTime = (dateStr: string | null): string => {
+    if (!dateStr) return 'Никогда';
+    
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'Только что';
+    if (diffInSeconds < 300) return `${Math.floor(diffInSeconds / 60)} мин. назад`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} мин. назад`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ч. назад`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} дн. назад`;
+    
+    return formatDate(dateStr);
   };
 
   const openUserDetails = (user: User) => {
@@ -221,10 +240,18 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
                 Заблокирован
               </Badge>
             ) : user.is_active ? (
-              <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-purple-600 hover:bg-purple-700">
-                <Icon name="CheckCircle" size={12} />
-                Активен
-              </Badge>
+              <>
+                <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-purple-600 hover:bg-purple-700">
+                  <Icon name="CheckCircle" size={12} />
+                  Активен
+                </Badge>
+                {isUserOnline(user.last_login) && (
+                  <Badge variant="default" className="sm:ml-2 gap-1 bg-green-600 hover:bg-green-700">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    Онлайн
+                  </Badge>
+                )}
+              </>
             ) : (
               <Badge variant="destructive" className="ml-auto sm:ml-2 gap-1 bg-red-600 hover:bg-red-700">
                 <Icon name="XCircle" size={12} />
@@ -246,9 +273,9 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
               <span>{formatDate(user.registered_at || user.created_at)}</span>
             </div>
             {user.last_login && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5" title={formatDate(user.last_login)}>
                 <Icon name="Clock" size={14} />
-                <span>Вход: {formatDate(user.last_login)}</span>
+                <span>Вход: {getRelativeTime(user.last_login)}</span>
               </div>
             )}
             {user.ip_address && (
