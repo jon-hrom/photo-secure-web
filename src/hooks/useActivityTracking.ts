@@ -24,17 +24,21 @@ export const useActivityTracking = ({
         
         if (vkUser) {
           const userData = JSON.parse(vkUser);
+          console.log('🔄 Обновление активности VK пользователя:', userData.vk_id || userData.user_id);
           await fetch('https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'update-activity', vk_id: userData.vk_id || userData.user_id })
           });
+          console.log('✅ Активность обновлена');
         } else if (userEmail) {
+          console.log('🔄 Обновление активности Email пользователя:', userEmail);
           await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'update-activity', email: userEmail })
           });
+          console.log('✅ Активность обновлена');
         }
       } catch (error) {
         console.error('Ошибка обновления активности на сервере:', error);

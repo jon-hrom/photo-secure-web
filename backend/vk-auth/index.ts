@@ -33,7 +33,7 @@ async function saveSession(state, codeVerifier, codeChallenge) {
     await client.connect();
     const expiresAt = new Date(Date.now() + 600000);
     await client.query(
-      `INSERT INTO oauth_sessions (state, nonce, code_verifier, provider, expires_at)
+      `INSERT INTO t_p28211681_photo_secure_web.oauth_sessions (state, nonce, code_verifier, provider, expires_at)
        VALUES (${escapeSQL(state)}, ${escapeSQL(state)}, ${escapeSQL(codeVerifier)}, 'vkid', ${escapeSQL(expiresAt.toISOString())})`
     );
   } finally {
@@ -46,7 +46,7 @@ async function getSession(state) {
   try {
     await client.connect();
     const result = await client.query(
-      `SELECT state, code_verifier FROM oauth_sessions 
+      `SELECT state, code_verifier FROM t_p28211681_photo_secure_web.oauth_sessions 
        WHERE state = ${escapeSQL(state)} AND expires_at > CURRENT_TIMESTAMP`
     );
     return result.rows[0] || null;
@@ -60,7 +60,7 @@ async function deleteSession(state) {
   try {
     await client.connect();
     await client.query(
-      `UPDATE oauth_sessions SET expires_at = CURRENT_TIMESTAMP WHERE state = ${escapeSQL(state)}`
+      `UPDATE t_p28211681_photo_secure_web.oauth_sessions SET expires_at = CURRENT_TIMESTAMP WHERE state = ${escapeSQL(state)}`
     );
   } finally {
     await client.end();
@@ -112,7 +112,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     await client.connect();
     
     const existingResult = await client.query(
-      `SELECT user_id FROM vk_users WHERE vk_sub = ${escapeSQL(vkUserId)}`
+      `SELECT user_id FROM t_p28211681_photo_secure_web.vk_users WHERE vk_sub = ${escapeSQL(vkUserId)}`
     );
     
     const fullName = `${firstName} ${lastName}`.trim();
@@ -120,7 +120,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     if (existingResult.rows.length > 0) {
       const userId = existingResult.rows[0].user_id;
       await client.query(
-        `UPDATE vk_users 
+        `UPDATE t_p28211681_photo_secure_web.vk_users 
          SET full_name = ${escapeSQL(fullName)}, 
              avatar_url = ${escapeSQL(avatarUrl)}, 
              is_verified = ${escapeSQL(isVerified)},
@@ -135,7 +135,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
       return userId;
     } else {
       const insertResult = await client.query(
-        `INSERT INTO vk_users 
+        `INSERT INTO t_p28211681_photo_secure_web.vk_users 
          (vk_sub, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active)
          VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE)
          RETURNING user_id`
@@ -186,7 +186,7 @@ exports.handler = async (event, context) => {
         await client.connect();
         
         const result = await client.query(
-          `SELECT data FROM vk_temp_sessions WHERE session_id = ${escapeSQL(sessionId)} AND expires_at > NOW()`
+          `SELECT data FROM t_p28211681_photo_secure_web.vk_temp_sessions WHERE session_id = ${escapeSQL(sessionId)} AND expires_at > NOW()`
         );
         
         if (result.rows.length === 0) {
@@ -374,7 +374,7 @@ exports.handler = async (event, context) => {
         await tempClient.connect();
         const dataJSON = escapeSQL(JSON.stringify(tempSessionData));
         await tempClient.query(
-          `INSERT INTO vk_temp_sessions (session_id, data, expires_at) 
+          `INSERT INTO t_p28211681_photo_secure_web.vk_temp_sessions (session_id, data, expires_at) 
            VALUES (${escapeSQL(sessionId)}, ${dataJSON}, NOW() + INTERVAL '5 minutes')
            ON CONFLICT (session_id) DO UPDATE SET data = ${dataJSON}, expires_at = NOW() + INTERVAL '5 minutes'`
         );
@@ -409,7 +409,7 @@ exports.handler = async (event, context) => {
           const userAgent = event.headers?.['User-Agent'] || '';
           
           await client.query(
-            `UPDATE vk_users 
+            `UPDATE t_p28211681_photo_secure_web.vk_users 
              SET last_login = CURRENT_TIMESTAMP,
                  ip_address = ${escapeSQL(ipAddress)},
                  user_agent = ${escapeSQL(userAgent)}
