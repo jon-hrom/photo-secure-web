@@ -57,7 +57,7 @@ const SaveDesignDialog = ({ open, onClose, onSave }: SaveDesignDialogProps) => {
             </div>
             <div className="flex justify-end">
               <Button
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
                 onClick={handleConfirm}
               >
                 Сохранить
@@ -83,13 +83,13 @@ const SaveDesignDialog = ({ open, onClose, onSave }: SaveDesignDialogProps) => {
                 value={designName}
                 onChange={(e) => setDesignName(e.target.value)}
                 placeholder="Введите название"
-                className="mt-2 border-2 border-yellow-400 focus:border-yellow-500"
+                className="mt-2 border-2 border-purple-600 focus:border-purple-700"
                 autoFocus
               />
             </div>
             <div className="flex justify-end">
               <Button
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
                 onClick={handleSave}
                 disabled={!designName.trim()}
               >

@@ -40,7 +40,7 @@ const PhotobookFinalStep = ({ config, spreads, photos, onComplete, onBack }: Pho
           </Button>
           <h2 className="text-2xl font-bold">Просмотр фотокниги</h2>
           <Button
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
             onClick={() => setShow3DPreview(true)}
           >
             <Icon name="Eye" size={20} className="mr-2" />
@@ -56,7 +56,7 @@ const PhotobookFinalStep = ({ config, spreads, photos, onComplete, onBack }: Pho
           </p>
           <Button
             size="lg"
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-12"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-lg px-12"
             onClick={() => setShow3DPreview(true)}
           >
             <Icon name="Eye" size={24} className="mr-3" />

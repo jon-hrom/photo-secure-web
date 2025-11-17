@@ -23,16 +23,18 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const [albums] = useState<Album[]>([
-    { id: 'all', name: 'Все мои файлы', count: 6 },
-    { id: 'new', name: 'Новые загрузки', count: 0 },
-    { id: 'today', name: 'Загруженные сегодня', count: 0 },
-    { id: 'no-album', name: 'Без альбома', count: 6 },
-  ]);
+  const [newUploadsCount, setNewUploadsCount] = useState(0);
+  const [todayUploadsCount, setTodayUploadsCount] = useState(0);
+  
+  const unselectedCount = uploadedPhotos.length - selectedPhotos.size;
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
+    
+    const newFilesCount = files.length;
+    setNewUploadsCount(prev => prev + newFilesCount);
+    setTodayUploadsCount(prev => prev + newFilesCount);
 
     Array.from(files).forEach(file => {
       const reader = new FileReader();
@@ -90,12 +92,12 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
       <Tabs defaultValue="my-files" className="flex-1 flex flex-col">
         <div className="border-b px-4">
           <TabsList className="bg-transparent">
-            <TabsTrigger value="my-files" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-yellow-400 rounded-none">
+            <TabsTrigger value="my-files" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none text-black">
               <Icon name="Folder" size={18} className="mr-2" />
               Мои файлы
             </TabsTrigger>
-            <TabsTrigger value="photobank" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-yellow-400 rounded-none">
-              <Icon name="Landmark" size={18} className="mr-2" />
+            <TabsTrigger value="photobank" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none text-black">
+              <Icon name="Database" size={18} className="mr-2" />
               Фотобанк
             </TabsTrigger>
           </TabsList>
@@ -106,15 +108,22 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
             <div className="border-r p-4 overflow-y-auto">
               <div className="space-y-2">
                 <h3 className="font-semibold text-sm text-muted-foreground mb-2">Дата загрузки файлов</h3>
-                {albums.map(album => (
-                  <div 
-                    key={album.id}
-                    className="flex items-center justify-between p-2 hover:bg-gray-100 rounded cursor-pointer"
-                  >
-                    <span className="text-sm">{album.name}</span>
-                    <span className="text-xs text-muted-foreground">{album.count}</span>
-                  </div>
-                ))}
+                <div className="flex items-center justify-between p-2 hover:bg-gray-100 rounded cursor-pointer">
+                  <span className="text-sm">Все мои файлы</span>
+                  <span className="text-xs text-muted-foreground">{uploadedPhotos.length}</span>
+                </div>
+                <div className="flex items-center justify-between p-2 hover:bg-gray-100 rounded cursor-pointer">
+                  <span className="text-sm">Новые загрузки</span>
+                  <span className="text-xs text-muted-foreground">{newUploadsCount}</span>
+                </div>
+                <div className="flex items-center justify-between p-2 hover:bg-gray-100 rounded cursor-pointer">
+                  <span className="text-sm">Загруженные сегодня</span>
+                  <span className="text-xs text-muted-foreground">{todayUploadsCount}</span>
+                </div>
+                <div className="flex items-center justify-between p-2 hover:bg-gray-100 rounded cursor-pointer">
+                  <span className="text-sm">Без альбома</span>
+                  <span className="text-xs text-muted-foreground">{unselectedCount}</span>
+                </div>
               </div>
 
               <div className="mt-6">
@@ -172,7 +181,7 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
                       <Icon name="ImageOff" size={64} className="mx-auto mb-4 text-muted-foreground" />
                       <p className="text-muted-foreground mb-4">Загрузите фотографии для вашей фотокниги</p>
                       <label htmlFor="file-upload">
-                        <Button className="bg-yellow-400 hover:bg-yellow-500 text-black" asChild>
+                        <Button className="bg-purple-600 hover:bg-purple-700 text-white" asChild>
                           <span>
                             <Icon name="Upload" size={18} className="mr-2" />
                             Загрузить файлы
@@ -267,7 +276,7 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
 
       <div className="border-t p-4 flex items-center justify-between bg-gray-50">
         <div className="text-sm">
-          <span className="font-semibold">{selectedPhotos.size}</span> из {requiredPhotos} фото выбрано
+          <span className="font-semibold">Выбрано: {selectedPhotos.size}</span>
           <label htmlFor="file-upload-bottom" className="ml-4">
             <Button variant="outline" size="sm" className="ml-2" asChild>
               <span>
@@ -286,12 +295,9 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
           />
         </div>
         <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground mr-2">
-            Можно загрузить еще: <span className="font-semibold">500 файлов</span>
-          </p>
           <Button
             size="lg"
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
             onClick={handleContinue}
             disabled={selectedPhotos.size === 0}
           >

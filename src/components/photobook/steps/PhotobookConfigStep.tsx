@@ -77,15 +77,7 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
         </Button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="flex items-center justify-center">
-          <img 
-            src="https://cdn.poehali.dev/files/4d8b3969-1126-4235-a3f6-d72443f1d0fc.jpg" 
-            alt="Photobook preview"
-            className="w-full max-w-md rounded-lg shadow-lg"
-          />
-        </div>
-
+      <div className="max-w-2xl mx-auto">
         <Card className="p-6 border-2">
           <div className="space-y-6">
             <div>
@@ -95,7 +87,7 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
                   <Button
                     key={option.value}
                     variant={format === option.value ? 'default' : 'outline'}
-                    className={`h-12 ${format === option.value ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : ''}`}
+                    className={`h-12 ${format === option.value ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
                     onClick={() => setFormat(option.value)}
                   >
                     {option.label}
@@ -111,7 +103,7 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
                   <Button
                     key={option.value}
                     variant={layer === option.value ? 'default' : 'outline'}
-                    className={`h-12 ${layer === option.value ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : ''}`}
+                    className={`h-12 ${layer === option.value ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
                     onClick={() => setLayer(option.value)}
                   >
                     {option.label}
@@ -127,7 +119,7 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black border-none h-10 w-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-10 w-10"
                     onClick={decrementSpreads}
                     disabled={spreadsCount <= 1}
                   >
@@ -139,7 +131,7 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black border-none h-10 w-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-10 w-10"
                     onClick={incrementSpreads}
                     disabled={spreadsCount >= 25}
                   >
@@ -154,7 +146,7 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black border-none h-10 w-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-10 w-10"
                     onClick={decrementCopies}
                     disabled={copiesCount <= 1}
                   >
@@ -166,7 +158,7 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black border-none h-10 w-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-10 w-10"
                     onClick={incrementCopies}
                   >
                     <Icon name="Plus" size={18} />
@@ -175,14 +167,13 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t-2">
-              <span className="text-2xl font-bold">Итого: {price.toLocaleString('ru-RU')} ₽</span>
+            <div className="flex justify-end pt-4 border-t-2">
               <Button
                 size="lg"
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-lg px-12"
                 onClick={handleNext}
               >
-                Заказать
+                Далее
               </Button>
             </div>
           </div>

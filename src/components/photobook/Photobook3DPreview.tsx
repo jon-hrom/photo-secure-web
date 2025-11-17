@@ -235,7 +235,7 @@ const Photobook3DPreview = ({
                 </DropdownMenu>
                 <Button
                   size="lg"
-                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8"
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-lg px-8"
                   onClick={onOrder}
                   disabled={!acceptResponsibility}
                 >

@@ -19,48 +19,24 @@ const PhotobookMethodStep = ({ onSelect, onBack }: PhotobookMethodStepProps) => 
         <div className="w-10" />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-12">
+      <div className="max-w-md mx-auto mt-12">
         <Card 
-          className="p-8 cursor-pointer hover:shadow-xl transition-shadow border-2 hover:border-yellow-400"
-          onClick={() => onSelect('template')}
-        >
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
-              <Icon name="Monitor" size={48} className="text-gray-600" />
-            </div>
-            <h3 className="text-2xl font-bold">Выбрать шаблон</h3>
-            <p className="text-muted-foreground text-lg">
-              Сотни готовых тематических шаблонов помогут создать уникальный дизайн.
-            </p>
-            <Button 
-              size="lg"
-              className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold w-full"
-            >
-              Выбрать шаблон
-            </Button>
-          </div>
-        </Card>
-
-        <Card 
-          className="p-8 cursor-pointer hover:shadow-xl transition-shadow border-2 hover:border-yellow-400"
+          className="p-8 cursor-pointer hover:shadow-xl transition-shadow border-2 hover:border-purple-600"
           onClick={() => onSelect('package')}
         >
           <div className="flex flex-col items-center text-center space-y-6">
             <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
-              <div className="relative">
-                <Icon name="FolderUp" size={48} className="text-gray-600" />
-                <Icon name="ArrowUp" size={24} className="text-gray-600 absolute -top-2 -right-2" />
-              </div>
+              <Icon name="Image" size={48} className="text-gray-600" />
             </div>
-            <h3 className="text-2xl font-bold">Загрузите пакетом</h3>
+            <h3 className="text-2xl font-bold">Мой дизайн</h3>
             <p className="text-muted-foreground text-lg">
-              Воспользуйтесь пакетной загрузкой для отправки всех макетов сразу.
+              Создайте фотокнигу с нуля по вашему дизайну.
             </p>
             <Button 
               size="lg"
-              className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold w-full"
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold w-full"
             >
-              Загрузить пакетом
+              Мой дизайн
             </Button>
           </div>
         </Card>

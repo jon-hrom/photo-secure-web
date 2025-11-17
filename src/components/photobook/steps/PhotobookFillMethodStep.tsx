@@ -23,7 +23,7 @@ const PhotobookFillMethodStep = ({ onSelect, onBack }: PhotobookFillMethodStepPr
 
       <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-12">
         <Card 
-          className="p-8 cursor-pointer hover:shadow-xl transition-shadow border-2 hover:border-yellow-400"
+          className="p-8 cursor-pointer hover:shadow-xl transition-shadow border-2 hover:border-purple-600"
           onClick={() => onSelect('auto')}
         >
           <div className="flex flex-col items-center text-center space-y-6">
@@ -63,7 +63,7 @@ const PhotobookFillMethodStep = ({ onSelect, onBack }: PhotobookFillMethodStepPr
             </p>
             <Button 
               size="lg"
-              className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold w-full"
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold w-full"
             >
               Автоматически
             </Button>
@@ -71,7 +71,7 @@ const PhotobookFillMethodStep = ({ onSelect, onBack }: PhotobookFillMethodStepPr
         </Card>
 
         <Card 
-          className="p-8 cursor-pointer hover:shadow-xl transition-shadow border-2 hover:border-yellow-400"
+          className="p-8 cursor-pointer hover:shadow-xl transition-shadow border-2 hover:border-purple-600"
           onClick={() => onSelect('manual')}
         >
           <div className="flex flex-col items-center text-center space-y-6">
@@ -87,7 +87,7 @@ const PhotobookFillMethodStep = ({ onSelect, onBack }: PhotobookFillMethodStepPr
             </p>
             <Button 
               size="lg"
-              className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold w-full"
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold w-full"
             >
               Вручную
             </Button>
