@@ -199,6 +199,9 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
       'yandex': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
     };
 
+    const isOnline = isUserOnline(user.last_login);
+    console.log(`User ${user.full_name || user.email}: last_login=${user.last_login}, is_active=${user.is_active}, isOnline=${isOnline}`);
+
     return (
       <div
         key={user.id}
@@ -234,30 +237,32 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
               {getSourceLabel(user.source)}
             </Badge>
 
-            {user.is_blocked ? (
-              <Badge variant="destructive" className="ml-auto sm:ml-2 gap-1">
-                <Icon name="Ban" size={12} />
-                Заблокирован
-              </Badge>
-            ) : user.is_active ? (
-              <>
-                <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-purple-600 hover:bg-purple-700">
-                  <Icon name="CheckCircle" size={12} />
-                  Активен
+            <div className="flex items-center gap-2 ml-auto">
+              {user.is_blocked ? (
+                <Badge variant="destructive" className="gap-1">
+                  <Icon name="Ban" size={12} />
+                  Заблокирован
                 </Badge>
-                {isUserOnline(user.last_login) && (
-                  <Badge variant="default" className="sm:ml-2 gap-1 bg-green-600 hover:bg-green-700">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                    Онлайн
+              ) : user.is_active ? (
+                <>
+                  <Badge variant="default" className="gap-1 bg-purple-600 hover:bg-purple-700">
+                    <Icon name="CheckCircle" size={12} />
+                    Активен
                   </Badge>
-                )}
-              </>
-            ) : (
-              <Badge variant="destructive" className="ml-auto sm:ml-2 gap-1 bg-red-600 hover:bg-red-700">
-                <Icon name="XCircle" size={12} />
-                Не активен
-              </Badge>
-            )}
+                  {isUserOnline(user.last_login) && (
+                    <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                      Онлайн
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                <Badge variant="destructive" className="gap-1 bg-red-600 hover:bg-red-700">
+                  <Icon name="XCircle" size={12} />
+                  Не активен
+                </Badge>
+              )}
+            </div>
           </div>
 
           {user.phone && user.email && (
