@@ -190,24 +190,34 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
                     </div>
                   </div>
                 ) : (
-                  <div className={view === 'grid' ? 'grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3' : 'space-y-2'}>
-                    {uploadedPhotos.map(photo => (
-                      <Card
-                        key={photo.id}
-                        className={`cursor-pointer transition-all hover:shadow-lg relative ${
-                          selectedPhotos.has(photo.id) ? 'ring-4 ring-blue-400' : ''
-                        }`}
-                        onClick={() => togglePhotoSelection(photo.id)}
-                      >
-                        {view === 'grid' ? (
-                          <div className="relative overflow-hidden bg-gray-50" style={{ aspectRatio: `${photo.width} / ${photo.height}` }}>
-                            <img 
-                              src={photo.url} 
-                              alt="Uploaded"
-                              className={`w-full h-full object-contain transition-opacity ${
-                                selectedPhotos.has(photo.id) ? 'opacity-90' : ''
-                              }`}
-                            />
+                  <div className={view === 'grid' ? 'grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 items-start' : 'space-y-2'}>
+                    {uploadedPhotos.map(photo => {
+                      const isVertical = photo.height > photo.width;
+                      const isHorizontal = photo.width > photo.height;
+                      
+                      return (
+                        <Card
+                          key={photo.id}
+                          className={`cursor-pointer transition-all hover:shadow-lg relative ${
+                            selectedPhotos.has(photo.id) ? 'ring-4 ring-blue-400' : ''
+                          }`}
+                          onClick={() => togglePhotoSelection(photo.id)}
+                        >
+                          {view === 'grid' ? (
+                            <div 
+                              className="relative overflow-hidden bg-gray-50" 
+                              style={{ 
+                                height: isVertical ? '240px' : isHorizontal ? '160px' : '200px',
+                                width: '100%'
+                              }}
+                            >
+                              <img 
+                                src={photo.url} 
+                                alt="Uploaded"
+                                className={`w-full h-full object-contain transition-opacity ${
+                                  selectedPhotos.has(photo.id) ? 'opacity-90' : ''
+                                }`}
+                              />
                             {selectedPhotos.has(photo.id) && (
                               <>
                                 <div className="absolute inset-0 bg-blue-500/20" />
@@ -237,8 +247,9 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
                             )}
                           </div>
                         )}
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </div>
