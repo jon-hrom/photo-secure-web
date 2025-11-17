@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
@@ -6,13 +6,28 @@ import PhotobookCreator, { type PhotobookData } from '@/components/photobook/Pho
 import SavedDesigns from '@/components/photobook/SavedDesigns';
 import Photobook3DPreview from '@/components/photobook/Photobook3DPreview';
 
-
+const STORAGE_KEY = 'photobook_designs';
 
 const PhotobookPage = () => {
-  const [photobooks, setPhotobooks] = useState<PhotobookData[]>([]);
+  const [photobooks, setPhotobooks] = useState<PhotobookData[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedPhotobook, setSelectedPhotobook] = useState<PhotobookData | null>(null);
   const [show3DPreview, setShow3DPreview] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(photobooks));
+    } catch (error) {
+      console.error('Failed to save photobooks:', error);
+    }
+  }, [photobooks]);
 
   const handlePhotobookComplete = (photobookData: PhotobookData) => {
     setPhotobooks(prev => [...prev, photobookData]);
@@ -88,58 +103,101 @@ const PhotobookPage = () => {
       </Card>
 
       <div className="grid md:grid-cols-2 gap-6">
-
-        <div className="space-y-4">
-          <Card className="shadow-lg border-2 bg-gradient-to-br from-purple-50 to-blue-50">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Icon name="Sparkles" className="mr-2 text-primary" size={24} />
-                Автоматическая вёрстка
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-full mt-1">
-                    <Icon name="Wand2" className="text-primary" size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">Умное размещение</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Автоматический выбор лучшего расположения на основе ориентации фото
-                    </p>
-                  </div>
+        <Card className="shadow-lg border-2 bg-gradient-to-br from-purple-50 to-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Icon name="LayoutTemplate" className="mr-2 text-primary" size={24} />
+              Редактор коллажей
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-full mt-1">
+                  <Icon name="Wand2" className="text-primary" size={20} />
                 </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="bg-secondary/10 p-2 rounded-full mt-1">
-                    <Icon name="Layout" className="text-secondary" size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">Адаптивные макеты</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Горизонтальные и вертикальные фото идеально сочетаются
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="bg-accent/10 p-2 rounded-full mt-1">
-                    <Icon name="Zap" className="text-accent" size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">Быстрая генерация</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Создание макета за считанные секунды
-                    </p>
-                  </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Распознавание лиц</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Автоматическое обнаружение и защита лиц при размещении фото
+                  </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
+              <div className="flex items-start gap-3">
+                <div className="bg-secondary/10 p-2 rounded-full mt-1">
+                  <Icon name="Grid3x3" className="text-secondary" size={20} />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Готовые шаблоны</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Более 50 шаблонов коллажей для 1-4 фотографий
+                  </p>
+                </div>
+              </div>
 
-        </div>
+              <div className="flex items-start gap-3">
+                <div className="bg-accent/10 p-2 rounded-full mt-1">
+                  <Icon name="Ruler" className="text-accent" size={20} />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Точное размещение</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Линейки и сохранение пропорций для идеальных макетов
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg border-2 bg-gradient-to-br from-blue-50 to-indigo-50">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Icon name="Edit" className="mr-2 text-blue-600" size={24} />
+              Ручной режим
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="bg-blue-100 p-2 rounded-full mt-1">
+                  <Icon name="Move" className="text-blue-600" size={20} />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Перемещение слотов</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Перетаскивайте слоты мышью для идеальной компоновки
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="bg-blue-100 p-2 rounded-full mt-1">
+                  <Icon name="Maximize2" className="text-blue-600" size={20} />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Изменение размера</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Зажмите Shift для сохранения пропорций при изменении размера
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="bg-blue-100 p-2 rounded-full mt-1">
+                  <Icon name="Plus" className="text-blue-600" size={20} />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Добавление слотов</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Создавайте свои уникальные макеты с любым количеством слотов
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="shadow-lg border-2">

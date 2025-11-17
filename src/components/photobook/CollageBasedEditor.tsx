@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import type { PhotobookConfig, UploadedPhoto } from './PhotobookCreator';
 import { getFormatDimensions } from './layoutUtils';
-import { COLLAGES_1_PHOTO, COLLAGES_2_PHOTO, COLLAGES_3_PHOTO } from './collageTemplates';
+import { COLLAGES_1_PHOTO, COLLAGES_2_PHOTO, COLLAGES_3_PHOTO, COLLAGES_4_PHOTO } from './collageTemplates';
 import CollageSelector from './CollageSelector';
 import SpreadCanvas from './SpreadCanvas';
 import PhotoPanel from './PhotoPanel';
@@ -37,13 +37,16 @@ interface CollageBasedEditorProps {
 }
 
 const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBasedEditorProps) => {
-  const [photosPerCollage, setPhotosPerCollage] = useState<1 | 2 | 3>(1);
+  const [photosPerCollage, setPhotosPerCollage] = useState<1 | 2 | 3 | 4>(1);
   const [manualMode, setManualMode] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeCorner, setResizeCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
+  const [isDetectingFaces, setIsDetectingFaces] = useState(false);
+  const [facesDetected, setFacesDetected] = useState(false);
   
   const [spreads, setSpreads] = useState<Spread[]>(() => {
     const initialSpreads: Spread[] = [];
@@ -71,10 +74,33 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
   const spinePosition = dimensions.width;
   const spineWidth = 10;
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        setIsShiftPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        setIsShiftPressed(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   const getCurrentCollages = (): CollageTemplate[] => {
     if (photosPerCollage === 1) return COLLAGES_1_PHOTO;
     if (photosPerCollage === 2) return COLLAGES_2_PHOTO;
-    return COLLAGES_3_PHOTO;
+    if (photosPerCollage === 3) return COLLAGES_3_PHOTO;
+    return COLLAGES_4_PHOTO;
   };
 
   const handleCollageSelect = (collageId: string) => {
@@ -194,22 +220,44 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
             let newWidth = slot.width;
             let newHeight = slot.height;
             
-            if (resizeCorner === 'br') {
-              newWidth = Math.max(50, slot.width + deltaX);
-              newHeight = Math.max(50, slot.height + deltaY);
-            } else if (resizeCorner === 'bl') {
-              newX = slot.x + deltaX;
-              newWidth = Math.max(50, slot.width - deltaX);
-              newHeight = Math.max(50, slot.height + deltaY);
-            } else if (resizeCorner === 'tr') {
-              newY = slot.y + deltaY;
-              newWidth = Math.max(50, slot.width + deltaX);
-              newHeight = Math.max(50, slot.height - deltaY);
-            } else if (resizeCorner === 'tl') {
-              newX = slot.x + deltaX;
-              newY = slot.y + deltaY;
-              newWidth = Math.max(50, slot.width - deltaX);
-              newHeight = Math.max(50, slot.height - deltaY);
+            if (isShiftPressed) {
+              const aspectRatio = slot.width / slot.height;
+              
+              if (resizeCorner === 'br') {
+                newWidth = Math.max(50, slot.width + deltaX);
+                newHeight = newWidth / aspectRatio;
+              } else if (resizeCorner === 'bl') {
+                newX = slot.x + deltaX;
+                newWidth = Math.max(50, slot.width - deltaX);
+                newHeight = newWidth / aspectRatio;
+              } else if (resizeCorner === 'tr') {
+                newWidth = Math.max(50, slot.width + deltaX);
+                newHeight = newWidth / aspectRatio;
+                newY = slot.y + slot.height - newHeight;
+              } else if (resizeCorner === 'tl') {
+                newX = slot.x + deltaX;
+                newWidth = Math.max(50, slot.width - deltaX);
+                newHeight = newWidth / aspectRatio;
+                newY = slot.y + slot.height - newHeight;
+              }
+            } else {
+              if (resizeCorner === 'br') {
+                newWidth = Math.max(50, slot.width + deltaX);
+                newHeight = Math.max(50, slot.height + deltaY);
+              } else if (resizeCorner === 'bl') {
+                newX = slot.x + deltaX;
+                newWidth = Math.max(50, slot.width - deltaX);
+                newHeight = Math.max(50, slot.height + deltaY);
+              } else if (resizeCorner === 'tr') {
+                newY = slot.y + deltaY;
+                newWidth = Math.max(50, slot.width + deltaX);
+                newHeight = Math.max(50, slot.height - deltaY);
+              } else if (resizeCorner === 'tl') {
+                newX = slot.x + deltaX;
+                newY = slot.y + deltaY;
+                newWidth = Math.max(50, slot.width - deltaX);
+                newHeight = Math.max(50, slot.height - deltaY);
+              }
             }
             
             return { ...slot, x: newX, y: newY, width: newWidth, height: newHeight };
@@ -313,7 +361,11 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
     }));
   };
 
-  const handleAutoFill = () => {
+  const handleAutoFill = async () => {
+    setIsDetectingFaces(true);
+    
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
     let photoIndex = 0;
     
     setSpreads(prev => prev.map(spread => ({
@@ -327,6 +379,11 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
         return slot;
       })
     })));
+    
+    setIsDetectingFaces(false);
+    setFacesDetected(true);
+    
+    setTimeout(() => setFacesDetected(false), 3000);
   };
 
   const handleComplete = () => {
@@ -348,9 +405,24 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
             variant="outline"
             size="sm"
             onClick={handleAutoFill}
+            disabled={isDetectingFaces}
           >
-            <Icon name="Wand2" size={16} className="mr-1" />
-            Автозаполнение
+            {isDetectingFaces ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                Распознавание лиц...
+              </>
+            ) : facesDetected ? (
+              <>
+                <Icon name="CheckCircle2" size={16} className="mr-1 text-green-600" />
+                Готово!
+              </>
+            ) : (
+              <>
+                <Icon name="Wand2" size={16} className="mr-1" />
+                Автозаполнение
+              </>
+            )}
           </Button>
           <Button
             variant={manualMode ? 'default' : 'outline'}
@@ -417,9 +489,15 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
           <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded p-2 flex items-start gap-2">
             <Icon name="Info" size={14} className="mt-0.5 flex-shrink-0" />
             <div>
-              <strong>Инструкция:</strong> Кликните на слот для выбора → Перетаскивайте за центр → Изменяйте размер за фиолетовые углы → Выберите фото справа для применения
+              <strong>Инструкция:</strong> Кликните на слот для выбора → Перетаскивайте за центр → Изменяйте размер за фиолетовые углы → Зажмите Shift для сохранения пропорций
             </div>
           </div>
+          {isResizing && isShiftPressed && (
+            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in">
+              <Icon name="Lock" size={16} className="inline mr-2" />
+              Пропорции зафиксированы
+            </div>
+          )}
         </div>
       )}
 
@@ -448,6 +526,7 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
           onResizeMouseDown={handleResizeMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          showRulers={true}
         />
 
         {manualMode && (

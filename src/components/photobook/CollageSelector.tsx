@@ -9,8 +9,8 @@ interface CollageTemplate {
 }
 
 interface CollageSelectorProps {
-  photosPerCollage: 1 | 2 | 3;
-  onPhotosPerCollageChange: (value: 1 | 2 | 3) => void;
+  photosPerCollage: 1 | 2 | 3 | 4;
+  onPhotosPerCollageChange: (value: 1 | 2 | 3 | 4) => void;
   collages: CollageTemplate[];
   selectedCollageId: string;
   onCollageSelect: (collageId: string) => void;
@@ -31,7 +31,7 @@ const CollageSelector = ({
         <label className="text-sm text-muted-foreground mb-2 block">Количество фото</label>
         <Select
           value={photosPerCollage.toString()}
-          onValueChange={(value) => onPhotosPerCollageChange(parseInt(value) as 1 | 2 | 3)}
+          onValueChange={(value) => onPhotosPerCollageChange(parseInt(value) as 1 | 2 | 3 | 4)}
         >
           <SelectTrigger>
             <SelectValue />
@@ -40,6 +40,7 @@ const CollageSelector = ({
             <SelectItem value="1">1 фото в коллаже</SelectItem>
             <SelectItem value="2">2 фото в коллаже</SelectItem>
             <SelectItem value="3">3 фото в коллаже</SelectItem>
+            <SelectItem value="4">4 фото в коллаже</SelectItem>
           </SelectContent>
         </Select>
       </div>

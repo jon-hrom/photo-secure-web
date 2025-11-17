@@ -35,6 +35,7 @@ interface SpreadCanvasProps {
   onResizeMouseDown: (e: React.MouseEvent, slotIndex: number, corner: 'tl' | 'tr' | 'bl' | 'br') => void;
   onMouseMove: (e: React.MouseEvent<SVGSVGElement>) => void;
   onMouseUp: () => void;
+  showRulers?: boolean;
 }
 
 const SpreadCanvas = ({
@@ -52,7 +53,8 @@ const SpreadCanvas = ({
   onSlotMouseDown,
   onResizeMouseDown,
   onMouseMove,
-  onMouseUp
+  onMouseUp,
+  showRulers = false
 }: SpreadCanvasProps) => {
   const canvasRef = useRef<SVGSVGElement>(null);
   const selectedSpread = spreads[selectedSpreadIndex];
@@ -83,16 +85,40 @@ const SpreadCanvas = ({
         </Button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center bg-gray-100 rounded-lg p-8">
-        <svg
-          ref={canvasRef}
-          viewBox={`0 0 ${dimensions.width * 2} ${dimensions.height}`}
-          className="max-w-full max-h-full border-2 border-gray-300 bg-white"
-          style={{ aspectRatio: `${dimensions.width * 2} / ${dimensions.height}` }}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-        >
+      <div className="flex-1 flex bg-gray-100 rounded-lg p-8">
+        {showRulers && (
+          <div className="flex flex-col mr-2">
+            <div className="h-8" />
+            <div className="flex-1 relative">
+              <div className="absolute left-0 top-0 h-full w-8 bg-white border border-gray-300 flex flex-col justify-between text-xs text-gray-600">
+                {Array.from({ length: 21 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-center">
+                    {i * 50}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="flex-1 flex flex-col items-center">
+          {showRulers && (
+            <div className="w-full relative mb-2">
+              <img 
+                src="https://cdn.poehali.dev/files/ba72d947-c38f-439e-ae19-33ece18e0252.png" 
+                alt="Линейка" 
+                className="w-full h-8 object-contain"
+              />
+            </div>
+          )}
+          <svg
+            ref={canvasRef}
+            viewBox={`0 0 ${dimensions.width * 2} ${dimensions.height}`}
+            className="max-w-full max-h-full border-2 border-gray-300 bg-white"
+            style={{ aspectRatio: `${dimensions.width * 2} / ${dimensions.height}` }}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+          >
           <rect x={0} y={0} width={dimensions.width} height={dimensions.height} fill="#ffffff" />
           <rect x={dimensions.width} y={0} width={dimensions.width} height={dimensions.height} fill="#ffffff" />
           <rect
@@ -163,7 +189,8 @@ const SpreadCanvas = ({
               </g>
             );
           })}
-        </svg>
+          </svg>
+        </div>
       </div>
 
       <div className="mt-4 border-t pt-4">
