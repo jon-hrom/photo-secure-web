@@ -53,12 +53,15 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
     return () => clearInterval(interval);
   }, [onRefresh]);
 
-  const isUserOnline = (lastLogin: string | null): boolean => {
-    if (!lastLogin) return false;
+  const getUserStatus = (lastLogin: string | null): 'online' | 'recent' | 'offline' | 'inactive' => {
+    if (!lastLogin) return 'inactive';
     const lastLoginDate = new Date(lastLogin);
     const now = new Date();
     const diffInMinutes = (now.getTime() - lastLoginDate.getTime()) / 1000 / 60;
-    return diffInMinutes < 5;
+    
+    if (diffInMinutes < 30) return 'online';
+    if (diffInMinutes < 1440) return 'recent';
+    return 'offline';
   };
 
   const filteredAndSortedUsers = useMemo(() => {
@@ -71,11 +74,11 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
         (user.ip_address && user.ip_address.includes(searchQuery)) ||
         (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
       
-      const isOnline = isUserOnline(user.last_login);
+      const status = getUserStatus(user.last_login);
       const matchesActivity = 
         filterByActivity === 'all' ? true :
-        filterByActivity === 'active' ? isOnline :
-        !isOnline;
+        filterByActivity === 'active' ? (status === 'online' || status === 'recent') :
+        (status === 'offline' || status === 'inactive');
       
       return matchesSearch && matchesActivity;
     });
@@ -102,8 +105,9 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
   const activeUsers = filteredAndSortedUsers.filter(u => !u.is_blocked);
   const blockedUsers = filteredAndSortedUsers.filter(u => u.is_blocked);
   
-  const onlineCount = activeUsers.filter(u => isUserOnline(u.last_login)).length;
-  const offlineCount = activeUsers.filter(u => !isUserOnline(u.last_login)).length;
+  const onlineCount = activeUsers.filter(u => getUserStatus(u.last_login) === 'online').length;
+  const recentCount = activeUsers.filter(u => getUserStatus(u.last_login) === 'recent').length;
+  const offlineCount = activeUsers.filter(u => ['offline', 'inactive'].includes(getUserStatus(u.last_login))).length;
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('ru-RU', {
@@ -199,7 +203,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
       'yandex': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
     };
 
-    const isOnline = isUserOnline(user.last_login);
+    const userStatus = getUserStatus(user.last_login);
 
     return (
       <div
@@ -241,12 +245,17 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
                 <Icon name="Ban" size={12} />
                 Заблокирован
               </Badge>
-            ) : isOnline ? (
+            ) : userStatus === 'online' ? (
               <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-green-600 hover:bg-green-700">
                 <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                 Онлайн
               </Badge>
-            ) : user.is_active ? (
+            ) : userStatus === 'recent' ? (
+              <Badge variant="default" className="ml-auto sm:ml-2 gap-1 bg-blue-600 hover:bg-blue-700">
+                <Icon name="Clock" size={12} />
+                Недавно
+              </Badge>
+            ) : userStatus === 'offline' ? (
               <Badge variant="secondary" className="ml-auto sm:ml-2 gap-1">
                 <Icon name="Circle" size={12} />
                 Офлайн
@@ -319,10 +328,14 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
           </CardTitle>
           <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
             <span>Белый и черный списки пользователей с детальной информацией</span>
-            <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-3 text-sm flex-wrap">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-green-600 animate-pulse"></div>
                 <span className="font-medium">Онлайн: {onlineCount}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                <span className="font-medium">Недавно: {recentCount}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-gray-400"></div>
