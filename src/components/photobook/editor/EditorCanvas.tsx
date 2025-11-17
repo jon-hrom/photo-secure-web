@@ -106,7 +106,7 @@ const EditorCanvas = ({
           </div>
 
           {/* Spread canvas */}
-          <div className="relative bg-white shadow-2xl" style={{ width: '1000px', height: '600px' }}>
+          <div className="relative bg-white shadow-2xl" style={{ width: '800px', height: '400px' }}>
             {/* Safety lines */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-2 left-2 right-2 bottom-2 border-2 border-dashed border-gray-300" />

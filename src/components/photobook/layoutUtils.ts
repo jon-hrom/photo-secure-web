@@ -25,7 +25,7 @@ export const SPREAD_SPECS_20x20 = [
 export const FORMAT_SPECS: Record<PhotobookFormat, FormatSpecs> = {
   '20x20': {
     width: 400,
-    height: 200,
+    height: 400,
     spreadMM: '400×203',
     spreadPX: '4724×2398',
     coverMM: '457-463×240',
@@ -47,7 +47,7 @@ export const FORMAT_SPECS: Record<PhotobookFormat, FormatSpecs> = {
   },
   '30x30': {
     width: 600,
-    height: 300,
+    height: 600,
     spreadMM: '600×300',
     spreadPX: '7087×3543',
     coverMM: '657×330',
