@@ -49,7 +49,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
       if (onRefresh) {
         onRefresh();
       }
-    }, 30000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [onRefresh]);
 
@@ -327,7 +327,13 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
             Управление пользователями
           </CardTitle>
           <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
-            <span>Белый и черный списки пользователей с детальной информацией</span>
+            <div className="flex items-center gap-2">
+              <span>Белый и черный списки пользователей с детальной информацией</span>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                <Icon name="RefreshCw" size={12} className="animate-spin" />
+                <span>Обновление каждые 10 сек</span>
+              </div>
+            </div>
             <div className="flex items-center gap-3 text-sm flex-wrap">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-green-600 animate-pulse"></div>
