@@ -27,9 +27,12 @@ const SmartPhotobookEditor = ({
   const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
   const [showGrid, setShowGrid] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<string>('');
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [facesDetected, setFacesDetected] = useState<number>(0);
+  const [modelsAvailable, setModelsAvailable] = useState<boolean>(true);
   
   const canvasRef = useRef<SVGSVGElement>(null);
 
@@ -44,6 +47,7 @@ const SmartPhotobookEditor = ({
 
   const generateAllSpreads = async () => {
     setIsGenerating(true);
+    setGenerationStatus('Загрузка моделей распознавания...');
 
     try {
       const photosWithMeta = photos.map((p) => ({
@@ -53,7 +57,21 @@ const SmartPhotobookEditor = ({
         height: p.height || 600,
       }));
 
+      setGenerationStatus('Анализирую фото и ищу лица...');
       const photosWithFaces: PhotoWithFaces[] = await detectFacesInPhotos(photosWithMeta);
+      
+      const totalFaces = photosWithFaces.reduce((sum, p) => sum + p.faces.length, 0);
+      setFacesDetected(totalFaces);
+      
+      if (totalFaces === 0 && photosWithMeta.length > 0) {
+        setModelsAvailable(false);
+        setGenerationStatus('Создаю макет (распознавание лиц недоступно)...');
+      } else if (totalFaces > 0) {
+        setModelsAvailable(true);
+        setGenerationStatus(`Найдено ${totalFaces} ${totalFaces === 1 ? 'лицо' : totalFaces < 5 ? 'лица' : 'лиц'}. Создаю макет...`);
+      } else {
+        setGenerationStatus('Создаю макет...');
+      }
 
       const photosPerSpread = Math.ceil(photos.length / config.spreadsCount);
       const generatedSpreads: Array<{ id: string; photos: PlacedPhoto[] }> = [];
@@ -199,7 +217,7 @@ const SmartPhotobookEditor = ({
         </Button>
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 items-center">
         <Button
           variant={showGrid ? 'default' : 'outline'}
           size="sm"
@@ -213,13 +231,30 @@ const SmartPhotobookEditor = ({
           <Icon name="RefreshCw" size={16} className="mr-1" />
           {isGenerating ? 'Генерация...' : 'Перегенерировать'}
         </Button>
+        {!isGenerating && (
+          <>
+            {facesDetected > 0 && (
+              <span className="text-sm text-green-600 flex items-center gap-1">
+                <Icon name="UserCheck" size={16} />
+                {facesDetected} {facesDetected === 1 ? 'лицо' : facesDetected < 5 ? 'лица' : 'лиц'} защищено
+              </span>
+            )}
+            {!modelsAvailable && (
+              <span className="text-sm text-amber-600 flex items-center gap-1">
+                <Icon name="AlertCircle" size={16} />
+                Распознавание лиц отключено
+              </span>
+            )}
+          </>
+        )}
       </div>
 
       <div className="flex-1 flex items-center justify-center bg-gray-100 rounded-lg p-4 overflow-auto">
         {isGenerating ? (
           <div className="text-center">
             <Icon name="Loader2" size={48} className="animate-spin text-purple-600 mx-auto mb-4" />
-            <p className="text-gray-600">Анализирую фото и создаю макет...</p>
+            <p className="text-gray-600 font-medium">{generationStatus}</p>
+            <p className="text-sm text-gray-500 mt-2">Это может занять несколько секунд...</p>
           </div>
         ) : currentSpread ? (
           <svg
@@ -366,26 +401,45 @@ const SmartPhotobookEditor = ({
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-center gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setCurrentSpreadIndex((prev) => Math.max(0, prev - 1))}
-          disabled={currentSpreadIndex === 0}
-        >
-          <Icon name="ChevronLeft" size={20} />
-        </Button>
-        <span className="text-sm font-medium">
-          Разворот {currentSpreadIndex + 1} из {spreads.length}
-        </span>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setCurrentSpreadIndex((prev) => Math.min(spreads.length - 1, prev + 1))}
-          disabled={currentSpreadIndex === spreads.length - 1}
-        >
-          <Icon name="ChevronRight" size={20} />
-        </Button>
+      <div className="mt-4 space-y-3">
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCurrentSpreadIndex((prev) => Math.max(0, prev - 1))}
+            disabled={currentSpreadIndex === 0}
+          >
+            <Icon name="ChevronLeft" size={20} />
+          </Button>
+          <span className="text-sm font-medium">
+            Разворот {currentSpreadIndex + 1} из {spreads.length}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCurrentSpreadIndex((prev) => Math.min(spreads.length - 1, prev + 1))}
+            disabled={currentSpreadIndex === spreads.length - 1}
+          >
+            <Icon name="ChevronRight" size={20} />
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-center gap-4 text-xs text-gray-600">
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 border-2 border-dashed border-yellow-400 rounded"></div>
+            <span>Безопасная зона</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-1 bg-blue-500 rounded"></div>
+            <span>Корешок</span>
+          </div>
+          {facesDetected > 0 && (
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 border-2 border-dashed border-green-500 rounded"></div>
+              <span>Лица</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

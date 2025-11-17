@@ -56,7 +56,7 @@ export interface PhotobookData {
   fillMethod: PhotobookFillMethod;
   template?: PhotobookTemplate;
   photos: UploadedPhoto[];
-  spreads: Array<{ id: string; slots: PhotoSlot[] }>;
+  spreads: Array<{ id: string; slots?: PhotoSlot[]; photos?: any[] }>;
   createdAt: Date;
   enableClientLink: boolean;
   clientLinkId?: string;

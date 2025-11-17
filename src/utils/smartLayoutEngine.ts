@@ -170,6 +170,26 @@ const findAvailableSpace = (
   return null;
 };
 
+const isOverlapping = (
+  x1: number,
+  y1: number,
+  w1: number,
+  h1: number,
+  placed: PlacedPhoto[],
+  minGap: number = 10
+): boolean => {
+  for (const p of placed) {
+    const overlap = !(
+      x1 + w1 + minGap < p.x ||
+      x1 > p.x + p.width + minGap ||
+      y1 + h1 + minGap < p.y ||
+      y1 > p.y + p.height + minGap
+    );
+    if (overlap) return true;
+  }
+  return false;
+};
+
 export const generateSmartLayout = (
   photos: PhotoWithFaces[],
   spreadConfig: SpreadConfig
@@ -186,19 +206,27 @@ export const generateSmartLayout = (
 
   const sortedPhotos = [...photosWithFaces, ...photosWithoutFaces];
 
-  const slots = createGridSlots(spreadConfig, 100);
-
   for (let i = 0; i < sortedPhotos.length; i++) {
     const photo = sortedPhotos[i];
-    const isLarge = i < 2 || Math.random() < 0.3;
+    const photoAspect = photo.width / photo.height;
+    const isPortrait = photoAspect < 1;
+    
+    const isLarge = i < Math.min(2, sortedPhotos.length);
+    const isMedium = !isLarge && i < Math.min(4, sortedPhotos.length);
 
-    const targetWidth = isLarge
-      ? safeWidth * (0.4 + Math.random() * 0.2)
-      : safeWidth * (0.25 + Math.random() * 0.15);
+    let targetWidth: number;
+    let targetHeight: number;
 
-    const targetHeight = isLarge
-      ? safeHeight * (0.5 + Math.random() * 0.2)
-      : safeHeight * (0.3 + Math.random() * 0.15);
+    if (isLarge) {
+      targetWidth = isPortrait ? safeWidth * 0.35 : safeWidth * 0.5;
+      targetHeight = isPortrait ? safeHeight * 0.6 : safeHeight * 0.45;
+    } else if (isMedium) {
+      targetWidth = isPortrait ? safeWidth * 0.28 : safeWidth * 0.38;
+      targetHeight = isPortrait ? safeHeight * 0.45 : safeHeight * 0.35;
+    } else {
+      targetWidth = isPortrait ? safeWidth * 0.22 : safeWidth * 0.3;
+      targetHeight = isPortrait ? safeHeight * 0.35 : safeHeight * 0.28;
+    }
 
     const size = calculatePhotoSize(
       photo.width,
@@ -208,13 +236,58 @@ export const generateSmartLayout = (
       true
     );
 
-    const position = findAvailableSpace(
-      slots,
-      size.width,
-      size.height,
-      spreadConfig,
-      photo
-    );
+    let position: { x: number; y: number } | null = null;
+    let bestAttempts = 0;
+
+    while (bestAttempts < MAX_ATTEMPTS && !position) {
+      const safeArea = {
+        left: spreadConfig.safeMargin,
+        right: spreadConfig.width - spreadConfig.safeMargin - size.width,
+        top: spreadConfig.safeMargin,
+        bottom: spreadConfig.height - spreadConfig.safeMargin - size.height,
+      };
+
+      const tryX = safeArea.left + Math.random() * Math.max(0, safeArea.right - safeArea.left);
+      const tryY = safeArea.top + Math.random() * Math.max(0, safeArea.bottom - safeArea.top);
+
+      if (tryX < safeArea.left || tryX + size.width > spreadConfig.width - spreadConfig.safeMargin) {
+        bestAttempts++;
+        continue;
+      }
+      if (tryY < safeArea.top || tryY + size.height > spreadConfig.height - spreadConfig.safeMargin) {
+        bestAttempts++;
+        continue;
+      }
+
+      if (isOverlapping(tryX, tryY, size.width, size.height, placedPhotos)) {
+        bestAttempts++;
+        continue;
+      }
+
+      let facesAreSafe = true;
+      for (const face of photo.faces) {
+        if (
+          doesFaceOverlapSpine(
+            tryX,
+            tryY,
+            size.width,
+            size.height,
+            face,
+            spreadConfig.spinePosition,
+            spreadConfig.spineWidth
+          )
+        ) {
+          facesAreSafe = false;
+          break;
+        }
+      }
+
+      if (facesAreSafe) {
+        position = { x: tryX, y: tryY };
+      }
+
+      bestAttempts++;
+    }
 
     if (position) {
       placedPhotos.push({

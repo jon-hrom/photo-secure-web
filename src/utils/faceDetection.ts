@@ -17,8 +17,8 @@ export interface PhotoWithFaces {
   faces: FaceBox[];
 }
 
-export const loadFaceDetectionModels = async (): Promise<void> => {
-  if (modelsLoaded) return;
+export const loadFaceDetectionModels = async (): Promise<boolean> => {
+  if (modelsLoaded) return true;
 
   try {
     const MODEL_URL = '/models';
@@ -27,8 +27,12 @@ export const loadFaceDetectionModels = async (): Promise<void> => {
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
     ]);
     modelsLoaded = true;
+    console.log('✅ Face detection models loaded successfully');
+    return true;
   } catch (error) {
-    console.error('Failed to load face detection models:', error);
+    console.warn('⚠️ Face detection models not found. Face detection will be disabled.');
+    console.warn('To enable: Download models to public/models/ folder');
+    return false;
   }
 };
 
@@ -36,13 +40,14 @@ export const detectFacesInImage = async (
   imageUrl: string
 ): Promise<FaceBox[]> => {
   if (!modelsLoaded) {
-    await loadFaceDetectionModels();
+    const loaded = await loadFaceDetectionModels();
+    if (!loaded) return [];
   }
 
   try {
     const img = await loadImage(imageUrl);
     const detections = await faceapi
-      .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions())
+      .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
       .withFaceLandmarks();
 
     return detections.map((detection) => {
@@ -55,7 +60,7 @@ export const detectFacesInImage = async (
       };
     });
   } catch (error) {
-    console.error('Face detection failed:', error);
+    console.error('Face detection failed for image:', error);
     return [];
   }
 };
@@ -73,6 +78,18 @@ const loadImage = (url: string): Promise<HTMLImageElement> => {
 export const detectFacesInPhotos = async (
   photos: Array<{ id: string; url: string; width: number; height: number }>
 ): Promise<PhotoWithFaces[]> => {
+  const loaded = await loadFaceDetectionModels();
+  
+  if (!loaded) {
+    return photos.map(photo => ({
+      photoId: photo.id,
+      url: photo.url,
+      width: photo.width,
+      height: photo.height,
+      faces: [],
+    }));
+  }
+
   const results: PhotoWithFaces[] = [];
 
   for (const photo of photos) {
