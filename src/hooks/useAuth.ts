@@ -62,55 +62,59 @@ export const useAuth = () => {
   };
 
   useEffect(() => {
-    const restoreSession = () => {
+    const restoreSession = async () => {
       console.log('🔄 Restoring session...');
+      console.log('🌐 Current URL:', window.location.href);
+      console.log('🔍 Search params:', window.location.search);
       
       const urlParams = new URLSearchParams(window.location.search);
       const vkSessionId = urlParams.get('vk_session');
       
+      console.log('📦 Extracted vk_session:', vkSessionId);
+      
       if (vkSessionId) {
-        console.log('📦 VK session ID in URL detected:', vkSessionId);
+        console.log('✅ VK session ID in URL detected:', vkSessionId);
         
-        fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${vkSessionId}`)
-          .then(res => res.json())
-          .then(data => {
-            console.log('📦 Session data received:', data);
+        try {
+          const res = await fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${vkSessionId}`);
+          const data = await res.json();
+          
+          console.log('📦 Session data received:', data);
+          
+          if (data.userData && data.token) {
+            const userData = data.userData;
+            const isAdminUser = userData.email === 'jonhrom2012@gmail.com' || 
+                                (userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений')));
             
-            if (data.userData && data.token) {
-              const userData = data.userData;
-              const isAdminUser = userData.email === 'jonhrom2012@gmail.com' || 
-                                  (userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений')));
-              
-              console.log('🔍 Checking admin status:', {
-                userName: userData.name,
-                userEmail: userData.email,
-                isAdminUser,
-                nameCheck: userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений'))
-              });
-              
-              localStorage.setItem('vk_user', JSON.stringify(userData));
-              localStorage.setItem('auth_token', data.token);
-              
-              console.log('✅ VK data saved to localStorage from session:', userData);
-              
-              setIsAuthenticated(true);
-              setUserId(userData.user_id || userData.vk_id);
-              setUserEmail(userData.email || '');
-              setUserName(userData.name || 'Пользователь VK');
-              setUserAvatar(userData.avatar || '');
-              setIsVerified(userData.verified || false);
-              setIsAdmin(isAdminUser);
-              setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
-              lastActivityRef.current = Date.now();
-              
-              window.history.replaceState({}, '', '/');
-              
-              console.log('✅ VK auth complete, showing dashboard');
-            }
-          })
-          .catch(error => {
-            console.error('❌ Error fetching VK session:', error);
-          });
+            console.log('🔍 Checking admin status:', {
+              userName: userData.name,
+              userEmail: userData.email,
+              isAdminUser,
+              nameCheck: userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений'))
+            });
+            
+            localStorage.setItem('vk_user', JSON.stringify(userData));
+            localStorage.setItem('auth_token', data.token);
+            
+            console.log('✅ VK data saved to localStorage from session:', userData);
+            
+            setIsAuthenticated(true);
+            setUserId(userData.user_id || userData.vk_id);
+            setUserEmail(userData.email || '');
+            setUserName(userData.name || 'Пользователь VK');
+            setUserAvatar(userData.avatar || '');
+            setIsVerified(userData.verified || false);
+            setIsAdmin(isAdminUser);
+            setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
+            lastActivityRef.current = Date.now();
+            
+            window.history.replaceState({}, '', '/');
+            
+            console.log('✅ VK auth complete, showing dashboard');
+          }
+        } catch (error) {
+          console.error('❌ Error fetching VK session:', error);
+        }
         
         return;
       }
@@ -195,13 +199,16 @@ export const useAuth = () => {
         setGuestAccess(settings.guest_access || false);
       } catch (error) {
         console.error('Ошибка загрузки настроек:', error);
-      } finally {
-        setLoading(false);
       }
     };
     
-    restoreSession();
-    checkSettings();
+    const init = async () => {
+      await restoreSession();
+      await checkSettings();
+      setLoading(false);
+    };
+    
+    init();
   }, []);
 
   useEffect(() => {
