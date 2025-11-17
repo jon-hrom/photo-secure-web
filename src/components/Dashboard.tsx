@@ -13,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface DashboardProps {
   userRole: 'user' | 'admin' | 'guest';
@@ -75,18 +74,8 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
   const vkUserData = localStorage.getItem('vk_user');
   const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
   
-  const emailUserData = localStorage.getItem('user');
-  const emailUser = emailUserData ? JSON.parse(emailUserData) : null;
-  
   console.log('📦 vkUserData raw:', vkUserData);
   console.log('📦 vkUser parsed:', vkUser);
-  
-  useOnlineStatus({
-    userId: vkUser?.user_id || emailUser?.userId || null,
-    userEmail: emailUser?.email || vkUser?.email || null,
-    vkId: vkUser?.vk_id || null,
-    isAuthenticated: !!(vkUser || emailUser)
-  });
   
   // Дополнительная проверка админа по имени VK пользователя
   const isVkAdmin = vkUser && vkUser.name && (

@@ -10,37 +10,36 @@ import FeaturesPage from '@/components/FeaturesPage';
 import AdminPanel from '@/components/AdminPanel';
 import MaintenancePage from '@/components/MaintenancePage';
 import AppNavigation from '@/components/layout/AppNavigation';
+import { useAuth } from '@/hooks/useAuth';
+import { useActivityTracking } from '@/hooks/useActivityTracking';
 
 const Index = () => {
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
-  const [currentPage, setCurrentPage] = useState<'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin'>('dashboard');
   
-  const vkUserData = localStorage.getItem('vk_user');
-  const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
-  const emailUserData = localStorage.getItem('user');
-  const emailUser = emailUserData ? JSON.parse(emailUserData) : null;
-  
-  const isAuthenticated = !!(vkUser || emailUser);
-  const userId = vkUser?.user_id || emailUser?.userId || null;
-  const userEmail = emailUser?.email || vkUser?.email || '';
-  const userName = vkUser?.name || emailUser?.name || '';
-  const userAvatar = vkUser?.avatar || '';
-  const isVerified = vkUser?.is_verified || false;
-  const isAdmin = false;
-  const maintenanceMode = false;
-  const guestAccess = true;
-  const loading = false;
-  
-  const handleLoginSuccess = (userId: number, email?: string) => {
-    setCurrentPage('dashboard');
-  };
-  
-  const handleLogout = () => {
-    localStorage.removeItem('vk_user');
-    localStorage.removeItem('user');
-    localStorage.removeItem('auth_token');
-    setCurrentPage('auth');
-  };
+  const {
+    currentPage,
+    setCurrentPage,
+    isAuthenticated,
+    userId,
+    userEmail,
+    userName,
+    userAvatar,
+    isVerified,
+    isAdmin,
+    maintenanceMode,
+    guestAccess,
+    loading,
+    lastActivityRef,
+    handleLoginSuccess,
+    handleLogout,
+  } = useAuth();
+
+  useActivityTracking({
+    isAuthenticated,
+    userEmail,
+    lastActivityRef,
+    onLogout: handleLogout
+  });
 
   if (currentPage !== 'clients') {
     if (selectedClientName !== undefined) {
