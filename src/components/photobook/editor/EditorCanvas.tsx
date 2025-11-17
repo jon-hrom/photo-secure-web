@@ -139,11 +139,11 @@ const EditorCanvas = ({
                   }}
                 >
                   {photo ? (
-                    <div className="relative w-full h-full overflow-hidden group">
+                    <div className="relative w-full h-full overflow-hidden group bg-gray-50">
                       <img
                         src={photo.url}
                         alt="Slot"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                         style={{
                           opacity: photoAdjustments[slot.id]?.opacity ?? 1,
                           filter: photoAdjustments[slot.id]?.filter ?? 'none',
