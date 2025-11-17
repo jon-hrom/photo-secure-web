@@ -59,7 +59,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
     const now = new Date();
     const diffInMinutes = (now.getTime() - lastLoginDate.getTime()) / 1000 / 60;
     
-    if (diffInMinutes < 30) return 'online';
+    if (diffInMinutes < 1) return 'online';
     if (diffInMinutes < 1440) return 'recent';
     return 'offline';
   };

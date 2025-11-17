@@ -73,7 +73,7 @@ export const useActivityTracking = ({
     events.forEach(event => window.addEventListener(event, updateActivity));
 
     const sessionCheckInterval = setInterval(checkSession, 30000);
-    const activityUpdateInterval = setInterval(updateActivityOnServer, 60000);
+    const activityUpdateInterval = setInterval(updateActivityOnServer, 30000);
     
     updateActivityOnServer();
 
