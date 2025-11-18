@@ -152,13 +152,16 @@ const ClientPhotobookView = ({ clientLinkId }: ClientPhotobookViewProps) => {
               </Button>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4 overflow-x-auto">
-              <svg
-                width={dimensions.width}
-                height={dimensions.height}
-                className="mx-auto border-2 border-gray-300"
-                style={{ backgroundColor: 'white' }}
-              >
+            <div className="bg-gray-50 rounded-lg p-2 md:p-4 overflow-hidden">
+              <div className="w-full overflow-auto">
+                <svg
+                  width={dimensions.width}
+                  height={dimensions.height}
+                  viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+                  className="mx-auto border-2 border-gray-300 max-w-full h-auto"
+                  style={{ backgroundColor: 'white' }}
+                  preserveAspectRatio="xMidYMid meet"
+                >
                 <defs>
                   {spreadPhotos.map((photo, index) => {
                     const slot = mockPhotobook.photoSlots[index];
@@ -235,6 +238,7 @@ const ClientPhotobookView = ({ clientLinkId }: ClientPhotobookViewProps) => {
                   );
                 })}
               </svg>
+              </div>
             </div>
           </CardContent>
         </Card>
