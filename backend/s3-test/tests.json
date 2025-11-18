@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "S3 connection diagnostics",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "summary": {
+          "connection_status": "string"
+        }
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
