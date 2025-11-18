@@ -69,25 +69,25 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
   const decrementCopies = () => setCopiesCount(prev => Math.max(prev - 1, 1));
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-3xl font-bold">Фотокниги на фотобумаге</h2>
+    <div className="p-2 sm:p-4 md:p-6">
+      <div className="flex items-center justify-between mb-3 md:mb-6">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold">Фотокниги на фотобумаге</h2>
         <Button variant="ghost" size="icon" onClick={onClose}>
-          <Icon name="X" size={24} />
+          <Icon name="X" size={20} />
         </Button>
       </div>
 
       <div className="max-w-2xl mx-auto">
-        <Card className="p-6 border-2">
-          <div className="space-y-6">
+        <Card className="p-3 sm:p-4 md:p-6 border-2">
+          <div className="space-y-4 md:space-y-6">
             <div>
-              <h3 className="font-semibold mb-3 text-lg">Формат</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <h3 className="text-sm sm:text-base md:text-lg font-semibold mb-2 md:mb-3">Формат</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 gap-2">
                 {FORMAT_OPTIONS.map((option) => (
                   <Button
                     key={option.value}
                     variant={format === option.value ? 'default' : 'outline'}
-                    className={`h-12 ${format === option.value ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
+                    className={`h-10 sm:h-11 md:h-12 text-xs sm:text-sm ${format === option.value ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
                     onClick={() => setFormat(option.value)}
                   >
                     {option.label}
@@ -97,13 +97,13 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
             </div>
 
             <div>
-              <h3 className="font-semibold mb-3 text-lg">Прослойка</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <h3 className="text-sm sm:text-base md:text-lg font-semibold mb-2 md:mb-3">Прослойка</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 gap-2">
                 {LAYER_OPTIONS.map((option) => (
                   <Button
                     key={option.value}
                     variant={layer === option.value ? 'default' : 'outline'}
-                    className={`h-12 ${layer === option.value ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
+                    className={`h-10 sm:h-11 md:h-12 text-xs sm:text-sm ${layer === option.value ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
                     onClick={() => setLayer(option.value)}
                   >
                     {option.label}
@@ -112,65 +112,65 @@ const PhotobookConfigStep = ({ config, onComplete, onClose }: PhotobookConfigSte
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               <div>
-                <h3 className="font-semibold mb-3 text-lg">Количество разворотов</h3>
+                <h3 className="text-sm sm:text-base md:text-lg font-semibold mb-2 md:mb-3">Количество разворотов</h3>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-10 w-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10"
                     onClick={decrementSpreads}
                     disabled={spreadsCount <= 1}
                   >
-                    <Icon name="Minus" size={18} />
+                    <Icon name="Minus" size={14} />
                   </Button>
-                  <div className="flex-1 text-center text-2xl font-semibold bg-gray-100 py-2 rounded">
+                  <div className="flex-1 text-center text-lg sm:text-xl md:text-2xl font-semibold bg-gray-100 py-1 sm:py-2 rounded">
                     {spreadsCount}
                   </div>
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-10 w-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10"
                     onClick={incrementSpreads}
                     disabled={spreadsCount >= 25}
                   >
-                    <Icon name="Plus" size={18} />
+                    <Icon name="Plus" size={14} />
                   </Button>
                 </div>
               </div>
 
               <div>
-                <h3 className="font-semibold mb-3 text-lg">Количество экземпляров</h3>
+                <h3 className="text-sm sm:text-base md:text-lg font-semibold mb-2 md:mb-3">Количество экземпляров</h3>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-10 w-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10"
                     onClick={decrementCopies}
                     disabled={copiesCount <= 1}
                   >
-                    <Icon name="Minus" size={18} />
+                    <Icon name="Minus" size={14} />
                   </Button>
-                  <div className="flex-1 text-center text-2xl font-semibold bg-gray-100 py-2 rounded">
+                  <div className="flex-1 text-center text-lg sm:text-xl md:text-2xl font-semibold bg-gray-100 py-1 sm:py-2 rounded">
                     {copiesCount}
                   </div>
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-10 w-10"
+                    className="bg-purple-600 hover:bg-purple-700 text-white border-none h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10"
                     onClick={incrementCopies}
                   >
-                    <Icon name="Plus" size={18} />
+                    <Icon name="Plus" size={14} />
                   </Button>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t-2">
+            <div className="flex justify-end pt-3 md:pt-4 border-t-2">
               <Button
                 size="lg"
-                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-lg px-12"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm sm:text-base md:text-lg px-6 sm:px-8 md:px-12 w-full sm:w-auto"
                 onClick={handleNext}
               >
                 Далее

@@ -110,35 +110,36 @@ const ClientPhotobookView = ({ clientLinkId }: ClientPhotobookViewProps) => {
   const spreadPhotos = mockPhotobook.photos.slice(startPhotoIndex, endPhotoIndex);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-2 sm:p-4 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-3 sm:space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-2">{mockPhotobook.title}</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 md:mb-2">{mockPhotobook.title}</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Просмотр макета фотокниги
           </p>
-          <Badge className="mt-2">
-            <Icon name="Eye" size={14} className="mr-1" />
+          <Badge className="mt-1 md:mt-2 text-xs">
+            <Icon name="Eye" size={12} className="mr-1" />
             Режим просмотра клиента
           </Badge>
         </div>
 
         <Card className="border-2 shadow-xl">
-          <CardContent className="p-6">
-            <div className="mb-4 flex items-center justify-center gap-4">
+          <CardContent className="p-2 sm:p-4 md:p-6">
+            <div className="mb-2 md:mb-4 flex items-center justify-center gap-2 md:gap-4">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handlePrevSpread}
                 disabled={currentSpread === 0}
+                className="h-8 w-8 md:h-9 md:w-9 p-0"
               >
-                <Icon name="ChevronLeft" size={18} />
+                <Icon name="ChevronLeft" size={16} />
               </Button>
-              <div className="text-center">
-                <div className="text-sm font-medium">
+              <div className="text-center flex-1">
+                <div className="text-xs sm:text-sm font-medium">
                   Разворот {currentSpread + 1} из {totalSpreads}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-[10px] sm:text-xs text-muted-foreground">
                   Формат: {mockPhotobook.format.replace('x', '×')} см
                 </div>
               </div>
@@ -147,19 +148,18 @@ const ClientPhotobookView = ({ clientLinkId }: ClientPhotobookViewProps) => {
                 size="sm"
                 onClick={handleNextSpread}
                 disabled={currentSpread === totalSpreads - 1}
+                className="h-8 w-8 md:h-9 md:w-9 p-0"
               >
-                <Icon name="ChevronRight" size={18} />
+                <Icon name="ChevronRight" size={16} />
               </Button>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-2 md:p-4 overflow-hidden">
-              <div className="w-full overflow-auto">
+            <div className="bg-gray-50 rounded-lg p-1 md:p-4 overflow-hidden">
+              <div className="w-full overflow-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
                 <svg
-                  width={dimensions.width}
-                  height={dimensions.height}
                   viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-                  className="mx-auto border-2 border-gray-300 max-w-full h-auto"
-                  style={{ backgroundColor: 'white' }}
+                  className="mx-auto border border-gray-300 w-full h-auto"
+                  style={{ backgroundColor: 'white', maxWidth: '100%' }}
                   preserveAspectRatio="xMidYMid meet"
                 >
                 <defs>
@@ -244,37 +244,38 @@ const ClientPhotobookView = ({ clientLinkId }: ClientPhotobookViewProps) => {
         </Card>
 
         <Card className="border-2 shadow-lg">
-          <CardContent className="p-6 space-y-4">
+          <CardContent className="p-2 sm:p-4 md:p-6 space-y-3 md:space-y-4">
             <div className="flex items-center gap-2">
-              <Icon name="MessageSquare" size={20} className="text-primary" />
-              <h3 className="font-semibold">Комментарий к развороту {currentSpread + 1}</h3>
+              <Icon name="MessageSquare" size={16} className="text-primary" />
+              <h3 className="text-sm sm:text-base font-semibold">Комментарий к развороту {currentSpread + 1}</h3>
             </div>
             
             <Textarea
               placeholder="Напишите ваш комментарий или пожелания к этому развороту..."
               value={comments[currentSpread] || ''}
               onChange={(e) => handleCommentChange(currentSpread, e.target.value)}
-              rows={4}
-              className="resize-none"
+              rows={3}
+              className="resize-none text-xs sm:text-sm"
             />
 
             <Button 
               onClick={() => handleSaveComment(currentSpread)}
-              className="w-full rounded-full"
+              className="w-full rounded-full text-xs sm:text-sm"
+              size="sm"
               disabled={!comments[currentSpread]?.trim()}
             >
-              <Icon name="Send" size={18} className="mr-2" />
+              <Icon name="Send" size={14} className="mr-2" />
               Отправить комментарий
             </Button>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Icon name="Info" size={16} />
+            <div className="flex items-center gap-2 text-[10px] sm:text-xs md:text-sm text-muted-foreground">
+              <Icon name="Info" size={14} />
               <span>Ваши комментарии будут отправлены фотографу</span>
             </div>
           </CardContent>
         </Card>
 
-        <div className="text-center text-sm text-muted-foreground">
+        <div className="text-center text-xs sm:text-sm text-muted-foreground">
           <p>Создано с помощью сервиса фотокниг</p>
         </div>
       </div>

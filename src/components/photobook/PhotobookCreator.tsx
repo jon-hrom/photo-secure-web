@@ -176,7 +176,7 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[95vw] md:max-w-7xl max-h-[95vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-[98vw] sm:max-w-[95vw] md:max-w-7xl max-h-[98vh] sm:max-h-[95vh] overflow-y-auto p-0 m-1 sm:m-4">
         {currentStep === 'config' && (
           <PhotobookConfigStep
             config={config}
