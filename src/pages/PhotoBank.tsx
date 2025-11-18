@@ -184,6 +184,7 @@ const PhotoBank = () => {
     try {
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
+        console.log(`[UPLOAD] Processing file ${i + 1}/${imageFiles.length}:`, file.name);
         try {
           const base64Data = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -191,6 +192,7 @@ const PhotoBank = () => {
             reader.onload = () => resolve((reader.result as string).split(',')[1]);
             reader.onerror = reject;
           });
+          console.log(`[UPLOAD] File ${file.name} encoded, size: ${base64Data.length} chars`);
 
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
             const image = new Image();
@@ -198,6 +200,7 @@ const PhotoBank = () => {
             image.onerror = reject;
             image.src = `data:${file.type};base64,${base64Data}`;
           });
+          console.log(`[UPLOAD] Image dimensions: ${img.width}x${img.height}`);
 
           const res = await fetch(PHOTO_BANK_API, {
             method: 'POST',
@@ -215,12 +218,18 @@ const PhotoBank = () => {
             })
           });
 
+          console.log(`[UPLOAD] Response status: ${res.status}`);
           if (res.ok) {
+            const data = await res.json();
+            console.log(`[UPLOAD] Success:`, data);
             successCount++;
           } else {
+            const errorData = await res.json();
+            console.error(`[UPLOAD] Failed:`, errorData);
             errorCount++;
           }
-        } catch {
+        } catch (err) {
+          console.error(`[UPLOAD] Error uploading ${file.name}:`, err);
           errorCount++;
         }
         setUploadProgress({ current: i + 1, total: imageFiles.length });
