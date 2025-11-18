@@ -34,6 +34,7 @@ const PhotoBank = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [folderName, setFolderName] = useState('');
@@ -174,11 +175,13 @@ const PhotoBank = () => {
     }
 
     setUploading(true);
+    setUploadProgress({ current: 0, total: imageFiles.length });
     let successCount = 0;
     let errorCount = 0;
 
     try {
-      for (const file of imageFiles) {
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
         try {
           const base64Data = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -218,6 +221,7 @@ const PhotoBank = () => {
         } catch {
           errorCount++;
         }
+        setUploadProgress({ current: i + 1, total: imageFiles.length });
       }
 
       if (successCount > 0) {
@@ -243,6 +247,7 @@ const PhotoBank = () => {
       });
     } finally {
       setUploading(false);
+      setUploadProgress({ current: 0, total: 0 });
       e.target.value = '';
     }
   };
@@ -474,6 +479,7 @@ const PhotoBank = () => {
             photos={photos}
             loading={loading}
             uploading={uploading}
+            uploadProgress={uploadProgress}
             selectionMode={selectionMode}
             selectedPhotos={selectedPhotos}
             onUploadPhoto={handleUploadPhoto}

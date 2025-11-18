@@ -25,6 +25,7 @@ interface PhotoBankPhotoGridProps {
   photos: Photo[];
   loading: boolean;
   uploading: boolean;
+  uploadProgress: { current: number; total: number };
   selectionMode: boolean;
   selectedPhotos: Set<number>;
   onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -37,6 +38,7 @@ const PhotoBankPhotoGrid = ({
   photos,
   loading,
   uploading,
+  uploadProgress,
   selectionMode,
   selectedPhotos,
   onUploadPhoto,
@@ -79,6 +81,24 @@ const PhotoBankPhotoGrid = ({
             </div>
           )}
         </div>
+        {uploading && uploadProgress.total > 0 && (
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Загружено {uploadProgress.current} из {uploadProgress.total}
+              </span>
+              <span className="font-medium">
+                {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
+              </span>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300 ease-out"
+                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {!selectedFolder ? (
