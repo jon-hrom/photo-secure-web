@@ -4,6 +4,9 @@ import AdminAppearance from '@/components/admin/AdminAppearance';
 import AdminWidgets from '@/components/admin/AdminWidgets';
 import EnhancedAdminUsers from '@/components/admin/EnhancedAdminUsers';
 import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
+import { Button } from '@/components/ui/button';
+import Icon from '@/components/ui/icon';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminPanelTabsProps {
   settings: any;
@@ -42,8 +45,55 @@ const AdminPanelTabs = ({
   onUnblockUser,
   onRefreshUsers,
 }: AdminPanelTabsProps) => {
+  const navigate = useNavigate();
+
   return (
     <Accordion type="multiple" className="space-y-4">
+      <AccordionItem value="storage">
+        <AccordionTrigger className="text-lg font-semibold">Хранилище и тарифы</AccordionTrigger>
+        <AccordionContent>
+          <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border-2 border-blue-200">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-blue-500 rounded-lg">
+                <Icon name="Database" className="h-8 w-8 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold mb-2">Управление хранилищем</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Управление тарифными планами, квотами пользователей, статистикой загрузок и финансовой аналитикой
+                </p>
+                <ul className="space-y-2 text-sm text-muted-foreground mb-4">
+                  <li className="flex items-center gap-2">
+                    <Icon name="Check" className="h-4 w-4 text-green-600" />
+                    Создание и редактирование тарифов
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Icon name="Check" className="h-4 w-4 text-green-600" />
+                    Назначение квот пользователям
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Icon name="Check" className="h-4 w-4 text-green-600" />
+                    Статистика загрузок за 30 дней
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Icon name="Check" className="h-4 w-4 text-green-600" />
+                    Финансовая аналитика (доходы, расходы, прибыль)
+                  </li>
+                </ul>
+                <Button 
+                  onClick={() => navigate('/admin/storage')}
+                  className="w-full sm:w-auto"
+                  size="lg"
+                >
+                  <Icon name="ExternalLink" className="mr-2 h-5 w-5" />
+                  Открыть панель управления хранилищем
+                </Button>
+              </div>
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+
       <AccordionItem value="general">
         <AccordionTrigger className="text-lg font-semibold">Основные настройки</AccordionTrigger>
         <AccordionContent>
