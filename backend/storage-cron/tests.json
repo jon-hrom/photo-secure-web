@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS for CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedHeaders": {
+        "Access-Control-Allow-Origin": "*"
+      }
+    },
+    {
+      "name": "Create daily snapshot",
+      "method": "POST",
+      "path": "/?action=daily-snapshot",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "date": "string",
+        "usersProcessed": "number"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get invoices",
+      "method": "GET",
+      "path": "/?action=invoices",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "invoices": "array",
+        "total": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -1,4 +1,7 @@
 {
+  "storage-cron": "https://functions.poehali.dev/58924057-0ad9-432d-8d31-c0ec8bcd0ef4",
+  "storage-admin": "https://functions.poehali.dev/81fe316e-43c6-4e9f-93e2-63032b5c552c",
+  "storage": "https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985",
   "delete-user": "https://functions.poehali.dev/9df9d28d-b7ea-448c-9d93-054c04b6a52b",
   "users-management": "https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a",
   "vk-auth": "https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c",

@@ -1,0 +1,42 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS for CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedHeaders": {
+        "Access-Control-Allow-Origin": "*"
+      }
+    },
+    {
+      "name": "Get usage without authentication",
+      "method": "GET",
+      "path": "/?action=usage",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Presign upload with valid request",
+      "method": "POST",
+      "path": "/?action=presign-upload",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "body": {
+        "filename": "test.jpg",
+        "mimeType": "image/jpeg",
+        "sizeBytes": 1024000
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "uploadUrl": "string",
+        "objectKey": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
