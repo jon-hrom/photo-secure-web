@@ -28,8 +28,13 @@ const AdminPanelHistory = ({ history, showHistory, onRollback }: AdminPanelHisto
                   Версия #{item.id}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(item.changed_at).toLocaleString('ru-RU')}
+                  {new Date(item.createdAt || item.changed_at).toLocaleString('ru-RU')}
                 </p>
+                {item.description && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {item.description}
+                  </p>
+                )}
               </div>
               <Button
                 variant="outline"

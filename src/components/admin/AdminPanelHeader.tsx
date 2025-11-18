@@ -48,11 +48,29 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                   <p className="text-xs opacity-75 mt-1">{vkUser.phone}</p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-right">
+              <div className="flex items-center gap-3">
+                <div className="text-right mr-2">
                   <div className="text-xs opacity-75">Роль</div>
                   <div className="font-semibold">Главный администратор</div>
                 </div>
+                <Button
+                  onClick={onToggleHistory}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 border-white/30"
+                >
+                  <Icon name="History" size={16} className="mr-2" />
+                  История
+                </Button>
+                <Button
+                  onClick={onSaveSettings}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 border-white/30"
+                >
+                  <Icon name="Save" size={16} className="mr-2" />
+                  Сохранить
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -75,11 +93,29 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                 </div>
                 <p className="text-sm opacity-90">{emailUser.email}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-right">
+              <div className="flex items-center gap-3">
+                <div className="text-right mr-2">
                   <div className="text-xs opacity-75">Роль</div>
                   <div className="font-semibold">Главный администратор</div>
                 </div>
+                <Button
+                  onClick={onToggleHistory}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 border-white/30"
+                >
+                  <Icon name="History" size={16} className="mr-2" />
+                  История
+                </Button>
+                <Button
+                  onClick={onSaveSettings}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 border-white/30"
+                >
+                  <Icon name="Save" size={16} className="mr-2" />
+                  Сохранить
+                </Button>
               </div>
             </div>
           </CardContent>
