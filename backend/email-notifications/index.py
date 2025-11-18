@@ -14,19 +14,36 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
-SMTP_HOST = os.environ.get('SMTP_HOST')
-SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
-SMTP_USER = os.environ.get('SMTP_USER')
-SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD')
 BASE_URL = os.environ.get('BASE_URL', 'https://yoursite.com')
 SCHEMA = 't_p28211681_photo_secure_web'
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
-def send_email(to_email: str, subject: str, html_body: str) -> bool:
+def get_smtp_settings() -> Dict[str, str]:
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                SELECT setting_key, setting_value FROM {SCHEMA}.site_settings
+                WHERE setting_key IN ('smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'email_notifications_enabled')
+            ''')
+            rows = cur.fetchall()
+            settings = {row['setting_key']: row['setting_value'] for row in rows}
+            
+            if not all(k in settings for k in ['smtp_host', 'smtp_user', 'smtp_password']):
+                return None
+            
+            if settings.get('email_notifications_enabled') != 'true':
+                return None
+                
+            return settings
+    finally:
+        conn.close()
+
+def send_email(to_email: str, subject: str, html_body: str, smtp_settings: Dict[str, str]) -> bool:
     msg = MIMEMultipart('alternative')
-    msg['From'] = SMTP_USER
+    msg['From'] = smtp_settings['smtp_user']
     msg['To'] = to_email
     msg['Subject'] = subject
     
@@ -34,9 +51,14 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
     msg.attach(html_part)
     
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        smtp_host = smtp_settings['smtp_host']
+        smtp_port = int(smtp_settings.get('smtp_port', '587'))
+        smtp_user = smtp_settings['smtp_user']
+        smtp_password = smtp_settings['smtp_password']
+        
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.login(smtp_user, smtp_password)
             server.send_message(msg)
         return True
     except Exception as e:
@@ -90,6 +112,18 @@ def get_storage_warning_html(user_name: str, used_gb: float, limit_gb: float, pe
     '''
 
 def check_and_notify_users(event: Dict[str, Any]) -> Dict[str, Any]:
+    smtp_settings = get_smtp_settings()
+    
+    if not smtp_settings:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({
+                'error': 'Email notifications disabled or SMTP not configured',
+                'notified_users': 0
+            })
+        }
+    
     conn = get_db_connection()
     notified_count = 0
     
@@ -133,7 +167,7 @@ def check_and_notify_users(event: Dict[str, Any]) -> Dict[str, Any]:
                         user_name = user['user_name'] or 'Пользователь'
                         html = get_storage_warning_html(user_name, used_gb, quota_gb, percent)
                         
-                        if send_email(user['email'], '⚠️ Хранилище заполнено на 90%', html):
+                        if send_email(user['email'], '⚠️ Хранилище заполнено на 90%', html, smtp_settings):
                             cur.execute(f'''
                                 UPDATE {SCHEMA}.users
                                 SET last_storage_warning_at = CURRENT_TIMESTAMP

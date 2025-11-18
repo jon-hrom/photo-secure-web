@@ -34,6 +34,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     try:
         if method == 'GET':
+            params = event.get('queryStringParameters', {}) or {}
+            action = params.get('action', '')
+            key = params.get('key', '')
+            
+            if action == 'get' and key:
+                cur.execute("""
+                    SELECT setting_value FROM t_p28211681_photo_secure_web.site_settings
+                    WHERE setting_key = %s
+                """, (key,))
+                row = cur.fetchone()
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'value': row['setting_value'] if row else None})
+                }
+            
             cur.execute("""
                 SELECT setting_key, setting_value, setting_type 
                 FROM t_p28211681_photo_secure_web.site_settings
@@ -83,6 +102,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif method == 'POST':
             body_data = json.loads(event.get('body', '{}'))
             user_email = event.get('headers', {}).get('x-user-id', 'unknown')
+            
+            params = event.get('queryStringParameters', {}) or {}
+            action = params.get('action', '')
+            
+            if action == 'set':
+                key = body_data.get('key', '')
+                value = body_data.get('value', '')
+                
+                if not key:
+                    return {
+                        'statusCode': 400,
+                        'headers': {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        'body': json.dumps({'error': 'Missing key parameter'})
+                    }
+                
+                cur.execute("""
+                    INSERT INTO t_p28211681_photo_secure_web.site_settings (setting_key, setting_value, setting_type, updated_by)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (setting_key) 
+                    DO UPDATE SET setting_value = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s
+                """, (key, value, 'string', user_email, value, user_email))
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'success': True})
+                }
             
             change_data = {
                 'settings': body_data.get('settings', {}),
