@@ -271,6 +271,7 @@ const PhotoBank = () => {
       if (selectedFolder) {
         fetchPhotos(selectedFolder.id);
         fetchFolders();
+        fetchStorageUsage();
       }
     } catch (error) {
       toast({
@@ -307,6 +308,7 @@ const PhotoBank = () => {
         setPhotos([]);
       }
       fetchFolders();
+      fetchStorageUsage();
     } catch (error) {
       toast({
         title: 'Ошибка',
@@ -338,6 +340,7 @@ const PhotoBank = () => {
       setPhotos([]);
       setShowClearConfirm(false);
       fetchFolders();
+      fetchStorageUsage();
     } catch (error) {
       toast({
         title: 'Ошибка',

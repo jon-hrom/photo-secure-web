@@ -170,11 +170,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 s3_key = f'user_{user_id}/folder_{folder_id}/{timestamp}_{file_hash}_{file_name}'
                 
+                content_type = 'image/jpeg'
+                if file_name.lower().endswith('.png'):
+                    content_type = 'image/png'
+                elif file_name.lower().endswith('.gif'):
+                    content_type = 'image/gif'
+                elif file_name.lower().endswith('.webp'):
+                    content_type = 'image/webp'
+                
                 s3_client.put_object(
                     Bucket=bucket_name,
                     Key=s3_key,
                     Body=file_bytes,
-                    ContentType='image/jpeg'
+                    ContentType=content_type
                 )
                 
                 s3_url = f'{s3_endpoint}/{bucket_name}/{s3_key}'
@@ -218,7 +226,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     if photo:
                         s3_client.delete_object(Bucket=bucket_name, Key=photo['s3_key'])
-                        cur.execute('UPDATE photo_bank SET s3_key = s3_key WHERE id = %s', (photo_id,))
+                        cur.execute('DELETE FROM photo_bank WHERE id = %s AND user_id = %s', (photo_id, user_id))
                         conn.commit()
                 
                 return {
@@ -245,7 +253,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     for photo in photos:
                         s3_client.delete_object(Bucket=bucket_name, Key=photo['s3_key'])
                     
-                    cur.execute('UPDATE photo_folders SET folder_name = folder_name WHERE id = %s AND user_id = %s', (folder_id, user_id))
+                    cur.execute('DELETE FROM photo_bank WHERE folder_id = %s AND user_id = %s', (folder_id, user_id))
+                    cur.execute('DELETE FROM photo_folders WHERE id = %s AND user_id = %s', (folder_id, user_id))
                     conn.commit()
                 
                 return {
@@ -263,7 +272,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     for photo in photos:
                         s3_client.delete_object(Bucket=bucket_name, Key=photo['s3_key'])
                     
-                    cur.execute('UPDATE photo_folders SET folder_name = folder_name WHERE user_id = %s', (user_id,))
+                    cur.execute('DELETE FROM photo_bank WHERE user_id = %s', (user_id,))
+                    cur.execute('DELETE FROM photo_folders WHERE user_id = %s', (user_id,))
                     conn.commit()
                 
                 return {
