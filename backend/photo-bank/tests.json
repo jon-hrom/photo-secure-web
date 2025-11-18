@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS for CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get folders without auth",
+      "method": "GET",
+      "path": "/?action=list_folders",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "User not authenticated"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

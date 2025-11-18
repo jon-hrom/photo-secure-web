@@ -91,6 +91,10 @@ const AppNavigation = ({
                   <Icon name="Book" size={18} className="mr-2" />
                   Фотокниги
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/photo-bank')}>
+                  <Icon name="Images" size={18} className="mr-2" />
+                  Мой фото банк
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCurrentPage('features')}>
                   <Icon name="Sparkles" size={18} className="mr-2" />
                   Возможности сервиса

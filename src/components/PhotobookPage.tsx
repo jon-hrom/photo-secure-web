@@ -5,32 +5,94 @@ import Icon from '@/components/ui/icon';
 import PhotobookCreator, { type PhotobookData } from '@/components/photobook/PhotobookCreator';
 import SavedDesigns from '@/components/photobook/SavedDesigns';
 import Photobook3DPreview from '@/components/photobook/Photobook3DPreview';
+import { useToast } from '@/hooks/use-toast';
 
-const STORAGE_KEY = 'photobook_designs';
+const DESIGNS_API = 'https://functions.poehali.dev/66f4d0c4-09f1-4fa4-a26b-0b623562c751';
 
 const PhotobookPage = () => {
-  const [photobooks, setPhotobooks] = useState<PhotobookData[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [photobooks, setPhotobooks] = useState<PhotobookData[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedPhotobook, setSelectedPhotobook] = useState<PhotobookData | null>(null);
   const [show3DPreview, setShow3DPreview] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const userId = localStorage.getItem('userId') || '1';
+
+  const fetchDesigns = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${DESIGNS_API}?action=list`, {
+        headers: { 'X-User-Id': userId }
+      });
+      const data = await res.json();
+      
+      const designs = (data.designs || []).map((d: any) => ({
+        id: String(d.id),
+        title: d.title,
+        config: d.config,
+        method: d.method,
+        fillMethod: d.fill_method,
+        template: d.template,
+        spreads: d.spreads,
+        photos: (d.photos || []).map((p: any) => ({
+          id: String(p.id),
+          url: p.url,
+          file: null,
+          width: 0,
+          height: 0
+        })),
+        createdAt: new Date(d.created_at),
+        enableClientLink: d.enable_client_link,
+        clientLinkId: d.client_link_id
+      }));
+      
+      setPhotobooks(designs);
+    } catch (error) {
+      console.error('Failed to load designs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(photobooks));
-    } catch (error) {
-      console.error('Failed to save photobooks:', error);
-    }
-  }, [photobooks]);
+    fetchDesigns();
+  }, []);
 
-  const handlePhotobookComplete = (photobookData: PhotobookData) => {
-    setPhotobooks(prev => [...prev, photobookData]);
+  const handlePhotobookComplete = async (photobookData: PhotobookData) => {
+    try {
+      const res = await fetch(DESIGNS_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
+        body: JSON.stringify({
+          title: photobookData.title,
+          config: photobookData.config,
+          method: photobookData.method,
+          fillMethod: photobookData.fillMethod,
+          template: photobookData.template,
+          spreads: photobookData.spreads,
+          photos: photobookData.photos.map(p => ({ url: p.url })),
+          enableClientLink: photobookData.enableClientLink
+        })
+      });
+
+      if (res.ok) {
+        toast({
+          title: 'Успешно',
+          description: `Дизайн "${photobookData.title}" сохранен`
+        });
+        fetchDesigns();
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось сохранить дизайн',
+        variant: 'destructive'
+      });
+    }
     setIsCreateDialogOpen(false);
   };
 
@@ -39,8 +101,29 @@ const PhotobookPage = () => {
     setShow3DPreview(true);
   };
 
-  const handleDeletePhotobook = (id: string) => {
-    setPhotobooks(prev => prev.filter(p => p.id !== id));
+  const handleDeletePhotobook = async (id: string) => {
+    try {
+      await fetch(DESIGNS_API, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
+        body: JSON.stringify({ id })
+      });
+
+      toast({
+        title: 'Успешно',
+        description: 'Дизайн удален'
+      });
+      fetchDesigns();
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось удалить дизайн',
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleDownload = () => {
