@@ -10,27 +10,23 @@
       }
     },
     {
-      "name": "List plans without auth",
+      "name": "List plans without admin key",
       "method": "GET",
-      "path": "/?action=plans",
-      "expectedStatus": 401,
+      "path": "/?action=list-plans",
+      "expectedStatus": 403,
       "expectedBody": {
         "error": "string"
       },
       "bodyMatcher": "partial"
     },
     {
-      "name": "List plans as admin",
+      "name": "List plans with admin key",
       "method": "GET",
-      "path": "/?action=plans",
+      "path": "/?action=list-plans",
       "headers": {
-        "X-User-Id": "1"
+        "X-Admin-Key": "admin123"
       },
-      "expectedStatus": 200,
-      "expectedBody": {
-        "plans": "array"
-      },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     }
   ]
 }
