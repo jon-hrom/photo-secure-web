@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
@@ -29,6 +30,7 @@ interface Photo {
 }
 
 const PhotoBank = () => {
+  const navigate = useNavigate();
   const [folders, setFolders] = useState<PhotoFolder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<PhotoFolder | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -413,7 +415,16 @@ const PhotoBank = () => {
         <PhotoBankStorageIndicator storageUsage={storageUsage} />
 
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Мой фото банк</h1>
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => navigate('/')}
+            >
+              <Icon name="ArrowLeft" size={24} />
+            </Button>
+            <h1 className="text-3xl font-bold">Мой фото банк</h1>
+          </div>
           <div className="flex gap-2">
             {selectionMode && (
               <>

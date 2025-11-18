@@ -155,7 +155,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 width = body_data.get('width')
                 height = body_data.get('height')
                 
+                print(f'[UPLOAD] folder_id={folder_id}, file_name={file_name}, user_id={user_id}')
+                
                 if not all([folder_id, file_name, file_data]):
+                    print(f'[ERROR] Missing required fields')
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -163,8 +166,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                file_bytes = base64.b64decode(file_data)
+                try:
+                    file_bytes = base64.b64decode(file_data)
+                except Exception as e:
+                    print(f'[ERROR] Base64 decode failed: {e}')
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': f'Invalid base64 data: {str(e)}'}),
+                        'isBase64Encoded': False
+                    }
                 file_size = len(file_bytes)
+                print(f'[UPLOAD] Decoded file size: {file_size} bytes')
                 
                 file_hash = hashlib.md5(file_bytes).hexdigest()
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -178,33 +191,54 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 elif file_name.lower().endswith('.webp'):
                     content_type = 'image/webp'
                 
-                s3_client.put_object(
-                    Bucket=bucket_name,
-                    Key=s3_key,
-                    Body=file_bytes,
-                    ContentType=content_type
-                )
+                try:
+                    s3_client.put_object(
+                        Bucket=bucket_name,
+                        Key=s3_key,
+                        Body=file_bytes,
+                        ContentType=content_type
+                    )
+                    print(f'[S3] Successfully uploaded to {s3_key}')
+                except Exception as e:
+                    print(f'[ERROR] S3 upload failed: {e}')
+                    return {
+                        'statusCode': 500,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': f'S3 upload failed: {str(e)}'}),
+                        'isBase64Encoded': False
+                    }
                 
                 s3_url = f'{s3_endpoint}/{bucket_name}/{s3_key}'
                 
-                with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    cur.execute('''
-                        INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url, file_size, width, height)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id, file_name, s3_url, file_size, created_at
-                    ''', (folder_id, user_id, file_name, s3_key, s3_url, file_size, width, height))
-                    conn.commit()
-                    photo = cur.fetchone()
+                try:
+                    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                        cur.execute('''
+                            INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url, file_size, width, height)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            RETURNING id, file_name, s3_url, file_size, created_at
+                        ''', (folder_id, user_id, file_name, s3_key, s3_url, file_size, width, height))
+                        conn.commit()
+                        photo = cur.fetchone()
+                        
+                        if photo and photo['created_at']:
+                            photo['created_at'] = photo['created_at'].isoformat()
                     
-                    if photo and photo['created_at']:
-                        photo['created_at'] = photo['created_at'].isoformat()
-                
-                return {
-                    'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'photo': photo}),
-                    'isBase64Encoded': False
-                }
+                    print(f'[DB] Photo saved with id={photo["id"]}')
+                    return {
+                        'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'photo': photo}),
+                        'isBase64Encoded': False
+                    }
+                except Exception as e:
+                    print(f'[ERROR] DB insert failed: {e}')
+                    conn.rollback()
+                    return {
+                        'statusCode': 500,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': f'Database error: {str(e)}'}),
+                        'isBase64Encoded': False
+                    }
         
         elif method == 'DELETE':
             body_data = json.loads(event.get('body', '{}'))
