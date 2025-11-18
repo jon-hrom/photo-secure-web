@@ -65,14 +65,23 @@ def get_user_from_token(event: Dict[str, Any]) -> Dict[str, Any]:
                 FROM {SCHEMA}.storage_objects
                 WHERE user_id = %s AND status = 'active'
             ''', (user_id,))
-            usage = cur.fetchone()
+            storage_usage = cur.fetchone()
+            
+            cur.execute(f'''
+                SELECT COALESCE(SUM(file_size), 0) as photo_bytes
+                FROM {SCHEMA}.photo_bank
+                WHERE user_id = %s
+            ''', (user_id,))
+            photo_usage = cur.fetchone()
+            
+            total_bytes = storage_usage['total_bytes'] + photo_usage['photo_bytes']
             
             return {
                 'id': user['id'],
                 'plan_id': user['plan_id'],
                 'custom_quota_gb': float(user['custom_quota_gb']) if user['custom_quota_gb'] else None,
                 'plan_quota_gb': float(user['plan_quota_gb']) if user['plan_quota_gb'] else 5.0,
-                'used_bytes': usage['total_bytes']
+                'used_bytes': total_bytes
             }
     finally:
         conn.close()

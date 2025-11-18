@@ -160,10 +160,11 @@ const PhotoBank = () => {
       return;
     }
 
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
       toast({
         title: 'Ошибка',
         description: 'Можно загружать только изображения',
@@ -173,45 +174,67 @@ const PhotoBank = () => {
     }
 
     setUploading(true);
+    let successCount = 0;
+    let errorCount = 0;
+
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      
-      reader.onload = async () => {
-        const base64Data = (reader.result as string).split(',')[1];
-        
-        const img = new Image();
-        img.src = reader.result as string;
-        await new Promise((resolve) => { img.onload = resolve; });
-
-        const res = await fetch(PHOTO_BANK_API, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': userId
-          },
-          body: JSON.stringify({
-            action: 'upload_photo',
-            folder_id: selectedFolder.id,
-            file_name: file.name,
-            file_data: base64Data,
-            width: img.width,
-            height: img.height
-          })
-        });
-
-        if (res.ok) {
-          toast({
-            title: 'Успешно',
-            description: `Фото ${file.name} загружено`
+      for (const file of imageFiles) {
+        try {
+          const base64Data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve((reader.result as string).split(',')[1]);
+            reader.onerror = reject;
           });
-          fetchPhotos(selectedFolder.id);
-          fetchFolders();
-        } else {
-          const error = await res.json();
-          throw new Error(error.error || 'Ошибка загрузки');
+
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = reject;
+            image.src = `data:${file.type};base64,${base64Data}`;
+          });
+
+          const res = await fetch(PHOTO_BANK_API, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': userId
+            },
+            body: JSON.stringify({
+              action: 'upload_photo',
+              folder_id: selectedFolder.id,
+              file_name: file.name,
+              file_data: base64Data,
+              width: img.width,
+              height: img.height
+            })
+          });
+
+          if (res.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch {
+          errorCount++;
         }
-      };
+      }
+
+      if (successCount > 0) {
+        toast({
+          title: 'Успешно',
+          description: `Загружено ${successCount} фото${errorCount > 0 ? `, ошибок: ${errorCount}` : ''}`
+        });
+        fetchPhotos(selectedFolder.id);
+        fetchFolders();
+        fetchStorageUsage();
+      } else {
+        toast({
+          title: 'Ошибка',
+          description: 'Не удалось загрузить фото',
+          variant: 'destructive'
+        });
+      }
     } catch (error: any) {
       toast({
         title: 'Ошибка загрузки',

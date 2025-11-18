@@ -152,7 +152,7 @@ const AdminStorage = () => {
 
     try {
       const action = editingPlan.plan_id ? 'update-plan' : 'create-plan';
-      await fetch(`${ADMIN_API}?action=${action}`, {
+      const res = await fetch(`${ADMIN_API}?action=${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -161,10 +161,20 @@ const AdminStorage = () => {
         body: JSON.stringify(editingPlan)
       });
 
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Ошибка сохранения');
+      }
+
       toast({ title: 'Успешно', description: 'Тариф сохранен' });
       fetchPlans();
-    } catch (error) {
-      toast({ title: 'Ошибка', description: 'Не удалось сохранить тариф', variant: 'destructive' });
+    } catch (error: any) {
+      toast({ 
+        title: 'Ошибка', 
+        description: error.message || 'Не удалось сохранить тариф', 
+        variant: 'destructive' 
+      });
     }
   };
 

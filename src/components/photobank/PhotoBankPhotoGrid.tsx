@@ -66,6 +66,7 @@ const PhotoBankPhotoGrid = ({
                 id="photo-upload"
                 className="hidden"
                 accept="image/*"
+                multiple
                 onChange={onUploadPhoto}
                 disabled={uploading}
               />

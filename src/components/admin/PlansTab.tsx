@@ -33,18 +33,26 @@ interface Plan {
 
 interface PlansTabProps {
   plans: Plan[];
-  onSavePlan: (plan: Partial<Plan>) => void;
+  onSavePlan: (plan: Partial<Plan>) => Promise<void>;
   onDeletePlan: (planId: number) => void;
   onSetDefaultPlan: (planId: number) => void;
 }
 
 export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: PlansTabProps) => {
   const [editingPlan, setEditingPlan] = useState<Partial<Plan> | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    if (editingPlan) {
-      onSavePlan(editingPlan);
-      setEditingPlan(null);
+  const handleSave = async () => {
+    if (editingPlan && !saving) {
+      setSaving(true);
+      try {
+        await onSavePlan(editingPlan);
+        setEditingPlan(null);
+      } catch (error) {
+        console.error('Save error:', error);
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -106,10 +114,12 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setEditingPlan(null)}>
+                <Button variant="outline" onClick={() => setEditingPlan(null)} disabled={saving}>
                   Отмена
                 </Button>
-                <Button onClick={handleSave}>Сохранить</Button>
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving ? 'Сохранение...' : 'Сохранить'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
