@@ -46,17 +46,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     s3_access_key = os.environ.get('REG_S3_ACCESS_KEY')
     s3_secret_key = os.environ.get('REG_S3_SECRET_KEY')
     
-    conn = psycopg2.connect(db_url)
+    try:
+        conn = psycopg2.connect(db_url)
+    except Exception as e:
+        print(f'[ERROR] DB connection failed: {e}')
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Database connection failed: {str(e)}'}),
+            'isBase64Encoded': False
+        }
     
     try:
-        s3_client = boto3.client(
-            's3',
-            endpoint_url=s3_endpoint,
-            aws_access_key_id=s3_access_key,
-            aws_secret_access_key=s3_secret_key,
-            config=Config(signature_version='s3v4')
-        )
-        bucket_name = 'foto-bezlimit-mix'
+        try:
+            s3_client = boto3.client(
+                's3',
+                endpoint_url=s3_endpoint,
+                aws_access_key_id=s3_access_key,
+                aws_secret_access_key=s3_secret_key,
+                config=Config(signature_version='s3v4')
+            )
+            bucket_name = 'foto-bezlimit-mix'
+            print(f'[S3] Client created, endpoint={s3_endpoint}, bucket={bucket_name}')
+        except Exception as e:
+            print(f'[ERROR] S3 client creation failed: {e}')
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': f'S3 connection failed: {str(e)}'}),
+                'isBase64Encoded': False
+            }
         
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list_folders')
