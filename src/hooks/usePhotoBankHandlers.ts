@@ -11,7 +11,7 @@ interface PhotoFolder {
 interface Photo {
   id: number;
   file_name: string;
-  s3_url: string;
+  data_url?: string;
   file_size: number;
   width: number | null;
   height: number | null;
@@ -350,7 +350,7 @@ export const usePhotoBankHandlers = (
     const selected = photos.filter(p => selectedPhotos.has(p.id));
     localStorage.setItem('photobank_selected_photos', JSON.stringify(selected.map(p => ({
       id: p.id,
-      url: p.s3_url,
+      url: p.data_url,
       width: p.width,
       height: p.height,
       file_name: p.file_name

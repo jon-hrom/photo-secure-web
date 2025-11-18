@@ -14,7 +14,7 @@ interface PhotoFolder {
 interface Photo {
   id: number;
   file_name: string;
-  s3_url: string;
+  data_url?: string;
   file_size: number;
   width: number | null;
   height: number | null;

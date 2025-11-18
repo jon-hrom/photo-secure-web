@@ -5,7 +5,7 @@ import Icon from '@/components/ui/icon';
 interface Photo {
   id: number;
   file_name: string;
-  s3_url: string;
+  data_url?: string;
   file_size: number;
   width: number | null;
   height: number | null;
@@ -144,7 +144,7 @@ const PhotoBankPhotoGrid = ({
                   </div>
                 )}
                 <img
-                  src={photo.s3_url}
+                  src={photo.data_url || ''}
                   alt={photo.file_name}
                   className="w-full h-full object-cover"
                 />

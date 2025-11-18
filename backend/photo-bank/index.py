@@ -1,19 +1,16 @@
 import json
 import os
 import base64
-import hashlib
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import boto3
-from botocore.client import Config
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: Управление фото-банком пользователя с S3 хранилищем foto-bezlimit-mix
+    Business: Управление фото-банком пользователя с хранилищем в PostgreSQL (bytea)
     Args: event - dict with httpMethod, body, headers (X-User-Id)
-    Returns: HTTP response dict with photos/folders data
+    Returns: HTTP response dict with photos/folders data and base64 data URLs
     '''
     method: str = event.get('httpMethod', 'GET')
     
@@ -42,9 +39,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     db_url = os.environ.get('DATABASE_URL')
-    s3_endpoint = os.environ.get('REG_S3_ENDPOINT')
-    s3_access_key = os.environ.get('REG_S3_ACCESS_KEY')
-    s3_secret_key = os.environ.get('REG_S3_SECRET_KEY')
     
     try:
         conn = psycopg2.connect(db_url)
@@ -58,29 +52,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
-        try:
-            s3_client = boto3.client(
-                's3',
-                endpoint_url=s3_endpoint,
-                aws_access_key_id=s3_access_key,
-                aws_secret_access_key=s3_secret_key,
-                config=Config(
-                    signature_version='s3v4',
-                    connect_timeout=10,
-                    read_timeout=60,
-                    retries={'max_attempts': 3, 'mode': 'standard'}
-                )
-            )
-            bucket_name = 'foto-bezlimit-mix'
-            print(f'[S3] Client created, endpoint={s3_endpoint}, bucket={bucket_name}')
-        except Exception as e:
-            print(f'[ERROR] S3 client creation failed: {e}')
-            return {
-                'statusCode': 500,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': f'S3 connection failed: {str(e)}'}),
-                'isBase64Encoded': False
-            }
         
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list_folders')
@@ -121,7 +92,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
-                        SELECT id, file_name, s3_url, file_size, width, height, created_at
+                        SELECT id, file_name, file_data, file_size, width, height, created_at
                         FROM photo_bank
                         WHERE folder_id = %s AND user_id = %s
                         ORDER BY created_at DESC
@@ -131,6 +102,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     for photo in photos:
                         if photo['created_at']:
                             photo['created_at'] = photo['created_at'].isoformat()
+                        # Convert binary data to data URL
+                        if photo.get('file_data'):
+                            photo['data_url'] = f'data:image/jpeg;base64,{base64.b64encode(photo["file_data"]).decode()}'
+                            del photo['file_data']  # Don't send raw binary in JSON
                 
                 return {
                     'statusCode': 200,
@@ -203,56 +178,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 file_size = len(file_bytes)
                 print(f'[UPLOAD] Decoded file size: {file_size} bytes')
                 
-                file_hash = hashlib.md5(file_bytes).hexdigest()
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                s3_key = f'user_{user_id}/folder_{folder_id}/{timestamp}_{file_hash}_{file_name}'
-                
-                content_type = 'image/jpeg'
-                if file_name.lower().endswith('.png'):
-                    content_type = 'image/png'
-                elif file_name.lower().endswith('.gif'):
-                    content_type = 'image/gif'
-                elif file_name.lower().endswith('.webp'):
-                    content_type = 'image/webp'
-                
+                # Store directly in database (much faster than slow REG.Cloud S3)
+                print(f'[DB] Saving file to database, size={file_size} bytes')
                 upload_start = datetime.now()
-                print(f'[S3] Starting upload to {s3_key}, size={file_size} bytes')
-                try:
-                    s3_client.put_object(
-                        Bucket=bucket_name,
-                        Key=s3_key,
-                        Body=file_bytes,
-                        ContentType=content_type,
-                        Metadata={'user_id': str(user_id), 'folder_id': str(folder_id)}
-                    )
-                    upload_time = (datetime.now() - upload_start).total_seconds()
-                    print(f'[S3] Successfully uploaded to {s3_key} in {upload_time:.2f}s')
-                except Exception as e:
-                    upload_time = (datetime.now() - upload_start).total_seconds()
-                    print(f'[ERROR] S3 upload failed after {upload_time:.2f}s: {type(e).__name__}: {e}')
-                    return {
-                        'statusCode': 500,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': f'S3 upload failed: {str(e)}'}),
-                        'isBase64Encoded': False
-                    }
-                
-                s3_url = f'{s3_endpoint}/{bucket_name}/{s3_key}'
                 
                 try:
                     with conn.cursor(cursor_factory=RealDictCursor) as cur:
                         cur.execute('''
-                            INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url, file_size, width, height)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                            RETURNING id, file_name, s3_url, file_size, created_at
-                        ''', (folder_id, user_id, file_name, s3_key, s3_url, file_size, width, height))
+                            INSERT INTO photo_bank (folder_id, user_id, file_name, file_data, file_size, width, height)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            RETURNING id, file_name, file_size, created_at
+                        ''', (folder_id, user_id, file_name, psycopg2.Binary(file_bytes), file_size, width, height))
                         conn.commit()
                         photo = cur.fetchone()
                         
                         if photo and photo['created_at']:
                             photo['created_at'] = photo['created_at'].isoformat()
                     
-                    print(f'[DB] Photo saved with id={photo["id"]}')
+                    upload_time = (datetime.now() - upload_start).total_seconds()
+                    print(f'[DB] Photo saved with id={photo["id"]} in {upload_time:.3f}s')
+                    
+                    # Return photo with data URL for immediate display
+                    photo['data_url'] = f'data:image/jpeg;base64,{file_data}'
                     return {
                         'statusCode': 200,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -284,13 +231,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    cur.execute('SELECT s3_key FROM photo_bank WHERE id = %s AND user_id = %s', (photo_id, user_id))
-                    photo = cur.fetchone()
-                    
-                    if photo:
-                        s3_client.delete_object(Bucket=bucket_name, Key=photo['s3_key'])
-                        cur.execute('DELETE FROM photo_bank WHERE id = %s AND user_id = %s', (photo_id, user_id))
-                        conn.commit()
+                    # Data stored in DB, no S3 cleanup needed
+                    cur.execute('DELETE FROM photo_bank WHERE id = %s AND user_id = %s', (photo_id, user_id))
+                    conn.commit()
                 
                 return {
                     'statusCode': 200,
@@ -310,12 +253,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    cur.execute('SELECT s3_key FROM photo_bank WHERE folder_id = %s AND user_id = %s', (folder_id, user_id))
-                    photos = cur.fetchall()
-                    
-                    for photo in photos:
-                        s3_client.delete_object(Bucket=bucket_name, Key=photo['s3_key'])
-                    
+                    # Data stored in DB, no S3 cleanup needed
                     cur.execute('DELETE FROM photo_bank WHERE folder_id = %s AND user_id = %s', (folder_id, user_id))
                     cur.execute('DELETE FROM photo_folders WHERE id = %s AND user_id = %s', (folder_id, user_id))
                     conn.commit()
@@ -329,12 +267,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             elif action == 'clear_all':
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    cur.execute('SELECT s3_key FROM photo_bank WHERE user_id = %s', (user_id,))
-                    photos = cur.fetchall()
-                    
-                    for photo in photos:
-                        s3_client.delete_object(Bucket=bucket_name, Key=photo['s3_key'])
-                    
+                    # Data stored in DB, no S3 cleanup needed
                     cur.execute('DELETE FROM photo_bank WHERE user_id = %s', (user_id,))
                     cur.execute('DELETE FROM photo_folders WHERE user_id = %s', (user_id,))
                     conn.commit()
