@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,26 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
   const [todayUploadsCount, setTodayUploadsCount] = useState(0);
   
   const unselectedCount = uploadedPhotos.length - selectedPhotos.size;
+
+  useEffect(() => {
+    const savedPhotos = localStorage.getItem('photobank_selected_photos');
+    if (savedPhotos) {
+      try {
+        const photos = JSON.parse(savedPhotos);
+        const converted = photos.map((p: any) => ({
+          id: `photobank-${p.id}`,
+          url: p.url,
+          file: new File([], p.file_name),
+          width: p.width || 0,
+          height: p.height || 0
+        }));
+        setUploadedPhotos(converted);
+        localStorage.removeItem('photobank_selected_photos');
+      } catch (error) {
+        console.error('Failed to load photos from photobank:', error);
+      }
+    }
+  }, []);
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;

@@ -14,8 +14,11 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const PHOTO_BANK_API = 'https://functions.poehali.dev/8aa39ae1-26f5-40c1-ad06-fe0d657f1310';
+const STORAGE_API = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
 
 interface PhotoFolder {
   id: number;
@@ -44,6 +47,9 @@ const PhotoBank = () => {
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [folderName, setFolderName] = useState('');
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<number>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0 });
   const { toast } = useToast();
 
   const userId = localStorage.getItem('userId') || '1';
@@ -86,8 +92,25 @@ const PhotoBank = () => {
     }
   };
 
+  const fetchStorageUsage = async () => {
+    try {
+      const res = await fetch(`${STORAGE_API}?action=usage`, {
+        headers: { 'X-User-Id': userId }
+      });
+      const data = await res.json();
+      setStorageUsage({
+        usedGb: data.usedGb || 0,
+        limitGb: data.limitGb || 5,
+        percent: data.percent || 0
+      });
+    } catch (error) {
+      console.error('Failed to fetch storage usage:', error);
+    }
+  };
+
   useEffect(() => {
     fetchFolders();
+    fetchStorageUsage();
   }, []);
 
   useEffect(() => {
@@ -329,6 +352,46 @@ const PhotoBank = () => {
     });
   };
 
+  const togglePhotoSelection = (photoId: number) => {
+    setSelectedPhotos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(photoId)) {
+        newSet.delete(photoId);
+      } else {
+        newSet.add(photoId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddToPhotobook = () => {
+    if (selectedPhotos.size === 0) {
+      toast({
+        title: 'Выберите фото',
+        description: 'Отметьте фотографии для добавления в макет',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const selected = photos.filter(p => selectedPhotos.has(p.id));
+    localStorage.setItem('photobank_selected_photos', JSON.stringify(selected.map(p => ({
+      id: p.id,
+      url: p.s3_url,
+      width: p.width,
+      height: p.height,
+      file_name: p.file_name
+    }))));
+
+    toast({
+      title: 'Успешно',
+      description: `${selectedPhotos.size} фото добавлены в макет`
+    });
+
+    setSelectedPhotos(new Set());
+    setSelectionMode(false);
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <Dialog open={showCreateFolder} onOpenChange={setShowCreateFolder}>
@@ -387,9 +450,63 @@ const PhotoBank = () => {
       </Dialog>
 
       <div className="max-w-7xl mx-auto space-y-6">
+        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-2">
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Icon name="HardDrive" size={20} className="text-primary" />
+                  <h3 className="font-semibold">Использование фото банка</h3>
+                </div>
+                <Badge variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}>
+                  {storageUsage.percent.toFixed(1)}%
+                </Badge>
+              </div>
+              <Progress 
+                value={storageUsage.percent} 
+                className="h-3 transition-all duration-500 ease-out"
+              />
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>{storageUsage.usedGb.toFixed(2)} ГБ использовано</span>
+                <span>{storageUsage.limitGb.toFixed(0)} ГБ доступно</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Мой фото банк</h1>
           <div className="flex gap-2">
+            {selectionMode && (
+              <>
+                <Button 
+                  variant="default"
+                  onClick={handleAddToPhotobook}
+                  disabled={selectedPhotos.size === 0}
+                >
+                  <Icon name="Plus" className="mr-2" size={18} />
+                  Добавить в макет ({selectedPhotos.size})
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setSelectionMode(false);
+                    setSelectedPhotos(new Set());
+                  }}
+                >
+                  Отмена
+                </Button>
+              </>
+            )}
+            {!selectionMode && selectedFolder && photos.length > 0 && (
+              <Button 
+                variant="outline"
+                onClick={() => setSelectionMode(true)}
+              >
+                <Icon name="CheckSquare" className="mr-2" size={18} />
+                Выбрать фото
+              </Button>
+            )}
             <Button 
               variant="outline"
               onClick={() => setShowCreateFolder(true)}
@@ -530,24 +647,46 @@ const PhotoBank = () => {
                   {photos.map((photo) => (
                     <div
                       key={photo.id}
-                      className="group relative aspect-square rounded-lg overflow-hidden border-2 border-muted hover:border-primary transition-all"
+                      className={`group relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                        selectionMode && selectedPhotos.has(photo.id)
+                          ? 'border-primary ring-4 ring-primary/20'
+                          : 'border-muted hover:border-primary'
+                      }`}
+                      onClick={() => selectionMode && togglePhotoSelection(photo.id)}
                     >
+                      {selectionMode && (
+                        <div className="absolute top-2 right-2 z-10">
+                          <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                            selectedPhotos.has(photo.id)
+                              ? 'bg-primary border-primary'
+                              : 'bg-white border-white/80 group-hover:border-primary'
+                          }`}>
+                            {selectedPhotos.has(photo.id) && (
+                              <Icon name="Check" size={16} className="text-white" />
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <img
                         src={photo.s3_url}
                         alt={photo.file_name}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center">
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDeletePhoto(photo.id, photo.file_name)}
-                        >
-                          <Icon name="Trash2" size={18} />
-                        </Button>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {!selectionMode && (
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center">
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleDeletePhoto(photo.id, photo.file_name)}
+                          >
+                            <Icon name="Trash2" size={18} />
+                          </Button>
+                        </div>
+                      )}
+                      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 transition-opacity ${
+                        selectionMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}>
                         <p className="text-white text-xs truncate">{photo.file_name}</p>
                         <p className="text-white/70 text-xs">
                           {formatBytes(photo.file_size)}

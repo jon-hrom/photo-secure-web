@@ -29,12 +29,36 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
   const [subscriptionDaysLeft] = useState(0);
   const [balance] = useState(0);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0 });
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchStorageUsage = async () => {
+      const userId = localStorage.getItem('userId') || '1';
+      try {
+        const res = await fetch('https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985?action=usage', {
+          headers: { 'X-User-Id': userId }
+        });
+        const data = await res.json();
+        setStorageUsage({
+          usedGb: data.usedGb || 0,
+          limitGb: data.limitGb || 5,
+          percent: data.percent || 0
+        });
+      } catch (error) {
+        console.error('Failed to fetch storage usage:', error);
+      }
+    };
+    
+    fetchStorageUsage();
+    const interval = setInterval(fetchStorageUsage, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const formatDate = (date: Date) => {
@@ -97,6 +121,29 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-2">
+        <CardContent className="pt-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Icon name="HardDrive" size={20} className="text-primary" />
+                <h3 className="font-semibold">Фото банк</h3>
+              </div>
+              <Badge variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}>
+                {storageUsage.percent.toFixed(1)}%
+              </Badge>
+            </div>
+            <Progress 
+              value={storageUsage.percent} 
+              className="h-3 transition-all duration-500 ease-out"
+            />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{storageUsage.usedGb.toFixed(2)} ГБ использовано</span>
+              <span>{storageUsage.limitGb.toFixed(0)} ГБ доступно</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <StorageWarning />
       {vkUser && (
         <Card className="bg-gradient-to-br from-blue-500 to-purple-600 text-white border-0 shadow-xl">
