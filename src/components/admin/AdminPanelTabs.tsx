@@ -4,6 +4,7 @@ import AdminAppearance from '@/components/admin/AdminAppearance';
 import AdminWidgets from '@/components/admin/AdminWidgets';
 import EnhancedAdminUsers from '@/components/admin/EnhancedAdminUsers';
 import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
+import EmailNotifications from '@/components/admin/EmailNotifications';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -91,6 +92,13 @@ const AdminPanelTabs = ({
               </div>
             </div>
           </div>
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="emails">
+        <AccordionTrigger className="text-lg font-semibold">Email уведомления</AccordionTrigger>
+        <AccordionContent>
+          <EmailNotifications />
         </AccordionContent>
       </AccordionItem>
 

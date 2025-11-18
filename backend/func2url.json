@@ -1,4 +1,5 @@
 {
+  "email-notifications": "https://functions.poehali.dev/26301a69-7e80-461b-bc17-2ad62cd57d4f",
   "storage-cron": "https://functions.poehali.dev/58924057-0ad9-432d-8d31-c0ec8bcd0ef4",
   "storage-admin": "https://functions.poehali.dev/81fe316e-43c6-4e9f-93e2-63032b5c552c",
   "storage": "https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985",

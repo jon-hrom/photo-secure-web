@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS for CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedHeaders": {
+        "Access-Control-Allow-Origin": "*"
+      }
+    },
+    {
+      "name": "Check and notify users",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": "boolean",
+        "notified_users": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
