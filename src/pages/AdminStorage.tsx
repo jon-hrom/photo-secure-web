@@ -16,6 +16,7 @@ interface Plan {
   quota_gb: number;
   price_rub: number;
   is_active: boolean;
+  visible_to_users: boolean;
   created_at: string;
 }
 

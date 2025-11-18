@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
+import StorageWarning from '@/components/StorageWarning';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,6 +97,7 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <StorageWarning />
       {vkUser && (
         <Card className="bg-gradient-to-br from-blue-500 to-purple-600 text-white border-0 shadow-xl">
           <CardContent className="p-4 sm:p-6">

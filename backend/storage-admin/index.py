@@ -76,7 +76,7 @@ def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(f'''
-                SELECT id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, created_at
+                SELECT id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, created_at, visible_to_users
                 FROM {SCHEMA}.storage_plans
                 ORDER BY quota_gb ASC
             ''')
@@ -96,6 +96,7 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     quota_gb = body.get('quota_gb')
     price_rub = body.get('price_rub', 0)
     is_active = body.get('is_active', True)
+    visible_to_users = body.get('visible_to_users', False)
     
     if not plan_name or quota_gb is None:
         return {
@@ -108,10 +109,10 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(f'''
-                INSERT INTO {SCHEMA}.storage_plans (name, quota_gb, monthly_price_rub, is_active)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, created_at
-            ''', (plan_name, quota_gb, price_rub, is_active))
+                INSERT INTO {SCHEMA}.storage_plans (name, quota_gb, monthly_price_rub, is_active, visible_to_users)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, visible_to_users, created_at
+            ''', (plan_name, quota_gb, price_rub, is_active, visible_to_users))
             plan = cur.fetchone()
             conn.commit()
             
@@ -154,6 +155,11 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         updates.append('is_active = %s')
         params.append(is_active)
     
+    visible_to_users = body.get('visible_to_users')
+    if visible_to_users is not None:
+        updates.append('visible_to_users = %s')
+        params.append(visible_to_users)
+    
     if not updates:
         return {
             'statusCode': 400,
@@ -171,7 +177,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
                 UPDATE {SCHEMA}.storage_plans
                 SET {", ".join(updates)}
                 WHERE id = %s
-                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, created_at
+                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, visible_to_users, created_at
             ''', params)
             plan = cur.fetchone()
             conn.commit()

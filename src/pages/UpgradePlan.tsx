@@ -53,7 +53,8 @@ const UpgradePlan = () => {
         headers: { 'X-User-Id': userId }
       });
       const data = await res.json();
-      setPlans(data.plans || []);
+      const visiblePlans = (data.plans || []).filter((p: Plan) => p.is_active);
+      setPlans(visiblePlans);
     } catch (error) {
       toast({
         title: 'Ошибка',

@@ -312,6 +312,19 @@ def get_usage(event: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
     used_gb = float(bytes_to_gb(user['used_bytes']))
     percent = (used_gb / limit_gb * 100) if limit_gb > 0 else 0
     
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                SELECT name as plan_name
+                FROM {SCHEMA}.storage_plans
+                WHERE id = %s
+            ''', (user.get('plan_id', 1),))
+            plan = cur.fetchone()
+            plan_name = plan['plan_name'] if plan else 'Старт'
+    finally:
+        conn.close()
+    
     return {
         'statusCode': 200,
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -320,9 +333,31 @@ def get_usage(event: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
             'limitGb': limit_gb,
             'percent': round(percent, 1),
             'remainingGb': round(limit_gb - used_gb, 3),
-            'warning': percent >= 80
+            'warning': percent >= 80,
+            'plan_name': plan_name,
+            'plan_id': user.get('plan_id', 1)
         })
     }
+
+def list_visible_plans(event: Dict[str, Any]) -> Dict[str, Any]:
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                SELECT id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active
+                FROM {SCHEMA}.storage_plans
+                WHERE visible_to_users = true AND is_active = true
+                ORDER BY quota_gb ASC
+            ''')
+            plans = cur.fetchall()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'plans': [dict(p) for p in plans]}, default=str)
+            }
+    finally:
+        conn.close()
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
@@ -363,6 +398,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return delete_file(event, user)
     elif method == 'GET' and action == 'usage':
         return get_usage(event, user)
+    elif method == 'GET' and action == 'list-plans':
+        return list_visible_plans(event)
     elif method == 'GET' and not action:
         return get_usage(event, user)
     

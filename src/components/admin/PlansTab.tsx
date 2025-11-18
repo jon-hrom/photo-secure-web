@@ -27,6 +27,7 @@ interface Plan {
   quota_gb: number;
   price_rub: number;
   is_active: boolean;
+  visible_to_users: boolean;
   created_at: string;
 }
 
@@ -54,7 +55,7 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
           <CardTitle>Тарифные планы</CardTitle>
           <Dialog open={!!editingPlan} onOpenChange={(open) => !open && setEditingPlan(null)}>
             <DialogTrigger asChild>
-              <Button onClick={() => setEditingPlan({ is_active: true })}>
+              <Button onClick={() => setEditingPlan({ is_active: true, visible_to_users: false })}>
                 <Icon name="Plus" className="mr-2 h-4 w-4" />
                 Создать тариф
               </Button>
@@ -95,6 +96,14 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
                   />
                   <Label>Активен</Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={editingPlan?.visible_to_users || false}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, visible_to_users: e.target.checked })}
+                  />
+                  <Label>Видим пользователям</Label>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditingPlan(null)}>
@@ -115,6 +124,7 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
               <TableHead>Квота</TableHead>
               <TableHead>Цена</TableHead>
               <TableHead>Статус</TableHead>
+              <TableHead>Видимость</TableHead>
               <TableHead>Действия</TableHead>
             </TableRow>
           </TableHeader>
@@ -128,6 +138,11 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
                 <TableCell>
                   <span className={`px-2 py-1 rounded text-xs ${plan.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                     {plan.is_active ? 'Активен' : 'Неактивен'}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded text-xs ${plan.visible_to_users ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {plan.visible_to_users ? 'Видим' : 'Скрыт'}
                   </span>
                 </TableCell>
                 <TableCell>

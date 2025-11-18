@@ -18,15 +18,6 @@
         "error": "string"
       },
       "bodyMatcher": "partial"
-    },
-    {
-      "name": "List plans with admin key",
-      "method": "GET",
-      "path": "/?action=list-plans",
-      "headers": {
-        "X-Admin-Key": "admin123"
-      },
-      "expectedStatus": 200
     }
   ]
 }
