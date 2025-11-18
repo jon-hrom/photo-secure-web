@@ -13,6 +13,7 @@ import BackButton from "./components/BackButton";
 import FaceBlurEditor from "./components/FaceBlurEditor";
 import MyFiles from "./pages/MyFiles";
 import AdminStorage from "./pages/AdminStorage";
+import UpgradePlan from "./pages/UpgradePlan";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/my-files" element={<MyFiles />} />
+          <Route path="/upgrade-plan" element={<UpgradePlan />} />
           <Route path="/admin/storage" element={<AdminStorage />} />
           <Route path="/face-blur" element={<FaceBlurEditor />} />
           <Route path="/vk-callback" element={<VKCallbackDirect />} />

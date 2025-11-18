@@ -53,10 +53,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'create-plan': create_plan,
         'update-plan': update_plan,
         'delete-plan': delete_plan,
+        'set-default-plan': set_default_plan,
         'list-users': list_users,
         'update-user': update_user,
         'usage-stats': usage_stats,
         'revenue-stats': revenue_stats,
+        'financial-stats': financial_stats,
     }
     
     handler_func = handlers.get(action)
@@ -329,6 +331,105 @@ def revenue_stats(event: Dict[str, Any]) -> Dict[str, Any]:
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'revenue': [dict(r) for r in revenue]}, default=str)
+            }
+    finally:
+        conn.close()
+
+def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
+    body = json.loads(event.get('body', '{}'))
+    plan_id = body.get('plan_id')
+    
+    if not plan_id:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Missing plan_id'})
+        }
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f'''
+                INSERT INTO {SCHEMA}.storage_settings (user_id, plan_id)
+                SELECT vk.id, %s
+                FROM {SCHEMA}.vk_users vk
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM {SCHEMA}.storage_settings ss WHERE ss.user_id = vk.id
+                )
+            ''', (plan_id,))
+            conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': True, 'affected': cur.rowcount})
+            }
+    finally:
+        conn.close()
+
+def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
+    params = event.get('queryStringParameters', {}) or {}
+    period = params.get('period', 'month')
+    
+    period_map = {
+        'day': '1 day',
+        'week': '7 days',
+        'month': '30 days',
+        'year': '365 days'
+    }
+    
+    interval = period_map.get(period, '30 days')
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                WITH daily_stats AS (
+                    SELECT 
+                        DATE(sd.snapshot_date) as date,
+                        SUM(sd.size_bytes) / (1024.0 * 1024.0 * 1024.0) as storage_gb,
+                        COUNT(DISTINCT sd.user_id) as active_users
+                    FROM {SCHEMA}.storage_usage_daily sd
+                    WHERE sd.snapshot_date >= CURRENT_DATE - INTERVAL '%s'
+                    GROUP BY DATE(sd.snapshot_date)
+                ),
+                revenue_stats AS (
+                    SELECT
+                        SUM(sp.monthly_price_rub) as total_revenue,
+                        COUNT(DISTINCT ss.user_id) as paying_users
+                    FROM {SCHEMA}.storage_settings ss
+                    JOIN {SCHEMA}.storage_plans sp ON ss.plan_id = sp.id
+                    WHERE sp.is_active = true
+                )
+                SELECT 
+                    ds.date::text,
+                    ds.storage_gb,
+                    ds.active_users,
+                    rs.total_revenue,
+                    rs.paying_users,
+                    (ds.storage_gb * 0.5) as estimated_cost
+                FROM daily_stats ds
+                CROSS JOIN revenue_stats rs
+                ORDER BY ds.date ASC
+            ''' % interval)
+            stats = cur.fetchall()
+            
+            total_revenue = sum(float(s.get('total_revenue', 0) or 0) for s in stats) / max(len(stats), 1)
+            total_cost = sum(float(s.get('estimated_cost', 0)) for s in stats)
+            profit = total_revenue - total_cost
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({
+                    'stats': [dict(s) for s in stats],
+                    'summary': {
+                        'total_revenue': round(total_revenue, 2),
+                        'total_cost': round(total_cost, 2),
+                        'profit': round(profit, 2),
+                        'margin_percent': round((profit / total_revenue * 100) if total_revenue > 0 else 0, 2)
+                    }
+                }, default=str)
             }
     finally:
         conn.close()

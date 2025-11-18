@@ -5,6 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useNavigate } from 'react-router-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 const STORAGE_API = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
 
@@ -30,7 +39,9 @@ const MyFiles = () => {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const userId = localStorage.getItem('userId') || '1';
 
@@ -41,6 +52,11 @@ const MyFiles = () => {
       });
       const data = await res.json();
       setUsage(data);
+      
+      if (data.percent >= 90 && !sessionStorage.getItem('upgrade-dialog-shown')) {
+        setShowUpgradeDialog(true);
+        sessionStorage.setItem('upgrade-dialog-shown', 'true');
+      }
     } catch (error) {
       console.error('Failed to fetch usage:', error);
     }
@@ -170,6 +186,41 @@ const MyFiles = () => {
 
   return (
     <div className="min-h-screen bg-background p-6">
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon name="AlertCircle" size={24} className="text-orange-500" />
+              Хранилище заполняется
+            </DialogTitle>
+            <DialogDescription>
+              У вас использовано {usage?.percent.toFixed(1)}% хранилища. Рекомендуем перейти на тариф с большим объёмом, чтобы продолжить работу без ограничений.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="text-sm font-medium mb-2">Текущее использование:</p>
+              <Progress value={usage?.percent || 0} className="h-2 mb-2" />
+              <p className="text-xs text-muted-foreground">
+                {usage?.usedGb.toFixed(2)} ГБ из {usage?.limitGb.toFixed(0)} ГБ
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>
+              Позже
+            </Button>
+            <Button onClick={() => {
+              setShowUpgradeDialog(false);
+              navigate('/upgrade-plan');
+            }}>
+              <Icon name="Zap" size={16} className="mr-2" />
+              Посмотреть тарифы
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Мои файлы</h1>
