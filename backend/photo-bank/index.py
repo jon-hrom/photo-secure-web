@@ -64,7 +64,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 endpoint_url=s3_endpoint,
                 aws_access_key_id=s3_access_key,
                 aws_secret_access_key=s3_secret_key,
-                config=Config(signature_version='s3v4')
+                config=Config(
+                    signature_version='s3v4',
+                    connect_timeout=10,
+                    read_timeout=60,
+                    retries={'max_attempts': 3, 'mode': 'standard'}
+                )
             )
             bucket_name = 'foto-bezlimit-mix'
             print(f'[S3] Client created, endpoint={s3_endpoint}, bucket={bucket_name}')
@@ -210,16 +215,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 elif file_name.lower().endswith('.webp'):
                     content_type = 'image/webp'
                 
+                upload_start = datetime.now()
+                print(f'[S3] Starting upload to {s3_key}, size={file_size} bytes')
                 try:
                     s3_client.put_object(
                         Bucket=bucket_name,
                         Key=s3_key,
                         Body=file_bytes,
-                        ContentType=content_type
+                        ContentType=content_type,
+                        Metadata={'user_id': str(user_id), 'folder_id': str(folder_id)}
                     )
-                    print(f'[S3] Successfully uploaded to {s3_key}')
+                    upload_time = (datetime.now() - upload_start).total_seconds()
+                    print(f'[S3] Successfully uploaded to {s3_key} in {upload_time:.2f}s')
                 except Exception as e:
-                    print(f'[ERROR] S3 upload failed: {e}')
+                    upload_time = (datetime.now() - upload_start).total_seconds()
+                    print(f'[ERROR] S3 upload failed after {upload_time:.2f}s: {type(e).__name__}: {e}')
                     return {
                         'statusCode': 500,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
