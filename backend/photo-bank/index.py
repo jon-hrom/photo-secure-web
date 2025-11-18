@@ -323,6 +323,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({'error': 'Method not allowed'}),
             'isBase64Encoded': False
         }
-    
+    except Exception as e:
+        print(f'[ERROR] Unexpected error: {e}')
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': str(e)}),
+            'isBase64Encoded': False
+        }
     finally:
         conn.close()
