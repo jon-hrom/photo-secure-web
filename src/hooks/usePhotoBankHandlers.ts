@@ -152,8 +152,14 @@ export const usePhotoBankHandlers = (
             console.log(`[UPLOAD] Success:`, data);
             successCount++;
           } else {
-            const errorData = await res.json();
-            console.error(`[UPLOAD] Failed:`, errorData);
+            const errorText = await res.text();
+            console.error(`[UPLOAD] Failed with status ${res.status}:`, errorText);
+            try {
+              const errorData = JSON.parse(errorText);
+              console.error(`[UPLOAD] Error details:`, errorData);
+            } catch (e) {
+              console.error(`[UPLOAD] Raw error response:`, errorText);
+            }
             errorCount++;
           }
         } catch (err) {
