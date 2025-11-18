@@ -53,11 +53,11 @@ const PhotobookPage = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold">Макет фотокниг</h2>
+    <div className="space-y-4 md:space-y-6 animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <h2 className="text-2xl md:text-3xl font-bold">Макет фотокниг</h2>
         <Button 
-          className="rounded-full shadow-lg hover-scale"
+          className="rounded-full shadow-lg hover-scale w-full md:w-auto"
           onClick={() => setIsCreateDialogOpen(true)}
         >
           <Icon name="Plus" size={20} className="mr-2" />

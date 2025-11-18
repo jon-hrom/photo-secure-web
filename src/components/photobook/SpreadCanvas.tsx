@@ -60,34 +60,34 @@ const SpreadCanvas = ({
   const selectedSpread = spreads[selectedSpreadIndex];
 
   return (
-    <div className="flex-1 flex flex-col">
-      <div className="flex items-center justify-center gap-4 mb-4">
+    <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex items-center justify-center gap-2 md:gap-4 mb-2 md:mb-4">
         <Button
           variant="outline"
-          size="icon"
+          size="sm"
           onClick={onPrevSpread}
           disabled={selectedSpreadIndex === 0}
         >
-          <Icon name="ChevronLeft" size={20} />
+          <Icon name="ChevronLeft" size={16} />
         </Button>
         
-        <span className="text-lg font-semibold">
+        <span className="text-sm md:text-lg font-semibold whitespace-nowrap">
           {selectedSpread.type === 'cover' ? 'Обложка' : `Разворот ${selectedSpreadIndex}`}
         </span>
         
         <Button
           variant="outline"
-          size="icon"
+          size="sm"
           onClick={onNextSpread}
           disabled={selectedSpreadIndex === spreads.length - 1}
         >
-          <Icon name="ChevronRight" size={20} />
+          <Icon name="ChevronRight" size={16} />
         </Button>
       </div>
 
-      <div className="flex-1 flex bg-gray-100 rounded-lg p-8">
+      <div className="flex-1 flex bg-gray-100 rounded-lg p-2 md:p-8 overflow-auto min-h-0">
         {showRulers && (
-          <div className="flex flex-col mr-2">
+          <div className="hidden md:flex flex-col mr-2">
             <div className="h-8" />
             <div className="flex-1 relative">
               <div className="absolute left-0 top-0 h-full w-8 bg-white border border-gray-300 flex flex-col justify-between text-xs text-gray-600">
@@ -100,9 +100,9 @@ const SpreadCanvas = ({
             </div>
           </div>
         )}
-        <div className="flex-1 flex flex-col items-center">
+        <div className="flex-1 flex flex-col items-center justify-center">
           {showRulers && (
-            <div className="w-full relative mb-2">
+            <div className="w-full relative mb-2 hidden md:block">
               <img 
                 src="https://cdn.poehali.dev/files/ba72d947-c38f-439e-ae19-33ece18e0252.png" 
                 alt="Линейка" 
@@ -113,8 +113,9 @@ const SpreadCanvas = ({
           <svg
             ref={canvasRef}
             viewBox={`0 0 ${dimensions.width * 2} ${dimensions.height}`}
-            className="max-w-full max-h-full border-2 border-gray-300 bg-white"
-            style={{ aspectRatio: `${dimensions.width * 2} / ${dimensions.height}` }}
+            className="w-full h-auto max-w-full border-2 border-gray-300 bg-white"
+            style={{ maxHeight: '60vh' }}
+            preserveAspectRatio="xMidYMid meet"
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
             onMouseLeave={onMouseUp}

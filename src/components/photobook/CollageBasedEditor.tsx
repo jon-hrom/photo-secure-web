@@ -54,7 +54,7 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
   const collages = getCurrentCollages();
 
   return (
-    <div className="h-[90vh] flex flex-col p-6">
+    <div className="h-screen md:h-[90vh] flex flex-col p-2 md:p-6 overflow-hidden">
       <EditorHeader
         onBack={onBack}
         onAutoFill={handleAutoFill}
@@ -77,14 +77,26 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
         />
       )}
 
-      <div className="flex gap-4 flex-1 overflow-hidden">
-        <CollageSelector
-          photosPerCollage={photosPerCollage}
-          onPhotosPerCollageChange={setPhotosPerCollage}
-          collages={collages}
-          selectedCollageId={selectedSpread.collageId}
-          onCollageSelect={handleCollageSelect}
-        />
+      <div className="flex flex-col lg:flex-row gap-2 md:gap-4 flex-1 overflow-hidden">
+        <div className="lg:hidden mb-2">
+          <CollageSelector
+            photosPerCollage={photosPerCollage}
+            onPhotosPerCollageChange={setPhotosPerCollage}
+            collages={collages}
+            selectedCollageId={selectedSpread.collageId}
+            onCollageSelect={handleCollageSelect}
+          />
+        </div>
+
+        <div className="hidden lg:block">
+          <CollageSelector
+            photosPerCollage={photosPerCollage}
+            onPhotosPerCollageChange={setPhotosPerCollage}
+            collages={collages}
+            selectedCollageId={selectedSpread.collageId}
+            onCollageSelect={handleCollageSelect}
+          />
+        </div>
 
         <SpreadCanvas
           spreads={spreads}
@@ -106,10 +118,12 @@ const CollageBasedEditor = ({ config, photos, onComplete, onBack }: CollageBased
         />
 
         {manualMode && (
-          <PhotoPanel
-            photos={photos}
-            onPhotoSelect={handlePhotoSelect}
-          />
+          <div className="lg:block hidden">
+            <PhotoPanel
+              photos={photos}
+              onPhotoSelect={handlePhotoSelect}
+            />
+          </div>
         )}
       </div>
     </div>

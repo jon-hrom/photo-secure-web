@@ -24,34 +24,34 @@ const CollageSelector = ({
   onCollageSelect
 }: CollageSelectorProps) => {
   return (
-    <Card className="w-64 p-4 flex flex-col">
-      <h3 className="font-semibold mb-2">Коллажи</h3>
+    <Card className="w-full lg:w-64 p-3 md:p-4 flex flex-col max-h-[200px] lg:max-h-none">
+      <h3 className="font-semibold mb-2 text-sm md:text-base">Коллажи</h3>
       
-      <div className="mb-4">
-        <label className="text-sm text-muted-foreground mb-2 block">Количество фото</label>
+      <div className="mb-3 md:mb-4">
+        <label className="text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 block">Количество фото</label>
         <Select
           value={photosPerCollage.toString()}
           onValueChange={(value) => onPhotosPerCollageChange(parseInt(value) as 1 | 2 | 3 | 4)}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-8 text-xs md:text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="1">1 фото в коллаже</SelectItem>
-            <SelectItem value="2">2 фото в коллаже</SelectItem>
-            <SelectItem value="3">3 фото в коллаже</SelectItem>
-            <SelectItem value="4">4 фото в коллаже</SelectItem>
+            <SelectItem value="1">1 фото</SelectItem>
+            <SelectItem value="2">2 фото</SelectItem>
+            <SelectItem value="3">3 фото</SelectItem>
+            <SelectItem value="4">4 фото</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 lg:grid-cols-2 gap-1 md:gap-2">
           {collages.map((collage) => (
             <button
               key={collage.id}
               onClick={() => onCollageSelect(collage.id)}
-              className={`border-2 rounded p-1 hover:border-purple-500 transition-colors ${
+              className={`border-2 rounded p-0.5 md:p-1 hover:border-purple-500 transition-colors ${
                 selectedCollageId === collage.id ? 'border-purple-600 ring-2 ring-purple-200' : 'border-gray-200'
               }`}
             >
