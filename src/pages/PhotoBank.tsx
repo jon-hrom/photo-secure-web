@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import Icon from '@/components/ui/icon';
 import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIndicator';
+import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
 import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
 import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
@@ -105,66 +104,22 @@ const PhotoBank = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         <PhotoBankStorageIndicator storageUsage={storageUsage} />
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate('/')}
-            >
-              <Icon name="ArrowLeft" size={24} />
-            </Button>
-            <h1 className="text-3xl font-bold">Мой фото банк</h1>
-          </div>
-          <div className="flex gap-2">
-            {selectionMode && (
-              <>
-                <Button 
-                  variant="default"
-                  onClick={handleAddToPhotobook}
-                  disabled={selectedPhotos.size === 0}
-                >
-                  <Icon name="Plus" className="mr-2" size={18} />
-                  Добавить в макет ({selectedPhotos.size})
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    setSelectionMode(false);
-                    setSelectedPhotos(new Set());
-                  }}
-                >
-                  Отмена
-                </Button>
-              </>
-            )}
-            {!selectionMode && selectedFolder && photos.length > 0 && (
-              <Button 
-                variant="outline"
-                onClick={() => setSelectionMode(true)}
-              >
-                <Icon name="CheckSquare" className="mr-2" size={18} />
-                Выбрать фото
-              </Button>
-            )}
-            <Button 
-              variant="outline"
-              onClick={() => setShowCreateFolder(true)}
-            >
-              <Icon name="FolderPlus" className="mr-2" size={18} />
-              Новая папка
-            </Button>
-            {folders.length > 0 && (
-              <Button 
-                variant="destructive"
-                onClick={() => setShowClearConfirm(true)}
-              >
-                <Icon name="Trash2" className="mr-2" size={18} />
-                Очистить весь банк
-              </Button>
-            )}
-          </div>
-        </div>
+        <PhotoBankHeader
+          folders={folders}
+          selectedFolder={selectedFolder}
+          photos={photos}
+          selectionMode={selectionMode}
+          selectedPhotos={selectedPhotos}
+          onNavigateBack={() => navigate('/')}
+          onAddToPhotobook={handleAddToPhotobook}
+          onCancelSelection={() => {
+            setSelectionMode(false);
+            setSelectedPhotos(new Set());
+          }}
+          onStartSelection={() => setSelectionMode(true)}
+          onShowCreateFolder={() => setShowCreateFolder(true)}
+          onShowClearConfirm={() => setShowClearConfirm(true)}
+        />
 
         <div className="grid lg:grid-cols-[300px_1fr] gap-6">
           <PhotoBankFoldersList
