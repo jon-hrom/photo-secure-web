@@ -112,23 +112,48 @@ export const usePhotoBankHandlers = (
     try {
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
-        console.log(`[UPLOAD] Processing file ${i + 1}/${imageFiles.length}:`, file.name);
+        console.log(`[UPLOAD] Processing file ${i + 1}/${imageFiles.length}:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         try {
-          const base64Data = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve((reader.result as string).split(',')[1]);
-            reader.onerror = reject;
-          });
-          console.log(`[UPLOAD] File ${file.name} encoded, size: ${base64Data.length} chars`);
-
+          // Load image first to get dimensions and compress
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
             const image = new Image();
             image.onload = () => resolve(image);
             image.onerror = reject;
-            image.src = `data:${file.type};base64,${base64Data}`;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              image.src = e.target?.result as string;
+            };
+            reader.readAsDataURL(file);
           });
-          console.log(`[UPLOAD] Image dimensions: ${img.width}x${img.height}`);
+          console.log(`[UPLOAD] Original dimensions: ${img.width}x${img.height}`);
+
+          // Compress image if too large (max 1920px width/height, 85% quality)
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_SIZE = 1920;
+
+          if (width > MAX_SIZE || height > MAX_SIZE) {
+            if (width > height) {
+              height = (height / width) * MAX_SIZE;
+              width = MAX_SIZE;
+            } else {
+              width = (width / height) * MAX_SIZE;
+              height = MAX_SIZE;
+            }
+            console.log(`[UPLOAD] Resizing to: ${width}x${height}`);
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Convert to base64 with compression
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const base64Data = compressedDataUrl.split(',')[1];
+          const compressedSizeMB = (base64Data.length / 1024 / 1024).toFixed(2);
+          console.log(`[UPLOAD] Compressed size: ${compressedSizeMB} MB (base64)`);
 
           const res = await fetch(PHOTO_BANK_API, {
             method: 'POST',
