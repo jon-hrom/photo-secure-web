@@ -108,6 +108,7 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print(f'[CREATE_PLAN] Creating plan: name={plan_name}, quota={quota_gb}, price={price_rub}, active={is_active}, visible={visible_to_users}')
             cur.execute(f'''
                 INSERT INTO {SCHEMA}.storage_plans (name, quota_gb, monthly_price_rub, is_active, visible_to_users)
                 VALUES (%s, %s, %s, %s, %s)
@@ -115,12 +116,21 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             ''', (plan_name, quota_gb, price_rub, is_active, visible_to_users))
             plan = cur.fetchone()
             conn.commit()
+            print(f'[CREATE_PLAN] Successfully created plan_id={plan["plan_id"]}')
             
             return {
                 'statusCode': 201,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'plan': dict(plan)}, default=str)
             }
+    except Exception as e:
+        print(f'[ERROR] create_plan failed: {e}')
+        conn.rollback()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to create plan: {str(e)}'})
+        }
     finally:
         conn.close()
 
@@ -173,6 +183,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print(f'[UPDATE_PLAN] Updating plan_id={plan_id} with fields: {updates}')
             cur.execute(f'''
                 UPDATE {SCHEMA}.storage_plans
                 SET {", ".join(updates)}
@@ -183,17 +194,26 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             conn.commit()
             
             if not plan:
+                print(f'[ERROR] Plan not found: plan_id={plan_id}')
                 return {
                     'statusCode': 404,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({'error': 'Plan not found'})
                 }
             
+            print(f'[UPDATE_PLAN] Successfully updated plan_id={plan_id}')
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'plan': dict(plan)}, default=str)
             }
+    except Exception as e:
+        print(f'[ERROR] update_plan failed: {e}')
+        conn.rollback()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to update plan: {str(e)}'})}
     finally:
         conn.close()
 
