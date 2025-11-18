@@ -28,9 +28,18 @@ const UpgradePlan = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [loading, setLoading] = useState(false);
+  const [backgroundImage, setBackgroundImage] = useState<string>('');
+  const [showImageUpload, setShowImageUpload] = useState(false);
   const { toast } = useToast();
 
   const userId = localStorage.getItem('userId') || '1';
+
+  useEffect(() => {
+    const savedBg = localStorage.getItem('upgradePlanBackground');
+    if (savedBg) {
+      setBackgroundImage(savedBg);
+    }
+  }, []);
 
   useEffect(() => {
     fetchPlans();
@@ -95,6 +104,32 @@ const UpgradePlan = () => {
     return features;
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageUrl = event.target?.result as string;
+      setBackgroundImage(imageUrl);
+      localStorage.setItem('upgradePlanBackground', imageUrl);
+      toast({
+        title: 'Фон обновлён',
+        description: 'Фоновое изображение успешно установлено'
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveBackground = () => {
+    setBackgroundImage('');
+    localStorage.removeItem('upgradePlanBackground');
+    toast({
+      title: 'Фон удалён',
+      description: 'Фоновое изображение удалено'
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -104,17 +139,58 @@ const UpgradePlan = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold">Выберите тариф</h1>
-          <p className="text-muted-foreground text-lg">
-            Увеличьте объём хранилища и получите больше возможностей
-          </p>
+    <div 
+      className="min-h-screen p-6 relative"
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {backgroundImage && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+      )}
+      
+      <div className="relative z-10 max-w-7xl mx-auto space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="text-center flex-1 space-y-2">
+            <h1 className="text-4xl font-bold">Выберите тариф</h1>
+            <p className="text-muted-foreground text-lg">
+              Увеличьте объём хранилища и получите больше возможностей
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => document.getElementById('bgUpload')?.click()}
+              title="Загрузить фоновое изображение"
+            >
+              <Icon name="ImagePlus" size={20} />
+            </Button>
+            {backgroundImage && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRemoveBackground}
+                title="Удалить фон"
+              >
+                <Icon name="X" size={20} />
+              </Button>
+            )}
+          </div>
+          <input
+            id="bgUpload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
         </div>
 
         {currentPlan && (
-          <Card className="border-primary">
+          <Card className="border-primary bg-card/95 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Icon name="Info" size={20} />
@@ -149,7 +225,7 @@ const UpgradePlan = () => {
             return (
               <Card
                 key={plan.plan_id}
-                className={`relative transition-all hover:shadow-xl ${
+                className={`relative transition-all hover:shadow-xl bg-card/95 backdrop-blur-sm ${
                   isCurrent ? 'border-primary border-2' : isUpgrade ? 'border-green-500' : ''
                 }`}
               >
@@ -208,7 +284,7 @@ const UpgradePlan = () => {
           })}
         </div>
 
-        <Card className="bg-muted/50">
+        <Card className="bg-muted/90 backdrop-blur-sm">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
               <Icon name="HelpCircle" size={24} className="text-primary mt-1" />
