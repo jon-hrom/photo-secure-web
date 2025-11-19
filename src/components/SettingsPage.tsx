@@ -14,6 +14,7 @@ interface UserSettings {
   two_factor_sms: boolean;
   two_factor_email: boolean;
   email_verified_at: string | null;
+  source?: 'email' | 'vk' | 'google' | 'yandex';
 }
 
 interface SettingsPageProps {
@@ -27,6 +28,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     two_factor_sms: false,
     two_factor_email: false,
     email_verified_at: null,
+    source: 'email',
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
@@ -170,7 +172,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   <Icon name="CheckCircle2" size={16} />
                   <span className="font-medium">Email подтверждён</span>
                 </div>
-              ) : (
+              ) : settings.source === 'email' ? (
                 <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
                   <Icon name="AlertCircle" size={16} />
                   <span className="font-medium">Email не подтверждён</span>
@@ -182,6 +184,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   >
                     Подтвердить
                   </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+                  <Icon name="Info" size={16} />
+                  <span className="font-medium">Email из профиля VK</span>
                 </div>
               )}
             </div>

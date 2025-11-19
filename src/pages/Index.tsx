@@ -55,6 +55,11 @@ const Index = () => {
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
         const data = await res.json();
         
+        if (data.source && data.source !== 'email') {
+          setShowEmailVerification(false);
+          return;
+        }
+        
         if (data.email_verified_at) {
           setEmailVerified(true);
           setShowEmailVerification(false);

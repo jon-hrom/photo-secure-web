@@ -498,10 +498,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT email, phone, two_factor_sms, two_factor_email, email_verified_at FROM users WHERE id = %s",
+                "SELECT email, phone, two_factor_sms, two_factor_email, email_verified_at, source FROM users WHERE id = %s",
                 (user_id,)
             )
             user = cursor.fetchone()
+            
+            if user and user['source'] != 'email':
+                cursor.execute(
+                    "SELECT email, phone_number FROM vk_users WHERE user_id = %s",
+                    (user_id,)
+                )
+                vk_data = cursor.fetchone()
+                if vk_data:
+                    if vk_data['email']:
+                        user['email'] = vk_data['email']
+                    if vk_data['phone_number']:
+                        user['phone'] = vk_data['phone_number']
             
             if not user:
                 return {
