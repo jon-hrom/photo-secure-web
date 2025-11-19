@@ -21,12 +21,26 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [error, setError] = useState('');
+  const [codeExpiry, setCodeExpiry] = useState(0);
+  const [codeSent, setCodeSent] = useState(false);
 
   useEffect(() => {
-    if (open && resendCooldown === 0) {
-      handleSendCode();
+    if (open) {
+      const savedExpiry = localStorage.getItem(`email_code_expiry_${userId}`);
+      if (savedExpiry) {
+        const expiryTime = parseInt(savedExpiry);
+        const remainingTime = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
+        if (remainingTime > 0) {
+          setCodeExpiry(remainingTime);
+          setCodeSent(true);
+          const cooldown = Math.max(0, 60 - (600 - remainingTime));
+          if (cooldown > 0) {
+            setResendCooldown(cooldown);
+          }
+        }
+      }
     }
-  }, [open]);
+  }, [open, userId]);
 
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -34,6 +48,15 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
+
+  useEffect(() => {
+    if (codeExpiry > 0) {
+      const timer = setTimeout(() => setCodeExpiry(codeExpiry - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (codeExpiry === 0 && codeSent) {
+      setError('Код истёк. Запросите новый.');
+    }
+  }, [codeExpiry, codeSent]);
 
   const handleSendCode = async () => {
     try {
@@ -53,6 +76,10 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
       if (res.ok) {
         toast.success('Код отправлен на почту');
         setResendCooldown(60);
+        setCodeExpiry(600);
+        setCodeSent(true);
+        const expiryTime = Date.now() + 600000;
+        localStorage.setItem(`email_code_expiry_${userId}`, expiryTime.toString());
       } else if (res.status === 429) {
         const retryIn = data.retryInSec || 60;
         setResendCooldown(retryIn);
@@ -94,6 +121,8 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
       
       if (res.ok) {
         toast.success('Email успешно подтверждён!');
+        localStorage.removeItem(`email_code_expiry_${userId}`);
+        localStorage.setItem(`email_verification_dismissed_${userId}`, 'true');
         onVerified();
         onClose();
       } else if (res.status === 423) {
@@ -188,66 +217,127 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="flex gap-2 justify-center" onPaste={handlePaste}>
-            {code.map((digit, index) => (
-              <Input
-                key={index}
-                id={`code-input-${index}`}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleInputChange(index, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
-                className="w-12 h-14 text-center text-2xl font-bold"
-                disabled={loading}
-              />
-            ))}
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-              <Icon name="AlertCircle" size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
-          <Button
-            onClick={handleVerify}
-            disabled={loading || code.join('').length !== 6}
-            className="w-full"
-            size="lg"
-          >
-            {loading ? (
-              <>
-                <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
-                Проверка...
-              </>
-            ) : (
-              <>
-                <Icon name="Check" size={20} className="mr-2" />
-                Подтвердить
-              </>
-            )}
-          </Button>
-
-          <div className="text-center">
-            {resendCooldown > 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Отправить код повторно через {resendCooldown} сек
-              </p>
-            ) : (
+          {!codeSent ? (
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">Нажмите кнопку ниже, чтобы получить код подтверждения на почту</p>
               <Button
-                variant="ghost"
                 onClick={handleSendCode}
                 disabled={loading}
-                size="sm"
+                className="w-full"
+                size="lg"
               >
-                <Icon name="RefreshCw" size={16} className="mr-2" />
-                Отправить код повторно
+                {loading ? (
+                  <>
+                    <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                    Отправка...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Mail" size={20} className="mr-2" />
+                    Отправить код
+                  </>
+                )}
               </Button>
-            )}
-          </div>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  localStorage.setItem(`email_verification_dismissed_${userId}`, 'true');
+                  onClose();
+                }}
+                className="w-full"
+              >
+                Позже
+              </Button>
+            </div>
+          ) : (
+            <>
+              {codeExpiry > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Icon name="Clock" size={20} className="text-blue-500" />
+                    <span className="text-sm text-blue-700 font-medium">Код действителен</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-700">
+                    {Math.floor(codeExpiry / 60)}:{String(codeExpiry % 60).padStart(2, '0')}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-center" onPaste={handlePaste}>
+                {code.map((digit, index) => (
+                  <Input
+                    key={index}
+                    id={`code-input-${index}`}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleInputChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    className="w-12 h-14 text-center text-2xl font-bold"
+                    disabled={loading || codeExpiry === 0}
+                  />
+                ))}
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                  <Icon name="AlertCircle" size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-700 text-sm">{error}</p>
+                </div>
+              )}
+
+              <Button
+                onClick={handleVerify}
+                disabled={loading || code.join('').length !== 6 || codeExpiry === 0}
+                className="w-full"
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                    Проверка...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Check" size={20} className="mr-2" />
+                    Подтвердить
+                  </>
+                )}
+              </Button>
+
+              <div className="flex gap-2">
+                {resendCooldown > 0 ? (
+                  <Button variant="outline" disabled className="flex-1" size="sm">
+                    <Icon name="Clock" size={16} className="mr-2" />
+                    Повторно через {resendCooldown} сек
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={handleSendCode}
+                    disabled={loading}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Icon name="RefreshCw" size={16} className="mr-2" />
+                    Отправить повторно
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    localStorage.setItem(`email_verification_dismissed_${userId}`, 'true');
+                    onClose();
+                  }}
+                  className="flex-1"
+                  size="sm"
+                >
+                  Позже
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

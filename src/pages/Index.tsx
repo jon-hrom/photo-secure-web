@@ -48,6 +48,9 @@ const Index = () => {
     const checkEmailVerification = async () => {
       if (!isAuthenticated || !userId) return;
       
+      const dismissedKey = `email_verification_dismissed_${userId}`;
+      const dismissed = localStorage.getItem(dismissedKey);
+      
       try {
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
         const data = await res.json();
@@ -55,7 +58,8 @@ const Index = () => {
         if (data.email_verified_at) {
           setEmailVerified(true);
           setShowEmailVerification(false);
-        } else {
+          localStorage.removeItem(dismissedKey);
+        } else if (!dismissed) {
           setShowEmailVerification(true);
         }
       } catch (err) {
@@ -64,7 +68,7 @@ const Index = () => {
     };
     
     checkEmailVerification();
-  }, [isAuthenticated, userId]);
+  }, [isAuthenticated, userId, currentPage]);
 
   if (currentPage !== 'clients') {
     if (selectedClientName !== undefined) {
