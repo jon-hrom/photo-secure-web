@@ -49,7 +49,7 @@ const Index = () => {
       if (!isAuthenticated || !userId) return;
       
       try {
-        const res = await fetch(`https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a?userId=${userId}`);
+        const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
         const data = await res.json();
         
         if (data.email_verified_at) {
@@ -157,6 +157,7 @@ const Index = () => {
           }}
           userId={userId.toString()}
           userEmail={userEmail}
+          isVerified={emailVerified}
         />
       )}
 

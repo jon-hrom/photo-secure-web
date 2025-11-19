@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import VKAuthButton from '@/components/VKAuthButton';
+import TwoFactorDialog from '@/components/TwoFactorDialog';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string) => void;
@@ -137,6 +138,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           setTwoFactorType(data.twoFactorType);
           setIs2FADialogOpen(true);
           toast.success(`Код отправлен на ${data.twoFactorType === 'sms' ? 'телефон' : 'email'}`);
+          return;
         } else {
           setRemainingAttempts(5);
           localStorage.removeItem('loginBlock');
@@ -209,31 +211,21 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     toast.info(`OAuth через ${provider} будет доступен в следующей версии`);
   };
 
-  const handle2FASubmit = async () => {
-    if (!twoFactorCode || !pendingUserId) {
-      toast.error('Введите код подтверждения');
-      return;
+  const handle2FASuccess = () => {
+    if (pendingUserId) {
+      setRemainingAttempts(5);
+      localStorage.removeItem('loginBlock');
+      setIs2FADialogOpen(false);
+      toast.success('Вход выполнен успешно!');
+      onLoginSuccess(pendingUserId, email);
+      setPendingUserId(null);
     }
+  };
 
-    try {
-      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify-2fa', userId: pendingUserId, code: twoFactorCode }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Вход выполнен успешно!');
-        setIs2FADialogOpen(false);
-        onLoginSuccess(pendingUserId, email);
-      } else {
-        toast.error(data.error || 'Неверный код');
-      }
-    } catch (error) {
-      toast.error('Ошибка подключения к серверу');
-    }
+  const handle2FACancel = () => {
+    setIs2FADialogOpen(false);
+    setPendingUserId(null);
+    toast.info('Вход отменён');
   };
 
   return (
@@ -434,38 +426,15 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         </div>
       </Card>
 
-      <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Icon name="Shield" className="text-primary" size={24} />
-              Двухфакторная аутентификация
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
-              <p className="text-sm text-center">
-                Код подтверждения отправлен на {twoFactorType === 'sms' ? 'ваш телефон' : 'вашу почту'}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Введите код</Label>
-              <Input
-                placeholder={twoFactorType === 'sms' ? '123456' : '12345'}
-                value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
-                maxLength={twoFactorType === 'sms' ? 6 : 5}
-                className="rounded-xl text-center text-2xl tracking-widest font-mono"
-                onKeyDown={(e) => e.key === 'Enter' && handle2FASubmit()}
-              />
-            </div>
-            <Button onClick={handle2FASubmit} className="w-full rounded-xl">
-              <Icon name="Check" size={18} className="mr-2" />
-              Подтвердить
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {is2FADialogOpen && pendingUserId && (
+        <TwoFactorDialog
+          open={is2FADialogOpen}
+          userId={pendingUserId}
+          type={twoFactorType}
+          onSuccess={handle2FASuccess}
+          onCancel={handle2FACancel}
+        />
+      )}
     </div>
   );
 };

@@ -356,7 +356,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT email, phone, two_factor_sms, two_factor_email FROM users WHERE id = %s",
+                "SELECT email, phone, two_factor_sms, two_factor_email, email_verified_at FROM users WHERE id = %s",
                 (user_id,)
             )
             user = cursor.fetchone()

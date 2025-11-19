@@ -11,11 +11,12 @@ interface EmailVerificationDialogProps {
   onVerified: () => void;
   userId: string;
   userEmail: string;
+  isVerified?: boolean;
 }
 
 const EMAIL_VERIFICATION_API = 'https://functions.poehali.dev/3d5a433c-aa3d-4275-8da2-739ec932d08f';
 
-const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail }: EmailVerificationDialogProps) => {
+const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail, isVerified = false }: EmailVerificationDialogProps) => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -147,6 +148,31 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail 
     const nextInput = document.getElementById(`code-input-${Math.min(lastFilledIndex + 1, 5)}`);
     nextInput?.focus();
   };
+
+  if (isVerified) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon name="CheckCircle2" size={24} className="text-green-600" />
+              Почта подтверждена
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <Icon name="Check" size={32} className="text-green-600" />
+            </div>
+            <p className="text-lg font-medium mb-2">Ваша почта успешно подтверждена!</p>
+            <p className="text-sm text-muted-foreground mb-6">{userEmail}</p>
+            <Button onClick={onClose} className="w-full" size="lg">
+              Закрыть
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

@@ -133,6 +133,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             }}
             userId={userId.toString()}
             userEmail={settings.email}
+            isVerified={!!settings.email_verified_at}
           />
         )}
 
@@ -154,30 +155,32 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   value={settings.email}
                   onChange={(e) => setSettings({ ...settings, email: e.target.value })}
                   className="rounded-xl"
+                  readOnly
                 />
                 <Button
                   onClick={() => handleUpdateContact('email', settings.email)}
                   className="rounded-xl"
+                  disabled
                 >
                   <Icon name="Save" size={18} />
                 </Button>
               </div>
               {settings.email_verified_at ? (
-                <div className="flex items-center gap-2 text-sm text-green-600">
+                <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
                   <Icon name="CheckCircle2" size={16} />
-                  Email подтверждён
+                  <span className="font-medium">Email подтверждён</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-sm text-amber-600">
+                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
                   <Icon name="AlertCircle" size={16} />
-                  Email не подтверждён
+                  <span className="font-medium">Email не подтверждён</span>
                   <Button
                     variant="link"
                     size="sm"
                     onClick={() => setShowEmailVerification(true)}
-                    className="p-0 h-auto font-semibold"
+                    className="p-0 h-auto font-semibold underline text-amber-700 hover:text-amber-900 ml-auto"
                   >
-                    Подтвердить сейчас
+                    Подтвердить
                   </Button>
                 </div>
               )}
