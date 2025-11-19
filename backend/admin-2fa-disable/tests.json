@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Request without admin auth",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "request_disable",
+        "userId": 1
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "Admin not authenticated"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

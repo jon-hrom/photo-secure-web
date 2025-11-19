@@ -1,4 +1,5 @@
 {
+  "admin-2fa-disable": "https://functions.poehali.dev/d0cbcec4-bc93-4819-8609-38c55cbe35e4",
   "email-verification": "https://functions.poehali.dev/3d5a433c-aa3d-4275-8da2-739ec932d08f",
   "photobook-designs": "https://functions.poehali.dev/66f4d0c4-09f1-4fa4-a26b-0b623562c751",
   "photo-bank": "https://functions.poehali.dev/8aa39ae1-26f5-40c1-ad06-fe0d657f1310",

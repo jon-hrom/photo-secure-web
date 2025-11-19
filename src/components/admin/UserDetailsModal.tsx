@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect } from 'react';
+import Disable2FACodeDialog from './Disable2FACodeDialog';
+import { toast } from 'sonner';
 
 interface User {
   id: string | number;
@@ -21,6 +23,8 @@ interface User {
   blocked_at: string | null;
   blocked_reason: string | null;
   registered_at: string | null;
+  two_factor_sms?: boolean;
+  two_factor_email?: boolean;
 }
 
 interface UserDetailsModalProps {
@@ -38,6 +42,10 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
   const [isDeleting, setIsDeleting] = useState(false);
   const [geoData, setGeoData] = useState<{country: string; city: string; flag: string} | null>(null);
   const [loadingGeo, setLoadingGeo] = useState(false);
+  const [showDisable2FADialog, setShowDisable2FADialog] = useState(false);
+  const [disable2FAType, setDisable2FAType] = useState<'sms' | 'email' | 'both'>('both');
+  const [twoFactorSettings, setTwoFactorSettings] = useState<{sms: boolean; email: boolean} | null>(null);
+  const [loadingRequest, setLoadingRequest] = useState(false);
 
   useEffect(() => {
     if (user?.ip_address && user.ip_address !== 'unknown' && isOpen) {
@@ -57,6 +65,20 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
         .finally(() => setLoadingGeo(false));
     }
   }, [user?.ip_address, isOpen]);
+
+  useEffect(() => {
+    if (user && isOpen && user.source === 'email') {
+      fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${user.id}`)
+        .then(res => res.json())
+        .then(data => {
+          setTwoFactorSettings({
+            sms: data.two_factor_sms || false,
+            email: data.two_factor_email || false
+          });
+        })
+        .catch(() => setTwoFactorSettings(null));
+    }
+  }, [user, isOpen]);
 
   if (!user) return null;
 
@@ -104,6 +126,61 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
         }, 1500);
       }
     }
+  };
+
+  const handleRequestDisable2FA = async (type: 'sms' | 'email' | 'both') => {
+    const typeText = {
+      'sms': 'SMS-аутентификацию',
+      'email': 'Email-аутентификацию',
+      'both': 'всю двухфакторную аутентификацию'
+    }[type];
+    
+    if (!confirm(`Отправить запрос на отключение ${typeText}?\n\nПользователю придёт письмо с кодом подтверждения на ${user.email}`)) {
+      return;
+    }
+    
+    try {
+      setLoadingRequest(true);
+      const adminId = localStorage.getItem('authSession') ? JSON.parse(localStorage.getItem('authSession')!).userId : null;
+      
+      const res = await fetch('https://functions.poehali.dev/d0cbcec4-bc93-4819-8609-38c55cbe35e4', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Id': adminId
+        },
+        body: JSON.stringify({ action: 'request_disable', userId: user.id, disableType: type })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast.success(data.message || 'Код отправлен пользователю');
+        setDisable2FAType(type);
+        setShowDisable2FADialog(true);
+      } else if (res.status === 409) {
+        toast.info('Запрос уже существует, попросите пользователя ввести код');
+        setDisable2FAType(type);
+        setShowDisable2FADialog(true);
+      } else {
+        toast.error(data.error || 'Ошибка запроса');
+      }
+    } catch (err) {
+      toast.error('Ошибка подключения');
+      console.error(err);
+    } finally {
+      setLoadingRequest(false);
+    }
+  };
+
+  const handle2FADisableSuccess = () => {
+    setTwoFactorSettings(prev => {
+      if (!prev) return null;
+      return {
+        sms: disable2FAType === 'both' || disable2FAType === 'sms' ? false : prev.sms,
+        email: disable2FAType === 'both' || disable2FAType === 'email' ? false : prev.email
+      };
+    });
   };
 
   return (
@@ -266,6 +343,78 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
             )}
           </div>
 
+          {user.source === 'email' && twoFactorSettings && (
+            <div className="border-t pt-4 space-y-3">
+              <h4 className="font-semibold flex items-center gap-2">
+                <Icon name="Shield" size={18} />
+                Двухфакторная аутентификация
+              </h4>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`border-l-4 pl-4 py-3 rounded-r ${twoFactorSettings.sms ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-gray-300 bg-gray-50 dark:bg-gray-900/20'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name="Smartphone" size={16} className={twoFactorSettings.sms ? 'text-green-600' : 'text-gray-400'} />
+                    <span className="text-sm font-medium">SMS</span>
+                  </div>
+                  <Badge variant={twoFactorSettings.sms ? 'default' : 'secondary'} className="text-xs">
+                    {twoFactorSettings.sms ? 'Включена' : 'Отключена'}
+                  </Badge>
+                </div>
+
+                <div className={`border-l-4 pl-4 py-3 rounded-r ${twoFactorSettings.email ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-gray-300 bg-gray-50 dark:bg-gray-900/20'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name="Mail" size={16} className={twoFactorSettings.email ? 'text-green-600' : 'text-gray-400'} />
+                    <span className="text-sm font-medium">Email</span>
+                  </div>
+                  <Badge variant={twoFactorSettings.email ? 'default' : 'secondary'} className="text-xs">
+                    {twoFactorSettings.email ? 'Включена' : 'Отключена'}
+                  </Badge>
+                </div>
+              </div>
+
+              {(twoFactorSettings.sms || twoFactorSettings.email) && (
+                <div className="space-y-2">
+                  {twoFactorSettings.sms && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRequestDisable2FA('sms')}
+                      disabled={loadingRequest}
+                      className="w-full gap-2 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                    >
+                      <Icon name="ShieldOff" size={16} />
+                      Отключить SMS-аутентификацию
+                    </Button>
+                  )}
+                  {twoFactorSettings.email && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRequestDisable2FA('email')}
+                      disabled={loadingRequest}
+                      className="w-full gap-2 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                    >
+                      <Icon name="ShieldOff" size={16} />
+                      Отключить Email-аутентификацию
+                    </Button>
+                  )}
+                  {twoFactorSettings.sms && twoFactorSettings.email && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRequestDisable2FA('both')}
+                      disabled={loadingRequest}
+                      className="w-full gap-2 border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    >
+                      <Icon name="ShieldAlert" size={16} />
+                      Отключить всю 2FA
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="border-t pt-4 space-y-3">
             <h4 className="font-semibold flex items-center gap-2">
               <Icon name="Settings" size={18} />
@@ -338,6 +487,16 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
             </Button>
           </div>
         </div>
+
+        {showDisable2FADialog && user && (
+          <Disable2FACodeDialog
+            open={showDisable2FADialog}
+            onClose={() => setShowDisable2FADialog(false)}
+            userId={user.id}
+            disableType={disable2FAType}
+            onSuccess={handle2FADisableSuccess}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
