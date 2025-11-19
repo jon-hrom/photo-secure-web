@@ -17,7 +17,7 @@ from botocore.config import Config
 
 POSTBOX_ENDPOINT = 'https://postbox.cloud.yandex.net'
 POSTBOX_REGION = 'ru-central1'
-EMAIL_FROM = 'noreply@test-domain.yandexcloud.net'
+EMAIL_FROM = 'info@foto-mix.ru'
 TTL_MIN = 10
 RESEND_COOLDOWN_SEC = 60
 MAX_SENDS_PER_HOUR = 5
