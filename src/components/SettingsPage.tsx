@@ -32,6 +32,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [editedEmail, setEditedEmail] = useState('');
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -44,6 +46,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
       
       if (response.ok) {
         setSettings(data);
+        setEditedEmail(data.email || '');
       } else {
         toast.error('Ошибка загрузки настроек');
       }
@@ -154,25 +157,35 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                 <Input
                   id="email"
                   type="email"
-                  value={settings.email}
-                  onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                  value={isEditingEmail ? editedEmail : settings.email}
+                  onChange={(e) => {
+                    setEditedEmail(e.target.value);
+                    setIsEditingEmail(true);
+                  }}
+                  placeholder={settings.source !== 'email' ? 'Введите ваш email' : ''}
                   className="rounded-xl"
-                  readOnly
+                  readOnly={settings.source === 'email' && !!settings.email}
                 />
-                <Button
-                  onClick={() => handleUpdateContact('email', settings.email)}
-                  className="rounded-xl"
-                  disabled
-                >
-                  <Icon name="Save" size={18} />
-                </Button>
+                {isEditingEmail && (
+                  <Button
+                    onClick={async () => {
+                      await handleUpdateContact('email', editedEmail);
+                      setIsEditingEmail(false);
+                      await loadSettings();
+                    }}
+                    className="rounded-xl"
+                    disabled={!editedEmail.trim() || !editedEmail.includes('@')}
+                  >
+                    <Icon name="Save" size={18} />
+                  </Button>
+                )}
               </div>
               {settings.email_verified_at ? (
                 <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
                   <Icon name="CheckCircle2" size={16} />
                   <span className="font-medium">Email подтверждён</span>
                 </div>
-              ) : settings.source === 'email' ? (
+              ) : settings.email && settings.email.trim() ? (
                 <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
                   <Icon name="AlertCircle" size={16} />
                   <span className="font-medium">Email не подтверждён</span>
@@ -185,12 +198,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                     Подтвердить
                   </Button>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
-                  <Icon name="Info" size={16} />
-                  <span className="font-medium">Email из профиля VK</span>
-                </div>
-              )}
+              ) : null}
             </div>
 
             <div className="space-y-2">

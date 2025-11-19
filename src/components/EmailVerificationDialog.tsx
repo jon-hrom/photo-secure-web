@@ -39,6 +39,9 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
           }
         }
       }
+    } else {
+      setCode(['', '', '', '', '', '']);
+      setError('');
     }
   }, [open, userId]);
 

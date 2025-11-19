@@ -446,10 +446,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cursor = conn.cursor()
-                cursor.execute(
-                    f"UPDATE users SET {field} = %s WHERE id = %s",
-                    (value, user_id)
-                )
+                
+                if field == 'email':
+                    cursor.execute(
+                        "UPDATE users SET email = %s, email_verified_at = NULL WHERE id = %s",
+                        (value, user_id)
+                    )
+                else:
+                    cursor.execute(
+                        f"UPDATE users SET {field} = %s WHERE id = %s",
+                        (value, user_id)
+                    )
+                
                 conn.commit()
                 
                 return {

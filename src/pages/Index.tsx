@@ -18,6 +18,8 @@ const Index = () => {
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [userSource, setUserSource] = useState<'email' | 'vk' | 'google' | 'yandex'>('email');
+  const [hasEmail, setHasEmail] = useState(true);
   
   const {
     currentPage,
@@ -55,17 +57,17 @@ const Index = () => {
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
         const data = await res.json();
         
-        if (data.source && data.source !== 'email') {
-          setShowEmailVerification(false);
-          return;
-        }
+        setUserSource(data.source || 'email');
+        setHasEmail(!!(data.email && data.email.trim()));
         
         if (data.email_verified_at) {
           setEmailVerified(true);
           setShowEmailVerification(false);
           localStorage.removeItem(dismissedKey);
-        } else if (!dismissed) {
+        } else if (!dismissed && data.email && data.email.trim()) {
           setShowEmailVerification(true);
+        } else {
+          setShowEmailVerification(false);
         }
       } catch (err) {
         console.error('Failed to check email verification:', err);
@@ -171,6 +173,40 @@ const Index = () => {
       )}
 
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
+        {!emailVerified && hasEmail && currentPage === 'dashboard' && (
+          <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">
+                <Icon name="Mail" className="text-amber-600" size={20} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-900 mb-1">Подтвердите почту</h3>
+                <p className="text-sm text-amber-700 mb-3">
+                  Для полноценной работы на платформе необходимо подтвердить ваш email-адрес
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => setShowEmailVerification(true)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl"
+                >
+                  <Icon name="CheckCircle2" size={16} className="mr-2" />
+                  Подтвердить сейчас
+                </Button>
+              </div>
+              <button
+                onClick={() => {
+                  const dismissedKey = `email_verification_dismissed_${userId}`;
+                  localStorage.setItem(dismissedKey, 'true');
+                  setShowEmailVerification(false);
+                }}
+                className="text-amber-600 hover:text-amber-800 transition-colors"
+              >
+                <Icon name="X" size={20} />
+              </button>
+            </div>
+          </div>
+        )}
+        
         {currentPage === 'dashboard' && (
           <Dashboard 
             userRole="user" 
