@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Send code without auth",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "send_code"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "User not authenticated"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

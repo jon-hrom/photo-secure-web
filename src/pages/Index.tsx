@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import Dashboard from '@/components/Dashboard';
@@ -10,11 +10,14 @@ import FeaturesPage from '@/components/FeaturesPage';
 import AdminPanel from '@/components/AdminPanel';
 import MaintenancePage from '@/components/MaintenancePage';
 import AppNavigation from '@/components/layout/AppNavigation';
+import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 
 const Index = () => {
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
   
   const {
     currentPage,
@@ -40,6 +43,28 @@ const Index = () => {
     lastActivityRef,
     onLogout: handleLogout
   });
+
+  useEffect(() => {
+    const checkEmailVerification = async () => {
+      if (!isAuthenticated || !userId) return;
+      
+      try {
+        const res = await fetch(`https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a?userId=${userId}`);
+        const data = await res.json();
+        
+        if (data.email_verified_at) {
+          setEmailVerified(true);
+          setShowEmailVerification(false);
+        } else {
+          setShowEmailVerification(true);
+        }
+      } catch (err) {
+        console.error('Failed to check email verification:', err);
+      }
+    };
+    
+    checkEmailVerification();
+  }, [isAuthenticated, userId]);
 
   if (currentPage !== 'clients') {
     if (selectedClientName !== undefined) {
@@ -121,6 +146,19 @@ const Index = () => {
         isVerified={isVerified}
         onLogout={handleLogout}
       />
+
+      {showEmailVerification && userId && (
+        <EmailVerificationDialog
+          open={showEmailVerification}
+          onClose={() => setShowEmailVerification(false)}
+          onVerified={() => {
+            setEmailVerified(true);
+            setShowEmailVerification(false);
+          }}
+          userId={userId.toString()}
+          userEmail={userEmail}
+        />
+      )}
 
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
         {currentPage === 'dashboard' && (

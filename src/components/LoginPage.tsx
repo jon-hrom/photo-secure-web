@@ -164,8 +164,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   };
 
   const handleRegister = async () => {
-    if (!email || !password) {
-      toast.error('Заполните обязательные поля');
+    if (!email || !password || !phone) {
+      toast.error('Заполните все обязательные поля: email, пароль и телефон');
       return;
     }
 
@@ -194,9 +194,9 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('Регистрация успешна! Теперь войдите в систему');
-        setIsRegistering(false);
-        setPassword('');
+        toast.success('Регистрация успешна! Подтвердите email');
+        onLoginSuccess(data.userId, email);
+      
       } else {
         toast.error(data.error || 'Ошибка регистрации');
       }
@@ -348,7 +348,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
             {isRegistering && (
               <div className="space-y-2">
-                <Label htmlFor="phone">Телефон (необязательно)</Label>
+                <Label htmlFor="phone">Телефон *</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -356,7 +356,12 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="rounded-xl"
+                  required
                 />
+                <p className="text-xs text-muted-foreground">
+                  <Icon name="Info" size={12} className="inline mr-1" />
+                  Обязательное поле для регистрации
+                </p>
               </div>
             )}
 

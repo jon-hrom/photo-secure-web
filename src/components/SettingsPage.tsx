@@ -6,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
+import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 
 interface UserSettings {
   email: string;
   phone: string;
   two_factor_sms: boolean;
   two_factor_email: boolean;
+  email_verified_at: string | null;
 }
 
 interface SettingsPageProps {
@@ -24,8 +26,10 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     phone: '',
     two_factor_sms: false,
     two_factor_email: false,
+    email_verified_at: null,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -119,6 +123,19 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
           <h1 className="text-3xl font-bold">Настройки</h1>
         </div>
 
+        {showEmailVerification && (
+          <EmailVerificationDialog
+            open={showEmailVerification}
+            onClose={() => setShowEmailVerification(false)}
+            onVerified={() => {
+              setShowEmailVerification(false);
+              loadSettings();
+            }}
+            userId={userId.toString()}
+            userEmail={settings.email}
+          />
+        )}
+
         <Card className="shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -145,6 +162,25 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   <Icon name="Save" size={18} />
                 </Button>
               </div>
+              {settings.email_verified_at ? (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <Icon name="CheckCircle2" size={16} />
+                  Email подтверждён
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-amber-600">
+                  <Icon name="AlertCircle" size={16} />
+                  Email не подтверждён
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowEmailVerification(true)}
+                    className="p-0 h-auto font-semibold"
+                  >
+                    Подтвердить сейчас
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

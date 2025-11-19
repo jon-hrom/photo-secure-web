@@ -102,11 +102,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 password = body.get('password')
                 phone = body.get('phone', '')
                 
-                if not email or not password:
+                if not email or not password or not phone:
                     return {
                         'statusCode': 400,
                         'headers': headers,
-                        'body': json.dumps({'error': 'Email и пароль обязательны'}),
+                        'body': json.dumps({'error': 'Email, пароль и телефон обязательны'}),
                         'isBase64Encoded': False
                     }
                 

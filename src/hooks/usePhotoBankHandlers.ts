@@ -176,6 +176,18 @@ export const usePhotoBankHandlers = (
             const data = await res.json();
             console.log(`[UPLOAD] Success:`, data);
             successCount++;
+          } else if (res.status === 403) {
+            const errorData = await res.json();
+            if (errorData.requireEmailVerification) {
+              toast({
+                title: 'Подтвердите email',
+                description: 'Для загрузки фото необходимо подтвердить адрес электронной почты',
+                variant: 'destructive'
+              });
+              setUploading(false);
+              return;
+            }
+            errorCount++;
           } else {
             const errorText = await res.text();
             console.error(`[UPLOAD] Failed with status ${res.status}:`, errorText);
