@@ -13,12 +13,29 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import boto3
+from botocore.config import Config
 
 def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
         raise Exception('DATABASE_URL not configured')
     return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+
+def get_ses_client():
+    access_key = os.environ.get('POSTBOX_ACCESS_KEY_ID')
+    secret_key = os.environ.get('POSTBOX_SECRET_ACCESS_KEY')
+    if not access_key or not secret_key:
+        raise Exception('Postbox credentials not configured')
+    
+    return boto3.client(
+        'sesv2',
+        region_name='ru-central1',
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        endpoint_url='https://postbox.cloud.yandex.net',
+        config=Config(signature_version='v4')
+    )
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
@@ -60,6 +77,120 @@ def generate_2fa_code(code_type: str) -> str:
     else:
         return ''.join([str(secrets.randbelow(10)) for _ in range(5)])
 
+def send_2fa_email(to: str, code: str):
+    subject = 'Код двухфакторной аутентификации — foto-mix.ru'
+    text = f'Ваш код для входа: {code}\nСрок действия: 10 минут.'
+    html = f'''<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Код 2FA</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f4f7">
+        <tr>
+            <td align="center" style="padding:40px 20px">
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+                    
+                    <tr>
+                        <td style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);padding:40px 30px;text-align:center">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td align="center">
+                                        <div style="background-color:#ffffff;width:80px;height:80px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;box-shadow:0 8px 16px rgba(0,0,0,0.1)">
+                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <rect x="3" y="11" width="18" height="11" rx="2" fill="#10b981"/>
+                                                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+                                                <circle cx="12" cy="16" r="1.5" fill="#ffffff"/>
+                                            </svg>
+                                        </div>
+                                        <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px">Безопасный вход</h1>
+                                        <p style="margin:10px 0 0 0;color:#d1fae5;font-size:16px">foto-mix.ru</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="padding:50px 40px">
+                            <h2 style="margin:0 0 15px 0;color:#1a1a1a;font-size:24px;font-weight:700">Код для входа в аккаунт</h2>
+                            <p style="margin:0 0 30px 0;color:#666666;font-size:16px;line-height:1.6">
+                                Используйте этот код для завершения входа в систему:
+                            </p>
+                            
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td align="center" style="padding:20px 0">
+                                        <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);padding:25px 40px;border-radius:16px;box-shadow:0 8px 24px rgba(16,185,129,0.25)">
+                                            <div style="font-size:44px;font-weight:800;letter-spacing:14px;color:#ffffff;font-family:'Courier New',monospace">{code}</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:30px">
+                                <tr>
+                                    <td style="padding:20px;background-color:#dbeafe;border-left:4px solid #3b82f6;border-radius:8px">
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                                            <tr>
+                                                <td style="padding-right:15px;vertical-align:top">
+                                                    <div style="width:24px;height:24px;background-color:#3b82f6;border-radius:50%;display:inline-flex;align-items:center;justify-content:center">
+                                                        <span style="color:#ffffff;font-size:16px;font-weight:700">🛡</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <p style="margin:0;color:#1e40af;font-size:14px;line-height:1.5">
+                                                        <strong>Никому не сообщайте этот код</strong><br>
+                                                        Сотрудники foto-mix.ru никогда не попросят у вас код
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="padding:30px 40px;background-color:#f9fafb;border-top:1px solid #e5e7eb">
+                            <p style="margin:0 0 10px 0;color:#6b7280;font-size:14px">
+                                Если это были не вы, <strong>немедленно измените пароль</strong> в настройках аккаунта.
+                            </p>
+                            <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+                            <p style="margin:0;color:#9ca3af;font-size:12px">
+                                © 2025 foto-mix.ru — Защита вашего аккаунта
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>'''
+    
+    ses = get_ses_client()
+    ses.send_email(
+        FromEmailAddress='info@foto-mix.ru',
+        Destination={'ToAddresses': [to]},
+        Content={
+            'Simple': {
+                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                'Body': {
+                    'Text': {'Data': text, 'Charset': 'UTF-8'},
+                    'Html': {'Data': html, 'Charset': 'UTF-8'}
+                }
+            }
+        }
+    )
+
+def send_2fa_sms(phone: str, code: str):
+    pass
+
 def send_2fa_code(conn, user_id: int, code: str, code_type: str):
     cursor = conn.cursor()
     expires_at = datetime.now() + timedelta(minutes=10)
@@ -68,6 +199,17 @@ def send_2fa_code(conn, user_id: int, code: str, code_type: str):
         (user_id, code, code_type, expires_at)
     )
     conn.commit()
+    
+    if code_type == 'email':
+        cursor.execute("SELECT email FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        if user and user['email']:
+            send_2fa_email(user['email'], code)
+    elif code_type == 'sms':
+        cursor.execute("SELECT phone FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        if user and user['phone']:
+            send_2fa_sms(user['phone'], code)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
