@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIndicator';
 import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
@@ -12,6 +12,8 @@ import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
 const PhotoBank = () => {
   const navigate = useNavigate();
   const userId = localStorage.getItem('userId') || '1';
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [checkingVerification, setCheckingVerification] = useState(true);
 
   const {
     folders,
@@ -77,6 +79,19 @@ const PhotoBank = () => {
   );
 
   useEffect(() => {
+    const checkEmailVerification = async () => {
+      try {
+        const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
+        const data = await res.json();
+        setEmailVerified(!!data.email_verified_at);
+      } catch (err) {
+        console.error('Failed to check email verification:', err);
+      } finally {
+        setCheckingVerification(false);
+      }
+    };
+    
+    checkEmailVerification();
     fetchFolders();
     fetchStorageUsage();
   }, []);
@@ -139,6 +154,7 @@ const PhotoBank = () => {
             uploadProgress={uploadProgress}
             selectionMode={selectionMode}
             selectedPhotos={selectedPhotos}
+            emailVerified={emailVerified}
             onUploadPhoto={handleUploadPhoto}
             onDeletePhoto={handleDeletePhoto}
             onTogglePhotoSelection={togglePhotoSelection}

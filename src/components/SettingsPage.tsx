@@ -34,6 +34,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [editedEmail, setEditedEmail] = useState('');
   const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedPhone, setEditedPhone] = useState('');
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -47,6 +49,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
       if (response.ok) {
         setSettings(data);
         setEditedEmail(data.email || '');
+        setEditedPhone(data.phone || '');
       } else {
         toast.error('Ошибка загрузки настроек');
       }
@@ -91,18 +94,34 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     }
   };
 
+  const formatPhoneNumber = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('8')) {
+      return '+7' + cleaned.substring(1);
+    }
+    if (cleaned.startsWith('7')) {
+      return '+' + cleaned;
+    }
+    return '+7' + cleaned;
+  };
+
   const handleUpdateContact = async (field: 'email' | 'phone', value: string) => {
     try {
+      const finalValue = field === 'phone' ? formatPhoneNumber(value) : value;
+      
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update-contact', userId, field, value }),
+        body: JSON.stringify({ action: 'update-contact', userId, field, value: finalValue }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setSettings((prev) => ({ ...prev, [field]: value }));
+        setSettings((prev) => ({ ...prev, [field]: finalValue }));
+        if (field === 'phone') {
+          setEditedPhone(finalValue);
+        }
         toast.success('Контактные данные обновлены');
       } else {
         toast.error(data.error || 'Ошибка обновления');
@@ -132,9 +151,9 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
           <EmailVerificationDialog
             open={showEmailVerification}
             onClose={() => setShowEmailVerification(false)}
-            onVerified={() => {
+            onVerified={async () => {
               setShowEmailVerification(false);
-              loadSettings();
+              await loadSettings();
             }}
             userId={userId.toString()}
             userEmail={settings.email}
@@ -181,12 +200,12 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                 )}
               </div>
               {settings.email_verified_at ? (
-                <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
+                <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
                   <Icon name="CheckCircle2" size={16} />
-                  <span className="font-medium">Email подтверждён</span>
+                  <span className="font-medium">Почта подтверждена</span>
                 </div>
               ) : settings.email && settings.email.trim() ? (
-                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
                   <Icon name="AlertCircle" size={16} />
                   <span className="font-medium">Email не подтверждён</span>
                   <Button
@@ -208,16 +227,47 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   id="phone"
                   type="tel"
                   placeholder="+7 (___) ___-__-__"
-                  value={settings.phone}
-                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                  value={isEditingPhone ? editedPhone : settings.phone}
+                  onChange={(e) => {
+                    setEditedPhone(e.target.value);
+                    setIsEditingPhone(true);
+                  }}
                   className="rounded-xl"
+                  readOnly={!isEditingPhone && !!settings.phone}
                 />
-                <Button
-                  onClick={() => handleUpdateContact('phone', settings.phone)}
-                  className="rounded-xl"
-                >
-                  <Icon name="Save" size={18} />
-                </Button>
+                {isEditingPhone ? (
+                  <Button
+                    onClick={async () => {
+                      await handleUpdateContact('phone', editedPhone);
+                      setIsEditingPhone(false);
+                      await loadSettings();
+                    }}
+                    className="rounded-xl"
+                    disabled={!editedPhone.trim()}
+                  >
+                    <Icon name="Save" size={18} />
+                  </Button>
+                ) : settings.phone ? (
+                  <Button
+                    onClick={() => setIsEditingPhone(true)}
+                    variant="outline"
+                    className="rounded-xl"
+                  >
+                    <Icon name="Pencil" size={18} />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={async () => {
+                      await handleUpdateContact('phone', editedPhone);
+                      setIsEditingPhone(false);
+                      await loadSettings();
+                    }}
+                    className="rounded-xl"
+                    disabled={!editedPhone.trim()}
+                  >
+                    <Icon name="Save" size={18} />
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
