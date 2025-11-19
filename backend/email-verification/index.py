@@ -56,16 +56,109 @@ def hash_code(code: str, email: str) -> str:
 def send_email_code(to: str, code: str):
     subject = 'Подтвердите почту для foto-mix.ru'
     text = f'Ваш код подтверждения: {code}\nСрок действия: {TTL_MIN} минут.'
-    html = f'''<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-        <h2 style="color:#333">Подтвердите почту</h2>
-        <p style="color:#666;font-size:16px">Ваш код подтверждения:</p>
-        <div style="background:#f5f5f5;padding:20px;border-radius:8px;text-align:center;margin:20px 0">
-            <div style="font-size:32px;font-weight:700;letter-spacing:5px;color:#333">{code}</div>
-        </div>
-        <p style="color:#666;font-size:14px">Код действителен {TTL_MIN} минут.</p>
-        <hr style="border:none;border-top:1px solid #eee;margin:30px 0">
-        <p style="color:#999;font-size:12px">Если вы не запрашивали этот код, просто проигнорируйте это письмо.</p>
-    </div>'''
+    html = f'''<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение email</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f4f7">
+        <tr>
+            <td align="center" style="padding:40px 20px">
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+                    
+                    <!-- Header with gradient -->
+                    <tr>
+                        <td style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);padding:40px 30px;text-align:center">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td align="center">
+                                        <div style="background-color:#ffffff;width:80px;height:80px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;box-shadow:0 8px 16px rgba(0,0,0,0.1)">
+                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="#667eea"/>
+                                                <circle cx="12" cy="13" r="4" fill="#ffffff"/>
+                                            </svg>
+                                        </div>
+                                        <h1 style="margin:0;color:#ffffff;font-size:32px;font-weight:700;letter-spacing:-0.5px">foto-mix.ru</h1>
+                                        <p style="margin:10px 0 0 0;color:#e0e7ff;font-size:16px">Фотоуслуги профессионального качества</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding:50px 40px">
+                            <h2 style="margin:0 0 20px 0;color:#1a1a1a;font-size:28px;font-weight:700;line-height:1.3">Подтвердите ваш email</h2>
+                            <p style="margin:0 0 30px 0;color:#666666;font-size:16px;line-height:1.6">
+                                Спасибо за регистрацию! Для завершения настройки аккаунта введите код подтверждения:
+                            </p>
+                            
+                            <!-- Code Block -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td align="center" style="padding:20px 0">
+                                        <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);padding:30px;border-radius:16px;box-shadow:0 8px 24px rgba(102,126,234,0.25)">
+                                            <div style="font-size:48px;font-weight:800;letter-spacing:12px;color:#ffffff;font-family:'Courier New',monospace">{code}</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Timer info -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:30px">
+                                <tr>
+                                    <td style="padding:20px;background-color:#fef3c7;border-left:4px solid #f59e0b;border-radius:8px">
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                                            <tr>
+                                                <td style="padding-right:15px;vertical-align:top">
+                                                    <div style="width:24px;height:24px;background-color:#f59e0b;border-radius:50%;display:inline-flex;align-items:center;justify-content:center">
+                                                        <span style="color:#ffffff;font-size:16px;font-weight:700">⏱</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <p style="margin:0;color:#92400e;font-size:14px;line-height:1.5">
+                                                        <strong>Код действителен {TTL_MIN} минут</strong><br>
+                                                        После истечения времени запросите новый код
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding:30px 40px;background-color:#f9fafb;border-top:1px solid #e5e7eb">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td>
+                                        <p style="margin:0 0 15px 0;color:#6b7280;font-size:14px;line-height:1.6">
+                                            Если вы не регистрировались на <strong>foto-mix.ru</strong>, просто проигнорируйте это письмо.
+                                        </p>
+                                        <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+                                        <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5">
+                                            © 2025 foto-mix.ru — Профессиональные фотоуслуги<br>
+                                            Фотокниги, печать фотографий, хранилище снимков
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>'''
     
     ses = get_ses_client()
     ses.send_email(
