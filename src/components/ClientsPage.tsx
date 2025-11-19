@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import Icon from '@/components/ui/icon';
 import ClientsHeader from '@/components/clients/ClientsHeader';
 import ClientsListSection from '@/components/clients/ClientsListSection';
 import ClientsCalendarSection from '@/components/clients/ClientsCalendarSection';
@@ -13,6 +15,8 @@ interface ClientsPageProps {
 }
 
 const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
+  const [emailVerified, setEmailVerified] = useState(false);
+  const userId = localStorage.getItem('userId');
   const [clients, setClients] = useState<Client[]>([
     {
       id: 1,
@@ -312,6 +316,19 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
   });
 
   useEffect(() => {
+    const checkEmailVerification = async () => {
+      if (!userId) return;
+      try {
+        const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
+        const data = await res.json();
+        setEmailVerified(!!data.email_verified_at);
+      } catch (err) {
+        console.error('Failed to check email verification:', err);
+      }
+    };
+    
+    checkEmailVerification();
+    
     if (autoOpenClient) {
       const client = clients.find(c => c.name === autoOpenClient);
       if (client) {
@@ -321,10 +338,20 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
         toast.info(`Клиент "${autoOpenClient}" не найден в базе`);
       }
     }
-  }, [autoOpenClient, clients]);
+  }, [autoOpenClient, clients, userId]);
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {!emailVerified && (
+        <Alert className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+          <Icon name="AlertCircle" className="text-amber-600" />
+          <AlertDescription className="ml-2">
+            <span className="font-semibold text-amber-900">Подтвердите email для полного доступа.</span>{' '}
+            <span className="text-amber-700">Некоторые функции (создание клиентов, бронирования) могут быть ограничены.</span>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <ClientsHeader
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -341,6 +368,7 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
         setEditingClient={setEditingClient}
         handleAddClient={handleAddClient}
         handleUpdateClient={handleUpdateClientFromEdit}
+        emailVerified={emailVerified}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

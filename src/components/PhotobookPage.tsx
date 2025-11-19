@@ -6,6 +6,8 @@ import PhotobookCreator, { type PhotobookData } from '@/components/photobook/Pho
 import SavedDesigns from '@/components/photobook/SavedDesigns';
 import Photobook3DPreview from '@/components/photobook/Photobook3DPreview';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast as sonnerToast } from 'sonner';
 
 const DESIGNS_API = 'https://functions.poehali.dev/66f4d0c4-09f1-4fa4-a26b-0b623562c751';
 
@@ -15,6 +17,7 @@ const PhotobookPage = () => {
   const [selectedPhotobook, setSelectedPhotobook] = useState<PhotobookData | null>(null);
   const [show3DPreview, setShow3DPreview] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
   const { toast } = useToast();
 
   const userId = localStorage.getItem('userId') || '1';
@@ -56,6 +59,17 @@ const PhotobookPage = () => {
   };
 
   useEffect(() => {
+    const checkEmailVerification = async () => {
+      try {
+        const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
+        const data = await res.json();
+        setEmailVerified(!!data.email_verified_at);
+      } catch (err) {
+        console.error('Failed to check email verification:', err);
+      }
+    };
+    
+    checkEmailVerification();
     fetchDesigns();
   }, []);
 
@@ -135,13 +149,32 @@ const PhotobookPage = () => {
     setShow3DPreview(false);
   };
 
+  const handleCreateClick = () => {
+    if (!emailVerified) {
+      sonnerToast.error('Подтвердите email в настройках для создания фотокниг');
+      return;
+    }
+    setIsCreateDialogOpen(true);
+  };
+
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in">
+      {!emailVerified && (
+        <Alert className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+          <Icon name="AlertCircle" className="text-amber-600" />
+          <AlertDescription className="ml-2">
+            <span className="font-semibold text-amber-900">Подтвердите email для создания фотокниг.</span>{' '}
+            <span className="text-amber-700">Перейдите в Настройки, чтобы подтвердить свой email-адрес.</span>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <h2 className="text-2xl md:text-3xl font-bold">Макет фотокниг</h2>
         <Button 
           className="rounded-full shadow-lg hover-scale w-full md:w-auto"
-          onClick={() => setIsCreateDialogOpen(true)}
+          onClick={handleCreateClick}
+          disabled={!emailVerified}
         >
           <Icon name="Plus" size={20} className="mr-2" />
           Создать фотокнигу

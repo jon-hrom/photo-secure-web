@@ -26,6 +26,7 @@ interface ClientsHeaderProps {
   setEditingClient: (client: Client | null) => void;
   handleAddClient: () => void;
   handleUpdateClient: () => void;
+  emailVerified: boolean;
 }
 
 const ClientsHeader = ({
@@ -44,6 +45,7 @@ const ClientsHeader = ({
   setEditingClient,
   handleAddClient,
   handleUpdateClient,
+  emailVerified,
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
@@ -60,6 +62,7 @@ const ClientsHeader = ({
           setEditingClient={setEditingClient}
           handleAddClient={handleAddClient}
           handleUpdateClient={handleUpdateClient}
+          emailVerified={emailVerified}
         />
       </div>
 

@@ -40,6 +40,7 @@ const MyFiles = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -82,6 +83,17 @@ const MyFiles = () => {
   };
 
   useEffect(() => {
+    const checkEmailVerification = async () => {
+      try {
+        const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
+        const data = await res.json();
+        setEmailVerified(!!data.email_verified_at);
+      } catch (err) {
+        console.error('Failed to check email verification:', err);
+      }
+    };
+    
+    checkEmailVerification();
     fetchUsage();
     fetchFiles();
   }, []);
@@ -89,6 +101,15 @@ const MyFiles = () => {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!emailVerified) {
+      toast({
+        title: 'Требуется верификация',
+        description: 'Подтвердите email в настройках для загрузки файлов',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     setUploading(true);
     try {
@@ -222,6 +243,16 @@ const MyFiles = () => {
       </Dialog>
 
       <div className="max-w-6xl mx-auto space-y-6">
+        {!emailVerified && (
+          <Alert className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+            <Icon name="AlertCircle" className="text-amber-600" />
+            <AlertDescription className="ml-2">
+              <span className="font-semibold text-amber-900">Подтвердите email для загрузки файлов.</span>{' '}
+              <span className="text-amber-700">Перейдите в Настройки, чтобы подтвердить свой email-адрес.</span>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Мои файлы</h1>
           <div className="relative">
@@ -230,10 +261,10 @@ const MyFiles = () => {
               id="file-upload"
               className="hidden"
               onChange={handleUpload}
-              disabled={uploading}
+              disabled={uploading || !emailVerified}
             />
-            <Button asChild disabled={uploading}>
-              <label htmlFor="file-upload" className="cursor-pointer">
+            <Button asChild disabled={uploading || !emailVerified}>
+              <label htmlFor="file-upload" className={emailVerified ? "cursor-pointer" : "cursor-not-allowed"}>
                 <Icon name="Upload" className="mr-2" size={18} />
                 {uploading ? 'Загрузка...' : 'Загрузить файл'}
               </label>

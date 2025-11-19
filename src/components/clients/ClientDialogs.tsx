@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import { toast } from 'sonner';
 
 interface ClientDialogsProps {
   isAddDialogOpen: boolean;
@@ -22,6 +23,7 @@ interface ClientDialogsProps {
   setEditingClient: (client: Client | null) => void;
   handleAddClient: () => void;
   handleUpdateClient: () => void;
+  emailVerified: boolean;
 }
 
 const ClientDialogs = ({
@@ -35,7 +37,16 @@ const ClientDialogs = ({
   setEditingClient,
   handleAddClient,
   handleUpdateClient,
+  emailVerified,
 }: ClientDialogsProps) => {
+  
+  const handleAddClientWithCheck = () => {
+    if (!emailVerified) {
+      toast.error('Подтвердите email в настройках для создания клиентов');
+      return;
+    }
+    handleAddClient();
+  };
   return (
     <>
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -96,7 +107,7 @@ const ClientDialogs = ({
                 placeholder="username"
               />
             </div>
-            <Button onClick={handleAddClient} className="w-full">
+            <Button onClick={handleAddClientWithCheck} className="w-full" disabled={!emailVerified}>
               <Icon name="UserPlus" size={18} className="mr-2" />
               Добавить клиента
             </Button>
