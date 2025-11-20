@@ -79,15 +79,15 @@ const AppNavigation = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuItem onClick={() => navigate('/')}>
+                <DropdownMenuItem onClick={() => setCurrentPage('dashboard')}>
                   <Icon name="LayoutDashboard" size={18} className="mr-2" />
                   Главная
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/clients')}>
+                <DropdownMenuItem onClick={() => setCurrentPage('clients')}>
                   <Icon name="Users" size={18} className="mr-2" />
                   Клиенты
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/photobooks')}>
+                <DropdownMenuItem onClick={() => setCurrentPage('photobook')}>
                   <Icon name="Book" size={18} className="mr-2" />
                   Фотокниги
                 </DropdownMenuItem>
@@ -95,7 +95,7 @@ const AppNavigation = ({
                   <Icon name="Images" size={18} className="mr-2" />
                   Мой фото банк
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/features')}>
+                <DropdownMenuItem onClick={() => setCurrentPage('features')}>
                   <Icon name="Sparkles" size={18} className="mr-2" />
                   Возможности сервиса
                 </DropdownMenuItem>
