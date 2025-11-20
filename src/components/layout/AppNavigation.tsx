@@ -103,11 +103,11 @@ const AppNavigation = ({
             </DropdownMenu>
             <Button
               variant="outline"
-              onClick={() => navigate('/upgrade-plan')}
+              onClick={() => setCurrentPage('features')}
               className="rounded-full border-2 border-green-500 hover:bg-green-50"
             >
               <Icon name="Zap" size={18} className="mr-2" />
-              Тарифы
+              Возможности
             </Button>
             <Button
               variant="outline"
