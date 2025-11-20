@@ -147,16 +147,16 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
                 <h3 className="font-semibold">Фото банк</h3>
               </div>
               <Badge variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}>
-                {storageUsage.percent.toFixed(1)}%
+                {(storageUsage.percent || 0).toFixed(1)}%
               </Badge>
             </div>
             <Progress 
-              value={storageUsage.percent} 
+              value={storageUsage.percent || 0} 
               className="h-3 transition-all duration-500 ease-out"
             />
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{storageUsage.usedGb.toFixed(2)} ГБ использовано</span>
-              <span>{storageUsage.limitGb.toFixed(0)} ГБ доступно</span>
+              <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ использовано</span>
+              <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ доступно</span>
             </div>
           </div>
         </CardContent>
