@@ -59,6 +59,8 @@ export const useAuth = () => {
     localStorage.removeItem('authSession');
     localStorage.removeItem('vk_user');
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('vk_user_id');
+    localStorage.removeItem('vk_access_token');
   };
 
   useEffect(() => {
@@ -66,6 +68,16 @@ export const useAuth = () => {
       console.log('🔄 Restoring session...');
       
       const urlParams = new URLSearchParams(window.location.search);
+      const forceLogout = urlParams.get('logout');
+      
+      if (forceLogout === 'true') {
+        console.log('🚪 Force logout triggered');
+        handleLogout();
+        window.history.replaceState({}, '', window.location.pathname);
+        setLoading(false);
+        return;
+      }
+      
       const vkSessionId = urlParams.get('vk_session');
       
       if (vkSessionId) {
