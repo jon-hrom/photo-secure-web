@@ -269,14 +269,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                s3_url = f'https://storage.yandexcloud.net/{bucket}/{s3_key}'
+                
                 print('[UPLOAD_DIRECT] Inserting to DB')
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
-                        (user_id, folder_id, file_name, s3_key, file_size, width, height)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id, file_name, s3_key, file_size, created_at
-                    ''', (user_id, folder_id, file_name, s3_key, file_size, width, height))
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height))
                     conn.commit()
                     photo = cur.fetchone()
                     print(f'[UPLOAD_DIRECT] DB insert success, photo_id={photo["id"]}')
@@ -324,14 +326,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                s3_url = f'https://storage.yandexcloud.net/{bucket}/{s3_key}'
+                
                 print(f'[CONFIRM_UPLOAD] Inserting to DB...')
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
-                        (user_id, folder_id, file_name, s3_key, file_size, width, height)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id, file_name, s3_key, file_size, created_at
-                    ''', (user_id, folder_id, file_name, s3_key, file_size, width, height))
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height))
                     conn.commit()
                     photo = cur.fetchone()
                     print(f'[CONFIRM_UPLOAD] Inserted photo id={photo["id"]}')
