@@ -175,54 +175,29 @@ export const usePhotoBankHandlers = (
           const compressedSizeMB = (blob.size / 1024 / 1024).toFixed(2);
           console.log(`[UPLOAD] Compressed size: ${compressedSizeMB} MB`);
 
-          const urlRes = await fetch(PHOTOBANK_FOLDERS_API, {
+          // Convert blob to base64
+          const reader = new FileReader();
+          const base64Data = await new Promise<string>((resolve) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+
+          console.log(`[UPLOAD] Uploading directly to backend...`);
+          const res = await fetch(PHOTOBANK_FOLDERS_API, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-User-Id': userId
             },
             body: JSON.stringify({
-              action: 'upload_url',
+              action: 'upload_direct',
               folder_id: selectedFolder.id,
               file_name: file.name,
-              content_type: 'image/jpeg'
-            })
-          });
-
-          if (!urlRes.ok) {
-            const error = await urlRes.json();
-            throw new Error(error.error || 'Failed to get upload URL');
-          }
-
-          const { upload_url, s3_key } = await urlRes.json();
-
-          const uploadRes = await fetch(upload_url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'image/jpeg' },
-            body: blob
-          });
-
-          if (!uploadRes.ok) {
-            throw new Error('Failed to upload to S3');
-          }
-
-          const confirmRes = await fetch(PHOTOBANK_FOLDERS_API, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-User-Id': userId
-            },
-            body: JSON.stringify({
-              action: 'confirm_upload',
-              folder_id: selectedFolder.id,
-              s3_key,
-              file_name: file.name,
+              file_data: base64Data,
               width: Math.round(width),
               height: Math.round(height)
             })
           });
-
-          const res = confirmRes;
 
           console.log(`[UPLOAD] Response status: ${res.status}`);
           if (res.ok) {

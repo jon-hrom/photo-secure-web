@@ -208,16 +208,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            elif action == 'upload_url':
+            elif action == 'upload_direct':
                 folder_id = body_data.get('folder_id')
                 file_name = body_data.get('file_name')
-                content_type = body_data.get('content_type', 'image/jpeg')
+                file_data = body_data.get('file_data')
+                width = body_data.get('width')
+                height = body_data.get('height')
                 
-                if not all([folder_id, file_name]):
+                print(f'[UPLOAD_DIRECT] folder_id={folder_id}, file_name={file_name}, width={width}, height={height}')
+                
+                if not all([folder_id, file_name, file_data]):
+                    print('[UPLOAD_DIRECT] Missing required fields')
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'folder_id and file_name required'}),
+                        'body': json.dumps({'error': 'folder_id, file_name, and file_data required'}),
                         'isBase64Encoded': False
                     }
                 
@@ -230,6 +235,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     folder = cur.fetchone()
                     
                     if not folder:
+                        print(f'[UPLOAD_DIRECT] Folder not found: {folder_id}')
                         return {
                             'statusCode': 404,
                             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -237,28 +243,52 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             'isBase64Encoded': False
                         }
                 
+                import base64
+                file_bytes = base64.b64decode(file_data.split(',')[1] if ',' in file_data else file_data)
+                file_size = len(file_bytes)
+                
                 file_ext = file_name.split('.')[-1] if '.' in file_name else 'jpg'
                 s3_key = f'{folder["s3_prefix"]}{uuid.uuid4()}.{file_ext}'
                 
-                upload_url = s3_client.generate_presigned_url(
-                    'put_object',
-                    Params={
-                        'Bucket': bucket,
-                        'Key': s3_key,
-                        'ContentType': content_type,
-                        'Metadata': {'user-id': str(user_id), 'folder-id': str(folder_id)}
-                    },
-                    ExpiresIn=900
-                )
+                print(f'[UPLOAD_DIRECT] Uploading to S3: {s3_key}, size={file_size}')
+                try:
+                    s3_client.put_object(
+                        Bucket=bucket,
+                        Key=s3_key,
+                        Body=file_bytes,
+                        ContentType='image/jpeg',
+                        Metadata={'user-id': str(user_id), 'folder-id': str(folder_id)}
+                    )
+                    print('[UPLOAD_DIRECT] S3 upload success')
+                except Exception as e:
+                    print(f'[UPLOAD_DIRECT] S3 upload failed: {str(e)}')
+                    return {
+                        'statusCode': 500,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': f'S3 upload failed: {str(e)}'}),
+                        'isBase64Encoded': False
+                    }
                 
+                print('[UPLOAD_DIRECT] Inserting to DB')
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        INSERT INTO photo_bank 
+                        (user_id, folder_id, file_name, s3_key, file_size, width, height)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id, file_name, s3_key, file_size, created_at
+                    ''', (user_id, folder_id, file_name, s3_key, file_size, width, height))
+                    conn.commit()
+                    photo = cur.fetchone()
+                    print(f'[UPLOAD_DIRECT] DB insert success, photo_id={photo["id"]}')
+                    
+                    if photo['created_at']:
+                        photo['created_at'] = photo['created_at'].isoformat()
+                
+                print('[UPLOAD_DIRECT] Complete!')
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({
-                        'upload_url': upload_url,
-                        's3_key': s3_key,
-                        'folder_id': folder_id
-                    }),
+                    'body': json.dumps({'photo': photo}),
                     'isBase64Encoded': False
                 }
             
