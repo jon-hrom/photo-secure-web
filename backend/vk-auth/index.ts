@@ -31,6 +31,7 @@ async function saveSession(state, codeVerifier, codeChallenge) {
   const client = new Client({ connectionString: DATABASE_URL });
   try {
     await client.connect();
+    await ensureTablesExist(client);
     const expiresAt = new Date(Date.now() + 600000);
     await client.query(
       `INSERT INTO oauth_sessions (state, nonce, code_verifier, provider, expires_at)
@@ -45,6 +46,7 @@ async function getSession(state) {
   const client = new Client({ connectionString: DATABASE_URL });
   try {
     await client.connect();
+    await ensureTablesExist(client);
     
     await client.query(
       `DELETE FROM oauth_sessions WHERE expires_at < CURRENT_TIMESTAMP`
@@ -110,11 +112,62 @@ function escapeSQL(value) {
   return "'" + String(value).replace(/'/g, "''") + "'";
 }
 
+async function ensureTablesExist(client) {
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS vk_users (
+        user_id SERIAL PRIMARY KEY,
+        vk_sub VARCHAR(100) UNIQUE NOT NULL,
+        email VARCHAR(255),
+        phone_number VARCHAR(50),
+        full_name VARCHAR(255),
+        avatar_url TEXT,
+        is_verified BOOLEAN DEFAULT FALSE,
+        raw_profile TEXT,
+        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_blocked BOOLEAN DEFAULT false,
+        blocked_at TIMESTAMP,
+        blocked_by VARCHAR(255),
+        block_reason TEXT,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        is_active BOOLEAN DEFAULT true
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS oauth_sessions (
+        state TEXT PRIMARY KEY,
+        nonce TEXT NOT NULL,
+        code_verifier TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL
+      )
+    `);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS vk_temp_sessions (
+        session_id VARCHAR(32) PRIMARY KEY,
+        data JSONB NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_vk_users_vk_sub ON vk_users(vk_sub)`);
+  } catch (error) {
+    console.error('Error ensuring tables exist:', error);
+  }
+}
+
 async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified, email, phone, ipAddress, userAgent) {
   const client = new Client({ connectionString: DATABASE_URL });
   
   try {
     await client.connect();
+    await ensureTablesExist(client);
     
     const fullName = `${firstName} ${lastName}`.trim();
     
@@ -183,6 +236,7 @@ exports.handler = async (event, context) => {
       const client = new Client({ connectionString: DATABASE_URL });
       try {
         await client.connect();
+        await ensureTablesExist(client);
         
         await client.query(
           `DELETE FROM vk_temp_sessions WHERE expires_at < NOW()`
@@ -393,6 +447,7 @@ exports.handler = async (event, context) => {
       const tempClient = new Client({ connectionString: DATABASE_URL });
       try {
         await tempClient.connect();
+        await ensureTablesExist(tempClient);
         const dataJSON = escapeSQL(JSON.stringify(tempSessionData));
         await tempClient.query(
           `INSERT INTO vk_temp_sessions (session_id, data, expires_at) 
@@ -426,6 +481,7 @@ exports.handler = async (event, context) => {
         const client = new Client({ connectionString: DATABASE_URL });
         try {
           await client.connect();
+          await ensureTablesExist(client);
           const ipAddress = event.requestContext?.identity?.sourceIp || 'unknown';
           const userAgent = event.headers?.['User-Agent'] || '';
           
