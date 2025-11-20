@@ -40,6 +40,17 @@ def get_ses_client():
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
+def escape_sql(value):
+    """Escape values for Simple Query Protocol (no parameterized queries)"""
+    if value is None:
+        return 'NULL'
+    if isinstance(value, bool):
+        return 'TRUE' if value else 'FALSE'
+    if isinstance(value, (int, float)):
+        return str(value)
+    # Escape single quotes by doubling them
+    return "'" + str(value).replace("'", "''") + "'"
+
 def check_ip_blocked(conn, ip_address: str) -> tuple[bool, int]:
     cursor = conn.cursor()
     cursor.execute(
@@ -447,29 +458,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT source FROM users WHERE id = %s", (user_id,))
+                cursor.execute(f"SELECT source FROM users WHERE id = {escape_sql(user_id)}")
                 user_source_row = cursor.fetchone()
                 user_source = user_source_row['source'] if user_source_row else 'email'
                 
                 if field == 'email':
                     cursor.execute(
-                        "UPDATE users SET email = %s, email_verified_at = NULL WHERE id = %s",
-                        (value, user_id)
+                        f"UPDATE users SET email = {escape_sql(value)}, email_verified_at = NULL WHERE id = {escape_sql(user_id)}"
                     )
                     if user_source == 'vk':
                         cursor.execute(
-                            "UPDATE vk_users SET email = %s WHERE user_id = %s",
-                            (value, user_id)
+                            f"UPDATE vk_users SET email = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
                         )
                 else:
                     cursor.execute(
-                        f"UPDATE users SET {field} = %s WHERE id = %s",
-                        (value, user_id)
+                        f"UPDATE users SET {field} = {escape_sql(value)} WHERE id = {escape_sql(user_id)}"
                     )
                     if user_source == 'vk':
                         cursor.execute(
-                            "UPDATE vk_users SET phone_number = %s WHERE user_id = %s",
-                            (value, user_id)
+                            f"UPDATE vk_users SET phone_number = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
                         )
                 
                 conn.commit()
