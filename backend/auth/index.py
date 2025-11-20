@@ -449,8 +449,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     field = body.get('field')
                     value = body.get('value')
                     
-                    print(f"[UPDATE_CONTACT] user_id={user_id}, field={field}, value={value}")
-                    
                     if not user_id or not field or field not in ['email', 'phone']:
                         return {
                             'statusCode': 400,
@@ -461,32 +459,54 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     cursor = conn.cursor()
                     
-                    query1 = f"SELECT source FROM users WHERE id = {escape_sql(user_id)}"
-                    print(f"[UPDATE_CONTACT] Query 1: {query1}")
-                    cursor.execute(query1)
+                    # Check if email/phone already exists for another user
+                    if field == 'email':
+                        cursor.execute(
+                            f"SELECT id FROM users WHERE email = {escape_sql(value)} AND id != {escape_sql(user_id)}"
+                        )
+                        existing_user = cursor.fetchone()
+                        if existing_user:
+                            return {
+                                'statusCode': 400,
+                                'headers': headers,
+                                'body': json.dumps({'error': 'Этот email уже используется другим пользователем'}),
+                                'isBase64Encoded': False
+                            }
+                    elif field == 'phone':
+                        cursor.execute(
+                            f"SELECT id FROM users WHERE phone = {escape_sql(value)} AND id != {escape_sql(user_id)}"
+                        )
+                        existing_user = cursor.fetchone()
+                        if existing_user:
+                            return {
+                                'statusCode': 400,
+                                'headers': headers,
+                                'body': json.dumps({'error': 'Этот номер телефона уже используется другим пользователем'}),
+                                'isBase64Encoded': False
+                            }
+                    
+                    cursor.execute(f"SELECT source FROM users WHERE id = {escape_sql(user_id)}")
                     user_source_row = cursor.fetchone()
                     user_source = user_source_row['source'] if user_source_row else 'email'
-                    print(f"[UPDATE_CONTACT] user_source={user_source}")
                     
                     if field == 'email':
-                        query2 = f"UPDATE users SET email = {escape_sql(value)}, email_verified_at = NULL WHERE id = {escape_sql(user_id)}"
-                        print(f"[UPDATE_CONTACT] Query 2: {query2}")
-                        cursor.execute(query2)
+                        cursor.execute(
+                            f"UPDATE users SET email = {escape_sql(value)}, email_verified_at = NULL WHERE id = {escape_sql(user_id)}"
+                        )
                         if user_source == 'vk':
-                            query3 = f"UPDATE vk_users SET email = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
-                            print(f"[UPDATE_CONTACT] Query 3: {query3}")
-                            cursor.execute(query3)
+                            cursor.execute(
+                                f"UPDATE vk_users SET email = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
+                            )
                     else:
-                        query2 = f"UPDATE users SET {field} = {escape_sql(value)} WHERE id = {escape_sql(user_id)}"
-                        print(f"[UPDATE_CONTACT] Query 2: {query2}")
-                        cursor.execute(query2)
+                        cursor.execute(
+                            f"UPDATE users SET {field} = {escape_sql(value)} WHERE id = {escape_sql(user_id)}"
+                        )
                         if user_source == 'vk':
-                            query3 = f"UPDATE vk_users SET phone_number = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
-                            print(f"[UPDATE_CONTACT] Query 3: {query3}")
-                            cursor.execute(query3)
+                            cursor.execute(
+                                f"UPDATE vk_users SET phone_number = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
+                            )
                     
                     conn.commit()
-                    print("[UPDATE_CONTACT] Success!")
                     
                     return {
                         'statusCode': 200,
@@ -495,13 +515,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 except Exception as e:
-                    print(f"[UPDATE_CONTACT] Error: {type(e).__name__}: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
+                    error_msg = str(e)
+                    if 'unique constraint' in error_msg.lower() or 'duplicate' in error_msg.lower():
+                        return {
+                            'statusCode': 400,
+                            'headers': headers,
+                            'body': json.dumps({'error': f'Эти {field} уже используются другим пользователем'}),
+                            'isBase64Encoded': False
+                        }
                     return {
                         'statusCode': 500,
                         'headers': headers,
-                        'body': json.dumps({'error': f'Internal error: {str(e)}'}),
+                        'body': json.dumps({'error': f'Ошибка сервера: {error_msg}'}),
                         'isBase64Encoded': False
                     }
             
