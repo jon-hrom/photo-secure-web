@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { isAdminUser } from '@/utils/adminCheck';
 
 export interface AuthState {
   isAuthenticated: boolean;
@@ -28,12 +29,12 @@ export const useAuth = () => {
   const lastActivityRef = useRef<number>(Date.now());
 
   const handleLoginSuccess = (uid: number, email?: string) => {
-    const isAdminUser = email === 'jonhrom2012@gmail.com';
-    const page = isAdminUser ? 'admin' : 'dashboard';
+    const isUserAdmin = isAdminUser(email || null, null);
+    const page = isUserAdmin ? 'admin' : 'dashboard';
     setIsAuthenticated(true);
     setUserId(uid);
     setUserEmail(email || '');
-    setIsAdmin(isAdminUser);
+    setIsAdmin(isUserAdmin);
     setCurrentPage(page);
     lastActivityRef.current = Date.now();
     
@@ -43,7 +44,7 @@ export const useAuth = () => {
       isAuthenticated: true,
       userId: uid,
       userEmail: email || '',
-      isAdmin: isAdminUser,
+      isAdmin: isUserAdmin,
       currentPage: page,
       lastActivity: Date.now(),
     }));
@@ -92,14 +93,12 @@ export const useAuth = () => {
             
             if (data.userData && data.token) {
               const userData = data.userData;
-              const isAdminUser = userData.email === 'jonhrom2012@gmail.com' || 
-                                  (userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений')));
+              const isUserAdmin = isAdminUser(userData.email || null, userData);
               
               console.log('🔍 Checking admin status:', {
                 userName: userData.name,
                 userEmail: userData.email,
-                isAdminUser,
-                nameCheck: userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений'))
+                isUserAdmin
               });
               
               localStorage.setItem('vk_user', JSON.stringify(userData));
@@ -113,8 +112,8 @@ export const useAuth = () => {
               setUserName(userData.name || 'Пользователь VK');
               setUserAvatar(userData.avatar || '');
               setIsVerified(userData.verified || false);
-              setIsAdmin(isAdminUser);
-              setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
+              setIsAdmin(isUserAdmin);
+              setCurrentPage(isUserAdmin ? 'admin' : 'dashboard');
               lastActivityRef.current = Date.now();
               
               window.history.replaceState({}, '', '/');
@@ -142,14 +141,12 @@ export const useAuth = () => {
       if (vkUser) {
         try {
           const userData = JSON.parse(vkUser);
-          const isAdminUser = userData.email === 'jonhrom2012@gmail.com' || 
-                              (userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений')));
+          const isUserAdmin = isAdminUser(userData.email || null, userData);
           
           console.log('🔍 Checking admin status (localStorage):', {
             userName: userData.name,
             userEmail: userData.email,
-            isAdminUser,
-            nameCheck: userData.name && (userData.name.includes('Пономарев Евгений') || userData.name.includes('Евгений Пономарёв') || userData.name.includes('Евгений'))
+            isUserAdmin
           });
           
           console.log('✅ VK user found in localStorage:', userData);
@@ -159,8 +156,8 @@ export const useAuth = () => {
           setUserName(userData.name || 'Пользователь VK');
           setUserAvatar(userData.avatar || '');
           setIsVerified(userData.is_verified || userData.verified || false);
-          setIsAdmin(isAdminUser);
-          setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
+          setIsAdmin(isUserAdmin);
+          setCurrentPage(isUserAdmin ? 'admin' : 'dashboard');
           lastActivityRef.current = Date.now();
           
           const userId = userData.user_id || userData.vk_id;

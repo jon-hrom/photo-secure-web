@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { isAdminUser } from '@/utils/adminCheck';
 
 interface AdminPanelHeaderProps {
   vkUser: any;
@@ -55,7 +56,7 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                   {vkUser.is_verified && (
                     <Icon name="BadgeCheck" size={20} className="text-white" />
                   )}
-                  {(vkUser.name && vkUser.name.includes('Пономарев Евгений')) && (
+                  {isAdminUser(vkUser.email || null, vkUser) && (
                     <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
                       Администратор
                     </span>
@@ -137,7 +138,14 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-xl font-bold">Администратор</h3>
+                  <h3 className="text-xl font-bold">
+                    {isAdminUser(emailUser.email, null) ? 'Главный администратор' : 'Пользователь'}
+                  </h3>
+                  {isAdminUser(emailUser.email, null) && (
+                    <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
+                      Администратор
+                    </span>
+                  )}
                   <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
                     Email авторизация
                   </span>

@@ -12,6 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { isAdminUser } from '@/utils/adminCheck';
 
 interface DashboardUserCardProps {
   vkUser: any;
@@ -50,7 +51,7 @@ const DashboardUserCard = ({ vkUser, finalIsAdmin, onOpenAdminPanel, onLogout }:
                 {vkUser.is_verified && (
                   <Icon name="BadgeCheck" size={18} className="text-white hidden sm:block" />
                 )}
-                {(vkUser.name && vkUser.name.includes('Пономарев Евгений')) && (
+                {isAdminUser(vkUser.email || null, vkUser) && (
                   <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30 w-fit">
                     Администратор
                   </span>

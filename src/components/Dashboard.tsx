@@ -7,6 +7,7 @@ import StorageWarning from '@/components/StorageWarning';
 import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
 import DashboardStatistics from '@/components/dashboard/DashboardStatistics';
 import DashboardMeetings from '@/components/dashboard/DashboardMeetings';
+import { isAdminUser } from '@/utils/adminCheck';
 
 interface DashboardProps {
   userRole: 'user' | 'admin' | 'guest';
@@ -144,12 +145,11 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
   const vkUserData = localStorage.getItem('vk_user');
   const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
   
-  const isVkAdmin = vkUser && vkUser.name && (
-    vkUser.name.includes('Пономарев Евгений') || 
-    vkUser.name.includes('Евгений Пономарёв') ||
-    vkUser.name.includes('Евгений')
-  );
-  const finalIsAdmin = isAdmin || isVkAdmin;
+  const savedSession = localStorage.getItem('authSession');
+  const emailUser = savedSession ? JSON.parse(savedSession) : null;
+  const userEmail = emailUser?.email || vkUser?.email;
+  
+  const finalIsAdmin = isAdmin || isAdminUser(userEmail, vkUser);
 
   return (
     <div className="space-y-6 animate-fade-in">
