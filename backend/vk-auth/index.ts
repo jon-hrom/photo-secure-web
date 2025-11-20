@@ -111,36 +111,60 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
   try {
     await client.connect();
     
-    const existingResult = await client.query(
-      `SELECT user_id FROM vk_users WHERE vk_sub = ${escapeSQL(vkUserId)}`
+    // Check if user exists in users table by vk_id
+    const existingUserResult = await client.query(
+      `SELECT id FROM users WHERE vk_id = ${escapeSQL(vkUserId)}`
     );
     
     const fullName = `${firstName} ${lastName}`.trim();
     
-    if (existingResult.rows.length > 0) {
-      const userId = existingResult.rows[0].user_id;
+    if (existingUserResult.rows.length > 0) {
+      // Update existing user in users table
+      const userId = existingUserResult.rows[0].id;
       await client.query(
-        `UPDATE vk_users 
-         SET full_name = ${escapeSQL(fullName)}, 
-             avatar_url = ${escapeSQL(avatarUrl)}, 
-             is_verified = ${escapeSQL(isVerified)},
-             email = ${escapeSQL(email)},
-             phone_number = ${escapeSQL(phone)},
+        `UPDATE users 
+         SET phone = ${escapeSQL(phone)},
              ip_address = ${escapeSQL(ipAddress)},
              user_agent = ${escapeSQL(userAgent)},
              is_active = TRUE,
              last_login = CURRENT_TIMESTAMP
-         WHERE user_id = ${escapeSQL(userId)}`
+         WHERE id = ${escapeSQL(userId)}`
       );
+      
+      // Also update vk_users if exists
+      await client.query(
+        `INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active, last_login)
+         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(userId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE, CURRENT_TIMESTAMP)
+         ON CONFLICT (vk_sub) DO UPDATE SET
+           full_name = ${escapeSQL(fullName)},
+           avatar_url = ${escapeSQL(avatarUrl)},
+           is_verified = ${escapeSQL(isVerified)},
+           email = ${escapeSQL(email)},
+           phone_number = ${escapeSQL(phone)},
+           ip_address = ${escapeSQL(ipAddress)},
+           user_agent = ${escapeSQL(userAgent)},
+           is_active = TRUE,
+           last_login = CURRENT_TIMESTAMP`
+      );
+      
       return userId;
     } else {
-      const insertResult = await client.query(
-        `INSERT INTO vk_users 
-         (vk_sub, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active)
-         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE)
-         RETURNING user_id`
+      // Create new user in users table
+      const insertUserResult = await client.query(
+        `INSERT INTO users (vk_id, email, phone, ip_address, user_agent, is_active, registered_at, created_at, updated_at)
+         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING id`
       );
-      return insertResult.rows[0].user_id;
+      const newUserId = insertUserResult.rows[0].id;
+      
+      // Also insert into vk_users
+      await client.query(
+        `INSERT INTO vk_users 
+         (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active)
+         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(newUserId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE)`
+      );
+      
+      return newUserId;
     }
   } finally {
     await client.end();
