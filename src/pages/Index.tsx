@@ -7,6 +7,7 @@ import PhotobookPage from '@/components/PhotobookPage';
 import LoginPage from '@/components/LoginPage';
 import SettingsPage from '@/components/SettingsPage';
 import FeaturesPage from '@/components/FeaturesPage';
+import TariffsPage from '@/components/TariffsPage';
 import AdminPanel from '@/components/AdminPanel';
 import MaintenancePage from '@/components/MaintenancePage';
 import AppNavigation from '@/components/layout/AppNavigation';
@@ -250,6 +251,7 @@ const Index = () => {
         {currentPage === 'clients' && <ClientsPage autoOpenClient={selectedClientName} />}
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'features' && <FeaturesPage />}
+        {currentPage === 'tariffs' && <TariffsPage isAdmin={isAdmin} userId={userId?.toString()} />}
         {currentPage === 'settings' && userId && <SettingsPage userId={userId} />}
         {currentPage === 'admin' && isAdmin && <AdminPanel />}
       </main>

@@ -308,16 +308,16 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold mb-2">12</div>
+            <div className="text-3xl font-bold mb-2">0</div>
             <p className="text-sm text-muted-foreground">Всего в базе</p>
             <div className="mt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span>На этой неделе:</span>
-                <span className="font-semibold">3</span>
+                <span className="font-semibold">0</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>В этом месяце:</span>
-                <span className="font-semibold">7</span>
+                <span className="font-semibold">0</span>
               </div>
             </div>
           </CardContent>
@@ -331,16 +331,16 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold mb-2">5</div>
+            <div className="text-3xl font-bold mb-2">0</div>
             <p className="text-sm text-muted-foreground">Проектов создано</p>
             <div className="mt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span>В работе:</span>
-                <span className="font-semibold">2</span>
+                <span className="font-semibold">0</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Завершено:</span>
-                <span className="font-semibold">3</span>
+                <span className="font-semibold">0</span>
               </div>
             </div>
           </CardContent>
@@ -357,27 +357,37 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-              {upcomingMeetings.map((meeting) => (
-                <div
-                  key={meeting.id}
-                  onClick={() => handleMeetingClick(meeting.name)}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer hover:shadow-md"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-primary/10 p-2 rounded-full">
-                      <Icon name="User" size={18} className="text-primary" />
+              {upcomingMeetings.length > 0 ? (
+                upcomingMeetings.map((meeting) => (
+                  <div
+                    key={meeting.id}
+                    onClick={() => handleMeetingClick(meeting.name)}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer hover:shadow-md"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-primary/10 p-2 rounded-full">
+                        <Icon name="User" size={18} className="text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">{meeting.name}</p>
+                        <p className="text-sm text-muted-foreground">{meeting.type}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold">{meeting.name}</p>
-                      <p className="text-sm text-muted-foreground">{meeting.type}</p>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{meeting.date}</p>
+                      <p className="text-sm text-muted-foreground">{meeting.time}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{meeting.date}</p>
-                    <p className="text-sm text-muted-foreground">{meeting.time}</p>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="bg-muted rounded-full p-4 mb-4">
+                    <Icon name="CalendarX" size={32} className="text-muted-foreground" />
                   </div>
+                  <p className="text-muted-foreground mb-2">Нет запланированных встреч</p>
+                  <p className="text-sm text-muted-foreground">Добавьте новых клиентов и назначьте встречи</p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -393,23 +403,23 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Завершённые проекты</span>
-                <span className="font-bold">85%</span>
+                <span className="font-bold">0%</span>
               </div>
-              <Progress value={85} className="h-2" />
+              <Progress value={0} className="h-2" />
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Загрузка календаря</span>
-                <span className="font-bold">62%</span>
+                <span className="font-bold">0%</span>
               </div>
-              <Progress value={62} className="h-2" />
+              <Progress value={0} className="h-2" />
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Довольные клиенты</span>
-                <span className="font-bold">98%</span>
+                <span className="font-bold">0%</span>
               </div>
-              <Progress value={98} className="h-2" />
+              <Progress value={0} className="h-2" />
             </div>
             {userRole === 'admin' && (
               <div className="pt-4 border-t">

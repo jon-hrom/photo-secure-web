@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface AppNavigationProps {
-  currentPage: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin';
-  setCurrentPage: (page: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin') => void;
+  currentPage: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs';
+  setCurrentPage: (page: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs') => void;
   userName: string;
   userEmail: string;
   userAvatar: string;
@@ -95,20 +95,13 @@ const AppNavigation = ({
                   <Icon name="Images" size={18} className="mr-2" />
                   Мой фото банк
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('features')}>
-                  <Icon name="Sparkles" size={18} className="mr-2" />
-                  Возможности сервиса
+                <DropdownMenuItem onClick={() => setCurrentPage('tariffs')}>
+                  <Icon name="Zap" size={18} className="mr-2" />
+                  Тарифы
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              variant="outline"
-              onClick={() => setCurrentPage('features')}
-              className="rounded-full border-2 border-green-500 hover:bg-green-50"
-            >
-              <Icon name="Zap" size={18} className="mr-2" />
-              Возможности
-            </Button>
+
             <Button
               variant="outline"
               onClick={() => setCurrentPage('settings')}
