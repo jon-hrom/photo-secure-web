@@ -400,7 +400,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
       <Card className="shadow-lg border-2">
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Icon name="Calendar" className="mr-2 text-primary" size={20} md:size={24} />
+            <Icon name="Calendar" className="mr-2 text-primary" size={20} />
             <span className="text-base md:text-xl">Ближайшие встречи</span>
           </CardTitle>
         </CardHeader>
