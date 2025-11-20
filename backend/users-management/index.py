@@ -181,15 +181,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Определяем источник пользователя
             if user_id_str.startswith('vk_'):
                 vk_id = user_id_str.replace('vk_', '')
-                cur.execute("""
-                    DELETE FROM t_p28211681_photo_secure_web.vk_users
-                    WHERE user_id = %s
-                """, (int(vk_id),))
+                user_id_int = int(vk_id)
+                
+                # Удаляем все связанные данные VK пользователя
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.vk_temp_sessions WHERE vk_user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.oauth_sessions WHERE user_id = %s AND auth_provider = 'vk'", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.storage_objects WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.storage_invoices WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.photo_bank WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.login_attempts WHERE user_id = %s::text", (user_id_int,))
+                
+                # Удаляем VK пользователя
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.vk_users WHERE user_id = %s", (user_id_int,))
             else:
-                cur.execute("""
-                    DELETE FROM t_p28211681_photo_secure_web.users
-                    WHERE id = %s
-                """, (int(user_id_str),))
+                user_id_int = int(user_id_str)
+                
+                # Удаляем все связанные данные обычного пользователя
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.email_verification_logs WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.email_verifications WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.login_attempts WHERE user_id = %s::text", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.oauth_sessions WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.two_factor_codes WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.two_factor_disable_requests WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.user_profiles WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.storage_objects WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.storage_invoices WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.photo_bank WHERE user_id = %s", (user_id_int,))
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.photobook_designs WHERE user_id = %s", (user_id_int,))
+                
+                # Удаляем пользователя
+                cur.execute("DELETE FROM t_p28211681_photo_secure_web.users WHERE id = %s", (user_id_int,))
             
             conn.commit()
             
