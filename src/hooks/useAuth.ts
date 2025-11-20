@@ -37,6 +37,8 @@ export const useAuth = () => {
     setCurrentPage(page);
     lastActivityRef.current = Date.now();
     
+    localStorage.setItem('userId', uid.toString());
+    
     localStorage.setItem('authSession', JSON.stringify({
       isAuthenticated: true,
       userId: uid,
