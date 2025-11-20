@@ -6,6 +6,7 @@ interface Photo {
   id: number;
   file_name: string;
   data_url?: string;
+  s3_url?: string;
   file_size: number;
   width: number | null;
   height: number | null;
@@ -193,7 +194,7 @@ const PhotoBankPhotoGrid = ({
                   </div>
                 )}
                 <img
-                  src={photo.data_url || ''}
+                  src={photo.s3_url || photo.data_url || ''}
                   alt={photo.file_name}
                   className="w-full h-full object-cover"
                 />

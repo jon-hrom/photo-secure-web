@@ -12,6 +12,7 @@ interface Photo {
   id: number;
   file_name: string;
   data_url?: string;
+  s3_url?: string;
   file_size: number;
   width: number | null;
   height: number | null;
