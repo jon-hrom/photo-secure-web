@@ -444,49 +444,66 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             elif action == 'update-contact':
-                user_id = body.get('userId')
-                field = body.get('field')
-                value = body.get('value')
-                
-                if not user_id or not field or field not in ['email', 'phone']:
+                try:
+                    user_id = body.get('userId')
+                    field = body.get('field')
+                    value = body.get('value')
+                    
+                    print(f"[UPDATE_CONTACT] user_id={user_id}, field={field}, value={value}")
+                    
+                    if not user_id or not field or field not in ['email', 'phone']:
+                        return {
+                            'statusCode': 400,
+                            'headers': headers,
+                            'body': json.dumps({'error': 'Некорректные данные'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    cursor = conn.cursor()
+                    
+                    query1 = f"SELECT source FROM users WHERE id = {escape_sql(user_id)}"
+                    print(f"[UPDATE_CONTACT] Query 1: {query1}")
+                    cursor.execute(query1)
+                    user_source_row = cursor.fetchone()
+                    user_source = user_source_row['source'] if user_source_row else 'email'
+                    print(f"[UPDATE_CONTACT] user_source={user_source}")
+                    
+                    if field == 'email':
+                        query2 = f"UPDATE users SET email = {escape_sql(value)}, email_verified_at = NULL WHERE id = {escape_sql(user_id)}"
+                        print(f"[UPDATE_CONTACT] Query 2: {query2}")
+                        cursor.execute(query2)
+                        if user_source == 'vk':
+                            query3 = f"UPDATE vk_users SET email = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
+                            print(f"[UPDATE_CONTACT] Query 3: {query3}")
+                            cursor.execute(query3)
+                    else:
+                        query2 = f"UPDATE users SET {field} = {escape_sql(value)} WHERE id = {escape_sql(user_id)}"
+                        print(f"[UPDATE_CONTACT] Query 2: {query2}")
+                        cursor.execute(query2)
+                        if user_source == 'vk':
+                            query3 = f"UPDATE vk_users SET phone_number = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
+                            print(f"[UPDATE_CONTACT] Query 3: {query3}")
+                            cursor.execute(query3)
+                    
+                    conn.commit()
+                    print("[UPDATE_CONTACT] Success!")
+                    
                     return {
-                        'statusCode': 400,
+                        'statusCode': 200,
                         'headers': headers,
-                        'body': json.dumps({'error': 'Некорректные данные'}),
+                        'body': json.dumps({'success': True}),
                         'isBase64Encoded': False
                     }
-                
-                cursor = conn.cursor()
-                
-                cursor.execute(f"SELECT source FROM users WHERE id = {escape_sql(user_id)}")
-                user_source_row = cursor.fetchone()
-                user_source = user_source_row['source'] if user_source_row else 'email'
-                
-                if field == 'email':
-                    cursor.execute(
-                        f"UPDATE users SET email = {escape_sql(value)}, email_verified_at = NULL WHERE id = {escape_sql(user_id)}"
-                    )
-                    if user_source == 'vk':
-                        cursor.execute(
-                            f"UPDATE vk_users SET email = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
-                        )
-                else:
-                    cursor.execute(
-                        f"UPDATE users SET {field} = {escape_sql(value)} WHERE id = {escape_sql(user_id)}"
-                    )
-                    if user_source == 'vk':
-                        cursor.execute(
-                            f"UPDATE vk_users SET phone_number = {escape_sql(value)} WHERE user_id = {escape_sql(user_id)}"
-                        )
-                
-                conn.commit()
-                
-                return {
-                    'statusCode': 200,
-                    'headers': headers,
-                    'body': json.dumps({'success': True}),
-                    'isBase64Encoded': False
-                }
+                except Exception as e:
+                    print(f"[UPDATE_CONTACT] Error: {type(e).__name__}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    return {
+                        'statusCode': 500,
+                        'headers': headers,
+                        'body': json.dumps({'error': f'Internal error: {str(e)}'}),
+                        'isBase64Encoded': False
+                    }
             
             elif action == 'update-activity':
                 email = body.get('email')
