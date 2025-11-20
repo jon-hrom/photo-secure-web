@@ -279,6 +279,54 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            elif action == 'delete_photo_forever':
+                photo_id = body_data.get('photo_id')
+                
+                if not photo_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'photo_id required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        SELECT s3_key
+                        FROM photo_bank
+                        WHERE id = %s AND user_id = %s AND is_trashed = TRUE
+                    ''', (photo_id, user_id))
+                    photo = cur.fetchone()
+                    
+                    if not photo:
+                        return {
+                            'statusCode': 404,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Trashed photo not found'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    s3_key = photo['s3_key']
+                    trash_key = f'trash/{s3_key}'
+                    
+                    try:
+                        s3_client.delete_object(Bucket=bucket, Key=trash_key)
+                    except Exception as e:
+                        print(f'Failed to delete photo from S3: {e}')
+                    
+                    cur.execute('''
+                        DELETE FROM photo_bank
+                        WHERE id = %s
+                    ''', (photo_id,))
+                    conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'ok': True}),
+                    'isBase64Encoded': False
+                }
+            
             elif action == 'empty':
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''

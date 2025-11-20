@@ -57,6 +57,7 @@ const PhotoBankTrash = () => {
   const [trashedPhotos, setTrashedPhotos] = useState<TrashedPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   
   const PHOTOBANK_TRASH_API = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d';
@@ -210,6 +211,46 @@ const PhotoBankTrash = () => {
       });
     } finally {
       setRestoring(null);
+    }
+  };
+  
+  const handleDeletePhotoForever = async (photoId: number, fileName: string) => {
+    if (!userId) return;
+    if (!confirm(`Удалить фото "${fileName}" навсегда? Это действие нельзя отменить!`)) return;
+    
+    setDeleting(photoId);
+    try {
+      const res = await fetch(PHOTOBANK_TRASH_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
+        body: JSON.stringify({
+          action: 'delete_photo_forever',
+          photo_id: photoId
+        })
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to delete photo');
+      }
+      
+      toast({
+        title: 'Успешно',
+        description: `Фото "${fileName}" удалено навсегда`
+      });
+      
+      fetchTrash();
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось удалить фото',
+        variant: 'destructive'
+      });
+    } finally {
+      setDeleting(null);
     }
   };
   
@@ -398,12 +439,13 @@ const PhotoBankTrash = () => {
                         </div>
                       )}
                     </div>
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 p-2">
                       <Button
                         size="sm"
                         variant="secondary"
                         onClick={() => handleRestorePhoto(photo.id, photo.file_name)}
-                        disabled={restoring === photo.id}
+                        disabled={restoring === photo.id || deleting === photo.id}
+                        className="w-full"
                       >
                         {restoring === photo.id ? (
                           <Icon name="Loader2" size={14} className="animate-spin" />
@@ -411,6 +453,22 @@ const PhotoBankTrash = () => {
                           <>
                             <Icon name="Undo2" size={14} className="mr-1" />
                             Восстановить
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeletePhotoForever(photo.id, photo.file_name)}
+                        disabled={restoring === photo.id || deleting === photo.id}
+                        className="w-full"
+                      >
+                        {deleting === photo.id ? (
+                          <Icon name="Loader2" size={14} className="animate-spin" />
+                        ) : (
+                          <>
+                            <Icon name="Trash2" size={14} className="mr-1" />
+                            Удалить навсегда
                           </>
                         )}
                       </Button>
