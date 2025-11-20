@@ -325,27 +325,20 @@ exports.handler = async (event, context) => {
       const phone = tokenData.phone || '';
       
       // Call Python function to create/update user (has write permissions)
-      const createUserResponse = await fetch('https://functions.poehali.dev/func2url.json')
-        .then(r => r.json())
-        .then(async (urls) => {
-          const createUserUrl = urls['create-vk-user'];
-          if (!createUserUrl) {
-            throw new Error('create-vk-user function not found');
-          }
-          
-          return fetch(createUserUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              vk_id: String(tokenData.user_id),
-              full_name: `${vkUserInfo.first_name || ''} ${vkUserInfo.last_name || ''}`.trim(),
-              email: email,
-              phone: phone,
-              avatar_url: vkUserInfo.photo_max || vkUserInfo.photo_200 || '',
-              is_verified: vkUserInfo.verified === 1 || vkUserInfo.verified === true
-            })
-          });
-        });
+      const CREATE_VK_USER_URL = 'https://functions.poehali.dev/ae4d99c5-29f0-4687-9ce5-e9c841acd105';
+      
+      const createUserResponse = await fetch(CREATE_VK_USER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vk_id: String(tokenData.user_id),
+          full_name: `${vkUserInfo.first_name || ''} ${vkUserInfo.last_name || ''}`.trim(),
+          email: email,
+          phone: phone,
+          avatar_url: vkUserInfo.photo_max || vkUserInfo.photo_200 || '',
+          is_verified: vkUserInfo.verified === 1 || vkUserInfo.verified === true
+        })
+      });
       
       if (!createUserResponse.ok) {
         const errorText = await createUserResponse.text();
