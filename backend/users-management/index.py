@@ -128,7 +128,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         elif method == 'PUT':
             body_data = json.loads(event.get('body', '{}'))
-            user_id_str = body_data.get('user_id')
+            user_id_str = str(body_data.get('user_id'))
             action = body_data.get('action')
             reason = body_data.get('reason', '')
             
@@ -176,7 +176,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         elif method == 'DELETE':
             body_data = json.loads(event.get('body', '{}'))
-            user_id_str = body_data.get('user_id')
+            user_id_str = str(body_data.get('user_id'))
             
             # Определяем источник пользователя
             if user_id_str.startswith('vk_'):
