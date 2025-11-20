@@ -65,8 +65,8 @@ const StorageWarning = () => {
         Хранилище заканчивается
       </AlertTitle>
       <AlertDescription className="text-orange-700">
-        Использовано {usage.usedGb.toFixed(2)} ГБ из {usage.limitGb} ГБ ({usage.percent.toFixed(1)}%).
-        Осталось только {usage.remainingGb.toFixed(2)} ГБ свободного места.
+        Использовано {(usage.usedGb || 0).toFixed(2)} ГБ из {(usage.limitGb || 5).toFixed(0)} ГБ ({(usage.percent || 0).toFixed(1)}%).
+        Осталось только {(usage.remainingGb || 0).toFixed(2)} ГБ свободного места.
         <div className="mt-3 text-sm">
           Обратитесь к администратору для увеличения лимита хранилища.
         </div>
