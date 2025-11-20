@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+
 import Icon from '@/components/ui/icon';
 
 const STORAGE_API = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
@@ -18,7 +18,6 @@ interface StorageUsage {
 const StorageWarning = () => {
   const [usage, setUsage] = useState<StorageUsage | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const navigate = useNavigate();
   const userId = localStorage.getItem('userId') || '1';
 
   useEffect(() => {
@@ -47,10 +46,6 @@ const StorageWarning = () => {
     localStorage.setItem('storageWarningDismissed', 'true');
   };
 
-  const handleUpgrade = () => {
-    navigate('/upgrade-plan');
-  };
-
   if (!usage || usage.percent < 90 || dismissed) {
     return null;
   }
@@ -72,11 +67,8 @@ const StorageWarning = () => {
       <AlertDescription className="text-orange-700">
         Использовано {usage.usedGb.toFixed(2)} ГБ из {usage.limitGb} ГБ ({usage.percent.toFixed(1)}%).
         Осталось только {usage.remainingGb.toFixed(2)} ГБ свободного места.
-        <div className="mt-3">
-          <Button onClick={handleUpgrade} className="bg-orange-600 hover:bg-orange-700">
-            <Icon name="Zap" size={16} className="mr-2" />
-            Увеличить хранилище
-          </Button>
+        <div className="mt-3 text-sm">
+          Обратитесь к администратору для увеличения лимита хранилища.
         </div>
       </AlertDescription>
     </Alert>

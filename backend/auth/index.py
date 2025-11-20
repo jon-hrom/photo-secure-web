@@ -188,9 +188,6 @@ def send_2fa_email(to: str, code: str):
         }
     )
 
-def send_2fa_sms(phone: str, code: str):
-    pass
-
 def send_2fa_code(conn, user_id: int, code: str, code_type: str):
     cursor = conn.cursor()
     expires_at = datetime.now() + timedelta(minutes=10)
@@ -205,11 +202,6 @@ def send_2fa_code(conn, user_id: int, code: str, code_type: str):
         user = cursor.fetchone()
         if user and user['email']:
             send_2fa_email(user['email'], code)
-    elif code_type == 'sms':
-        cursor.execute("SELECT phone FROM users WHERE id = %s", (user_id,))
-        user = cursor.fetchone()
-        if user and user['phone']:
-            send_2fa_sms(user['phone'], code)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')

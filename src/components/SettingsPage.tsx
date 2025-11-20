@@ -11,7 +11,6 @@ import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 interface UserSettings {
   email: string;
   phone: string;
-  two_factor_sms: boolean;
   two_factor_email: boolean;
   email_verified_at: string | null;
   source?: 'email' | 'vk' | 'google' | 'yandex';
@@ -25,7 +24,6 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   const [settings, setSettings] = useState<UserSettings>({
     email: '',
     phone: '',
-    two_factor_sms: false,
     two_factor_email: false,
     email_verified_at: null,
     source: 'email',
@@ -62,12 +60,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     }
   };
 
-  const handleToggle2FA = async (type: 'sms' | 'email', enabled: boolean) => {
-    if (type === 'sms' && enabled && !settings.phone) {
-      toast.error('Добавьте номер телефона для включения SMS-аутентификации');
-      return;
-    }
-
+  const handleToggle2FA = async (type: 'email', enabled: boolean) => {
     if (type === 'email' && enabled && !settings.email) {
       toast.error('Добавьте email для включения email-аутентификации');
       return;
@@ -289,23 +282,6 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             <CardDescription>Двухфакторная аутентификация</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon name="Smartphone" size={20} className="text-primary" />
-                  <Label className="font-semibold">SMS-аутентификация</Label>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Код из 6 цифр будет отправлен на ваш телефон
-                </p>
-              </div>
-              <Switch
-                checked={settings.two_factor_sms}
-                onCheckedChange={(checked) => handleToggle2FA('sms', checked)}
-                disabled={!settings.phone}
-              />
-            </div>
-
             <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">

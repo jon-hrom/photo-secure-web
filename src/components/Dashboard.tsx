@@ -28,6 +28,13 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
   const [balance] = useState(0);
+  const [upcomingMeetings, setUpcomingMeetings] = useState<Array<{
+    id: number;
+    name: string;
+    date: string;
+    time: string;
+    type: string;
+  }>>([]);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0 });
 
@@ -36,6 +43,38 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
       setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchMeetings = async () => {
+      const userId = localStorage.getItem('userId');
+      if (!userId) return;
+      
+      try {
+        const res = await fetch(`https://functions.poehali.dev/c9c95946-cd1a-45f3-ad47-9390b5e1b47b?userId=${userId}`);
+        const appointments = await res.json();
+        
+        const formatted = appointments
+          .filter((apt: any) => new Date(apt.date) >= new Date())
+          .slice(0, 6)
+          .map((apt: any) => {
+            const meetingDate = new Date(apt.date);
+            return {
+              id: apt.id,
+              name: apt.clientName || 'Без имени',
+              date: meetingDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
+              time: meetingDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+              type: apt.title || apt.description || 'Встреча'
+            };
+          });
+        
+        setUpcomingMeetings(formatted);
+      } catch (error) {
+        console.error('Failed to load meetings:', error);
+      }
+    };
+    
+    fetchMeetings();
   }, []);
 
   useEffect(() => {
@@ -81,15 +120,6 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
 
   const isTrialPeriod = trialDaysLeft > 0 && subscriptionDaysLeft === 0;
 
-  const upcomingMeetings = [
-    { id: 1, name: 'Иванова Мария Петровна', date: '15 ноября', time: '14:00', type: 'Свадебная фотосессия в студии' },
-    { id: 2, name: 'Петров Сергей Иванович', date: '16 ноября', time: '16:30', type: 'Консультация по выбору пакета услуг' },
-    { id: 3, name: 'Смирнова Елена', date: '18 ноября', time: '10:00', type: 'Выдача фотокниги' },
-    { id: 4, name: 'Козлов Дмитрий', date: '19 ноября', time: '15:00', type: 'Корпоративная съёмка' },
-    { id: 5, name: 'Новикова Анна', date: '20 ноября', time: '12:00', type: 'Семейная фотосессия' },
-    { id: 6, name: 'Морозов Игорь', date: '21 ноября', time: '17:00', type: 'Портретная съёмка' },
-  ];
-
   const handleMeetingClick = (clientName: string) => {
     if (onOpenClientBooking) {
       onOpenClientBooking(clientName);
@@ -99,25 +129,12 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
   const vkUserData = localStorage.getItem('vk_user');
   const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
   
-  console.log('📦 vkUserData raw:', vkUserData);
-  console.log('📦 vkUser parsed:', vkUser);
-  
-  // Дополнительная проверка админа по имени VK пользователя
   const isVkAdmin = vkUser && vkUser.name && (
     vkUser.name.includes('Пономарев Евгений') || 
     vkUser.name.includes('Евгений Пономарёв') ||
     vkUser.name.includes('Евгений')
   );
   const finalIsAdmin = isAdmin || isVkAdmin;
-
-  console.log('🔍 Dashboard render:', {
-    isAdmin,
-    isVkAdmin,
-    finalIsAdmin,
-    hasOnOpenAdminPanel: !!onOpenAdminPanel,
-    vkUserName: vkUser?.name,
-    vkUserEmail: vkUser?.email
-  });
 
   return (
     <div className="space-y-6 animate-fade-in">

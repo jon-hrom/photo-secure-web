@@ -15,7 +15,6 @@ interface ClientsPageProps {
 }
 
 const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
-  const [emailVerified, setEmailVerified] = useState(false);
   const userId = localStorage.getItem('userId');
   const [clients, setClients] = useState<Client[]>([
     {

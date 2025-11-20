@@ -8,7 +8,7 @@ import Icon from '@/components/ui/icon';
 interface TwoFactorDialogProps {
   open: boolean;
   userId: number;
-  type: 'sms' | 'email';
+  type: 'email';
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -97,7 +97,7 @@ const TwoFactorDialog = ({ open, userId, type, onSuccess, onCancel }: TwoFactorD
             Двухфакторная аутентификация
           </DialogTitle>
           <DialogDescription>
-            Код отправлен на {type === 'sms' ? 'ваш телефон' : 'вашу почту'}
+            Код отправлен на вашу почту
           </DialogDescription>
         </DialogHeader>
 

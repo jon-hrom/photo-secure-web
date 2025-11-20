@@ -25,7 +25,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [is2FADialogOpen, setIs2FADialogOpen] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [pendingUserId, setPendingUserId] = useState<number | null>(null);
-  const [twoFactorType, setTwoFactorType] = useState<'sms' | 'email'>('email');
+  const [twoFactorType, setTwoFactorType] = useState<'email'>('email');
   const [passwordError, setPasswordError] = useState('');
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [backgroundOpacity, setBackgroundOpacity] = useState<number>(20);
@@ -59,10 +59,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       try {
         const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=auth_providers');
         const data = await response.json();
-        console.log('Loaded auth providers:', data);
         if (data.value) {
           setAuthProviders(data.value);
-          console.log('Auth providers set to:', data.value);
         }
       } catch (error) {
         console.error('Ошибка загрузки настроек провайдеров:', error);

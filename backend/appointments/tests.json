@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Get appointments for user",
+      "method": "GET",
+      "path": "/?userId=11",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "type"
+    },
+    {
+      "name": "Create appointment",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "userId": 11,
+        "title": "Тестовая встреча",
+        "description": "Описание встречи",
+        "date": "2025-12-01T14:00:00",
+        "clientName": "Иван Иванов",
+        "clientPhone": "+79991234567"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "id": "number",
+        "title": "string",
+        "status": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -13,7 +13,6 @@ import BackButton from "./components/BackButton";
 import FaceBlurEditor from "./components/FaceBlurEditor";
 import MyFiles from "./pages/MyFiles";
 import AdminStorage from "./pages/AdminStorage";
-import UpgradePlan from "./pages/UpgradePlan";
 import PhotoBank from "./pages/PhotoBank";
 import PhotoBankTrash from "./pages/PhotoBankTrash";
 
@@ -31,7 +30,6 @@ const App = () => (
           <Route path="/my-files" element={<MyFiles />} />
           <Route path="/photo-bank" element={<PhotoBank />} />
           <Route path="/photo-bank/trash" element={<PhotoBankTrash />} />
-          <Route path="/upgrade-plan" element={<UpgradePlan />} />
           <Route path="/admin/storage" element={<AdminStorage />} />
           <Route path="/face-blur" element={<FaceBlurEditor />} />
           <Route path="/vk-callback" element={<VKCallbackDirect />} />
