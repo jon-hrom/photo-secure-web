@@ -17,13 +17,14 @@ import {
 
 interface DashboardProps {
   userRole: 'user' | 'admin' | 'guest';
+  userId?: string | null;
   onOpenClientBooking?: (clientName: string) => void;
   onLogout?: () => void;
   onOpenAdminPanel?: () => void;
   isAdmin?: boolean;
 }
 
-const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, isAdmin }: DashboardProps) => {
+const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout, onOpenAdminPanel, isAdmin }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -47,8 +48,11 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
 
   useEffect(() => {
     const fetchMeetings = async () => {
-      const userId = localStorage.getItem('userId');
-      if (!userId) return;
+      const userId = propUserId || localStorage.getItem('userId');
+      if (!userId) {
+        console.log('[MEETINGS] No userId available');
+        return;
+      }
       
       try {
         const res = await fetch(`https://functions.poehali.dev/c9c95946-cd1a-45f3-ad47-9390b5e1b47b?userId=${userId}`);
@@ -75,16 +79,31 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
     };
     
     fetchMeetings();
-  }, []);
+  }, [propUserId]);
 
   useEffect(() => {
     const fetchStorageUsage = async () => {
-      const userId = localStorage.getItem('userId') || '1';
+      const userId = propUserId || localStorage.getItem('userId');
+      if (!userId) {
+        console.log('[STORAGE] No userId, skipping storage fetch');
+        setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0 });
+        return;
+      }
+      
       try {
+        console.log('[STORAGE] Fetching storage for userId:', userId);
         const res = await fetch('https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985?action=usage', {
           headers: { 'X-User-Id': userId }
         });
+        
+        if (!res.ok) {
+          console.error('[STORAGE] API error:', res.status);
+          setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0 });
+          return;
+        }
+        
         const data = await res.json();
+        console.log('[STORAGE] Received data:', data);
         setStorageUsage({
           usedGb: data.usedGb || 0,
           limitGb: data.limitGb || 5,
@@ -92,13 +111,14 @@ const Dashboard = ({ userRole, onOpenClientBooking, onLogout, onOpenAdminPanel, 
         });
       } catch (error) {
         console.error('Failed to fetch storage usage:', error);
+        setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0 });
       }
     };
     
     fetchStorageUsage();
     const interval = setInterval(fetchStorageUsage, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [propUserId]);
 
   const formatDate = (date: Date) => {
     const formatted = new Intl.DateTimeFormat('ru-RU', {

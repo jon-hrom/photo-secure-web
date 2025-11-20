@@ -47,6 +47,12 @@ const Index = () => {
   });
 
   useEffect(() => {
+    if (currentPage !== 'clients' && selectedClientName !== undefined) {
+      setSelectedClientName(undefined);
+    }
+  }, [currentPage, selectedClientName]);
+
+  useEffect(() => {
     const checkEmailVerification = async () => {
       if (!isAuthenticated || !userId) {
         console.log('[EMAIL_CHECK] Skipping - not authenticated or no userId:', { isAuthenticated, userId });
@@ -92,12 +98,6 @@ const Index = () => {
     
     checkEmailVerification();
   }, [isAuthenticated, userId, currentPage]);
-
-  if (currentPage !== 'clients') {
-    if (selectedClientName !== undefined) {
-      setSelectedClientName(undefined);
-    }
-  }
 
   if (loading) {
     return (
@@ -236,7 +236,8 @@ const Index = () => {
         
         {currentPage === 'dashboard' && (
           <Dashboard 
-            userRole="user" 
+            userRole="user"
+            userId={userId?.toString() || null}
             onOpenClientBooking={(clientName) => {
               setSelectedClientName(clientName);
               setCurrentPage('clients');
