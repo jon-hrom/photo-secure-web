@@ -298,21 +298,21 @@ export const usePhotoBankHandlers = (
     if (!confirm(`Переместить фото ${fileName} в корзину?`)) return;
 
     try {
-      await fetch(PHOTO_BANK_API, {
+      const res = await fetch(`${PHOTOBANK_TRASH_API}?photo_id=${photoId}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
           'X-User-Id': userId
-        },
-        body: JSON.stringify({
-          action: 'delete_photo',
-          photo_id: photoId
-        })
+        }
       });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to delete photo');
+      }
 
       toast({
         title: 'Успешно',
-        description: `Фото ${fileName} удалено`
+        description: `Фото ${fileName} перемещено в корзину`
       });
 
       if (selectedFolder) {
@@ -320,10 +320,10 @@ export const usePhotoBankHandlers = (
         fetchFolders();
         fetchStorageUsage();
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Ошибка',
-        description: 'Не удалось удалить фото',
+        description: error.message || 'Не удалось удалить фото',
         variant: 'destructive'
       });
     }
