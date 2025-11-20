@@ -59,6 +59,11 @@ const PhotoBankTrash = () => {
   const [restoring, setRestoring] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<number>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'name' | 'size'>('date');
+  const [filterCritical, setFilterCritical] = useState(false);
   
   const PHOTOBANK_TRASH_API = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d';
 
@@ -254,6 +259,112 @@ const PhotoBankTrash = () => {
     }
   };
   
+  const handleBulkRestore = async () => {
+    if (!userId || selectedPhotoIds.size === 0) return;
+    if (!confirm(`Восстановить ${selectedPhotoIds.size} фото?`)) return;
+    
+    setLoading(true);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const photoId of selectedPhotoIds) {
+      try {
+        const res = await fetch(PHOTOBANK_TRASH_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId
+          },
+          body: JSON.stringify({
+            action: 'restore_photo',
+            photo_id: photoId
+          })
+        });
+        
+        if (res.ok) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch {
+        errorCount++;
+      }
+    }
+    
+    toast({
+      title: 'Готово',
+      description: `Восстановлено: ${successCount}${errorCount > 0 ? `, ошибок: ${errorCount}` : ''}`
+    });
+    
+    setSelectedPhotoIds(new Set());
+    setSelectionMode(false);
+    setLoading(false);
+    fetchTrash();
+  };
+  
+  const handleBulkDelete = async () => {
+    if (!userId || selectedPhotoIds.size === 0) return;
+    if (!confirm(`Удалить ${selectedPhotoIds.size} фото навсегда? Это действие нельзя отменить!`)) return;
+    
+    setLoading(true);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const photoId of selectedPhotoIds) {
+      try {
+        const res = await fetch(PHOTOBANK_TRASH_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId
+          },
+          body: JSON.stringify({
+            action: 'delete_photo_forever',
+            photo_id: photoId
+          })
+        });
+        
+        if (res.ok) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch {
+        errorCount++;
+      }
+    }
+    
+    toast({
+      title: 'Готово',
+      description: `Удалено: ${successCount}${errorCount > 0 ? `, ошибок: ${errorCount}` : ''}`
+    });
+    
+    setSelectedPhotoIds(new Set());
+    setSelectionMode(false);
+    setLoading(false);
+    fetchTrash();
+  };
+  
+  const togglePhotoSelection = (photoId: number) => {
+    setSelectedPhotoIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(photoId)) {
+        newSet.delete(photoId);
+      } else {
+        newSet.add(photoId);
+      }
+      return newSet;
+    });
+  };
+  
+  const selectAllPhotos = () => {
+    setSelectedPhotoIds(new Set(filteredAndSortedPhotos.map(p => p.id)));
+  };
+  
+  const deselectAllPhotos = () => {
+    setSelectedPhotoIds(new Set());
+  };
+  
   const handleEmptyTrash = async () => {
     if (!userId) return;
     if (!confirm('Очистить корзину полностью? Это действие нельзя отменить!')) return;
@@ -321,6 +432,35 @@ const PhotoBankTrash = () => {
       text: daysLeft <= 0 ? 'Удаление...' : `${daysLeft}д`
     };
   };
+  
+  const getDaysLeft = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    return 7 - days;
+  };
+  
+  const filteredAndSortedPhotos = trashedPhotos
+    .filter(photo => {
+      if (searchQuery && !photo.file_name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      if (filterCritical && getDaysLeft(photo.trashed_at) > 2) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'date') {
+        return new Date(b.trashed_at).getTime() - new Date(a.trashed_at).getTime();
+      } else if (sortBy === 'name') {
+        return a.file_name.localeCompare(b.file_name);
+      } else if (sortBy === 'size') {
+        return (b.file_size || 0) - (a.file_size || 0);
+      }
+      return 0;
+    });
   
   useEffect(() => {
     if (!authChecking && userId) {
@@ -434,18 +574,132 @@ const PhotoBankTrash = () => {
         {trashedPhotos.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Icon name="Image" size={20} />
-                Удаленные фото ({trashedPhotos.length})
-              </CardTitle>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <CardTitle className="flex items-center gap-2">
+                  <Icon name="Image" size={20} />
+                  Удаленные фото ({filteredAndSortedPhotos.length}/{trashedPhotos.length})
+                </CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!selectionMode ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectionMode(true)}
+                    >
+                      <Icon name="CheckSquare" className="mr-2" size={16} />
+                      Выбрать
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllPhotos}
+                      >
+                        Выбрать все
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={deselectAllPhotos}
+                      >
+                        Снять выбор
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleBulkRestore}
+                        disabled={selectedPhotoIds.size === 0 || loading}
+                      >
+                        <Icon name="Undo2" className="mr-2" size={16} />
+                        Восстановить ({selectedPhotoIds.size})
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                        disabled={selectedPhotoIds.size === 0 || loading}
+                      >
+                        <Icon name="Trash2" className="mr-2" size={16} />
+                        Удалить ({selectedPhotoIds.size})
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectionMode(false);
+                          setSelectedPhotoIds(new Set());
+                        }}
+                      >
+                        Отмена
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-4 flex-wrap">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="relative">
+                    <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Поиск по имени..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="date">По дате</option>
+                  <option value="name">По имени</option>
+                  <option value="size">По размеру</option>
+                </select>
+                <Button
+                  variant={filterCritical ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterCritical(!filterCritical)}
+                >
+                  <Icon name="AlertTriangle" className="mr-2" size={16} />
+                  Только критичные
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {trashedPhotos.map((photo) => (
+              {filteredAndSortedPhotos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Icon name="Search" size={48} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Ничего не найдено</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {filteredAndSortedPhotos.map((photo) => (
                   <div
                     key={photo.id}
-                    className="relative group rounded-lg overflow-hidden border-2 border-muted hover:border-muted-foreground/20 transition-colors"
+                    className={`relative group rounded-lg overflow-hidden border-2 transition-colors ${
+                      selectedPhotoIds.has(photo.id) 
+                        ? 'border-primary ring-2 ring-primary' 
+                        : 'border-muted hover:border-muted-foreground/20'
+                    }`}
+                    onClick={() => selectionMode && togglePhotoSelection(photo.id)}
                   >
+                    {selectionMode && (
+                      <div className="absolute top-2 left-2 z-10">
+                        <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                          selectedPhotoIds.has(photo.id)
+                            ? 'bg-primary border-primary'
+                            : 'bg-white/80 border-white'
+                        }`}>
+                          {selectedPhotoIds.has(photo.id) && (
+                            <Icon name="Check" size={16} className="text-white" />
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <div className="aspect-square bg-muted">
                       {photo.s3_url ? (
                         <img
@@ -460,7 +714,8 @@ const PhotoBankTrash = () => {
                         </div>
                       )}
                     </div>
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 p-2">
+                    {!selectionMode && (
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 p-2">
                       <Button
                         size="sm"
                         variant="secondary"
@@ -493,8 +748,10 @@ const PhotoBankTrash = () => {
                           </>
                         )}
                       </Button>
-                    </div>
-                    <div className="absolute top-2 right-2">
+                      </div>
+                    )}
+                    {!selectionMode && (
+                      <div className="absolute top-2 right-2">
                       <Badge 
                         variant={getDaysLeftBadge(photo.trashed_at).variant as any}
                         className="text-[10px] px-1.5 py-0.5"
@@ -502,14 +759,16 @@ const PhotoBankTrash = () => {
                         <Icon name="Clock" size={10} className="mr-0.5" />
                         {getDaysLeftBadge(photo.trashed_at).text}
                       </Badge>
-                    </div>
+                      </div>
+                    )}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
                       <p className="text-xs text-white truncate">{photo.file_name}</p>
                       <p className="text-[10px] text-white/70">{formatDate(photo.trashed_at)}</p>
                     </div>
                   </div>
                 ))}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
