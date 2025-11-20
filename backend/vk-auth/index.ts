@@ -45,6 +45,11 @@ async function getSession(state) {
   const client = new Client({ connectionString: DATABASE_URL });
   try {
     await client.connect();
+    
+    await client.query(
+      `DELETE FROM oauth_sessions WHERE expires_at < CURRENT_TIMESTAMP`
+    );
+    
     const result = await client.query(
       `SELECT state, code_verifier FROM oauth_sessions 
        WHERE state = ${escapeSQL(state)} AND expires_at > CURRENT_TIMESTAMP`
@@ -219,6 +224,10 @@ exports.handler = async (event, context) => {
       const client = new Client({ connectionString: DATABASE_URL });
       try {
         await client.connect();
+        
+        await client.query(
+          `DELETE FROM vk_temp_sessions WHERE expires_at < NOW()`
+        );
         
         const result = await client.query(
           `SELECT data FROM vk_temp_sessions WHERE session_id = ${escapeSQL(sessionId)} AND expires_at > NOW()`
