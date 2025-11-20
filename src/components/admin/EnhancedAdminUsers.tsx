@@ -71,11 +71,10 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
         (user.ip_address && user.ip_address.includes(searchQuery)) ||
         (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
       
-      const isOnline = isUserOnline(user.last_login);
       const matchesActivity = 
         filterByActivity === 'all' ? true :
-        filterByActivity === 'active' ? isOnline :
-        !isOnline;
+        filterByActivity === 'active' ? user.is_active :
+        !user.is_active;
       
       return matchesSearch && matchesActivity;
     });
@@ -200,7 +199,6 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
     };
 
     const isOnline = isUserOnline(user.last_login);
-    console.log(`User ${user.full_name || user.email}: last_login=${user.last_login}, is_active=${user.is_active}, isOnline=${isOnline}`);
 
     return (
       <div

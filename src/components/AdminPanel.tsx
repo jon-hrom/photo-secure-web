@@ -309,7 +309,7 @@ const AdminPanel = () => {
 
   const deleteUser = async (userId: string | number) => {
     try {
-      const response = await fetch('https://functions.poehali.dev/9df9d28d-b7ea-448c-9d93-054c04b6a52b', {
+      const response = await fetch('https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId }),

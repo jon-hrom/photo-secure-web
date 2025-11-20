@@ -196,9 +196,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             else:
                 user_id_int = int(user_id_str)
                 
+                # Получаем email пользователя для удаления связанных записей
+                cur.execute("SELECT email FROM t_p28211681_photo_secure_web.users WHERE id = %s", (user_id_int,))
+                user_row = cur.fetchone()
+                user_email = user_row[0] if user_row else None
+                
                 # Удаляем все связанные данные обычного пользователя
                 cur.execute("DELETE FROM t_p28211681_photo_secure_web.email_verification_logs WHERE user_id = %s", (user_id_int,))
-                cur.execute("DELETE FROM t_p28211681_photo_secure_web.email_verifications WHERE user_id = %s", (user_id_int,))
+                if user_email:
+                    cur.execute("DELETE FROM t_p28211681_photo_secure_web.email_verifications WHERE email = %s", (user_email,))
                 cur.execute("DELETE FROM t_p28211681_photo_secure_web.login_attempts WHERE user_id = %s::text", (user_id_int,))
                 cur.execute("DELETE FROM t_p28211681_photo_secure_web.oauth_sessions WHERE user_id = %s", (user_id_int,))
                 cur.execute("DELETE FROM t_p28211681_photo_secure_web.two_factor_codes WHERE user_id = %s", (user_id_int,))
