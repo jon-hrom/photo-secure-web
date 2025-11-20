@@ -12,38 +12,72 @@ import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
 const PhotoBank = () => {
   const navigate = useNavigate();
   
-  const getAuthUserId = (): string => {
+  const getAuthUserId = (): string | null => {
     const authSession = localStorage.getItem('authSession');
     if (authSession) {
       try {
         const session = JSON.parse(authSession);
-        return session.userId?.toString() || '1';
-      } catch {
-        return '1';
-      }
+        if (session.userId) return session.userId.toString();
+      } catch {}
     }
-    return '1';
+    
+    const vkUser = localStorage.getItem('vk_user');
+    if (vkUser) {
+      try {
+        const userData = JSON.parse(vkUser);
+        if (userData.user_id) return userData.user_id.toString();
+        if (userData.vk_id) return userData.vk_id.toString();
+      } catch {}
+    }
+    
+    return null;
   };
   
   const userId = getAuthUserId();
   const [emailVerified, setEmailVerified] = useState(false);
   const [checkingVerification, setCheckingVerification] = useState(true);
+  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
-    const authSession = localStorage.getItem('authSession');
-    if (!authSession) {
-      navigate('/login');
-      return;
-    }
-    
-    try {
-      const session = JSON.parse(authSession);
-      if (!session.isAuthenticated || !session.userId) {
+    const checkAuth = () => {
+      const authSession = localStorage.getItem('authSession');
+      const vkUser = localStorage.getItem('vk_user');
+      
+      if (!authSession && !vkUser) {
         navigate('/login');
+        return;
       }
-    } catch {
-      navigate('/login');
-    }
+      
+      if (authSession) {
+        try {
+          const session = JSON.parse(authSession);
+          if (!session.isAuthenticated || !session.userId) {
+            navigate('/login');
+            return;
+          }
+        } catch {
+          navigate('/login');
+          return;
+        }
+      }
+      
+      if (vkUser) {
+        try {
+          const userData = JSON.parse(vkUser);
+          if (!userData.user_id && !userData.vk_id) {
+            navigate('/login');
+            return;
+          }
+        } catch {
+          navigate('/login');
+          return;
+        }
+      }
+      
+      setAuthChecking(false);
+    };
+    
+    checkAuth();
   }, [navigate]);
 
   const {
@@ -117,6 +151,8 @@ const PhotoBank = () => {
   );
 
   useEffect(() => {
+    if (!userId || authChecking) return;
+    
     const checkEmailVerification = async () => {
       try {
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
@@ -132,13 +168,24 @@ const PhotoBank = () => {
     checkEmailVerification();
     fetchFolders();
     fetchStorageUsage();
-  }, []);
+  }, [userId, authChecking]);
 
   useEffect(() => {
     if (selectedFolder) {
       fetchPhotos(selectedFolder.id);
     }
   }, [selectedFolder]);
+
+  if (authChecking || !userId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-muted-foreground">Проверка авторизации...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">

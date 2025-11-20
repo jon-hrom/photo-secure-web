@@ -18,17 +18,25 @@ const PhotoBankTrash = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const getAuthUserId = (): string => {
+  const getAuthUserId = (): string | null => {
     const authSession = localStorage.getItem('authSession');
     if (authSession) {
       try {
         const session = JSON.parse(authSession);
-        return session.userId?.toString() || '1';
-      } catch {
-        return '1';
-      }
+        if (session.userId) return session.userId.toString();
+      } catch {}
     }
-    return '1';
+    
+    const vkUser = localStorage.getItem('vk_user');
+    if (vkUser) {
+      try {
+        const userData = JSON.parse(vkUser);
+        if (userData.user_id) return userData.user_id.toString();
+        if (userData.vk_id) return userData.vk_id.toString();
+      } catch {}
+    }
+    
+    return null;
   };
   
   const userId = getAuthUserId();
@@ -36,27 +44,55 @@ const PhotoBankTrash = () => {
   const [trashedFolders, setTrashedFolders] = useState<TrashedFolder[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState<number | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
   
   const PHOTOBANK_TRASH_API = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d';
 
   useEffect(() => {
-    const authSession = localStorage.getItem('authSession');
-    if (!authSession) {
-      navigate('/login');
-      return;
-    }
-    
-    try {
-      const session = JSON.parse(authSession);
-      if (!session.isAuthenticated || !session.userId) {
+    const checkAuth = () => {
+      const authSession = localStorage.getItem('authSession');
+      const vkUser = localStorage.getItem('vk_user');
+      
+      if (!authSession && !vkUser) {
         navigate('/login');
+        return;
       }
-    } catch {
-      navigate('/login');
-    }
+      
+      if (authSession) {
+        try {
+          const session = JSON.parse(authSession);
+          if (!session.isAuthenticated || !session.userId) {
+            navigate('/login');
+            return;
+          }
+        } catch {
+          navigate('/login');
+          return;
+        }
+      }
+      
+      if (vkUser) {
+        try {
+          const userData = JSON.parse(vkUser);
+          if (!userData.user_id && !userData.vk_id) {
+            navigate('/login');
+            return;
+          }
+        } catch {
+          navigate('/login');
+          return;
+        }
+      }
+      
+      setAuthChecking(false);
+    };
+    
+    checkAuth();
   }, [navigate]);
   
   const fetchTrash = async () => {
+    if (!userId) return;
+    
     setLoading(true);
     try {
       const res = await fetch(`${PHOTOBANK_TRASH_API}?action=list`, {
@@ -76,6 +112,7 @@ const PhotoBankTrash = () => {
   };
   
   const handleRestore = async (folderId: number, folderName: string) => {
+    if (!userId) return;
     if (!confirm(`Восстановить папку "${folderName}"?`)) return;
     
     setRestoring(folderId);
@@ -115,6 +152,7 @@ const PhotoBankTrash = () => {
   };
   
   const handleEmptyTrash = async () => {
+    if (!userId) return;
     if (!confirm('Очистить корзину полностью? Это действие нельзя отменить!')) return;
     
     setLoading(true);
@@ -168,8 +206,21 @@ const PhotoBankTrash = () => {
   };
   
   useEffect(() => {
-    fetchTrash();
-  }, []);
+    if (!authChecking && userId) {
+      fetchTrash();
+    }
+  }, [authChecking, userId]);
+  
+  if (authChecking || !userId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-muted-foreground">Проверка авторизации...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-background p-6">
