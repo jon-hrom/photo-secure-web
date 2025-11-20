@@ -220,6 +220,67 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
         
+        elif method == 'DELETE':
+            query_params = event.get('queryStringParameters', {})
+            photo_id = query_params.get('photo_id')
+            
+            if not photo_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'photo_id required'}),
+                    'isBase64Encoded': False
+                }
+            
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute('''
+                    SELECT s3_key, folder_id
+                    FROM photo_bank
+                    WHERE id = %s AND user_id = %s
+                ''', (photo_id, user_id))
+                photo = cur.fetchone()
+                
+                if not photo:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Photo not found'}),
+                        'isBase64Encoded': False
+                    }
+                
+                s3_key = photo['s3_key']
+                trash_key = f'trash/{s3_key}'
+                
+                try:
+                    s3_client.copy_object(
+                        Bucket=bucket,
+                        CopySource={'Bucket': bucket, 'Key': s3_key},
+                        Key=trash_key
+                    )
+                    s3_client.delete_object(Bucket=bucket, Key=s3_key)
+                except Exception as e:
+                    print(f'Failed to move to trash: {e}')
+                    return {
+                        'statusCode': 500,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': f'Failed to move to trash: {str(e)}'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cur.execute('''
+                    UPDATE photo_bank
+                    SET is_trashed = TRUE, trashed_at = NOW()
+                    WHERE id = %s
+                ''', (photo_id,))
+                conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'ok': True}),
+                'isBase64Encoded': False
+            }
+        
         return {
             'statusCode': 405,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
