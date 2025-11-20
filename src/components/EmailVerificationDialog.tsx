@@ -218,7 +218,7 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
             Подтвердите почту
           </DialogTitle>
           <DialogDescription>
-            Мы отправили 6-значный код на <strong>{userEmail}</strong>
+            Отправляем 6-значный код на <strong>{userEmail}</strong>
           </DialogDescription>
         </DialogHeader>
 
