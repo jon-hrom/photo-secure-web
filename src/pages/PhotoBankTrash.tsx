@@ -38,6 +38,23 @@ const PhotoBankTrash = () => {
   const [restoring, setRestoring] = useState<number | null>(null);
   
   const PHOTOBANK_TRASH_API = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d';
+
+  useEffect(() => {
+    const authSession = localStorage.getItem('authSession');
+    if (!authSession) {
+      navigate('/login');
+      return;
+    }
+    
+    try {
+      const session = JSON.parse(authSession);
+      if (!session.isAuthenticated || !session.userId) {
+        navigate('/login');
+      }
+    } catch {
+      navigate('/login');
+    }
+  }, [navigate]);
   
   const fetchTrash = async () => {
     setLoading(true);

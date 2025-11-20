@@ -29,6 +29,23 @@ const PhotoBank = () => {
   const [emailVerified, setEmailVerified] = useState(false);
   const [checkingVerification, setCheckingVerification] = useState(true);
 
+  useEffect(() => {
+    const authSession = localStorage.getItem('authSession');
+    if (!authSession) {
+      navigate('/login');
+      return;
+    }
+    
+    try {
+      const session = JSON.parse(authSession);
+      if (!session.isAuthenticated || !session.userId) {
+        navigate('/login');
+      }
+    } catch {
+      navigate('/login');
+    }
+  }, [navigate]);
+
   const {
     folders,
     setFolders,
