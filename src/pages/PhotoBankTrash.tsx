@@ -17,7 +17,21 @@ interface TrashedFolder {
 const PhotoBankTrash = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const userId = localStorage.getItem('userId') || '1';
+  
+  const getAuthUserId = (): string => {
+    const authSession = localStorage.getItem('authSession');
+    if (authSession) {
+      try {
+        const session = JSON.parse(authSession);
+        return session.userId?.toString() || '1';
+      } catch {
+        return '1';
+      }
+    }
+    return '1';
+  };
+  
+  const userId = getAuthUserId();
   
   const [trashedFolders, setTrashedFolders] = useState<TrashedFolder[]>([]);
   const [loading, setLoading] = useState(false);

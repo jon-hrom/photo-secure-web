@@ -32,9 +32,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     headers = event.get('headers', {})
     user_id = headers.get('X-User-Id') or headers.get('x-user-id')
     
-    print(f'[DEBUG] Received headers: {headers}')
-    print(f'[DEBUG] Extracted user_id: {user_id}')
-    
     if not user_id:
         return {
             'statusCode': 401,
@@ -171,15 +168,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    print(f'[DEBUG] Creating folder for user_id={user_id}, folder_name={folder_name}')
                     cur.execute('SELECT id FROM users WHERE id = %s', (user_id,))
                     user_exists = cur.fetchone()
                     if not user_exists:
-                        print(f'[ERROR] User {user_id} not found in database')
                         return {
                             'statusCode': 403,
                             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                            'body': json.dumps({'error': f'User {user_id} not found in database'}),
+                            'body': json.dumps({'error': 'User not found'}),
                             'isBase64Encoded': False
                         }
                     

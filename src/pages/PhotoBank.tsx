@@ -11,7 +11,21 @@ import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
 
 const PhotoBank = () => {
   const navigate = useNavigate();
-  const userId = localStorage.getItem('userId') || '1';
+  
+  const getAuthUserId = (): string => {
+    const authSession = localStorage.getItem('authSession');
+    if (authSession) {
+      try {
+        const session = JSON.parse(authSession);
+        return session.userId?.toString() || '1';
+      } catch {
+        return '1';
+      }
+    }
+    return '1';
+  };
+  
+  const userId = getAuthUserId();
   const [emailVerified, setEmailVerified] = useState(false);
   const [checkingVerification, setCheckingVerification] = useState(true);
 
