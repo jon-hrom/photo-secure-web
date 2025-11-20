@@ -34,6 +34,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [editedPhone, setEditedPhone] = useState('');
   const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -101,6 +103,12 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   };
 
   const handleUpdateContact = async (field: 'email' | 'phone', value: string) => {
+    if (field === 'email') {
+      setIsSavingEmail(true);
+    } else {
+      setIsSavingPhone(true);
+    }
+    
     try {
       const finalValue = field === 'phone' ? formatPhoneNumber(value) : value;
       
@@ -125,6 +133,12 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
       }
     } catch (error) {
       toast.error('Ошибка подключения к серверу');
+    } finally {
+      if (field === 'email') {
+        setIsSavingEmail(false);
+      } else {
+        setIsSavingPhone(false);
+      }
     }
   };
 
@@ -190,9 +204,13 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                       await loadSettings();
                     }}
                     className="rounded-xl"
-                    disabled={!editedEmail.trim() || !editedEmail.includes('@')}
+                    disabled={!editedEmail.trim() || !editedEmail.includes('@') || isSavingEmail}
                   >
-                    <Icon name="Save" size={18} />
+                    {isSavingEmail ? (
+                      <Icon name="Loader2" size={18} className="animate-spin" />
+                    ) : (
+                      <Icon name="Save" size={18} />
+                    )}
                   </Button>
                 )}
               </div>
@@ -245,9 +263,13 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                       await loadSettings();
                     }}
                     className="rounded-xl"
-                    disabled={!editedPhone.trim()}
+                    disabled={!editedPhone.trim() || isSavingPhone}
                   >
-                    <Icon name="Save" size={18} />
+                    {isSavingPhone ? (
+                      <Icon name="Loader2" size={18} className="animate-spin" />
+                    ) : (
+                      <Icon name="Save" size={18} />
+                    )}
                   </Button>
                 ) : settings.phone ? (
                   <Button
