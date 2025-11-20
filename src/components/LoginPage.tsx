@@ -183,6 +183,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     }
     setPasswordError('');
 
+    let normalizedPhone = phone.trim();
+    if (normalizedPhone.startsWith('8')) {
+      normalizedPhone = '+7' + normalizedPhone.slice(1);
+    }
+
     try {
       const settingsResponse = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0');
       const settings = await settingsResponse.json();
@@ -195,7 +200,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'register', email, password, phone }),
+        body: JSON.stringify({ action: 'register', email, password, phone: normalizedPhone }),
       });
 
       const data = await response.json();
