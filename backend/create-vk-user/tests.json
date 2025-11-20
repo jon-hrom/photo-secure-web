@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Create VK user",
+      "method": "POST",
+      "body": {
+        "vk_id": "123456789",
+        "full_name": "Test User",
+        "email": "test@example.com",
+        "phone": "+79991234567",
+        "avatar_url": "https://example.com/avatar.jpg",
+        "is_verified": true
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "user_id": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

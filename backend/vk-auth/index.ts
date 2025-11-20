@@ -324,17 +324,42 @@ exports.handler = async (event, context) => {
       const email = tokenData.email || '';
       const phone = tokenData.phone || '';
       
-      const userId = await upsertVKUser(
-        String(tokenData.user_id),
-        vkUserInfo.first_name || '',
-        vkUserInfo.last_name || '',
-        vkUserInfo.photo_max || vkUserInfo.photo_200 || '',
-        vkUserInfo.verified === 1 || vkUserInfo.verified === true,
-        email,
-        phone,
-        ipAddress,
-        userAgent
-      );
+      // Call Python function to create/update user (has write permissions)
+      const createUserResponse = await fetch('https://functions.poehali.dev/func2url.json')
+        .then(r => r.json())
+        .then(async (urls) => {
+          const createUserUrl = urls['create-vk-user'];
+          if (!createUserUrl) {
+            throw new Error('create-vk-user function not found');
+          }
+          
+          return fetch(createUserUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vk_id: String(tokenData.user_id),
+              full_name: `${vkUserInfo.first_name || ''} ${vkUserInfo.last_name || ''}`.trim(),
+              email: email,
+              phone: phone,
+              avatar_url: vkUserInfo.photo_max || vkUserInfo.photo_200 || '',
+              is_verified: vkUserInfo.verified === 1 || vkUserInfo.verified === true
+            })
+          });
+        });
+      
+      if (!createUserResponse.ok) {
+        const errorText = await createUserResponse.text();
+        console.error('Failed to create VK user:', errorText);
+        return {
+          statusCode: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          body: JSON.stringify({ error: 'Failed to create user', details: errorText }),
+          isBase64Encoded: false
+        };
+      }
+      
+      const createUserData = await createUserResponse.json();
+      const userId = createUserData.user_id;
       
       const sessionToken = jwt.sign(
         {
