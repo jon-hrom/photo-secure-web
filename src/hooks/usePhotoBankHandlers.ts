@@ -150,16 +150,56 @@ export const usePhotoBankHandlers = (
           const width = img.width;
           const height = img.height;
 
-          // Convert original file to base64 without compression
-          const reader = new FileReader();
-          const base64Data = await new Promise<string>((resolve) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
-          
           console.log(`[UPLOAD] Original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+          
+          // Для больших файлов (>3MB) используем сжатие, для маленьких - оригинал
+          const MAX_SIZE_MB = 3;
+          const needsCompression = file.size > MAX_SIZE_MB * 1024 * 1024;
+          
+          let base64Data: string;
+          let finalWidth = width;
+          let finalHeight = height;
+          
+          if (needsCompression) {
+            console.log(`[UPLOAD] File too large, compressing...`);
+            const canvas = document.createElement('canvas');
+            const MAX_DIMENSION = 3840; // 4K resolution
+            
+            if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+              if (width > height) {
+                finalHeight = (height / width) * MAX_DIMENSION;
+                finalWidth = MAX_DIMENSION;
+              } else {
+                finalWidth = (width / height) * MAX_DIMENSION;
+                finalHeight = MAX_DIMENSION;
+              }
+            }
+            
+            canvas.width = finalWidth;
+            canvas.height = finalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, finalWidth, finalHeight);
+            
+            const blob = await new Promise<Blob>((resolve) => {
+              canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.92);
+            });
+            console.log(`[UPLOAD] Compressed: ${(file.size / 1024 / 1024).toFixed(2)} MB -> ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+            
+            const reader = new FileReader();
+            base64Data = await new Promise<string>((resolve) => {
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          } else {
+            console.log(`[UPLOAD] File small enough, uploading original`);
+            const reader = new FileReader();
+            base64Data = await new Promise<string>((resolve) => {
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            });
+          }
 
-          console.log(`[UPLOAD] Uploading directly to backend...`);
+          console.log(`[UPLOAD] Uploading to backend...`);
           const res = await fetch(PHOTOBANK_FOLDERS_API, {
             method: 'POST',
             headers: {
@@ -171,8 +211,8 @@ export const usePhotoBankHandlers = (
               folder_id: selectedFolder.id,
               file_name: file.name,
               file_data: base64Data,
-              width: Math.round(width),
-              height: Math.round(height)
+              width: Math.round(finalWidth),
+              height: Math.round(finalHeight)
             })
           });
 
