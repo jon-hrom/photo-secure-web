@@ -16,8 +16,8 @@ interface AdminPanelHeaderProps {
   showHistory: boolean;
   onToggleHistory: () => void;
   onSaveSettings: () => void;
-  currentRole: 'admin' | 'client';
-  onRoleChange: (role: 'admin' | 'client') => void;
+  currentRole: 'admin' | 'client' | 'user_view';
+  onRoleChange: (role: 'admin' | 'client' | 'user_view') => void;
 }
 
 const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onSaveSettings, currentRole, onRoleChange }: AdminPanelHeaderProps) => {
@@ -69,8 +69,8 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
               <div className="flex items-center gap-3">
                 <div className="mr-2">
                   <div className="text-xs opacity-75 mb-1">Роль</div>
-                  <Select value={currentRole} onValueChange={(value) => onRoleChange(value as 'admin' | 'client')}>
-                    <SelectTrigger className="w-[200px] bg-white/20 border-white/30 text-white hover:bg-white/30">
+                  <Select value={currentRole} onValueChange={(value) => onRoleChange(value as 'admin' | 'client' | 'user_view')}>
+                    <SelectTrigger className="w-[220px] bg-white/20 border-white/30 text-white hover:bg-white/30">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -84,6 +84,12 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                         <div className="flex items-center gap-2">
                           <Icon name="User" size={16} />
                           Клиент
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="user_view">
+                        <div className="flex items-center gap-2">
+                          <Icon name="Eye" size={16} />
+                          Просмотр пользователя
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -141,8 +147,8 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
               <div className="flex items-center gap-3">
                 <div className="mr-2">
                   <div className="text-xs opacity-75 mb-1">Роль</div>
-                  <Select value={currentRole} onValueChange={(value) => onRoleChange(value as 'admin' | 'client')}>
-                    <SelectTrigger className="w-[200px] bg-white/20 border-white/30 text-white hover:bg-white/30">
+                  <Select value={currentRole} onValueChange={(value) => onRoleChange(value as 'admin' | 'client' | 'user_view')}>
+                    <SelectTrigger className="w-[220px] bg-white/20 border-white/30 text-white hover:bg-white/30">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -156,6 +162,12 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                         <div className="flex items-center gap-2">
                           <Icon name="User" size={16} />
                           Клиент
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="user_view">
+                        <div className="flex items-center gap-2">
+                          <Icon name="Eye" size={16} />
+                          Просмотр пользователя
                         </div>
                       </SelectItem>
                     </SelectContent>

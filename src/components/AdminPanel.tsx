@@ -4,6 +4,8 @@ import Icon from '@/components/ui/icon';
 import AdminPanelHeader from '@/components/admin/AdminPanelHeader';
 import AdminPanelHistory from '@/components/admin/AdminPanelHistory';
 import AdminPanelTabs from '@/components/admin/AdminPanelTabs';
+import UserImpersonation from '@/components/admin/UserImpersonation';
+import UserViewWrapper from '@/components/admin/UserViewWrapper';
 
 const AdminPanel = () => {
   const [settings, setSettings] = useState({
@@ -51,12 +53,25 @@ const AdminPanel = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
-  const [currentRole, setCurrentRole] = useState<'admin' | 'client'>('admin');
+  const [currentRole, setCurrentRole] = useState<'admin' | 'client' | 'user_view'>('admin');
+  const [viewedUser, setViewedUser] = useState<{ userId: number; userEmail: string } | null>(null);
 
   useEffect(() => {
     loadSettings();
     loadHistory();
     loadUsers();
+    
+    // Восстановление режима просмотра пользователя при перезагрузке
+    const savedViewedUser = localStorage.getItem('admin_viewing_user');
+    if (savedViewedUser) {
+      try {
+        const parsed = JSON.parse(savedViewedUser);
+        setViewedUser(parsed);
+        setCurrentRole('user_view');
+      } catch (e) {
+        localStorage.removeItem('admin_viewing_user');
+      }
+    }
     
     const usersInterval = setInterval(() => {
       loadUsers();
@@ -384,9 +399,26 @@ const AdminPanel = () => {
   const savedSession = localStorage.getItem('authSession');
   const emailUser = savedSession ? JSON.parse(savedSession) : null;
 
-  const handleRoleChange = (role: 'admin' | 'client') => {
+  const handleRoleChange = (role: 'admin' | 'client' | 'user_view') => {
+    if (role === 'user_view') {
+      toast.error('Используйте выбор пользователя ниже');
+      return;
+    }
     setCurrentRole(role);
+    setViewedUser(null);
     toast.success(role === 'admin' ? 'Переключено на роль Администратора' : 'Переключено на роль Клиента');
+  };
+
+  const handleEnterUserView = (userId: number, userEmail: string) => {
+    setViewedUser({ userId, userEmail });
+    setCurrentRole('user_view');
+    localStorage.setItem('admin_viewing_user', JSON.stringify({ userId, userEmail }));
+  };
+
+  const handleExitUserView = () => {
+    setViewedUser(null);
+    setCurrentRole('admin');
+    localStorage.removeItem('admin_viewing_user');
   };
 
   return (
@@ -403,6 +435,13 @@ const AdminPanel = () => {
 
       {currentRole === 'admin' && (
         <>
+          <UserImpersonation
+            users={users}
+            onEnterUserView={handleEnterUserView}
+            onExitUserView={handleExitUserView}
+            isInUserView={false}
+          />
+
           <AdminPanelHistory
             history={history}
             showHistory={showHistory}
@@ -445,6 +484,23 @@ const AdminPanel = () => {
             </p>
           </div>
         </div>
+      )}
+
+      {currentRole === 'user_view' && viewedUser && (
+        <>
+          <UserImpersonation
+            users={users}
+            onEnterUserView={handleEnterUserView}
+            onExitUserView={handleExitUserView}
+            isInUserView={true}
+            currentViewedUser={viewedUser}
+          />
+          
+          <UserViewWrapper
+            viewedUser={viewedUser}
+            onExit={handleExitUserView}
+          />
+        </>
       )}
 
     </div>
