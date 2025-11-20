@@ -48,13 +48,29 @@ const Index = () => {
 
   useEffect(() => {
     const checkEmailVerification = async () => {
-      if (!isAuthenticated || !userId) return;
+      if (!isAuthenticated || !userId) {
+        console.log('[EMAIL_CHECK] Skipping - not authenticated or no userId:', { isAuthenticated, userId });
+        return;
+      }
+      
+      const userIdFromStorage = localStorage.getItem('userId');
+      if (!userIdFromStorage) {
+        console.log('[EMAIL_CHECK] No userId in localStorage, waiting...');
+        return;
+      }
       
       const dismissedKey = `email_verification_dismissed_${userId}`;
       const dismissed = localStorage.getItem(dismissedKey);
       
       try {
+        console.log('[EMAIL_CHECK] Fetching user data for userId:', userId);
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
+        
+        if (!res.ok) {
+          console.error('[EMAIL_CHECK] API returned error:', res.status);
+          return;
+        }
+        
         const data = await res.json();
         
         setUserSource(data.source || 'email');
@@ -101,6 +117,17 @@ const Index = () => {
 
   if (!isAuthenticated && guestAccess && currentPage === 'auth') {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (isAuthenticated && !userId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Загрузка данных пользователя...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isAuthenticated && guestAccess) {
