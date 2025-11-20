@@ -269,7 +269,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 width = body_data.get('width')
                 height = body_data.get('height')
                 
+                print(f'[CONFIRM_UPLOAD] Received: folder_id={folder_id}, s3_key={s3_key}, file_name={file_name}, user_id={user_id}')
+                
                 if not all([folder_id, s3_key, file_name]):
+                    print(f'[CONFIRM_UPLOAD] Missing fields!')
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -277,10 +280,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                print(f'[CONFIRM_UPLOAD] Checking S3 object: {s3_key}')
                 try:
                     head_response = s3_client.head_object(Bucket=bucket, Key=s3_key)
                     file_size = head_response['ContentLength']
+                    print(f'[CONFIRM_UPLOAD] S3 object found, size={file_size}')
                 except Exception as e:
+                    print(f'[CONFIRM_UPLOAD] S3 object not found: {str(e)}')
                     return {
                         'statusCode': 404,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -288,6 +294,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                print(f'[CONFIRM_UPLOAD] Inserting to DB...')
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
@@ -297,10 +304,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ''', (user_id, folder_id, file_name, s3_key, file_size, width, height))
                     conn.commit()
                     photo = cur.fetchone()
+                    print(f'[CONFIRM_UPLOAD] Inserted photo id={photo["id"]}')
                     
                     if photo['created_at']:
                         photo['created_at'] = photo['created_at'].isoformat()
                 
+                print(f'[CONFIRM_UPLOAD] Success!')
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
