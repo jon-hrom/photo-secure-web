@@ -49,6 +49,14 @@ const PhotoBankHeader = ({
 }: PhotoBankHeaderProps) => {
   const navigate = useNavigate();
   
+  const handleLogout = () => {
+    localStorage.removeItem('vk_user_id');
+    localStorage.removeItem('vk_access_token');
+    navigate('/');
+  };
+  
+  const isVkUser = localStorage.getItem('vk_user_id');
+  
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -103,6 +111,15 @@ const PhotoBankHeader = ({
           <Icon name="Trash2" className="mr-2" size={18} />
           Корзина
         </Button>
+        {isVkUser && (
+          <Button 
+            variant="outline"
+            onClick={handleLogout}
+          >
+            <Icon name="LogOut" className="mr-2" size={18} />
+            Выход
+          </Button>
+        )}
       </div>
     </div>
   );
