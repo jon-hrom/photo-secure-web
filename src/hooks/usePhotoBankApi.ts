@@ -1,6 +1,7 @@
 import { useToast } from '@/hooks/use-toast';
 
-const PHOTO_BANK_API = 'https://functions.poehali.dev/8aa39ae1-26f5-40c1-ad06-fe0d657f1310';
+const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
+const PHOTOBANK_TRASH_API = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d';
 const STORAGE_API = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
 
 interface PhotoFolder {
@@ -33,7 +34,7 @@ export const usePhotoBankApi = (
   const fetchFolders = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${PHOTO_BANK_API}?action=list_folders`, {
+      const res = await fetch(`${PHOTOBANK_FOLDERS_API}?action=list`, {
         headers: { 'X-User-Id': userId }
       });
       const data = await res.json();
@@ -52,7 +53,7 @@ export const usePhotoBankApi = (
   const fetchPhotos = async (folderId: number) => {
     setLoading(true);
     try {
-      const res = await fetch(`${PHOTO_BANK_API}?action=list_photos&folder_id=${folderId}`, {
+      const res = await fetch(`${PHOTOBANK_FOLDERS_API}?action=list_photos&folder_id=${folderId}`, {
         headers: { 'X-User-Id': userId }
       });
       const data = await res.json();
@@ -88,6 +89,7 @@ export const usePhotoBankApi = (
     fetchFolders,
     fetchPhotos,
     fetchStorageUsage,
-    PHOTO_BANK_API
+    PHOTOBANK_FOLDERS_API,
+    PHOTOBANK_TRASH_API
   };
 };

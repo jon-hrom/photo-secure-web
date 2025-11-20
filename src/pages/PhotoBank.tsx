@@ -46,7 +46,8 @@ const PhotoBank = () => {
     fetchFolders,
     fetchPhotos,
     fetchStorageUsage,
-    PHOTO_BANK_API
+    PHOTOBANK_FOLDERS_API,
+    PHOTOBANK_TRASH_API
   } = usePhotoBankApi(userId, setFolders, setPhotos, setLoading, setStorageUsage);
 
   const {
@@ -59,7 +60,8 @@ const PhotoBank = () => {
     handleAddToPhotobook
   } = usePhotoBankHandlers(
     userId,
-    PHOTO_BANK_API,
+    PHOTOBANK_FOLDERS_API,
+    PHOTOBANK_TRASH_API,
     selectedFolder,
     photos,
     selectedPhotos,

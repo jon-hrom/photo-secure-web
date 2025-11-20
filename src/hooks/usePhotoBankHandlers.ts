@@ -20,7 +20,8 @@ interface Photo {
 
 export const usePhotoBankHandlers = (
   userId: string,
-  PHOTO_BANK_API: string,
+  PHOTOBANK_FOLDERS_API: string,
+  PHOTOBANK_TRASH_API: string,
   selectedFolder: PhotoFolder | null,
   photos: Photo[],
   selectedPhotos: Set<number>,
@@ -51,14 +52,14 @@ export const usePhotoBankHandlers = (
     }
 
     try {
-      const res = await fetch(PHOTO_BANK_API, {
+      const res = await fetch(PHOTOBANK_FOLDERS_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': userId
         },
         body: JSON.stringify({
-          action: 'create_folder',
+          action: 'create',
           folder_name: folderName
         })
       });
@@ -71,11 +72,14 @@ export const usePhotoBankHandlers = (
         setFolderName('');
         setShowCreateFolder(false);
         fetchFolders();
+      } else {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to create folder');
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Ошибка',
-        description: 'Не удалось создать папку',
+        description: error.message || 'Не удалось создать папку',
         variant: 'destructive'
       });
     }
@@ -150,26 +154,60 @@ export const usePhotoBankHandlers = (
           ctx?.drawImage(img, 0, 0, width, height);
 
           // Convert to base64 with compression
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          const base64Data = compressedDataUrl.split(',')[1];
-          const compressedSizeMB = (base64Data.length / 1024 / 1024).toFixed(2);
-          console.log(`[UPLOAD] Compressed size: ${compressedSizeMB} MB (base64)`);
+          const blob = await new Promise<Blob>((resolve) => {
+            canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.85);
+          });
+          const compressedSizeMB = (blob.size / 1024 / 1024).toFixed(2);
+          console.log(`[UPLOAD] Compressed size: ${compressedSizeMB} MB`);
 
-          const res = await fetch(PHOTO_BANK_API, {
+          const urlRes = await fetch(PHOTOBANK_FOLDERS_API, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-User-Id': userId
             },
             body: JSON.stringify({
-              action: 'upload_photo',
+              action: 'upload_url',
               folder_id: selectedFolder.id,
               file_name: file.name,
-              file_data: base64Data,
-              width: img.width,
-              height: img.height
+              content_type: 'image/jpeg'
             })
           });
+
+          if (!urlRes.ok) {
+            const error = await urlRes.json();
+            throw new Error(error.error || 'Failed to get upload URL');
+          }
+
+          const { upload_url, s3_key } = await urlRes.json();
+
+          const uploadRes = await fetch(upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'image/jpeg' },
+            body: blob
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error('Failed to upload to S3');
+          }
+
+          const confirmRes = await fetch(PHOTOBANK_FOLDERS_API, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': userId
+            },
+            body: JSON.stringify({
+              action: 'confirm_upload',
+              folder_id: selectedFolder.id,
+              s3_key,
+              file_name: file.name,
+              width: Math.round(width),
+              height: Math.round(height)
+            })
+          });
+
+          const res = confirmRes;
 
           console.log(`[UPLOAD] Response status: ${res.status}`);
           if (res.ok) {
@@ -235,7 +273,7 @@ export const usePhotoBankHandlers = (
   };
 
   const handleDeletePhoto = async (photoId: number, fileName: string) => {
-    if (!confirm(`Удалить фото ${fileName}?`)) return;
+    if (!confirm(`Переместить фото ${fileName} в корзину?`)) return;
 
     try {
       await fetch(PHOTO_BANK_API, {
@@ -270,24 +308,24 @@ export const usePhotoBankHandlers = (
   };
 
   const handleDeleteFolder = async (folderId: number, folderName: string) => {
-    if (!confirm(`Удалить папку "${folderName}" со всеми фотографиями?`)) return;
+    if (!confirm(`Переместить папку "${folderName}" в корзину?`)) return;
 
     try {
-      await fetch(PHOTO_BANK_API, {
+      const res = await fetch(`${PHOTOBANK_FOLDERS_API}?folder_id=${folderId}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
           'X-User-Id': userId
-        },
-        body: JSON.stringify({
-          action: 'delete_folder',
-          folder_id: folderId
-        })
+        }
       });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to delete folder');
+      }
 
       toast({
         title: 'Успешно',
-        description: `Папка "${folderName}" удалена`
+        description: `Папка "${folderName}" перемещена в корзину`
       });
 
       if (selectedFolder?.id === folderId) {
@@ -296,10 +334,10 @@ export const usePhotoBankHandlers = (
       }
       fetchFolders();
       fetchStorageUsage();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Ошибка',
-        description: 'Не удалось удалить папку',
+        description: error.message || 'Не удалось удалить папку',
         variant: 'destructive'
       });
     }

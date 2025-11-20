@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Create folder without auth",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "create",
+        "folder_name": "Test Folder"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "List folders returns 403 if email not verified",
+      "method": "GET",
+      "path": "/?action=list",
+      "headers": {
+        "X-User-Id": "999"
+      },
+      "expectedStatus": 403,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

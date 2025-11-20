@@ -15,6 +15,7 @@ import MyFiles from "./pages/MyFiles";
 import AdminStorage from "./pages/AdminStorage";
 import UpgradePlan from "./pages/UpgradePlan";
 import PhotoBank from "./pages/PhotoBank";
+import PhotoBankTrash from "./pages/PhotoBankTrash";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/my-files" element={<MyFiles />} />
           <Route path="/photo-bank" element={<PhotoBank />} />
+          <Route path="/photo-bank/trash" element={<PhotoBankTrash />} />
           <Route path="/upgrade-plan" element={<UpgradePlan />} />
           <Route path="/admin/storage" element={<AdminStorage />} />
           <Route path="/face-blur" element={<FaceBlurEditor />} />

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { useNavigate } from 'react-router-dom';
 
 interface PhotoFolder {
   id: number;
@@ -46,6 +47,8 @@ const PhotoBankHeader = ({
   onShowCreateFolder,
   onShowClearConfirm
 }: PhotoBankHeaderProps) => {
+  const navigate = useNavigate();
+  
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -93,15 +96,13 @@ const PhotoBankHeader = ({
           <Icon name="FolderPlus" className="mr-2" size={18} />
           Новая папка
         </Button>
-        {folders.length > 0 && (
-          <Button 
-            variant="destructive"
-            onClick={onShowClearConfirm}
-          >
-            <Icon name="Trash2" className="mr-2" size={18} />
-            Очистить весь банк
-          </Button>
-        )}
+        <Button 
+          variant="outline"
+          onClick={() => navigate('/photo-bank/trash')}
+        >
+          <Icon name="Trash2" className="mr-2" size={18} />
+          Корзина
+        </Button>
       </div>
     </div>
   );
