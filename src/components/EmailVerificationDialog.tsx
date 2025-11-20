@@ -61,7 +61,7 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
     }
   }, [codeExpiry, codeSent]);
 
-  const handleSendCode = async () => {
+  const handleSendCode = async (method: 'email' | 'sms' = 'email') => {
     try {
       setLoading(true);
       setError('');
@@ -71,13 +71,13 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
           'Content-Type': 'application/json',
           'X-User-Id': userId
         },
-        body: JSON.stringify({ action: 'send_code' })
+        body: JSON.stringify({ action: method === 'sms' ? 'send_sms_code' : 'send_code' })
       });
 
       const data = await res.json();
       
       if (res.ok) {
-        toast.success('Код отправлен на почту');
+        toast.success(method === 'sms' ? 'Код отправлен по SMS' : 'Код отправлен на почту');
         setResendCooldown(60);
         setCodeExpiry(600);
         setCodeSent(true);
@@ -225,25 +225,46 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
         <div className="space-y-4 py-4">
           {!codeSent ? (
             <div className="text-center space-y-4">
-              <p className="text-muted-foreground">Нажмите кнопку ниже, чтобы получить код подтверждения на почту</p>
-              <Button
-                onClick={handleSendCode}
-                disabled={loading}
-                className="w-full"
-                size="lg"
-              >
-                {loading ? (
-                  <>
-                    <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
-                    Отправка...
-                  </>
-                ) : (
-                  <>
-                    <Icon name="Mail" size={20} className="mr-2" />
-                    Отправить код
-                  </>
-                )}
-              </Button>
+              <p className="text-muted-foreground">Выберите способ получения кода подтверждения</p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => handleSendCode('email')}
+                  disabled={loading}
+                  className="flex-1"
+                  size="lg"
+                >
+                  {loading ? (
+                    <>
+                      <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                      Отправка...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="Mail" size={20} className="mr-2" />
+                      На Email
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleSendCode('sms')}
+                  disabled={loading}
+                  variant="outline"
+                  className="flex-1"
+                  size="lg"
+                >
+                  {loading ? (
+                    <>
+                      <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                      Отправка...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="Smartphone" size={20} className="mr-2" />
+                      SMS
+                    </>
+                  )}
+                </Button>
+              </div>
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -312,23 +333,35 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
                 )}
               </Button>
 
-              <div className="flex gap-2">
+              <div className="space-y-2">
                 {resendCooldown > 0 ? (
-                  <Button variant="outline" disabled className="flex-1" size="sm">
+                  <Button variant="outline" disabled className="w-full" size="sm">
                     <Icon name="Clock" size={16} className="mr-2" />
                     Повторно через {resendCooldown} сек
                   </Button>
                 ) : (
-                  <Button
-                    variant="outline"
-                    onClick={handleSendCode}
-                    disabled={loading}
-                    className="flex-1"
-                    size="sm"
-                  >
-                    <Icon name="RefreshCw" size={16} className="mr-2" />
-                    Отправить повторно
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSendCode('email')}
+                      disabled={loading}
+                      className="flex-1"
+                      size="sm"
+                    >
+                      <Icon name="Mail" size={16} className="mr-2" />
+                      На Email
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSendCode('sms')}
+                      disabled={loading}
+                      className="flex-1"
+                      size="sm"
+                    >
+                      <Icon name="Smartphone" size={16} className="mr-2" />
+                      SMS
+                    </Button>
+                  </div>
                 )}
                 <Button
                   variant="ghost"
@@ -336,7 +369,7 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
                     localStorage.setItem(`email_verification_dismissed_${userId}`, 'true');
                     onClose();
                   }}
-                  className="flex-1"
+                  className="w-full"
                   size="sm"
                 >
                   Позже

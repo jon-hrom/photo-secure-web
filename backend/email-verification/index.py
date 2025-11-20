@@ -14,6 +14,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
 from botocore.config import Config
+import urllib.request
+import urllib.parse
 
 POSTBOX_ENDPOINT = 'https://postbox.cloud.yandex.net'
 POSTBOX_REGION = 'ru-central1'
@@ -48,6 +50,29 @@ def get_ses_client():
 
 def gen_code() -> str:
     return f'{random.randint(100000, 999999)}'
+
+def send_sms_code(phone: str, code: str) -> bool:
+    api_key = os.environ.get('SMSRU_API_KEY')
+    if not api_key:
+        raise Exception('SMSRU_API_KEY not configured')
+    
+    message = f'Ваш код подтверждения для foto-mix.ru: {code}. Действителен {TTL_MIN} минут.'
+    
+    params = urllib.parse.urlencode({
+        'api_id': api_key,
+        'to': phone,
+        'msg': message,
+        'json': 1
+    })
+    
+    url = f'https://sms.ru/sms/send?{params}'
+    
+    try:
+        with urllib.request.urlopen(url, timeout=10) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            return result.get('status') == 'OK'
+    except Exception as e:
+        raise Exception(f'SMS sending failed: {str(e)}')
 
 def hash_code(code: str, email: str) -> str:
     salt = os.environ.get('EMAIL_CODE_SALT', 'default-salt-change-me')
@@ -301,6 +326,86 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'ok': True, 'ttlMin': TTL_MIN}),
                     'isBase64Encoded': False
                 }
+            
+            elif action == 'send_sms_code':
+                cursor.execute('SELECT phone FROM users WHERE id = %s', (user_id,))
+                user_phone = cursor.fetchone()
+                
+                if not user_phone or not user_phone['phone']:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Номер телефона не указан. Добавьте телефон в настройках.'}),
+                        'isBase64Encoded': False
+                    }
+                
+                if user['email_verified_at']:
+                    return {
+                        'statusCode': 409,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Email уже подтверждён'}),
+                        'isBase64Encoded': False
+                    }
+                
+                if user['email_verification_last_sent_at']:
+                    sec_since_last = (datetime.now() - user['email_verification_last_sent_at']).total_seconds()
+                    if sec_since_last < RESEND_COOLDOWN_SEC:
+                        retry_in = int(RESEND_COOLDOWN_SEC - sec_since_last)
+                        return {
+                            'statusCode': 429,
+                            'headers': headers,
+                            'body': json.dumps({'error': 'Слишком часто', 'retryInSec': retry_in}),
+                            'isBase64Encoded': False
+                        }
+                
+                now = datetime.now()
+                hour_start = now.replace(minute=0, second=0, microsecond=0)
+                
+                if user['email_verification_window_start_at'] and user['email_verification_window_start_at'] < hour_start:
+                    cursor.execute('UPDATE users SET email_verification_sends = 0, email_verification_attempts = 0, email_verification_window_start_at = %s WHERE id = %s', (hour_start, user['id']))
+                    conn.commit()
+                    user['email_verification_sends'] = 0
+                    user['email_verification_window_start_at'] = hour_start
+                elif not user['email_verification_window_start_at']:
+                    cursor.execute('UPDATE users SET email_verification_window_start_at = %s WHERE id = %s', (hour_start, user['id']))
+                    conn.commit()
+                    user['email_verification_window_start_at'] = hour_start
+                
+                if user['email_verification_sends'] >= MAX_SENDS_PER_HOUR:
+                    return {
+                        'statusCode': 429,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Превышен лимит отправок на час'}),
+                        'isBase64Encoded': False
+                    }
+                
+                code = gen_code()
+                code_hash = hash_code(code, user['email'])
+                expires_at = now + timedelta(minutes=TTL_MIN)
+                
+                cursor.execute(
+                    'UPDATE users SET email_verification_hash = %s, email_verification_expires_at = %s, email_verification_sends = %s, email_verification_last_sent_at = %s WHERE id = %s',
+                    (code_hash, expires_at, user['email_verification_sends'] + 1, now, user['id'])
+                )
+                conn.commit()
+                
+                try:
+                    send_sms_code(user_phone['phone'], code)
+                    log_event(conn, user['id'], 'sent_sms', ip_address, user_agent)
+                    
+                    return {
+                        'statusCode': 200,
+                        'headers': headers,
+                        'body': json.dumps({'ok': True, 'ttlMin': TTL_MIN, 'method': 'sms'}),
+                        'isBase64Encoded': False
+                    }
+                except Exception as e:
+                    return {
+                        'statusCode': 500,
+                        'headers': headers,
+                        'body': json.dumps({'error': f'Ошибка отправки SMS: {str(e)}'}),
+                        'isBase64Encoded': False
+                    }
             
             elif action == 'verify_code':
                 code = body.get('code', '')
