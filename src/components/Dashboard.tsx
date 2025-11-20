@@ -38,6 +38,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
   }>>([]);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0 });
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -258,180 +259,187 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card className="hover-scale transition-all shadow-lg border-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Тарифный план</CardTitle>
-              <Icon name="CreditCard" className="text-primary" size={24} />
+      <Card className="shadow-lg border-2">
+        <CardHeader 
+          className="cursor-pointer hover:bg-muted/50 transition-colors select-none"
+          onClick={() => setIsStatsExpanded(!isStatsExpanded)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 md:gap-3">
+              <Icon name="BarChart3" className="text-primary" size={20} />
+              <CardTitle className="text-base md:text-xl font-semibold">Статистика</CardTitle>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isTrialPeriod ? (
-              <>
-                <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">
-                  Пробный период
-                </Badge>
-                <div>
-                  <div className="flex justify-between mb-2 text-sm">
-                    <span>Осталось дней:</span>
-                    <span className="font-bold">{trialDaysLeft}</span>
+            <Icon 
+              name={isStatsExpanded ? "ChevronUp" : "ChevronDown"} 
+              size={20} 
+              className="text-muted-foreground transition-transform flex-shrink-0"
+            />
+          </div>
+        </CardHeader>
+        
+        {isStatsExpanded && (
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 pt-4">
+              {/* Тарифный план */}
+              <div className="p-3 md:p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <Icon name="CreditCard" className="text-blue-600" size={18} />
+                    <h3 className="font-semibold text-xs md:text-sm">Тарифный план</h3>
                   </div>
-                  <Progress value={(trialDaysLeft / 30) * 100} className="h-2" />
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Баланс: <span className="font-bold">{balance}₽</span> в месяц
-                </p>
-              </>
+                {isTrialPeriod ? (
+                  <div className="space-y-1.5 md:space-y-2">
+                    <Badge className="bg-yellow-500 text-white text-[10px] md:text-xs">Пробный период</Badge>
+                    <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground">
+                      <span>Осталось:</span>
+                      <span className="font-bold text-yellow-700">{trialDaysLeft} дней</span>
+                    </div>
+                    <Progress value={(trialDaysLeft / 30) * 100} className="h-1 md:h-1.5" />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 md:space-y-2">
+                    <Badge className="bg-green-500 text-white text-[10px] md:text-xs">Активная</Badge>
+                    <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground">
+                      <span>Осталось:</span>
+                      <span className="font-bold text-green-700">{subscriptionDaysLeft} дней</span>
+                    </div>
+                    <Progress value={(subscriptionDaysLeft / 30) * 100} className="h-1 md:h-1.5" />
+                  </div>
+                )}
+              </div>
+
+              {/* Клиенты */}
+              <div className="p-3 md:p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <Icon name="Users" className="text-purple-600" size={18} />
+                    <h3 className="font-semibold text-xs md:text-sm">Клиенты</h3>
+                  </div>
+                  <div className="text-xl md:text-2xl font-bold text-purple-700">0</div>
+                </div>
+                <div className="space-y-1 md:space-y-1.5 text-[10px] md:text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>На этой неделе:</span>
+                    <span className="font-semibold text-purple-700">0</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>В этом месяце:</span>
+                    <span className="font-semibold text-purple-700">0</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Фотокниги */}
+              <div className="p-3 md:p-4 bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <Icon name="Book" className="text-orange-600" size={18} />
+                    <h3 className="font-semibold text-xs md:text-sm">Фотокниги</h3>
+                  </div>
+                  <div className="text-xl md:text-2xl font-bold text-orange-700">0</div>
+                </div>
+                <div className="space-y-1 md:space-y-1.5 text-[10px] md:text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>В работе:</span>
+                    <span className="font-semibold text-orange-700">0</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Завершено:</span>
+                    <span className="font-semibold text-orange-700">0</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Завершенные проекты */}
+              <div className="p-3 md:p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                <div className="flex items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
+                  <Icon name="CheckCircle2" className="text-green-600" size={16} />
+                  <h3 className="font-semibold text-[10px] md:text-xs">Завершённые проекты</h3>
+                </div>
+                <div className="space-y-1">
+                  <Progress value={0} className="h-1 md:h-1.5" />
+                  <div className="text-[10px] md:text-xs text-muted-foreground text-right">
+                    <span className="font-bold text-green-700">0%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Загрузка календаря */}
+              <div className="p-3 md:p-4 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-lg border border-cyan-200">
+                <div className="flex items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
+                  <Icon name="Calendar" className="text-cyan-600" size={16} />
+                  <h3 className="font-semibold text-[10px] md:text-xs">Загрузка календаря</h3>
+                </div>
+                <div className="space-y-1">
+                  <Progress value={0} className="h-1 md:h-1.5" />
+                  <div className="text-[10px] md:text-xs text-muted-foreground text-right">
+                    <span className="font-bold text-cyan-700">0%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Довольные клиенты */}
+              <div className="p-3 md:p-4 bg-gradient-to-br from-rose-50 to-pink-50 rounded-lg border border-rose-200">
+                <div className="flex items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
+                  <Icon name="Heart" className="text-rose-600" size={16} />
+                  <h3 className="font-semibold text-[10px] md:text-xs">Довольные клиенты</h3>
+                </div>
+                <div className="space-y-1">
+                  <Progress value={0} className="h-1 md:h-1.5" />
+                  <div className="text-[10px] md:text-xs text-muted-foreground text-right">
+                    <span className="font-bold text-rose-700">0%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card className="shadow-lg border-2">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Icon name="Calendar" className="mr-2 text-primary" size={20} md:size={24} />
+            <span className="text-base md:text-xl">Ближайшие встречи</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 md:space-y-3 max-h-96 overflow-y-auto pr-1 md:pr-2">
+            {upcomingMeetings.length > 0 ? (
+              upcomingMeetings.map((meeting) => (
+                <div
+                  key={meeting.id}
+                  onClick={() => handleMeetingClick(meeting.name)}
+                  className="flex items-center justify-between p-2 md:p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer hover:shadow-md"
+                >
+                  <div className="flex items-center space-x-2 md:space-x-3 min-w-0">
+                    <div className="bg-primary/10 p-1.5 md:p-2 rounded-full flex-shrink-0">
+                      <Icon name="User" size={16} className="text-primary md:w-[18px] md:h-[18px]" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm md:text-base truncate">{meeting.name}</p>
+                      <p className="text-xs md:text-sm text-muted-foreground truncate">{meeting.type}</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-2">
+                    <p className="text-xs md:text-sm font-medium whitespace-nowrap">{meeting.date}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">{meeting.time}</p>
+                  </div>
+                </div>
+              ))
             ) : (
-              <>
-                <Badge className="bg-green-500 hover:bg-green-600 text-white">
-                  Активная подписка
-                </Badge>
-                <div>
-                  <div className="flex justify-between mb-2 text-sm">
-                    <span>Осталось дней:</span>
-                    <span className="font-bold">{subscriptionDaysLeft}</span>
-                  </div>
-                  <Progress value={(subscriptionDaysLeft / 30) * 100} className="h-2" />
+              <div className="flex flex-col items-center justify-center py-6 md:py-8 text-center px-4">
+                <div className="bg-muted rounded-full p-3 md:p-4 mb-3 md:mb-4">
+                  <Icon name="CalendarX" size={24} className="text-muted-foreground md:w-8 md:h-8" />
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="hover-scale transition-all shadow-lg border-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Клиенты</CardTitle>
-              <Icon name="Users" className="text-secondary" size={24} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold mb-2">0</div>
-            <p className="text-sm text-muted-foreground">Всего в базе</p>
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>На этой неделе:</span>
-                <span className="font-semibold">0</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>В этом месяце:</span>
-                <span className="font-semibold">0</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-scale transition-all shadow-lg border-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Фотокниги</CardTitle>
-              <Icon name="Book" className="text-accent" size={24} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold mb-2">0</div>
-            <p className="text-sm text-muted-foreground">Проектов создано</p>
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>В работе:</span>
-                <span className="font-semibold">0</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Завершено:</span>
-                <span className="font-semibold">0</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="shadow-lg border-2">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Icon name="Calendar" className="mr-2 text-primary" size={24} />
-              Ближайшие встречи
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-              {upcomingMeetings.length > 0 ? (
-                upcomingMeetings.map((meeting) => (
-                  <div
-                    key={meeting.id}
-                    onClick={() => handleMeetingClick(meeting.name)}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer hover:shadow-md"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-primary/10 p-2 rounded-full">
-                        <Icon name="User" size={18} className="text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">{meeting.name}</p>
-                        <p className="text-sm text-muted-foreground">{meeting.type}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{meeting.date}</p>
-                      <p className="text-sm text-muted-foreground">{meeting.time}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="bg-muted rounded-full p-4 mb-4">
-                    <Icon name="CalendarX" size={32} className="text-muted-foreground" />
-                  </div>
-                  <p className="text-muted-foreground mb-2">Нет запланированных встреч</p>
-                  <p className="text-sm text-muted-foreground">Добавьте новых клиентов и назначьте встречи</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg border-2">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Icon name="TrendingUp" className="mr-2 text-secondary" size={24} />
-              Статистика
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Завершённые проекты</span>
-                <span className="font-bold">0%</span>
-              </div>
-              <Progress value={0} className="h-2" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Загрузка календаря</span>
-                <span className="font-bold">0%</span>
-              </div>
-              <Progress value={0} className="h-2" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Довольные клиенты</span>
-                <span className="font-bold">0%</span>
-              </div>
-              <Progress value={0} className="h-2" />
-            </div>
-            {userRole === 'admin' && (
-              <div className="pt-4 border-t">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Доход за месяц:</span>
-                  <span className="text-2xl font-bold text-green-600">125,000₽</span>
-                </div>
+                <p className="text-muted-foreground mb-1 md:mb-2 text-sm md:text-base">Нет запланированных встреч</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Добавьте новых клиентов и назначьте встречи</p>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="shadow-lg border-2 bg-gradient-to-r from-blue-50 to-purple-50">
         <CardHeader>
