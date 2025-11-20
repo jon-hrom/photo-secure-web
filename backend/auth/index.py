@@ -553,10 +553,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if vk_data.get('phone_number') and not user.get('phone'):
                         user['phone'] = vk_data['phone_number']
             
+            user_data = dict(user)
+            if user_data.get('email_verified_at'):
+                user_data['email_verified_at'] = user_data['email_verified_at'].isoformat()
+            
             return {
                 'statusCode': 200,
                 'headers': headers,
-                'body': json.dumps(dict(user)),
+                'body': json.dumps(user_data),
                 'isBase64Encoded': False
             }
         
