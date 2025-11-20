@@ -229,6 +229,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        if not user['email'] or not user['email'].strip():
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({'error': 'Email не указан. Добавьте email в настройках.'}),
+                'isBase64Encoded': False
+            }
+        
         if method == 'POST':
             body = json.loads(event.get('body', '{}'))
             action = body.get('action')

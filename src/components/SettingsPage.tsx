@@ -51,9 +51,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
         setEditedEmail(data.email || '');
         setEditedPhone(data.phone || '');
       } else {
-        toast.error('Ошибка загрузки настроек');
+        console.error('Settings load error:', { status: response.status, data });
+        toast.error(data.error || 'Ошибка загрузки настроек');
       }
     } catch (error) {
+      console.error('Settings load exception:', error);
       toast.error('Ошибка подключения к серверу');
     } finally {
       setIsLoading(false);

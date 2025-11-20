@@ -90,6 +90,9 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
       } else if (res.status === 409) {
         toast.success('Email уже подтверждён');
         onVerified();
+      } else if (res.status === 400) {
+        toast.error(data.error || 'Добавьте email в настройках перед подтверждением');
+        onClose();
       } else {
         setError(data.error || 'Ошибка отправки кода');
       }
