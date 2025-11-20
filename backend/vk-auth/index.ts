@@ -131,21 +131,32 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
          WHERE id = ${escapeSQL(userId)}`
       );
       
-      // Also update vk_users if exists
-      await client.query(
-        `INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active, last_login)
-         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(userId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE, CURRENT_TIMESTAMP)
-         ON CONFLICT (vk_sub) DO UPDATE SET
-           full_name = ${escapeSQL(fullName)},
-           avatar_url = ${escapeSQL(avatarUrl)},
-           is_verified = ${escapeSQL(isVerified)},
-           email = ${escapeSQL(email)},
-           phone_number = ${escapeSQL(phone)},
-           ip_address = ${escapeSQL(ipAddress)},
-           user_agent = ${escapeSQL(userAgent)},
-           is_active = TRUE,
-           last_login = CURRENT_TIMESTAMP`
+      // Update existing vk_users record by user_id
+      const vkUserCheck = await client.query(
+        `SELECT user_id FROM vk_users WHERE user_id = ${escapeSQL(userId)}`
       );
+      
+      if (vkUserCheck.rows.length > 0) {
+        await client.query(
+          `UPDATE vk_users SET
+             vk_sub = ${escapeSQL(vkUserId)},
+             full_name = ${escapeSQL(fullName)},
+             avatar_url = ${escapeSQL(avatarUrl)},
+             is_verified = ${escapeSQL(isVerified)},
+             email = ${escapeSQL(email)},
+             phone_number = ${escapeSQL(phone)},
+             ip_address = ${escapeSQL(ipAddress)},
+             user_agent = ${escapeSQL(userAgent)},
+             is_active = TRUE,
+             last_login = CURRENT_TIMESTAMP
+           WHERE user_id = ${escapeSQL(userId)}`
+        );
+      } else {
+        await client.query(
+          `INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active, last_login)
+           VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(userId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE, CURRENT_TIMESTAMP)`
+        );
+      }
       
       return userId;
     } else {
