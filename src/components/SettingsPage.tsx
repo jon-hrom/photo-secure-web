@@ -187,7 +187,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   className="rounded-xl"
                   readOnly={settings.source === 'email' && !!settings.email}
                 />
-                {isEditingEmail && (
+                {(isEditingEmail || (settings.source === 'vk' && !settings.email)) && (
                   <Button
                     onClick={async () => {
                       await handleUpdateContact('email', editedEmail);
@@ -218,6 +218,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   >
                     Подтвердить
                   </Button>
+                </div>
+              ) : settings.source === 'vk' && editedEmail && editedEmail.trim() && editedEmail.includes('@') ? (
+                <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Icon name="Info" size={16} />
+                  <span className="font-medium">Сначала сохраните email, нажав кнопку справа ↪</span>
                 </div>
               ) : null}
             </div>
