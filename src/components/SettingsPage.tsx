@@ -116,6 +116,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
         setSettings((prev) => ({ ...prev, [field]: finalValue }));
         if (field === 'phone') {
           setEditedPhone(finalValue);
+        } else if (field === 'email') {
+          setEditedEmail(finalValue);
         }
         toast.success('Контактные данные обновлены');
       } else {
