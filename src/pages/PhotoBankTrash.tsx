@@ -308,6 +308,20 @@ const PhotoBankTrash = () => {
     return `${daysLeft} дней до удаления`;
   };
   
+  const getDaysLeftBadge = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const daysLeft = 7 - days;
+    
+    return {
+      days: daysLeft,
+      variant: daysLeft <= 2 ? 'destructive' : daysLeft <= 4 ? 'default' : 'secondary',
+      text: daysLeft <= 0 ? 'Удаление...' : `${daysLeft}д`
+    };
+  };
+  
   useEffect(() => {
     if (!authChecking && userId) {
       fetchTrash();
@@ -382,9 +396,16 @@ const PhotoBankTrash = () => {
                           <Icon name="Folder" size={16} className="text-muted-foreground shrink-0" />
                           <p className="font-medium text-sm truncate">{folder.folder_name}</p>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                           <Badge variant="secondary" className="text-xs">
                             {folder.photo_count || 0} фото
+                          </Badge>
+                          <Badge 
+                            variant={getDaysLeftBadge(folder.trashed_at).variant as any}
+                            className="text-xs"
+                          >
+                            <Icon name="Clock" size={12} className="mr-1" />
+                            {getDaysLeftBadge(folder.trashed_at).text}
                           </Badge>
                           <span className="truncate">{formatDate(folder.trashed_at)}</span>
                         </div>
@@ -472,6 +493,15 @@ const PhotoBankTrash = () => {
                           </>
                         )}
                       </Button>
+                    </div>
+                    <div className="absolute top-2 right-2">
+                      <Badge 
+                        variant={getDaysLeftBadge(photo.trashed_at).variant as any}
+                        className="text-[10px] px-1.5 py-0.5"
+                      >
+                        <Icon name="Clock" size={10} className="mr-0.5" />
+                        {getDaysLeftBadge(photo.trashed_at).text}
+                      </Badge>
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
                       <p className="text-xs text-white truncate">{photo.file_name}</p>
