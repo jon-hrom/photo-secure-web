@@ -30,12 +30,11 @@ export const useAuth = () => {
 
   const handleLoginSuccess = (uid: number, email?: string) => {
     const isUserAdmin = isAdminUser(email || null, null);
-    const page = isUserAdmin ? 'admin' : 'dashboard';
     setIsAuthenticated(true);
     setUserId(uid);
     setUserEmail(email || '');
     setIsAdmin(isUserAdmin);
-    setCurrentPage(page);
+    setCurrentPage('dashboard');
     lastActivityRef.current = Date.now();
     
     localStorage.setItem('userId', uid.toString());
@@ -45,7 +44,7 @@ export const useAuth = () => {
       userId: uid,
       userEmail: email || '',
       isAdmin: isUserAdmin,
-      currentPage: page,
+      currentPage: 'dashboard',
       lastActivity: Date.now(),
     }));
   };
@@ -113,7 +112,7 @@ export const useAuth = () => {
               setUserAvatar(userData.avatar || '');
               setIsVerified(userData.verified || false);
               setIsAdmin(isUserAdmin);
-              setCurrentPage(isUserAdmin ? 'admin' : 'dashboard');
+              setCurrentPage('dashboard');
               lastActivityRef.current = Date.now();
               
               window.history.replaceState({}, '', '/');
@@ -157,7 +156,7 @@ export const useAuth = () => {
           setUserAvatar(userData.avatar || '');
           setIsVerified(userData.is_verified || userData.verified || false);
           setIsAdmin(isUserAdmin);
-          setCurrentPage(isUserAdmin ? 'admin' : 'dashboard');
+          setCurrentPage('dashboard');
           lastActivityRef.current = Date.now();
           
           const userId = userData.user_id || userData.vk_id;
