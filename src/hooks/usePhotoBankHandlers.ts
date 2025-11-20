@@ -159,10 +159,14 @@ export const usePhotoBankHandlers = (
           });
 
           if (!urlRes.ok) {
-            throw new Error('Failed to get upload URL');
+            const errorText = await urlRes.text();
+            console.error(`[UPLOAD] Failed to get URL: ${urlRes.status}`, errorText);
+            throw new Error(`Failed to get upload URL: ${urlRes.status}`);
           }
 
-          const { url: uploadUrl, key: s3Key } = await urlRes.json();
+          const urlData = await urlRes.json();
+          console.log(`[UPLOAD] URL response:`, urlData);
+          const { url: uploadUrl, key: s3Key } = urlData;
           console.log(`[UPLOAD] Got presigned URL, uploading to S3...`);
 
           // Upload directly to S3
