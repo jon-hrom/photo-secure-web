@@ -271,6 +271,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 except:
                     pass
                 
+                try:
+                    cur.execute("DELETE FROM t_p28211681_photo_secure_web.photo_folders WHERE user_id = %s", (user_id_int,))
+                except:
+                    pass
+                
+                try:
+                    cur.execute("DELETE FROM t_p28211681_photo_secure_web.meeting_participants WHERE user_id = %s", (user_id_int,))
+                except:
+                    pass
+                
+                try:
+                    cur.execute("DELETE FROM t_p28211681_photo_secure_web.meetings WHERE creator_id = %s", (user_id_int,))
+                except:
+                    pass
+                
+                try:
+                    cur.execute("DELETE FROM t_p28211681_photo_secure_web.oauth_accounts WHERE user_id = %s", (user_id_int,))
+                except:
+                    pass
+                
+                try:
+                    cur.execute("DELETE FROM t_p28211681_photo_secure_web.oauth_identities WHERE user_id = %s", (user_id_int,))
+                except:
+                    pass
+                
                 # Удаляем пользователя
                 cur.execute("DELETE FROM t_p28211681_photo_secure_web.users WHERE id = %s", (user_id_int,))
             
