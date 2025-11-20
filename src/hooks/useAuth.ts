@@ -154,13 +154,34 @@ export const useAuth = () => {
           
           setIsAuthenticated(true);
           setUserId(userData.user_id || userData.vk_id);
-          setUserEmail(userData.email || '');
           setUserName(userData.name || 'Пользователь VK');
           setUserAvatar(userData.avatar || '');
           setIsVerified(userData.is_verified || userData.verified || false);
           setIsAdmin(isAdminUser);
           setCurrentPage(isAdminUser ? 'admin' : 'dashboard');
           lastActivityRef.current = Date.now();
+          
+          const userId = userData.user_id || userData.vk_id;
+          if (userId) {
+            fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`)
+              .then(res => res.json())
+              .then(data => {
+                if (data.email) {
+                  setUserEmail(data.email);
+                  const updatedUserData = { ...userData, email: data.email };
+                  localStorage.setItem('vk_user', JSON.stringify(updatedUserData));
+                  console.log('✅ Email loaded from database:', data.email);
+                } else {
+                  setUserEmail('');
+                }
+              })
+              .catch(err => {
+                console.error('❌ Error loading user data:', err);
+                setUserEmail(userData.email || '');
+              });
+          } else {
+            setUserEmail(userData.email || '');
+          }
           
           if (vkAuthCompleted) {
             localStorage.removeItem('vk_auth_completed');

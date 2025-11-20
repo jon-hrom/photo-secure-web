@@ -455,16 +455,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 cursor = conn.cursor()
                 
+                cursor.execute("SELECT source FROM users WHERE id = %s", (user_id,))
+                user_source_row = cursor.fetchone()
+                user_source = user_source_row['source'] if user_source_row else 'email'
+                
                 if field == 'email':
                     cursor.execute(
                         "UPDATE users SET email = %s, email_verified_at = NULL WHERE id = %s",
                         (value, user_id)
                     )
+                    if user_source == 'vk':
+                        cursor.execute(
+                            "UPDATE vk_users SET email = %s WHERE user_id = %s",
+                            (value, user_id)
+                        )
                 else:
                     cursor.execute(
                         f"UPDATE users SET {field} = %s WHERE id = %s",
                         (value, user_id)
                     )
+                    if user_source == 'vk':
+                        cursor.execute(
+                            "UPDATE vk_users SET phone_number = %s WHERE user_id = %s",
+                            (value, user_id)
+                        )
                 
                 conn.commit()
                 
@@ -534,9 +548,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 )
                 vk_data = cursor.fetchone()
                 if vk_data:
-                    if vk_data.get('email'):
+                    if vk_data.get('email') and not user.get('email'):
                         user['email'] = vk_data['email']
-                    if vk_data.get('phone_number'):
+                    if vk_data.get('phone_number') and not user.get('phone'):
                         user['phone'] = vk_data['phone_number']
             
             return {
