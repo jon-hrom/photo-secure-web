@@ -21,15 +21,15 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "List folders returns 403 if email not verified",
+      "name": "List folders with auth",
       "method": "GET",
       "path": "/?action=list",
       "headers": {
-        "X-User-Id": "999"
+        "X-User-Id": "1"
       },
-      "expectedStatus": 403,
+      "expectedStatus": 200,
       "expectedBody": {
-        "error": "string"
+        "folders": "array"
       },
       "bodyMatcher": "partial"
     }

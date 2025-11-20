@@ -65,17 +65,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute('SELECT email_verified_at FROM users WHERE id = %s', (user_id,))
-            user_check = cur.fetchone()
-            if not user_check or not user_check['email_verified_at']:
-                return {
-                    'statusCode': 403,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Email not verified', 'requireEmailVerification': True}),
-                    'isBase64Encoded': False
-                }
-        
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')
             
