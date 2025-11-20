@@ -93,6 +93,54 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'trashed_folders': folders}),
                     'isBase64Encoded': False
                 }
+            
+            elif action == 'list_photos':
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        SELECT 
+                            pb.id, 
+                            pb.file_name, 
+                            pb.s3_key,
+                            pb.file_size, 
+                            pb.width, 
+                            pb.height, 
+                            pb.trashed_at,
+                            pf.folder_name
+                        FROM photo_bank pb
+                        LEFT JOIN photo_folders pf ON pb.folder_id = pf.id
+                        WHERE pb.user_id = %s 
+                          AND pb.is_trashed = TRUE
+                          AND pf.is_trashed = FALSE
+                        ORDER BY pb.trashed_at DESC
+                    ''', (user_id,))
+                    photos = cur.fetchall()
+                    
+                    result_photos = []
+                    for photo in photos:
+                        if photo['trashed_at']:
+                            photo['trashed_at'] = photo['trashed_at'].isoformat()
+                        
+                        if photo['s3_key']:
+                            try:
+                                trash_key = f'trash/{photo["s3_key"]}'
+                                download_url = s3_client.generate_presigned_url(
+                                    'get_object',
+                                    Params={'Bucket': bucket, 'Key': trash_key},
+                                    ExpiresIn=600
+                                )
+                                photo['s3_url'] = download_url
+                            except Exception as e:
+                                print(f'Failed to generate presigned URL for {photo["s3_key"]}: {e}')
+                                photo['s3_url'] = None
+                        
+                        result_photos.append(photo)
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'trashed_photos': result_photos}),
+                    'isBase64Encoded': False
+                }
         
         elif method == 'POST':
             body_data = json.loads(event.get('body', '{}'))
@@ -168,6 +216,66 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'ok': True,
                         'restored_files': restored_count
                     }),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'restore_photo':
+                photo_id = body_data.get('photo_id')
+                
+                if not photo_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'photo_id required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        SELECT s3_key
+                        FROM photo_bank
+                        WHERE id = %s AND user_id = %s AND is_trashed = TRUE
+                    ''', (photo_id, user_id))
+                    photo = cur.fetchone()
+                    
+                    if not photo:
+                        return {
+                            'statusCode': 404,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Trashed photo not found'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    s3_key = photo['s3_key']
+                    trash_key = f'trash/{s3_key}'
+                    
+                    try:
+                        s3_client.copy_object(
+                            Bucket=bucket,
+                            CopySource={'Bucket': bucket, 'Key': trash_key},
+                            Key=s3_key
+                        )
+                        s3_client.delete_object(Bucket=bucket, Key=trash_key)
+                    except Exception as e:
+                        print(f'Failed to restore photo: {e}')
+                        return {
+                            'statusCode': 500,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': f'Failed to restore photo: {str(e)}'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    cur.execute('''
+                        UPDATE photo_bank
+                        SET is_trashed = FALSE, trashed_at = NULL
+                        WHERE id = %s
+                    ''', (photo_id,))
+                    conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'ok': True}),
                     'isBase64Encoded': False
                 }
             

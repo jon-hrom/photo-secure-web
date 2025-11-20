@@ -14,6 +14,18 @@ interface TrashedFolder {
   photo_count: number;
 }
 
+interface TrashedPhoto {
+  id: number;
+  file_name: string;
+  s3_key: string;
+  s3_url: string;
+  file_size: number;
+  width: number | null;
+  height: number | null;
+  trashed_at: string;
+  folder_name: string;
+}
+
 const PhotoBankTrash = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -42,6 +54,7 @@ const PhotoBankTrash = () => {
   const userId = getAuthUserId();
   
   const [trashedFolders, setTrashedFolders] = useState<TrashedFolder[]>([]);
+  const [trashedPhotos, setTrashedPhotos] = useState<TrashedPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState<number | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
@@ -95,11 +108,20 @@ const PhotoBankTrash = () => {
     
     setLoading(true);
     try {
-      const res = await fetch(`${PHOTOBANK_TRASH_API}?action=list`, {
-        headers: { 'X-User-Id': userId }
-      });
-      const data = await res.json();
-      setTrashedFolders(data.trashed_folders || []);
+      const [foldersRes, photosRes] = await Promise.all([
+        fetch(`${PHOTOBANK_TRASH_API}?action=list`, {
+          headers: { 'X-User-Id': userId }
+        }),
+        fetch(`${PHOTOBANK_TRASH_API}?action=list_photos`, {
+          headers: { 'X-User-Id': userId }
+        })
+      ]);
+      
+      const foldersData = await foldersRes.json();
+      const photosData = await photosRes.json();
+      
+      setTrashedFolders(foldersData.trashed_folders || []);
+      setTrashedPhotos(photosData.trashed_photos || []);
     } catch (error) {
       toast({
         title: 'Ошибка',
@@ -144,6 +166,46 @@ const PhotoBankTrash = () => {
       toast({
         title: 'Ошибка',
         description: error.message || 'Не удалось восстановить папку',
+        variant: 'destructive'
+      });
+    } finally {
+      setRestoring(null);
+    }
+  };
+  
+  const handleRestorePhoto = async (photoId: number, fileName: string) => {
+    if (!userId) return;
+    if (!confirm(`Восстановить фото "${fileName}"?`)) return;
+    
+    setRestoring(photoId);
+    try {
+      const res = await fetch(PHOTOBANK_TRASH_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
+        body: JSON.stringify({
+          action: 'restore_photo',
+          photo_id: photoId
+        })
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to restore photo');
+      }
+      
+      toast({
+        title: 'Успешно',
+        description: `Фото "${fileName}" восстановлено`
+      });
+      
+      fetchTrash();
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось восстановить фото',
         variant: 'destructive'
       });
     } finally {
@@ -230,13 +292,13 @@ const PhotoBankTrash = () => {
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={() => navigate('/photobank')}
+              onClick={() => navigate('/photo-bank')}
             >
               <Icon name="ArrowLeft" size={24} />
             </Button>
             <h1 className="text-3xl font-bold">Корзина</h1>
           </div>
-          {trashedFolders.length > 0 && (
+          {(trashedFolders.length > 0 || trashedPhotos.length > 0) && (
             <Button 
               variant="destructive"
               onClick={handleEmptyTrash}
@@ -256,7 +318,7 @@ const PhotoBankTrash = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading && trashedFolders.length === 0 ? (
+            {loading && trashedFolders.length === 0 && trashedPhotos.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Icon name="Loader2" size={32} className="animate-spin mx-auto mb-2" />
                 Загрузка...
@@ -264,15 +326,7 @@ const PhotoBankTrash = () => {
             ) : trashedFolders.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Icon name="FolderOpen" size={48} className="mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Корзина пуста</p>
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={() => navigate('/photobank')}
-                  className="mt-2"
-                >
-                  Вернуться к фото банку
-                </Button>
+                <p className="text-sm">Нет удаленных папок</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -315,6 +369,63 @@ const PhotoBankTrash = () => {
           </CardContent>
         </Card>
         
+        {trashedPhotos.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icon name="Image" size={20} />
+                Удаленные фото ({trashedPhotos.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {trashedPhotos.map((photo) => (
+                  <div
+                    key={photo.id}
+                    className="relative group rounded-lg overflow-hidden border-2 border-muted hover:border-muted-foreground/20 transition-colors"
+                  >
+                    <div className="aspect-square bg-muted">
+                      {photo.s3_url ? (
+                        <img
+                          src={photo.s3_url}
+                          alt={photo.file_name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Icon name="ImageOff" size={32} className="text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleRestorePhoto(photo.id, photo.file_name)}
+                        disabled={restoring === photo.id}
+                      >
+                        {restoring === photo.id ? (
+                          <Icon name="Loader2" size={14} className="animate-spin" />
+                        ) : (
+                          <>
+                            <Icon name="Undo2" size={14} className="mr-1" />
+                            Восстановить
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                      <p className="text-xs text-white truncate">{photo.file_name}</p>
+                      <p className="text-[10px] text-white/70">{formatDate(photo.trashed_at)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         <Card className="bg-muted/30">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
@@ -322,7 +433,7 @@ const PhotoBankTrash = () => {
               <div className="text-sm text-muted-foreground">
                 <p className="font-medium mb-1">О корзине</p>
                 <p>Файлы в корзине автоматически удаляются через 7 дней.</p>
-                <p className="mt-1">Вы можете восстановить папки до истечения этого срока.</p>
+                <p className="mt-1">Вы можете восстановить папки и фото до истечения этого срока.</p>
               </div>
             </div>
           </CardContent>
