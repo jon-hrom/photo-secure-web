@@ -146,6 +146,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           onLoginSuccess(data.userId, email);
         }
       } else {
+        if (response.status === 404) {
+          toast.error('Пользователь с такой почтой не зарегистрирован!');
+          return;
+        }
+        
         const newAttempts = remainingAttempts - 1;
         setRemainingAttempts(newAttempts);
         
