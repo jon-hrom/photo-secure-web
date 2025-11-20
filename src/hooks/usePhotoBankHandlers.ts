@@ -150,31 +150,54 @@ export const usePhotoBankHandlers = (
           const width = img.width;
           const height = img.height;
 
-          // Convert original file to base64 without compression
-          const reader = new FileReader();
-          const base64Data = await new Promise<string>((resolve) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
+          console.log(`[UPLOAD] Getting presigned URL...`);
+          const urlRes = await fetch(`${PHOTOBANK_FOLDERS_API}?action=get_upload_url&folder_id=${selectedFolder.id}&file_name=${encodeURIComponent(file.name)}`, {
+            method: 'GET',
+            headers: {
+              'X-User-Id': userId
+            }
           });
-          
-          console.log(`[UPLOAD] Original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
 
-          console.log(`[UPLOAD] Uploading directly to backend...`);
-          const res = await fetch(PHOTOBANK_FOLDERS_API, {
+          if (!urlRes.ok) {
+            throw new Error('Failed to get upload URL');
+          }
+
+          const { url: uploadUrl, key: s3Key } = await urlRes.json();
+          console.log(`[UPLOAD] Got presigned URL, uploading to S3...`);
+
+          // Upload directly to S3
+          const s3Res = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: file,
+            headers: {
+              'Content-Type': file.type || 'image/jpeg'
+            }
+          });
+
+          if (!s3Res.ok) {
+            throw new Error(`S3 upload failed: ${s3Res.status}`);
+          }
+
+          console.log(`[UPLOAD] S3 upload success, confirming...`);
+
+          // Confirm upload in DB
+          const confirmRes = await fetch(PHOTOBANK_FOLDERS_API, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-User-Id': userId
             },
             body: JSON.stringify({
-              action: 'upload_direct',
+              action: 'confirm_upload',
               folder_id: selectedFolder.id,
+              s3_key: s3Key,
               file_name: file.name,
-              file_data: base64Data,
               width: Math.round(width),
               height: Math.round(height)
             })
           });
+
+          const res = confirmRes;
 
           console.log(`[UPLOAD] Response status: ${res.status}`);
           if (res.ok) {

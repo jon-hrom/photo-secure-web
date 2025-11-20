@@ -12,6 +12,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
 from botocore.client import Config
+from PIL import Image
+import io
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
@@ -95,6 +97,62 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({'folders': folders}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'get_upload_url':
+                folder_id = event.get('queryStringParameters', {}).get('folder_id')
+                file_name = event.get('queryStringParameters', {}).get('file_name', 'image.jpg')
+                
+                if not folder_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        SELECT s3_prefix 
+                        FROM photo_folders 
+                        WHERE id = %s AND user_id = %s AND is_trashed = FALSE
+                    ''', (folder_id, user_id))
+                    folder = cur.fetchone()
+                    
+                    if not folder:
+                        return {
+                            'statusCode': 404,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Folder not found'}),
+                            'isBase64Encoded': False
+                        }
+                
+                file_ext = file_name.split('.')[-1] if '.' in file_name else 'jpg'
+                s3_key = f'{folder["s3_prefix"]}{uuid.uuid4()}.{file_ext}'
+                
+                presigned_url = s3_client.generate_presigned_url(
+                    'put_object',
+                    Params={
+                        'Bucket': bucket,
+                        'Key': s3_key,
+                        'ContentType': 'image/jpeg',
+                        'Metadata': {
+                            'user-id': str(user_id),
+                            'folder-id': str(folder_id)
+                        }
+                    },
+                    ExpiresIn=900
+                )
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({
+                        'url': presigned_url,
+                        'key': s3_key,
+                        'expiresIn': 900
+                    }),
                     'isBase64Encoded': False
                 }
             
@@ -325,6 +383,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'body': json.dumps({'error': f'File not found in S3: {str(e)}'}),
                         'isBase64Encoded': False
                     }
+                
+                if not width or not height:
+                    print(f'[CONFIRM_UPLOAD] Getting dimensions from S3 image')
+                    try:
+                        image_response = s3_client.get_object(Bucket=bucket, Key=s3_key)
+                        image_data = image_response['Body'].read()
+                        image = Image.open(io.BytesIO(image_data))
+                        width = image.width
+                        height = image.height
+                        print(f'[CONFIRM_UPLOAD] Extracted dimensions: {width}x{height}')
+                    except Exception as e:
+                        print(f'[CONFIRM_UPLOAD] Failed to get dimensions: {str(e)}')
+                        width = None
+                        height = None
                 
                 s3_url = f'https://storage.yandexcloud.net/{bucket}/{s3_key}'
                 
