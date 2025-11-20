@@ -30,7 +30,9 @@ export const usePhotoBankHandlers = (
   setShowCreateFolder: (show: boolean) => void,
   setShowClearConfirm: (show: boolean) => void,
   setUploading: (uploading: boolean) => void,
-  setUploadProgress: (progress: { current: number; total: number }) => void,
+  setUploadProgress: (progress: { current: number; total: number; percent: number; currentFileName: string }) => void,
+  uploadCancelled: boolean,
+  setUploadCancelled: (cancelled: boolean) => void,
   setSelectedFolder: (folder: PhotoFolder | null) => void,
   setPhotos: (photos: Photo[]) => void,
   setSelectedPhotos: (photos: Set<number>) => void,
@@ -109,13 +111,26 @@ export const usePhotoBankHandlers = (
     }
 
     setUploading(true);
-    setUploadProgress({ current: 0, total: imageFiles.length });
+    setUploadCancelled(false);
+    setUploadProgress({ current: 0, total: imageFiles.length, percent: 0, currentFileName: '' });
     let successCount = 0;
     let errorCount = 0;
 
     try {
       for (let i = 0; i < imageFiles.length; i++) {
+        if (uploadCancelled) {
+          console.log('[UPLOAD] Cancelled by user');
+          break;
+        }
+
         const file = imageFiles[i];
+        const percent = Math.round(((i) / imageFiles.length) * 100);
+        setUploadProgress({ 
+          current: i, 
+          total: imageFiles.length, 
+          percent,
+          currentFileName: file.name 
+        });
         console.log(`[UPLOAD] Processing file ${i + 1}/${imageFiles.length}:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         try {
           // Load image first to get dimensions and compress
@@ -241,7 +256,13 @@ export const usePhotoBankHandlers = (
           console.error(`[UPLOAD] Error uploading ${file.name}:`, err);
           errorCount++;
         }
-        setUploadProgress({ current: i + 1, total: imageFiles.length });
+        const newPercent = Math.round(((i + 1) / imageFiles.length) * 100);
+        setUploadProgress({ 
+          current: i + 1, 
+          total: imageFiles.length, 
+          percent: newPercent,
+          currentFileName: i + 1 < imageFiles.length ? imageFiles[i + 1].name : '' 
+        });
       }
 
       if (successCount > 0) {
@@ -267,9 +288,18 @@ export const usePhotoBankHandlers = (
       });
     } finally {
       setUploading(false);
-      setUploadProgress({ current: 0, total: 0 });
+      setUploadProgress({ current: 0, total: 0, percent: 0, currentFileName: '' });
+      setUploadCancelled(false);
       e.target.value = '';
     }
+  };
+
+  const handleCancelUpload = () => {
+    setUploadCancelled(true);
+    toast({
+      title: 'Загрузка отменена',
+      description: 'Загрузка файлов прервана'
+    });
   };
 
   const handleDeletePhoto = async (photoId: number, fileName: string) => {
@@ -418,6 +448,7 @@ export const usePhotoBankHandlers = (
   return {
     handleCreateFolder,
     handleUploadPhoto,
+    handleCancelUpload,
     handleDeletePhoto,
     handleDeleteFolder,
     handleClearAll,

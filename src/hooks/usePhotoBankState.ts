@@ -24,7 +24,8 @@ export const usePhotoBankState = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percent: 0, currentFileName: '' });
+  const [uploadCancelled, setUploadCancelled] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [folderName, setFolderName] = useState('');
@@ -45,6 +46,8 @@ export const usePhotoBankState = () => {
     setUploading,
     uploadProgress,
     setUploadProgress,
+    uploadCancelled,
+    setUploadCancelled,
     showCreateFolder,
     setShowCreateFolder,
     showClearConfirm,

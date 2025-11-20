@@ -25,13 +25,14 @@ interface PhotoBankPhotoGridProps {
   photos: Photo[];
   loading: boolean;
   uploading: boolean;
-  uploadProgress: { current: number; total: number };
+  uploadProgress: { current: number; total: number; percent: number; currentFileName: string };
   selectionMode: boolean;
   selectedPhotos: Set<number>;
   emailVerified: boolean;
   onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDeletePhoto: (photoId: number, fileName: string) => void;
   onTogglePhotoSelection: (photoId: number) => void;
+  onCancelUpload: () => void;
 }
 
 const PhotoBankPhotoGrid = ({
@@ -45,7 +46,8 @@ const PhotoBankPhotoGrid = ({
   emailVerified,
   onUploadPhoto,
   onDeletePhoto,
-  onTogglePhotoSelection
+  onTogglePhotoSelection,
+  onCancelUpload
 }: PhotoBankPhotoGridProps) => {
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Б';
@@ -95,20 +97,54 @@ const PhotoBankPhotoGrid = ({
           </div>
         )}
         {uploading && uploadProgress.total > 0 && (
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                Загружено {uploadProgress.current} из {uploadProgress.total}
-              </span>
-              <span className="font-medium">
-                {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
-              </span>
+          <div className="mt-4 space-y-3 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Icon name="Loader2" size={20} className="animate-spin text-primary" />
+                  <div className="absolute inset-0 animate-ping opacity-25">
+                    <Icon name="Loader2" size={20} className="text-primary" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">
+                    Загружается {uploadProgress.current} из {uploadProgress.total}
+                  </p>
+                  {uploadProgress.currentFileName && (
+                    <p className="text-xs text-muted-foreground truncate max-w-xs">
+                      {uploadProgress.currentFileName}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-lg font-bold text-primary">
+                  {uploadProgress.percent}%
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={onCancelUpload}
+                >
+                  <Icon name="X" size={16} />
+                </Button>
+              </div>
             </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div className="relative h-2 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-primary transition-all duration-300 ease-out"
-                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent animate-pulse"
               />
+              <div
+                className="relative h-full bg-gradient-to-r from-primary via-primary to-primary/80 transition-all duration-500 ease-out rounded-full shadow-lg shadow-primary/50"
+                style={{ width: `${uploadProgress.percent}%` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Осталось: {uploadProgress.total - uploadProgress.current}</span>
+              <span>Успешно: {uploadProgress.current}</span>
             </div>
           </div>
         )}

@@ -28,6 +28,8 @@ const PhotoBank = () => {
     setUploading,
     uploadProgress,
     setUploadProgress,
+    uploadCancelled,
+    setUploadCancelled,
     showCreateFolder,
     setShowCreateFolder,
     showClearConfirm,
@@ -53,6 +55,7 @@ const PhotoBank = () => {
   const {
     handleCreateFolder,
     handleUploadPhoto,
+    handleCancelUpload,
     handleDeletePhoto,
     handleDeleteFolder,
     handleClearAll,
@@ -71,6 +74,8 @@ const PhotoBank = () => {
     setShowClearConfirm,
     setUploading,
     setUploadProgress,
+    uploadCancelled,
+    setUploadCancelled,
     setSelectedFolder,
     setPhotos,
     setSelectedPhotos,
@@ -160,6 +165,7 @@ const PhotoBank = () => {
             onUploadPhoto={handleUploadPhoto}
             onDeletePhoto={handleDeletePhoto}
             onTogglePhotoSelection={togglePhotoSelection}
+            onCancelUpload={handleCancelUpload}
           />
         </div>
       </div>
