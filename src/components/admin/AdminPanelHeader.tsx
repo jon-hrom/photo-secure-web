@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminPanelHeaderProps {
   vkUser: any;
@@ -11,6 +12,14 @@ interface AdminPanelHeaderProps {
 }
 
 const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onSaveSettings }: AdminPanelHeaderProps) => {
+  const navigate = useNavigate();
+  
+  const handleLogout = () => {
+    localStorage.removeItem('vk_user_id');
+    localStorage.removeItem('vk_access_token');
+    navigate('/');
+  };
+  
   return (
     <div className="space-y-6">
       {vkUser && (
@@ -71,6 +80,15 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                   <Icon name="Save" size={16} className="mr-2" />
                   Сохранить
                 </Button>
+                <Button
+                  onClick={handleLogout}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 border-white/30"
+                >
+                  <Icon name="LogOut" size={16} className="mr-2" />
+                  Выход
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -115,6 +133,15 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                 >
                   <Icon name="Save" size={16} className="mr-2" />
                   Сохранить
+                </Button>
+                <Button
+                  onClick={handleLogout}
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 border-white/30"
+                >
+                  <Icon name="LogOut" size={16} className="mr-2" />
+                  Выход
                 </Button>
               </div>
             </div>
