@@ -116,73 +116,31 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
   try {
     await client.connect();
     
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    // First check if user exists by vk_sub in vk_users table
+    const vkUserResult = await client.query(
+      `SELECT user_id FROM vk_users WHERE vk_sub = ${escapeSQL(vkUserId)}`
+    );
+    
+    if (vkUserResult.rows.length > 0) {
+      // User exists, return their user_id (read-only mode)
+      return vkUserResult.rows[0].user_id;
+    }
+    
     // Check if user exists in users table by vk_id
     const existingUserResult = await client.query(
       `SELECT id FROM users WHERE vk_id = ${escapeSQL(vkUserId)}`
     );
     
-    const fullName = `${firstName} ${lastName}`.trim();
-    
     if (existingUserResult.rows.length > 0) {
-      // Update existing user in users table
-      const userId = existingUserResult.rows[0].id;
-      await client.query(
-        `UPDATE users 
-         SET phone = ${escapeSQL(phone)},
-             ip_address = ${escapeSQL(ipAddress)},
-             user_agent = ${escapeSQL(userAgent)},
-             source = 'vk',
-             is_active = TRUE,
-             last_login = CURRENT_TIMESTAMP
-         WHERE id = ${escapeSQL(userId)}`
-      );
-      
-      // Update existing vk_users record by user_id
-      const vkUserCheck = await client.query(
-        `SELECT user_id FROM vk_users WHERE user_id = ${escapeSQL(userId)}`
-      );
-      
-      if (vkUserCheck.rows.length > 0) {
-        await client.query(
-          `UPDATE vk_users SET
-             vk_sub = ${escapeSQL(vkUserId)},
-             full_name = ${escapeSQL(fullName)},
-             avatar_url = ${escapeSQL(avatarUrl)},
-             is_verified = ${escapeSQL(isVerified)},
-             email = ${escapeSQL(email)},
-             phone_number = ${escapeSQL(phone)},
-             ip_address = ${escapeSQL(ipAddress)},
-             user_agent = ${escapeSQL(userAgent)},
-             is_active = TRUE,
-             last_login = CURRENT_TIMESTAMP
-           WHERE user_id = ${escapeSQL(userId)}`
-        );
-      } else {
-        await client.query(
-          `INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active, last_login)
-           VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(userId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE, CURRENT_TIMESTAMP)`
-        );
-      }
-      
-      return userId;
-    } else {
-      // Create new user in users table
-      const insertUserResult = await client.query(
-        `INSERT INTO users (vk_id, email, phone, ip_address, user_agent, is_active, source, registered_at, created_at, updated_at)
-         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-         RETURNING id`
-      );
-      const newUserId = insertUserResult.rows[0].id;
-      
-      // Also insert into vk_users
-      await client.query(
-        `INSERT INTO vk_users 
-         (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, ip_address, user_agent, is_active)
-         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(newUserId)}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${escapeSQL(isVerified)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE)`
-      );
-      
-      return newUserId;
+      // User exists in users table, return their id
+      return existingUserResult.rows[0].id;
     }
+    
+    // User doesn't exist - return error instead of creating
+    throw new Error('User not found. Please contact administrator to create VK account.');
+    
   } finally {
     await client.end();
   }
