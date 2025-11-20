@@ -312,7 +312,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 )
                 user = cursor.fetchone()
                 
-                if not user or user['password_hash'] != hash_password(password):
+                if not user:
+                    return {
+                        'statusCode': 404,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Такой пользователь не зарегистрирован!'}),
+                        'isBase64Encoded': False
+                    }
+                
+                if user['password_hash'] != hash_password(password):
                     attempts = count_recent_attempts(conn, ip_address, email)
                     block = attempts >= 4
                     record_login_attempt(conn, ip_address, email, False, block)
@@ -320,7 +328,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     return {
                         'statusCode': 401,
                         'headers': headers,
-                        'body': json.dumps({'error': 'Неверные учетные данные'}),
+                        'body': json.dumps({'error': 'Неверный пароль'}),
                         'isBase64Encoded': False
                     }
                 
