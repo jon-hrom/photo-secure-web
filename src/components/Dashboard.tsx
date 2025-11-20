@@ -96,21 +96,24 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
           headers: { 'X-User-Id': userId }
         });
         
+        console.log('[STORAGE] Response status:', res.status);
+        
         if (!res.ok) {
-          console.error('[STORAGE] API error:', res.status);
+          const errorText = await res.text();
+          console.error('[STORAGE] API error:', res.status, errorText);
           setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0 });
           return;
         }
         
         const data = await res.json();
-        console.log('[STORAGE] Received data:', data);
+        console.log('[STORAGE] Received data:', JSON.stringify(data));
         setStorageUsage({
           usedGb: data.usedGb || 0,
           limitGb: data.limitGb || 5,
           percent: data.percent || 0
         });
       } catch (error) {
-        console.error('Failed to fetch storage usage:', error);
+        console.error('[STORAGE] Failed to fetch storage usage:', error);
         setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0 });
       }
     };
