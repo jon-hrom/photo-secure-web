@@ -131,6 +131,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
          SET phone = ${escapeSQL(phone)},
              ip_address = ${escapeSQL(ipAddress)},
              user_agent = ${escapeSQL(userAgent)},
+             source = 'vk',
              is_active = TRUE,
              last_login = CURRENT_TIMESTAMP
          WHERE id = ${escapeSQL(userId)}`
@@ -167,8 +168,8 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     } else {
       // Create new user in users table
       const insertUserResult = await client.query(
-        `INSERT INTO users (vk_id, email, phone, ip_address, user_agent, is_active, registered_at, created_at, updated_at)
-         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `INSERT INTO users (vk_id, email, phone, ip_address, user_agent, is_active, source, registered_at, created_at, updated_at)
+         VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)}, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          RETURNING id`
       );
       const newUserId = insertUserResult.rows[0].id;
