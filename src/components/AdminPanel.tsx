@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import Icon from '@/components/ui/icon';
 import AdminPanelHeader from '@/components/admin/AdminPanelHeader';
 import AdminPanelHistory from '@/components/admin/AdminPanelHistory';
 import AdminPanelTabs from '@/components/admin/AdminPanelTabs';
@@ -50,6 +51,7 @@ const AdminPanel = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
+  const [currentRole, setCurrentRole] = useState<'admin' | 'client'>('admin');
 
   useEffect(() => {
     loadSettings();
@@ -382,6 +384,11 @@ const AdminPanel = () => {
   const savedSession = localStorage.getItem('authSession');
   const emailUser = savedSession ? JSON.parse(savedSession) : null;
 
+  const handleRoleChange = (role: 'admin' | 'client') => {
+    setCurrentRole(role);
+    toast.success(role === 'admin' ? 'Переключено на роль Администратора' : 'Переключено на роль Клиента');
+  };
+
   return (
     <div className="space-y-6">
       <AdminPanelHeader
@@ -390,32 +397,56 @@ const AdminPanel = () => {
         showHistory={showHistory}
         onToggleHistory={() => setShowHistory(!showHistory)}
         onSaveSettings={saveSettings}
+        currentRole={currentRole}
+        onRoleChange={handleRoleChange}
       />
 
-      <AdminPanelHistory
-        history={history}
-        showHistory={showHistory}
-        onRollback={rollbackToVersion}
-      />
+      {currentRole === 'admin' && (
+        <>
+          <AdminPanelHistory
+            history={history}
+            showHistory={showHistory}
+            onRollback={rollbackToVersion}
+          />
 
-      <AdminPanelTabs
-        settings={settings}
-        authProviders={authProviders}
-        colors={colors}
-        widgets={widgets}
-        users={users}
-        onToggle={handleToggle}
-        onInputChange={handleInputChange}
-        onToggleAuthProvider={handleToggleAuthProvider}
-        onColorChange={handleColorChange}
-        onSaveColors={handleSaveColors}
-        onToggleWidget={toggleWidget}
-        onMoveWidget={moveWidget}
-        onDeleteUser={deleteUser}
-        onBlockUser={blockUser}
-        onUnblockUser={unblockUser}
-        onRefreshUsers={loadUsers}
-      />
+          <AdminPanelTabs
+            settings={settings}
+            authProviders={authProviders}
+            colors={colors}
+            widgets={widgets}
+            users={users}
+            onToggle={handleToggle}
+            onInputChange={handleInputChange}
+            onToggleAuthProvider={handleToggleAuthProvider}
+            onColorChange={handleColorChange}
+            onSaveColors={handleSaveColors}
+            onToggleWidget={toggleWidget}
+            onMoveWidget={moveWidget}
+            onDeleteUser={deleteUser}
+            onBlockUser={blockUser}
+            onUnblockUser={unblockUser}
+            onRefreshUsers={loadUsers}
+          />
+        </>
+      )}
+
+      {currentRole === 'client' && (
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border-2 border-primary/20 p-8 text-center">
+          <div className="max-w-2xl mx-auto space-y-4">
+            <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Icon name="User" size={40} className="text-primary" />
+            </div>
+            <h3 className="text-2xl font-bold text-primary">Режим просмотра клиента</h3>
+            <p className="text-muted-foreground text-lg">
+              Вы видите интерфейс так, как его видит обычный клиент. Это позволяет тестировать и редактировать настройки с точки зрения пользователя.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Переключитесь обратно на роль "Главный администратор" через выпадающий список выше, чтобы получить доступ к настройкам.
+            </p>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

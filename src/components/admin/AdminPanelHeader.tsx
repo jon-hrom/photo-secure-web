@@ -2,6 +2,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AdminPanelHeaderProps {
   vkUser: any;
@@ -9,9 +16,11 @@ interface AdminPanelHeaderProps {
   showHistory: boolean;
   onToggleHistory: () => void;
   onSaveSettings: () => void;
+  currentRole: 'admin' | 'client';
+  onRoleChange: (role: 'admin' | 'client') => void;
 }
 
-const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onSaveSettings }: AdminPanelHeaderProps) => {
+const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onSaveSettings, currentRole, onRoleChange }: AdminPanelHeaderProps) => {
   const navigate = useNavigate();
   
   const handleLogout = () => {
@@ -58,9 +67,27 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-right mr-2">
-                  <div className="text-xs opacity-75">Роль</div>
-                  <div className="font-semibold">Главный администратор</div>
+                <div className="mr-2">
+                  <div className="text-xs opacity-75 mb-1">Роль</div>
+                  <Select value={currentRole} onValueChange={(value) => onRoleChange(value as 'admin' | 'client')}>
+                    <SelectTrigger className="w-[200px] bg-white/20 border-white/30 text-white hover:bg-white/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">
+                        <div className="flex items-center gap-2">
+                          <Icon name="ShieldCheck" size={16} />
+                          Главный администратор
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="client">
+                        <div className="flex items-center gap-2">
+                          <Icon name="User" size={16} />
+                          Клиент
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button
                   onClick={onToggleHistory}
@@ -112,9 +139,27 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                 <p className="text-sm opacity-90">{emailUser.email}</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-right mr-2">
-                  <div className="text-xs opacity-75">Роль</div>
-                  <div className="font-semibold">Главный администратор</div>
+                <div className="mr-2">
+                  <div className="text-xs opacity-75 mb-1">Роль</div>
+                  <Select value={currentRole} onValueChange={(value) => onRoleChange(value as 'admin' | 'client')}>
+                    <SelectTrigger className="w-[200px] bg-white/20 border-white/30 text-white hover:bg-white/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">
+                        <div className="flex items-center gap-2">
+                          <Icon name="ShieldCheck" size={16} />
+                          Главный администратор
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="client">
+                        <div className="flex items-center gap-2">
+                          <Icon name="User" size={16} />
+                          Клиент
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button
                   onClick={onToggleHistory}
