@@ -62,20 +62,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Check if user already exists by vk_id
+        # Check if user already exists by vk_id, email, or phone
         cursor.execute(
-            "SELECT id FROM users WHERE vk_id = %s",
-            (vk_id,)
+            "SELECT id, vk_id, email, phone FROM users WHERE vk_id = %s OR (email IS NOT NULL AND email != '' AND email = %s) OR (phone IS NOT NULL AND phone != '' AND phone = %s)",
+            (vk_id, email if email else None, phone if phone else None)
         )
         existing_user = cursor.fetchone()
         
         if existing_user:
             user_id = existing_user['id']
             
-            # Update existing user
+            # Update existing user (ensure vk_id is set if it wasn't before)
             cursor.execute(
-                "UPDATE users SET email = %s, phone = %s, source = 'vk', is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
-                (email, phone, user_id)
+                "UPDATE users SET vk_id = %s, email = %s, phone = %s, source = 'vk', is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
+                (vk_id, email, phone, user_id)
             )
             
             # Check if vk_users record exists
@@ -128,10 +128,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
         
+    except psycopg2.IntegrityError as e:
+        error_msg = str(e)
+        if 'unique constraint' in error_msg.lower():
+            return {
+                'statusCode': 409,
+                'headers': headers,
+                'body': json.dumps({
+                    'error': 'User already exists',
+                    'details': 'A user with this VK ID, email, or phone already exists in the system'
+                }),
+                'isBase64Encoded': False
+            }
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({'error': 'Database integrity error', 'details': str(e)}),
+            'isBase64Encoded': False
+        }
     except Exception as e:
         return {
             'statusCode': 500,
             'headers': headers,
-            'body': json.dumps({'error': str(e)}),
+            'body': json.dumps({'error': 'Failed to create user', 'details': str(e)}),
             'isBase64Encoded': False
         }
