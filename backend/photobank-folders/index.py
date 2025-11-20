@@ -32,6 +32,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     headers = event.get('headers', {})
     user_id = headers.get('X-User-Id') or headers.get('x-user-id')
     
+    print(f'[DEBUG] user_id from header: {user_id}, type: {type(user_id)}')
+    
     if not user_id:
         return {
             'statusCode': 401,
@@ -168,8 +170,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    print(f'[DEBUG] Checking user existence for user_id={user_id}')
                     cur.execute('SELECT id FROM users WHERE id = %s', (user_id,))
                     user_exists = cur.fetchone()
+                    print(f'[DEBUG] User exists: {user_exists}')
                     if not user_exists:
                         return {
                             'statusCode': 403,
