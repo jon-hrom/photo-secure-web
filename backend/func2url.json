@@ -1,4 +1,8 @@
 {
+  "download-url": "https://functions.poehali.dev/8a60ca41-e494-417e-b881-2ce4f1f4247e",
+  "upload-url": "https://functions.poehali.dev/85f5163d-cdb4-42ad-96df-ace30518b059",
+  "confirm-upload": "https://functions.poehali.dev/ca7d4e1a-305a-4229-82c8-9584f6f84400",
+  "multipart-upload": "https://functions.poehali.dev/b6f11a68-10a4-4805-8d75-86eea3d39449",
   "admin-2fa-disable": "https://functions.poehali.dev/d0cbcec4-bc93-4819-8609-38c55cbe35e4",
   "email-verification": "https://functions.poehali.dev/3d5a433c-aa3d-4275-8da2-739ec932d08f",
   "photobook-designs": "https://functions.poehali.dev/66f4d0c4-09f1-4fa4-a26b-0b623562c751",

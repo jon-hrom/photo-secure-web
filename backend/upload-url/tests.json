@@ -1,0 +1,42 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Generate presigned URL for valid user",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "userId": 1,
+        "contentType": "image/jpeg",
+        "ext": "jpg",
+        "plannedSize": 1048576
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "url": "string",
+        "key": "string",
+        "expiresIn": 900
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Reject request without userId",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "contentType": "image/jpeg",
+        "ext": "jpg"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
