@@ -2,14 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-
-interface TrashedFolder {
-  id: number;
-  folder_name: string;
-  s3_prefix: string;
-  trashed_at: string;
-  photo_count: number;
-}
+import { TrashedFolder } from './types';
 
 interface TrashedFoldersListProps {
   folders: TrashedFolder[];

@@ -2,18 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-
-interface TrashedPhoto {
-  id: number;
-  file_name: string;
-  s3_key: string;
-  s3_url: string;
-  file_size: number;
-  width: number | null;
-  height: number | null;
-  trashed_at: string;
-  folder_name: string;
-}
+import { TrashedPhoto } from './types';
 
 interface TrashedPhotosGridProps {
   photos: TrashedPhoto[];
