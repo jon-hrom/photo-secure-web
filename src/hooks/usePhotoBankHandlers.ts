@@ -111,13 +111,13 @@ export const usePhotoBankHandlers = (
       return;
     }
 
-    // Check file size limit (8 MB to leave room for base64 encoding)
-    const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8 MB
+    // Check file size limit (50 MB)
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
     const tooLargeFiles = imageFiles.filter(file => file.size > MAX_FILE_SIZE);
     if (tooLargeFiles.length > 0) {
       toast({
         title: 'Файлы слишком большие',
-        description: `Максимальный размер файла: 8 МБ. Слишком большие файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
+        description: `Максимальный размер файла: 50 МБ. Слишком большие файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
         variant: 'destructive'
       });
       return;
@@ -164,8 +164,8 @@ export const usePhotoBankHandlers = (
 
           console.log(`[UPLOAD] Original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
           
-          // Для файлов > 7 МБ делаем умное сжатие
-          const MAX_SIZE_FOR_DIRECT = 7 * 1024 * 1024;
+          // Cloud Functions limit is ~3.5 MB after base64 encoding (~2.6 MB original)
+          const MAX_SIZE_FOR_DIRECT = 2.5 * 1024 * 1024;
           let base64Data: string;
           const finalWidth = width;
           const finalHeight = height;
