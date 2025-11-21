@@ -7,6 +7,7 @@ import { PlansTab } from '@/components/admin/PlansTab';
 import { UsersTab } from '@/components/admin/UsersTab';
 import { StatsTab } from '@/components/admin/StatsTab';
 import { FinancialTab } from '@/components/admin/FinancialTab';
+import { isAdminUser } from '@/utils/adminCheck';
 
 const ADMIN_API = 'https://functions.poehali.dev/81fe316e-43c6-4e9f-93a2-63032b5c552c';
 
@@ -67,26 +68,50 @@ const AdminStorage = () => {
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null);
   const [financialPeriod, setFinancialPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
   const [loading, setLoading] = useState(false);
+  const [adminKey, setAdminKey] = useState('');
   const { toast } = useToast();
 
-  const adminKey = localStorage.getItem('adminKey') || '';
-
   useEffect(() => {
-    console.log('[ADMIN_STORAGE] Component mounted, adminKey:', adminKey ? 'present' : 'missing');
-    if (!adminKey) {
+    // Проверяем является ли пользователь администратором
+    const authSession = localStorage.getItem('authSession');
+    const vkUser = localStorage.getItem('vk_user');
+    
+    let userEmail = null;
+    let vkUserData = null;
+    
+    if (authSession) {
+      try {
+        const session = JSON.parse(authSession);
+        userEmail = session.userEmail;
+      } catch {}
+    }
+    
+    if (vkUser) {
+      try {
+        vkUserData = JSON.parse(vkUser);
+      } catch {}
+    }
+    
+    if (!isAdminUser(userEmail, vkUserData)) {
       toast({ 
         title: 'Ошибка доступа', 
-        description: 'Отсутствует ключ администратора. Пожалуйста, войдите в систему.', 
+        description: 'У вас нет прав администратора для доступа к этой странице.', 
         variant: 'destructive' 
       });
       return;
     }
-    fetchPlans();
-    fetchUsers();
-    fetchStats();
+    
+    // Используем фиксированный ключ для админов
+    const key = 'admin123';
+    setAdminKey(key);
+    console.log('[ADMIN_STORAGE] Admin access granted');
   }, []);
 
   const fetchPlans = async () => {
+    if (!adminKey) {
+      console.log('[FETCH_PLANS] Waiting for adminKey...');
+      return;
+    }
     try {
       console.log('[FETCH_PLANS] Starting request...');
       const res = await fetch(`${ADMIN_API}?action=list-plans`, {
@@ -104,6 +129,10 @@ const AdminStorage = () => {
   };
 
   const fetchUsers = async () => {
+    if (!adminKey) {
+      console.log('[FETCH_USERS] Waiting for adminKey...');
+      return;
+    }
     try {
       console.log('[FETCH_USERS] Starting request...');
       const res = await fetch(`${ADMIN_API}?action=list-users&limit=100&offset=0`, {
@@ -121,6 +150,10 @@ const AdminStorage = () => {
   };
 
   const fetchStats = async () => {
+    if (!adminKey) {
+      console.log('[FETCH_STATS] Waiting for adminKey...');
+      return;
+    }
     setLoading(true);
     try {
       console.log('[FETCH_STATS] Starting requests...');
@@ -178,6 +211,15 @@ const AdminStorage = () => {
       fetchFinancialStats(financialPeriod);
     }
   }, [financialPeriod, adminKey]);
+
+  useEffect(() => {
+    if (adminKey) {
+      console.log('[ADMIN_STORAGE] AdminKey set, fetching data...');
+      fetchPlans();
+      fetchUsers();
+      fetchStats();
+    }
+  }, [adminKey]);
 
   const handleSavePlan = async (editingPlan: Partial<Plan>) => {
     if (!editingPlan) return;
@@ -303,6 +345,17 @@ const AdminStorage = () => {
   const totalRevenue = revenueStats.reduce((sum, stat) => sum + stat.total_revenue, 0);
   const totalUsers = users.length;
   const totalStorageUsed = users.reduce((sum, user) => sum + user.used_gb, 0);
+
+  if (!adminKey) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Проверка прав доступа...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-2 sm:p-4 md:p-6">
