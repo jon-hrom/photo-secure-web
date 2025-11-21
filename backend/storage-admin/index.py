@@ -35,14 +35,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
                 'Access-Control-Max-Age': '86400'
             },
-            'body': ''
+            'body': '',
+            'isBase64Encoded': False
         }
     
     if not check_admin(event):
         return {
             'statusCode': 403,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Admin access required'})
+            'body': json.dumps({'error': 'Admin access required'}),
+            'isBase64Encoded': False
         }
     
     params = event.get('queryStringParameters', {}) or {}
@@ -67,7 +69,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Unknown action: {action}'})
+            'body': json.dumps({'error': f'Unknown action: {action}'}),
+            'isBase64Encoded': False
         }
     
     return handler_func(event)
@@ -89,14 +92,16 @@ def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'plans': [dict(p) for p in plans]}, default=str)
+                'body': json.dumps({'plans': [dict(p) for p in plans]}, default=str),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] list_plans failed: {e}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to list plans: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to list plans: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -113,7 +118,8 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Missing plan_name or quota_gb'})
+            'body': json.dumps({'error': 'Missing plan_name or quota_gb'}),
+            'isBase64Encoded': False
         }
     
     conn = get_db_connection()
@@ -132,7 +138,8 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 201,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'plan': dict(plan)}, default=str)
+                'body': json.dumps({'plan': dict(plan)}, default=str),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] create_plan failed: {e}')
@@ -140,7 +147,8 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to create plan: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to create plan: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -157,7 +165,8 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Missing plan_id'})
+            'body': json.dumps({'error': 'Missing plan_id'}),
+            'isBase64Encoded': False
         }
     
     updates = []
@@ -185,7 +194,8 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'No fields to update'})
+            'body': json.dumps({'error': 'No fields to update'}),
+            'isBase64Encoded': False
         }
     
     updates.append('updated_at = CURRENT_TIMESTAMP')
@@ -209,14 +219,16 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
                 return {
                     'statusCode': 404,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Plan not found'})
+                    'body': json.dumps({'error': 'Plan not found'}),
+                    'isBase64Encoded': False
                 }
             
             print(f'[UPDATE_PLAN] Successfully updated plan_id={plan_id}')
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'plan': dict(plan)}, default=str)
+                'body': json.dumps({'plan': dict(plan)}, default=str),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] update_plan failed: {e}')
@@ -224,7 +236,8 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to update plan: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to update plan: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -237,7 +250,8 @@ def delete_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Missing plan_id'})
+            'body': json.dumps({'error': 'Missing plan_id'}),
+            'isBase64Encoded': False
         }
     
     conn = get_db_connection()
@@ -249,7 +263,8 @@ def delete_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'success': True})
+                'body': json.dumps({'success': True}),
+                'isBase64Encoded': False
             }
     finally:
         conn.close()
@@ -307,14 +322,16 @@ def list_users(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'users': [dict(u) for u in users]}, default=str)
+                'body': json.dumps({'users': [dict(u) for u in users]}, default=str),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] list_users failed: {e}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to list users: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to list users: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -332,7 +349,8 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Missing user_id'})
+            'body': json.dumps({'error': 'Missing user_id'}),
+            'isBase64Encoded': False
         }
     
     conn = get_db_connection()
@@ -402,7 +420,8 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'success': True})
+                'body': json.dumps({'success': True}),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] update_user failed: {e}')
@@ -410,7 +429,8 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to update user: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to update user: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -424,7 +444,8 @@ def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Missing user_id or plan_id'})
+            'body': json.dumps({'error': 'Missing user_id or plan_id'}),
+            'isBase64Encoded': False
         }
     
     conn = get_db_connection()
@@ -438,7 +459,8 @@ def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
                 return {
                     'statusCode': 404,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Plan not found'})
+                    'body': json.dumps({'error': 'Plan not found'}),
+                    'isBase64Encoded': False
                 }
             
             # Отменяем старые подписки
@@ -466,7 +488,8 @@ def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 201,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'success': True, 'subscription_id': subscription_id})
+                'body': json.dumps({'success': True, 'subscription_id': subscription_id}),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] subscribe_user failed: {e}')
@@ -474,7 +497,8 @@ def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to subscribe user: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to subscribe user: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -502,14 +526,16 @@ def usage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'stats': [dict(s) for s in stats]}, default=str)
+                'body': json.dumps({'stats': [dict(s) for s in stats]}, default=str),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] usage_stats failed: {e}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to get usage stats: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to get usage stats: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -539,14 +565,16 @@ def revenue_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'revenue': [dict(r) for r in revenue]}, default=str)
+                'body': json.dumps({'revenue': [dict(r) for r in revenue]}, default=str),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] revenue_stats failed: {e}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to get revenue stats: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to get revenue stats: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -559,7 +587,8 @@ def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Missing plan_id'})
+            'body': json.dumps({'error': 'Missing plan_id'}),
+            'isBase64Encoded': False
         }
     
     conn = get_db_connection()
@@ -573,7 +602,8 @@ def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
                 return {
                     'statusCode': 404,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Plan not found'})
+                    'body': json.dumps({'error': 'Plan not found'}),
+                    'isBase64Encoded': False
                 }
             
             # Назначаем всем пользователям без подписки
@@ -606,7 +636,8 @@ def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'success': True, 'affected': affected})
+                'body': json.dumps({'success': True, 'affected': affected}),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] set_default_plan failed: {e}')
@@ -614,7 +645,8 @@ def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to set default plan: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to set default plan: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
@@ -696,14 +728,16 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
                         'profit': round(profit, 2),
                         'margin_percent': round((profit / total_revenue * 100) if total_revenue > 0 else 0, 2)
                     }
-                }, default=str)
+                }, default=str),
+                'isBase64Encoded': False
             }
     except Exception as e:
         print(f'[ERROR] financial_stats failed: {e}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to get financial stats: {str(e)}'})
+            'body': json.dumps({'error': f'Failed to get financial stats: {str(e)}'}),
+            'isBase64Encoded': False
         }
     finally:
         conn.close()
