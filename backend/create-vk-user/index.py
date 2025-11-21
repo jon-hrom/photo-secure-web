@@ -51,6 +51,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         avatar_url = body.get('avatar_url', '')
         is_verified = body.get('is_verified', False)
         
+        print(f"[VK_USER] Request data: vk_id={vk_id}, email={email}, phone={phone}, name={full_name}")
+        
         if not vk_id:
             return {
                 'statusCode': 400,
@@ -137,13 +139,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
     except psycopg2.IntegrityError as e:
         error_msg = str(e)
+        print(f"[VK_USER_ERROR] IntegrityError: {error_msg}")
+        
+        if conn:
+            conn.rollback()
+            conn.close()
+        
         if 'unique constraint' in error_msg.lower():
             return {
                 'statusCode': 409,
                 'headers': headers,
                 'body': json.dumps({
                     'error': 'User already exists',
-                    'details': 'A user with this VK ID, email, or phone already exists in the system'
+                    'details': f'Unique constraint violation: {error_msg}'
                 }),
                 'isBase64Encoded': False
             }
@@ -154,6 +162,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     except Exception as e:
+        print(f"[VK_USER_ERROR] Exception: {str(e)}")
+        
+        if conn:
+            try:
+                conn.rollback()
+                conn.close()
+            except:
+                pass
+        
         return {
             'statusCode': 500,
             'headers': headers,
