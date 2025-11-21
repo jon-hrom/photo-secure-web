@@ -459,17 +459,28 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
                         </Button>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        const allIds = new Set(photoBankPhotos.map(p => p.id));
-                        setPhotoBankSelectedPhotos(allIds);
-                      }}
-                      disabled={photoBankPhotos.length === 0}
-                    >
-                      <Icon name="CheckSquare" size={18} className="mr-2" />
-                      Выделить все
-                    </Button>
+                    <div className="flex gap-2">
+                      {photoBankSelectedPhotos.size > 0 && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setPhotoBankSelectedPhotos(new Set())}
+                        >
+                          <Icon name="X" size={18} className="mr-2" />
+                          Снять выделение
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const allIds = new Set(photoBankPhotos.map(p => p.id));
+                          setPhotoBankSelectedPhotos(allIds);
+                        }}
+                        disabled={photoBankPhotos.length === 0}
+                      >
+                        <Icon name="CheckSquare" size={18} className="mr-2" />
+                        Выделить все
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="flex-1 overflow-y-auto p-4">
