@@ -47,15 +47,25 @@ export const useAdminPanelSettings = () => {
 
   const loadSettings = async () => {
     try {
+      console.log('[ADMIN_SETTINGS] Starting to load settings...');
+      
       const [oldSettingsResponse, appSettingsResponse, authProvidersResponse] = await Promise.all([
         fetch('https://functions.poehali.dev/68eb5b20-e2c3-4741-aa83-500a5301ff4a'),
         fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0'),
         fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=auth_providers')
       ]);
       
+      console.log('[ADMIN_SETTINGS] Responses received:', {
+        oldSettings: oldSettingsResponse.status,
+        appSettings: appSettingsResponse.status,
+        authProviders: authProvidersResponse.status
+      });
+      
       const oldData = await oldSettingsResponse.json();
       const appSettings = await appSettingsResponse.json();
       const authProvidersData = await authProvidersResponse.json();
+      
+      console.log('[ADMIN_SETTINGS] Data parsed successfully');
       
       if (authProvidersData.value) {
         setAuthProviders(authProvidersData.value);

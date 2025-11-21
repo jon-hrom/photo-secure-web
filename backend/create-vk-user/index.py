@@ -62,38 +62,45 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Check if user already exists by vk_id, email, or phone
+        # Check if user already exists by vk_id
         cursor.execute(
-            "SELECT id, vk_id, email, phone FROM users WHERE vk_id = %s OR (email IS NOT NULL AND email != '' AND email = %s) OR (phone IS NOT NULL AND phone != '' AND phone = %s)",
-            (vk_id, email if email else None, phone if phone else None)
+            "SELECT id FROM users WHERE vk_id = %s",
+            (vk_id,)
         )
-        existing_user = cursor.fetchone()
+        existing_by_vk = cursor.fetchone()
         
-        if existing_user:
-            user_id = existing_user['id']
+        # Check if vk_users record exists
+        cursor.execute(
+            "SELECT user_id FROM vk_users WHERE vk_sub = %s",
+            (vk_id,)
+        )
+        existing_vk_user = cursor.fetchone()
+        
+        if existing_by_vk or existing_vk_user:
+            user_id = existing_by_vk['id'] if existing_by_vk else existing_vk_user['user_id']
             
-            # Update existing user (ensure vk_id is set if it wasn't before)
+            # Update existing user
             cursor.execute(
                 "UPDATE users SET vk_id = %s, email = %s, phone = %s, source = 'vk', is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
-                (vk_id, email, phone, user_id)
+                (vk_id, email if email else None, phone if phone else None, user_id)
             )
             
-            # Check if vk_users record exists
+            # Check if vk_users record exists for this user_id
             cursor.execute(
                 "SELECT user_id FROM vk_users WHERE user_id = %s",
                 (user_id,)
             )
-            vk_user_exists = cursor.fetchone()
+            vk_user_record_exists = cursor.fetchone()
             
-            if vk_user_exists:
+            if vk_user_record_exists:
                 cursor.execute(
                     "UPDATE vk_users SET vk_sub = %s, full_name = %s, avatar_url = %s, is_verified = %s, email = %s, phone_number = %s, is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE user_id = %s",
-                    (vk_id, full_name, avatar_url, is_verified, email, phone, user_id)
+                    (vk_id, full_name, avatar_url, is_verified, email if email else None, phone if phone else None, user_id)
                 )
             else:
                 cursor.execute(
                     "INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login) VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP)",
-                    (vk_id, user_id, full_name, avatar_url, is_verified, email, phone)
+                    (vk_id, user_id, full_name, avatar_url, is_verified, email if email else None, phone if phone else None)
                 )
             
             conn.commit()
@@ -108,14 +115,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Create new user
         cursor.execute(
             "INSERT INTO users (vk_id, email, phone, is_active, source, registered_at, created_at, updated_at, last_login) VALUES (%s, %s, %s, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id",
-            (vk_id, email, phone)
+            (vk_id, email if email else None, phone if phone else None)
         )
         user_id = cursor.fetchone()['id']
         
         # Create vk_users record
         cursor.execute(
             "INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login) VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP)",
-            (vk_id, user_id, full_name, avatar_url, is_verified, email, phone)
+            (vk_id, user_id, full_name, avatar_url, is_verified, email if email else None, phone if phone else None)
         )
         
         conn.commit()
