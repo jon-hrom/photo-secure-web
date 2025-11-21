@@ -36,6 +36,23 @@ interface PhotoBankPhotoGridProps {
   onCancelUpload: () => void;
 }
 
+const handleDownload = async (url: string, fileName: string) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  } catch (error) {
+    console.error('Download failed:', error);
+  }
+};
+
 const PhotoBankPhotoGrid = ({
   selectedFolder,
   photos,
@@ -199,14 +216,30 @@ const PhotoBankPhotoGrid = ({
                   className="w-full h-full object-cover"
                 />
                 {!selectionMode && (
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 shadow-lg z-10"
-                    onClick={() => onDeletePhoto(photo.id, photo.file_name)}
-                  >
-                    <Icon name="Trash2" size={18} />
-                  </Button>
+                  <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
+                    <Button
+                      variant="default"
+                      size="icon"
+                      className="h-7 w-7 bg-blue-600 hover:bg-blue-700 shadow-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(photo.s3_url || photo.data_url || '', photo.file_name);
+                      }}
+                    >
+                      <Icon name="Download" size={14} />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="h-7 w-7 shadow-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeletePhoto(photo.id, photo.file_name);
+                      }}
+                    >
+                      <Icon name="Trash2" size={14} />
+                    </Button>
+                  </div>
                 )}
                 <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 transition-opacity ${
                   selectionMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
