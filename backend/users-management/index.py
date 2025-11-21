@@ -57,6 +57,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             for row in cur.fetchall():
                 users.append({
+                    'user_id': int(row[1]),
                     'id': row[1],
                     'source': row[0],
                     'email': row[2],
@@ -96,6 +97,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             for row in cur.fetchall():
                 users.append({
+                    'user_id': int(row[1]),
                     'id': 'vk_' + row[1],
                     'source': row[0],
                     'email': row[2],
