@@ -14,6 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { isAdminUser } from '@/utils/adminCheck';
 
 const STORAGE_API = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
 
@@ -85,6 +86,32 @@ const MyFiles = () => {
   useEffect(() => {
     const checkEmailVerification = async () => {
       try {
+        // Check if user is main admin
+        const authSession = localStorage.getItem('authSession');
+        const vkUser = localStorage.getItem('vk_user');
+        
+        let userEmail = null;
+        let vkUserData = null;
+        
+        if (authSession) {
+          try {
+            const session = JSON.parse(authSession);
+            userEmail = session.userEmail;
+          } catch {}
+        }
+        
+        if (vkUser) {
+          try {
+            vkUserData = JSON.parse(vkUser);
+          } catch {}
+        }
+        
+        // Main admins bypass email verification
+        if (isAdminUser(userEmail, vkUserData)) {
+          setEmailVerified(true);
+          return;
+        }
+        
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
         const data = await res.json();
         setEmailVerified(!!data.email_verified_at);

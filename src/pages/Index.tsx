@@ -14,6 +14,7 @@ import AppNavigation from '@/components/layout/AppNavigation';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
+import { isAdminUser } from '@/utils/adminCheck';
 
 const Index = () => {
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
@@ -63,6 +64,33 @@ const Index = () => {
       const userIdFromStorage = localStorage.getItem('userId');
       if (!userIdFromStorage) {
         console.log('[EMAIL_CHECK] No userId in localStorage, waiting...');
+        return;
+      }
+      
+      // Check if user is main admin - skip email verification completely
+      const authSession = localStorage.getItem('authSession');
+      const vkUser = localStorage.getItem('vk_user');
+      
+      let userEmail = null;
+      let vkUserData = null;
+      
+      if (authSession) {
+        try {
+          const session = JSON.parse(authSession);
+          userEmail = session.userEmail;
+        } catch {}
+      }
+      
+      if (vkUser) {
+        try {
+          vkUserData = JSON.parse(vkUser);
+        } catch {}
+      }
+      
+      if (isAdminUser(userEmail, vkUserData)) {
+        console.log('[EMAIL_CHECK] Main admin detected - skipping verification');
+        setEmailVerified(true);
+        setShowEmailVerification(false);
         return;
       }
       

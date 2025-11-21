@@ -8,6 +8,7 @@ import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
+import { isAdminUser } from '@/utils/adminCheck';
 
 const PhotoBank = () => {
   const navigate = useNavigate();
@@ -155,6 +156,33 @@ const PhotoBank = () => {
     
     const checkEmailVerification = async () => {
       try {
+        // Check if user is main admin
+        const authSession = localStorage.getItem('authSession');
+        const vkUser = localStorage.getItem('vk_user');
+        
+        let userEmail = null;
+        let vkUserData = null;
+        
+        if (authSession) {
+          try {
+            const session = JSON.parse(authSession);
+            userEmail = session.userEmail;
+          } catch {}
+        }
+        
+        if (vkUser) {
+          try {
+            vkUserData = JSON.parse(vkUser);
+          } catch {}
+        }
+        
+        // Main admins bypass email verification
+        if (isAdminUser(userEmail, vkUserData)) {
+          setEmailVerified(true);
+          setCheckingVerification(false);
+          return;
+        }
+        
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
         const data = await res.json();
         setEmailVerified(!!data.email_verified_at);

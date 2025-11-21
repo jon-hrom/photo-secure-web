@@ -8,6 +8,7 @@ import Photobook3DPreview from '@/components/photobook/Photobook3DPreview';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast as sonnerToast } from 'sonner';
+import { isAdminUser } from '@/utils/adminCheck';
 
 const DESIGNS_API = 'https://functions.poehali.dev/66f4d0c4-09f1-4fa4-a26b-0b623562c751';
 
@@ -61,6 +62,32 @@ const PhotobookPage = () => {
   useEffect(() => {
     const checkEmailVerification = async () => {
       try {
+        // Check if user is main admin
+        const authSession = localStorage.getItem('authSession');
+        const vkUser = localStorage.getItem('vk_user');
+        
+        let userEmail = null;
+        let vkUserData = null;
+        
+        if (authSession) {
+          try {
+            const session = JSON.parse(authSession);
+            userEmail = session.userEmail;
+          } catch {}
+        }
+        
+        if (vkUser) {
+          try {
+            vkUserData = JSON.parse(vkUser);
+          } catch {}
+        }
+        
+        // Main admins bypass email verification
+        if (isAdminUser(userEmail, vkUserData)) {
+          setEmailVerified(true);
+          return;
+        }
+        
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
         const data = await res.json();
         setEmailVerified(!!data.email_verified_at);
