@@ -72,9 +72,14 @@ const AdminStorage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('[ADMIN_STORAGE] Component mounted, checking admin rights...');
+    
     // Проверяем является ли пользователь администратором
     const authSession = localStorage.getItem('authSession');
     const vkUser = localStorage.getItem('vk_user');
+    
+    console.log('[ADMIN_STORAGE] authSession:', authSession ? 'exists' : 'missing');
+    console.log('[ADMIN_STORAGE] vkUser:', vkUser ? 'exists' : 'missing');
     
     let userEmail = null;
     let vkUserData = null;
@@ -83,16 +88,26 @@ const AdminStorage = () => {
       try {
         const session = JSON.parse(authSession);
         userEmail = session.userEmail;
-      } catch {}
+        console.log('[ADMIN_STORAGE] Extracted userEmail:', userEmail);
+      } catch (e) {
+        console.error('[ADMIN_STORAGE] Failed to parse authSession:', e);
+      }
     }
     
     if (vkUser) {
       try {
         vkUserData = JSON.parse(vkUser);
-      } catch {}
+        console.log('[ADMIN_STORAGE] Extracted vkUserData:', vkUserData);
+      } catch (e) {
+        console.error('[ADMIN_STORAGE] Failed to parse vkUser:', e);
+      }
     }
     
-    if (!isAdminUser(userEmail, vkUserData)) {
+    const isAdmin = isAdminUser(userEmail, vkUserData);
+    console.log('[ADMIN_STORAGE] isAdminUser result:', isAdmin);
+    
+    if (!isAdmin) {
+      console.error('[ADMIN_STORAGE] Access denied - not an admin');
       toast({ 
         title: 'Ошибка доступа', 
         description: 'У вас нет прав администратора для доступа к этой странице.', 
@@ -104,7 +119,7 @@ const AdminStorage = () => {
     // Используем фиксированный ключ для админов
     const key = 'admin123';
     setAdminKey(key);
-    console.log('[ADMIN_STORAGE] Admin access granted');
+    console.log('[ADMIN_STORAGE] Admin access granted, adminKey set');
   }, []);
 
   const fetchPlans = async () => {
@@ -113,18 +128,32 @@ const AdminStorage = () => {
       return;
     }
     try {
-      console.log('[FETCH_PLANS] Starting request...');
+      console.log('[FETCH_PLANS] Starting request to:', `${ADMIN_API}?action=list-plans`);
+      console.log('[FETCH_PLANS] Using adminKey:', adminKey);
+      
       const res = await fetch(`${ADMIN_API}?action=list-plans`, {
         headers: { 'X-Admin-Key': adminKey }
       });
+      
       console.log('[FETCH_PLANS] Response status:', res.status);
+      console.log('[FETCH_PLANS] Response ok:', res.ok);
+      
       const data = await res.json();
       console.log('[FETCH_PLANS] Response data:', data);
+      
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      
       setPlans(data.plans || []);
-      console.log('[FETCH_PLANS] Plans loaded:', data.plans?.length || 0);
-    } catch (error) {
+      console.log('[FETCH_PLANS] Plans loaded successfully:', data.plans?.length || 0);
+    } catch (error: any) {
       console.error('[FETCH_PLANS] Error:', error);
-      toast({ title: 'Ошибка', description: 'Не удалось загрузить тарифы', variant: 'destructive' });
+      toast({ 
+        title: 'Ошибка', 
+        description: `Не удалось загрузить тарифы: ${error.message}`, 
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -141,11 +170,20 @@ const AdminStorage = () => {
       console.log('[FETCH_USERS] Response status:', res.status);
       const data = await res.json();
       console.log('[FETCH_USERS] Response data:', data);
+      
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      
       setUsers(data.users || []);
       console.log('[FETCH_USERS] Users loaded:', data.users?.length || 0);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[FETCH_USERS] Error:', error);
-      toast({ title: 'Ошибка', description: 'Не удалось загрузить пользователей', variant: 'destructive' });
+      toast({ 
+        title: 'Ошибка', 
+        description: `Не удалось загрузить пользователей: ${error.message}`, 
+        variant: 'destructive' 
+      });
     }
   };
 

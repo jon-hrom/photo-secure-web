@@ -73,21 +73,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     return handler_func(event)
 
 def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
+    print('[LIST_PLANS] Starting...')
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print('[LIST_PLANS] Executing query...')
             cur.execute(f'''
                 SELECT id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, created_at, visible_to_users
                 FROM {SCHEMA}.storage_plans
                 ORDER BY quota_gb ASC
             ''')
             plans = cur.fetchall()
+            print(f'[LIST_PLANS] Found {len(plans)} plans')
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'plans': [dict(p) for p in plans]}, default=str)
             }
+    except Exception as e:
+        print(f'[ERROR] list_plans failed: {e}')
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to list plans: {str(e)}'})
+        }
     finally:
         conn.close()
 
