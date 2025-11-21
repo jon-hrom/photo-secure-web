@@ -16,6 +16,9 @@ import { toast } from 'sonner';
 interface User {
   user_id: number;
   email: string;
+  full_name?: string;
+  avatar_url?: string;
+  source?: string;
   created_at: string;
   last_login: string;
   is_blocked: boolean;
@@ -75,6 +78,7 @@ const UserImpersonation = ({
       const query = searchQuery.toLowerCase();
       result = result.filter(user => 
         user.email?.toLowerCase().includes(query) ||
+        user.full_name?.toLowerCase().includes(query) ||
         user.user_id?.toString().includes(query)
       );
     }
@@ -118,7 +122,7 @@ const UserImpersonation = ({
                 <div className="relative">
                   <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input 
-                    placeholder="Email или ID пользователя..."
+                    placeholder="Email, имя или ID пользователя..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
@@ -185,12 +189,39 @@ const UserImpersonation = ({
                   ) : (
                     filteredAndSortedUsers.map(user => (
                       <SelectItem key={user.user_id} value={user.user_id.toString()}>
-                        <div className="flex items-center justify-between gap-4 w-full">
-                          <span className="flex-1 truncate">{user.email || 'Без email'}</span>
-                          {user.is_blocked && (
-                            <Badge variant="destructive" className="text-[10px]">Заблокирован</Badge>
+                        <div className="flex items-center gap-3 w-full min-w-0">
+                          {user.avatar_url ? (
+                            <img 
+                              src={user.avatar_url} 
+                              alt={user.full_name || user.email || 'User'} 
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center flex-shrink-0">
+                              <span className="text-white text-xs font-semibold">
+                                {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
+                              </span>
+                            </div>
                           )}
-                          <span className="text-xs text-muted-foreground">
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate">
+                                {user.full_name || user.email || 'Без email'}
+                              </span>
+                              {user.source === 'vk' && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">VK</Badge>
+                              )}
+                              {user.is_blocked && (
+                                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Заблокирован</Badge>
+                              )}
+                            </div>
+                            {user.full_name && user.email && (
+                              <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                            )}
+                          </div>
+                          
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
                             ID: {user.user_id}
                           </span>
                         </div>
