@@ -81,19 +81,21 @@ const UserImpersonation = ({
                   <SelectValue placeholder="Выберите пользователя из списка" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map(user => (
-                    <SelectItem key={user.user_id} value={user.user_id.toString()}>
-                      <div className="flex items-center justify-between gap-4 w-full">
-                        <span className="flex-1">{user.email}</span>
-                        {user.is_blocked && (
-                          <Badge variant="destructive" className="text-[10px]">Заблокирован</Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          ID: {user.user_id}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {users
+                    .filter(user => user && user.user_id != null)
+                    .map(user => (
+                      <SelectItem key={user.user_id} value={user.user_id.toString()}>
+                        <div className="flex items-center justify-between gap-4 w-full">
+                          <span className="flex-1">{user.email || 'Без email'}</span>
+                          {user.is_blocked && (
+                            <Badge variant="destructive" className="text-[10px]">Заблокирован</Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            ID: {user.user_id}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
