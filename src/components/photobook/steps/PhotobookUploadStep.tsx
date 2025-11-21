@@ -6,6 +6,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import type { UploadedPhoto } from '../PhotobookCreator';
 
+interface PhotoFolder {
+  id: number;
+  folder_name: string;
+  created_at: string;
+  updated_at: string;
+  photo_count: number;
+}
+
+interface PhotoBankPhoto {
+  id: number;
+  file_name: string;
+  s3_url?: string;
+  data_url?: string;
+  file_size: number;
+  width: number | null;
+  height: number | null;
+  created_at: string;
+}
+
 interface PhotobookUploadStepProps {
   requiredPhotos: number;
   onComplete: (photos: UploadedPhoto[]) => void;
@@ -25,8 +44,37 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [newUploadsCount, setNewUploadsCount] = useState(0);
   const [todayUploadsCount, setTodayUploadsCount] = useState(0);
+  const [photoBankFolders, setPhotoBankFolders] = useState<PhotoFolder[]>([]);
+  const [photoBankPhotos, setPhotoBankPhotos] = useState<PhotoBankPhoto[]>([]);
+  const [selectedPhotoBankFolder, setSelectedPhotoBankFolder] = useState<PhotoFolder | null>(null);
+  const [loadingPhotoBank, setLoadingPhotoBank] = useState(false);
+  const [photoBankSelectedPhotos, setPhotoBankSelectedPhotos] = useState<Set<number>>(new Set());
   
   const unselectedCount = uploadedPhotos.length - selectedPhotos.size;
+  
+  const getAuthUserId = (): string | null => {
+    const authSession = localStorage.getItem('authSession');
+    if (authSession) {
+      try {
+        const session = JSON.parse(authSession);
+        if (session.userId) return session.userId.toString();
+      } catch {}
+    }
+    
+    const vkUser = localStorage.getItem('vk_user');
+    if (vkUser) {
+      try {
+        const userData = JSON.parse(vkUser);
+        if (userData.user_id) return userData.user_id.toString();
+        if (userData.vk_id) return userData.vk_id.toString();
+      } catch {}
+    }
+    
+    return null;
+  };
+  
+  const userId = getAuthUserId();
+  const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
 
   useEffect(() => {
     const savedPhotos = localStorage.getItem('photobank_selected_photos');
@@ -47,6 +95,71 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
       }
     }
   }, []);
+  
+  useEffect(() => {
+    if (userId) {
+      fetchPhotoBankFolders();
+    }
+  }, [userId]);
+  
+  const fetchPhotoBankFolders = async () => {
+    if (!userId) return;
+    
+    setLoadingPhotoBank(true);
+    try {
+      const res = await fetch(`${PHOTOBANK_FOLDERS_API}?action=list`, {
+        headers: { 'X-User-Id': userId }
+      });
+      const data = await res.json();
+      setPhotoBankFolders(data.folders || []);
+    } catch (error) {
+      console.error('Failed to load photobank folders:', error);
+    } finally {
+      setLoadingPhotoBank(false);
+    }
+  };
+  
+  const fetchPhotoBankPhotos = async (folderId: number) => {
+    if (!userId) return;
+    
+    setLoadingPhotoBank(true);
+    try {
+      const res = await fetch(`${PHOTOBANK_FOLDERS_API}?action=list_photos&folder_id=${folderId}`, {
+        headers: { 'X-User-Id': userId }
+      });
+      const data = await res.json();
+      setPhotoBankPhotos(data.photos || []);
+    } catch (error) {
+      console.error('Failed to load photobank photos:', error);
+    } finally {
+      setLoadingPhotoBank(false);
+    }
+  };
+  
+  const togglePhotoBankPhotoSelection = (photoId: number) => {
+    setPhotoBankSelectedPhotos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(photoId)) {
+        newSet.delete(photoId);
+      } else {
+        newSet.add(photoId);
+      }
+      return newSet;
+    });
+  };
+  
+  const addPhotoBankPhotosToSelection = () => {
+    const selected = photoBankPhotos.filter(p => photoBankSelectedPhotos.has(p.id));
+    const converted = selected.map(p => ({
+      id: `photobank-${p.id}`,
+      url: p.s3_url || p.data_url || '',
+      file: new File([], p.file_name),
+      width: p.width || 0,
+      height: p.height || 0
+    }));
+    setUploadedPhotos(prev => [...prev, ...converted]);
+    setPhotoBankSelectedPhotos(new Set());
+  };
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -286,10 +399,120 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
           </div>
         </TabsContent>
 
-        <TabsContent value="photobank" className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Icon name="Image" size={64} className="mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">Фотобанк пока недоступен</p>
+        <TabsContent value="photobank" className="flex-1 flex flex-col m-0">
+          <div className="grid grid-cols-[250px_1fr] flex-1 overflow-hidden">
+            <div className="border-r p-4 overflow-y-auto">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm text-muted-foreground mb-2">Папки</h3>
+                {loadingPhotoBank ? (
+                  <div className="text-center py-4">
+                    <Icon name="Loader2" size={24} className="animate-spin mx-auto text-muted-foreground" />
+                  </div>
+                ) : photoBankFolders.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Нет папок в фотобанке</p>
+                ) : (
+                  photoBankFolders.map(folder => (
+                    <div
+                      key={folder.id}
+                      className={`flex items-center justify-between p-2 rounded cursor-pointer ${
+                        selectedPhotoBankFolder?.id === folder.id
+                          ? 'bg-purple-100 text-purple-900'
+                          : 'hover:bg-gray-100'
+                      }`}
+                      onClick={() => {
+                        setSelectedPhotoBankFolder(folder);
+                        fetchPhotoBankPhotos(folder.id);
+                      }}
+                    >
+                      <span className="text-sm">{folder.folder_name}</span>
+                      <span className="text-xs text-muted-foreground">{folder.photo_count}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col overflow-hidden">
+              {!selectedPhotoBankFolder ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <Icon name="FolderOpen" size={64} className="mx-auto mb-4 text-muted-foreground opacity-30" />
+                    <p className="text-muted-foreground">Выберите папку слева</p>
+                  </div>
+                </div>
+              ) : loadingPhotoBank ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <Icon name="Loader2" size={48} className="animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  <div className="p-4 border-b flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <h3 className="font-semibold">{selectedPhotoBankFolder.folder_name}</h3>
+                      {photoBankSelectedPhotos.size > 0 && (
+                        <Button
+                          onClick={addPhotoBankPhotosToSelection}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          <Icon name="Plus" size={16} className="mr-2" />
+                          Добавить выбранные ({photoBankSelectedPhotos.size})
+                        </Button>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const allIds = new Set(photoBankPhotos.map(p => p.id));
+                        setPhotoBankSelectedPhotos(allIds);
+                      }}
+                      disabled={photoBankPhotos.length === 0}
+                    >
+                      <Icon name="CheckSquare" size={18} className="mr-2" />
+                      Выделить все
+                    </Button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-4">
+                    {photoBankPhotos.length === 0 ? (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-center">
+                          <Icon name="ImageOff" size={64} className="mx-auto mb-4 text-muted-foreground" />
+                          <p className="text-muted-foreground">В этой папке нет фотографий</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-4">
+                        {photoBankPhotos.map(photo => (
+                          <div
+                            key={photo.id}
+                            className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                              photoBankSelectedPhotos.has(photo.id)
+                                ? 'border-purple-600 ring-4 ring-purple-200'
+                                : 'border-transparent hover:border-purple-300'
+                            }`}
+                            onClick={() => togglePhotoBankPhotoSelection(photo.id)}
+                          >
+                            <img
+                              src={photo.s3_url || photo.data_url || ''}
+                              alt={photo.file_name}
+                              className="w-full h-full object-cover"
+                            />
+                            {photoBankSelectedPhotos.has(photo.id) && (
+                              <div className="absolute top-2 right-2 bg-purple-600 rounded-full p-1">
+                                <Icon name="Check" size={16} className="text-white" />
+                              </div>
+                            )}
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                              <p className="text-white text-xs truncate">{photo.file_name}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </TabsContent>
       </Tabs>
