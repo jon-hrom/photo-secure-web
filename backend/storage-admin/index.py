@@ -276,12 +276,12 @@ def list_users(event: Dict[str, Any]) -> Dict[str, Any]:
                     au.username,
                     COALESCE(us.plan_id, au.plan_id) as plan_id,
                     sp.name as plan_name,
-                    NULL as custom_quota_gb,
+                    us.custom_quota_gb,
                     0.0 as used_gb,
                     au.created_at
                 FROM all_users au
                 LEFT JOIN (
-                    SELECT DISTINCT ON (user_id) user_id, plan_id 
+                    SELECT DISTINCT ON (user_id) user_id, plan_id, custom_quota_gb
                     FROM {SCHEMA}.user_subscriptions 
                     WHERE status = 'active'
                     ORDER BY user_id, started_at DESC
@@ -314,6 +314,9 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
     user_id = body.get('user_id')
     plan_id = body.get('plan_id')
     custom_quota_gb = body.get('custom_quota_gb')
+    custom_price = body.get('custom_price')
+    started_at = body.get('started_at')
+    ended_at = body.get('ended_at')
     
     if not user_id:
         return {
@@ -324,7 +327,9 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
     
     conn = get_db_connection()
     try:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print(f'[UPDATE_USER] Updating user_id={user_id}, plan_id={plan_id}, custom_price={custom_price}, custom_quota={custom_quota_gb}')
+            
             # Обновляем plan_id в таблице users
             cur.execute(f'''
                 UPDATE {SCHEMA}.users
@@ -332,33 +337,55 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
                 WHERE id = %s
             ''', (plan_id, user_id))
             
-            # Если назначен тариф, создаём активную подписку
+            # Если назначен тариф, создаём/обновляем активную подписку
             if plan_id:
+                # Получаем стандартную цену из тарифа
                 cur.execute(f'''
-                    SELECT id FROM {SCHEMA}.user_subscriptions 
+                    SELECT monthly_price_rub, quota_gb FROM {SCHEMA}.storage_plans WHERE id = %s
+                ''', (plan_id,))
+                plan_data = cur.fetchone()
+                
+                if not plan_data:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Plan not found'})
+                    }
+                
+                # Используем индивидуальную цену или стандартную из тарифа
+                final_price = custom_price if custom_price is not None else plan_data['monthly_price_rub']
+                
+                # Дата начала: заданная или текущая
+                subscription_start = started_at if started_at else 'CURRENT_TIMESTAMP'
+                subscription_end = ended_at if ended_at else None
+                
+                print(f'[UPDATE_USER] Final price: {final_price}, started_at: {subscription_start}, ended_at: {subscription_end}')
+                
+                # Отменяем старые активные подписки
+                cur.execute(f'''
+                    UPDATE {SCHEMA}.user_subscriptions
+                    SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
                     WHERE user_id = %s AND status = 'active'
                 ''', (user_id,))
                 
-                if cur.fetchone():
-                    # Обновляем существующую
-                    cur.execute(f'''
-                        UPDATE {SCHEMA}.user_subscriptions
-                        SET plan_id = %s, updated_at = CURRENT_TIMESTAMP
-                        WHERE user_id = %s AND status = 'active'
-                    ''', (plan_id, user_id))
-                else:
-                    # Создаём новую
-                    cur.execute(f'''
-                        SELECT monthly_price_rub FROM {SCHEMA}.storage_plans WHERE id = %s
-                    ''', (plan_id,))
-                    plan_price = cur.fetchone()
-                    price = plan_price[0] if plan_price else 0
-                    
+                # Создаём новую подписку с индивидуальными параметрами
+                if subscription_start == 'CURRENT_TIMESTAMP':
                     cur.execute(f'''
                         INSERT INTO {SCHEMA}.user_subscriptions 
-                        (user_id, plan_id, status, amount_rub, started_at)
-                        VALUES (%s, %s, 'active', %s, CURRENT_TIMESTAMP)
-                    ''', (user_id, plan_id, price))
+                        (user_id, plan_id, status, amount_rub, custom_quota_gb, started_at, ended_at)
+                        VALUES (%s, %s, 'active', %s, %s, CURRENT_TIMESTAMP, %s)
+                        RETURNING id
+                    ''', (user_id, plan_id, final_price, custom_quota_gb, subscription_end))
+                else:
+                    cur.execute(f'''
+                        INSERT INTO {SCHEMA}.user_subscriptions 
+                        (user_id, plan_id, status, amount_rub, custom_quota_gb, started_at, ended_at)
+                        VALUES (%s, %s, 'active', %s, %s, %s, %s)
+                        RETURNING id
+                    ''', (user_id, plan_id, final_price, custom_quota_gb, subscription_start, subscription_end))
+                
+                subscription_id = cur.fetchone()['id']
+                print(f'[UPDATE_USER] Created subscription id={subscription_id}')
             
             conn.commit()
             

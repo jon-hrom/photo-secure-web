@@ -235,11 +235,13 @@ const AdminStorage = () => {
     }
   };
 
-  const handleUpdateUser = async (editingUser: Partial<User>) => {
+  const handleUpdateUser = async (editingUser: Partial<User> & { custom_price?: number; started_at?: string; ended_at?: string }) => {
     if (!editingUser?.user_id) return;
 
     try {
-      await fetch(`${ADMIN_API}?action=update-user`, {
+      console.log('[UPDATE_USER] Sending request:', editingUser);
+      
+      const res = await fetch(`${ADMIN_API}?action=update-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -248,14 +250,29 @@ const AdminStorage = () => {
         body: JSON.stringify({
           user_id: editingUser.user_id,
           plan_id: editingUser.plan_id,
-          custom_quota_gb: editingUser.custom_quota_gb
+          custom_quota_gb: editingUser.custom_quota_gb,
+          custom_price: editingUser.custom_price,
+          started_at: editingUser.started_at,
+          ended_at: editingUser.ended_at || null
         })
       });
 
-      toast({ title: 'Успешно', description: 'Пользователь обновлен' });
+      const data = await res.json();
+      console.log('[UPDATE_USER] Response:', data);
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Ошибка сервера');
+      }
+
+      toast({ title: 'Успешно', description: 'Тариф назначен пользователю' });
       fetchUsers();
-    } catch (error) {
-      toast({ title: 'Ошибка', description: 'Не удалось обновить пользователя', variant: 'destructive' });
+    } catch (error: any) {
+      console.error('[UPDATE_USER] Error:', error);
+      toast({ 
+        title: 'Ошибка', 
+        description: error.message || 'Не удалось обновить пользователя', 
+        variant: 'destructive' 
+      });
     }
   };
 
