@@ -59,6 +59,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'usage-stats': usage_stats,
         'revenue-stats': revenue_stats,
         'financial-stats': financial_stats,
+        'subscribe-user': subscribe_user,
     }
     
     handler_func = handlers.get(action)
@@ -213,7 +214,8 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Failed to update plan: {str(e)}'})}
+            'body': json.dumps({'error': f'Failed to update plan: {str(e)}'})
+        }
     finally:
         conn.close()
 
@@ -231,7 +233,7 @@ def delete_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(f'DELETE FROM {SCHEMA}.storage_plans WHERE id = %s', (plan_id,))
+            cur.execute(f'UPDATE {SCHEMA}.storage_plans SET is_active = false WHERE id = %s', (plan_id,))
             conn.commit()
             
             return {
@@ -250,29 +252,60 @@ def list_users(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print(f'[LIST_USERS] Fetching users with limit={limit}, offset={offset}')
+            
+            # Объединяем пользователей из обеих таблиц
             cur.execute(f'''
+                WITH all_users AS (
+                    SELECT 
+                        u.id as user_id,
+                        COALESCE(u.email, 'Пользователь #' || u.id) as username,
+                        u.plan_id,
+                        u.created_at
+                    FROM {SCHEMA}.users u
+                    UNION ALL
+                    SELECT 
+                        vk.id as user_id,
+                        vk.first_name || ' ' || vk.last_name as username,
+                        NULL as plan_id,
+                        vk.created_at
+                    FROM {SCHEMA}.vk_users vk
+                )
                 SELECT 
-                    vk.id as user_id, vk.first_name || ' ' || vk.last_name as username,
-                    COALESCE(ss.plan_id, 1) as plan_id, 
+                    au.user_id,
+                    au.username,
+                    COALESCE(us.plan_id, au.plan_id) as plan_id,
                     sp.name as plan_name,
-                    ss.custom_quota_gb,
-                    COALESCE(SUM(so.bytes), 0) / (1024.0 * 1024.0 * 1024.0) as used_gb,
-                    vk.created_at
-                FROM {SCHEMA}.vk_users vk
-                LEFT JOIN {SCHEMA}.storage_settings ss ON vk.id = ss.user_id
-                LEFT JOIN {SCHEMA}.storage_plans sp ON COALESCE(ss.plan_id, 1) = sp.id
-                LEFT JOIN {SCHEMA}.storage_objects so ON vk.id = so.user_id
-                GROUP BY vk.id, vk.first_name, vk.last_name, ss.plan_id, sp.name, ss.custom_quota_gb, vk.created_at
-                ORDER BY vk.id DESC
+                    NULL as custom_quota_gb,
+                    0.0 as used_gb,
+                    au.created_at
+                FROM all_users au
+                LEFT JOIN (
+                    SELECT DISTINCT ON (user_id) user_id, plan_id 
+                    FROM {SCHEMA}.user_subscriptions 
+                    WHERE status = 'active'
+                    ORDER BY user_id, started_at DESC
+                ) us ON au.user_id = us.user_id
+                LEFT JOIN {SCHEMA}.storage_plans sp ON COALESCE(us.plan_id, au.plan_id) = sp.id
+                ORDER BY au.user_id DESC
                 LIMIT %s OFFSET %s
             ''', (limit, offset))
             users = cur.fetchall()
+            
+            print(f'[LIST_USERS] Found {len(users)} users')
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'users': [dict(u) for u in users]}, default=str)
             }
+    except Exception as e:
+        print(f'[ERROR] list_users failed: {e}')
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to list users: {str(e)}'})
+        }
     finally:
         conn.close()
 
@@ -292,12 +325,41 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # Обновляем plan_id в таблице users
             cur.execute(f'''
-                INSERT INTO {SCHEMA}.storage_settings (user_id, plan_id, custom_quota_gb)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (user_id) 
-                DO UPDATE SET plan_id = EXCLUDED.plan_id, custom_quota_gb = EXCLUDED.custom_quota_gb
-            ''', (user_id, plan_id, custom_quota_gb))
+                UPDATE {SCHEMA}.users
+                SET plan_id = %s
+                WHERE id = %s
+            ''', (plan_id, user_id))
+            
+            # Если назначен тариф, создаём активную подписку
+            if plan_id:
+                cur.execute(f'''
+                    SELECT id FROM {SCHEMA}.user_subscriptions 
+                    WHERE user_id = %s AND status = 'active'
+                ''', (user_id,))
+                
+                if cur.fetchone():
+                    # Обновляем существующую
+                    cur.execute(f'''
+                        UPDATE {SCHEMA}.user_subscriptions
+                        SET plan_id = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE user_id = %s AND status = 'active'
+                    ''', (plan_id, user_id))
+                else:
+                    # Создаём новую
+                    cur.execute(f'''
+                        SELECT monthly_price_rub FROM {SCHEMA}.storage_plans WHERE id = %s
+                    ''', (plan_id,))
+                    plan_price = cur.fetchone()
+                    price = plan_price[0] if plan_price else 0
+                    
+                    cur.execute(f'''
+                        INSERT INTO {SCHEMA}.user_subscriptions 
+                        (user_id, plan_id, status, amount_rub, started_at)
+                        VALUES (%s, %s, 'active', %s, CURRENT_TIMESTAMP)
+                    ''', (user_id, plan_id, price))
+            
             conn.commit()
             
             return {
@@ -305,6 +367,78 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'success': True})
             }
+    except Exception as e:
+        print(f'[ERROR] update_user failed: {e}')
+        conn.rollback()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to update user: {str(e)}'})
+        }
+    finally:
+        conn.close()
+
+def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
+    body = json.loads(event.get('body', '{}'))
+    user_id = body.get('user_id')
+    plan_id = body.get('plan_id')
+    
+    if not user_id or not plan_id:
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Missing user_id or plan_id'})
+        }
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Получаем стоимость тарифа
+            cur.execute(f'SELECT monthly_price_rub FROM {SCHEMA}.storage_plans WHERE id = %s', (plan_id,))
+            plan = cur.fetchone()
+            
+            if not plan:
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Plan not found'})
+                }
+            
+            # Отменяем старые подписки
+            cur.execute(f'''
+                UPDATE {SCHEMA}.user_subscriptions
+                SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s AND status = 'active'
+            ''', (user_id,))
+            
+            # Создаём новую подписку
+            cur.execute(f'''
+                INSERT INTO {SCHEMA}.user_subscriptions 
+                (user_id, plan_id, status, amount_rub, started_at)
+                VALUES (%s, %s, 'active', %s, CURRENT_TIMESTAMP)
+                RETURNING id
+            ''', (user_id, plan_id, plan['monthly_price_rub']))
+            
+            subscription_id = cur.fetchone()['id']
+            
+            # Обновляем plan_id в users
+            cur.execute(f'UPDATE {SCHEMA}.users SET plan_id = %s WHERE id = %s', (plan_id, user_id))
+            
+            conn.commit()
+            
+            return {
+                'statusCode': 201,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': True, 'subscription_id': subscription_id})
+            }
+    except Exception as e:
+        print(f'[ERROR] subscribe_user failed: {e}')
+        conn.rollback()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to subscribe user: {str(e)}'})
+        }
     finally:
         conn.close()
 
@@ -316,15 +450,15 @@ def usage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(f'''
-                SELECT 
-                    snapshot_date::text as date,
-                    COUNT(DISTINCT user_id) as unique_users,
-                    COUNT(*) as uploads,
-                    SUM(size_bytes) / (1024.0 * 1024.0 * 1024.0) as total_size_gb
+                SELECT
+                    date::text,
+                    COALESCE(COUNT(DISTINCT user_id), 0) as unique_users,
+                    COALESCE(COUNT(*), 0) as uploads,
+                    COALESCE(SUM(used_gb_end_of_day), 0) as total_size_gb
                 FROM {SCHEMA}.storage_usage_daily
-                WHERE snapshot_date >= CURRENT_DATE - INTERVAL '%s days'
-                GROUP BY snapshot_date
-                ORDER BY snapshot_date ASC
+                WHERE date >= CURRENT_DATE - INTERVAL '%s days'
+                GROUP BY date
+                ORDER BY date ASC
             ''' % days)
             stats = cur.fetchall()
             
@@ -333,6 +467,13 @@ def usage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'stats': [dict(s) for s in stats]}, default=str)
             }
+    except Exception as e:
+        print(f'[ERROR] usage_stats failed: {e}')
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to get usage stats: {str(e)}'})
+        }
     finally:
         conn.close()
 
@@ -340,24 +481,36 @@ def revenue_stats(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print('[REVENUE_STATS] Calculating revenue from subscriptions')
+            
+            # Считаем доход на основе активных подписок
             cur.execute(f'''
                 SELECT 
                     sp.name as plan_name,
-                    COUNT(DISTINCT ss.user_id) as users_count,
-                    sp.monthly_price_rub * COUNT(DISTINCT ss.user_id) as total_revenue
-                FROM {SCHEMA}.storage_plans sp
-                LEFT JOIN {SCHEMA}.storage_settings ss ON sp.id = ss.plan_id
-                WHERE sp.is_active = true
+                    COUNT(DISTINCT us.user_id) as users_count,
+                    sp.monthly_price_rub * COUNT(DISTINCT us.user_id) as total_revenue
+                FROM {SCHEMA}.user_subscriptions us
+                JOIN {SCHEMA}.storage_plans sp ON us.plan_id = sp.id
+                WHERE us.status = 'active'
                 GROUP BY sp.name, sp.monthly_price_rub
                 ORDER BY total_revenue DESC
             ''')
             revenue = cur.fetchall()
+            
+            print(f'[REVENUE_STATS] Found {len(revenue)} revenue entries')
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'revenue': [dict(r) for r in revenue]}, default=str)
             }
+    except Exception as e:
+        print(f'[ERROR] revenue_stats failed: {e}')
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to get revenue stats: {str(e)}'})
+        }
     finally:
         conn.close()
 
@@ -374,22 +527,58 @@ def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     
     conn = get_db_connection()
     try:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Получаем цену тарифа
+            cur.execute(f'SELECT monthly_price_rub FROM {SCHEMA}.storage_plans WHERE id = %s', (plan_id,))
+            plan = cur.fetchone()
+            
+            if not plan:
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Plan not found'})
+                }
+            
+            # Назначаем всем пользователям без подписки
             cur.execute(f'''
-                INSERT INTO {SCHEMA}.storage_settings (user_id, plan_id)
-                SELECT vk.id, %s
-                FROM {SCHEMA}.vk_users vk
+                INSERT INTO {SCHEMA}.user_subscriptions (user_id, plan_id, status, amount_rub, started_at)
+                SELECT u.id, %s, 'active', %s, CURRENT_TIMESTAMP
+                FROM {SCHEMA}.users u
                 WHERE NOT EXISTS (
-                    SELECT 1 FROM {SCHEMA}.storage_settings ss WHERE ss.user_id = vk.id
+                    SELECT 1 FROM {SCHEMA}.user_subscriptions us 
+                    WHERE us.user_id = u.id AND us.status = 'active'
+                )
+            ''', (plan_id, plan['monthly_price_rub']))
+            
+            affected = cur.rowcount
+            
+            # Обновляем plan_id в users
+            cur.execute(f'''
+                UPDATE {SCHEMA}.users SET plan_id = %s
+                WHERE id IN (
+                    SELECT u.id FROM {SCHEMA}.users u
+                    WHERE u.plan_id IS NULL OR NOT EXISTS (
+                        SELECT 1 FROM {SCHEMA}.user_subscriptions us 
+                        WHERE us.user_id = u.id AND us.status = 'active'
+                    )
                 )
             ''', (plan_id,))
+            
             conn.commit()
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'success': True, 'affected': cur.rowcount})
+                'body': json.dumps({'success': True, 'affected': affected})
             }
+    except Exception as e:
+        print(f'[ERROR] set_default_plan failed: {e}')
+        conn.rollback()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to set default plan: {str(e)}'})
+        }
     finally:
         conn.close()
 
@@ -409,40 +598,55 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print(f'[FINANCIAL_STATS] Calculating for period: {period} ({interval})')
+            
+            # Считаем финансы по месяцам на основе подписок
             cur.execute(f'''
-                WITH daily_stats AS (
-                    SELECT 
-                        DATE(sd.snapshot_date) as date,
-                        SUM(sd.size_bytes) / (1024.0 * 1024.0 * 1024.0) as storage_gb,
-                        COUNT(DISTINCT sd.user_id) as active_users
-                    FROM {SCHEMA}.storage_usage_daily sd
-                    WHERE sd.snapshot_date >= CURRENT_DATE - INTERVAL '%s'
-                    GROUP BY DATE(sd.snapshot_date)
+                WITH date_series AS (
+                    SELECT generate_series(
+                        DATE_TRUNC('month', CURRENT_DATE - INTERVAL '%s'),
+                        DATE_TRUNC('month', CURRENT_DATE),
+                        '1 month'::interval
+                    )::date as month_date
                 ),
-                revenue_stats AS (
-                    SELECT
-                        SUM(sp.monthly_price_rub) as total_revenue,
-                        COUNT(DISTINCT ss.user_id) as paying_users
-                    FROM {SCHEMA}.storage_settings ss
-                    JOIN {SCHEMA}.storage_plans sp ON ss.plan_id = sp.id
-                    WHERE sp.is_active = true
+                monthly_revenue AS (
+                    SELECT 
+                        DATE_TRUNC('month', us.started_at)::date as month_date,
+                        COUNT(DISTINCT us.user_id) as new_subscriptions,
+                        SUM(us.amount_rub) as revenue
+                    FROM {SCHEMA}.user_subscriptions us
+                    WHERE us.started_at >= CURRENT_DATE - INTERVAL '%s'
+                    AND us.status = 'active'
+                    GROUP BY DATE_TRUNC('month', us.started_at)
+                ),
+                active_subscriptions AS (
+                    SELECT 
+                        COUNT(DISTINCT user_id) as total_active,
+                        SUM(amount_rub) as total_revenue
+                    FROM {SCHEMA}.user_subscriptions
+                    WHERE status = 'active'
                 )
                 SELECT 
-                    ds.date::text,
-                    ds.storage_gb,
-                    ds.active_users,
-                    rs.total_revenue,
-                    rs.paying_users,
-                    (ds.storage_gb * 0.5) as estimated_cost
-                FROM daily_stats ds
-                CROSS JOIN revenue_stats rs
-                ORDER BY ds.date ASC
-            ''' % interval)
+                    ds.month_date::text as date,
+                    COALESCE(mr.new_subscriptions, 0) as new_users,
+                    COALESCE(mr.revenue, 0) as monthly_revenue,
+                    acs.total_active as active_users,
+                    acs.total_revenue as total_revenue,
+                    0.0 as storage_gb,
+                    (COALESCE(mr.revenue, 0) * 0.1) as estimated_cost
+                FROM date_series ds
+                LEFT JOIN monthly_revenue mr ON ds.month_date = mr.month_date
+                CROSS JOIN active_subscriptions acs
+                ORDER BY ds.month_date ASC
+            ''' % (interval, interval))
             stats = cur.fetchall()
             
+            # Рассчитываем итоги
             total_revenue = sum(float(s.get('total_revenue', 0) or 0) for s in stats) / max(len(stats), 1)
-            total_cost = sum(float(s.get('estimated_cost', 0)) for s in stats)
+            total_cost = sum(float(s.get('estimated_cost', 0) or 0) for s in stats)
             profit = total_revenue - total_cost
+            
+            print(f'[FINANCIAL_STATS] Total revenue: {total_revenue}, cost: {total_cost}, profit: {profit}')
             
             return {
                 'statusCode': 200,
@@ -457,5 +661,12 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
                     }
                 }, default=str)
             }
+    except Exception as e:
+        print(f'[ERROR] financial_stats failed: {e}')
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Failed to get financial stats: {str(e)}'})
+        }
     finally:
         conn.close()

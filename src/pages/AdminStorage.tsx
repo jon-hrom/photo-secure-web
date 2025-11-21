@@ -72,6 +72,15 @@ const AdminStorage = () => {
   const adminKey = localStorage.getItem('adminKey') || '';
 
   useEffect(() => {
+    console.log('[ADMIN_STORAGE] Component mounted, adminKey:', adminKey ? 'present' : 'missing');
+    if (!adminKey) {
+      toast({ 
+        title: 'Ошибка доступа', 
+        description: 'Отсутствует ключ администратора. Пожалуйста, войдите в систему.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
     fetchPlans();
     fetchUsers();
     fetchStats();
@@ -79,24 +88,34 @@ const AdminStorage = () => {
 
   const fetchPlans = async () => {
     try {
+      console.log('[FETCH_PLANS] Starting request...');
       const res = await fetch(`${ADMIN_API}?action=list-plans`, {
         headers: { 'X-Admin-Key': adminKey }
       });
+      console.log('[FETCH_PLANS] Response status:', res.status);
       const data = await res.json();
+      console.log('[FETCH_PLANS] Response data:', data);
       setPlans(data.plans || []);
+      console.log('[FETCH_PLANS] Plans loaded:', data.plans?.length || 0);
     } catch (error) {
+      console.error('[FETCH_PLANS] Error:', error);
       toast({ title: 'Ошибка', description: 'Не удалось загрузить тарифы', variant: 'destructive' });
     }
   };
 
   const fetchUsers = async () => {
     try {
+      console.log('[FETCH_USERS] Starting request...');
       const res = await fetch(`${ADMIN_API}?action=list-users&limit=100&offset=0`, {
         headers: { 'X-Admin-Key': adminKey }
       });
+      console.log('[FETCH_USERS] Response status:', res.status);
       const data = await res.json();
+      console.log('[FETCH_USERS] Response data:', data);
       setUsers(data.users || []);
+      console.log('[FETCH_USERS] Users loaded:', data.users?.length || 0);
     } catch (error) {
+      console.error('[FETCH_USERS] Error:', error);
       toast({ title: 'Ошибка', description: 'Не удалось загрузить пользователей', variant: 'destructive' });
     }
   };
@@ -104,6 +123,7 @@ const AdminStorage = () => {
   const fetchStats = async () => {
     setLoading(true);
     try {
+      console.log('[FETCH_STATS] Starting requests...');
       const [usageRes, revenueRes] = await Promise.all([
         fetch(`${ADMIN_API}?action=usage-stats&days=30`, {
           headers: { 'X-Admin-Key': adminKey }
@@ -113,12 +133,19 @@ const AdminStorage = () => {
         })
       ]);
 
+      console.log('[FETCH_STATS] Usage response status:', usageRes.status);
+      console.log('[FETCH_STATS] Revenue response status:', revenueRes.status);
+
       const usageData = await usageRes.json();
       const revenueData = await revenueRes.json();
+
+      console.log('[FETCH_STATS] Usage data:', usageData);
+      console.log('[FETCH_STATS] Revenue data:', revenueData);
 
       setUsageStats(usageData.stats || []);
       setRevenueStats(revenueData.revenue || []);
     } catch (error) {
+      console.error('[FETCH_STATS] Error:', error);
       toast({ title: 'Ошибка', description: 'Не удалось загрузить статистику', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -128,13 +155,18 @@ const AdminStorage = () => {
   const fetchFinancialStats = async (period: string) => {
     setLoading(true);
     try {
+      console.log('[FETCH_FINANCIAL] Starting request for period:', period);
       const res = await fetch(`${ADMIN_API}?action=financial-stats&period=${period}`, {
         headers: { 'X-Admin-Key': adminKey }
       });
+      console.log('[FETCH_FINANCIAL] Response status:', res.status);
       const data = await res.json();
+      console.log('[FETCH_FINANCIAL] Response data:', data);
       setFinancialStats(data.stats || []);
       setFinancialSummary(data.summary || null);
+      console.log('[FETCH_FINANCIAL] Financial stats loaded:', data.stats?.length || 0);
     } catch (error) {
+      console.error('[FETCH_FINANCIAL] Error:', error);
       toast({ title: 'Ошибка', description: 'Не удалось загрузить финансовую статистику', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -256,10 +288,10 @@ const AdminStorage = () => {
   const totalStorageUsed = users.reduce((sum, user) => sum + user.used_gb, 0);
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-2 sm:p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Управление хранилищем</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Управление хранилищем</h1>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -307,22 +339,26 @@ const AdminStorage = () => {
         </div>
 
         <Tabs defaultValue="plans" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="plans">
-              <Icon name="Package" className="mr-2 h-4 w-4" />
-              Тарифы
+          <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full">
+            <TabsTrigger value="plans" className="text-xs sm:text-sm">
+              <Icon name="Package" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Тарифы</span>
+              <span className="sm:hidden">План</span>
             </TabsTrigger>
-            <TabsTrigger value="users">
-              <Icon name="Users" className="mr-2 h-4 w-4" />
-              Пользователи
+            <TabsTrigger value="users" className="text-xs sm:text-sm">
+              <Icon name="Users" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Пользователи</span>
+              <span className="sm:hidden">Люди</span>
             </TabsTrigger>
-            <TabsTrigger value="stats">
-              <Icon name="BarChart" className="mr-2 h-4 w-4" />
-              Статистика
+            <TabsTrigger value="stats" className="text-xs sm:text-sm">
+              <Icon name="BarChart" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Статистика</span>
+              <span className="sm:hidden">Стат</span>
             </TabsTrigger>
-            <TabsTrigger value="financial">
-              <Icon name="DollarSign" className="mr-2 h-4 w-4" />
-              Финансы
+            <TabsTrigger value="financial" className="text-xs sm:text-sm">
+              <Icon name="DollarSign" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Финансы</span>
+              <span className="sm:hidden">₽</span>
             </TabsTrigger>
           </TabsList>
 
