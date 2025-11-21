@@ -129,15 +129,6 @@ const MyFiles = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!emailVerified) {
-      toast({
-        title: 'Требуется верификация',
-        description: 'Подтвердите email в настройках для загрузки файлов',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setUploading(true);
     try {
       const presignRes = await fetch(`${STORAGE_API}?action=presign-upload`, {

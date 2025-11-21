@@ -41,10 +41,6 @@ const ClientDialogs = ({
 }: ClientDialogsProps) => {
   
   const handleAddClientWithCheck = () => {
-    if (!emailVerified) {
-      toast.error('Подтвердите email в настройках для создания клиентов');
-      return;
-    }
     handleAddClient();
   };
   return (

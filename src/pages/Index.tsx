@@ -214,7 +214,7 @@ const Index = () => {
         onLogout={handleLogout}
       />
 
-      {showEmailVerification && userId && (
+      {showEmailVerification && userId && !isAdmin && (
         <EmailVerificationDialog
           open={showEmailVerification}
           onClose={() => setShowEmailVerification(false)}
@@ -229,7 +229,7 @@ const Index = () => {
       )}
 
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
-        {!emailVerified && hasEmail && currentPage === 'dashboard' && (
+        {!emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (
           <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="mt-0.5">

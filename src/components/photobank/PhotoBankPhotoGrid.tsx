@@ -92,10 +92,10 @@ const PhotoBankPhotoGrid = ({
                 accept="image/*"
                 multiple
                 onChange={onUploadPhoto}
-                disabled={uploading || !emailVerified}
+                disabled={uploading}
               />
-              <Button asChild disabled={uploading || !emailVerified} size="sm">
-                <label htmlFor="photo-upload" className={emailVerified ? "cursor-pointer" : "cursor-not-allowed"}>
+              <Button asChild disabled={uploading} size="sm">
+                <label htmlFor="photo-upload" className="cursor-pointer">
                   <Icon name="Upload" className="mr-2" size={16} />
                   {uploading ? 'Загрузка...' : 'Загрузить фото'}
                 </label>
@@ -103,17 +103,7 @@ const PhotoBankPhotoGrid = ({
             </div>
           )}
         </div>
-        {selectedFolder && !emailVerified && (
-          <div className="mt-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <Icon name="AlertCircle" className="text-amber-600 mt-0.5" size={20} />
-            <div className="flex-1 text-sm">
-              <p className="font-medium text-amber-900">Подтвердите email для загрузки фото</p>
-              <p className="text-amber-700 mt-1">
-                Перейдите в Настройки, чтобы подтвердить свой email-адрес
-              </p>
-            </div>
-          </div>
-        )}
+
         {uploading && uploadProgress.total > 0 && (
           <div className="mt-4 space-y-3 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
             <div className="flex items-center justify-between">

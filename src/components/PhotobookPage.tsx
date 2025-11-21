@@ -177,31 +177,18 @@ const PhotobookPage = () => {
   };
 
   const handleCreateClick = () => {
-    if (!emailVerified) {
-      sonnerToast.error('Подтвердите email в настройках для создания фотокниг');
-      return;
-    }
     setIsCreateDialogOpen(true);
   };
 
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in">
-      {!emailVerified && (
-        <Alert className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
-          <Icon name="AlertCircle" className="text-amber-600" />
-          <AlertDescription className="ml-2">
-            <span className="font-semibold text-amber-900">Подтвердите email для создания фотокниг.</span>{' '}
-            <span className="text-amber-700">Перейдите в Настройки, чтобы подтвердить свой email-адрес.</span>
-          </AlertDescription>
-        </Alert>
-      )}
+
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <h2 className="text-2xl md:text-3xl font-bold">Макет фотокниг</h2>
         <Button 
           className="rounded-full shadow-lg hover-scale w-full md:w-auto"
           onClick={handleCreateClick}
-          disabled={!emailVerified}
         >
           <Icon name="Plus" size={20} className="mr-2" />
           Создать фотокнигу
