@@ -10,6 +10,8 @@ import { useAdminPanelRoleManager } from '@/components/admin/AdminPanelRoleManag
 import { useAdminPanelHistory } from '@/components/admin/AdminPanelHistoryManager';
 
 const AdminPanel = () => {
+  console.log('[ADMIN_PANEL] Component mounted');
+  
   const {
     settings,
     authProviders,
@@ -26,6 +28,8 @@ const AdminPanel = () => {
     moveWidget,
     toggleWidget,
   } = useAdminPanelSettings();
+  
+  console.log('[ADMIN_PANEL] Hook returned, loading state:', loading);
 
   const {
     users,

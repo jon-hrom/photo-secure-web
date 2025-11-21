@@ -149,6 +149,13 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
   const emailUser = savedSession ? JSON.parse(savedSession) : null;
   const userEmail = emailUser?.email || vkUser?.email;
   
+  console.log('[DASHBOARD] Admin check:', {
+    isAdmin,
+    userEmail,
+    vkUser,
+    isAdminUserResult: isAdminUser(userEmail, vkUser)
+  });
+  
   const finalIsAdmin = isAdmin || isAdminUser(userEmail, vkUser);
 
   return (
@@ -180,6 +187,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
       
       <DashboardUserCard 
         vkUser={vkUser}
+        emailUser={emailUser}
         finalIsAdmin={finalIsAdmin}
         onOpenAdminPanel={onOpenAdminPanel}
         onLogout={onLogout}

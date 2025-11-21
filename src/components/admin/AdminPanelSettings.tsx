@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
 export const useAdminPanelSettings = () => {
+  console.log('[ADMIN_SETTINGS_HOOK] Hook called');
+  
   const [settings, setSettings] = useState({
     twoFactorEnabled: true,
     registrationEnabled: true,
@@ -255,6 +257,7 @@ export const useAdminPanelSettings = () => {
   };
 
   useEffect(() => {
+    console.log('[ADMIN_SETTINGS_HOOK] useEffect triggered, calling loadSettings');
     loadSettings();
   }, []);
 
