@@ -64,7 +64,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Check if user already exists by vk_id
+        # Check if user already exists by vk_id in users table
         cursor.execute(
             "SELECT id FROM users WHERE vk_id = %s",
             (vk_id,)
@@ -78,8 +78,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
         existing_vk_user = cursor.fetchone()
         
-        if existing_by_vk or existing_vk_user:
-            user_id = existing_by_vk['id'] if existing_by_vk else existing_vk_user['user_id']
+        print(f"[VK_USER] Existing check: users.vk_id={existing_by_vk}, vk_users.vk_sub={existing_vk_user}")
+        
+        # Determine which user_id to use
+        if existing_by_vk and existing_vk_user:
+            # Both exist - use the one from users table and ensure consistency
+            user_id = existing_by_vk['id']
+            vk_user_id = existing_vk_user['user_id']
+            
+            if user_id != vk_user_id:
+                # Data inconsistency - delete old vk_users record and create new one
+                print(f"[VK_USER] Data inconsistency detected: users.id={user_id} != vk_users.user_id={vk_user_id}")
+                cursor.execute("DELETE FROM vk_users WHERE vk_sub = %s", (vk_id,))
+                existing_vk_user = None
+        elif existing_by_vk:
+            user_id = existing_by_vk['id']
+        elif existing_vk_user:
+            user_id = existing_vk_user['user_id']
+        else:
+            user_id = None
+        
+        if user_id:
             
             # Update existing user
             cursor.execute(
