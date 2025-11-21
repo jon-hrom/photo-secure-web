@@ -111,6 +111,18 @@ export const usePhotoBankHandlers = (
       return;
     }
 
+    // Check file size limit (8 MB to leave room for base64 encoding)
+    const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8 MB
+    const tooLargeFiles = imageFiles.filter(file => file.size > MAX_FILE_SIZE);
+    if (tooLargeFiles.length > 0) {
+      toast({
+        title: 'Файлы слишком большие',
+        description: `Максимальный размер файла: 8 МБ. Слишком большие файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setUploading(true);
     setUploadCancelled(false);
     setUploadProgress({ current: 0, total: imageFiles.length, percent: 0, currentFileName: '' });
@@ -151,17 +163,52 @@ export const usePhotoBankHandlers = (
           const height = img.height;
 
           console.log(`[UPLOAD] Original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
-          console.log(`[UPLOAD] Uploading original photo without compression`);
           
-          // Загружаем оригинал без изменений
-          const reader = new FileReader();
-          const base64Data = await new Promise<string>((resolve) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
-          
+          // Для файлов > 7 МБ делаем умное сжатие
+          const MAX_SIZE_FOR_DIRECT = 7 * 1024 * 1024;
+          let base64Data: string;
           const finalWidth = width;
           const finalHeight = height;
+          
+          if (file.size > MAX_SIZE_FOR_DIRECT) {
+            console.log(`[UPLOAD] File too large for direct upload, compressing smartly...`);
+            const canvas = document.createElement('canvas');
+            
+            // Сохраняем высокое разрешение, но сжимаем качество
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            
+            // Пробуем разные уровни качества, пока не получим приемлемый размер
+            let quality = 0.85;
+            let blob: Blob;
+            
+            do {
+              blob = await new Promise<Blob>((resolve) => {
+                canvas.toBlob((b) => resolve(b!), 'image/jpeg', quality);
+              });
+              console.log(`[UPLOAD] Quality ${quality}: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+              
+              if (blob.size <= MAX_SIZE_FOR_DIRECT) break;
+              quality -= 0.05;
+            } while (quality > 0.5);
+            
+            console.log(`[UPLOAD] Compressed: ${(file.size / 1024 / 1024).toFixed(2)} MB -> ${(blob.size / 1024 / 1024).toFixed(2)} MB at quality ${quality}`);
+            
+            const reader = new FileReader();
+            base64Data = await new Promise<string>((resolve) => {
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          } else {
+            console.log(`[UPLOAD] File size OK, uploading original`);
+            const reader = new FileReader();
+            base64Data = await new Promise<string>((resolve) => {
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            });
+          }
 
           console.log(`[UPLOAD] Uploading to backend...`);
           const res = await fetch(PHOTOBANK_FOLDERS_API, {
