@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 interface User {
@@ -36,6 +37,9 @@ const UserImpersonation = ({
   currentViewedUser 
 }: UserImpersonationProps) => {
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'blocked'>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'email' | 'id'>('recent');
   
   const handleEnterView = () => {
     if (!selectedUserId) {
@@ -63,6 +67,40 @@ const UserImpersonation = ({
     toast.success('Возврат в режим администратора');
   };
 
+  const filteredAndSortedUsers = useMemo(() => {
+    let result = users.filter(user => user && user.user_id != null);
+    
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(user => 
+        user.email?.toLowerCase().includes(query) ||
+        user.user_id?.toString().includes(query)
+      );
+    }
+    
+    // Filter by status
+    if (filterStatus === 'active') {
+      result = result.filter(user => !user.is_blocked);
+    } else if (filterStatus === 'blocked') {
+      result = result.filter(user => user.is_blocked);
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      if (sortBy === 'recent') {
+        return new Date(b.last_login || b.created_at).getTime() - new Date(a.last_login || a.created_at).getTime();
+      } else if (sortBy === 'email') {
+        return (a.email || '').localeCompare(b.email || '');
+      } else if (sortBy === 'id') {
+        return b.user_id - a.user_id;
+      }
+      return 0;
+    });
+    
+    return result;
+  }, [users, searchQuery, filterStatus, sortBy]);
+
   return (
     <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
       <CardHeader>
@@ -74,19 +112,81 @@ const UserImpersonation = ({
       <CardContent className="space-y-4">
         {!isInUserView ? (
           <>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Поиск пользователя</label>
+                <div className="relative">
+                  <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input 
+                    placeholder="Email или ID пользователя..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Статус</label>
+                  <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все пользователи</SelectItem>
+                      <SelectItem value="active">Активные</SelectItem>
+                      <SelectItem value="blocked">Заблокированные</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Сортировка</label>
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="recent">По активности</SelectItem>
+                      <SelectItem value="email">По email</SelectItem>
+                      <SelectItem value="id">По ID</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                <span>Найдено: {filteredAndSortedUsers.length}</span>
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Icon name="X" size={12} />
+                    Сбросить поиск
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Выберите пользователя</label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Выберите пользователя из списка" />
                 </SelectTrigger>
-                <SelectContent>
-                  {users
-                    .filter(user => user && user.user_id != null)
-                    .map(user => (
+                <SelectContent className="max-h-[300px]">
+                  {filteredAndSortedUsers.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      <Icon name="Search" size={24} className="mx-auto mb-2 opacity-50" />
+                      Пользователи не найдены
+                    </div>
+                  ) : (
+                    filteredAndSortedUsers.map(user => (
                       <SelectItem key={user.user_id} value={user.user_id.toString()}>
                         <div className="flex items-center justify-between gap-4 w-full">
-                          <span className="flex-1">{user.email || 'Без email'}</span>
+                          <span className="flex-1 truncate">{user.email || 'Без email'}</span>
                           {user.is_blocked && (
                             <Badge variant="destructive" className="text-[10px]">Заблокирован</Badge>
                           )}
@@ -95,7 +195,8 @@ const UserImpersonation = ({
                           </span>
                         </div>
                       </SelectItem>
-                    ))}
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
