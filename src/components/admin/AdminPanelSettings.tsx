@@ -244,6 +244,10 @@ export const useAdminPanelSettings = () => {
     setTimeout(saveSettings, 500);
   };
 
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
   return {
     settings,
     authProviders,
