@@ -4,7 +4,12 @@ export const isAdminUser = (userEmail?: string | null, vkUser?: any): boolean =>
     return true;
   }
   
-  // Check VK admin
+  // Check VK admin by VK ID (more reliable than name)
+  if (vkUser && vkUser.vk_id === '74713477') {
+    return true;
+  }
+  
+  // Fallback: Check VK admin by name
   if (vkUser && vkUser.name) {
     const name = vkUser.name;
     if (

