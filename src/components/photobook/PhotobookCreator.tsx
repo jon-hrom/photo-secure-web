@@ -208,7 +208,7 @@ const PhotobookCreator = ({ open, onClose, onComplete }: PhotobookCreatorProps) 
 
         {currentStep === 'upload' && (
           <PhotobookUploadStep
-            requiredPhotos={config.spreadsCount * 4}
+            requiredPhotos={1}
             onComplete={handlePhotosUploaded}
             onBack={handleBack}
           />

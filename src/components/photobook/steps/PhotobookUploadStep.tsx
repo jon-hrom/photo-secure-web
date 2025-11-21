@@ -220,11 +220,11 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
       <Tabs defaultValue="my-files" className="flex-1 flex flex-col">
         <div className="border-b px-4">
           <TabsList className="bg-transparent">
-            <TabsTrigger value="my-files" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none text-black">
+            <TabsTrigger value="my-files" className="data-[state=active]:bg-gray-100 data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none text-black">
               <Icon name="Folder" size={18} className="mr-2" />
               Мои файлы
             </TabsTrigger>
-            <TabsTrigger value="photobank" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none text-black">
+            <TabsTrigger value="photobank" className="data-[state=active]:bg-gray-100 data-[state=active]:border-b-2 data-[state=active]:border-purple-600 rounded-none text-black">
               <Icon name="Database" size={18} className="mr-2" />
               Фотобанк
             </TabsTrigger>
