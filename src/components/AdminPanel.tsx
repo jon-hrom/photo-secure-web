@@ -61,8 +61,17 @@ const AdminPanel = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex flex-col items-center justify-center min-h-[600px] space-y-6">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-primary/20 border-t-primary"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Icon name="Settings" size={32} className="text-primary animate-pulse" />
+          </div>
+        </div>
+        <div className="text-center space-y-2">
+          <h3 className="text-xl font-semibold text-foreground">Загрузка админ-панели</h3>
+          <p className="text-sm text-muted-foreground">Подготавливаем настройки и данные...</p>
+        </div>
       </div>
     );
   }
