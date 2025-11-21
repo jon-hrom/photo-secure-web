@@ -175,6 +175,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+                if file_data.startswith('data:'):
+                    file_data = file_data.split(',', 1)[1]
+                
                 try:
                     file_bytes = base64.b64decode(file_data)
                 except Exception as e:
@@ -186,7 +190,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 file_size = len(file_bytes)
-                print(f'[UPLOAD] Decoded file size: {file_size} bytes')
+                print(f'[UPLOAD] Decoded file size: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)')
                 
                 # Store directly in database (much faster than slow REG.Cloud S3)
                 print(f'[DB] Saving file to database, size={file_size} bytes')

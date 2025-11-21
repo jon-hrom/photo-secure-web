@@ -302,8 +302,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         }
                 
                 import base64
-                file_bytes = base64.b64decode(file_data.split(',')[1] if ',' in file_data else file_data)
+                # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+                if file_data.startswith('data:'):
+                    file_data = file_data.split(',', 1)[1]
+                
+                file_bytes = base64.b64decode(file_data)
                 file_size = len(file_bytes)
+                print(f'[UPLOAD_DIRECT] File size after decode: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)')
                 
                 file_ext = file_name.split('.')[-1] if '.' in file_name else 'jpg'
                 s3_key = f'{folder["s3_prefix"]}{uuid.uuid4()}.{file_ext}'
