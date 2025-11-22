@@ -34,12 +34,12 @@ const ClientDetailOverview = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">Проектов с этим клиентом</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">Общий бюджет</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{projects.length}</div>
+            <div className="text-2xl font-bold">{totalBudget.toLocaleString('ru-RU')} ₽</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Общий бюджет: {totalBudget.toLocaleString('ru-RU')} ₽
+              Проектов: {projects.length}
             </p>
           </CardContent>
         </Card>
