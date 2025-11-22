@@ -419,6 +419,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         comment.get('date')
                     ))
             
+            # Обновляем документы (upsert) - синхронизация фронтенда с БД
+            if 'documents' in body:
+                # Получаем текущие ID документов из БД
+                cur.execute('SELECT id FROM client_documents WHERE client_id = %s', (client_id,))
+                existing_ids = {row['id'] for row in cur.fetchall()}
+                incoming_ids = {d.get('id') for d in body.get('documents', []) if d.get('id')}
+                
+                # Удаляем документы, которых нет во фронтенде (и файлы из S3)
+                ids_to_delete = existing_ids - incoming_ids
+                if ids_to_delete:
+                    # Получаем URL файлов перед удалением
+                    cur.execute('SELECT file_url FROM client_documents WHERE id = ANY(%s)', (list(ids_to_delete),))
+                    docs_to_delete = cur.fetchall()
+                    # Удаляем файлы из S3
+                    for doc in docs_to_delete:
+                        if doc['file_url']:
+                            delete_from_s3(doc['file_url'])
+                    # Удаляем записи из БД
+                    cur.execute('DELETE FROM client_documents WHERE id = ANY(%s)', (list(ids_to_delete),))
+            
             conn.commit()
             
             return {
