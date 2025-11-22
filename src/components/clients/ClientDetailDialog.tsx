@@ -146,6 +146,22 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     toast.success('Комментарий удалён');
   };
 
+  const handleDocumentUploaded = (document: any) => {
+    const updatedClient = {
+      ...client,
+      documents: [...documents, document],
+    };
+    onUpdate(updatedClient);
+  };
+
+  const handleDocumentDeleted = (documentId: number) => {
+    const updatedClient = {
+      ...client,
+      documents: documents.filter(d => d.id !== documentId),
+    };
+    onUpdate(updatedClient);
+  };
+
   const updateProjectStatus = (projectId: number, status: Project['status']) => {
     const updatedClient = {
       ...client,
@@ -282,6 +298,9 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
               formatDate={formatDate}
               formatDateTime={formatDateTime}
               tab="documents"
+              clientId={client.id}
+              onDocumentUploaded={handleDocumentUploaded}
+              onDocumentDeleted={handleDocumentDeleted}
             />
           </TabsContent>
 
@@ -305,6 +324,9 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
               formatDate={formatDate}
               formatDateTime={formatDateTime}
               tab="history"
+              clientId={client.id}
+              onDocumentUploaded={handleDocumentUploaded}
+              onDocumentDeleted={handleDocumentDeleted}
             />
           </TabsContent>
         </Tabs>

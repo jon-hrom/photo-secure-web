@@ -1,8 +1,55 @@
 import json
 import os
+import base64
+import uuid
 from typing import Dict, Any
+from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import boto3
+
+# S3 configuration
+S3_BUCKET = 'foto-mix'
+S3_ENDPOINT = 'https://storage.yandexcloud.net'
+S3_REGION = 'ru-central1'
+
+def upload_to_s3(file_content: bytes, filename: str) -> str:
+    '''Загружает файл в S3 и возвращает публичный URL'''
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=S3_ENDPOINT,
+        aws_access_key_id=os.environ['YC_S3_KEY_ID'],
+        aws_secret_access_key=os.environ['YC_S3_SECRET'],
+        region_name=S3_REGION
+    )
+    
+    file_ext = filename.split('.')[-1] if '.' in filename else 'bin'
+    unique_filename = f'client-documents/{uuid.uuid4()}.{file_ext}'
+    
+    s3_client.put_object(
+        Bucket=S3_BUCKET,
+        Key=unique_filename,
+        Body=file_content,
+        ContentType='application/octet-stream'
+    )
+    
+    return f'{S3_ENDPOINT}/{S3_BUCKET}/{unique_filename}'
+
+def delete_from_s3(file_url: str):
+    '''Удаляет файл из S3 по URL'''
+    if not file_url or S3_BUCKET not in file_url:
+        return
+    
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=S3_ENDPOINT,
+        aws_access_key_id=os.environ['YC_S3_KEY_ID'],
+        aws_secret_access_key=os.environ['YC_S3_SECRET'],
+        region_name=S3_REGION
+    )
+    
+    key = file_url.split(f'{S3_BUCKET}/')[-1]
+    s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -52,6 +99,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')
+            
+            if action == 'documents':
+                client_id = event.get('queryStringParameters', {}).get('clientId')
+                if not client_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'clientId required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cur.execute('''
+                    SELECT id, name, file_url, upload_date
+                    FROM client_documents
+                    WHERE client_id = %s
+                    ORDER BY upload_date DESC
+                ''', (client_id,))
+                documents = cur.fetchall()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps([dict(d, default=str) for d in documents]),
+                    'isBase64Encoded': False
+                }
             
             if action == 'list':
                 cur.execute('''
@@ -312,6 +384,61 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        elif method == 'POST':
+            body = json.loads(event.get('body', '{}'))
+            action = body.get('action')
+            
+            if action == 'upload_document':
+                client_id = body.get('clientId')
+                filename = body.get('filename')
+                file_base64 = body.get('file')
+                
+                if not client_id or not filename or not file_base64:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'clientId, filename, file required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Проверяем, что клиент принадлежит пользователю
+                cur.execute('SELECT id FROM clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Access denied'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Декодируем и загружаем в S3
+                file_content = base64.b64decode(file_base64)
+                file_url = upload_to_s3(file_content, filename)
+                
+                # Сохраняем в БД
+                cur.execute('''
+                    INSERT INTO client_documents (client_id, name, file_url, upload_date)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id, client_id, name, file_url, upload_date
+                ''', (client_id, filename, file_url, datetime.utcnow()))
+                
+                document = cur.fetchone()
+                conn.commit()
+                
+                return {
+                    'statusCode': 201,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps(dict(document), default=str),
+                    'isBase64Encoded': False
+                }
+            
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'Invalid action'}),
+                'isBase64Encoded': False
+            }
+        
         elif method == 'DELETE':
             params = event.get('queryStringParameters', {})
             action = params.get('action')
@@ -319,6 +446,41 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if action == 'delete_booking':
                 booking_id = params.get('bookingId')
                 cur.execute('DELETE FROM bookings WHERE id = %s', (booking_id,))
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            
+            if action == 'delete_document':
+                document_id = params.get('documentId')
+                
+                # Получаем URL файла и проверяем владельца
+                cur.execute('''
+                    SELECT cd.file_url 
+                    FROM client_documents cd
+                    JOIN clients c ON cd.client_id = c.id
+                    WHERE cd.id = %s AND c.user_id = %s
+                ''', (document_id, user_id))
+                
+                doc = cur.fetchone()
+                if not doc:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Document not found'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Удаляем из S3
+                if doc['file_url']:
+                    delete_from_s3(doc['file_url'])
+                
+                # Удаляем из БД
+                cur.execute('DELETE FROM client_documents WHERE id = %s', (document_id,))
                 conn.commit()
                 
                 return {
@@ -341,6 +503,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'error': 'Client not found'}),
                     'isBase64Encoded': False
                 }
+            
+            # Получаем все документы клиента для удаления из S3
+            cur.execute('SELECT file_url FROM client_documents WHERE client_id = %s', (client_id,))
+            documents = cur.fetchall()
+            
+            # Удаляем файлы из S3
+            for doc in documents:
+                if doc['file_url']:
+                    delete_from_s3(doc['file_url'])
             
             cur.execute('DELETE FROM bookings WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))
