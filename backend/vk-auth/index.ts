@@ -440,6 +440,26 @@ exports.handler = async (event, context) => {
       const createUserData = await createUserResponse.json();
       const userId = createUserData.user_id;
       
+      // Check if user has 2FA enabled
+      const twoFAClient = new Client({ connectionString: DATABASE_URL });
+      let requires2FA = false;
+      let userEmailFromDB = null;
+      
+      try {
+        await twoFAClient.connect();
+        const twoFAResult = await twoFAClient.query(
+          `SELECT two_factor_email, email FROM ${SCHEMA}.users WHERE id = ${userId}`
+        );
+        
+        if (twoFAResult.rows.length > 0) {
+          requires2FA = twoFAResult.rows[0].two_factor_email === true;
+          userEmailFromDB = twoFAResult.rows[0].email || email;
+          console.log('[VK_AUTH] 2FA check:', { userId, requires2FA, hasEmail: !!userEmailFromDB });
+        }
+      } finally {
+        await twoFAClient.end();
+      }
+      
       const sessionToken = jwt.sign(
         {
           user_id: userId,
@@ -461,7 +481,8 @@ exports.handler = async (event, context) => {
         name: `${vkUserInfo.first_name} ${vkUserInfo.last_name}`.trim(),
         avatar: vkUserInfo.photo_max || vkUserInfo.photo_200,
         verified: vkUserInfo.verified === 1,
-        email: email || ''
+        email: userEmailFromDB || email || '',
+        requires_2fa: requires2FA
       };
       
       // Generate short session ID and save to temp storage (5 min TTL)
@@ -472,6 +493,7 @@ exports.handler = async (event, context) => {
       const tempSessionData = {
         token: sessionToken,
         userData: userData,
+        requires_2fa: requires2FA,
         created: Date.now()
       };
       

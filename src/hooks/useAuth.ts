@@ -101,68 +101,49 @@ export const useAuth = () => {
               console.log('🔍 Checking admin status:', {
                 userName: userData.name,
                 userEmail: userData.email,
-                isUserAdmin
+                isUserAdmin,
+                requires2FA: data.requires_2fa || userData.requires_2fa
               });
               
               const uid = userData.user_id || userData.vk_id;
               
-              // Check if user has 2FA enabled
-              fetch(`https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?userId=${uid}`)
-                .then(res => res.json())
-                .then(settingsData => {
-                  console.log('🔒 2FA check:', { two_factor_email: settingsData.two_factor_email });
-                  
-                  if (settingsData.two_factor_email && settingsData.email) {
-                    // User has 2FA enabled - show 2FA dialog
-                    setPendingUserData(userData);
-                    setNeeds2FA(true);
-                    setLoading(false);
-                  } else {
-                    // No 2FA - proceed with normal login
-                    localStorage.setItem('vk_user', JSON.stringify(userData));
-                    localStorage.setItem('auth_token', data.token);
-                    localStorage.setItem('userId', uid.toString());
-                    
-                    console.log('✅ VK data saved to localStorage from session:', userData);
-                    
-                    setIsAuthenticated(true);
-                    setUserId(uid);
-                    setUserEmail(userData.email || '');
-                    setUserName(userData.name || 'Пользователь VK');
-                    setUserAvatar(userData.avatar || '');
-                    setIsVerified(userData.verified || false);
-                    setIsAdmin(isUserAdmin);
-                    setCurrentPage('dashboard');
-                    lastActivityRef.current = Date.now();
-                    
-                    window.history.replaceState({}, '', '/');
-                    
-                    console.log('✅ VK auth complete, showing dashboard');
-                  }
-                })
-                .catch(err => {
-                  console.error('❌ Error checking 2FA settings:', err);
-                  // On error, proceed without 2FA check
-                  localStorage.setItem('vk_user', JSON.stringify(userData));
-                  localStorage.setItem('auth_token', data.token);
-                  localStorage.setItem('userId', uid.toString());
-                  
-                  setIsAuthenticated(true);
-                  setUserId(uid);
-                  setUserEmail(userData.email || '');
-                  setUserName(userData.name || 'Пользователь VK');
-                  setUserAvatar(userData.avatar || '');
-                  setIsVerified(userData.verified || false);
-                  setIsAdmin(isUserAdmin);
-                  setCurrentPage('dashboard');
-                  lastActivityRef.current = Date.now();
-                  
-                  window.history.replaceState({}, '', '/');
-                });
+              // Check if user has 2FA enabled from session data
+              const requires2FA = data.requires_2fa || userData.requires_2fa;
+              
+              if (requires2FA && userData.email) {
+                // User has 2FA enabled - show 2FA dialog
+                console.log('🔒 2FA required - showing dialog');
+                setPendingUserData(userData);
+                setNeeds2FA(true);
+                setLoading(false);
+                window.history.replaceState({}, '', '/');
+              } else {
+                // No 2FA - proceed with normal login
+                localStorage.setItem('vk_user', JSON.stringify(userData));
+                localStorage.setItem('auth_token', data.token);
+                localStorage.setItem('userId', uid.toString());
+                
+                console.log('✅ VK data saved to localStorage from session:', userData);
+                
+                setIsAuthenticated(true);
+                setUserId(uid);
+                setUserEmail(userData.email || '');
+                setUserName(userData.name || 'Пользователь VK');
+                setUserAvatar(userData.avatar || '');
+                setIsVerified(userData.verified || false);
+                setIsAdmin(isUserAdmin);
+                setCurrentPage('dashboard');
+                lastActivityRef.current = Date.now();
+                
+                window.history.replaceState({}, '', '/');
+                
+                console.log('✅ VK auth complete, showing dashboard');
+              }
             }
           })
           .catch(error => {
             console.error('❌ Error fetching VK session:', error);
+            setLoading(false);
           });
         
         return;
