@@ -30,19 +30,23 @@ const ClientDetailDocumentsHistory = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const file = files[0];
+  const uploadFile = async (file: File) => {
     setUploading(true);
+    console.log('[ClientDetailDocumentsHistory] Starting upload:', file.name);
 
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const base64 = e.target?.result as string;
         const base64Data = base64.split(',')[1];
+
+        console.log('[ClientDetailDocumentsHistory] Sending to backend:', {
+          clientId,
+          filename: file.name,
+          fileSize: base64Data.length
+        });
 
         const response = await fetch(funcUrls['clients'], {
           method: 'POST',
@@ -58,30 +62,47 @@ const ClientDetailDocumentsHistory = ({
           })
         });
 
+        console.log('[ClientDetailDocumentsHistory] Response status:', response.status);
+
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[ClientDetailDocumentsHistory] Upload failed:', errorText);
           throw new Error('Failed to upload file');
         }
 
         const data = await response.json();
-        onDocumentUploaded({
+        console.log('[ClientDetailDocumentsHistory] Upload success:', data);
+
+        const newDocument: Document = {
           id: data.id,
           name: data.name,
           fileUrl: data.file_url,
           uploadDate: data.upload_date
-        });
+        };
+
+        console.log('[ClientDetailDocumentsHistory] Calling onDocumentUploaded with:', newDocument);
+        onDocumentUploaded(newDocument);
 
         toast.success(`Файл "${file.name}" загружен`);
       };
 
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('[ClientDetailDocumentsHistory] Upload error:', error);
       toast.error('Ошибка загрузки файла');
     } finally {
       setUploading(false);
-      if (event.target) {
-        event.target.value = '';
-      }
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    await uploadFile(files[0]);
+    
+    if (event.target) {
+      event.target.value = '';
     }
   };
 
@@ -116,6 +137,29 @@ const ClientDetailDocumentsHistory = ({
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Ошибка удаления документа');
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      await uploadFile(files[0]);
     }
   };
 
@@ -175,7 +219,12 @@ const ClientDetailDocumentsHistory = ({
             onChange={handleFileUpload}
           />
         </CardHeader>
-        <CardContent>
+        <CardContent
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={isDragging ? 'border-2 border-dashed border-primary rounded-lg bg-primary/5' : ''}
+        >
           {documents.length === 0 ? (
             <div className="text-center py-8">
               <Icon name="FileText" size={48} className="mx-auto text-muted-foreground mb-3" />
