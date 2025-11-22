@@ -100,13 +100,16 @@ export const useAuth = () => {
                 isUserAdmin
               });
               
+              const uid = userData.user_id || userData.vk_id;
+              
               localStorage.setItem('vk_user', JSON.stringify(userData));
               localStorage.setItem('auth_token', data.token);
+              localStorage.setItem('userId', uid.toString());
               
               console.log('✅ VK data saved to localStorage from session:', userData);
               
               setIsAuthenticated(true);
-              setUserId(userData.user_id || userData.vk_id);
+              setUserId(uid);
               setUserEmail(userData.email || '');
               setUserName(userData.name || 'Пользователь VK');
               setUserAvatar(userData.avatar || '');
@@ -150,8 +153,11 @@ export const useAuth = () => {
           
           console.log('✅ VK user found in localStorage:', userData);
           
+          const uid = userData.user_id || userData.vk_id;
+          localStorage.setItem('userId', uid.toString());
+          
           setIsAuthenticated(true);
-          setUserId(userData.user_id || userData.vk_id);
+          setUserId(uid);
           setUserName(userData.name || 'Пользователь VK');
           setUserAvatar(userData.avatar || '');
           setIsVerified(userData.is_verified || userData.verified || false);
