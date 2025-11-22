@@ -72,9 +72,7 @@ const ClientDetailProjects = ({
 
       {projects.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            Проектов пока нет
-          </CardContent>
+          <CardContent className="py-8 text-center text-muted-foreground">Список слуг пока нет</CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
