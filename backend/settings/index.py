@@ -10,6 +10,7 @@ from typing import Dict, Any
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
+    print(f"[SETTINGS] Handler called: method={method}")
     
     # Handle CORS OPTIONS request
     if method == 'OPTIONS':
