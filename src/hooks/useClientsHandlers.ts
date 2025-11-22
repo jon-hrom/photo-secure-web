@@ -71,12 +71,20 @@ export const useClientsHandlers = ({
       return;
     }
     
+    if (!userId) {
+      toast.error('Не удалось определить пользователя');
+      return;
+    }
+    
     try {
+      console.log('[CLIENT_ADD] Sending request:', { action: 'create', ...newClient });
+      console.log('[CLIENT_ADD] User ID:', userId);
+      
       const res = await fetch(CLIENTS_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Id': userId!
+          'X-User-Id': userId
         },
         body: JSON.stringify({
           action: 'create',
@@ -84,7 +92,13 @@ export const useClientsHandlers = ({
         })
       });
       
-      if (!res.ok) throw new Error('Failed to add client');
+      console.log('[CLIENT_ADD] Response status:', res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[CLIENT_ADD] Error response:', errorText);
+        throw new Error('Failed to add client');
+      }
       
       await loadClients();
       setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
