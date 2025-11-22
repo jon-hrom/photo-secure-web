@@ -32,7 +32,9 @@ interface UseClientsHandlersProps {
   setIsBookingDetailsOpen: (open: boolean) => void;
   setSelectedBooking: (booking: any) => void;
   setVkMessage: (message: string) => void;
+  emailSubject: string;
   setEmailSubject: (subject: string) => void;
+  emailBody: string;
   setEmailBody: (body: string) => void;
 }
 
@@ -57,7 +59,9 @@ export const useClientsHandlers = ({
   setIsBookingDetailsOpen,
   setSelectedBooking,
   setVkMessage,
+  emailSubject,
   setEmailSubject,
+  emailBody,
   setEmailBody,
 }: UseClientsHandlersProps) => {
   

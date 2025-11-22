@@ -47,7 +47,9 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
     setIsBookingDetailsOpen: dialogsState.setIsBookingDetailsOpen,
     setSelectedBooking: dialogsState.setSelectedBooking,
     setVkMessage: dialogsState.setVkMessage,
+    emailSubject: dialogsState.emailSubject,
     setEmailSubject: dialogsState.setEmailSubject,
+    emailBody: dialogsState.emailBody,
     setEmailBody: dialogsState.setEmailBody,
   });
 

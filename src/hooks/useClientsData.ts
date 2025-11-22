@@ -97,6 +97,7 @@ export const useClientsData = (userId: string | null) => {
   useEffect(() => {
     loadClients();
     checkEmailVerification();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
   
   return {
