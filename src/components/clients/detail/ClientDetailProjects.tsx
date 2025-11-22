@@ -34,15 +34,22 @@ const ClientDetailProjects = ({
   const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
 
   const getProjectPayments = (projectId: number) => {
-    return payments.filter(p => p.projectId === projectId && p.status === 'completed');
+    const projectPayments = payments.filter(p => p.projectId === projectId && p.status === 'completed');
+    console.log(`[Project ${projectId}] Payments:`, projectPayments);
+    return projectPayments;
   };
 
   const getProjectPaid = (projectId: number) => {
-    return getProjectPayments(projectId).reduce((sum, p) => sum + p.amount, 0);
+    const paid = getProjectPayments(projectId).reduce((sum, p) => sum + p.amount, 0);
+    console.log(`[Project ${projectId}] Total Paid:`, paid);
+    return paid;
   };
 
   const getProjectRemaining = (projectId: number, budget: number) => {
-    return budget - getProjectPaid(projectId);
+    const paid = getProjectPaid(projectId);
+    const remaining = budget - paid;
+    console.log(`[Project ${projectId}] Budget: ${budget}, Paid: ${paid}, Remaining: ${remaining}`);
+    return remaining;
   };
 
   useEffect(() => {

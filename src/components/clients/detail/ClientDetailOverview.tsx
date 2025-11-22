@@ -27,8 +27,16 @@ const ClientDetailOverview = ({
   formatDateTime,
 }: ClientDetailOverviewProps) => {
   const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
-  const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
+  const completedPayments = payments.filter(p => p.status === 'completed');
+  const totalPaid = completedPayments.reduce((sum, p) => sum + p.amount, 0);
   const totalRemaining = totalBudget - totalPaid;
+
+  console.log('[Overview] Projects:', projects);
+  console.log('[Overview] All Payments:', payments);
+  console.log('[Overview] Completed Payments:', completedPayments);
+  console.log('[Overview] Total Budget:', totalBudget);
+  console.log('[Overview] Total Paid:', totalPaid);
+  console.log('[Overview] Total Remaining:', totalRemaining);
 
   const [animateKey, setAnimateKey] = useState(0);
 
