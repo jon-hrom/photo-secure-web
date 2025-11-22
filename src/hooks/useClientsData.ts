@@ -10,12 +10,19 @@ export const useClientsData = (userId: string | null) => {
   const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
   
   const loadClients = async () => {
-    if (!userId) return;
+    if (!userId) {
+      console.log('[CLIENTS] No userId, skipping load');
+      setLoading(false);
+      return;
+    }
     
     try {
+      console.log('[CLIENTS] Loading clients for userId:', userId);
       const res = await fetch(CLIENTS_API, {
         headers: { 'X-User-Id': userId }
       });
+      
+      console.log('[CLIENTS] Response status:', res.status);
       
       if (!res.ok) throw new Error('Failed to load clients');
       
@@ -43,42 +50,12 @@ export const useClientsData = (userId: string | null) => {
       }));
       
       setClients(parsed);
-      
-      // Миграция данных из localStorage если есть
-      const localData = localStorage.getItem(`clients_${userId}`);
-      if (localData && parsed.length === 0) {
-        try {
-          const localClients = JSON.parse(localData);
-          if (localClients.length > 0) {
-            for (const client of localClients) {
-              await fetch(CLIENTS_API, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-User-Id': userId
-                },
-                body: JSON.stringify({
-                  action: 'create',
-                  name: client.name,
-                  phone: client.phone,
-                  email: client.email,
-                  address: client.address,
-                  vkProfile: client.vkProfile
-                })
-              });
-            }
-            localStorage.removeItem(`clients_${userId}`);
-            await loadClients();
-            toast.success('Данные перенесены в облако');
-          }
-        } catch (e) {
-          console.error('Migration failed:', e);
-        }
-      }
+      console.log('[CLIENTS] Loaded', parsed.length, 'clients successfully');
     } catch (error) {
-      console.error('Failed to load clients:', error);
+      console.error('[CLIENTS] Failed to load clients:', error);
       toast.error('Не удалось загрузить клиентов');
     } finally {
+      console.log('[CLIENTS] Setting loading to false');
       setLoading(false);
     }
   };
