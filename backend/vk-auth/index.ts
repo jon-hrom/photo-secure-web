@@ -452,9 +452,28 @@ exports.handler = async (event, context) => {
         );
         
         if (twoFAResult.rows.length > 0) {
-          requires2FA = twoFAResult.rows[0].two_factor_email === true;
+          const twoFactorEnabled = twoFAResult.rows[0].two_factor_email === true;
           userEmailFromDB = twoFAResult.rows[0].email || email;
-          console.log('[VK_AUTH] 2FA check:', { userId, requires2FA, hasEmail: !!userEmailFromDB });
+          
+          // If email is empty, check vk_users table
+          if (!userEmailFromDB || !userEmailFromDB.trim()) {
+            const vkEmailResult = await twoFAClient.query(
+              `SELECT email FROM ${SCHEMA}.vk_users WHERE user_id = ${userId}`
+            );
+            if (vkEmailResult.rows.length > 0) {
+              userEmailFromDB = vkEmailResult.rows[0].email;
+            }
+          }
+          
+          // Only require 2FA if email is present
+          requires2FA = twoFactorEnabled && !!userEmailFromDB && userEmailFromDB.trim() !== '';
+          
+          console.log('[VK_AUTH] 2FA check:', { 
+            userId, 
+            twoFactorEnabled, 
+            hasEmail: !!userEmailFromDB, 
+            requires2FA 
+          });
         }
       } finally {
         await twoFAClient.end();

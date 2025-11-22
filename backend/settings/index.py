@@ -295,6 +295,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             try:
+                # Check if user has email when enabling 2FA
+                if enabled and fa_type == 'email':
+                    cursor.execute("""
+                        SELECT email FROM t_p28211681_photo_secure_web.users WHERE id = %s
+                    """, (int(user_id),))
+                    user_row = cursor.fetchone()
+                    
+                    if not user_row or not user_row[0] or not user_row[0].strip():
+                        # Check vk_users table
+                        cursor.execute("""
+                            SELECT email FROM t_p28211681_photo_secure_web.vk_users WHERE user_id = %s
+                        """, (int(user_id),))
+                        vk_row = cursor.fetchone()
+                        
+                        if not vk_row or not vk_row[0] or not vk_row[0].strip():
+                            print(f"[SETTINGS] Cannot enable 2FA - no email for userId={user_id}")
+                            cursor.close()
+                            conn.close()
+                            return {
+                                'statusCode': 400,
+                                'headers': {
+                                    'Content-Type': 'application/json',
+                                    'Access-Control-Allow-Origin': '*'
+                                },
+                                'body': json.dumps({'error': 'Невозможно включить 2FA: сначала добавьте email в контактную информацию'}),
+                                'isBase64Encoded': False
+                            }
+                
                 cursor.execute(f"""
                     UPDATE t_p28211681_photo_secure_web.users
                     SET two_factor_{fa_type} = %s, updated_at = CURRENT_TIMESTAMP
