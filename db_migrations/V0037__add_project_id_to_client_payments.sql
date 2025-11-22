@@ -1,0 +1,1 @@
+ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS project_id BIGINT REFERENCES client_projects(id);
