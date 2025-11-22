@@ -105,7 +105,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
   const offlineCount = activeUsers.filter(u => !isUserOnline(u.last_login)).length;
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('ru-RU', {
+    const samaraTime = new Date(dateStr).toLocaleString('ru-RU', {
       timeZone: 'Europe/Samara',
       day: '2-digit',
       month: '2-digit',
@@ -113,6 +113,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
       hour: '2-digit',
       minute: '2-digit'
     });
+    return `${samaraTime} (UTC+4)`;
   };
 
   const getRelativeTime = (dateStr: string | null): string => {
