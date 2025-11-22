@@ -17,7 +17,29 @@ interface ClientsPageProps {
 const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
   const userId = localStorage.getItem('userId');
   const [emailVerified, setEmailVerified] = useState(true);
-  const [clients, setClients] = useState<Client[]>([]); // Пустой массив для новых пользователей
+  
+  // Загрузка клиентов из localStorage при монтировании
+  const [clients, setClients] = useState<Client[]>(() => {
+    if (!userId) return [];
+    const stored = localStorage.getItem(`clients_${userId}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        // Восстанавливаем Date объекты для bookings
+        return parsed.map((client: Client) => ({
+          ...client,
+          bookings: client.bookings.map(b => ({
+            ...b,
+            date: new Date(b.date)
+          }))
+        }));
+      } catch (e) {
+        console.error('Failed to parse clients from localStorage:', e);
+        return [];
+      }
+    }
+    return [];
+  });
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -67,7 +89,11 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
       ...newClient,
       bookings: [],
     };
-    setClients([...clients, client]);
+    const updatedClients = [...clients, client];
+    setClients(updatedClients);
+    if (userId) {
+      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+    }
     setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
     setIsAddDialogOpen(false);
     toast.success('Клиент успешно добавлен');
@@ -75,14 +101,22 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
 
   const handleUpdateClientFromEdit = () => {
     if (!editingClient) return;
-    setClients(clients.map(c => c.id === editingClient.id ? editingClient : c));
+    const updatedClients = clients.map(c => c.id === editingClient.id ? editingClient : c);
+    setClients(updatedClients);
+    if (userId) {
+      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+    }
     setIsEditDialogOpen(false);
     setEditingClient(null);
     toast.success('Данные клиента обновлены');
   };
 
   const handleDeleteClient = (clientId: number) => {
-    setClients(clients.filter(c => c.id !== clientId));
+    const updatedClients = clients.filter(c => c.id !== clientId);
+    setClients(updatedClients);
+    if (userId) {
+      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+    }
     setSelectedClient(null);
     toast.success('Клиент удалён');
   };
@@ -101,11 +135,15 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
       clientId: selectedClient.id,
     };
     
-    setClients(clients.map(c => 
+    const updatedClients = clients.map(c => 
       c.id === selectedClient.id 
         ? { ...c, bookings: [...c.bookings, booking] }
         : c
-    ));
+    );
+    setClients(updatedClients);
+    if (userId) {
+      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+    }
     
     setNewBooking({ time: '', description: '', notificationEnabled: true });
     setSelectedDate(undefined);
@@ -119,10 +157,14 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
   };
 
   const handleDeleteBooking = (bookingId: number) => {
-    setClients(clients.map(c => ({
+    const updatedClients = clients.map(c => ({
       ...c,
       bookings: c.bookings.filter(b => b.id !== bookingId)
-    })));
+    }));
+    setClients(updatedClients);
+    if (userId) {
+      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+    }
     setIsBookingDetailsOpen(false);
     setSelectedBooking(null);
     toast.success('Бронирование удалено');
@@ -202,7 +244,11 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
   };
 
   const handleUpdateClient = (updatedClient: Client) => {
-    setClients(clients.map(c => c.id === updatedClient.id ? updatedClient : c));
+    const updatedClients = clients.map(c => c.id === updatedClient.id ? updatedClient : c);
+    setClients(updatedClients);
+    if (userId) {
+      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+    }
     toast.success('Данные клиента обновлены');
   };
 
