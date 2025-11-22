@@ -13,15 +13,19 @@ S3_BUCKET = 'foto-mix'
 S3_ENDPOINT = 'https://storage.yandexcloud.net'
 S3_REGION = 'ru-central1'
 
-def upload_to_s3(file_content: bytes, filename: str) -> str:
-    '''Загружает файл в S3 и возвращает публичный URL'''
-    s3_client = boto3.client(
+def get_s3_client():
+    '''Возвращает S3 клиент'''
+    return boto3.client(
         's3',
         endpoint_url=S3_ENDPOINT,
         aws_access_key_id=os.environ['YC_S3_KEY_ID'],
         aws_secret_access_key=os.environ['YC_S3_SECRET'],
         region_name=S3_REGION
     )
+
+def upload_to_s3(file_content: bytes, filename: str) -> str:
+    '''Загружает файл в S3 и возвращает S3 key (не URL!)'''
+    s3_client = get_s3_client()
     
     file_ext = filename.split('.')[-1] if '.' in filename else 'bin'
     unique_filename = f'client-documents/{uuid.uuid4()}.{file_ext}'
@@ -37,31 +41,47 @@ def upload_to_s3(file_content: bytes, filename: str) -> str:
     elif file_ext.lower() in ['doc', 'docx']:
         content_type = 'application/msword'
     
+    # Загружаем ПРИВАТНО (без ACL)
     s3_client.put_object(
         Bucket=S3_BUCKET,
         Key=unique_filename,
         Body=file_content,
-        ContentType=content_type,
-        ACL='public-read'  # Делаем файл публично доступным
+        ContentType=content_type
     )
     
-    return f'{S3_ENDPOINT}/{S3_BUCKET}/{unique_filename}'
+    # Возвращаем S3 key, а не URL
+    return unique_filename
 
-def delete_from_s3(file_url: str):
-    '''Удаляет файл из S3 по URL'''
-    if not file_url or S3_BUCKET not in file_url:
+def generate_presigned_url(s3_key: str, expiration: int = 3600) -> str:
+    '''Генерирует подписанный URL для приватного файла'''
+    s3_client = get_s3_client()
+    
+    try:
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': S3_BUCKET,
+                'Key': s3_key
+            },
+            ExpiresIn=expiration  # URL действителен 1 час
+        )
+        return url
+    except Exception as e:
+        print(f'[PRESIGNED_URL] Error: {e}')
+        return ''
+
+def delete_from_s3(s3_key: str):
+    '''Удаляет файл из S3 по ключу'''
+    if not s3_key:
         return
     
-    s3_client = boto3.client(
-        's3',
-        endpoint_url=S3_ENDPOINT,
-        aws_access_key_id=os.environ['YC_S3_KEY_ID'],
-        aws_secret_access_key=os.environ['YC_S3_SECRET'],
-        region_name=S3_REGION
-    )
+    s3_client = get_s3_client()
     
-    key = file_url.split(f'{S3_BUCKET}/')[-1]
-    s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+    try:
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=s3_key)
+        print(f'[DELETE_S3] Deleted: {s3_key}')
+    except Exception as e:
+        print(f'[DELETE_S3] Error deleting {s3_key}: {e}')
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -123,17 +143,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cur.execute('''
-                    SELECT id, name, file_url, upload_date
+                    SELECT id, name, s3_key, upload_date
                     FROM client_documents
                     WHERE client_id = %s
                     ORDER BY upload_date DESC
                 ''', (client_id,))
                 documents = cur.fetchall()
                 
+                # Генерируем presigned URLs для каждого документа
+                docs_with_urls = []
+                for doc in documents:
+                    presigned_url = generate_presigned_url(doc['s3_key'])
+                    docs_with_urls.append({
+                        'id': doc['id'],
+                        'name': doc['name'],
+                        'file_url': presigned_url,
+                        'upload_date': str(doc['upload_date'])
+                    })
+                
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps([dict(d, default=str) for d in documents]),
+                    'body': json.dumps(docs_with_urls),
                     'isBase64Encoded': False
                 }
             
@@ -173,12 +204,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     payments = cur.fetchall()
                     
                     cur.execute('''
-                        SELECT id, name, file_url, upload_date
+                        SELECT id, name, s3_key, upload_date
                         FROM client_documents 
                         WHERE client_id = %s
                         ORDER BY upload_date DESC
                     ''', (client['id'],))
-                    documents = cur.fetchall()
+                    raw_documents = cur.fetchall()
+                    
+                    # Генерируем presigned URLs для документов
+                    documents = []
+                    for doc in raw_documents:
+                        presigned_url = generate_presigned_url(doc['s3_key'])
+                        documents.append({
+                            'id': doc['id'],
+                            'name': doc['name'],
+                            'file_url': presigned_url,
+                            'upload_date': doc['upload_date']
+                        })
                     
                     cur.execute('''
                         SELECT id, author, text, comment_date
@@ -287,22 +329,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Декодируем и загружаем в S3
                 file_content = base64.b64decode(file_base64)
-                file_url = upload_to_s3(file_content, filename)
+                s3_key = upload_to_s3(file_content, filename)
                 
-                # Сохраняем в БД
+                # Сохраняем в БД с S3 key
                 cur.execute('''
-                    INSERT INTO client_documents (client_id, name, file_url, upload_date)
+                    INSERT INTO client_documents (client_id, name, s3_key, upload_date)
                     VALUES (%s, %s, %s, %s)
-                    RETURNING id, client_id, name, file_url, upload_date
-                ''', (client_id, filename, file_url, datetime.utcnow()))
+                    RETURNING id, client_id, name, s3_key, upload_date
+                ''', (client_id, filename, s3_key, datetime.utcnow()))
                 
                 document = cur.fetchone()
                 conn.commit()
                 
+                # Генерируем presigned URL для ответа
+                presigned_url = generate_presigned_url(document['s3_key'])
+                
                 return {
                     'statusCode': 201,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps(dict(document), default=str),
+                    'body': json.dumps({
+                        'id': document['id'],
+                        'name': document['name'],
+                        'file_url': presigned_url,
+                        'upload_date': str(document['upload_date'])
+                    }),
                     'isBase64Encoded': False
                 }
         
@@ -468,9 +518,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                # Получаем URL файла и проверяем владельца
+                # Получаем S3 key и проверяем владельца
                 cur.execute('''
-                    SELECT cd.file_url 
+                    SELECT cd.s3_key 
                     FROM client_documents cd
                     JOIN clients c ON cd.client_id = c.id
                     WHERE cd.id = %s AND c.user_id = %s
@@ -488,8 +538,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 # Удаляем из S3
-                if doc['file_url']:
-                    delete_from_s3(doc['file_url'])
+                if doc['s3_key']:
+                    delete_from_s3(doc['s3_key'])
                 
                 # Удаляем из БД
                 cur.execute('DELETE FROM client_documents WHERE id = %s', (document_id,))
@@ -517,13 +567,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Получаем все документы клиента для удаления из S3
-            cur.execute('SELECT file_url FROM client_documents WHERE client_id = %s', (client_id,))
+            cur.execute('SELECT s3_key FROM client_documents WHERE client_id = %s', (client_id,))
             documents = cur.fetchall()
             
             # Удаляем файлы из S3
             for doc in documents:
-                if doc['file_url']:
-                    delete_from_s3(doc['file_url'])
+                if doc['s3_key']:
+                    delete_from_s3(doc['s3_key'])
             
             cur.execute('DELETE FROM bookings WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))
