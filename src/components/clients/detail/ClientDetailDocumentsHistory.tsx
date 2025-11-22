@@ -226,11 +226,13 @@ const ClientDetailDocumentsHistory = ({
           className={isDragging ? 'border-2 border-dashed border-primary rounded-lg bg-primary/5' : ''}
         >
           {documents.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="text-center py-8 px-4">
               <Icon name="FileText" size={48} className="mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">Документов пока нет</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Загрузите договоры, ТЗ и другие документы
+              <p className="text-muted-foreground font-medium mb-2">Документов пока нет</p>
+              <p className="text-sm text-muted-foreground">
+                Перетащите файл в эту область,<br />
+                сфотографируйте или загрузите договоры, ТЗ<br />
+                и другие документы через кнопки выше
               </p>
             </div>
           ) : (

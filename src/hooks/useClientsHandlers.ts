@@ -271,6 +271,9 @@ export const useClientsHandlers = ({
   };
 
   const handleUpdateClient = async (updatedClient: Client) => {
+    console.log('[useClientsHandlers] handleUpdateClient called with:', updatedClient);
+    console.log('[useClientsHandlers] Documents in updated client:', updatedClient.documents);
+    
     try {
       const res = await fetch(CLIENTS_API, {
         method: 'PUT',
@@ -281,13 +284,26 @@ export const useClientsHandlers = ({
         body: JSON.stringify(updatedClient)
       });
       
+      console.log('[useClientsHandlers] Update response status:', res.status);
+      
       if (!res.ok) throw new Error('Failed to update client');
       
-      await loadClients();
+      // Сначала обновляем selectedClient с новыми данными
       setSelectedClient(updatedClient);
+      
+      // Потом перезагружаем всех клиентов
+      await loadClients();
+      
+      // Находим обновлённого клиента после перезагрузки
+      const refreshedClient = clients.find(c => c.id === updatedClient.id);
+      if (refreshedClient) {
+        console.log('[useClientsHandlers] Refreshed client documents:', refreshedClient.documents);
+        setSelectedClient(refreshedClient);
+      }
+      
       toast.success('Данные клиента обновлены');
     } catch (error) {
-      console.error('Failed to update client:', error);
+      console.error('[useClientsHandlers] Failed to update client:', error);
       toast.error('Не удалось обновить данные');
     }
   };

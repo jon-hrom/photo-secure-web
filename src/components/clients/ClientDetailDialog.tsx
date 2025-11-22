@@ -147,10 +147,15 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   };
 
   const handleDocumentUploaded = (document: any) => {
+    console.log('[ClientDetailDialog] Document uploaded:', document);
+    console.log('[ClientDetailDialog] Current documents:', documents);
+    
     const updatedClient = {
       ...client,
       documents: [...documents, document],
     };
+    
+    console.log('[ClientDetailDialog] Updated client documents:', updatedClient.documents);
     onUpdate(updatedClient);
   };
 
