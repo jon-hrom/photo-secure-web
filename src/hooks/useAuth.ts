@@ -239,6 +239,28 @@ export const useAuth = () => {
     
     restoreSession();
     checkSettings();
+    
+    // Фикс для пользователей у которых нет userId в localStorage но есть vk_user
+    const fixMissingUserId = () => {
+      const storedUserId = localStorage.getItem('userId');
+      if (!storedUserId) {
+        const vkUser = localStorage.getItem('vk_user');
+        if (vkUser) {
+          try {
+            const userData = JSON.parse(vkUser);
+            const uid = userData.user_id || userData.vk_id;
+            if (uid) {
+              localStorage.setItem('userId', uid.toString());
+              console.log('[FIX] Restored missing userId from vk_user:', uid);
+            }
+          } catch (e) {
+            console.error('[FIX] Failed to restore userId:', e);
+          }
+        }
+      }
+    };
+    
+    fixMissingUserId();
   }, []);
 
   useEffect(() => {
