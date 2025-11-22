@@ -14,6 +14,7 @@ const VK_CLIENT_SECRET = process.env.VK_CLIENT_SECRET || '';
 const VK_SERVICE_TOKEN = process.env.VK_SERVICE_TOKEN || '';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
+const SCHEMA = 't_p28211681_photo_secure_web';
 
 function generateState() {
   return crypto.randomBytes(32).toString('base64url');
@@ -34,7 +35,7 @@ async function saveSession(state, codeVerifier, codeChallenge) {
     await ensureTablesExist(client);
     const expiresAt = new Date(Date.now() + 600000);
     await client.query(
-      `INSERT INTO oauth_sessions (state, nonce, code_verifier, provider, expires_at)
+      `INSERT INTO ${SCHEMA}.oauth_sessions (state, nonce, code_verifier, provider, expires_at)
        VALUES (${escapeSQL(state)}, ${escapeSQL(state)}, ${escapeSQL(codeVerifier)}, 'vkid', ${escapeSQL(expiresAt.toISOString())})`
     );
   } finally {
@@ -49,11 +50,11 @@ async function getSession(state) {
     await ensureTablesExist(client);
     
     await client.query(
-      `DELETE FROM oauth_sessions WHERE expires_at < CURRENT_TIMESTAMP`
+      `DELETE FROM ${SCHEMA}.oauth_sessions WHERE expires_at < CURRENT_TIMESTAMP`
     );
     
     const result = await client.query(
-      `SELECT state, code_verifier FROM oauth_sessions 
+      `SELECT state, code_verifier FROM ${SCHEMA}.oauth_sessions 
        WHERE state = ${escapeSQL(state)} AND expires_at > CURRENT_TIMESTAMP`
     );
     return result.rows[0] || null;
@@ -67,7 +68,7 @@ async function deleteSession(state) {
   try {
     await client.connect();
     await client.query(
-      `UPDATE oauth_sessions SET expires_at = CURRENT_TIMESTAMP WHERE state = ${escapeSQL(state)}`
+      `UPDATE ${SCHEMA}.oauth_sessions SET expires_at = CURRENT_TIMESTAMP WHERE state = ${escapeSQL(state)}`
     );
   } finally {
     await client.end();
@@ -115,7 +116,7 @@ function escapeSQL(value) {
 async function ensureTablesExist(client) {
   try {
     await client.query(`
-      CREATE TABLE IF NOT EXISTS vk_users (
+      CREATE TABLE IF NOT EXISTS ${SCHEMA}.vk_users (
         user_id SERIAL PRIMARY KEY,
         vk_sub VARCHAR(100) UNIQUE NOT NULL,
         email VARCHAR(255),
@@ -137,7 +138,7 @@ async function ensureTablesExist(client) {
     `);
     
     await client.query(`
-      CREATE TABLE IF NOT EXISTS oauth_sessions (
+      CREATE TABLE IF NOT EXISTS ${SCHEMA}.oauth_sessions (
         state TEXT PRIMARY KEY,
         nonce TEXT NOT NULL,
         code_verifier TEXT NOT NULL,
@@ -148,7 +149,7 @@ async function ensureTablesExist(client) {
     `);
     
     await client.query(`
-      CREATE TABLE IF NOT EXISTS vk_temp_sessions (
+      CREATE TABLE IF NOT EXISTS ${SCHEMA}.vk_temp_sessions (
         session_id VARCHAR(32) PRIMARY KEY,
         data JSONB NOT NULL,
         expires_at TIMESTAMP NOT NULL,
@@ -156,7 +157,7 @@ async function ensureTablesExist(client) {
       )
     `);
     
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_vk_users_vk_sub ON vk_users(vk_sub)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_vk_users_vk_sub ON ${SCHEMA}.vk_users(vk_sub)`);
   } catch (error) {
     console.error('Error ensuring tables exist:', error);
   }
@@ -173,7 +174,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     
     // First check if user exists by vk_sub in vk_users table
     const vkUserResult = await client.query(
-      `SELECT user_id FROM vk_users WHERE vk_sub = ${escapeSQL(vkUserId)}`
+      `SELECT user_id FROM ${SCHEMA}.vk_users WHERE vk_sub = ${escapeSQL(vkUserId)}`
     );
     
     if (vkUserResult.rows.length > 0) {
@@ -183,7 +184,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     
     // Check if user exists in users table by vk_id
     const existingUserResult = await client.query(
-      `SELECT id FROM users WHERE vk_id = ${escapeSQL(vkUserId)}`
+      `SELECT id FROM ${SCHEMA}.users WHERE vk_id = ${escapeSQL(vkUserId)}`
     );
     
     if (existingUserResult.rows.length > 0) {
@@ -191,7 +192,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
       const userId = existingUserResult.rows[0].id;
       
       await client.query(
-        `INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login)
+        `INSERT INTO ${SCHEMA}.vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login)
          VALUES (${escapeSQL(vkUserId)}, ${userId}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${isVerified}, ${escapeSQL(email)}, ${escapeSQL(phone)}, TRUE, CURRENT_TIMESTAMP)
          ON CONFLICT (vk_sub) DO UPDATE SET
            full_name = ${escapeSQL(fullName)},
@@ -209,7 +210,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     console.log('[VK_AUTH] Creating new user:', { vkUserId, fullName, email, phone });
     
     const createUserResult = await client.query(
-      `INSERT INTO users (vk_id, email, phone, is_active, source, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
+      `INSERT INTO ${SCHEMA}.users (vk_id, email, phone, is_active, source, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
        VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)})
        RETURNING id`
     );
@@ -217,7 +218,7 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     const newUserId = createUserResult.rows[0].id;
     
     await client.query(
-      `INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login, ip_address, user_agent)
+      `INSERT INTO ${SCHEMA}.vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login, ip_address, user_agent)
        VALUES (${escapeSQL(vkUserId)}, ${newUserId}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${isVerified}, ${escapeSQL(email)}, ${escapeSQL(phone)}, TRUE, CURRENT_TIMESTAMP, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)})`
     );
     
@@ -270,11 +271,11 @@ exports.handler = async (event, context) => {
         await ensureTablesExist(client);
         
         await client.query(
-          `DELETE FROM vk_temp_sessions WHERE expires_at < NOW()`
+          `DELETE FROM ${SCHEMA}.vk_temp_sessions WHERE expires_at < NOW()`
         );
         
         const result = await client.query(
-          `SELECT data FROM vk_temp_sessions WHERE session_id = ${escapeSQL(sessionId)} AND expires_at > NOW()`
+          `SELECT data FROM ${SCHEMA}.vk_temp_sessions WHERE session_id = ${escapeSQL(sessionId)} AND expires_at > NOW()`
         );
         
         if (result.rows.length === 0) {
@@ -481,7 +482,7 @@ exports.handler = async (event, context) => {
         await ensureTablesExist(tempClient);
         const dataJSON = escapeSQL(JSON.stringify(tempSessionData));
         await tempClient.query(
-          `INSERT INTO vk_temp_sessions (session_id, data, expires_at) 
+          `INSERT INTO ${SCHEMA}.vk_temp_sessions (session_id, data, expires_at) 
            VALUES (${escapeSQL(sessionId)}, ${dataJSON}, NOW() + INTERVAL '5 minutes')
            ON CONFLICT (session_id) DO UPDATE SET data = ${dataJSON}, expires_at = NOW() + INTERVAL '5 minutes'`
         );
