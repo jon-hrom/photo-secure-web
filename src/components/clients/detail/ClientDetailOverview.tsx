@@ -31,13 +31,13 @@ const ClientDetailOverview = ({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">Общий бюджет</CardTitle>
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Общий бюджет</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalBudget.toLocaleString('ru-RU')} ₽</div>
+            <div className="text-xl sm:text-2xl font-bold">{totalBudget.toLocaleString('ru-RU')} ₽</div>
             <p className="text-xs text-muted-foreground mt-1">
               Проектов: {projects.length}
             </p>
@@ -45,11 +45,11 @@ const ClientDetailOverview = ({
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">Оплачено с учетом  аванса</CardTitle>
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Оплачено с учетом аванса</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-xl sm:text-2xl font-bold text-green-600">
               {totalPaid.toLocaleString('ru-RU')} ₽
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -58,12 +58,12 @@ const ClientDetailOverview = ({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">Остаток  суммы за все услуги</CardTitle>
+        <Card className="sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Остаток суммы за все услуги</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-xl sm:text-2xl font-bold text-orange-600">
               {totalRemaining.toLocaleString('ru-RU')} ₽
             </div>
             <p className="text-xs text-muted-foreground mt-1">

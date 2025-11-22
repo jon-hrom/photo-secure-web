@@ -34,17 +34,17 @@ const ClientDetailPayments = ({
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Добавить платёж</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Добавить платёж</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Проект *</Label>
+              <Label className="text-sm">Проект *</Label>
               <Select
                 value={newPayment.projectId}
                 onValueChange={(value) => setNewPayment({ ...newPayment, projectId: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Выберите проект" />
                 </SelectTrigger>
                 <SelectContent>
@@ -57,23 +57,24 @@ const ClientDetailPayments = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Сумма (₽) *</Label>
+              <Label className="text-sm">Сумма (₽) *</Label>
               <Input
                 type="number"
                 value={newPayment.amount}
                 onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
                 placeholder="10000"
+                className="text-sm"
               />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Способ оплаты</Label>
+              <Label className="text-sm">Способ оплаты</Label>
               <Select
                 value={newPayment.method}
                 onValueChange={(value) => setNewPayment({ ...newPayment, method: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -84,15 +85,16 @@ const ClientDetailPayments = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Описание</Label>
+              <Label className="text-sm">Описание</Label>
               <Input
                 value={newPayment.description}
                 onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })}
                 placeholder="Предоплата 50%"
+                className="text-sm"
               />
             </div>
           </div>
-          <Button onClick={handleAddPayment}>
+          <Button onClick={handleAddPayment} className="w-full sm:w-auto">
             <Icon name="Plus" size={16} className="mr-2" />
             Добавить платёж
           </Button>
@@ -101,11 +103,11 @@ const ClientDetailPayments = ({
 
       <Card>
         <CardHeader>
-          <CardTitle>История платежей</CardTitle>
+          <CardTitle className="text-base sm:text-lg">История платежей</CardTitle>
         </CardHeader>
         <CardContent>
           {payments.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">
+            <p className="text-center py-8 text-sm text-muted-foreground">
               Платежей пока нет
             </p>
           ) : (
@@ -113,40 +115,43 @@ const ClientDetailPayments = ({
               {payments.slice().reverse().map((payment) => {
                 const project = getProjectById(payment.projectId);
                 return (
-                  <div key={payment.id} className="border rounded-lg p-4 flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-lg">
+                  <div key={payment.id} className="border rounded-lg p-3 sm:p-4 flex items-start sm:items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="font-bold text-base sm:text-lg">
                           {payment.amount.toLocaleString('ru-RU')} ₽
                         </span>
                         {getPaymentStatusBadge(payment.status)}
                       </div>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs sm:text-sm text-muted-foreground">
                         {project && (
-                          <>
-                            <span className="font-medium text-foreground">{project.name}</span>
-                            <span>•</span>
-                          </>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground truncate">{project.name}</span>
+                            <span className="hidden sm:inline">•</span>
+                          </div>
                         )}
-                        <span>{formatDate(payment.date)}</span>
-                        <span>•</span>
-                        <span>
-                          {payment.method === 'card' && 'Карта'}
-                          {payment.method === 'cash' && 'Наличные'}
-                          {payment.method === 'transfer' && 'Перевод'}
-                        </span>
-                        {payment.description && (
-                          <>
-                            <span>•</span>
-                            <span>{payment.description}</span>
-                          </>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span>{formatDate(payment.date)}</span>
+                          <span>•</span>
+                          <span>
+                            {payment.method === 'card' && 'Карта'}
+                            {payment.method === 'cash' && 'Наличные'}
+                            {payment.method === 'transfer' && 'Перевод'}
+                          </span>
+                          {payment.description && (
+                            <>
+                              <span>•</span>
+                              <span className="truncate">{payment.description}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeletePayment(payment.id)}
+                      className="shrink-0"
                     >
                       <Icon name="Trash2" size={16} />
                     </Button>

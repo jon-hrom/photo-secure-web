@@ -193,53 +193,53 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3 text-2xl">
-            <Icon name="User" size={28} className="text-primary" />
-            {client.name}
+          <DialogTitle className="flex items-center gap-2 sm:gap-3 text-xl sm:text-2xl">
+            <Icon name="User" size={24} className="text-primary sm:w-7 sm:h-7" />
+            <span className="truncate">{client.name}</span>
           </DialogTitle>
-          <div className="flex flex-wrap gap-2 mt-2 text-sm text-muted-foreground">
+          <div className="flex flex-wrap gap-2 mt-2 text-xs sm:text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Icon name="Phone" size={14} />
-              {client.phone}
+              <span className="truncate">{client.phone}</span>
             </div>
             {client.email && (
               <div className="flex items-center gap-1">
                 <Icon name="Mail" size={14} />
-                {client.email}
+                <span className="truncate">{client.email}</span>
               </div>
             )}
             {client.vkProfile && (
               <div className="flex items-center gap-1">
                 <Icon name="MessageCircle" size={14} />
-                @{client.vkProfile}
+                <span className="truncate">@{client.vkProfile}</span>
               </div>
             )}
           </div>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid grid-cols-5 w-full">
-            <TabsTrigger value="overview">
-              <Icon name="LayoutDashboard" size={16} className="mr-2" />
-              Обзор
+          <TabsList className="grid grid-cols-5 w-full h-auto">
+            <TabsTrigger value="overview" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
+              <Icon name="LayoutDashboard" size={16} className="sm:mr-2" />
+              <span className="hidden sm:inline">Обзор</span>
             </TabsTrigger>
-            <TabsTrigger value="projects">
-              <Icon name="Briefcase" size={16} className="mr-2" />
-              Проекты
+            <TabsTrigger value="projects" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
+              <Icon name="Briefcase" size={16} className="sm:mr-2" />
+              <span className="hidden sm:inline">Проекты</span>
             </TabsTrigger>
-            <TabsTrigger value="documents">
-              <Icon name="FileText" size={16} className="mr-2" />
-              Документы
+            <TabsTrigger value="documents" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
+              <Icon name="FileText" size={16} className="sm:mr-2" />
+              <span className="hidden sm:inline">Документы</span>
             </TabsTrigger>
-            <TabsTrigger value="payments">
-              <Icon name="DollarSign" size={16} className="mr-2" />
-              Оплаты
+            <TabsTrigger value="payments" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
+              <Icon name="DollarSign" size={16} className="sm:mr-2" />
+              <span className="hidden sm:inline">Оплаты</span>
             </TabsTrigger>
-            <TabsTrigger value="history">
-              <Icon name="History" size={16} className="mr-2" />
-              История
+            <TabsTrigger value="history" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
+              <Icon name="History" size={16} className="sm:mr-2" />
+              <span className="hidden sm:inline">История</span>
             </TabsTrigger>
           </TabsList>
 
