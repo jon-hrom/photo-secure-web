@@ -330,7 +330,7 @@ def get_usage(event: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
                 WHERE id = %s
             ''', (user.get('plan_id', 1),))
             plan = cur.fetchone()
-            plan_name = plan['plan_name'] if plan else 'Старт'
+            plan_name = plan['plan_name'] if plan else 'Базовый'
     finally:
         conn.close()
     
