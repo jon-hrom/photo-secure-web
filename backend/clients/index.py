@@ -26,11 +26,23 @@ def upload_to_s3(file_content: bytes, filename: str) -> str:
     file_ext = filename.split('.')[-1] if '.' in filename else 'bin'
     unique_filename = f'client-documents/{uuid.uuid4()}.{file_ext}'
     
+    # Определяем правильный Content-Type
+    content_type = 'application/octet-stream'
+    if file_ext.lower() in ['jpg', 'jpeg']:
+        content_type = 'image/jpeg'
+    elif file_ext.lower() == 'png':
+        content_type = 'image/png'
+    elif file_ext.lower() == 'pdf':
+        content_type = 'application/pdf'
+    elif file_ext.lower() in ['doc', 'docx']:
+        content_type = 'application/msword'
+    
     s3_client.put_object(
         Bucket=S3_BUCKET,
         Key=unique_filename,
         Body=file_content,
-        ContentType='application/octet-stream'
+        ContentType=content_type,
+        ACL='public-read'  # Делаем файл публично доступным
     )
     
     return f'{S3_ENDPOINT}/{S3_BUCKET}/{unique_filename}'
@@ -446,6 +458,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if action == 'delete_document':
                 document_id = params.get('documentId')
+                print(f'[DELETE_DOCUMENT] document_id={document_id}, user_id={user_id}')
+                
+                if not document_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'documentId required'}),
+                        'isBase64Encoded': False
+                    }
                 
                 # Получаем URL файла и проверяем владельца
                 cur.execute('''
@@ -456,11 +477,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 ''', (document_id, user_id))
                 
                 doc = cur.fetchone()
+                print(f'[DELETE_DOCUMENT] Found document: {doc}')
+                
                 if not doc:
                     return {
                         'statusCode': 404,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'Document not found'}),
+                        'body': json.dumps({'error': 'Document not found', 'document_id': document_id, 'user_id': user_id}),
                         'isBase64Encoded': False
                     }
                 
