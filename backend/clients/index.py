@@ -249,6 +249,50 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps(dict(booking), default=str),
                     'isBase64Encoded': False
                 }
+            
+            elif action == 'upload_document':
+                client_id = body.get('clientId')
+                filename = body.get('filename')
+                file_base64 = body.get('file')
+                
+                if not client_id or not filename or not file_base64:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'clientId, filename, file required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Проверяем, что клиент принадлежит пользователю
+                cur.execute('SELECT id FROM clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Access denied'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Декодируем и загружаем в S3
+                file_content = base64.b64decode(file_base64)
+                file_url = upload_to_s3(file_content, filename)
+                
+                # Сохраняем в БД
+                cur.execute('''
+                    INSERT INTO client_documents (client_id, name, file_url, upload_date)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id, client_id, name, file_url, upload_date
+                ''', (client_id, filename, file_url, datetime.utcnow()))
+                
+                document = cur.fetchone()
+                conn.commit()
+                
+                return {
+                    'statusCode': 201,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps(dict(document), default=str),
+                    'isBase64Encoded': False
+                }
         
         elif method == 'PUT':
             body = json.loads(event.get('body', '{}'))
@@ -381,61 +425,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps(dict(client), default=str),
-                'isBase64Encoded': False
-            }
-        
-        elif method == 'POST':
-            body = json.loads(event.get('body', '{}'))
-            action = body.get('action')
-            
-            if action == 'upload_document':
-                client_id = body.get('clientId')
-                filename = body.get('filename')
-                file_base64 = body.get('file')
-                
-                if not client_id or not filename or not file_base64:
-                    return {
-                        'statusCode': 400,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'clientId, filename, file required'}),
-                        'isBase64Encoded': False
-                    }
-                
-                # Проверяем, что клиент принадлежит пользователю
-                cur.execute('SELECT id FROM clients WHERE id = %s AND user_id = %s', (client_id, user_id))
-                if not cur.fetchone():
-                    return {
-                        'statusCode': 403,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'Access denied'}),
-                        'isBase64Encoded': False
-                    }
-                
-                # Декодируем и загружаем в S3
-                file_content = base64.b64decode(file_base64)
-                file_url = upload_to_s3(file_content, filename)
-                
-                # Сохраняем в БД
-                cur.execute('''
-                    INSERT INTO client_documents (client_id, name, file_url, upload_date)
-                    VALUES (%s, %s, %s, %s)
-                    RETURNING id, client_id, name, file_url, upload_date
-                ''', (client_id, filename, file_url, datetime.utcnow()))
-                
-                document = cur.fetchone()
-                conn.commit()
-                
-                return {
-                    'statusCode': 201,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps(dict(document), default=str),
-                    'isBase64Encoded': False
-                }
-            
-            return {
-                'statusCode': 400,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Invalid action'}),
                 'isBase64Encoded': False
             }
         
