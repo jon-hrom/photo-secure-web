@@ -5,6 +5,7 @@ import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
 import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
 import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
+import MobileNavigation from '@/components/layout/MobileNavigation';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
@@ -275,6 +276,8 @@ const PhotoBank = () => {
           />
         </div>
       </div>
+      
+      <MobileNavigation />
     </div>
   );
 };

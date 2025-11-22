@@ -14,6 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import MobileNavigation from '@/components/layout/MobileNavigation';
 import { isAdminUser } from '@/utils/adminCheck';
 
 const STORAGE_API = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
@@ -385,6 +386,8 @@ const MyFiles = () => {
           </CardContent>
         </Card>
       </div>
+      
+      <MobileNavigation />
     </div>
   );
 };

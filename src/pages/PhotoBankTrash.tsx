@@ -5,6 +5,7 @@ import Icon from '@/components/ui/icon';
 import TrashHeader from '@/components/photobank-trash/TrashHeader';
 import TrashedFoldersList from '@/components/photobank-trash/TrashedFoldersList';
 import TrashedPhotosGrid from '@/components/photobank-trash/TrashedPhotosGrid';
+import MobileNavigation from '@/components/layout/MobileNavigation';
 import { getAuthUserId, formatDate, getDaysLeftBadge, getDaysLeft } from '@/components/photobank-trash/utils';
 import { useTrashApi } from '@/components/photobank-trash/useTrashApi';
 
@@ -204,6 +205,8 @@ const PhotoBankTrash = () => {
           </CardContent>
         </Card>
       </div>
+      
+      <MobileNavigation />
     </div>
   );
 };

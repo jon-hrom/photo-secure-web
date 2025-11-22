@@ -7,6 +7,7 @@ import { StatsTab } from '@/components/admin/StatsTab';
 import { FinancialTab } from '@/components/admin/FinancialTab';
 import { AdminStorageAuth } from '@/components/admin/AdminStorageAuth';
 import { AdminStorageStats } from '@/components/admin/AdminStorageStats';
+import MobileNavigation from '@/components/layout/MobileNavigation';
 import {
   useAdminStorageAPI,
   type Plan,
@@ -140,6 +141,8 @@ const AdminStorage = () => {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <MobileNavigation />
     </div>
   );
 };
