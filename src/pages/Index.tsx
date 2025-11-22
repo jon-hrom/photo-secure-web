@@ -12,6 +12,7 @@ import AdminPanel from '@/components/AdminPanel';
 import MaintenancePage from '@/components/MaintenancePage';
 import AppNavigation from '@/components/layout/AppNavigation';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
+import TwoFactorDialog from '@/components/TwoFactorDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { isAdminUser } from '@/utils/adminCheck';
@@ -36,6 +37,9 @@ const Index = () => {
     maintenanceMode,
     guestAccess,
     loading,
+    needs2FA,
+    pendingUserData,
+    setNeeds2FA,
     lastActivityRef,
     handleLoginSuccess,
     handleLogout,
@@ -141,7 +145,30 @@ const Index = () => {
   }
 
   if (!isAuthenticated && !guestAccess) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <>
+        <LoginPage onLoginSuccess={handleLoginSuccess} />
+        {needs2FA && pendingUserData && (
+          <TwoFactorDialog
+            open={needs2FA}
+            userId={pendingUserData.user_id || pendingUserData.vk_id}
+            userEmail={pendingUserData.email || ''}
+            type="email"
+            onSuccess={() => {
+              setNeeds2FA(false);
+              handleLoginSuccess(
+                pendingUserData.user_id || pendingUserData.vk_id,
+                pendingUserData.email
+              );
+            }}
+            onCancel={() => {
+              setNeeds2FA(false);
+              handleLogout();
+            }}
+          />
+        )}
+      </>
+    );
   }
 
   if (!isAuthenticated && guestAccess && currentPage === 'auth') {

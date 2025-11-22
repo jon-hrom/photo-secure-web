@@ -48,7 +48,9 @@ def get_ses_client():
         config=Config(signature_version='v4')
     )
 
-def gen_code() -> str:
+def gen_code(length: int = 6) -> str:
+    if length == 5:
+        return f'{random.randint(10000, 99999)}'
     return f'{random.randint(100000, 999999)}'
 
 def send_sms_code(phone: str, code: str) -> bool:
@@ -229,6 +231,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     req_headers = event.get('headers', {})
     user_id = req_headers.get('X-User-Id') or req_headers.get('x-user-id')
     
+    # For 2FA actions, also check body for user_id
+    if not user_id and method == 'POST':
+        body = json.loads(event.get('body', '{}'))
+        user_id = body.get('user_id')
+    
     if not user_id:
         return {
             'statusCode': 401,
@@ -243,7 +250,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_agent = req_headers.get('User-Agent')
         
         cursor = conn.cursor()
-        cursor.execute('SELECT id, email, email_verified_at, email_verification_hash, email_verification_expires_at, email_verification_sends, email_verification_attempts, email_verification_locked_until, email_verification_last_sent_at, email_verification_window_start_at FROM users WHERE id = %s', (user_id,))
+        cursor.execute('SELECT id, email, email_verified_at, email_verification_hash, email_verification_expires_at, email_verification_sends, email_verification_attempts, email_verification_locked_until, email_verification_last_sent_at, email_verification_window_start_at FROM t_p28211681_photo_secure_web.users WHERE id = %s', (user_id,))
         user = cursor.fetchone()
         
         if not user:
@@ -266,7 +273,128 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             body = json.loads(event.get('body', '{}'))
             action = body.get('action')
             
-            if action == 'send_code':
+            # 2FA code sending (works independently from email verification)
+            if action == 'send-2fa-code':
+                print(f"[2FA] Sending code to userId={user_id}, email={user['email']}")
+                
+                now = datetime.now()
+                code = gen_code(length=5)
+                code_hash = hash_code(code, user['email'])
+                expires_at = now + timedelta(minutes=TTL_MIN)
+                
+                cursor.execute(
+                    'UPDATE t_p28211681_photo_secure_web.users SET email_verification_hash = %s, email_verification_expires_at = %s, email_verification_last_sent_at = %s WHERE id = %s',
+                    (code_hash, expires_at, now, user['id'])
+                )
+                conn.commit()
+                
+                subject = 'Код двухфакторной аутентификации'
+                text = f'Ваш код для входа: {code}\nСрок действия: {TTL_MIN} минут.'
+                html = f'''<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;background:#f4f4f7;padding:40px">
+<div style="max-width:500px;margin:0 auto;background:white;border-radius:12px;padding:30px;box-shadow:0 2px 10px rgba(0,0,0,0.1)">
+<h2 style="color:#333;margin-top:0">Код для входа</h2>
+<p style="color:#666;font-size:16px">Ваш код двухфакторной аутентификации:</p>
+<div style="background:#f8f9fa;border:2px solid #e9ecef;border-radius:8px;padding:20px;text-align:center;margin:20px 0">
+<span style="font-size:32px;font-weight:bold;color:#667eea;letter-spacing:5px">{code}</span>
+</div>
+<p style="color:#999;font-size:14px">Код действителен {TTL_MIN} минут</p>
+</div>
+</body>
+</html>'''
+                
+                try:
+                    ses_client = get_ses_client()
+                    ses_client.send_email(
+                        FromEmailAddress=EMAIL_FROM,
+                        Destination={'ToAddresses': [user['email']]},
+                        Content={
+                            'Simple': {
+                                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                                'Body': {
+                                    'Text': {'Data': text, 'Charset': 'UTF-8'},
+                                    'Html': {'Data': html, 'Charset': 'UTF-8'}
+                                }
+                            }
+                        }
+                    )
+                    
+                    print(f"[2FA] Code sent successfully to {user['email']}")
+                    
+                    return {
+                        'statusCode': 200,
+                        'headers': headers,
+                        'body': json.dumps({'ok': True, 'ttlMin': TTL_MIN}),
+                        'isBase64Encoded': False
+                    }
+                except Exception as e:
+                    print(f"[2FA] Error sending email: {str(e)}")
+                    return {
+                        'statusCode': 500,
+                        'headers': headers,
+                        'body': json.dumps({'error': f'Ошибка отправки email: {str(e)}'}),
+                        'isBase64Encoded': False
+                    }
+            
+            # 2FA code verification
+            elif action == 'verify-2fa-code':
+                code = body.get('code')
+                print(f"[2FA] Verifying code for userId={user_id}")
+                
+                if not code or len(code) != 5:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Код должен быть 5-значным', 'valid': False}),
+                        'isBase64Encoded': False
+                    }
+                
+                if not user['email_verification_hash'] or not user['email_verification_expires_at']:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Код не был отправлен', 'valid': False}),
+                        'isBase64Encoded': False
+                    }
+                
+                if datetime.now() > user['email_verification_expires_at']:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Код истёк', 'valid': False}),
+                        'isBase64Encoded': False
+                    }
+                
+                code_hash = hash_code(code, user['email'])
+                
+                if code_hash == user['email_verification_hash']:
+                    print(f"[2FA] Code verified successfully for userId={user_id}")
+                    
+                    # Clear the code after successful verification
+                    cursor.execute(
+                        'UPDATE t_p28211681_photo_secure_web.users SET email_verification_hash = NULL, email_verification_expires_at = NULL WHERE id = %s',
+                        (user['id'],)
+                    )
+                    conn.commit()
+                    
+                    return {
+                        'statusCode': 200,
+                        'headers': headers,
+                        'body': json.dumps({'valid': True}),
+                        'isBase64Encoded': False
+                    }
+                else:
+                    print(f"[2FA] Invalid code for userId={user_id}")
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Неверный код', 'valid': False}),
+                        'isBase64Encoded': False
+                    }
+            
+            elif action == 'send_code':
                 if user['email_verified_at']:
                     return {
                         'statusCode': 409,

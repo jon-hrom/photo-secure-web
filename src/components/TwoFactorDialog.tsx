@@ -8,41 +8,96 @@ import Icon from '@/components/ui/icon';
 interface TwoFactorDialogProps {
   open: boolean;
   userId: number;
+  userEmail: string;
   type: 'email';
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-const AUTH_API = 'https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9';
+const VERIFICATION_API = 'https://functions.poehali.dev/3d5a433c-aa3d-4275-8da2-739ec932d08f';
 
-const TwoFactorDialog = ({ open, userId, type, onSuccess, onCancel }: TwoFactorDialogProps) => {
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+const TwoFactorDialog = ({ open, userId, userEmail, type, onSuccess, onCancel }: TwoFactorDialogProps) => {
+  const [code, setCode] = useState(['', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+
+  useEffect(() => {
+    if (open && userEmail) {
+      handleSendCode();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  const handleSendCode = async () => {
+    if (!userEmail || !userEmail.includes('@')) {
+      setError('Email не указан в профиле');
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const response = await fetch(VERIFICATION_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send-2fa-code',
+          user_id: userId.toString(),
+          email: userEmail,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Код отправлен на ' + userEmail);
+        setCountdown(60);
+      } else {
+        setError(data.error || 'Ошибка отправки кода');
+      }
+    } catch (err) {
+      console.error('Error sending 2FA code:', err);
+      setError('Ошибка подключения к серверу');
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
 
   const handleVerify = async () => {
     const fullCode = code.join('');
-    if (fullCode.length !== 6) {
-      setError('Введите 6-значный код');
+    if (fullCode.length !== 5) {
+      setError('Введите 5-значный код');
       return;
     }
 
     try {
       setLoading(true);
       setError('');
-      const res = await fetch(AUTH_API, {
+      const res = await fetch(VERIFICATION_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify-2fa', userId, code: fullCode })
+        body: JSON.stringify({ 
+          action: 'verify-2fa-code', 
+          user_id: userId.toString(), 
+          code: fullCode 
+        })
       });
 
       const data = await res.json();
       
-      if (res.ok) {
+      if (res.ok && data.valid) {
         toast.success('Код подтверждён!');
         onSuccess();
       } else {
-        setError(data.error || 'Неверный код');
+        setError('Неверный код');
+        setCode(['', '', '', '', '']);
       }
     } catch (err: any) {
       setError('Ошибка проверки кода');
@@ -59,7 +114,7 @@ const TwoFactorDialog = ({ open, userId, type, onSuccess, onCancel }: TwoFactorD
     newCode[index] = value.slice(-1);
     setCode(newCode);
 
-    if (value && index < 5) {
+    if (value && index < 4) {
       const nextInput = document.getElementById(`2fa-code-input-${index + 1}`);
       nextInput?.focus();
     }
@@ -69,23 +124,23 @@ const TwoFactorDialog = ({ open, userId, type, onSuccess, onCancel }: TwoFactorD
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       const prevInput = document.getElementById(`2fa-code-input-${index - 1}`);
       prevInput?.focus();
-    } else if (e.key === 'Enter' && code.join('').length === 6) {
+    } else if (e.key === 'Enter' && code.join('').length === 5) {
       handleVerify();
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 5);
     const newCode = [...code];
     for (let i = 0; i < pastedData.length; i++) {
       newCode[i] = pastedData[i];
     }
     setCode(newCode);
     
-    const lastFilledIndex = pastedData.length - 1;
-    const nextInput = document.getElementById(`2fa-code-input-${Math.min(lastFilledIndex + 1, 5)}`);
-    nextInput?.focus();
+    if (pastedData.length === 5) {
+      handleVerify();
+    }
   };
 
   return (
@@ -97,7 +152,7 @@ const TwoFactorDialog = ({ open, userId, type, onSuccess, onCancel }: TwoFactorD
             Двухфакторная аутентификация
           </DialogTitle>
           <DialogDescription>
-            Код отправлен на вашу почту
+            Введите 5-значный код, отправленный на <strong>{userEmail}</strong>
           </DialogDescription>
         </DialogHeader>
 
@@ -126,19 +181,10 @@ const TwoFactorDialog = ({ open, userId, type, onSuccess, onCancel }: TwoFactorD
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={onCancel}
-              disabled={loading}
-              className="w-full"
-              size="lg"
-            >
-              Отмена
-            </Button>
+          <div className="flex flex-col gap-2">
             <Button
               onClick={handleVerify}
-              disabled={loading || code.join('').length !== 6}
+              disabled={loading || code.join('').length !== 5}
               className="w-full"
               size="lg"
             >
@@ -153,6 +199,37 @@ const TwoFactorDialog = ({ open, userId, type, onSuccess, onCancel }: TwoFactorD
                   Подтвердить
                 </>
               )}
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={handleSendCode}
+              disabled={countdown > 0 || isSendingCode}
+              className="w-full"
+              size="lg"
+            >
+              {isSendingCode ? (
+                <>
+                  <Icon name="Loader2" size={18} className="mr-2 animate-spin" />
+                  Отправка...
+                </>
+              ) : countdown > 0 ? (
+                `Отправить повторно (${countdown}с)`
+              ) : (
+                <>
+                  <Icon name="Mail" size={18} className="mr-2" />
+                  Отправить повторно
+                </>
+              )}
+            </Button>
+
+            <Button
+              variant="ghost"
+              onClick={onCancel}
+              disabled={loading}
+              className="w-full"
+            >
+              Отмена
             </Button>
           </div>
         </div>

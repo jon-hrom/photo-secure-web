@@ -47,35 +47,67 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_id = query_params.get('userId')
         
         if user_id:
-            # Get user settings
+            # Get user settings - check both users and vk_users tables
             try:
+                print(f"[SETTINGS] Loading settings for userId={user_id}")
+                
+                # First check users table
                 cursor.execute("""
                     SELECT email, phone, two_factor_email, email_verified_at, source
-                    FROM users
+                    FROM t_p28211681_photo_secure_web.users
                     WHERE id = %s
                 """, (int(user_id),))
                 row = cursor.fetchone()
                 
-                if not row:
-                    cursor.close()
-                    conn.close()
-                    return {
-                        'statusCode': 404,
-                        'headers': {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*'
-                        },
-                        'body': json.dumps({'error': 'User not found'}),
-                        'isBase64Encoded': False
+                if row:
+                    print(f"[SETTINGS] Found in users table: email={row[0]}, source={row[4]}")
+                    user_settings = {
+                        'email': row[0] or '',
+                        'phone': row[1] or '',
+                        'two_factor_email': row[2] or False,
+                        'email_verified_at': row[3].isoformat() if row[3] else None,
+                        'source': row[4] or 'email'
                     }
-                
-                user_settings = {
-                    'email': row[0] or '',
-                    'phone': row[1] or '',
-                    'two_factor_email': row[2] or False,
-                    'email_verified_at': row[3].isoformat() if row[3] else None,
-                    'source': row[4] or 'email'
-                }
+                else:
+                    # Check vk_users table
+                    cursor.execute("""
+                        SELECT email, phone_number, full_name
+                        FROM t_p28211681_photo_secure_web.vk_users
+                        WHERE user_id = %s
+                    """, (int(user_id),))
+                    vk_row = cursor.fetchone()
+                    
+                    if not vk_row:
+                        print(f"[SETTINGS] User not found in both tables")
+                        cursor.close()
+                        conn.close()
+                        return {
+                            'statusCode': 404,
+                            'headers': {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            'body': json.dumps({'error': 'User not found'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    print(f"[SETTINGS] Found in vk_users table: email={vk_row[0]}")
+                    
+                    # Get 2FA settings from users table for VK user
+                    cursor.execute("""
+                        SELECT two_factor_email
+                        FROM t_p28211681_photo_secure_web.users
+                        WHERE id = %s
+                    """, (int(user_id),))
+                    fa_row = cursor.fetchone()
+                    
+                    user_settings = {
+                        'email': vk_row[0] or '',
+                        'phone': vk_row[1] or '',
+                        'two_factor_email': fa_row[0] if fa_row else False,
+                        'email_verified_at': None,
+                        'source': 'vk'
+                    }
                 
                 cursor.close()
                 conn.close()
@@ -196,12 +228,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             try:
-                print(f"[SETTINGS] Updating {field} for user {user_id} in schema {os.environ.get('SCHEMA', 't_p28211681_photo_secure_web')}")
+                print(f"[SETTINGS] Updating {field} for user {user_id}")
+                
+                # Update both users and vk_users tables
                 cursor.execute(f"""
                     UPDATE t_p28211681_photo_secure_web.users
                     SET {field} = %s, updated_at = CURRENT_TIMESTAMP
                     WHERE id = %s
                 """, (value, int(user_id)))
+                
+                # Also update vk_users if exists
+                vk_field = 'phone_number' if field == 'phone' else field
+                cursor.execute(f"""
+                    UPDATE t_p28211681_photo_secure_web.vk_users
+                    SET {vk_field} = %s
+                    WHERE user_id = %s
+                """, (value, int(user_id)))
+                
+                print(f"[SETTINGS] Updated {cursor.rowcount} rows in vk_users")
                 
                 conn.commit()
                 cursor.close()
@@ -235,6 +279,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             fa_type = body_data.get('type')
             enabled = body_data.get('enabled', False)
             
+            print(f"[SETTINGS] toggle-2fa: userId={user_id}, type={fa_type}, enabled={enabled}")
+            
             if not user_id or not fa_type:
                 cursor.close()
                 conn.close()
@@ -250,7 +296,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             try:
                 cursor.execute(f"""
-                    UPDATE users
+                    UPDATE t_p28211681_photo_secure_web.users
                     SET two_factor_{fa_type} = %s, updated_at = CURRENT_TIMESTAMP
                     WHERE id = %s
                 """, (enabled, int(user_id)))
