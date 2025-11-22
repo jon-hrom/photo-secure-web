@@ -60,10 +60,7 @@ const ClientDetailOverview = ({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Icon name="Clock" size={16} className="text-orange-500" />
-              Ожидает оплаты
-            </CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">Остаток  суммы за все услуги</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
