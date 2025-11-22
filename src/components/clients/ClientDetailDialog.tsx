@@ -77,10 +77,15 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       projectId: parseInt(newPayment.projectId),
     };
 
+    console.log('[ClientDetailDialog] Adding payment:', payment);
+    console.log('[ClientDetailDialog] Current payments:', payments);
+
     const updatedClient = {
       ...client,
       payments: [...payments, payment],
     };
+
+    console.log('[ClientDetailDialog] Updated client payments:', updatedClient.payments);
 
     onUpdate(updatedClient);
     setNewPayment({ amount: '', method: 'card', description: '', projectId: '' });
