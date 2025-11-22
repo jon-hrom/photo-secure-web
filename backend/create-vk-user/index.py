@@ -10,6 +10,8 @@ from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+SCHEMA = 't_p28211681_photo_secure_web'
+
 def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
@@ -66,14 +68,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Check if user already exists by vk_id in users table
         cursor.execute(
-            "SELECT id FROM users WHERE vk_id = %s",
+            f"SELECT id FROM {SCHEMA}.users WHERE vk_id = %s",
             (vk_id,)
         )
         existing_by_vk = cursor.fetchone()
         
         # Check if vk_users record exists
         cursor.execute(
-            "SELECT user_id FROM vk_users WHERE vk_sub = %s",
+            f"SELECT user_id FROM {SCHEMA}.vk_users WHERE vk_sub = %s",
             (vk_id,)
         )
         existing_vk_user = cursor.fetchone()
@@ -102,25 +104,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Update existing user
             cursor.execute(
-                "UPDATE users SET vk_id = %s, email = %s, phone = %s, source = 'vk', is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
+                f"UPDATE {SCHEMA}.users SET vk_id = %s, email = %s, phone = %s, source = 'vk', is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
                 (vk_id, email if email else None, phone if phone else None, user_id)
             )
             
             # Check if vk_users record exists for this user_id
             cursor.execute(
-                "SELECT user_id FROM vk_users WHERE user_id = %s",
+                f"SELECT user_id FROM {SCHEMA}.vk_users WHERE user_id = %s",
                 (user_id,)
             )
             vk_user_record_exists = cursor.fetchone()
             
             if vk_user_record_exists:
                 cursor.execute(
-                    "UPDATE vk_users SET vk_sub = %s, full_name = %s, avatar_url = %s, is_verified = %s, email = %s, phone_number = %s, is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE user_id = %s",
+                    f"UPDATE {SCHEMA}.vk_users SET vk_sub = %s, full_name = %s, avatar_url = %s, is_verified = %s, email = %s, phone_number = %s, is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE user_id = %s",
                     (vk_id, full_name, avatar_url, is_verified, email if email else None, phone if phone else None, user_id)
                 )
             else:
                 cursor.execute(
-                    "INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login) VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP)",
+                    f"INSERT INTO {SCHEMA}.vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login) VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP)",
                     (vk_id, user_id, full_name, avatar_url, is_verified, email if email else None, phone if phone else None)
                 )
             
@@ -135,14 +137,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Create new user
         cursor.execute(
-            "INSERT INTO users (vk_id, email, phone, is_active, source, registered_at, created_at, updated_at, last_login) VALUES (%s, %s, %s, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id",
+            f"INSERT INTO {SCHEMA}.users (vk_id, email, phone, is_active, source, registered_at, created_at, updated_at, last_login) VALUES (%s, %s, %s, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id",
             (vk_id, email if email else None, phone if phone else None)
         )
         user_id = cursor.fetchone()['id']
         
         # Create vk_users record
         cursor.execute(
-            "INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login) VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP)",
+            f"INSERT INTO {SCHEMA}.vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login) VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP)",
             (vk_id, user_id, full_name, avatar_url, is_verified, email if email else None, phone if phone else None)
         )
         
