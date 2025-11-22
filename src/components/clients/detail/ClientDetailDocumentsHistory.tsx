@@ -5,6 +5,7 @@ import { Document, Message } from '@/components/clients/ClientsTypes';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import funcUrls from '../../../../backend/func2url.json';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface ClientDetailDocumentsHistoryProps {
   documents: Document[];
@@ -31,6 +32,8 @@ const ClientDetailDocumentsHistory = ({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
+  const [currentDocIndex, setCurrentDocIndex] = useState(0);
 
   const uploadFile = async (file: File) => {
     setUploading(true);
@@ -133,11 +136,42 @@ const ClientDetailDocumentsHistory = ({
       }
 
       onDocumentDeleted(documentId);
+      setPreviewDocument(null);
       toast.success('Документ удалён');
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Ошибка удаления документа');
     }
+  };
+
+  const handlePreviewDocument = (doc: Document, index: number) => {
+    setPreviewDocument(doc);
+    setCurrentDocIndex(index);
+  };
+
+  const handlePrevDocument = () => {
+    if (currentDocIndex > 0) {
+      const newIndex = currentDocIndex - 1;
+      setCurrentDocIndex(newIndex);
+      setPreviewDocument(documents[newIndex]);
+    }
+  };
+
+  const handleNextDocument = () => {
+    if (currentDocIndex < documents.length - 1) {
+      const newIndex = currentDocIndex + 1;
+      setCurrentDocIndex(newIndex);
+      setPreviewDocument(documents[newIndex]);
+    }
+  };
+
+  const isImage = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext || '');
+  };
+
+  const isPDF = (filename: string) => {
+    return filename.toLowerCase().endsWith('.pdf');
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -237,9 +271,12 @@ const ClientDetailDocumentsHistory = ({
             </div>
           ) : (
             <div className="space-y-2">
-              {documents.map((doc) => (
-                <div key={doc.id} className="border rounded-lg p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+              {documents.map((doc, index) => (
+                <div key={doc.id} className="border rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors">
+                  <div 
+                    className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                    onClick={() => handlePreviewDocument(doc, index)}
+                  >
                     <Icon name="FileText" size={20} className="text-primary flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{doc.name}</p>
@@ -250,15 +287,31 @@ const ClientDetailDocumentsHistory = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(doc.fileUrl, '_blank')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePreviewDocument(doc, index);
+                      }}
                     >
-                      <Icon name="Download" size={16} className="sm:mr-2" />
-                      <span className="hidden sm:inline">Скачать</span>
+                      <Icon name="Eye" size={16} className="sm:mr-2" />
+                      <span className="hidden sm:inline">Просмотр</span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeleteDocument(doc.id, doc.name)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(doc.fileUrl, '_blank');
+                      }}
+                    >
+                      <Icon name="Download" size={16} />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteDocument(doc.id, doc.name);
+                      }}
                     >
                       <Icon name="Trash2" size={16} className="text-destructive" />
                     </Button>
@@ -268,6 +321,100 @@ const ClientDetailDocumentsHistory = ({
             </div>
           )}
         </CardContent>
+
+        {/* Модальное окно предпросмотра */}
+        <Dialog open={!!previewDocument} onOpenChange={(open) => !open && setPreviewDocument(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+            {previewDocument && (
+              <div className="flex flex-col h-full">
+                {/* Заголовок */}
+                <div className="flex items-center justify-between p-4 border-b">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold truncate">{previewDocument.name}</h3>
+                    <p className="text-xs text-muted-foreground">{formatDate(previewDocument.uploadDate)}</p>
+                  </div>
+                  <div className="flex gap-2 ml-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(previewDocument.fileUrl, '_blank')}
+                    >
+                      <Icon name="Download" size={16} className="mr-2" />
+                      Скачать
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteDocument(previewDocument.id, previewDocument.name)}
+                    >
+                      <Icon name="Trash2" size={16} className="text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Контент предпросмотра */}
+                <div className="flex-1 overflow-auto bg-muted/30 relative">
+                  {isImage(previewDocument.name) ? (
+                    <div className="flex items-center justify-center h-full p-4">
+                      <img 
+                        src={previewDocument.fileUrl} 
+                        alt={previewDocument.name}
+                        className="max-w-full max-h-full object-contain rounded"
+                      />
+                    </div>
+                  ) : isPDF(previewDocument.name) ? (
+                    <iframe
+                      src={previewDocument.fileUrl}
+                      className="w-full h-full min-h-[600px]"
+                      title={previewDocument.name}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                      <Icon name="FileText" size={64} className="text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground mb-2">Предпросмотр недоступен для этого типа файла</p>
+                      <p className="text-sm text-muted-foreground mb-4">{previewDocument.name}</p>
+                      <Button onClick={() => window.open(previewDocument.fileUrl, '_blank')}>
+                        <Icon name="Download" size={16} className="mr-2" />
+                        Скачать файл
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Кнопки навигации */}
+                  {documents.length > 1 && (
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 shadow-lg"
+                        onClick={handlePrevDocument}
+                        disabled={currentDocIndex === 0}
+                      >
+                        <Icon name="ChevronLeft" size={24} />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 shadow-lg"
+                        onClick={handleNextDocument}
+                        disabled={currentDocIndex === documents.length - 1}
+                      >
+                        <Icon name="ChevronRight" size={24} />
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                {/* Счётчик документов */}
+                {documents.length > 1 && (
+                  <div className="p-2 border-t bg-background text-center text-sm text-muted-foreground">
+                    {currentDocIndex + 1} из {documents.length}
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </Card>
     );
   }
