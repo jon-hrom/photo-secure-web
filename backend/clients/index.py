@@ -206,14 +206,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            # Обновляем проекты
+            # Обновляем проекты (upsert - вставляем новые или обновляем существующие)
             if 'projects' in body:
-                cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))
+                # Получаем текущие ID проектов
+                cur.execute('SELECT id FROM client_projects WHERE client_id = %s', (client_id,))
+                existing_ids = {row[0] for row in cur.fetchall()}
+                incoming_ids = {p.get('id') for p in body.get('projects', []) if p.get('id')}
+                
+                # Удаляем проекты, которых нет в новом списке
+                ids_to_delete = existing_ids - incoming_ids
+                if ids_to_delete:
+                    cur.execute('DELETE FROM client_projects WHERE id = ANY(%s)', (list(ids_to_delete),))
+                
+                # Вставляем или обновляем проекты
                 for project in body.get('projects', []):
                     cur.execute('''
-                        INSERT INTO client_projects (client_id, name, status, budget, start_date, description)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        INSERT INTO client_projects (id, client_id, name, status, budget, start_date, description)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                            name = EXCLUDED.name,
+                            status = EXCLUDED.status,
+                            budget = EXCLUDED.budget,
+                            start_date = EXCLUDED.start_date,
+                            description = EXCLUDED.description
                     ''', (
+                        project.get('id'),
                         client_id,
                         project.get('name'),
                         project.get('status'),
@@ -222,14 +239,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         project.get('description')
                     ))
             
-            # Обновляем платежи
+            # Обновляем платежи (upsert)
             if 'payments' in body:
-                cur.execute('DELETE FROM client_payments WHERE client_id = %s', (client_id,))
+                # Получаем текущие ID платежей
+                cur.execute('SELECT id FROM client_payments WHERE client_id = %s', (client_id,))
+                existing_ids = {row[0] for row in cur.fetchall()}
+                incoming_ids = {p.get('id') for p in body.get('payments', []) if p.get('id')}
+                
+                # Удаляем платежи, которых нет в новом списке
+                ids_to_delete = existing_ids - incoming_ids
+                if ids_to_delete:
+                    cur.execute('DELETE FROM client_payments WHERE id = ANY(%s)', (list(ids_to_delete),))
+                
+                # Вставляем или обновляем платежи
                 for payment in body.get('payments', []):
                     cur.execute('''
-                        INSERT INTO client_payments (client_id, amount, payment_date, status, method, description, project_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO client_payments (id, client_id, amount, payment_date, status, method, description, project_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                            amount = EXCLUDED.amount,
+                            payment_date = EXCLUDED.payment_date,
+                            status = EXCLUDED.status,
+                            method = EXCLUDED.method,
+                            description = EXCLUDED.description,
+                            project_id = EXCLUDED.project_id
                     ''', (
+                        payment.get('id'),
                         client_id,
                         payment.get('amount'),
                         payment.get('date'),
@@ -239,14 +274,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         payment.get('projectId')
                     ))
             
-            # Обновляем комментарии
+            # Обновляем комментарии (upsert)
             if 'comments' in body:
-                cur.execute('DELETE FROM client_comments WHERE client_id = %s', (client_id,))
+                # Получаем текущие ID комментариев
+                cur.execute('SELECT id FROM client_comments WHERE client_id = %s', (client_id,))
+                existing_ids = {row[0] for row in cur.fetchall()}
+                incoming_ids = {c.get('id') for c in body.get('comments', []) if c.get('id')}
+                
+                # Удаляем комментарии, которых нет в новом списке
+                ids_to_delete = existing_ids - incoming_ids
+                if ids_to_delete:
+                    cur.execute('DELETE FROM client_comments WHERE id = ANY(%s)', (list(ids_to_delete),))
+                
+                # Вставляем или обновляем комментарии
                 for comment in body.get('comments', []):
                     cur.execute('''
-                        INSERT INTO client_comments (client_id, author, text, comment_date)
-                        VALUES (%s, %s, %s, %s)
+                        INSERT INTO client_comments (id, client_id, author, text, comment_date)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                            author = EXCLUDED.author,
+                            text = EXCLUDED.text,
+                            comment_date = EXCLUDED.comment_date
                     ''', (
+                        comment.get('id'),
                         client_id,
                         comment.get('author'),
                         comment.get('text'),
