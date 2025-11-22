@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Document, Message } from '@/components/clients/ClientsTypes';
+import { useRef } from 'react';
+import { toast } from 'sonner';
 
 interface ClientDetailDocumentsHistoryProps {
   documents: Document[];
@@ -16,11 +18,74 @@ const ClientDetailDocumentsHistory = ({
   formatDate,
   formatDateTime,
 }: ClientDetailDocumentsHistoryProps) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    toast.success(`Файл "${file.name}" загружен`, {
+      description: 'Документ будет добавлен в карточку клиента'
+    });
+    
+    // TODO: Implement actual file upload logic
+  };
+
+  const handleCameraClick = () => {
+    cameraInputRef.current?.click();
+  };
+
+  const handleFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return {
     documents: (
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>Документы</CardTitle>
+          <div className="flex gap-2">
+            {/* Камера для мобильных */}
+            <Button
+              onClick={handleCameraClick}
+              size="sm"
+              variant="outline"
+              className="md:hidden"
+            >
+              <Icon name="Camera" size={16} className="mr-2" />
+              Камера
+            </Button>
+            
+            {/* Обычная загрузка для десктопа */}
+            <Button
+              onClick={handleFileClick}
+              size="sm"
+              variant="outline"
+            >
+              <Icon name="Upload" size={16} className="mr-2" />
+              <span className="hidden md:inline">Загрузить файл</span>
+              <span className="md:hidden">Файл</span>
+            </Button>
+          </div>
+
+          {/* Скрытые input для загрузки */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf,.doc,.docx"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
         </CardHeader>
         <CardContent>
           {documents.length === 0 ? (
@@ -28,7 +93,7 @@ const ClientDetailDocumentsHistory = ({
               <Icon name="FileText" size={48} className="mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">Документов пока нет</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Здесь будут храниться договоры, ТЗ и другие документы
+                Загрузите договоры, ТЗ и другие документы
               </p>
             </div>
           ) : (
