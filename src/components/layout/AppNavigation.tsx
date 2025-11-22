@@ -30,12 +30,14 @@ const AppNavigation = ({
   const navigate = useNavigate();
   
   return (
-    <nav className="bg-white/80 backdrop-blur-md border-b border-border sticky top-0 z-50 shadow-sm">
+    <nav className="bg-white/90 backdrop-blur-xl border-b border-border/50 sticky top-0 z-50 shadow-lg animate-fade-in">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Icon name="Camera" className="text-primary" size={32} />
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          <div className="flex items-center space-x-3 group cursor-pointer">
+            <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <Icon name="Camera" className="text-white" size={28} />
+            </div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-purple-500 to-secondary bg-clip-text text-transparent animate-glow">
               Foto-Mix
             </h1>
           </div>
@@ -71,31 +73,34 @@ const AppNavigation = ({
               <DropdownMenuTrigger asChild>
                 <Button
                   variant={currentPage === 'dashboard' ? 'default' : 'ghost'}
-                  className="rounded-full"
+                  className={cn(
+                    "rounded-full transition-all duration-300 hover:scale-105",
+                    currentPage === 'dashboard' && "bg-gradient-to-r from-primary to-secondary shadow-lg"
+                  )}
                 >
                   <Icon name="Home" size={18} className="mr-2" />
                   Главная
                   <Icon name="ChevronDown" size={16} className="ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuItem onClick={() => setCurrentPage('dashboard')}>
+              <DropdownMenuContent align="start" className="w-56 animate-scale-in backdrop-blur-xl bg-white/95 border-border/50 shadow-xl">
+                <DropdownMenuItem onClick={() => setCurrentPage('dashboard')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
                   <Icon name="LayoutDashboard" size={18} className="mr-2" />
                   Главная
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('clients')}>
+                <DropdownMenuItem onClick={() => setCurrentPage('clients')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
                   <Icon name="Users" size={18} className="mr-2" />
                   Клиенты
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('photobook')}>
+                <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
                   <Icon name="Book" size={18} className="mr-2" />
                   Фотокниги
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/photo-bank')}>
+                <DropdownMenuItem onClick={() => navigate('/photo-bank')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
                   <Icon name="Images" size={18} className="mr-2" />
                   Мой фото банк
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('tariffs')}>
+                <DropdownMenuItem onClick={() => setCurrentPage('tariffs')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
                   <Icon name="Zap" size={18} className="mr-2" />
                   Тарифы
                 </DropdownMenuItem>
@@ -105,7 +110,7 @@ const AppNavigation = ({
             <Button
               variant="outline"
               onClick={() => setCurrentPage('settings')}
-              className="rounded-full border-2 border-primary"
+              className="rounded-full border-2 border-primary/50 hover:border-primary hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-300 hover:scale-105 hover:shadow-lg"
             >
               <Icon name="Settings" size={18} className="mr-2" />
               Настройки

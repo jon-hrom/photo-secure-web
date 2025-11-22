@@ -162,28 +162,36 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
   const finalIsAdmin = isAdmin || isAdminUser(userEmail, vkUser);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in-up">
       <Card 
-        className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 cursor-pointer hover:shadow-lg transition-shadow"
+        className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 border-0 shadow-xl cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group"
         onClick={() => onOpenTariffs?.()}
       >
-        <CardContent className="pt-6">
-          <div className="space-y-3">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <CardContent className="pt-6 relative z-10">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Icon name="HardDrive" size={20} className="text-primary" />
-                <h3 className="font-semibold">Фото банк</h3>
-                <Badge variant="outline" className="text-xs">{storageUsage.plan_name}</Badge>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <Icon name="HardDrive" size={20} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Фото банк</h3>
+                  <Badge variant="outline" className="text-xs mt-1 bg-white/50 backdrop-blur-sm">{storageUsage.plan_name}</Badge>
+                </div>
               </div>
-              <Badge variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}>
+              <Badge 
+                variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}
+                className="text-sm font-bold px-3 py-1 shadow-md"
+              >
                 {(storageUsage.percent || 0).toFixed(1)}%
               </Badge>
             </div>
             <Progress 
               value={storageUsage.percent || 0} 
-              className="h-3 transition-all duration-500 ease-out"
+              className="h-4 transition-all duration-500 ease-out shadow-inner"
             />
-            <div className="flex justify-between text-sm text-muted-foreground">
+            <div className="flex justify-between text-sm font-medium text-muted-foreground">
               <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ использовано</span>
               <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ доступно</span>
             </div>
