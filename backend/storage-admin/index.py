@@ -82,7 +82,7 @@ def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             print('[LIST_PLANS] Executing query...')
             cur.execute(f'''
-                SELECT id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, created_at, visible_to_users
+                SELECT id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, created_at, visible_to_users, max_clients, description
                 FROM {SCHEMA}.storage_plans
                 ORDER BY quota_gb ASC
             ''')
@@ -113,6 +113,8 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     price_rub = body.get('price_rub', 0)
     is_active = body.get('is_active', True)
     visible_to_users = body.get('visible_to_users', False)
+    max_clients = body.get('max_clients')
+    description = body.get('description')
     
     if not plan_name or quota_gb is None:
         return {
@@ -125,12 +127,12 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            print(f'[CREATE_PLAN] Creating plan: name={plan_name}, quota={quota_gb}, price={price_rub}, active={is_active}, visible={visible_to_users}')
+            print(f'[CREATE_PLAN] Creating plan: name={plan_name}, quota={quota_gb}, price={price_rub}, active={is_active}, visible={visible_to_users}, max_clients={max_clients}, description={description}')
             cur.execute(f'''
-                INSERT INTO {SCHEMA}.storage_plans (name, quota_gb, monthly_price_rub, is_active, visible_to_users)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, visible_to_users, created_at
-            ''', (plan_name, quota_gb, price_rub, is_active, visible_to_users))
+                INSERT INTO {SCHEMA}.storage_plans (name, quota_gb, monthly_price_rub, is_active, visible_to_users, max_clients, description)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, visible_to_users, created_at, max_clients, description
+            ''', (plan_name, quota_gb, price_rub, is_active, visible_to_users, max_clients, description))
             plan = cur.fetchone()
             conn.commit()
             print(f'[CREATE_PLAN] Successfully created plan_id={plan["plan_id"]}')
@@ -160,6 +162,8 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     quota_gb = body.get('quota_gb')
     price_rub = body.get('price_rub')
     is_active = body.get('is_active')
+    max_clients = body.get('max_clients')
+    description = body.get('description')
     
     if not plan_id:
         return {
@@ -184,6 +188,12 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     if is_active is not None:
         updates.append('is_active = %s')
         params.append(is_active)
+    if max_clients is not None:
+        updates.append('max_clients = %s')
+        params.append(max_clients)
+    if description is not None:
+        updates.append('description = %s')
+        params.append(description)
     
     visible_to_users = body.get('visible_to_users')
     if visible_to_users is not None:
@@ -209,7 +219,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
                 UPDATE {SCHEMA}.storage_plans
                 SET {", ".join(updates)}
                 WHERE id = %s
-                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, visible_to_users, created_at
+                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, visible_to_users, created_at, max_clients, description
             ''', params)
             plan = cur.fetchone()
             conn.commit()

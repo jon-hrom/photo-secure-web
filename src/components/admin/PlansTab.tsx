@@ -29,6 +29,8 @@ interface Plan {
   is_active: boolean;
   visible_to_users: boolean;
   created_at: string;
+  max_clients?: number;
+  description?: string;
 }
 
 interface PlansTabProps {
@@ -96,6 +98,23 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
                     onChange={(e) => setEditingPlan({ ...editingPlan, price_rub: Number(e.target.value) })}
                   />
                 </div>
+                <div>
+                  <Label>Макс. клиентов</Label>
+                  <Input
+                    type="number"
+                    value={editingPlan?.max_clients || ''}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, max_clients: Number(e.target.value) })}
+                    placeholder="Неограниченно, если пусто"
+                  />
+                </div>
+                <div>
+                  <Label>Описание</Label>
+                  <Input
+                    value={editingPlan?.description || ''}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, description: e.target.value })}
+                    placeholder="Краткое описание тарифа"
+                  />
+                </div>
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -131,7 +150,8 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
             <TableRow>
               <TableHead>ID</TableHead>
               <TableHead>Название</TableHead>
-              <TableHead>Квота</TableHead>
+              <TableHead>Квота (ГБ)</TableHead>
+              <TableHead>Клиенты</TableHead>
               <TableHead>Цена</TableHead>
               <TableHead>Статус</TableHead>
               <TableHead>Видимость</TableHead>
@@ -142,8 +162,12 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
             {plans.map((plan) => (
               <TableRow key={plan.plan_id}>
                 <TableCell>{plan.plan_id}</TableCell>
-                <TableCell className="font-medium">{plan.plan_name}</TableCell>
-                <TableCell>{plan.quota_gb} GB</TableCell>
+                <TableCell className="font-medium">
+                  {plan.plan_name}
+                  {plan.description && <div className="text-xs text-muted-foreground">{plan.description}</div>}
+                </TableCell>
+                <TableCell>{plan.quota_gb} ГБ</TableCell>
+                <TableCell>{plan.max_clients || '∞'}</TableCell>
                 <TableCell>{plan.price_rub} ₽/мес</TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded text-xs ${plan.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>

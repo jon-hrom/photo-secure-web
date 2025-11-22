@@ -30,7 +30,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
     time: string;
     type: string;
   }>>([]);
-  const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0 });
+  const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0, plan_name: 'Старт', plan_id: 1 });
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -103,7 +103,9 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
         setStorageUsage({
           usedGb: data.usedGb || 0,
           limitGb: data.limitGb || 5,
-          percent: data.percent || 0
+          percent: data.percent || 0,
+          plan_name: data.plan_name || 'Старт',
+          plan_id: data.plan_id || 1
         });
       } catch (error) {
         console.error('[STORAGE] Failed to fetch storage usage:', error);
@@ -167,6 +169,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
               <div className="flex items-center gap-2">
                 <Icon name="HardDrive" size={20} className="text-primary" />
                 <h3 className="font-semibold">Фото банк</h3>
+                <Badge variant="outline" className="text-xs">{storageUsage.plan_name}</Badge>
               </div>
               <Badge variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}>
                 {(storageUsage.percent || 0).toFixed(1)}%
