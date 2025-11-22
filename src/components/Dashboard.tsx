@@ -16,9 +16,10 @@ interface DashboardProps {
   onLogout?: () => void;
   onOpenAdminPanel?: () => void;
   isAdmin?: boolean;
+  onOpenTariffs?: () => void;
 }
 
-const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout, onOpenAdminPanel, isAdmin }: DashboardProps) => {
+const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -162,7 +163,10 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-2">
+      <Card 
+        className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 cursor-pointer hover:shadow-lg transition-shadow"
+        onClick={() => onOpenTariffs?.()}
+      >
         <CardContent className="pt-6">
           <div className="space-y-3">
             <div className="flex items-center justify-between">

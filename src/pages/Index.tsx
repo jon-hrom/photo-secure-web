@@ -273,6 +273,7 @@ const Index = () => {
             }}
             onLogout={handleLogout}
             onOpenAdminPanel={() => setCurrentPage('admin')}
+            onOpenTariffs={() => setCurrentPage('tariffs')}
             isAdmin={isAdmin}
           />
         )}
