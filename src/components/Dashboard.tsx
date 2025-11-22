@@ -80,7 +80,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
       const userId = propUserId || localStorage.getItem('userId');
       if (!userId) {
         console.log('[STORAGE] No userId, skipping storage fetch');
-        setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0 });
+        setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0, plan_name: 'Старт', plan_id: 1 });
         return;
       }
       
@@ -95,7 +95,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
         if (!res.ok) {
           const errorText = await res.text();
           console.error('[STORAGE] API error:', res.status, errorText);
-          setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0 });
+          setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0, plan_name: 'Старт', plan_id: 1 });
           return;
         }
         
@@ -110,7 +110,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
         });
       } catch (error) {
         console.error('[STORAGE] Failed to fetch storage usage:', error);
-        setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0 });
+        setStorageUsage({ usedGb: 0, limitGb: 5, percent: 0, plan_name: 'Старт', plan_id: 1 });
       }
     };
     
