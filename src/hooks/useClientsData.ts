@@ -64,34 +64,35 @@ export const useClientsData = (userId: string | null) => {
   const checkEmailVerification = async () => {
     if (!userId) return;
     
-    const vkUser = localStorage.getItem('vk_user');
-    const authSession = localStorage.getItem('authSession');
-    
-    let userEmail = null;
-    let vkUserData = null;
-    
-    if (authSession) {
-      try {
-        const session = JSON.parse(authSession);
-        userEmail = session.userEmail;
-      } catch {}
-    }
-    
-    if (vkUser) {
-      try {
-        vkUserData = JSON.parse(vkUser);
-      } catch {}
-    }
-    
-    if (isAdminUser(userEmail, vkUserData)) {
-      console.log('[CLIENTS] Main admin detected - email verification skipped');
-      setEmailVerified(true);
-      return;
-    }
-    
     try {
       const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
       const data = await res.json();
+      
+      const vkUser = localStorage.getItem('vk_user');
+      const authSession = localStorage.getItem('authSession');
+      
+      let userEmail = data.email || null;
+      let vkUserData = null;
+      
+      if (authSession) {
+        try {
+          const session = JSON.parse(authSession);
+          if (session.userEmail) userEmail = session.userEmail;
+        } catch {}
+      }
+      
+      if (vkUser) {
+        try {
+          vkUserData = JSON.parse(vkUser);
+        } catch {}
+      }
+      
+      if (isAdminUser(userEmail, vkUserData)) {
+        console.log('[CLIENTS] Main admin detected - email verification skipped');
+        setEmailVerified(true);
+        return;
+      }
+      
       setEmailVerified(!!data.email_verified_at);
     } catch (err) {
       console.error('Failed to check email verification:', err);
