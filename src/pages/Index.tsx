@@ -277,7 +277,7 @@ const Index = () => {
             isAdmin={isAdmin}
           />
         )}
-        {currentPage === 'clients' && <ClientsPage autoOpenClient={selectedClientName} />}
+        {currentPage === 'clients' && <ClientsPage autoOpenClient={selectedClientName} userId={userId?.toString() || null} />}
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'features' && <FeaturesPage />}
         {currentPage === 'tariffs' && <TariffsPage isAdmin={isAdmin} userId={userId?.toString()} />}

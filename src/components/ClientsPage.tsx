@@ -14,10 +14,11 @@ import { useClientsHandlers } from '@/hooks/useClientsHandlers';
 
 interface ClientsPageProps {
   autoOpenClient?: string;
+  userId?: string | null;
 }
 
-const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
-  const userId = localStorage.getItem('userId');
+const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) => {
+  const userId = propUserId || localStorage.getItem('userId');
   
   // Хук для работы с данными
   const { clients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId);
