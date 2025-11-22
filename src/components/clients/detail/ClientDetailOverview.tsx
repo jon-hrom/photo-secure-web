@@ -46,10 +46,7 @@ const ClientDetailOverview = ({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Icon name="DollarSign" size={16} className="text-green-500" />
-              Оплачено
-            </CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">Оплачено с учетом  аванса</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
