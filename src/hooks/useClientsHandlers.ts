@@ -66,12 +66,18 @@ export const useClientsHandlers = ({
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
+    console.log('[CLIENT_ADD] Function called');
+    console.log('[CLIENT_ADD] newClient:', newClient);
+    console.log('[CLIENT_ADD] userId:', userId);
+    
     if (!newClient.name || !newClient.phone) {
+      console.log('[CLIENT_ADD] Validation failed - missing name or phone');
       toast.error('Заполните обязательные поля');
       return;
     }
     
     if (!userId) {
+      console.log('[CLIENT_ADD] No userId - aborting');
       toast.error('Не удалось определить пользователя');
       return;
     }
