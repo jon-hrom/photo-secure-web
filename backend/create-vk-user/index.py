@@ -101,11 +101,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             user_id = None
         
         if user_id:
+            print(f"[VK_USER] Updating existing user: user_id={user_id}, vk_email={email}, vk_phone={phone}")
+            
+            # Get current email/phone from database
+            cursor.execute(
+                f"SELECT email, phone FROM {SCHEMA}.users WHERE id = %s",
+                (user_id,)
+            )
+            current_data = cursor.fetchone()
+            current_email = current_data['email'] if current_data else None
+            current_phone = current_data['phone'] if current_data else None
+            
+            print(f"[VK_USER] Current DB data: email={current_email}, phone={current_phone}")
+            
+            # Only update email/phone if VK provides non-empty values OR if current value is NULL
+            final_email = email if email else current_email
+            final_phone = phone if phone else current_phone
+            
+            print(f"[VK_USER] Final values: email={final_email}, phone={final_phone}")
             
             # Update existing user
             cursor.execute(
                 f"UPDATE {SCHEMA}.users SET vk_id = %s, email = %s, phone = %s, source = 'vk', is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
-                (vk_id, email if email else None, phone if phone else None, user_id)
+                (vk_id, final_email, final_phone, user_id)
             )
             
             # Check if vk_users record exists for this user_id
@@ -116,9 +134,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             vk_user_record_exists = cursor.fetchone()
             
             if vk_user_record_exists:
+                # Get current vk_users email/phone
+                cursor.execute(
+                    f"SELECT email, phone_number FROM {SCHEMA}.vk_users WHERE user_id = %s",
+                    (user_id,)
+                )
+                vk_current = cursor.fetchone()
+                vk_current_email = vk_current['email'] if vk_current else None
+                vk_current_phone = vk_current['phone_number'] if vk_current else None
+                
+                # Preserve existing email/phone if VK doesn't provide new values
+                vk_final_email = email if email else vk_current_email
+                vk_final_phone = phone if phone else vk_current_phone
+                
+                print(f"[VK_USER] Updating vk_users: email={vk_final_email}, phone={vk_final_phone}")
+                
                 cursor.execute(
                     f"UPDATE {SCHEMA}.vk_users SET vk_sub = %s, full_name = %s, avatar_url = %s, is_verified = %s, email = %s, phone_number = %s, is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE user_id = %s",
-                    (vk_id, full_name, avatar_url, is_verified, email if email else None, phone if phone else None, user_id)
+                    (vk_id, full_name, avatar_url, is_verified, vk_final_email, vk_final_phone, user_id)
                 )
             else:
                 cursor.execute(
