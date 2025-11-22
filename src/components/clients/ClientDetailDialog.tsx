@@ -183,12 +183,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     });
   };
 
-  const documentsHistoryContent = ClientDetailDocumentsHistory({
-    documents,
-    messages,
-    formatDate,
-    formatDateTime,
-  });
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -269,7 +264,13 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           </TabsContent>
 
           <TabsContent value="documents" className="space-y-4 mt-4">
-            {documentsHistoryContent.documents}
+            <ClientDetailDocumentsHistory
+              documents={documents}
+              messages={messages}
+              formatDate={formatDate}
+              formatDateTime={formatDateTime}
+              tab="documents"
+            />
           </TabsContent>
 
           <TabsContent value="payments" className="space-y-4 mt-4">
@@ -285,7 +286,13 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4 mt-4">
-            {documentsHistoryContent.history}
+            <ClientDetailDocumentsHistory
+              documents={documents}
+              messages={messages}
+              formatDate={formatDate}
+              formatDateTime={formatDateTime}
+              tab="history"
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>

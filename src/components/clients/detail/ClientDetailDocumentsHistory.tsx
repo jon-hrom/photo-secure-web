@@ -10,6 +10,7 @@ interface ClientDetailDocumentsHistoryProps {
   messages: Message[];
   formatDate: (dateString: string) => string;
   formatDateTime: (dateString: string) => string;
+  tab: 'documents' | 'history';
 }
 
 const ClientDetailDocumentsHistory = ({
@@ -17,6 +18,7 @@ const ClientDetailDocumentsHistory = ({
   messages,
   formatDate,
   formatDateTime,
+  tab,
 }: ClientDetailDocumentsHistoryProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -41,8 +43,8 @@ const ClientDetailDocumentsHistory = ({
     fileInputRef.current?.click();
   };
 
-  return {
-    documents: (
+  if (tab === 'documents') {
+    return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>Документы</CardTitle>
@@ -117,49 +119,50 @@ const ClientDetailDocumentsHistory = ({
           )}
         </CardContent>
       </Card>
-    ),
-    history: (
-      <Card>
-        <CardHeader>
-          <CardTitle>История взаимодействий</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {messages.length === 0 ? (
-            <div className="text-center py-8">
-              <Icon name="History" size={48} className="mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">История пуста</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Здесь будет отображаться история общения с клиентом
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {messages.map((msg) => (
-                <div key={msg.id} className="border rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Icon
-                      name={
-                        msg.type === 'email' ? 'Mail' :
-                        msg.type === 'vk' ? 'MessageCircle' :
-                        msg.type === 'phone' ? 'Phone' : 'Users'
-                      }
-                      size={16}
-                      className="text-primary"
-                    />
-                    <span className="text-sm font-medium">{msg.author}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDateTime(msg.date)}
-                    </span>
-                  </div>
-                  <p className="text-sm">{msg.content}</p>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>История взаимодействий</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {messages.length === 0 ? (
+          <div className="text-center py-8">
+            <Icon name="History" size={48} className="mx-auto text-muted-foreground mb-3" />
+            <p className="text-muted-foreground">История пуста</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Здесь будет отображаться история общения с клиентом
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {messages.map((msg) => (
+              <div key={msg.id} className="border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon
+                    name={
+                      msg.type === 'email' ? 'Mail' :
+                      msg.type === 'vk' ? 'MessageCircle' :
+                      msg.type === 'phone' ? 'Phone' : 'Users'
+                    }
+                    size={16}
+                    className="text-primary"
+                  />
+                  <span className="text-sm font-medium">{msg.author}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDateTime(msg.date)}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    ),
-  };
+                <p className="text-sm">{msg.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 };
 
 export default ClientDetailDocumentsHistory;
