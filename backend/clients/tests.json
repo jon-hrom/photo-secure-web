@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "name": "Get clients list",
+      "method": "GET",
+      "headers": {
+        "X-User-Id": "test-user-123"
+      },
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "type"
+    },
+    {
+      "name": "Create new client",
+      "method": "POST",
+      "headers": {
+        "X-User-Id": "test-user-123"
+      },
+      "body": {
+        "action": "create",
+        "name": "Тестовый Клиент",
+        "phone": "+79991234567",
+        "email": "test@example.com"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "id": "number",
+        "name": "string",
+        "phone": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

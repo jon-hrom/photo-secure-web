@@ -17,29 +17,89 @@ interface ClientsPageProps {
 const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
   const userId = localStorage.getItem('userId');
   const [emailVerified, setEmailVerified] = useState(true);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  // Загрузка клиентов из localStorage при монтировании
-  const [clients, setClients] = useState<Client[]>(() => {
-    if (!userId) return [];
-    const stored = localStorage.getItem(`clients_${userId}`);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Восстанавливаем Date объекты для bookings
-        return parsed.map((client: Client) => ({
-          ...client,
-          bookings: client.bookings.map(b => ({
-            ...b,
-            date: new Date(b.date)
-          }))
-        }));
-      } catch (e) {
-        console.error('Failed to parse clients from localStorage:', e);
-        return [];
+  const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
+  
+  // Загрузка клиентов из БД
+  const loadClients = async () => {
+    if (!userId) return;
+    
+    try {
+      const res = await fetch(CLIENTS_API, {
+        headers: { 'X-User-Id': userId }
+      });
+      
+      if (!res.ok) throw new Error('Failed to load clients');
+      
+      const data = await res.json();
+      const parsed = data.map((client: any) => ({
+        id: client.id,
+        name: client.name,
+        phone: client.phone,
+        email: client.email || '',
+        address: client.address || '',
+        vkProfile: client.vk_profile || '',
+        bookings: (client.bookings || []).map((b: any) => ({
+          id: b.id,
+          date: new Date(b.booking_date),
+          time: b.booking_time,
+          description: b.description || '',
+          notificationEnabled: b.notification_enabled,
+          clientId: b.client_id
+        })),
+        projects: client.projects || [],
+        payments: client.payments || [],
+        documents: client.documents || [],
+        comments: client.comments || [],
+        messages: client.messages || []
+      }));
+      
+      setClients(parsed);
+      
+      // Миграция данных из localStorage если есть
+      const localData = localStorage.getItem(`clients_${userId}`);
+      if (localData && parsed.length === 0) {
+        try {
+          const localClients = JSON.parse(localData);
+          if (localClients.length > 0) {
+            for (const client of localClients) {
+              await fetch(CLIENTS_API, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-User-Id': userId
+                },
+                body: JSON.stringify({
+                  action: 'create',
+                  name: client.name,
+                  phone: client.phone,
+                  email: client.email,
+                  address: client.address,
+                  vkProfile: client.vkProfile
+                })
+              });
+            }
+            localStorage.removeItem(`clients_${userId}`);
+            await loadClients();
+            toast.success('Данные перенесены в облако');
+          }
+        } catch (e) {
+          console.error('Migration failed:', e);
+        }
       }
+    } catch (error) {
+      console.error('Failed to load clients:', error);
+      toast.error('Не удалось загрузить клиентов');
+    } finally {
+      setLoading(false);
     }
-    return [];
-  });
+  };
+  
+  useEffect(() => {
+    loadClients();
+  }, [userId]);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -79,95 +139,138 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
     '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00',
   ];
 
-  const handleAddClient = () => {
+  const handleAddClient = async () => {
     if (!newClient.name || !newClient.phone) {
       toast.error('Заполните обязательные поля');
       return;
     }
-    const client: Client = {
-      id: Date.now(),
-      ...newClient,
-      bookings: [],
-    };
-    const updatedClients = [...clients, client];
-    setClients(updatedClients);
-    if (userId) {
-      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+    
+    try {
+      const res = await fetch(CLIENTS_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId!
+        },
+        body: JSON.stringify({
+          action: 'create',
+          ...newClient
+        })
+      });
+      
+      if (!res.ok) throw new Error('Failed to add client');
+      
+      await loadClients();
+      setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
+      setIsAddDialogOpen(false);
+      toast.success('Клиент успешно добавлен');
+    } catch (error) {
+      console.error('Failed to add client:', error);
+      toast.error('Не удалось добавить клиента');
     }
-    setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
-    setIsAddDialogOpen(false);
-    toast.success('Клиент успешно добавлен');
   };
 
-  const handleUpdateClientFromEdit = () => {
+  const handleUpdateClientFromEdit = async () => {
     if (!editingClient) return;
-    const updatedClients = clients.map(c => c.id === editingClient.id ? editingClient : c);
-    setClients(updatedClients);
-    if (userId) {
-      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+    
+    try {
+      const res = await fetch(CLIENTS_API, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId!
+        },
+        body: JSON.stringify(editingClient)
+      });
+      
+      if (!res.ok) throw new Error('Failed to update client');
+      
+      await loadClients();
+      setIsEditDialogOpen(false);
+      setEditingClient(null);
+      toast.success('Данные клиента обновлены');
+    } catch (error) {
+      console.error('Failed to update client:', error);
+      toast.error('Не удалось обновить данные');
     }
-    setIsEditDialogOpen(false);
-    setEditingClient(null);
-    toast.success('Данные клиента обновлены');
   };
 
-  const handleDeleteClient = (clientId: number) => {
-    const updatedClients = clients.filter(c => c.id !== clientId);
-    setClients(updatedClients);
-    if (userId) {
-      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+  const handleDeleteClient = async (clientId: number) => {
+    try {
+      const res = await fetch(`${CLIENTS_API}?clientId=${clientId}`, {
+        method: 'DELETE',
+        headers: { 'X-User-Id': userId! }
+      });
+      
+      if (!res.ok) throw new Error('Failed to delete client');
+      
+      await loadClients();
+      setSelectedClient(null);
+      toast.success('Клиент удалён');
+    } catch (error) {
+      console.error('Failed to delete client:', error);
+      toast.error('Не удалось удалить клиента');
     }
-    setSelectedClient(null);
-    toast.success('Клиент удалён');
   };
 
-  const handleAddBooking = () => {
+  const handleAddBooking = async () => {
     if (!selectedClient || !selectedDate || !newBooking.time) {
       toast.error('Заполните все поля');
       return;
     }
-    const booking: Booking = {
-      id: Date.now(),
-      date: selectedDate,
-      time: newBooking.time,
-      description: newBooking.description,
-      notificationEnabled: newBooking.notificationEnabled,
-      clientId: selectedClient.id,
-    };
     
-    const updatedClients = clients.map(c => 
-      c.id === selectedClient.id 
-        ? { ...c, bookings: [...c.bookings, booking] }
-        : c
-    );
-    setClients(updatedClients);
-    if (userId) {
-      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
-    }
-    
-    setNewBooking({ time: '', description: '', notificationEnabled: true });
-    setSelectedDate(undefined);
-    setIsBookingDialogOpen(false);
-    
-    if (booking.notificationEnabled) {
-      toast.success('Бронирование создано! Уведомление будет отправлено за 1 день до встречи');
-    } else {
-      toast.success('Бронирование создано');
+    try {
+      const res = await fetch(CLIENTS_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId!
+        },
+        body: JSON.stringify({
+          action: 'add_booking',
+          clientId: selectedClient.id,
+          date: selectedDate.toISOString(),
+          time: newBooking.time,
+          description: newBooking.description,
+          notificationEnabled: newBooking.notificationEnabled
+        })
+      });
+      
+      if (!res.ok) throw new Error('Failed to add booking');
+      
+      await loadClients();
+      setNewBooking({ time: '', description: '', notificationEnabled: true });
+      setSelectedDate(undefined);
+      setIsBookingDialogOpen(false);
+      
+      if (newBooking.notificationEnabled) {
+        toast.success('Бронирование создано! Уведомление будет отправлено за 1 день до встречи');
+      } else {
+        toast.success('Бронирование создано');
+      }
+    } catch (error) {
+      console.error('Failed to add booking:', error);
+      toast.error('Не удалось создать бронирование');
     }
   };
 
-  const handleDeleteBooking = (bookingId: number) => {
-    const updatedClients = clients.map(c => ({
-      ...c,
-      bookings: c.bookings.filter(b => b.id !== bookingId)
-    }));
-    setClients(updatedClients);
-    if (userId) {
-      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+  const handleDeleteBooking = async (bookingId: number) => {
+    try {
+      const res = await fetch(`${CLIENTS_API}?action=delete_booking&bookingId=${bookingId}`, {
+        method: 'DELETE',
+        headers: { 'X-User-Id': userId! }
+      });
+      
+      if (!res.ok) throw new Error('Failed to delete booking');
+      
+      await loadClients();
+      setIsBookingDetailsOpen(false);
+      setSelectedBooking(null);
+      toast.success('Бронирование удалено');
+    } catch (error) {
+      console.error('Failed to delete booking:', error);
+      toast.error('Не удалось удалить бронирование');
     }
-    setIsBookingDetailsOpen(false);
-    setSelectedBooking(null);
-    toast.success('Бронирование удалено');
   };
 
   const handleDateClick = (date: Date | undefined) => {
@@ -243,13 +346,25 @@ const ClientsPage = ({ autoOpenClient }: ClientsPageProps) => {
     setIsDetailDialogOpen(true);
   };
 
-  const handleUpdateClient = (updatedClient: Client) => {
-    const updatedClients = clients.map(c => c.id === updatedClient.id ? updatedClient : c);
-    setClients(updatedClients);
-    if (userId) {
-      localStorage.setItem(`clients_${userId}`, JSON.stringify(updatedClients));
+  const handleUpdateClient = async (updatedClient: Client) => {
+    try {
+      const res = await fetch(CLIENTS_API, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId!
+        },
+        body: JSON.stringify(updatedClient)
+      });
+      
+      if (!res.ok) throw new Error('Failed to update client');
+      
+      await loadClients();
+      toast.success('Данные клиента обновлены');
+    } catch (error) {
+      console.error('Failed to update client:', error);
+      toast.error('Не удалось обновить данные');
     }
-    toast.success('Данные клиента обновлены');
   };
 
   const filteredClients = clients.filter(client => {
