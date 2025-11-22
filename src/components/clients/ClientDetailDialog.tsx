@@ -20,7 +20,7 @@ interface ClientDetailDialogProps {
 const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDetailDialogProps) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [newProject, setNewProject] = useState({ name: '', budget: '', description: '' });
-  const [newPayment, setNewPayment] = useState({ amount: '', method: 'card', description: '' });
+  const [newPayment, setNewPayment] = useState({ amount: '', method: 'card', description: '', projectId: '' });
   const [newComment, setNewComment] = useState('');
 
   if (!client) return null;
@@ -62,6 +62,11 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       return;
     }
 
+    if (!newPayment.projectId) {
+      toast.error('Выберите проект');
+      return;
+    }
+
     const payment: Payment = {
       id: Date.now(),
       amount: parseFloat(newPayment.amount),
@@ -69,6 +74,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       status: 'completed',
       method: newPayment.method as 'card' | 'cash' | 'transfer',
       description: newPayment.description,
+      projectId: parseInt(newPayment.projectId),
     };
 
     const updatedClient = {
@@ -77,7 +83,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     };
 
     onUpdate(updatedClient);
-    setNewPayment({ amount: '', method: 'card', description: '' });
+    setNewPayment({ amount: '', method: 'card', description: '', projectId: '' });
     toast.success('Платёж добавлен');
   };
 
@@ -253,6 +259,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           <TabsContent value="projects" className="space-y-4 mt-4">
             <ClientDetailProjects
               projects={projects}
+              payments={payments}
               newProject={newProject}
               setNewProject={setNewProject}
               handleAddProject={handleAddProject}
@@ -276,6 +283,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           <TabsContent value="payments" className="space-y-4 mt-4">
             <ClientDetailPayments
               payments={payments}
+              projects={projects}
               newPayment={newPayment}
               setNewPayment={setNewPayment}
               handleAddPayment={handleAddPayment}

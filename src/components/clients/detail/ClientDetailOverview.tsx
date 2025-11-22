@@ -27,7 +27,7 @@ const ClientDetailOverview = ({
 }: ClientDetailOverviewProps) => {
   const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
   const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
-  const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0);
+  const totalRemaining = totalBudget - totalPaid;
 
   return (
     <>
@@ -64,10 +64,10 @@ const ClientDetailOverview = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {totalPending.toLocaleString('ru-RU')} ₽
+              {totalRemaining.toLocaleString('ru-RU')} ₽
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Платежей: {payments.filter(p => p.status === 'pending').length}
+              К оплате от общего бюджета
             </p>
           </CardContent>
         </Card>

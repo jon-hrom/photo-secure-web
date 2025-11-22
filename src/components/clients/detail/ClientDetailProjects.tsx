@@ -5,10 +5,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
-import { Project } from '@/components/clients/ClientsTypes';
+import { Project, Payment } from '@/components/clients/ClientsTypes';
 
 interface ClientDetailProjectsProps {
   projects: Project[];
+  payments: Payment[];
   newProject: { name: string; budget: string; description: string };
   setNewProject: (project: any) => void;
   handleAddProject: () => void;
@@ -20,6 +21,7 @@ interface ClientDetailProjectsProps {
 
 const ClientDetailProjects = ({
   projects,
+  payments,
   newProject,
   setNewProject,
   handleAddProject,
@@ -28,6 +30,17 @@ const ClientDetailProjects = ({
   getStatusBadge,
   formatDate,
 }: ClientDetailProjectsProps) => {
+  const getProjectPayments = (projectId: number) => {
+    return payments.filter(p => p.projectId === projectId && p.status === 'completed');
+  };
+
+  const getProjectPaid = (projectId: number) => {
+    return getProjectPayments(projectId).reduce((sum, p) => sum + p.amount, 0);
+  };
+
+  const getProjectRemaining = (projectId: number, budget: number) => {
+    return budget - getProjectPaid(projectId);
+  };
   return (
     <>
       <Card>
@@ -85,9 +98,13 @@ const ClientDetailProjects = ({
                       {project.name}
                       {getStatusBadge(project.status)}
                     </CardTitle>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                      <span>Бюджет: {project.budget.toLocaleString('ru-RU')} ₽</span>
-                      <span>Начало: {formatDate(project.startDate)}</span>
+                    <div className="flex items-center gap-4 mt-2 text-sm">
+                      <span className="text-muted-foreground">Бюджет: <span className="font-medium text-foreground">{project.budget.toLocaleString('ru-RU')} ₽</span></span>
+                      <span className="text-muted-foreground">Оплачено: <span className="font-medium text-green-600">{getProjectPaid(project.id).toLocaleString('ru-RU')} ₽</span></span>
+                      <span className="text-muted-foreground">Осталось: <span className="font-medium text-orange-600">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Начало: {formatDate(project.startDate)}
                     </div>
                   </div>
                   <Button

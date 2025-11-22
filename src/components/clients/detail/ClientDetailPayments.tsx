@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
-import { Payment } from '@/components/clients/ClientsTypes';
+import { Payment, Project } from '@/components/clients/ClientsTypes';
 
 interface ClientDetailPaymentsProps {
   payments: Payment[];
-  newPayment: { amount: string; method: string; description: string };
+  projects: Project[];
+  newPayment: { amount: string; method: string; description: string; projectId: string };
   setNewPayment: (payment: any) => void;
   handleAddPayment: () => void;
   handleDeletePayment: (paymentId: number) => void;
@@ -18,6 +19,7 @@ interface ClientDetailPaymentsProps {
 
 const ClientDetailPayments = ({
   payments,
+  projects,
   newPayment,
   setNewPayment,
   handleAddPayment,
@@ -25,6 +27,9 @@ const ClientDetailPayments = ({
   getPaymentStatusBadge,
   formatDate,
 }: ClientDetailPaymentsProps) => {
+  const getProjectById = (projectId?: number) => {
+    return projects.find(p => p.id === projectId);
+  };
   return (
     <>
       <Card>
@@ -32,7 +37,25 @@ const ClientDetailPayments = ({
           <CardTitle>Добавить платёж</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Проект *</Label>
+              <Select
+                value={newPayment.projectId}
+                onValueChange={(value) => setNewPayment({ ...newPayment, projectId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите проект" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={String(project.id)}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>Сумма (₽) *</Label>
               <Input
@@ -42,6 +65,8 @@ const ClientDetailPayments = ({
                 placeholder="10000"
               />
             </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Способ оплаты</Label>
               <Select
@@ -85,40 +110,49 @@ const ClientDetailPayments = ({
             </p>
           ) : (
             <div className="space-y-2">
-              {payments.slice().reverse().map((payment) => (
-                <div key={payment.id} className="border rounded-lg p-4 flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold text-lg">
-                        {payment.amount.toLocaleString('ru-RU')} ₽
-                      </span>
-                      {getPaymentStatusBadge(payment.status)}
+              {payments.slice().reverse().map((payment) => {
+                const project = getProjectById(payment.projectId);
+                return (
+                  <div key={payment.id} className="border rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-lg">
+                          {payment.amount.toLocaleString('ru-RU')} ₽
+                        </span>
+                        {getPaymentStatusBadge(payment.status)}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        {project && (
+                          <>
+                            <span className="font-medium text-foreground">{project.name}</span>
+                            <span>•</span>
+                          </>
+                        )}
+                        <span>{formatDate(payment.date)}</span>
+                        <span>•</span>
+                        <span>
+                          {payment.method === 'card' && 'Карта'}
+                          {payment.method === 'cash' && 'Наличные'}
+                          {payment.method === 'transfer' && 'Перевод'}
+                        </span>
+                        {payment.description && (
+                          <>
+                            <span>•</span>
+                            <span>{payment.description}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span>{formatDate(payment.date)}</span>
-                      <span>•</span>
-                      <span>
-                        {payment.method === 'card' && 'Карта'}
-                        {payment.method === 'cash' && 'Наличные'}
-                        {payment.method === 'transfer' && 'Перевод'}
-                      </span>
-                      {payment.description && (
-                        <>
-                          <span>•</span>
-                          <span>{payment.description}</span>
-                        </>
-                      )}
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeletePayment(payment.id)}
+                    >
+                      <Icon name="Trash2" size={16} />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeletePayment(payment.id)}
-                  >
-                    <Icon name="Trash2" size={16} />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
