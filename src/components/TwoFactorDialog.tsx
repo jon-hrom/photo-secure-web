@@ -145,19 +145,19 @@ const TwoFactorDialog = ({ open, userId, userEmail, type, onSuccess, onCancel }:
 
   return (
     <Dialog open={open} onOpenChange={onCancel}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="Shield" size={24} />
-            Двухфакторная аутентификация
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Icon name="Shield" size={20} className="sm:w-6 sm:h-6" />
+            <span className="leading-tight">Двухфакторная аутентификация</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Введите 5-значный код, отправленный на <strong>{userEmail}</strong>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="flex gap-2 justify-center" onPaste={handlePaste}>
+          <div className="flex gap-1.5 sm:gap-2 justify-center" onPaste={handlePaste}>
             {code.map((digit, index) => (
               <Input
                 key={index}
@@ -168,7 +168,7 @@ const TwoFactorDialog = ({ open, userId, userEmail, type, onSuccess, onCancel }:
                 value={digit}
                 onChange={(e) => handleInputChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
-                className="w-12 h-14 text-center text-2xl font-bold"
+                className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold"
                 disabled={loading}
               />
             ))}
