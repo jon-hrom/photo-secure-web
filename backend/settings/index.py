@@ -179,7 +179,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             field = body_data.get('field')
             value = body_data.get('value')
             
+            print(f"[SETTINGS] update-contact: userId={user_id}, field={field}, value={value}")
+            
             if not user_id or not field or field not in ('email', 'phone'):
+                print(f"[SETTINGS] Validation error: userId={user_id}, field={field}")
                 cursor.close()
                 conn.close()
                 return {
@@ -193,8 +196,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             try:
+                print(f"[SETTINGS] Updating {field} for user {user_id} in schema {os.environ.get('SCHEMA', 't_p28211681_photo_secure_web')}")
                 cursor.execute(f"""
-                    UPDATE users
+                    UPDATE t_p28211681_photo_secure_web.users
                     SET {field} = %s, updated_at = CURRENT_TIMESTAMP
                     WHERE id = %s
                 """, (value, int(user_id)))

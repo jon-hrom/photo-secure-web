@@ -44,20 +44,23 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   }, [userId]);
 
   const loadSettings = async () => {
+    console.log('[SETTINGS] Loading settings for userId:', userId);
     try {
       const response = await fetch(`${SETTINGS_API}?userId=${userId}`);
       const data = await response.json();
+      
+      console.log('[SETTINGS] Response:', { status: response.status, data });
       
       if (response.ok) {
         setSettings(data);
         setEditedEmail(data.email || '');
         setEditedPhone(data.phone || '');
       } else {
-        console.error('Settings load error:', { status: response.status, data });
+        console.error('[SETTINGS] Load error:', { status: response.status, data });
         toast.error(data.error || 'Ошибка загрузки настроек');
       }
     } catch (error) {
-      console.error('Settings load exception:', error);
+      console.error('[SETTINGS] Load exception:', error);
       toast.error('Ошибка подключения к серверу');
     } finally {
       setIsLoading(false);
@@ -105,6 +108,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   };
 
   const handleUpdateContact = async (field: 'email' | 'phone', value: string) => {
+    console.log('[SETTINGS] Updating contact:', { field, value, userId });
     if (field === 'email') {
       setIsSavingEmail(true);
     } else {
@@ -114,13 +118,17 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     try {
       const finalValue = field === 'phone' ? formatPhoneNumber(value) : value;
       
+      const requestBody = { action: 'update-contact', userId, field, value: finalValue };
+      console.log('[SETTINGS] Request body:', requestBody);
+      
       const response = await fetch(SETTINGS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update-contact', userId, field, value: finalValue }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
+      console.log('[SETTINGS] Update response:', { status: response.status, data });
 
       if (response.ok) {
         setSettings((prev) => ({ ...prev, [field]: finalValue }));
@@ -131,9 +139,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
         }
         toast.success('Контактные данные обновлены');
       } else {
+        console.error('[SETTINGS] Update error:', data);
         toast.error(data.error || 'Ошибка обновления');
       }
     } catch (error) {
+      console.error('[SETTINGS] Update exception:', error);
       toast.error('Ошибка подключения к серверу');
     } finally {
       if (field === 'email') {
