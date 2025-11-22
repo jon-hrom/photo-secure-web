@@ -284,6 +284,7 @@ export const useClientsHandlers = ({
       if (!res.ok) throw new Error('Failed to update client');
       
       await loadClients();
+      setSelectedClient(updatedClient);
       toast.success('Данные клиента обновлены');
     } catch (error) {
       console.error('Failed to update client:', error);

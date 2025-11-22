@@ -197,7 +197,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 user_id
             ))
             client = cur.fetchone()
-            conn.commit()
             
             if not client:
                 return {
@@ -206,6 +205,55 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'error': 'Client not found'}),
                     'isBase64Encoded': False
                 }
+            
+            # Обновляем проекты
+            if 'projects' in body:
+                cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))
+                for project in body.get('projects', []):
+                    cur.execute('''
+                        INSERT INTO client_projects (client_id, name, status, budget, start_date, description)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    ''', (
+                        client_id,
+                        project.get('name'),
+                        project.get('status'),
+                        project.get('budget'),
+                        project.get('startDate'),
+                        project.get('description')
+                    ))
+            
+            # Обновляем платежи
+            if 'payments' in body:
+                cur.execute('DELETE FROM client_payments WHERE client_id = %s', (client_id,))
+                for payment in body.get('payments', []):
+                    cur.execute('''
+                        INSERT INTO client_payments (client_id, amount, payment_date, status, method, description, project_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ''', (
+                        client_id,
+                        payment.get('amount'),
+                        payment.get('date'),
+                        payment.get('status'),
+                        payment.get('method'),
+                        payment.get('description'),
+                        payment.get('projectId')
+                    ))
+            
+            # Обновляем комментарии
+            if 'comments' in body:
+                cur.execute('DELETE FROM client_comments WHERE client_id = %s', (client_id,))
+                for comment in body.get('comments', []):
+                    cur.execute('''
+                        INSERT INTO client_comments (client_id, author, text, comment_date)
+                        VALUES (%s, %s, %s, %s)
+                    ''', (
+                        client_id,
+                        comment.get('author'),
+                        comment.get('text'),
+                        comment.get('date')
+                    ))
+            
+            conn.commit()
             
             return {
                 'statusCode': 200,

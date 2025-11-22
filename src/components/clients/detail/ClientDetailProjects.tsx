@@ -78,7 +78,7 @@ const ClientDetailProjects = ({
           </div>
           <Button onClick={handleAddProject}>
             <Icon name="Plus" size={16} className="mr-2" />
-            Создать проект
+            Создать услугу
           </Button>
         </CardContent>
       </Card>

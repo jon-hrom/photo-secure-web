@@ -53,7 +53,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
     onUpdate(updatedClient);
     setNewProject({ name: '', budget: '', description: '' });
-    toast.success('Проект добавлен');
+    toast.success('Услуга добавлена');
   };
 
   const handleAddPayment = () => {
