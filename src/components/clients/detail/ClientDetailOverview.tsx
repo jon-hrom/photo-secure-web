@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import { Project, Payment, Comment } from '@/components/clients/ClientsTypes';
+import { useEffect, useState } from 'react';
 
 interface ClientDetailOverviewProps {
   projects: Project[];
@@ -29,6 +30,12 @@ const ClientDetailOverview = ({
   const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
   const totalRemaining = totalBudget - totalPaid;
 
+  const [animateKey, setAnimateKey] = useState(0);
+
+  useEffect(() => {
+    setAnimateKey(prev => prev + 1);
+  }, [totalPaid, totalRemaining]);
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -37,7 +44,7 @@ const ClientDetailOverview = ({
             <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Общий бюджет</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">{totalBudget.toLocaleString('ru-RU')} ₽</div>
+            <div key={`budget-${animateKey}`} className="text-xl sm:text-2xl font-bold animate-in fade-in duration-300">{totalBudget.toLocaleString('ru-RU')} ₽</div>
             <p className="text-xs text-muted-foreground mt-1">
               Проектов: {projects.length}
             </p>
@@ -49,7 +56,7 @@ const ClientDetailOverview = ({
             <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Оплачено с учетом аванса</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-green-600">
+            <div key={`paid-${animateKey}`} className="text-xl sm:text-2xl font-bold text-green-600 animate-in fade-in zoom-in-50 duration-500">
               {totalPaid.toLocaleString('ru-RU')} ₽
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -63,7 +70,7 @@ const ClientDetailOverview = ({
             <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Остаток суммы за все услуги</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-orange-600">
+            <div key={`remaining-${animateKey}`} className="text-xl sm:text-2xl font-bold text-orange-600 animate-in fade-in zoom-in-50 duration-500">
               {totalRemaining.toLocaleString('ru-RU')} ₽
             </div>
             <p className="text-xs text-muted-foreground mt-1">

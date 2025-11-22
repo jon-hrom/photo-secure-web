@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { Project, Payment } from '@/components/clients/ClientsTypes';
+import { useEffect, useState } from 'react';
 
 interface ClientDetailProjectsProps {
   projects: Project[];
@@ -30,6 +31,8 @@ const ClientDetailProjects = ({
   getStatusBadge,
   formatDate,
 }: ClientDetailProjectsProps) => {
+  const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
+
   const getProjectPayments = (projectId: number) => {
     return payments.filter(p => p.projectId === projectId && p.status === 'completed');
   };
@@ -41,6 +44,14 @@ const ClientDetailProjects = ({
   const getProjectRemaining = (projectId: number, budget: number) => {
     return budget - getProjectPaid(projectId);
   };
+
+  useEffect(() => {
+    const newKeys: Record<number, number> = {};
+    projects.forEach(project => {
+      newKeys[project.id] = (animateKeys[project.id] || 0) + 1;
+    });
+    setAnimateKeys(newKeys);
+  }, [payments]);
   return (
     <>
       <Card>
@@ -103,8 +114,8 @@ const ClientDetailProjects = ({
                     </CardTitle>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm">
                       <span className="text-muted-foreground">Бюджет: <span className="font-medium text-foreground">{project.budget.toLocaleString('ru-RU')} ₽</span></span>
-                      <span className="text-muted-foreground">Оплачено: <span className="font-medium text-green-600">{getProjectPaid(project.id).toLocaleString('ru-RU')} ₽</span></span>
-                      <span className="text-muted-foreground">Осталось: <span className="font-medium text-orange-600">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
+                      <span className="text-muted-foreground">Оплачено: <span key={`paid-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-green-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectPaid(project.id).toLocaleString('ru-RU')} ₽</span></span>
+                      <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-orange-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Начало: {formatDate(project.startDate)}

@@ -115,7 +115,7 @@ const ClientDetailPayments = ({
               {payments.slice().reverse().map((payment) => {
                 const project = getProjectById(payment.projectId);
                 return (
-                  <div key={payment.id} className="border rounded-lg p-3 sm:p-4 flex items-start sm:items-center justify-between gap-2">
+                  <div key={payment.id} className="border rounded-lg p-3 sm:p-4 flex items-start sm:items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-bold text-base sm:text-lg">
