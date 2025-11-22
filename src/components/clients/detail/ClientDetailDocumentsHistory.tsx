@@ -123,25 +123,31 @@ const ClientDetailDocumentsHistory = ({
     if (!confirm(`Удалить документ "${documentName}"?`)) return;
 
     try {
-      const response = await fetch(
-        `${funcUrls['clients']}?action=delete_document&documentId=${documentId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'X-User-Id': localStorage.getItem('userId') || ''
-          }
+      const userId = localStorage.getItem('userId');
+      console.log('[Delete] Deleting document:', { documentId, documentName, userId });
+      const url = `${funcUrls['clients']}?action=delete_document&documentId=${documentId}`;
+      console.log('[Delete] URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'X-User-Id': userId || ''
         }
-      );
+      });
+
+      console.log('[Delete] Response status:', response.status);
 
       if (!response.ok) {
-        throw new Error('Failed to delete document');
+        const errorText = await response.text();
+        console.error('[Delete] Error response:', errorText);
+        throw new Error(`Failed to delete document: ${response.status}`);
       }
 
       onDocumentDeleted(documentId);
       setPreviewDocument(null);
       toast.success('Документ удалён');
     } catch (error) {
-      console.error('Delete error:', error);
+      console.error('[Delete] Delete error:', error);
       toast.error('Ошибка удаления документа');
     }
   };

@@ -45,7 +45,12 @@ export const useClientsData = (userId: string | null) => {
         })),
         projects: client.projects || [],
         payments: client.payments || [],
-        documents: client.documents || [],
+        documents: (client.documents || []).map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          fileUrl: d.file_url,
+          uploadDate: d.upload_date
+        })),
         comments: client.comments || [],
         messages: client.messages || []
       }));

@@ -20,10 +20,8 @@ export interface Project {
 export interface Document {
   id: number;
   name: string;
-  type: 'contract' | 'specification' | 'invoice' | 'other';
+  fileUrl: string;
   uploadDate: string;
-  url: string;
-  notes?: string;
 }
 
 export interface Payment {
