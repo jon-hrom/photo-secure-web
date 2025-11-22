@@ -20,6 +20,8 @@ interface SettingsPageProps {
   userId: number;
 }
 
+const SETTINGS_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
+
 const SettingsPage = ({ userId }: SettingsPageProps) => {
   const [settings, setSettings] = useState<UserSettings>({
     email: '',
@@ -43,7 +45,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
+      const response = await fetch(`${SETTINGS_API}?userId=${userId}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -69,7 +71,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+      const response = await fetch(SETTINGS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'toggle-2fa', userId, type, enabled }),
@@ -112,7 +114,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     try {
       const finalValue = field === 'phone' ? formatPhoneNumber(value) : value;
       
-      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+      const response = await fetch(SETTINGS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update-contact', userId, field, value: finalValue }),

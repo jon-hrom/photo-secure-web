@@ -187,12 +187,43 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     );
     
     if (existingUserResult.rows.length > 0) {
-      // User exists in users table, return their id
-      return existingUserResult.rows[0].id;
+      // User exists in users table, create vk_users record and return id
+      const userId = existingUserResult.rows[0].id;
+      
+      await client.query(
+        `INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login)
+         VALUES (${escapeSQL(vkUserId)}, ${userId}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${isVerified}, ${escapeSQL(email)}, ${escapeSQL(phone)}, TRUE, CURRENT_TIMESTAMP)
+         ON CONFLICT (vk_sub) DO UPDATE SET
+           full_name = ${escapeSQL(fullName)},
+           avatar_url = ${escapeSQL(avatarUrl)},
+           is_verified = ${isVerified},
+           email = ${escapeSQL(email)},
+           phone_number = ${escapeSQL(phone)},
+           last_login = CURRENT_TIMESTAMP`
+      );
+      
+      return userId;
     }
     
-    // User doesn't exist - return error instead of creating
-    throw new Error('User not found. Please contact administrator to create VK account.');
+    // User doesn't exist - create new user and vk_users record
+    console.log('[VK_AUTH] Creating new user:', { vkUserId, fullName, email, phone });
+    
+    const createUserResult = await client.query(
+      `INSERT INTO users (vk_id, email, phone, is_active, source, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
+       VALUES (${escapeSQL(vkUserId)}, ${escapeSQL(email)}, ${escapeSQL(phone)}, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)})
+       RETURNING id`
+    );
+    
+    const newUserId = createUserResult.rows[0].id;
+    
+    await client.query(
+      `INSERT INTO vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login, ip_address, user_agent)
+       VALUES (${escapeSQL(vkUserId)}, ${newUserId}, ${escapeSQL(fullName)}, ${escapeSQL(avatarUrl)}, ${isVerified}, ${escapeSQL(email)}, ${escapeSQL(phone)}, TRUE, CURRENT_TIMESTAMP, ${escapeSQL(ipAddress)}, ${escapeSQL(userAgent)})`
+    );
+    
+    console.log('[VK_AUTH] New user created:', { userId: newUserId, vkUserId, fullName });
+    
+    return newUserId;
     
   } finally {
     await client.end();

@@ -42,8 +42,67 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cursor = conn.cursor()
     
     if method == 'GET':
-        # Check if specific key is requested
+        # Check if user settings are requested
         query_params = event.get('queryStringParameters') or {}
+        user_id = query_params.get('userId')
+        
+        if user_id:
+            # Get user settings
+            try:
+                cursor.execute("""
+                    SELECT email, phone, two_factor_email, email_verified_at, source
+                    FROM users
+                    WHERE id = %s
+                """, (int(user_id),))
+                row = cursor.fetchone()
+                
+                if not row:
+                    cursor.close()
+                    conn.close()
+                    return {
+                        'statusCode': 404,
+                        'headers': {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        'body': json.dumps({'error': 'User not found'}),
+                        'isBase64Encoded': False
+                    }
+                
+                user_settings = {
+                    'email': row[0] or '',
+                    'phone': row[1] or '',
+                    'two_factor_email': row[2] or False,
+                    'email_verified_at': row[3].isoformat() if row[3] else None,
+                    'source': row[4] or 'email'
+                }
+                
+                cursor.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps(user_settings),
+                    'isBase64Encoded': False
+                }
+            except Exception as e:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 500,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'error': f'Error loading user settings: {str(e)}'}),
+                    'isBase64Encoded': False
+                }
+        
+        # Check if specific key is requested
         requested_key = query_params.get('key')
         
         if requested_key:
@@ -110,8 +169,116 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     if method == 'POST':
-        # Update a setting
+        # Update a setting or user settings
         body_data = json.loads(event.get('body', '{}'))
+        action = body_data.get('action')
+        
+        # Handle user settings actions
+        if action == 'update-contact':
+            user_id = body_data.get('userId')
+            field = body_data.get('field')
+            value = body_data.get('value')
+            
+            if not user_id or not field or field not in ('email', 'phone'):
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'error': 'userId, field, and value are required'}),
+                    'isBase64Encoded': False
+                }
+            
+            try:
+                cursor.execute(f"""
+                    UPDATE users
+                    SET {field} = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (value, int(user_id)))
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'success': True, 'field': field, 'value': value}),
+                    'isBase64Encoded': False
+                }
+            except Exception as e:
+                conn.rollback()
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 500,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'error': f'Failed to update contact: {str(e)}'}),
+                    'isBase64Encoded': False
+                }
+        
+        if action == 'toggle-2fa':
+            user_id = body_data.get('userId')
+            fa_type = body_data.get('type')
+            enabled = body_data.get('enabled', False)
+            
+            if not user_id or not fa_type:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'error': 'userId and type are required'}),
+                    'isBase64Encoded': False
+                }
+            
+            try:
+                cursor.execute(f"""
+                    UPDATE users
+                    SET two_factor_{fa_type} = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (enabled, int(user_id)))
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            except Exception as e:
+                conn.rollback()
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 500,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'error': f'Failed to toggle 2FA: {str(e)}'}),
+                    'isBase64Encoded': False
+                }
+        
+        # Update a global setting
         setting_key = body_data.get('key')
         setting_value_raw = body_data.get('value')
         
