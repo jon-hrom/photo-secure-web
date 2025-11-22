@@ -210,7 +210,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if 'projects' in body:
                 # Получаем текущие ID проектов
                 cur.execute('SELECT id FROM client_projects WHERE client_id = %s', (client_id,))
-                existing_ids = {row[0] for row in cur.fetchall()}
+                existing_ids = {row['id'] for row in cur.fetchall()}
                 incoming_ids = {p.get('id') for p in body.get('projects', []) if p.get('id')}
                 
                 # Удаляем проекты, которых нет в новом списке
@@ -243,7 +243,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if 'payments' in body:
                 # Получаем текущие ID платежей
                 cur.execute('SELECT id FROM client_payments WHERE client_id = %s', (client_id,))
-                existing_ids = {row[0] for row in cur.fetchall()}
+                existing_ids = {row['id'] for row in cur.fetchall()}
                 incoming_ids = {p.get('id') for p in body.get('payments', []) if p.get('id')}
                 
                 # Удаляем платежи, которых нет в новом списке
@@ -278,7 +278,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if 'comments' in body:
                 # Получаем текущие ID комментариев
                 cur.execute('SELECT id FROM client_comments WHERE client_id = %s', (client_id,))
-                existing_ids = {row[0] for row in cur.fetchall()}
+                existing_ids = {row['id'] for row in cur.fetchall()}
                 incoming_ids = {c.get('id') for c in body.get('comments', []) if c.get('id')}
                 
                 # Удаляем комментарии, которых нет в новом списке
