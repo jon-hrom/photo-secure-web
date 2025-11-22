@@ -44,7 +44,9 @@ const ClientDetailOverview = ({
             <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Общий бюджет</CardTitle>
           </CardHeader>
           <CardContent>
-            <div key={`budget-${animateKey}`} className="text-xl sm:text-2xl font-bold animate-in fade-in duration-300">{totalBudget.toLocaleString('ru-RU')} ₽</div>
+            <div className="text-xl sm:text-2xl font-bold">
+              <span key={`budget-${animateKey}`} className="inline-block animate-in fade-in duration-300">{totalBudget.toLocaleString('ru-RU')} ₽</span>
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
               Проектов: {projects.length}
             </p>
@@ -56,8 +58,8 @@ const ClientDetailOverview = ({
             <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Оплачено с учетом аванса</CardTitle>
           </CardHeader>
           <CardContent>
-            <div key={`paid-${animateKey}`} className="text-xl sm:text-2xl font-bold text-green-600 animate-in fade-in zoom-in-50 duration-500">
-              {totalPaid.toLocaleString('ru-RU')} ₽
+            <div className="text-xl sm:text-2xl font-bold text-green-600">
+              <span key={`paid-${animateKey}`} className="inline-block animate-in fade-in zoom-in-50 duration-500">{totalPaid.toLocaleString('ru-RU')} ₽</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Платежей: {payments.filter(p => p.status === 'completed').length}
@@ -70,8 +72,8 @@ const ClientDetailOverview = ({
             <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Остаток суммы за все услуги</CardTitle>
           </CardHeader>
           <CardContent>
-            <div key={`remaining-${animateKey}`} className="text-xl sm:text-2xl font-bold text-orange-600 animate-in fade-in zoom-in-50 duration-500">
-              {totalRemaining.toLocaleString('ru-RU')} ₽
+            <div className="text-xl sm:text-2xl font-bold text-orange-600">
+              <span key={`remaining-${animateKey}`} className="inline-block animate-in fade-in zoom-in-50 duration-500">{totalRemaining.toLocaleString('ru-RU')} ₽</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               К оплате от общего бюджета
