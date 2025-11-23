@@ -73,6 +73,16 @@ const UserImpersonation = ({
   const filteredAndSortedUsers = useMemo(() => {
     let result = users.filter(user => user && user.user_id != null);
     
+    // Remove duplicates by user_id (keep the most recent entry)
+    const uniqueUsersMap = new Map<number, User>();
+    result.forEach(user => {
+      const existing = uniqueUsersMap.get(user.user_id);
+      if (!existing || new Date(user.last_login || user.created_at).getTime() > new Date(existing.last_login || existing.created_at).getTime()) {
+        uniqueUsersMap.set(user.user_id, user);
+      }
+    });
+    result = Array.from(uniqueUsersMap.values());
+    
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -187,50 +197,95 @@ const UserImpersonation = ({
                       Пользователи не найдены
                     </div>
                   ) : (
-                    filteredAndSortedUsers.map(user => (
-                      <SelectItem key={user.user_id} value={user.user_id.toString()}>
-                        <div className="flex items-center gap-3 w-full min-w-0">
-                          {user.avatar_url ? (
-                            <img 
-                              src={user.avatar_url} 
-                              alt={user.full_name || user.email || 'User'} 
-                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center flex-shrink-0">
-                              <span className="text-white text-xs font-semibold">
-                                {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                          )}
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium truncate">
-                                {user.full_name || user.email || 'Без email'}
-                              </span>
-                              {user.source === 'vk' && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">VK</Badge>
-                              )}
-                              {user.is_blocked && (
-                                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Заблокирован</Badge>
-                              )}
-                            </div>
-                            {user.full_name && user.email && (
-                              <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                    filteredAndSortedUsers.map(user => {
+                      const isSelected = selectedUserId === user.user_id.toString();
+                      return (
+                        <SelectItem 
+                          key={user.user_id} 
+                          value={user.user_id.toString()}
+                          className={isSelected ? 'bg-purple-100 dark:bg-purple-900/30 border-l-4 border-purple-500' : ''}
+                        >
+                          <div className="flex items-center gap-3 w-full min-w-0">
+                            {user.avatar_url ? (
+                              <img 
+                                src={user.avatar_url} 
+                                alt={user.full_name || user.email || 'User'} 
+                                className="w-8 h-8 rounded-full object-cover flex-shrink-0 ring-2 ring-purple-200"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center flex-shrink-0 ring-2 ring-purple-200">
+                                <span className="text-white text-xs font-semibold">
+                                  {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
+                                </span>
+                              </div>
                             )}
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`font-medium truncate ${isSelected ? 'text-purple-700 dark:text-purple-300' : ''}`}>
+                                  {user.full_name || user.email || 'Без email'}
+                                </span>
+                                {user.source === 'vk' && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">VK</Badge>
+                                )}
+                                {user.is_blocked && (
+                                  <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">
+                                    <Icon name="Ban" size={10} className="mr-1" />
+                                    Заблокирован
+                                  </Badge>
+                                )}
+                                {isSelected && (
+                                  <Icon name="Check" size={14} className="text-purple-600 flex-shrink-0" />
+                                )}
+                              </div>
+                              {user.full_name && user.email && (
+                                <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                              )}
+                            </div>
+                            
+                            <span className="text-xs text-muted-foreground flex-shrink-0 font-mono">
+                              ID: {user.user_id}
+                            </span>
                           </div>
-                          
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
-                            ID: {user.user_id}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))
+                        </SelectItem>
+                      );
+                    })
                   )}
                 </SelectContent>
               </Select>
             </div>
+
+            {selectedUserId && (() => {
+              const selectedUser = filteredAndSortedUsers.find(u => u.user_id.toString() === selectedUserId);
+              if (!selectedUser) return null;
+              return (
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Icon name="CheckCircle" size={16} className="text-purple-600 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-purple-900">Выбран пользователь:</span>
+                  </div>
+                  <div className="flex items-center gap-3 pl-6">
+                    {selectedUser.avatar_url ? (
+                      <img 
+                        src={selectedUser.avatar_url} 
+                        alt={selectedUser.full_name || selectedUser.email || 'User'} 
+                        className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-300"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center ring-2 ring-purple-300">
+                        <span className="text-white text-sm font-bold">
+                          {(selectedUser.full_name || selectedUser.email || 'U').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <div className="font-semibold text-purple-900">{selectedUser.full_name || selectedUser.email || 'Без email'}</div>
+                      <div className="text-xs text-purple-700 font-mono">ID: {selectedUser.user_id} • {selectedUser.email || 'Нет email'}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
               <div className="flex gap-2">
