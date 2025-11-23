@@ -34,42 +34,16 @@ const AppNavigation = ({
     <nav className="bg-white/90 backdrop-blur-xl border-b border-border/50 sticky top-0 z-50 shadow-lg animate-fade-in">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3 group cursor-pointer">
-            <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-              <Icon name="Camera" className="text-white" size={28} />
-            </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-purple-500 to-secondary bg-clip-text text-transparent animate-glow">
-              Foto-Mix
-            </h1>
-          </div>
-          
           <div className="flex items-center space-x-3">
-            {userAvatar && (
-              <div className="flex items-center space-x-3 mr-2">
-                <div className="relative">
-                  <img 
-                    src={userAvatar} 
-                    alt={userName}
-                    className="w-10 h-10 rounded-full border-2 border-primary shadow-sm"
-                  />
-                  {isVerified && (
-                    <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
-                      <Icon name="Check" size={12} className="text-white" />
-                    </div>
-                  )}
-                </div>
-                <div className="hidden md:block">
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm font-medium text-gray-700">
-                      {userName}
-                    </span>
-                    {isVerified && (
-                      <Icon name="BadgeCheck" size={16} className="text-blue-500" />
-                    )}
-                  </div>
-                </div>
+            <div className="flex items-center space-x-3 group cursor-pointer">
+              <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <Icon name="Camera" className="text-white" size={28} />
               </div>
-            )}
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-purple-500 to-secondary bg-clip-text text-transparent animate-glow">
+                Foto-Mix
+              </h1>
+            </div>
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -107,7 +81,36 @@ const AppNavigation = ({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            {userAvatar && (
+              <div className="flex items-center space-x-3 mr-2">
+                <div className="relative">
+                  <img 
+                    src={userAvatar} 
+                    alt={userName}
+                    className="w-10 h-10 rounded-full border-2 border-primary shadow-sm"
+                  />
+                  {isVerified && (
+                    <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
+                      <Icon name="Check" size={12} className="text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      {userName}
+                    </span>
+                    {isVerified && (
+                      <Icon name="BadgeCheck" size={16} className="text-blue-500" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <Button
               variant="outline"
               onClick={() => setCurrentPage('settings')}
