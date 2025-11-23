@@ -235,24 +235,22 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     if (!dateString) return 'Дата не указана';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Некорректная дата';
-    return date.toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
   };
 
   const formatDateTime = (dateString: string) => {
     if (!dateString) return 'Дата не указана';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Некорректная дата';
-    return date.toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}.${month}.${year} ${hours}:${minutes}`;
   };
 
 
