@@ -1,52 +1,52 @@
 // SMS Service for phone verification via backend
-// Note: SMS sending happens through backend to keep API keys secure
+const SETTINGS_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
 
 interface SendSMSResponse {
   ok: boolean;
   error?: string;
   id?: string;
   err_code?: number;
+  credits?: number;
 }
 
 /**
  * Send SMS code via backend settings function
- * Backend will use SMSRU_API_KEY from environment
+ * Backend will use SMS_SU_API_KEY from environment
  */
 export async function sendSMSCode(phone: string, code: string): Promise<SendSMSResponse> {
   try {
     const text = `Foto-Mix: Ваш код подтверждения ${code}. Никому не сообщайте этот код.`;
     
-    // Note: For now, we'll use a placeholder
-    // You need to add SMS sending to backend/settings or create a new function
-    console.log('[SMS] Would send SMS:', { phone, code });
+    console.log('[SMS] Sending SMS to:', phone);
     
-    // TODO: Implement actual backend call when backend function is ready
-    // For now, simulate success for testing
-    return {
-      ok: true,
-      id: 'test-' + Date.now()
-    };
-    
-    /* Uncomment when backend is ready:
-    const response = await fetch('YOUR_BACKEND_SMS_ENDPOINT', {
+    const response = await fetch(SETTINGS_API, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ phone, text })
+      body: JSON.stringify({ 
+        action: 'send-sms',
+        phone, 
+        text,
+        priority: 2
+      })
     });
     
-    if (!response.ok) {
+    const result = await response.json();
+    
+    if (!result.ok) {
+      console.error('[SMS] Error:', result.error);
       return {
         ok: false,
-        error: 'Ошибка отправки SMS'
+        error: result.error || 'Ошибка отправки SMS',
+        err_code: result.err_code
       };
     }
     
-    return await response.json();
-    */
+    console.log('[SMS] Success, ID:', result.id);
+    return result;
   } catch (error) {
-    console.error('[SMS] Error:', error);
+    console.error('[SMS] Exception:', error);
     return {
       ok: false,
       error: 'Не удалось отправить SMS'

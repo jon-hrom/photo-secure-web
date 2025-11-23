@@ -1,12 +1,87 @@
 """
-Business: Manage global application settings (registration, maintenance mode, guest access)
+Business: Manage global application settings (registration, maintenance mode, guest access) and send SMS
 Args: event with httpMethod, body, queryStringParameters; context with request_id
 Returns: HTTP response with settings data or update confirmation
 """
 import json
 import os
 import psycopg2
+import re
+import urllib.request
+import urllib.parse
+import urllib.error
 from typing import Dict, Any
+
+SMS_SU_ENDPOINT = 'https://ssl.bs00.ru/'
+SMS_SENDER_NAME = 'Foto-Mix'
+DEFAULT_PRIORITY = 2
+
+def normalize_phone(phone: str) -> str:
+    digits = re.sub(r'\D+', '', phone or '')
+    if len(digits) == 11 and digits[0] in ('8', '7'):
+        digits = '7' + digits[1:]
+    elif len(digits) == 10:
+        digits = '7' + digits
+    return digits
+
+def send_sms(phone: str, text: str, priority: int = DEFAULT_PRIORITY) -> Dict[str, Any]:
+    api_key = os.environ.get('SMS_SU_API_KEY')
+    if not api_key:
+        return {'ok': False, 'error': 'SMS API key not configured', 'err_code': 699}
+    
+    phone = normalize_phone(phone)
+    
+    if not re.match(r'^7\d{10}$', phone):
+        return {'ok': False, 'error': 'Неверный формат номера. Ожидается 7XXXXXXXXXX (РФ).', 'err_code': 617}
+    
+    payload = {
+        'method': 'push_msg',
+        'key': api_key,
+        'text': text,
+        'phone': phone,
+        'sender_name': SMS_SENDER_NAME,
+        'priority': priority,
+        'format': 'json',
+    }
+    
+    data = urllib.parse.urlencode(payload).encode('utf-8')
+    
+    try:
+        req = urllib.request.Request(
+            SMS_SU_ENDPOINT,
+            data=data,
+            headers={
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'User-Agent': 'foto-mix.ru-integration/1.0'
+            }
+        )
+        
+        with urllib.request.urlopen(req, timeout=20) as response:
+            raw = response.read().decode('utf-8')
+            result = json.loads(raw)
+            
+            if not isinstance(result, dict) or 'response' not in result:
+                return {'ok': False, 'error': 'Unexpected response format', 'raw': raw}
+            
+            msg = result['response'].get('msg', {})
+            data_resp = result['response'].get('data')
+            err_code = int(msg.get('err_code', 99))
+            
+            if err_code != 0:
+                return {
+                    'ok': False,
+                    'error': msg.get('text', 'Ошибка отправки SMS'),
+                    'err_code': err_code,
+                    'raw': raw
+                }
+            
+            return {
+                'ok': True,
+                'id': data_resp.get('id') if data_resp else None,
+                'credits': data_resp.get('credits') if data_resp else None,
+            }
+    except Exception as e:
+        return {'ok': False, 'error': f'SMS error: {str(e)}', 'err_code': 699}
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
@@ -205,6 +280,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Update a setting or user settings
         body_data = json.loads(event.get('body', '{}'))
         action = body_data.get('action')
+        
+        # Handle SMS sending
+        if action == 'send-sms':
+            phone = body_data.get('phone', '')
+            text = body_data.get('text', '')
+            priority = body_data.get('priority', DEFAULT_PRIORITY)
+            
+            if not phone or not text:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Укажите phone и text'}),
+                    'isBase64Encoded': False
+                }
+            
+            result = send_sms(phone, text, priority)
+            cursor.close()
+            conn.close()
+            
+            status_code = 200 if result.get('ok') else 400
+            return {
+                'statusCode': status_code,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps(result, ensure_ascii=False),
+                'isBase64Encoded': False
+            }
         
         # Handle user settings actions
         if action == 'update-contact':
