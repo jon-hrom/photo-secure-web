@@ -225,30 +225,30 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
             <div className="flex items-center gap-2 flex-wrap">
               <button 
                 onClick={onOpenAddClient}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="UserPlus" size={20} />
+                <Icon name="UserPlus" size={20} className="transition-transform duration-300 group-hover:rotate-12" />
                 <span className="text-sm font-medium hidden sm:inline">Добавить клиента</span>
               </button>
               <button 
                 onClick={() => onOpenClientBooking?.('')}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="Calendar" size={20} />
+                <Icon name="Calendar" size={20} className="transition-transform duration-300 group-hover:rotate-12" />
                 <span className="text-sm font-medium hidden sm:inline">Новая запись</span>
               </button>
               <button 
                 onClick={onNavigateToPhotobook}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="BookOpen" size={20} />
+                <Icon name="BookOpen" size={20} className="transition-transform duration-300 group-hover:rotate-12" />
                 <span className="text-sm font-medium hidden sm:inline">Создать фотокнигу</span>
               </button>
               <button 
                 onClick={onNavigateToClients}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="FileText" size={20} />
+                <Icon name="FileText" size={20} className="transition-transform duration-300 group-hover:rotate-12" />
                 <span className="text-sm font-medium hidden sm:inline">Отчёты</span>
               </button>
             </div>
