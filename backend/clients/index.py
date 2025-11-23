@@ -476,9 +476,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             else:
                                 payment_date = datetime.strptime(payment_date_str, '%Y-%m-%d')
                         except (ValueError, AttributeError):
-                            payment_date = None
+                            payment_date = datetime.now()
                     else:
-                        payment_date = None
+                        payment_date = datetime.now()
                     
                     cur.execute('''
                         INSERT INTO client_payments (id, client_id, amount, payment_date, status, method, description, project_id)

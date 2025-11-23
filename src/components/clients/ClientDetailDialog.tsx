@@ -95,10 +95,12 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       return;
     }
 
+    const paymentDate = newPayment.date ? new Date(newPayment.date) : new Date();
+    
     const payment: Payment = {
       id: Date.now(),
       amount: parseFloat(newPayment.amount),
-      date: new Date(newPayment.date).toISOString(),
+      date: paymentDate.toISOString(),
       status: 'completed',
       method: newPayment.method as 'card' | 'cash' | 'transfer',
       description: newPayment.description,
