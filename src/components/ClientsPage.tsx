@@ -62,9 +62,13 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
     
     if (dialogsState.statusFilter === 'all') return matchesSearch;
     
+    // Проверяем есть ли активные проекты (не в статусе "completed")
+    const hasActiveProjects = client.projects.some(p => p.status !== 'completed');
     const hasActiveBookings = client.bookings.some(b => b.date >= new Date());
-    if (dialogsState.statusFilter === 'active') return matchesSearch && hasActiveBookings;
-    if (dialogsState.statusFilter === 'inactive') return matchesSearch && !hasActiveBookings;
+    const isActive = hasActiveProjects || hasActiveBookings;
+    
+    if (dialogsState.statusFilter === 'active') return matchesSearch && isActive;
+    if (dialogsState.statusFilter === 'inactive') return matchesSearch && !isActive;
     
     return matchesSearch;
   });
