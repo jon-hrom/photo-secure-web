@@ -115,46 +115,51 @@ const ClientDetailPayments = ({
               {payments.slice().reverse().map((payment) => {
                 const project = getProjectById(payment.projectId);
                 return (
-                  <div key={payment.id} className="border rounded-lg p-3 sm:p-4 flex items-start sm:items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <div key={payment.id} className="border rounded-lg p-3 sm:p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-start sm:items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-base sm:text-lg">
                           {payment.amount.toLocaleString('ru-RU')} ₽
                         </span>
                         {getPaymentStatusBadge(payment.status)}
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs sm:text-sm text-muted-foreground">
-                        {project && (
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground truncate">{project.name}</span>
-                            <span className="hidden sm:inline">•</span>
-                          </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeletePayment(payment.id)}
+                        className="shrink-0"
+                      >
+                        <Icon name="Trash2" size={16} />
+                      </Button>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>{formatDate(payment.date)}</span>
+                        <span>•</span>
+                        <span>
+                          {payment.method === 'card' && 'Карта'}
+                          {payment.method === 'cash' && 'Наличные'}
+                          {payment.method === 'transfer' && 'Перевод'}
+                        </span>
+                        {payment.description && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate">{payment.description}</span>
+                          </>
                         )}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span>{formatDate(payment.date)}</span>
-                          <span>•</span>
-                          <span>
-                            {payment.method === 'card' && 'Карта'}
-                            {payment.method === 'cash' && 'Наличные'}
-                            {payment.method === 'transfer' && 'Перевод'}
-                          </span>
-                          {payment.description && (
-                            <>
-                              <span>•</span>
-                              <span className="truncate">{payment.description}</span>
-                            </>
-                          )}
-                        </div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeletePayment(payment.id)}
-                      className="shrink-0"
-                    >
-                      <Icon name="Trash2" size={16} />
-                    </Button>
+                    {!payment.projectId && projects.length > 0 && (
+                      <div className="mt-2 pt-2 border-t">
+                        <p className="text-xs text-orange-600 mb-1">⚠️ Платёж не привязан к проекту</p>
+                      </div>
+                    )}
+                    {project && (
+                      <div className="mt-2 pt-2 border-t">
+                        <span className="text-xs text-muted-foreground">Проект: </span>
+                        <span className="text-xs font-medium text-foreground">{project.name}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
