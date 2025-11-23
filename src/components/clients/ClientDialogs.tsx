@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { toast } from 'sonner';
+import { formatPhoneNumber, validatePhone } from '@/utils/phoneFormat';
 
 interface ClientDialogsProps {
   isAddDialogOpen: boolean;
@@ -39,31 +40,6 @@ const ClientDialogs = ({
   handleUpdateClient,
   emailVerified,
 }: ClientDialogsProps) => {
-  
-  const formatPhoneNumber = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    
-    if (cleaned.length === 0) return '';
-    
-    let formatted = '+7';
-    if (cleaned.length > 1) {
-      const digits = cleaned.startsWith('7') || cleaned.startsWith('8') ? cleaned.slice(1) : cleaned;
-      
-      if (digits.length > 0) formatted += ` (${digits.slice(0, 3)}`;
-      if (digits.length >= 4) formatted += `) ${digits.slice(3, 6)}`;
-      if (digits.length >= 7) formatted += `-${digits.slice(6, 8)}`;
-      if (digits.length >= 9) formatted += `-${digits.slice(8, 10)}`;
-    }
-    
-    return formatted;
-  };
-  
-  const validatePhone = (phone: string) => {
-    const cleaned = phone.replace(/\D/g, '');
-    const digits = cleaned.startsWith('7') || cleaned.startsWith('8') ? cleaned.slice(1) : cleaned;
-    return digits.length === 10;
-  };
-  
   const handleAddClientWithCheck = () => {
     if (!validatePhone(newClient.phone)) {
       toast.error('Телефон должен содержать 11 цифр (включая +7)');

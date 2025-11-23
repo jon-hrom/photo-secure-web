@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
+import { formatPhoneNumber } from '@/utils/phoneFormat';
 
 interface User {
   id: number;
@@ -49,7 +50,7 @@ const AdminUsers = ({ users, onDelete }: AdminUsersProps) => {
                   {user.phone && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Icon name="Phone" size={14} />
-                      <span>{user.phone}</span>
+                      <span>{formatPhoneNumber(user.phone)}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">

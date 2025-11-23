@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import { formatPhoneNumber } from '@/utils/phoneFormat';
 
 interface ClientCardProps {
   client: Client;
@@ -57,7 +58,7 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: Client
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
             <Icon name="Phone" size={16} className="text-muted-foreground" />
-            <span>{client.phone}</span>
+            <span>{formatPhoneNumber(client.phone)}</span>
           </div>
           {client.email && (
             <div className="flex items-center gap-2">

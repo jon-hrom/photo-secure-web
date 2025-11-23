@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Icon from '@/components/ui/icon';
 import { useState, useMemo, useEffect } from 'react';
 import UserDetailsModal from './UserDetailsModal';
+import { formatPhoneNumber } from '@/utils/phoneFormat';
 
 interface User {
   id: string | number;
@@ -228,7 +229,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
                 </div>
               )}
               {!user.email && !user.full_name && user.phone && (
-                <span className="font-medium text-sm sm:text-base">{user.phone}</span>
+                <span className="font-medium text-sm sm:text-base">{formatPhoneNumber(user.phone)}</span>
               )}
             </div>
 
@@ -267,7 +268,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
           {user.phone && user.email && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Icon name="Phone" size={14} />
-              <span>{user.phone}</span>
+              <span>{formatPhoneNumber(user.phone)}</span>
             </div>
           )}
 

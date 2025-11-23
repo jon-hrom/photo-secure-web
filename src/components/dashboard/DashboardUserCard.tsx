@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { formatPhoneNumber } from '@/utils/phoneFormat';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,7 +70,7 @@ const DashboardUserCard = ({ vkUser, emailUser, finalIsAdmin, onOpenAdminPanel, 
               </div>
               <p className="text-xs sm:text-sm opacity-90 truncate">{displayEmail}</p>
               {displayPhone && (
-                <p className="text-xs opacity-75 mt-1 truncate">{displayPhone}</p>
+                <p className="text-xs opacity-75 mt-1 truncate">{formatPhoneNumber(displayPhone)}</p>
               )}
             </div>
             <div className="flex flex-row sm:flex-col items-center gap-2 w-full sm:w-auto sm:items-end">

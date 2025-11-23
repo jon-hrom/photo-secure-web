@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
+import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
 
 interface UserSettings {
   email: string;
@@ -96,16 +97,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     }
   };
 
-  const formatPhoneNumber = (phone: string) => {
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.startsWith('8')) {
-      return '+7' + cleaned.substring(1);
-    }
-    if (cleaned.startsWith('7')) {
-      return '+' + cleaned;
-    }
-    return '+7' + cleaned;
-  };
+
 
   const handleUpdateContact = async (field: 'email' | 'phone', value: string) => {
     console.log('[SETTINGS] Updating contact:', { field, value, userId });
@@ -115,8 +107,14 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
       setIsSavingPhone(true);
     }
     
+    if (field === 'phone' && !validatePhone(value)) {
+      toast.error('Телефон должен содержать 11 цифр (включая +7)');
+      setIsSavingPhone(false);
+      return;
+    }
+    
     try {
-      const finalValue = field === 'phone' ? formatPhoneNumber(value) : value;
+      const finalValue = field === 'phone' ? formatPhone(value) : value;
       
       const requestBody = { action: 'update-contact', userId, field, value: finalValue };
       console.log('[SETTINGS] Request body:', requestBody);
@@ -258,13 +256,15 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="+7 (___) ___-__-__"
-                  value={isEditingPhone ? editedPhone : settings.phone}
+                  placeholder="+7 (999) 123-45-67"
+                  value={isEditingPhone ? editedPhone : (settings.phone ? formatPhone(settings.phone) : '')}
                   onChange={(e) => {
-                    setEditedPhone(e.target.value);
+                    const formatted = formatPhone(e.target.value);
+                    setEditedPhone(formatted);
                     setIsEditingPhone(true);
                   }}
                   className="rounded-xl"
+                  maxLength={18}
                   readOnly={!isEditingPhone && !!settings.phone}
                 />
                 {isEditingPhone ? (

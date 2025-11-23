@@ -9,6 +9,7 @@ import ClientDetailOverview from '@/components/clients/detail/ClientDetailOvervi
 import ClientDetailProjects from '@/components/clients/detail/ClientDetailProjects';
 import ClientDetailPayments from '@/components/clients/detail/ClientDetailPayments';
 import ClientDetailDocumentsHistory from '@/components/clients/detail/ClientDetailDocumentsHistory';
+import { formatPhoneNumber } from '@/utils/phoneFormat';
 
 interface ClientDetailDialogProps {
   open: boolean;
@@ -239,7 +240,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           <div className="flex flex-wrap gap-2 mt-2 text-xs sm:text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Icon name="Phone" size={14} />
-              <span className="truncate">{localClient.phone}</span>
+              <span className="truncate">{formatPhoneNumber(localClient.phone)}</span>
             </div>
             {localClient.email && (
               <div className="flex items-center gap-1">

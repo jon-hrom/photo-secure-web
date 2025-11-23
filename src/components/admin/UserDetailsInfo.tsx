@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
+import { formatPhoneNumber } from '@/utils/phoneFormat';
 
 interface UserDetailsInfoProps {
   user: {
@@ -94,7 +95,7 @@ const UserDetailsInfo = ({ user, geoData, loadingGeo, formatDate }: UserDetailsI
             <div className="text-sm text-muted-foreground mb-1">Телефон</div>
             <div className="font-medium flex items-center gap-2">
               <Icon name="Phone" size={16} className="text-blue-500" />
-              {user.phone}
+              {formatPhoneNumber(user.phone)}
             </div>
           </div>
         )}

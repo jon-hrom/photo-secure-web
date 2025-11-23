@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { Client } from '@/components/clients/ClientsTypes';
+import { validatePhone } from '@/utils/phoneFormat';
 
 interface UseClientsHandlersProps {
   userId: string | null;
@@ -118,6 +119,11 @@ export const useClientsHandlers = ({
 
   const handleUpdateClientFromEdit = async () => {
     if (!editingClient) return;
+    
+    if (!validatePhone(editingClient.phone)) {
+      toast.error('Телефон должен содержать 11 цифр (включая +7)');
+      return;
+    }
     
     try {
       const res = await fetch(CLIENTS_API, {
