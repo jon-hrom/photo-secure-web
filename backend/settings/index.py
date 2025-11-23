@@ -333,7 +333,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn.commit()
             
             # Send SMS
-            text = f'Foto-Mix: Ваш код подтверждения {verification_code}. Никому не сообщайте этот код.'
+            text = f'Код подтверждения: {verification_code}'
             result = send_sms(phone, text, 2)
             
             cursor.close()
