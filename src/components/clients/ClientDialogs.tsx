@@ -40,7 +40,35 @@ const ClientDialogs = ({
   emailVerified,
 }: ClientDialogsProps) => {
   
+  const formatPhoneNumber = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    
+    if (cleaned.length === 0) return '';
+    
+    let formatted = '+7';
+    if (cleaned.length > 1) {
+      const digits = cleaned.startsWith('7') || cleaned.startsWith('8') ? cleaned.slice(1) : cleaned;
+      
+      if (digits.length > 0) formatted += ` (${digits.slice(0, 3)}`;
+      if (digits.length >= 4) formatted += `) ${digits.slice(3, 6)}`;
+      if (digits.length >= 7) formatted += `-${digits.slice(6, 8)}`;
+      if (digits.length >= 9) formatted += `-${digits.slice(8, 10)}`;
+    }
+    
+    return formatted;
+  };
+  
+  const validatePhone = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    const digits = cleaned.startsWith('7') || cleaned.startsWith('8') ? cleaned.slice(1) : cleaned;
+    return digits.length === 10;
+  };
+  
   const handleAddClientWithCheck = () => {
+    if (!validatePhone(newClient.phone)) {
+      toast.error('Телефон должен содержать 11 цифр (включая +7)');
+      return;
+    }
     handleAddClient();
   };
   return (
@@ -71,9 +99,14 @@ const ClientDialogs = ({
               <Input
                 id="phone"
                 value={newClient.phone}
-                onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                onChange={(e) => {
+                  const formatted = formatPhoneNumber(e.target.value);
+                  setNewClient({ ...newClient, phone: formatted });
+                }}
                 placeholder="+7 (999) 123-45-67"
+                maxLength={18}
               />
+              <p className="text-xs text-muted-foreground">Формат: +7 (999) 123-45-67</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -131,8 +164,13 @@ const ClientDialogs = ({
                 <Input
                   id="edit-phone"
                   value={editingClient.phone}
-                  onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })}
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setEditingClient({ ...editingClient, phone: formatted });
+                  }}
+                  maxLength={18}
                 />
+                <p className="text-xs text-muted-foreground">Формат: +7 (999) 123-45-67</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-email">Email</Label>
