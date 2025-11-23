@@ -102,7 +102,7 @@ const ClientsCalendarSection = ({
                     <div className="flex items-center gap-2">
                       <Icon name="Calendar" size={14} className="text-primary" />
                       <span>
-                        {booking.date.toLocaleDateString('ru-RU')} в {booking.time}
+                        {booking.date instanceof Date ? booking.date.toLocaleDateString('ru-RU') : booking.date} в {booking.time}
                       </span>
                     </div>
                     <Badge variant={booking.date >= new Date() ? 'default' : 'secondary'}>
@@ -142,7 +142,7 @@ const ClientsCalendarSection = ({
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-sm">{booking.client.name}</span>
                   <Badge variant="outline">
-                    {booking.date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })}
+                    {booking.date instanceof Date ? booking.date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }) : booking.date}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
