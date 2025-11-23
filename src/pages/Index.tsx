@@ -11,6 +11,7 @@ import TariffsPage from '@/components/TariffsPage';
 import AdminPanel from '@/components/AdminPanel';
 import MaintenancePage from '@/components/MaintenancePage';
 import AppNavigation from '@/components/layout/AppNavigation';
+import MobileNavigation from '@/components/layout/MobileNavigation';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import { useAuth } from '@/hooks/useAuth';
@@ -317,6 +318,8 @@ const Index = () => {
         {currentPage === 'settings' && userId && <SettingsPage userId={userId} />}
         {currentPage === 'admin' && isAdmin && <AdminPanel />}
       </main>
+      
+      <MobileNavigation onNavigate={setCurrentPage} />
     </div>
   );
 };

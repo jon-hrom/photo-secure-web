@@ -21,11 +21,11 @@ const PageNavigation = ({ onNavigate, className }: PageNavigationProps) => {
 
   const navItems: NavItem[] = [
     { icon: 'LayoutDashboard', label: 'Главная', path: '/' },
+    { icon: 'Settings', label: 'Настройки', path: '/settings' },
     { icon: 'Images', label: 'Фото банк', path: '/photo-bank' },
     { icon: 'Users', label: 'Клиенты', path: '/clients' },
     { icon: 'Book', label: 'Фотокниги', path: '/photobook' },
     { icon: 'Zap', label: 'Тарифы', path: '/tariffs' },
-    { icon: 'Settings', label: 'Настройки', path: '/settings' },
   ];
 
   const handleNavClick = (item: NavItem) => {
