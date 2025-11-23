@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
+import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
 import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
 
 interface UserSettings {
@@ -33,12 +34,14 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [editedEmail, setEditedEmail] = useState('');
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [editedPhone, setEditedPhone] = useState('');
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -56,6 +59,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
         setSettings(data);
         setEditedEmail(data.email || '');
         setEditedPhone(data.phone || '');
+        setPhoneVerified(!!data.phone);
       } else {
         console.error('[SETTINGS] Load error:', { status: response.status, data });
         toast.error(data.error || 'Ошибка загрузки настроек');
@@ -132,6 +136,10 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
         setSettings((prev) => ({ ...prev, [field]: finalValue }));
         if (field === 'phone') {
           setEditedPhone(finalValue);
+          toast.success('Телефон сохранен. Теперь подтвердите его.');
+          // Показываем диалог подтверждения телефона
+          setShowPhoneVerification(true);
+          return; // Не показываем общее сообщение
         } else if (field === 'email') {
           setEditedEmail(finalValue);
         }
@@ -179,6 +187,18 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             userId={userId.toString()}
             userEmail={settings.email}
             isVerified={!!settings.email_verified_at}
+          />
+        )}
+
+        {showPhoneVerification && (
+          <PhoneVerificationDialog
+            open={showPhoneVerification}
+            onClose={() => setShowPhoneVerification(false)}
+            onVerified={() => {
+              setPhoneVerified(true);
+              setShowPhoneVerification(false);
+            }}
+            phone={settings.phone}
           />
         )}
 
@@ -262,6 +282,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                     const formatted = formatPhone(e.target.value);
                     setEditedPhone(formatted);
                     setIsEditingPhone(true);
+                    setPhoneVerified(false);
                   }}
                   className="rounded-xl"
                   maxLength={18}
@@ -272,7 +293,6 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                     onClick={async () => {
                       await handleUpdateContact('phone', editedPhone);
                       setIsEditingPhone(false);
-                      await loadSettings();
                     }}
                     className="rounded-xl"
                     disabled={!editedPhone.trim() || isSavingPhone}
@@ -296,7 +316,6 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                     onClick={async () => {
                       await handleUpdateContact('phone', editedPhone);
                       setIsEditingPhone(false);
-                      await loadSettings();
                     }}
                     className="rounded-xl"
                     disabled={!editedPhone.trim()}
@@ -305,6 +324,28 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   </Button>
                 )}
               </div>
+              {phoneVerified ? (
+                <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
+                  <Icon name="CheckCircle2" size={16} />
+                  <span className="font-medium">Телефон подтвержден</span>
+                </div>
+              ) : settings.phone && !isEditingPhone ? (
+                <div className="flex items-center justify-between gap-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                  <div className="flex items-center gap-2">
+                    <Icon name="AlertCircle" size={16} />
+                    <span className="font-medium">Телефон не подтвержден</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowPhoneVerification(true)}
+                    className="h-7 text-amber-700 hover:text-amber-800 hover:bg-amber-100"
+                  >
+                    <Icon name="Check" size={14} className="mr-1" />
+                    Подтвердить
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>
