@@ -50,6 +50,8 @@ export interface Comment {
   text: string;
 }
 
+export type ProjectStatusColor = 'blue' | 'yellow' | 'green' | 'gray';
+
 export interface Client {
   id: number;
   name: string;

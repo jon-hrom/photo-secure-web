@@ -36,6 +36,20 @@ const ClientsListSection = ({
     return (client.projects || []).filter(p => p.status === 'in_progress' || p.status === 'new').length;
   };
 
+  const getProjectStatusColor = (status: string) => {
+    switch (status) {
+      case 'new': return 'bg-blue-500';
+      case 'in_progress': return 'bg-yellow-500';
+      case 'completed': return 'bg-green-500';
+      case 'cancelled': return 'bg-gray-400';
+      default: return 'bg-gray-300';
+    }
+  };
+
+  const hasAnyProjects = (client: Client) => {
+    return (client.projects || []).length > 0;
+  };
+
   const getTotalPaid = (client: Client) => {
     return (client.payments || []).filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
   };
@@ -82,9 +96,22 @@ const ClientsListSection = ({
                     return (
                       <tr
                         key={client.id}
-                        className="border-b hover:bg-accent/50 transition-colors cursor-pointer"
+                        className="border-b hover:bg-accent/50 transition-colors cursor-pointer relative"
                         onClick={() => onSelectClient(client)}
                       >
+                        {hasAnyProjects(client) && (
+                          <td className="absolute left-0 top-0 bottom-0 w-1 p-0">
+                            <div className="h-full flex flex-col">
+                              {(client.projects || []).map((project, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`flex-1 ${getProjectStatusColor(project.status)}`}
+                                  title={`${project.name}: ${project.status}`}
+                                />
+                              ))}
+                            </div>
+                          </td>
+                        )}
                         <td className="p-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
