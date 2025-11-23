@@ -38,9 +38,9 @@ const ClientsListSection = ({
 
   const getProjectStatusColor = (status: string) => {
     switch (status) {
-      case 'new': return 'bg-blue-500';
+      case 'new': return 'bg-green-500';
       case 'in_progress': return 'bg-yellow-500';
-      case 'completed': return 'bg-green-500';
+      case 'completed': return 'bg-blue-500';
       case 'cancelled': return 'bg-gray-400';
       default: return 'bg-gray-300';
     }
