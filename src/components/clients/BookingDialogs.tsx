@@ -166,7 +166,7 @@ const BookingDialogs = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <Icon name="Calendar" size={18} className="text-muted-foreground" />
-                  <span>{selectedBooking.date.toLocaleDateString('ru-RU')}</span>
+                  <span>{selectedBooking.date instanceof Date ? selectedBooking.date.toLocaleDateString('ru-RU') : selectedBooking.date}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Icon name="Clock" size={18} className="text-muted-foreground" />
