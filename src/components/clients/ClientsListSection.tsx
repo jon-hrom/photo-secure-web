@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import ClientCard from '@/components/clients/ClientCard';
 import { Client } from '@/components/clients/ClientsTypes';
 
 interface ClientsListSectionProps {
@@ -18,8 +18,34 @@ const ClientsListSection = ({
   onDeleteClient,
   onAddBooking,
 }: ClientsListSectionProps) => {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const getClientInitials = (name: string) => {
+    const words = name.split(' ');
+    return words.map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const getActiveBookingsCount = (client: Client) => {
+    return client.bookings.filter(b => new Date(b.date) >= new Date()).length;
+  };
+
+  const getActiveProjectsCount = (client: Client) => {
+    return (client.projects || []).filter(p => p.status === 'in_progress' || p.status === 'new').length;
+  };
+
+  const getTotalPaid = (client: Client) => {
+    return (client.payments || []).filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
+  };
+
+  const getDocumentsCount = (client: Client) => {
+    return (client.documents || []).length;
+  };
+
   return (
-    <div className="lg:col-span-2 space-y-4">
+    <div className="lg:col-span-2">
       {filteredClients.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -31,16 +57,148 @@ const ClientsListSection = ({
           </CardContent>
         </Card>
       ) : (
-        filteredClients.map(client => (
-          <ClientCard
-            key={client.id}
-            client={client}
-            onSelect={() => onSelectClient(client)}
-            onEdit={() => onEditClient(client)}
-            onDelete={() => onDeleteClient(client.id)}
-            onAddBooking={() => onAddBooking(client)}
-          />
-        ))
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">Клиент</th>
+                    <th className="text-left p-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Контакты</th>
+                    <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Записи</th>
+                    <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Проекты</th>
+                    <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden xl:table-cell">Оплачено</th>
+                    <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden xl:table-cell">Документы</th>
+                    <th className="text-right p-3 text-sm font-medium text-muted-foreground">Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredClients.map((client) => {
+                    const activeBookings = getActiveBookingsCount(client);
+                    const activeProjects = getActiveProjectsCount(client);
+                    const totalPaid = getTotalPaid(client);
+                    const documentsCount = getDocumentsCount(client);
+
+                    return (
+                      <tr
+                        key={client.id}
+                        className="border-b hover:bg-accent/50 transition-colors cursor-pointer"
+                        onClick={() => onSelectClient(client)}
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
+                              {getClientInitials(client.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{client.name}</p>
+                              <p className="text-sm text-muted-foreground md:hidden">{client.phone}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 hidden md:table-cell">
+                          <div className="space-y-1 text-sm">
+                            <div className="flex items-center gap-2">
+                              <Icon name="Phone" size={14} className="text-muted-foreground flex-shrink-0" />
+                              <span className="truncate">{client.phone}</span>
+                            </div>
+                            {client.email && (
+                              <div className="flex items-center gap-2">
+                                <Icon name="Mail" size={14} className="text-muted-foreground flex-shrink-0" />
+                                <span className="truncate">{client.email}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3 text-center hidden lg:table-cell">
+                          {activeBookings > 0 ? (
+                            <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
+                              <Icon name="Calendar" size={16} />
+                              <span>{activeBookings}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center hidden lg:table-cell">
+                          {activeProjects > 0 ? (
+                            <div className="inline-flex items-center gap-1 text-purple-600 font-medium">
+                              <Icon name="Briefcase" size={16} />
+                              <span>{activeProjects}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center hidden xl:table-cell">
+                          {totalPaid > 0 ? (
+                            <span className="text-green-600 font-medium">
+                              {totalPaid.toLocaleString('ru-RU')} ₽
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center hidden xl:table-cell">
+                          {documentsCount > 0 ? (
+                            <div className="inline-flex items-center gap-1 text-orange-600 font-medium">
+                              <Icon name="FileText" size={16} />
+                              <span>{documentsCount}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAddBooking(client);
+                              }}
+                              title="Добавить запись"
+                            >
+                              <Icon name="Plus" size={16} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditClient(client);
+                              }}
+                              title="Редактировать"
+                            >
+                              <Icon name="Edit" size={16} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`Удалить клиента "${client.name}"?`)) {
+                                  onDeleteClient(client.id);
+                                }
+                              }}
+                              title="Удалить"
+                            >
+                              <Icon name="Trash2" size={16} />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
