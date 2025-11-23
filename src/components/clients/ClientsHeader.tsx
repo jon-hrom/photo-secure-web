@@ -49,8 +49,8 @@ const ClientsHeader = ({
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold">Система учёта клиентов</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-2xl sm:text-3xl font-bold">Система учёта клиентов</h2>
         <ClientDialogs
           isAddDialogOpen={isAddDialogOpen}
           setIsAddDialogOpen={setIsAddDialogOpen}
@@ -76,26 +76,31 @@ const ClientsHeader = ({
             className="pl-10"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant={statusFilter === 'all' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('all')}
+            className="text-xs sm:text-sm"
           >
             Все ({totalClients})
           </Button>
           <Button
             variant={statusFilter === 'active' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('active')}
+            className="text-xs sm:text-sm"
           >
-            <Icon name="CheckCircle" size={16} className="mr-2" />
-            Активные
+            <Icon name="CheckCircle" size={16} className="mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Активные</span>
+            <span className="xs:hidden">Акт.</span>
           </Button>
           <Button
             variant={statusFilter === 'inactive' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('inactive')}
+            className="text-xs sm:text-sm"
           >
-            <Icon name="XCircle" size={16} className="mr-2" />
-            Неактивные
+            <Icon name="XCircle" size={16} className="mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Неактивные</span>
+            <span className="xs:hidden">Неакт.</span>
           </Button>
         </div>
       </div>

@@ -100,7 +100,7 @@ const ClientsListSection = ({
                         onClick={() => onSelectClient(client)}
                       >
                         {hasAnyProjects(client) && (
-                          <td className="absolute left-0 top-0 bottom-0 w-1 p-0">
+                          <td className="absolute left-0 top-0 bottom-0 w-1 p-0 z-10">
                             <div className="h-full flex flex-col">
                               {(client.projects || []).map((project, idx) => (
                                 <div
@@ -112,7 +112,7 @@ const ClientsListSection = ({
                             </div>
                           </td>
                         )}
-                        <td className="p-3">
+                        <td className={hasAnyProjects(client) ? 'p-3 pl-4' : 'p-3'}>
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
                               {getClientInitials(client.name)}
