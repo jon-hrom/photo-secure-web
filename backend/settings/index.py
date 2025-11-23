@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.error
 from typing import Dict, Any
 
-SMS_SU_ENDPOINT = 'https://api.sms.su/'
+SMS_SU_ENDPOINT = 'https://ssl.bs00.ru/'
 SMS_SENDER_NAME = 'Foto-Mix'
 DEFAULT_PRIORITY = 2
 
