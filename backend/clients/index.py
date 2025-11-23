@@ -582,9 +582,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if doc['s3_key']:
                     delete_from_s3(doc['s3_key'])
             
+            # Удаляем в правильном порядке (сначала зависимости, потом родителей)
             cur.execute('DELETE FROM bookings WHERE client_id = %s', (client_id,))
-            cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))
-            cur.execute('DELETE FROM client_payments WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM client_payments WHERE client_id = %s', (client_id,))  # Сначала платежи
+            cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))  # Потом проекты
             cur.execute('DELETE FROM client_documents WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM client_comments WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM client_messages WHERE client_id = %s', (client_id,))
