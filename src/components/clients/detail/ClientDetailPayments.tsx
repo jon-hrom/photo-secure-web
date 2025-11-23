@@ -9,7 +9,7 @@ import { Payment, Project } from '@/components/clients/ClientsTypes';
 interface ClientDetailPaymentsProps {
   payments: Payment[];
   projects: Project[];
-  newPayment: { amount: string; method: string; description: string; projectId: string };
+  newPayment: { amount: string; method: string; description: string; projectId: string; date: string };
   setNewPayment: (payment: any) => void;
   handleAddPayment: () => void;
   handleDeletePayment: (paymentId: number) => void;
@@ -67,7 +67,16 @@ const ClientDetailPayments = ({
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <Label className="text-sm">Дата платежа</Label>
+              <Input
+                type="date"
+                value={newPayment.date}
+                onChange={(e) => setNewPayment({ ...newPayment, date: e.target.value })}
+                className="text-sm"
+              />
+            </div>
             <div className="space-y-2">
               <Label className="text-sm">Способ оплаты</Label>
               <Select

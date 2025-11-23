@@ -20,8 +20,19 @@ interface ClientDetailDialogProps {
 
 const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDetailDialogProps) => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [newProject, setNewProject] = useState({ name: '', budget: '', description: '' });
-  const [newPayment, setNewPayment] = useState({ amount: '', method: 'card', description: '', projectId: '' });
+  const [newProject, setNewProject] = useState({ 
+    name: '', 
+    budget: '', 
+    description: '',
+    startDate: new Date().toISOString().split('T')[0]
+  });
+  const [newPayment, setNewPayment] = useState({ 
+    amount: '', 
+    method: 'card', 
+    description: '', 
+    projectId: '',
+    date: new Date().toISOString().split('T')[0]
+  });
   const [newComment, setNewComment] = useState('');
   const [localClient, setLocalClient] = useState(client);
 
@@ -54,7 +65,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       name: newProject.name,
       status: 'new',
       budget: parseFloat(newProject.budget),
-      startDate: new Date().toISOString(),
+      startDate: new Date(newProject.startDate).toISOString(),
       description: newProject.description,
     };
 
@@ -64,7 +75,12 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     };
 
     onUpdate(updatedClient);
-    setNewProject({ name: '', budget: '', description: '' });
+    setNewProject({ 
+      name: '', 
+      budget: '', 
+      description: '',
+      startDate: new Date().toISOString().split('T')[0]
+    });
     toast.success('Услуга добавлена');
   };
 
@@ -82,7 +98,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     const payment: Payment = {
       id: Date.now(),
       amount: parseFloat(newPayment.amount),
-      date: new Date().toISOString(),
+      date: new Date(newPayment.date).toISOString(),
       status: 'completed',
       method: newPayment.method as 'card' | 'cash' | 'transfer',
       description: newPayment.description,
@@ -100,7 +116,13 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     console.log('[ClientDetailDialog] Updated client payments:', updatedClient.payments);
 
     onUpdate(updatedClient);
-    setNewPayment({ amount: '', method: 'card', description: '', projectId: '' });
+    setNewPayment({ 
+      amount: '', 
+      method: 'card', 
+      description: '', 
+      projectId: '',
+      date: new Date().toISOString().split('T')[0]
+    });
     toast.success('Платёж добавлен');
   };
 

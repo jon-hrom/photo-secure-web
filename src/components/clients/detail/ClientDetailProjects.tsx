@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 interface ClientDetailProjectsProps {
   projects: Project[];
   payments: Payment[];
-  newProject: { name: string; budget: string; description: string };
+  newProject: { name: string; budget: string; description: string; startDate: string };
   setNewProject: (project: any) => void;
   handleAddProject: () => void;
   handleDeleteProject: (projectId: number) => void;
@@ -66,7 +66,7 @@ const ClientDetailProjects = ({
           <CardTitle className="text-base sm:text-lg">Добавить новую услугу</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label className="text-sm">Название проекта *</Label>
               <Input
@@ -83,6 +83,15 @@ const ClientDetailProjects = ({
                 value={newProject.budget}
                 onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })}
                 placeholder="50000"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Дата начала</Label>
+              <Input
+                type="date"
+                value={newProject.startDate}
+                onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
                 className="text-sm"
               />
             </div>
