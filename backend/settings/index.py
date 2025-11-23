@@ -1,5 +1,5 @@
 """
-Business: Manage global application settings (registration, maintenance mode, guest access) and send SMS
+Business: Manage global application settings (registration, maintenance mode, guest access) and send SMS via SMS.SU
 Args: event with httpMethod, body, queryStringParameters; context with request_id
 Returns: HTTP response with settings data or update confirmation
 """
