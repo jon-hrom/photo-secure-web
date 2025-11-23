@@ -42,7 +42,15 @@ const ClientsCalendarSection = ({
             selected={selectedDate}
             onSelect={onDateClick}
             modifiers={{
-              booked: allBookedDates,
+              booked: (date) => {
+                return allBookedDates.some(bookedDate => {
+                  const d1 = new Date(date);
+                  const d2 = new Date(bookedDate);
+                  return d1.getDate() === d2.getDate() &&
+                         d1.getMonth() === d2.getMonth() &&
+                         d1.getFullYear() === d2.getFullYear();
+                });
+              },
             }}
             modifiersStyles={{
               booked: {
