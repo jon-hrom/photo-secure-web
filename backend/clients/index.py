@@ -194,18 +194,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         ORDER BY created_at DESC
                     ''', (client['id'],))
                     raw_projects = cur.fetchall()
-                    # Конвертируем budget из Decimal/string в float
-                    projects = [{**dict(p), 'budget': float(p['budget'])} for p in raw_projects]
+                    # Конвертируем budget из Decimal/string в float и переименовываем поля для фронтенда
+                    projects = [{
+                        'id': p['id'],
+                        'name': p['name'],
+                        'status': p['status'],
+                        'budget': float(p['budget']),
+                        'startDate': str(p['start_date']),
+                        'description': p['description']
+                    } for p in raw_projects]
                     
                     cur.execute('''
-                        SELECT id, amount, payment_date, status, method, description
+                        SELECT id, amount, payment_date, status, method, description, project_id
                         FROM client_payments 
                         WHERE client_id = %s
                         ORDER BY payment_date DESC
                     ''', (client['id'],))
                     raw_payments = cur.fetchall()
-                    # Конвертируем amount из Decimal/string в float
-                    payments = [{**dict(p), 'amount': float(p['amount'])} for p in raw_payments]
+                    # Конвертируем amount из Decimal/string в float и переименовываем поля для фронтенда
+                    payments = [{
+                        'id': p['id'],
+                        'amount': float(p['amount']),
+                        'date': str(p['payment_date']),
+                        'status': p['status'],
+                        'method': p['method'],
+                        'description': p['description'],
+                        'projectId': p['project_id']
+                    } for p in raw_payments]
                     
                     cur.execute('''
                         SELECT id, name, s3_key, upload_date
