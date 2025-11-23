@@ -10,14 +10,12 @@ interface SendSMSResponse {
 }
 
 /**
- * Send SMS code via backend settings function
- * Backend will use SMS_SU_API_KEY from environment
+ * Send verification code to phone via backend
+ * Code is generated on server side for security
  */
-export async function sendSMSCode(phone: string, code: string): Promise<SendSMSResponse> {
+export async function sendVerificationCode(phone: string): Promise<SendSMSResponse> {
   try {
-    const text = `Foto-Mix: Ваш код подтверждения ${code}. Никому не сообщайте этот код.`;
-    
-    console.log('[SMS] Sending SMS to:', phone);
+    console.log('[SMS] Requesting verification code for:', phone);
     
     const response = await fetch(SETTINGS_API, {
       method: 'POST',
@@ -25,10 +23,8 @@ export async function sendSMSCode(phone: string, code: string): Promise<SendSMSR
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ 
-        action: 'send-sms',
-        phone, 
-        text,
-        priority: 2
+        action: 'send-verification-code',
+        phone
       })
     });
     
@@ -43,13 +39,53 @@ export async function sendSMSCode(phone: string, code: string): Promise<SendSMSR
       };
     }
     
-    console.log('[SMS] Success, ID:', result.id);
+    console.log('[SMS] Verification code sent');
     return result;
   } catch (error) {
     console.error('[SMS] Exception:', error);
     return {
       ok: false,
       error: 'Не удалось отправить SMS'
+    };
+  }
+}
+
+/**
+ * Verify phone code on server side
+ */
+export async function verifyPhoneCode(phone: string, code: string): Promise<SendSMSResponse> {
+  try {
+    console.log('[SMS] Verifying code for:', phone);
+    
+    const response = await fetch(SETTINGS_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        action: 'verify-phone-code',
+        phone,
+        code
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!result.ok) {
+      console.error('[SMS] Verification failed:', result.error);
+      return {
+        ok: false,
+        error: result.error || 'Неверный код'
+      };
+    }
+    
+    console.log('[SMS] Code verified successfully');
+    return result;
+  } catch (error) {
+    console.error('[SMS] Exception:', error);
+    return {
+      ok: false,
+      error: 'Ошибка проверки кода'
     };
   }
 }

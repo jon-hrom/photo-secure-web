@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
-import { sendSMSCode, generateVerificationCode } from '@/utils/smsService';
+import { sendVerificationCode, verifyPhoneCode } from '@/utils/smsService';
 
 interface PhoneVerificationDialogProps {
   open: boolean;
@@ -27,13 +27,13 @@ const PhoneVerificationDialog = ({
   phone,
 }: PhoneVerificationDialogProps) => {
   const [code, setCode] = useState('');
-  const [sentCode, setSentCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [codeSent, setCodeSent] = useState(false);
 
   useEffect(() => {
-    if (open && !sentCode) {
+    if (open && !codeSent) {
       handleSendCode();
     }
   }, [open]);
@@ -48,13 +48,10 @@ const PhoneVerificationDialog = ({
   const handleSendCode = async () => {
     setIsSendingCode(true);
     try {
-      const verificationCode = generateVerificationCode();
-      console.log('[PHONE_VERIFY] Generated code:', verificationCode);
-      
-      const result = await sendSMSCode(phone, verificationCode);
+      const result = await sendVerificationCode(phone);
       
       if (result.ok) {
-        setSentCode(verificationCode);
+        setCodeSent(true);
         setCooldown(60);
         toast.success('Код подтверждения отправлен на ваш телефон');
       } else {
@@ -78,12 +75,14 @@ const PhoneVerificationDialog = ({
 
     setIsLoading(true);
     try {
-      if (code === sentCode) {
+      const result = await verifyPhoneCode(phone, code);
+      
+      if (result.ok) {
         toast.success('Телефон успешно подтвержден!');
         onVerified();
         onClose();
       } else {
-        toast.error('Неверный код подтверждения');
+        toast.error(result.error || 'Неверный код подтверждения');
         setCode('');
       }
     } catch (error) {
@@ -95,7 +94,7 @@ const PhoneVerificationDialog = ({
 
   const handleClose = () => {
     setCode('');
-    setSentCode('');
+    setCodeSent(false);
     setCooldown(0);
     onClose();
   };

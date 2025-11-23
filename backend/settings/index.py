@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.error
 from typing import Dict, Any
 
-SMS_SU_ENDPOINT = 'https://ssl.bs00.ru/'
+SMS_SU_ENDPOINT = 'https://api.sms.su/'
 SMS_SENDER_NAME = 'Foto-Mix'
 DEFAULT_PRIORITY = 2
 
@@ -47,41 +47,48 @@ def send_sms(phone: str, text: str, priority: int = DEFAULT_PRIORITY) -> Dict[st
     data = urllib.parse.urlencode(payload).encode('utf-8')
     
     try:
-        req = urllib.request.Request(
-            SMS_SU_ENDPOINT,
-            data=data,
-            headers={
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'User-Agent': 'foto-mix.ru-integration/1.0'
-            }
-        )
+        # Используем GET запрос согласно документации SMS.SU
+        url = f"{SMS_SU_ENDPOINT}?{urllib.parse.urlencode(payload)}"
+        
+        print(f'[SMS_SU] Request URL: {url.replace(api_key, "***KEY***")}')
+        
+        req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
         
         with urllib.request.urlopen(req, timeout=20) as response:
             raw = response.read().decode('utf-8')
+            print(f'[SMS_SU] Response: {raw}')
             result = json.loads(raw)
             
             if not isinstance(result, dict) or 'response' not in result:
-                return {'ok': False, 'error': 'Unexpected response format', 'raw': raw}
+                return {'ok': False, 'error': 'Неверный формат ответа SMS.SU', 'raw': raw}
             
             msg = result['response'].get('msg', {})
             data_resp = result['response'].get('data')
             err_code = int(msg.get('err_code', 99))
             
             if err_code != 0:
+                error_text = msg.get('text', 'Ошибка отправки SMS')
+                print(f'[SMS_SU] Error {err_code}: {error_text}')
                 return {
                     'ok': False,
-                    'error': msg.get('text', 'Ошибка отправки SMS'),
+                    'error': error_text,
                     'err_code': err_code,
                     'raw': raw
                 }
             
+            print(f'[SMS_SU] Success: id={data_resp.get("id") if data_resp else None}')
             return {
                 'ok': True,
                 'id': data_resp.get('id') if data_resp else None,
                 'credits': data_resp.get('credits') if data_resp else None,
             }
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
+        print(f'[SMS_SU] HTTP Error: {e.code} - {error_body}')
+        return {'ok': False, 'error': f'HTTP {e.code}: {error_body}', 'err_code': 699}
     except Exception as e:
-        return {'ok': False, 'error': f'SMS error: {str(e)}', 'err_code': 699}
+        print(f'[SMS_SU] Exception: {str(e)}')
+        return {'ok': False, 'error': f'Ошибка связи: {str(e)}', 'err_code': 699}
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
@@ -281,7 +288,163 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body_data = json.loads(event.get('body', '{}'))
         action = body_data.get('action')
         
-        # Handle SMS sending
+        # Handle SMS code generation and sending
+        if action == 'send-verification-code':
+            phone = body_data.get('phone', '')
+            
+            if not phone:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Укажите phone'}),
+                    'isBase64Encoded': False
+                }
+            
+            # Generate 6-digit code
+            import random
+            verification_code = str(random.randint(100000, 999999))
+            
+            # Save code to database with expiration (5 minutes)
+            from datetime import datetime, timedelta
+            expires_at = datetime.utcnow() + timedelta(minutes=5)
+            
+            cursor.execute('''
+                INSERT INTO phone_verification_codes (phone, code, expires_at, created_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (phone) DO UPDATE SET
+                    code = EXCLUDED.code,
+                    expires_at = EXCLUDED.expires_at,
+                    created_at = EXCLUDED.created_at,
+                    verified = false
+            ''', (normalize_phone(phone), verification_code, expires_at, datetime.utcnow()))
+            conn.commit()
+            
+            # Send SMS
+            text = f'Foto-Mix: Ваш код подтверждения {verification_code}. Никому не сообщайте этот код.'
+            result = send_sms(phone, text, 2)
+            
+            cursor.close()
+            conn.close()
+            
+            status_code = 200 if result.get('ok') else 400
+            return {
+                'statusCode': status_code,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps(result, ensure_ascii=False),
+                'isBase64Encoded': False
+            }
+        
+        # Handle SMS code verification
+        if action == 'verify-phone-code':
+            phone = body_data.get('phone', '')
+            code = body_data.get('code', '')
+            
+            if not phone or not code:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Укажите phone и code'}),
+                    'isBase64Encoded': False
+                }
+            
+            # Check code
+            from datetime import datetime
+            cursor.execute('''
+                SELECT code, expires_at, verified
+                FROM phone_verification_codes
+                WHERE phone = %s
+            ''', (normalize_phone(phone),))
+            row = cursor.fetchone()
+            
+            if not row:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Код не найден. Запросите новый код.'}),
+                    'isBase64Encoded': False
+                }
+            
+            saved_code, expires_at, verified = row
+            
+            if verified:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Код уже использован'}),
+                    'isBase64Encoded': False
+                }
+            
+            if datetime.utcnow() > expires_at:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Код истек. Запросите новый код.'}),
+                    'isBase64Encoded': False
+                }
+            
+            if code != saved_code:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Неверный код'}),
+                    'isBase64Encoded': False
+                }
+            
+            # Mark as verified
+            cursor.execute('''
+                UPDATE phone_verification_codes
+                SET verified = true
+                WHERE phone = %s
+            ''', (normalize_phone(phone),))
+            conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({'ok': True}),
+                'isBase64Encoded': False
+            }
+        
+        # Handle SMS sending (legacy)
         if action == 'send-sms':
             phone = body_data.get('phone', '')
             text = body_data.get('text', '')
