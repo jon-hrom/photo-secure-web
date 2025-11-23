@@ -3,13 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { Payment, Project } from '@/components/clients/ClientsTypes';
 
 interface ClientDetailPaymentsProps {
   payments: Payment[];
   projects: Project[];
-  newPayment: { amount: string; method: string; description: string; projectId: string; date: string };
+  newPayment: { amount: string; method: string; description: string; projectId: string; date: string; splitAcrossProjects: boolean };
   setNewPayment: (payment: any) => void;
   handleAddPayment: () => void;
   handleDeletePayment: (paymentId: number) => void;
@@ -37,15 +38,42 @@ const ClientDetailPayments = ({
           <CardTitle className="text-base sm:text-lg">Добавить платёж</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+              <Checkbox
+                id="splitPayment"
+                checked={newPayment.splitAcrossProjects}
+                onCheckedChange={(checked) => setNewPayment({ 
+                  ...newPayment, 
+                  splitAcrossProjects: checked as boolean,
+                  projectId: checked ? '' : newPayment.projectId 
+                })}
+              />
+              <Label htmlFor="splitPayment" className="text-sm font-normal cursor-pointer">
+                Оплата за все услуги (распределить сумму пропорционально недостающим оплатам)
+              </Label>
+            </div>
+            {newPayment.splitAcrossProjects && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+                <Icon name="Info" size={14} className="mt-0.5 shrink-0" />
+                <p>
+                  Сумма будет автоматически распределена между всеми услугами пропорционально недостающим оплатам. 
+                  Полностью оплаченные услуги будут пропущены.
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label className="text-sm">Проект *</Label>
               <Select
                 value={newPayment.projectId}
                 onValueChange={(value) => setNewPayment({ ...newPayment, projectId: value })}
+                disabled={newPayment.splitAcrossProjects}
               >
                 <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Выберите проект" />
+                  <SelectValue placeholder={newPayment.splitAcrossProjects ? "Все проекты" : "Выберите проект"} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map(project => (

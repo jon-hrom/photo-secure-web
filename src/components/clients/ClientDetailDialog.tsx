@@ -31,7 +31,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     method: 'card', 
     description: '', 
     projectId: '',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    splitAcrossProjects: false
   });
   const [newComment, setNewComment] = useState('');
   const [localClient, setLocalClient] = useState(client);
@@ -90,32 +91,68 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       return;
     }
 
-    if (!newPayment.projectId) {
+    if (!newPayment.splitAcrossProjects && !newPayment.projectId) {
       toast.error('Выберите проект');
       return;
     }
 
     const paymentDate = newPayment.date ? new Date(newPayment.date) : new Date();
+    const totalAmount = parseFloat(newPayment.amount);
     
-    const payment: Payment = {
-      id: Date.now(),
-      amount: parseFloat(newPayment.amount),
-      date: paymentDate.toISOString(),
-      status: 'completed',
-      method: newPayment.method as 'card' | 'cash' | 'transfer',
-      description: newPayment.description,
-      projectId: parseInt(newPayment.projectId),
-    };
+    let newPayments: Payment[] = [];
 
-    console.log('[ClientDetailDialog] Adding payment:', payment);
-    console.log('[ClientDetailDialog] Current payments:', payments);
+    if (newPayment.splitAcrossProjects && projects.length > 0) {
+      // Распределяем оплату на все проекты с недостающей суммой
+      const projectsNeedingPayment = projects.map(project => {
+        const projectPayments = payments.filter(p => p.projectId === project.id);
+        const totalPaid = projectPayments.reduce((sum, p) => sum + p.amount, 0);
+        const remaining = project.budget - totalPaid;
+        return { project, remaining: Math.max(0, remaining) };
+      }).filter(p => p.remaining > 0);
+
+      if (projectsNeedingPayment.length === 0) {
+        toast.error('Все проекты полностью оплачены');
+        return;
+      }
+
+      const totalRemaining = projectsNeedingPayment.reduce((sum, p) => sum + p.remaining, 0);
+      
+      // Распределяем пропорционально недостающим суммам
+      projectsNeedingPayment.forEach((item, index) => {
+        const proportion = item.remaining / totalRemaining;
+        const paymentAmount = index === projectsNeedingPayment.length - 1 
+          ? totalAmount - newPayments.reduce((sum, p) => sum + p.amount, 0) // Последний платеж - остаток
+          : Math.round(totalAmount * proportion * 100) / 100;
+
+        newPayments.push({
+          id: Date.now() + index,
+          amount: paymentAmount,
+          date: paymentDate.toISOString(),
+          status: 'completed',
+          method: newPayment.method as 'card' | 'cash' | 'transfer',
+          description: `${newPayment.description || 'Оплата'} (распределено)`,
+          projectId: item.project.id,
+        });
+      });
+
+      console.log('[ClientDetailDialog] Split payments across projects:', newPayments);
+    } else {
+      // Обычный платеж для одного проекта
+      newPayments = [{
+        id: Date.now(),
+        amount: totalAmount,
+        date: paymentDate.toISOString(),
+        status: 'completed',
+        method: newPayment.method as 'card' | 'cash' | 'transfer',
+        description: newPayment.description,
+        projectId: parseInt(newPayment.projectId),
+      }];
+    }
 
     const updatedClient = {
       ...localClient,
-      payments: [...payments, payment],
+      payments: [...payments, ...newPayments],
     };
-
-    console.log('[ClientDetailDialog] Updated client payments:', updatedClient.payments);
 
     onUpdate(updatedClient);
     setNewPayment({ 
@@ -123,9 +160,15 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       method: 'card', 
       description: '', 
       projectId: '',
-      date: new Date().toISOString().split('T')[0]
+      date: new Date().toISOString().split('T')[0],
+      splitAcrossProjects: false
     });
-    toast.success('Платёж добавлен');
+    
+    if (newPayments.length > 1) {
+      toast.success(`Создано ${newPayments.length} платежей на общую сумму ${totalAmount.toLocaleString('ru-RU')} ₽`);
+    } else {
+      toast.success('Платёж добавлен');
+    }
   };
 
   const handleAddComment = () => {
