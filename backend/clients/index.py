@@ -193,7 +193,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         WHERE client_id = %s
                         ORDER BY created_at DESC
                     ''', (client['id'],))
-                    projects = cur.fetchall()
+                    raw_projects = cur.fetchall()
+                    # Конвертируем budget из Decimal/string в float
+                    projects = [{**dict(p), 'budget': float(p['budget'])} for p in raw_projects]
                     
                     cur.execute('''
                         SELECT id, amount, payment_date, status, method, description
@@ -201,7 +203,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         WHERE client_id = %s
                         ORDER BY payment_date DESC
                     ''', (client['id'],))
-                    payments = cur.fetchall()
+                    raw_payments = cur.fetchall()
+                    # Конвертируем amount из Decimal/string в float
+                    payments = [{**dict(p), 'amount': float(p['amount'])} for p in raw_payments]
                     
                     cur.execute('''
                         SELECT id, name, s3_key, upload_date
@@ -241,8 +245,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     result.append({
                         **dict(client),
                         'bookings': [dict(b) for b in bookings],
-                        'projects': [dict(p) for p in projects],
-                        'payments': [dict(pay) for pay in payments],
+                        'projects': projects,  # Уже сконвертированы в dict с float
+                        'payments': payments,  # Уже сконвертированы в dict с float
                         'documents': [dict(d) for d in documents],
                         'comments': [dict(c) for c in comments],
                         'messages': [dict(m) for m in messages]
