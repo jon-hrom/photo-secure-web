@@ -386,34 +386,54 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         user = get_user_from_token(event)
     except ValueError as e:
+        print(f'[ERROR] Auth failed: {str(e)}')
         return {
             'statusCode': 401,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
             'body': json.dumps({'error': str(e)})
         }
+    except Exception as e:
+        print(f'[ERROR] Unexpected auth error: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Server error: {str(e)}'})
+        }
     
-    params = event.get('queryStringParameters', {}) or {}
-    action = params.get('action', '')
-    
-    if method == 'POST' and action == 'presign-upload':
-        return presign_upload(event, user)
-    elif method == 'POST' and action == 'confirm-upload':
-        return confirm_upload(event, user)
-    elif method == 'GET' and action == 'presign-download':
-        return presign_download(event, user)
-    elif method == 'GET' and action == 'list':
-        return list_files(event, user)
-    elif method == 'DELETE' and action == 'delete':
-        return delete_file(event, user)
-    elif method == 'GET' and action == 'usage':
-        return get_usage(event, user)
-    elif method == 'GET' and action == 'list-plans':
-        return list_visible_plans(event)
-    elif method == 'GET' and not action:
-        return get_usage(event, user)
-    
-    return {
-        'statusCode': 404,
-        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-        'body': json.dumps({'error': 'Not found'})
-    }
+    try:
+        params = event.get('queryStringParameters', {}) or {}
+        action = params.get('action', '')
+        
+        if method == 'POST' and action == 'presign-upload':
+            return presign_upload(event, user)
+        elif method == 'POST' and action == 'confirm-upload':
+            return confirm_upload(event, user)
+        elif method == 'GET' and action == 'presign-download':
+            return presign_download(event, user)
+        elif method == 'GET' and action == 'list':
+            return list_files(event, user)
+        elif method == 'DELETE' and action == 'delete':
+            return delete_file(event, user)
+        elif method == 'GET' and action == 'usage':
+            return get_usage(event, user)
+        elif method == 'GET' and action == 'list-plans':
+            return list_visible_plans(event)
+        elif method == 'GET' and not action:
+            return get_usage(event, user)
+        
+        return {
+            'statusCode': 404,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Not found'})
+        }
+    except Exception as e:
+        print(f'[ERROR] Handler exception: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Internal error: {str(e)}'})
+        }
