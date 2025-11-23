@@ -210,7 +210,10 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU', {
+    if (!dateString) return 'Дата не указана';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Некорректная дата';
+    return date.toLocaleDateString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -218,7 +221,10 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ru-RU', {
+    if (!dateString) return 'Дата не указана';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Некорректная дата';
+    return date.toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
