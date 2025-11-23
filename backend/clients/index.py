@@ -420,6 +420,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Вставляем или обновляем проекты
                 for project in body.get('projects', []):
+                    start_date_str = project.get('startDate')
+                    # Парсим дату из ISO строки или YYYY-MM-DD формата
+                    if start_date_str:
+                        try:
+                            if 'T' in start_date_str:
+                                start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+                            else:
+                                start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                        except (ValueError, AttributeError):
+                            start_date = None
+                    else:
+                        start_date = None
+                    
                     cur.execute('''
                         INSERT INTO client_projects (id, client_id, name, status, budget, start_date, description)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -435,7 +448,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         project.get('name'),
                         project.get('status'),
                         project.get('budget'),
-                        project.get('startDate'),
+                        start_date,
                         project.get('description')
                     ))
             
@@ -453,6 +466,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Вставляем или обновляем платежи
                 for payment in body.get('payments', []):
+                    payment_date_str = payment.get('date')
+                    # Парсим дату из ISO строки или YYYY-MM-DD формата
+                    if payment_date_str:
+                        try:
+                            if 'T' in payment_date_str:
+                                payment_date = datetime.fromisoformat(payment_date_str.replace('Z', '+00:00'))
+                            else:
+                                payment_date = datetime.strptime(payment_date_str, '%Y-%m-%d')
+                        except (ValueError, AttributeError):
+                            payment_date = None
+                    else:
+                        payment_date = None
+                    
                     cur.execute('''
                         INSERT INTO client_payments (id, client_id, amount, payment_date, status, method, description, project_id)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -467,7 +493,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         payment.get('id'),
                         client_id,
                         payment.get('amount'),
-                        payment.get('date'),
+                        payment_date,
                         payment.get('status'),
                         payment.get('method'),
                         payment.get('description'),
