@@ -29,6 +29,7 @@ export const useClientsDialogs = () => {
     time: '',
     description: '',
     notificationEnabled: true,
+    notificationTime: 24,
   });
 
   const [vkMessage, setVkMessage] = useState('');

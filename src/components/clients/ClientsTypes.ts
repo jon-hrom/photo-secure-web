@@ -4,6 +4,7 @@ export interface Booking {
   time: string;
   description: string;
   notificationEnabled: boolean;
+  notificationTime: number;
   clientId: number;
 }
 

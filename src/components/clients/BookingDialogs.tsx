@@ -23,6 +23,7 @@ interface BookingDialogsProps {
     time: string;
     description: string;
     notificationEnabled: boolean;
+    notificationTime: number;
   };
   setNewBooking: (booking: any) => void;
   timeSlots: string[];
@@ -104,17 +105,41 @@ const BookingDialogs = ({
                   rows={4}
                 />
               </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="space-y-0.5">
-                  <Label>Уведомления</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Напомнить за 1 день до встречи
-                  </p>
+              <div className="space-y-3 p-3 border rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Уведомления на Email</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Отправить напоминание клиенту
+                    </p>
+                  </div>
+                  <Switch
+                    checked={newBooking.notificationEnabled}
+                    onCheckedChange={(checked) => setNewBooking({ ...newBooking, notificationEnabled: checked })}
+                  />
                 </div>
-                <Switch
-                  checked={newBooking.notificationEnabled}
-                  onCheckedChange={(checked) => setNewBooking({ ...newBooking, notificationEnabled: checked })}
-                />
+                {newBooking.notificationEnabled && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Отправить за</Label>
+                    <Select
+                      value={String(newBooking.notificationTime)}
+                      onValueChange={(value) => setNewBooking({ ...newBooking, notificationTime: parseInt(value) })}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 час до встречи</SelectItem>
+                        <SelectItem value="2">2 часа до встречи</SelectItem>
+                        <SelectItem value="3">3 часа до встречи</SelectItem>
+                        <SelectItem value="6">6 часов до встречи</SelectItem>
+                        <SelectItem value="24">1 день до встречи</SelectItem>
+                        <SelectItem value="48">2 дня до встречи</SelectItem>
+                        <SelectItem value="168">1 неделю до встречи</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <Button onClick={handleAddBooking} className="w-full">
                 <Icon name="CalendarCheck" size={18} className="mr-2" />
@@ -156,7 +181,9 @@ const BookingDialogs = ({
                 {selectedBooking.notificationEnabled && (
                   <Badge variant="secondary">
                     <Icon name="Bell" size={12} className="mr-1" />
-                    Уведомления включены
+                    Уведомление за {selectedBooking.notificationTime >= 24 
+                      ? `${selectedBooking.notificationTime / 24} ${selectedBooking.notificationTime === 24 ? 'день' : selectedBooking.notificationTime === 48 ? 'дня' : 'недель'}`
+                      : `${selectedBooking.notificationTime} ${selectedBooking.notificationTime === 1 ? 'час' : selectedBooking.notificationTime <= 4 ? 'часа' : 'часов'}`}
                   </Badge>
                 )}
               </div>

@@ -184,19 +184,23 @@ export const useClientsHandlers = ({
           date: selectedDate.toISOString(),
           time: newBooking.time,
           description: newBooking.description,
-          notificationEnabled: newBooking.notificationEnabled
+          notificationEnabled: newBooking.notificationEnabled,
+          notificationTime: newBooking.notificationTime
         })
       });
       
       if (!res.ok) throw new Error('Failed to add booking');
       
       await loadClients();
-      setNewBooking({ time: '', description: '', notificationEnabled: true });
+      setNewBooking({ time: '', description: '', notificationEnabled: true, notificationTime: 24 });
       setSelectedDate(undefined);
       setIsBookingDialogOpen(false);
       
       if (newBooking.notificationEnabled) {
-        toast.success('Бронирование создано! Уведомление будет отправлено за 1 день до встречи');
+        const timeText = newBooking.notificationTime >= 24 
+          ? `${newBooking.notificationTime / 24} ${newBooking.notificationTime === 24 ? 'день' : newBooking.notificationTime === 48 ? 'дня' : 'недель'}`
+          : `${newBooking.notificationTime} ${newBooking.notificationTime === 1 ? 'час' : newBooking.notificationTime <= 4 ? 'часа' : 'часов'}`;
+        toast.success(`Бронирование создано! Уведомление будет отправлено за ${timeText} до встречи`);
       } else {
         toast.success('Бронирование создано');
       }

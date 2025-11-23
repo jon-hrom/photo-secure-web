@@ -180,7 +180,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 result = []
                 for client in clients:
                     cur.execute('''
-                        SELECT id, booking_date, booking_time, description, notification_enabled
+                        SELECT id, booking_date, booking_time, description, notification_enabled, notification_time
                         FROM bookings 
                         WHERE client_id = %s
                         ORDER BY booking_date DESC
@@ -303,15 +303,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             elif action == 'add_booking':
                 cur.execute('''
-                    INSERT INTO bookings (client_id, booking_date, booking_time, description, notification_enabled)
-                    VALUES (%s, %s, %s, %s, %s)
-                    RETURNING id, client_id, booking_date, booking_time, description, notification_enabled
+                    INSERT INTO bookings (client_id, booking_date, booking_time, description, notification_enabled, notification_time)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id, client_id, booking_date, booking_time, description, notification_enabled, notification_time
                 ''', (
                     body.get('clientId'),
                     body.get('date'),
                     body.get('time'),
                     body.get('description'),
-                    body.get('notificationEnabled', True)
+                    body.get('notificationEnabled', True),
+                    body.get('notificationTime', 24)
                 ))
                 booking = cur.fetchone()
                 conn.commit()
