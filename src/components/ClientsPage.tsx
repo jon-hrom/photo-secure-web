@@ -62,8 +62,8 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
     
     if (dialogsState.statusFilter === 'all') return matchesSearch;
     
-    // Проверяем есть ли активные проекты (не в статусе "completed")
-    const hasActiveProjects = client.projects.some(p => p.status !== 'completed');
+    // Проверяем есть ли активные проекты (не "завершён" и не "отменён")
+    const hasActiveProjects = client.projects.some(p => p.status !== 'completed' && p.status !== 'cancelled');
     const hasActiveBookings = client.bookings.some(b => b.date >= new Date());
     const isActive = hasActiveProjects || hasActiveBookings;
     
