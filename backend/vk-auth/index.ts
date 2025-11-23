@@ -559,7 +559,7 @@ exports.handler = async (event, context) => {
           const userAgent = event.headers?.['User-Agent'] || '';
           
           await client.query(
-            `UPDATE vk_users 
+            `UPDATE ${SCHEMA}.vk_users 
              SET last_login = CURRENT_TIMESTAMP,
                  ip_address = ${escapeSQL(ipAddress)},
                  user_agent = ${escapeSQL(userAgent)}
