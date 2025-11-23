@@ -17,9 +17,12 @@ interface DashboardProps {
   onOpenAdminPanel?: () => void;
   isAdmin?: boolean;
   onOpenTariffs?: () => void;
+  onNavigateToClients?: () => void;
+  onNavigateToPhotobook?: () => void;
+  onOpenAddClient?: () => void;
 }
 
-const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs }: DashboardProps) => {
+const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs, onNavigateToClients, onNavigateToPhotobook, onOpenAddClient }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -209,13 +212,46 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
       />
       
       <Card className="bg-gradient-to-br from-primary to-secondary text-white border-0 shadow-xl">
-        <CardContent className="p-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-4xl font-bold mb-2">{formatTime(currentTime)}</h2>
-              <p className="text-lg opacity-90 capitalize text-center font-light">{formatDate(currentTime)}</p>
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Icon name="Clock" size={64} className="opacity-30 hidden sm:block" />
+              <div>
+                <h2 className="text-4xl font-bold mb-2">{formatTime(currentTime)}</h2>
+                <p className="text-lg opacity-90 capitalize font-light">{formatDate(currentTime)}</p>
+              </div>
             </div>
-            <Icon name="Clock" size={64} className="opacity-30" />
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <button 
+                onClick={onOpenAddClient}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all"
+              >
+                <Icon name="UserPlus" size={20} />
+                <span className="text-sm font-medium hidden sm:inline">Добавить клиента</span>
+              </button>
+              <button 
+                onClick={() => onOpenClientBooking?.('')}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all"
+              >
+                <Icon name="Calendar" size={20} />
+                <span className="text-sm font-medium hidden sm:inline">Новая запись</span>
+              </button>
+              <button 
+                onClick={onNavigateToPhotobook}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all"
+              >
+                <Icon name="BookOpen" size={20} />
+                <span className="text-sm font-medium hidden sm:inline">Создать фотокнигу</span>
+              </button>
+              <button 
+                onClick={onNavigateToClients}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all"
+              >
+                <Icon name="FileText" size={20} />
+                <span className="text-sm font-medium hidden sm:inline">Отчёты</span>
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -231,40 +267,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
         onMeetingClick={handleMeetingClick}
       />
 
-      <Card className="shadow-lg border-2 bg-gradient-to-r from-blue-50 to-purple-50">
-        <CardContent className="pt-6">
-          <div className="flex items-center mb-4">
-            <Icon name="Lightbulb" className="mr-2 text-accent" size={24} />
-            <h3 className="text-xl font-semibold">Быстрые действия</h3>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover-scale">
-              <div className="bg-primary/10 p-3 rounded-full mb-2">
-                <Icon name="UserPlus" className="text-primary" size={24} />
-              </div>
-              <span className="text-sm font-medium text-center">Добавить клиента</span>
-            </div>
-            <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover-scale">
-              <div className="bg-secondary/10 p-3 rounded-full mb-2">
-                <Icon name="Calendar" className="text-secondary" size={24} />
-              </div>
-              <span className="text-sm font-medium text-center">Новая запись</span>
-            </div>
-            <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover-scale">
-              <div className="bg-accent/10 p-3 rounded-full mb-2">
-                <Icon name="BookOpen" className="text-accent" size={24} />
-              </div>
-              <span className="text-sm font-medium text-center">Создать фотокнигу</span>
-            </div>
-            <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer hover-scale">
-              <div className="bg-green-100 p-3 rounded-full mb-2">
-                <Icon name="FileText" className="text-green-600" size={24} />
-              </div>
-              <span className="text-sm font-medium text-center">Отчёты</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 };

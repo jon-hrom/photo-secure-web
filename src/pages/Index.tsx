@@ -223,6 +223,9 @@ const Index = () => {
               setCurrentPage('auth');
             }}
             onLogout={handleLogout}
+            onNavigateToClients={() => setCurrentPage('auth')}
+            onNavigateToPhotobook={() => setCurrentPage('auth')}
+            onOpenAddClient={() => setCurrentPage('auth')}
           />
         </main>
       </div>
@@ -301,6 +304,9 @@ const Index = () => {
             onLogout={handleLogout}
             onOpenAdminPanel={() => setCurrentPage('admin')}
             onOpenTariffs={() => setCurrentPage('tariffs')}
+            onNavigateToClients={() => setCurrentPage('clients')}
+            onNavigateToPhotobook={() => setCurrentPage('photobook')}
+            onOpenAddClient={() => setCurrentPage('clients')}
             isAdmin={isAdmin}
           />
         )}
