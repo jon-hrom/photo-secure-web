@@ -1,6 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 
 interface PhotoFolder {
@@ -29,31 +28,28 @@ const PhotoBankFoldersList = ({
   onCreateFolder
 }: PhotoBankFoldersListProps) => {
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('ru-RU', {
+    return new Date(dateStr).toLocaleDateString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     });
   };
 
+  const getFolderInitials = (name: string) => {
+    const words = name.split(' ');
+    return words.map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Icon name="Folder" size={20} />
-          Папки ({folders.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Card className="lg:col-span-2">
+      <CardContent className="p-0">
         {loading && folders.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-12 text-muted-foreground">
             <Icon name="Loader2" size={32} className="animate-spin mx-auto mb-2" />
             Загрузка...
           </div>
         ) : folders.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-12 text-muted-foreground">
             <Icon name="FolderOpen" size={48} className="mx-auto mb-2 opacity-50" />
             <p className="text-sm">Нет папок</p>
             <Button
@@ -66,44 +62,79 @@ const PhotoBankFoldersList = ({
             </Button>
           </div>
         ) : (
-          <div className="space-y-2">
-            {folders.map((folder) => (
-              <div
-                key={folder.id}
-                className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                  selectedFolder?.id === folder.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-transparent hover:border-muted-foreground/20 hover:bg-muted/50'
-                }`}
-                onClick={() => onSelectFolder(folder)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Icon name="Folder" size={16} className="text-primary shrink-0" />
-                      <p className="font-medium text-sm truncate">{folder.folder_name}</p>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="secondary" className="text-xs">
-                        {folder.photo_count || 0} фото
-                      </Badge>
-                      <span className="truncate">{formatDate(folder.created_at)}</span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteFolder(folder.id, folder.folder_name);
-                    }}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Название</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата создания</th>
+                  <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Фото</th>
+                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {folders.map((folder) => (
+                  <tr
+                    key={folder.id}
+                    className={`border-b hover:bg-accent/50 transition-colors cursor-pointer ${
+                      selectedFolder?.id === folder.id ? 'bg-primary/5' : ''
+                    }`}
+                    onClick={() => onSelectFolder(folder)}
                   >
-                    <Icon name="Trash2" size={14} />
-                  </Button>
-                </div>
-              </div>
-            ))}
+                    <td className="p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                          <Icon name="Folder" size={20} className="text-orange-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{folder.folder_name}</p>
+                          <p className="text-sm text-muted-foreground md:hidden">
+                            {folder.photo_count || 0} фото • {formatDate(folder.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3 text-sm text-muted-foreground hidden md:table-cell">
+                      {formatDate(folder.created_at)}
+                    </td>
+                    <td className="p-3 text-center hidden lg:table-cell">
+                      <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
+                        <Icon name="Image" size={16} />
+                        <span>{folder.photo_count || 0}</span>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectFolder(folder);
+                          }}
+                          title="Открыть папку"
+                        >
+                          <Icon name="FolderOpen" size={16} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteFolder(folder.id, folder.folder_name);
+                          }}
+                          title="Удалить"
+                        >
+                          <Icon name="Trash2" size={16} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </CardContent>

@@ -250,7 +250,7 @@ const PhotoBank = () => {
           onShowClearConfirm={() => setShowClearConfirm(true)}
         />
 
-        <div className="grid lg:grid-cols-[300px_1fr] gap-6">
+        {!selectedFolder ? (
           <PhotoBankFoldersList
             folders={folders}
             selectedFolder={selectedFolder}
@@ -259,7 +259,7 @@ const PhotoBank = () => {
             onDeleteFolder={handleDeleteFolder}
             onCreateFolder={() => setShowCreateFolder(true)}
           />
-
+        ) : (
           <PhotoBankPhotoGrid
             selectedFolder={selectedFolder}
             photos={photos}
@@ -274,7 +274,7 @@ const PhotoBank = () => {
             onTogglePhotoSelection={togglePhotoSelection}
             onCancelUpload={handleCancelUpload}
           />
-        </div>
+        )}
       </div>
       
       <MobileNavigation />
