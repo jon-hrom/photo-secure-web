@@ -398,6 +398,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Удаляем проекты, которых нет в новом списке
                 ids_to_delete = existing_ids - incoming_ids
                 if ids_to_delete:
+                    # Сначала удаляем все платежи этих проектов
+                    cur.execute('DELETE FROM client_payments WHERE project_id = ANY(%s)', (list(ids_to_delete),))
+                    # Потом удаляем сами проекты
                     cur.execute('DELETE FROM client_projects WHERE id = ANY(%s)', (list(ids_to_delete),))
                 
                 # Вставляем или обновляем проекты
