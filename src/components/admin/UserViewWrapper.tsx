@@ -104,7 +104,7 @@ const UserViewWrapper = ({ viewedUser, onExit }: UserViewWrapperProps) => {
             isAdmin={false}
           />
         )}
-        {currentPage === 'clients' && <ClientsPage />}
+        {currentPage === 'clients' && <ClientsPage userId={viewedUser.userId.toString()} />}
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'tariffs' && (
           <TariffsPage isAdmin={false} userId={viewedUser.userId.toString()} />
