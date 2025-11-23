@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -148,21 +148,19 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
     }
   };
 
-  const vkUserData = localStorage.getItem('vk_user');
-  const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
-  
-  const savedSession = localStorage.getItem('authSession');
-  const emailUser = savedSession ? JSON.parse(savedSession) : null;
-  const userEmail = emailUser?.email || vkUser?.email;
-  
-  console.log('[DASHBOARD] Admin check:', {
-    isAdmin,
-    userEmail,
-    vkUser,
-    isAdminUserResult: isAdminUser(userEmail, vkUser)
-  });
-  
-  const finalIsAdmin = isAdmin || isAdminUser(userEmail, vkUser);
+  // Мемоизируем данные пользователя чтобы избежать лишних парсингов при каждом рендере
+  const { vkUser, emailUser, userEmail, finalIsAdmin } = useMemo(() => {
+    const vkUserData = localStorage.getItem('vk_user');
+    const vkUser = vkUserData ? JSON.parse(vkUserData) : null;
+    
+    const savedSession = localStorage.getItem('authSession');
+    const emailUser = savedSession ? JSON.parse(savedSession) : null;
+    const userEmail = emailUser?.email || vkUser?.email;
+    
+    const finalIsAdmin = isAdmin || isAdminUser(userEmail, vkUser);
+    
+    return { vkUser, emailUser, userEmail, finalIsAdmin };
+  }, [isAdmin]); // Пересчитываем только если isAdmin изменился
 
   return (
     <div className="space-y-6 animate-fade-in-up">

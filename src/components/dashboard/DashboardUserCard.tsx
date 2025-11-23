@@ -25,13 +25,6 @@ interface DashboardUserCardProps {
 const DashboardUserCard = ({ vkUser, emailUser, finalIsAdmin, onOpenAdminPanel, onLogout }: DashboardUserCardProps) => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   
-  console.log('[DASHBOARD_USER_CARD] Render:', {
-    hasVkUser: !!vkUser,
-    hasEmailUser: !!emailUser,
-    finalIsAdmin,
-    hasAdminPanelCallback: !!onOpenAdminPanel
-  });
-
   // Show card for either VK or email users
   if (!vkUser && !emailUser) return null;
   
@@ -82,10 +75,7 @@ const DashboardUserCard = ({ vkUser, emailUser, finalIsAdmin, onOpenAdminPanel, 
             <div className="flex flex-row sm:flex-col items-center gap-2 w-full sm:w-auto sm:items-end">
               {finalIsAdmin && onOpenAdminPanel && (
                 <button
-                  onClick={() => {
-                    console.log('[DASHBOARD_USER_CARD] Admin button clicked');
-                    onOpenAdminPanel();
-                  }}
+                  onClick={onOpenAdminPanel}
                   className="px-2.5 py-1.5 sm:px-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-1.5 flex-1 sm:flex-initial justify-center"
                   title="Админ-панель"
                 >
