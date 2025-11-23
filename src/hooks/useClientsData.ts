@@ -28,6 +28,8 @@ export const useClientsData = (userId: string | null) => {
       if (!res.ok) throw new Error('Failed to load clients');
       
       const data = await res.json();
+      console.log('[CLIENTS] Raw data sample:', data[0]);
+      
       const parsed = data.map((client: any) => ({
         id: client.id,
         name: client.name,
@@ -43,17 +45,47 @@ export const useClientsData = (userId: string | null) => {
           notificationEnabled: b.notification_enabled,
           clientId: b.client_id
         })),
-        projects: client.projects || [],
-        payments: client.payments || [],
+        projects: (client.projects || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          status: p.status,
+          budget: parseFloat(p.budget) || 0,
+          startDate: p.start_date || p.startDate,
+          description: p.description || ''
+        })),
+        payments: (client.payments || []).map((pay: any) => ({
+          id: pay.id,
+          amount: parseFloat(pay.amount) || 0,
+          date: pay.payment_date || pay.date,
+          status: pay.status,
+          method: pay.method,
+          description: pay.description || '',
+          projectId: pay.project_id || pay.projectId
+        })),
         documents: (client.documents || []).map((d: any) => ({
           id: d.id,
           name: d.name,
           fileUrl: d.file_url,
           uploadDate: d.upload_date
         })),
-        comments: client.comments || [],
-        messages: client.messages || []
+        comments: (client.comments || []).map((c: any) => ({
+          id: c.id,
+          author: c.author,
+          text: c.text,
+          date: c.comment_date || c.date
+        })),
+        messages: (client.messages || []).map((m: any) => ({
+          id: m.id,
+          type: m.type,
+          author: m.author,
+          content: m.content,
+          date: m.message_date || m.date
+        }))
       }));
+      
+      console.log('[CLIENTS] Parsed data sample:', parsed[0]);
+      console.log('[CLIENTS] Sample payments:', parsed[0]?.payments);
+      console.log('[CLIENTS] Sample projects:', parsed[0]?.projects);
       
       setClients(parsed);
       console.log('[CLIENTS] Loaded', parsed.length, 'clients successfully');

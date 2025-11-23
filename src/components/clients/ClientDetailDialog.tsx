@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -22,14 +22,25 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   const [newProject, setNewProject] = useState({ name: '', budget: '', description: '' });
   const [newPayment, setNewPayment] = useState({ amount: '', method: 'card', description: '', projectId: '' });
   const [newComment, setNewComment] = useState('');
+  const [localClient, setLocalClient] = useState(client);
 
-  if (!client) return null;
+  // Обновляем локального клиента при изменении пропса
+  useEffect(() => {
+    if (client) {
+      console.log('[ClientDetailDialog] Client updated:', client);
+      console.log('[ClientDetailDialog] Payments in updated client:', client.payments);
+      console.log('[ClientDetailDialog] Projects in updated client:', client.projects);
+      setLocalClient(client);
+    }
+  }, [client]);
 
-  const projects = client.projects || [];
-  const documents = client.documents || [];
-  const payments = client.payments || [];
-  const messages = client.messages || [];
-  const comments = client.comments || [];
+  if (!localClient) return null;
+
+  const projects = localClient.projects || [];
+  const documents = localClient.documents || [];
+  const payments = localClient.payments || [];
+  const messages = localClient.messages || [];
+  const comments = localClient.comments || [];
 
   const handleAddProject = () => {
     if (!newProject.name || !newProject.budget) {
@@ -47,7 +58,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     };
 
     const updatedClient = {
-      ...client,
+      ...localClient,
       projects: [...projects, project],
     };
 
@@ -81,7 +92,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     console.log('[ClientDetailDialog] Current payments:', payments);
 
     const updatedClient = {
-      ...client,
+      ...localClient,
       payments: [...payments, payment],
     };
 
@@ -106,7 +117,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     };
 
     const updatedClient = {
-      ...client,
+      ...localClient,
       comments: [...comments, comment],
     };
 
@@ -119,7 +130,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     if (!confirm('Удалить проект?')) return;
     
     const updatedClient = {
-      ...client,
+      ...localClient,
       projects: projects.filter(p => p.id !== projectId),
     };
     onUpdate(updatedClient);
@@ -130,7 +141,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     if (!confirm('Удалить платёж?')) return;
     
     const updatedClient = {
-      ...client,
+      ...localClient,
       payments: payments.filter(p => p.id !== paymentId),
     };
     onUpdate(updatedClient);
@@ -139,7 +150,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
   const handleDeleteComment = (commentId: number) => {
     const updatedClient = {
-      ...client,
+      ...localClient,
       comments: comments.filter(c => c.id !== commentId),
     };
     onUpdate(updatedClient);
@@ -151,7 +162,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     console.log('[ClientDetailDialog] Current documents:', documents);
     
     const updatedClient = {
-      ...client,
+      ...localClient,
       documents: [...documents, document],
     };
     
@@ -161,7 +172,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
   const handleDocumentDeleted = (documentId: number) => {
     const updatedClient = {
-      ...client,
+      ...localClient,
       documents: documents.filter(d => d.id !== documentId),
     };
     onUpdate(updatedClient);
@@ -169,7 +180,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
   const updateProjectStatus = (projectId: number, status: Project['status']) => {
     const updatedClient = {
-      ...client,
+      ...localClient,
       projects: projects.map(p => p.id === projectId ? { ...p, status } : p),
     };
     onUpdate(updatedClient);
@@ -223,23 +234,23 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 sm:gap-3 text-xl sm:text-2xl">
             <Icon name="User" size={24} className="text-primary sm:w-7 sm:h-7" />
-            <span className="truncate">{client.name}</span>
+            <span className="truncate">{localClient.name}</span>
           </DialogTitle>
           <div className="flex flex-wrap gap-2 mt-2 text-xs sm:text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Icon name="Phone" size={14} />
-              <span className="truncate">{client.phone}</span>
+              <span className="truncate">{localClient.phone}</span>
             </div>
-            {client.email && (
+            {localClient.email && (
               <div className="flex items-center gap-1">
                 <Icon name="Mail" size={14} />
-                <span className="truncate">{client.email}</span>
+                <span className="truncate">{localClient.email}</span>
               </div>
             )}
-            {client.vkProfile && (
+            {localClient.vkProfile && (
               <div className="flex items-center gap-1">
                 <Icon name="MessageCircle" size={14} />
-                <span className="truncate">@{client.vkProfile}</span>
+                <span className="truncate">@{localClient.vkProfile}</span>
               </div>
             )}
           </div>
@@ -303,7 +314,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
               formatDate={formatDate}
               formatDateTime={formatDateTime}
               tab="documents"
-              clientId={client.id}
+              clientId={localClient.id}
               onDocumentUploaded={handleDocumentUploaded}
               onDocumentDeleted={handleDocumentDeleted}
             />
@@ -329,7 +340,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
               formatDate={formatDate}
               formatDateTime={formatDateTime}
               tab="history"
-              clientId={client.id}
+              clientId={localClient.id}
               onDocumentUploaded={handleDocumentUploaded}
               onDocumentDeleted={handleDocumentDeleted}
             />

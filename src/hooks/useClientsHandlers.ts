@@ -272,7 +272,8 @@ export const useClientsHandlers = ({
 
   const handleUpdateClient = async (updatedClient: Client) => {
     console.log('[useClientsHandlers] handleUpdateClient called with:', updatedClient);
-    console.log('[useClientsHandlers] Documents in updated client:', updatedClient.documents);
+    console.log('[useClientsHandlers] Payments in updated client:', updatedClient.payments);
+    console.log('[useClientsHandlers] Projects in updated client:', updatedClient.projects);
     
     try {
       const res = await fetch(CLIENTS_API, {
@@ -286,19 +287,29 @@ export const useClientsHandlers = ({
       
       console.log('[useClientsHandlers] Update response status:', res.status);
       
-      if (!res.ok) throw new Error('Failed to update client');
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[useClientsHandlers] Update failed:', errorText);
+        throw new Error('Failed to update client');
+      }
       
-      // Сначала обновляем selectedClient с новыми данными
-      setSelectedClient(updatedClient);
-      
-      // Потом перезагружаем всех клиентов
+      // Перезагружаем всех клиентов из БД
       await loadClients();
       
-      // Находим обновлённого клиента после перезагрузки
-      const refreshedClient = clients.find(c => c.id === updatedClient.id);
-      if (refreshedClient) {
-        console.log('[useClientsHandlers] Refreshed client documents:', refreshedClient.documents);
-        setSelectedClient(refreshedClient);
+      // Загружаем свежие данные конкретного клиента с сервера
+      const freshClientRes = await fetch(`${CLIENTS_API}?userId=${userId}`, {
+        headers: { 'X-User-Id': userId! }
+      });
+      
+      if (freshClientRes.ok) {
+        const allClients = await freshClientRes.json();
+        const refreshedClient = allClients.find((c: Client) => c.id === updatedClient.id);
+        if (refreshedClient) {
+          console.log('[useClientsHandlers] Refreshed client from server:', refreshedClient);
+          console.log('[useClientsHandlers] Refreshed payments:', refreshedClient.payments);
+          console.log('[useClientsHandlers] Refreshed projects:', refreshedClient.projects);
+          setSelectedClient(refreshedClient);
+        }
       }
       
       toast.success('Данные клиента обновлены');
