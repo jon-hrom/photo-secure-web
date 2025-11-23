@@ -58,7 +58,9 @@ const PhoneVerificationDialog = ({
         setCooldown(60);
         toast.success('Код подтверждения отправлен на ваш телефон');
       } else {
-        toast.error(result.error || 'Ошибка отправки SMS');
+        const errorMsg = result.error || 'Ошибка отправки SMS';
+        toast.error(errorMsg, { duration: 5000 });
+        console.error('[PHONE_VERIFY] SMS error:', result);
       }
     } catch (error) {
       console.error('[PHONE_VERIFY] Send error:', error);

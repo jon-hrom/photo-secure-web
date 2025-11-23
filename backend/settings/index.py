@@ -25,9 +25,9 @@ def normalize_phone(phone: str) -> str:
     return digits
 
 def send_sms(phone: str, text: str, priority: int = DEFAULT_PRIORITY) -> Dict[str, Any]:
-    api_key = os.environ.get('SMS_SU_API_KEY')
+    api_key = os.environ.get('SMS_SU_API_KEY', '').strip()
     if not api_key:
-        return {'ok': False, 'error': 'SMS API key not configured', 'err_code': 699}
+        return {'ok': False, 'error': 'SMS_SU_API_KEY не настроен. Добавьте ключ в настройках проекта.', 'err_code': 699}
     
     phone = normalize_phone(phone)
     
