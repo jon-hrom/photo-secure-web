@@ -169,11 +169,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <Icon name="Settings" size={32} className="text-primary" />
-          <h1 className="text-3xl font-bold">Настройки</h1>
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-3 sm:p-4 md:p-6">
+      <div className="max-w-2xl mx-auto space-y-4 md:space-y-6">
+        <div className="flex items-center gap-2 md:gap-3">
+          <Icon name="Settings" size={24} className="text-primary md:w-8 md:h-8" />
+          <h1 className="text-2xl md:text-3xl font-bold">Настройки</h1>
         </div>
 
         {showEmailVerification && (
@@ -210,10 +210,10 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             </CardTitle>
             <CardDescription>Управление вашими контактными данными</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 md:space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="flex gap-2">
+              <Label htmlFor="email" className="text-sm md:text-base">Email</Label>
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   id="email"
                   type="email"
@@ -223,7 +223,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                     setIsEditingEmail(true);
                   }}
                   placeholder={settings.source !== 'email' ? 'Введите ваш email' : ''}
-                  className="rounded-xl"
+                  className="rounded-xl text-sm md:text-base"
                   readOnly={settings.source === 'email' && !!settings.email}
                 />
                 {(isEditingEmail || (settings.source === 'vk' && !settings.email)) && (
@@ -233,7 +233,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                       setIsEditingEmail(false);
                       await loadSettings();
                     }}
-                    className="rounded-xl"
+                    className="rounded-xl w-full sm:w-auto"
                     disabled={!editedEmail.trim() || !editedEmail.includes('@') || isSavingEmail}
                   >
                     {isSavingEmail ? (
@@ -271,8 +271,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Телефон</Label>
-              <div className="flex gap-2">
+              <Label htmlFor="phone" className="text-sm md:text-base">Телефон</Label>
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   id="phone"
                   type="tel"
@@ -284,7 +284,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                     setIsEditingPhone(true);
                     setPhoneVerified(false);
                   }}
-                  className="rounded-xl"
+                  className="rounded-xl text-sm md:text-base"
                   maxLength={18}
                   readOnly={!isEditingPhone && !!settings.phone}
                 />
@@ -294,7 +294,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                       await handleUpdateContact('phone', editedPhone);
                       setIsEditingPhone(false);
                     }}
-                    className="rounded-xl"
+                    className="rounded-xl w-full sm:w-auto"
                     disabled={!editedPhone.trim() || isSavingPhone}
                   >
                     {isSavingPhone ? (
@@ -307,7 +307,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   <Button
                     onClick={() => setIsEditingPhone(true)}
                     variant="outline"
-                    className="rounded-xl"
+                    className="rounded-xl w-full sm:w-auto"
                   >
                     <Icon name="Pencil" size={18} />
                   </Button>
@@ -317,7 +317,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                       await handleUpdateContact('phone', editedPhone);
                       setIsEditingPhone(false);
                     }}
-                    className="rounded-xl"
+                    className="rounded-xl w-full sm:w-auto"
                     disabled={!editedPhone.trim()}
                   >
                     <Icon name="Save" size={18} />
@@ -358,12 +358,12 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             </CardTitle>
             <CardDescription>Двухфакторная аутентификация</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+          <CardContent className="space-y-4 md:space-y-6">
+            <div className="flex items-center justify-between p-3 md:p-4 bg-muted/30 rounded-xl">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <Icon name="Mail" size={20} className="text-primary" />
-                  <Label className="font-semibold">Email-аутентификация</Label>
+                  <Label className="font-semibold text-sm md:text-base">Email-аутентификация</Label>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Код из 5 цифр будет отправлен на вашу почту
@@ -376,7 +376,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
               />
             </div>
 
-            <div className="p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
+            <div className="p-3 md:p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
               <div className="flex items-start gap-3">
                 <Icon name="Info" className="text-blue-600 mt-1" size={20} />
                 <div className="text-sm">
