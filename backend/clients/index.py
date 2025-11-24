@@ -302,20 +302,72 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             elif action == 'add_booking':
+                print(f'[ADD_BOOKING] Received booking request:')
+                print(f'[ADD_BOOKING] clientId: {body.get("clientId")}')
+                print(f'[ADD_BOOKING] date: {body.get("date")}')
+                print(f'[ADD_BOOKING] time: {body.get("time")}')
+                print(f'[ADD_BOOKING] description: {body.get("description")}')
+                print(f'[ADD_BOOKING] notificationEnabled: {body.get("notificationEnabled")}')
+                print(f'[ADD_BOOKING] notificationTime: {body.get("notificationTime")}')
+                
+                client_id = body.get('clientId')
+                booking_date = body.get('date')
+                booking_time = body.get('time')
+                description = body.get('description')
+                notification_enabled = body.get('notificationEnabled', True)
+                notification_time = body.get('notificationTime', 24)
+                
+                # Получаем информацию о клиенте
+                cur.execute('SELECT name, phone, email FROM clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                client = cur.fetchone()
+                
+                if not client:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Client not found'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Создаём запись в таблице bookings
                 cur.execute('''
                     INSERT INTO bookings (client_id, booking_date, booking_time, description, notification_enabled, notification_time)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING id, client_id, booking_date, booking_time, description, notification_enabled, notification_time
                 ''', (
-                    body.get('clientId'),
-                    body.get('date'),
-                    body.get('time'),
-                    body.get('description'),
-                    body.get('notificationEnabled', True),
-                    body.get('notificationTime', 24)
+                    client_id,
+                    booking_date,
+                    booking_time,
+                    description,
+                    notification_enabled,
+                    notification_time
                 ))
                 booking = cur.fetchone()
+                
+                # Комбинируем дату и время для встречи
+                booking_datetime_str = f"{booking_date.split('T')[0]} {booking_time}"
+                meeting_datetime = datetime.fromisoformat(booking_datetime_str.replace('Z', ''))
+                
+                # Создаём встречу в таблице meetings для отображения в Dashboard
+                cur.execute('''
+                    INSERT INTO meetings 
+                    (creator_id, title, description, meeting_date, client_name, client_phone, client_email, notification_enabled, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (
+                    user_id,
+                    'Встреча с клиентом',
+                    description or 'Бронирование встречи',
+                    meeting_datetime,
+                    client['name'],
+                    client['phone'],
+                    client['email'],
+                    notification_enabled,
+                    'scheduled'
+                ))
+                
                 conn.commit()
+                
+                print(f'[ADD_BOOKING] Successfully created booking with id: {booking["id"]} and meeting')
                 
                 return {
                     'statusCode': 201,
@@ -545,7 +597,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if action == 'delete_booking':
                 booking_id = params.get('bookingId')
+                
+                # Получаем информацию о бронировании перед удалением
+                cur.execute('''
+                    SELECT b.booking_date, b.booking_time, c.name, c.phone
+                    FROM bookings b
+                    JOIN clients c ON b.client_id = c.id
+                    WHERE b.id = %s
+                ''', (booking_id,))
+                
+                booking_info = cur.fetchone()
+                
+                # Удаляем бронирование
                 cur.execute('DELETE FROM bookings WHERE id = %s', (booking_id,))
+                
+                # Если нашли бронирование, удаляем соответствующую встречу из meetings
+                if booking_info:
+                    booking_datetime_str = f"{booking_info['booking_date']} {booking_info['booking_time']}"
+                    meeting_datetime = datetime.fromisoformat(booking_datetime_str.replace('Z', ''))
+                    
+                    # Удаляем встречу по параметрам (дата, имя клиента, телефон)
+                    cur.execute('''
+                        DELETE FROM meetings 
+                        WHERE creator_id = %s 
+                        AND meeting_date = %s 
+                        AND client_name = %s
+                        AND client_phone = %s
+                    ''', (user_id, meeting_datetime, booking_info['name'], booking_info['phone']))
+                    
+                    print(f'[DELETE_BOOKING] Deleted booking {booking_id} and corresponding meeting')
+                
                 conn.commit()
                 
                 return {
@@ -624,6 +705,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if doc['s3_key']:
                     delete_from_s3(doc['s3_key'])
             
+            # Получаем информацию о клиенте для удаления встреч
+            cur.execute('SELECT name, phone FROM clients WHERE id = %s', (client_id,))
+            client_info = cur.fetchone()
+            
             # Удаляем в правильном порядке (сначала зависимости, потом родителей)
             cur.execute('DELETE FROM bookings WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM client_payments WHERE client_id = %s', (client_id,))  # Сначала платежи
@@ -632,6 +717,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             cur.execute('DELETE FROM client_comments WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM client_messages WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM clients WHERE id = %s', (client_id,))
+            
+            # Удаляем все встречи этого клиента из таблицы meetings
+            if client_info:
+                cur.execute('''
+                    DELETE FROM meetings 
+                    WHERE creator_id = %s 
+                    AND client_name = %s 
+                    AND client_phone = %s
+                ''', (user_id, client_info['name'], client_info['phone']))
+                print(f'[DELETE_CLIENT] Deleted client {client_id} and all related meetings')
+            
             conn.commit()
             
             return {
