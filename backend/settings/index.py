@@ -13,7 +13,7 @@ import urllib.error
 from typing import Dict, Any
 
 SMS_SU_ENDPOINT = 'https://ssl.bs00.ru/'
-SMS_SENDER_NAME = 'Foto-Mix'
+SMS_SENDER_NAME = 'foto-mix'
 DEFAULT_PRIORITY = 2
 
 def normalize_phone(phone: str) -> str:
