@@ -11,7 +11,7 @@ interface Meeting {
 
 interface DashboardMeetingsProps {
   upcomingMeetings: Meeting[];
-  onMeetingClick: (clientName: string) => void;
+  onMeetingClick: (meetingId: number) => void;
 }
 
 const DashboardMeetings = ({ upcomingMeetings, onMeetingClick }: DashboardMeetingsProps) => {
@@ -29,7 +29,7 @@ const DashboardMeetings = ({ upcomingMeetings, onMeetingClick }: DashboardMeetin
             upcomingMeetings.map((meeting) => (
               <div
                 key={meeting.id}
-                onClick={() => onMeetingClick(meeting.name)}
+                onClick={() => onMeetingClick(meeting.id)}
                 className="flex items-center justify-between p-2 md:p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer hover:shadow-md"
               >
                 <div className="flex items-center space-x-2 md:space-x-3 min-w-0">

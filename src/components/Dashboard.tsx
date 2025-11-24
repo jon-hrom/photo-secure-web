@@ -159,9 +159,9 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
 
   const isTrialPeriod = trialDaysLeft > 0 && subscriptionDaysLeft === 0;
 
-  const handleMeetingClick = (clientName: string) => {
-    if (onOpenClientBooking) {
-      onOpenClientBooking(clientName);
+  const handleMeetingClick = (meetingId: number) => {
+    if (onNavigateToClients) {
+      onNavigateToClients();
     }
   };
 
@@ -296,7 +296,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
                   <p className="text-xs md:text-sm text-muted-foreground">{upcomingMeetings[0].time}</p>
                 </div>
                 <button
-                  onClick={() => handleMeetingClick(upcomingMeetings[0].name)}
+                  onClick={() => handleMeetingClick(upcomingMeetings[0].id)}
                   className="px-3 py-1.5 md:px-4 md:py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-xs md:text-sm font-medium whitespace-nowrap"
                 >
                   Открыть
