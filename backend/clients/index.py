@@ -83,6 +83,32 @@ def delete_from_s3(s3_key: str):
     except Exception as e:
         print(f'[DELETE_S3] Error deleting {s3_key}: {e}')
 
+def build_meeting_datetime(date_value: Any, time_value: Any) -> Any:
+    '''Возвращает объединённую дату-время встречи для синхронизации с таблицей meetings'''
+    if not date_value or not time_value:
+        return None
+    
+    if isinstance(date_value, datetime):
+        date_part = date_value.date()
+    else:
+        raw_date = str(date_value).replace('Z', '').strip()
+        date_part_str = raw_date.split('T')[0].split(' ')[0]
+        try:
+            date_part = datetime.strptime(date_part_str, '%Y-%m-%d').date()
+        except ValueError:
+            date_part = datetime.fromisoformat(date_part_str).date()
+    
+    time_str = str(time_value).strip()
+    try:
+        time_part = datetime.strptime(time_str, '%H:%M').time()
+    except ValueError:
+        try:
+            time_part = datetime.strptime(time_str, '%H:%M:%S').time()
+        except ValueError:
+            time_part = datetime.fromisoformat(f'2000-01-01T{time_str}').time()
+    
+    return datetime.combine(date_part, time_part)
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
     Business: Управление клиентами и их данными (CRUD операции)
@@ -345,25 +371,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 booking = cur.fetchone()
                 
                 # Комбинируем дату и время для встречи
-                booking_datetime_str = f"{booking_date.split('T')[0]} {booking_time}"
-                meeting_datetime = datetime.fromisoformat(booking_datetime_str.replace('Z', ''))
+                meeting_datetime = build_meeting_datetime(booking_date, booking_time)
                 
                 # Создаём встречу в таблице meetings для отображения в Dashboard
-                cur.execute('''
-                    INSERT INTO meetings 
-                    (creator_id, title, description, meeting_date, client_name, client_phone, client_email, notification_enabled, status)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ''', (
-                    user_id,
-                    'Встреча с клиентом',
-                    description or 'Бронирование встречи',
-                    meeting_datetime,
-                    client['name'],
-                    client['phone'],
-                    client['email'],
-                    notification_enabled,
-                    'scheduled'
-                ))
+                if meeting_datetime:
+                    cur.execute('''
+                        INSERT INTO meetings 
+                        (creator_id, title, description, meeting_date, client_name, client_phone, client_email, notification_enabled, status)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ''', (
+                        user_id,
+                        'Встреча с клиентом',
+                        description or 'Бронирование встречи',
+                        meeting_datetime,
+                        client['name'],
+                        client['phone'],
+                        client['email'],
+                        notification_enabled,
+                        'scheduled'
+                    ))
                 
                 conn.commit()
                 
@@ -613,19 +639,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Если нашли бронирование, удаляем соответствующую встречу из meetings
                 if booking_info:
-                    booking_datetime_str = f"{booking_info['booking_date']} {booking_info['booking_time']}"
-                    meeting_datetime = datetime.fromisoformat(booking_datetime_str.replace('Z', ''))
+                    meeting_datetime = build_meeting_datetime(booking_info['booking_date'], booking_info['booking_time'])
                     
                     # Удаляем встречу по параметрам (дата, имя клиента, телефон)
-                    cur.execute('''
-                        DELETE FROM meetings 
-                        WHERE creator_id = %s 
-                        AND meeting_date = %s 
-                        AND client_name = %s
-                        AND client_phone = %s
-                    ''', (user_id, meeting_datetime, booking_info['name'], booking_info['phone']))
-                    
-                    print(f'[DELETE_BOOKING] Deleted booking {booking_id} and corresponding meeting')
+                    if meeting_datetime:
+                        cur.execute('''
+                            DELETE FROM meetings 
+                            WHERE creator_id = %s 
+                            AND meeting_date = %s 
+                            AND client_name = %s
+                            AND client_phone = %s
+                        ''', (user_id, meeting_datetime, booking_info['name'], booking_info['phone']))
+                        print(f'[DELETE_BOOKING] Deleted booking {booking_id} and corresponding meeting')
                 
                 conn.commit()
                 
