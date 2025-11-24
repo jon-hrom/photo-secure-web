@@ -180,36 +180,36 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
   }, [isAdmin]); // Пересчитываем только если isAdmin изменился
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-4 md:space-y-6 animate-fade-in-up px-3 sm:px-0">
       <Card 
         className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 border-0 shadow-xl cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group"
         onClick={() => onOpenTariffs?.()}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <CardContent className="pt-6 relative z-10">
-          <div className="space-y-4">
+        <CardContent className="pt-4 md:pt-6 relative z-10">
+          <div className="space-y-3 md:space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <Icon name="HardDrive" size={20} className="text-white" />
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="p-1.5 md:p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <Icon name="HardDrive" size={18} className="text-white md:w-5 md:h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">Фото банк</h3>
+                  <h3 className="font-bold text-base md:text-lg">Фото банк</h3>
                   <Badge variant="outline" className="text-xs mt-1 bg-white/50 backdrop-blur-sm">{storageUsage.plan_name}</Badge>
                 </div>
               </div>
               <Badge 
                 variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}
-                className="text-sm font-bold px-3 py-1 shadow-md"
+                className="text-xs md:text-sm font-bold px-2 md:px-3 py-0.5 md:py-1 shadow-md"
               >
                 {(storageUsage.percent || 0).toFixed(1)}%
               </Badge>
             </div>
             <Progress 
               value={storageUsage.percent || 0} 
-              className="h-4 transition-all duration-500 ease-out shadow-inner"
+              className="h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
             />
-            <div className="flex justify-between text-sm font-medium text-muted-foreground">
+            <div className="flex justify-between text-xs md:text-sm font-medium text-muted-foreground">
               <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ использовано</span>
               <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ доступно</span>
             </div>
@@ -227,44 +227,44 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
       />
       
       <Card className="bg-gradient-to-br from-primary to-secondary text-white border-0 shadow-xl">
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Icon name="Clock" size={64} className="opacity-30 hidden sm:block" />
+        <CardContent className="p-4 md:p-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 md:gap-4">
+            <div className="flex items-center gap-3 md:gap-4">
+              <Icon name="Clock" size={48} className="opacity-30 hidden sm:block md:w-16 md:h-16" />
               <div>
-                <h2 className="text-4xl font-bold mb-2">{formatTime(currentTime)}</h2>
-                <p className="text-lg opacity-90 capitalize font-light">{formatDate(currentTime)}</p>
+                <h2 className="text-2xl md:text-4xl font-bold mb-1 md:mb-2">{formatTime(currentTime)}</h2>
+                <p className="text-sm md:text-lg opacity-90 capitalize font-light">{formatDate(currentTime)}</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
               <button 
                 onClick={onOpenAddClient}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="UserPlus" size={20} className="transition-transform duration-300 group-hover:rotate-12" />
-                <span className="text-sm font-medium hidden sm:inline">Добавить клиента</span>
+                <Icon name="UserPlus" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
+                <span className="text-xs md:text-sm font-medium hidden sm:inline">Добавить клиента</span>
               </button>
               <button 
                 onClick={() => onOpenClientBooking?.('')}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="Calendar" size={20} className="transition-transform duration-300 group-hover:rotate-12" />
-                <span className="text-sm font-medium hidden sm:inline">Новая запись</span>
+                <Icon name="Calendar" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
+                <span className="text-xs md:text-sm font-medium hidden sm:inline">Новая запись</span>
               </button>
               <button 
                 onClick={onNavigateToPhotobook}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="BookOpen" size={20} className="transition-transform duration-300 group-hover:rotate-12" />
-                <span className="text-sm font-medium hidden sm:inline">Создать фотокнигу</span>
+                <Icon name="BookOpen" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
+                <span className="text-xs md:text-sm font-medium hidden sm:inline">Создать фотокнигу</span>
               </button>
               <button 
                 onClick={onNavigateToClients}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="FileText" size={20} className="transition-transform duration-300 group-hover:rotate-12" />
-                <span className="text-sm font-medium hidden sm:inline">Отчёты</span>
+                <Icon name="FileText" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
+                <span className="text-xs md:text-sm font-medium hidden sm:inline">Отчёты</span>
               </button>
             </div>
           </div>
@@ -276,6 +276,36 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
         subscriptionDaysLeft={subscriptionDaysLeft}
         isTrialPeriod={isTrialPeriod}
       />
+
+      {upcomingMeetings.length > 0 && upcomingMeetings[0] && (
+        <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-secondary/5 shadow-lg hover:shadow-xl transition-all duration-300">
+          <CardContent className="p-3 md:p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
+              <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                <div className="bg-primary/10 p-2 md:p-3 rounded-full animate-pulse">
+                  <Icon name="Bell" size={20} className="text-primary md:w-6 md:h-6" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm md:text-base text-primary">Ближайшая встреча</p>
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">{upcomingMeetings[0].name}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
+                <div className="flex flex-col sm:items-end flex-1 sm:flex-none">
+                  <p className="text-xs md:text-sm font-medium">{upcomingMeetings[0].date}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">{upcomingMeetings[0].time}</p>
+                </div>
+                <button
+                  onClick={() => handleMeetingClick(upcomingMeetings[0].name)}
+                  className="px-3 py-1.5 md:px-4 md:py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-xs md:text-sm font-medium whitespace-nowrap"
+                >
+                  Открыть
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <DashboardMeetings 
         upcomingMeetings={upcomingMeetings}

@@ -99,26 +99,26 @@ const DashboardUserCard = ({ vkUser, emailUser, finalIsAdmin, onOpenAdminPanel, 
       </Card>
 
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Icon name="LogOut" className="text-orange-500" size={24} />
+            <AlertDialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Icon name="LogOut" className="text-orange-500" size={20} />
               Выход из аккаунта
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-xs md:text-sm">
               Вы уверены, что хотите выйти? Вам потребуется снова войти в систему для доступа к своему аккаунту.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">Отмена</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setShowLogoutDialog(false);
                 onLogout?.();
               }}
-              className="bg-primary hover:bg-primary/90"
+              className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
             >
-              <Icon name="LogOut" size={16} className="mr-2" />
+              <Icon name="LogOut" size={14} className="mr-2" />
               Выйти
             </AlertDialogAction>
           </AlertDialogFooter>
