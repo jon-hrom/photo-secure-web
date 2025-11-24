@@ -96,12 +96,12 @@ const ClientsListSection = ({
                     return (
                       <tr
                         key={client.id}
-                        className="border-b hover:bg-accent/50 transition-colors cursor-pointer relative"
+                        className="border-b hover:bg-accent/50 transition-colors cursor-pointer"
                         onClick={() => onSelectClient(client)}
                       >
-                        {hasAnyProjects(client) && (
-                          <td className="absolute left-0 top-0 bottom-0 w-1 p-0 z-10">
-                            <div className="h-full flex flex-col">
+                        <td className="p-2 md:p-3 sticky left-0 bg-white z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)] relative">
+                          {hasAnyProjects(client) && (
+                            <div className="absolute left-0 top-0 bottom-0 w-1 flex flex-col">
                               {(client.projects || []).map((project, idx) => (
                                 <div
                                   key={idx}
@@ -110,9 +110,7 @@ const ClientsListSection = ({
                                 />
                               ))}
                             </div>
-                          </td>
-                        )}
-                        <td className={`${hasAnyProjects(client) ? 'p-2 md:p-3 pl-3 md:pl-4' : 'p-2 md:p-3'} sticky left-0 bg-white z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]`}>
+                          )}
                           <div className="flex items-center gap-2 md:gap-3">
                             <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0 text-xs md:text-base">
                               {getClientInitials(client.name)}

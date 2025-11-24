@@ -1,11 +1,16 @@
 export interface Booking {
   id: number;
   date: Date;
+  booking_date?: string;
+  booking_time?: string;
   time: string;
   description: string;
   notificationEnabled: boolean;
+  notification_enabled?: boolean;
   notificationTime: number;
+  notification_time?: number;
   clientId: number;
+  client_id?: number;
   location?: string;
 }
 

@@ -232,21 +232,39 @@ export const useClientsHandlers = ({
   const handleDateClick = (date: Date | undefined) => {
     if (!date) return;
     
+    // Нормализуем дату для корректного сравнения
+    const clickedDate = new Date(date);
+    clickedDate.setHours(0, 0, 0, 0);
+    
+    // Ищем все бронирования на выбранную дату
     const bookingsOnDate = clients.flatMap(c => 
-      c.bookings
-        .filter(b => b.date.toDateString() === date.toDateString())
-        .map(b => ({ ...b, client: c }))
+      (c.bookings || [])
+        .filter(b => {
+          const bookingDate = new Date(b.booking_date || b.date);
+          bookingDate.setHours(0, 0, 0, 0);
+          return bookingDate.getTime() === clickedDate.getTime();
+        })
+        .map(b => ({ ...b, client: c, clientId: c.id }))
     );
 
+    console.log('[DATE_CLICK] Clicked date:', clickedDate);
+    console.log('[DATE_CLICK] Found bookings:', bookingsOnDate);
+
     if (bookingsOnDate.length > 0) {
-      const booking = bookingsOnDate[0];
-      const client = clients.find(c => c.id === booking.clientId);
+      // Если есть бронирования на эту дату - открываем детали первого
+      const bookingWithClient = bookingsOnDate[0];
+      const client = clients.find(c => c.id === bookingWithClient.clientId);
+      
+      console.log('[DATE_CLICK] Opening booking details for client:', client?.name);
+      
       if (client) {
         setSelectedClient(client);
-        setSelectedBooking(booking);
+        setSelectedBooking(bookingWithClient);
         setIsBookingDetailsOpen(true);
       }
     } else {
+      // Если нет бронирований - просто выбираем дату для нового бронирования
+      console.log('[DATE_CLICK] No bookings, setting selected date');
       setSelectedDate(date);
     }
   };

@@ -40,10 +40,16 @@ export const useClientsData = (userId: string | null) => {
         bookings: (client.bookings || []).map((b: any) => ({
           id: b.id,
           date: new Date(b.booking_date),
+          booking_date: b.booking_date,
           time: b.booking_time,
+          booking_time: b.booking_time,
           description: b.description || '',
           notificationEnabled: b.notification_enabled,
-          clientId: b.client_id
+          notification_enabled: b.notification_enabled,
+          notificationTime: b.notification_time || 24,
+          notification_time: b.notification_time || 24,
+          clientId: b.client_id,
+          client_id: b.client_id
         })),
         projects: (client.projects || []).map((p: any) => ({
           id: p.id,

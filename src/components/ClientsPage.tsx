@@ -63,8 +63,14 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
     if (dialogsState.statusFilter === 'all') return matchesSearch;
     
     // Проверяем есть ли активные проекты (не "завершён" и не "отменён")
-    const hasActiveProjects = client.projects.some(p => p.status !== 'completed' && p.status !== 'cancelled');
-    const hasActiveBookings = client.bookings.some(b => b.date >= new Date());
+    const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled');
+    // Проверяем будущие бронирования
+    const hasActiveBookings = (client.bookings || []).some(b => {
+      const bookingDate = new Date(b.booking_date || b.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return bookingDate >= today;
+    });
     const isActive = hasActiveProjects || hasActiveBookings;
     
     if (dialogsState.statusFilter === 'active') return matchesSearch && isActive;
@@ -159,6 +165,8 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
         newBooking={dialogsState.newBooking}
         setNewBooking={dialogsState.setNewBooking}
         timeSlots={dialogsState.timeSlots}
+        allBookedDates={allBookedDates}
+        handleDateClick={handlers.handleDateClick}
         handleAddBooking={handlers.handleAddBooking}
         handleDeleteBooking={handlers.handleDeleteBooking}
         clients={clients}

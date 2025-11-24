@@ -166,11 +166,18 @@ const BookingDialogs = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <Icon name="Calendar" size={18} className="text-muted-foreground" />
-                  <span>{selectedBooking.date instanceof Date ? selectedBooking.date.toLocaleDateString('ru-RU') : selectedBooking.date}</span>
+                  <span>
+                    {selectedBooking.booking_date 
+                      ? new Date(selectedBooking.booking_date).toLocaleDateString('ru-RU')
+                      : selectedBooking.date instanceof Date 
+                        ? selectedBooking.date.toLocaleDateString('ru-RU') 
+                        : selectedBooking.date
+                    }
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Icon name="Clock" size={18} className="text-muted-foreground" />
-                  <span>{selectedBooking.time}</span>
+                  <span>{selectedBooking.booking_time || selectedBooking.time}</span>
                 </div>
                 {selectedBooking.description && (
                   <div className="flex items-start gap-2">
@@ -178,12 +185,17 @@ const BookingDialogs = ({
                     <p className="text-sm">{selectedBooking.description}</p>
                   </div>
                 )}
-                {selectedBooking.notificationEnabled && (
+                {(selectedBooking.notification_enabled || selectedBooking.notificationEnabled) && (
                   <Badge variant="secondary">
                     <Icon name="Bell" size={12} className="mr-1" />
-                    Уведомление за {selectedBooking.notificationTime >= 24 
-                      ? `${selectedBooking.notificationTime / 24} ${selectedBooking.notificationTime === 24 ? 'день' : selectedBooking.notificationTime === 48 ? 'дня' : 'недель'}`
-                      : `${selectedBooking.notificationTime} ${selectedBooking.notificationTime === 1 ? 'час' : selectedBooking.notificationTime <= 4 ? 'часа' : 'часов'}`}
+                    Уведомление за {(() => {
+                      const time = selectedBooking.notification_time || selectedBooking.notificationTime || 24;
+                      if (time >= 24) {
+                        const days = time / 24;
+                        return `${days} ${days === 1 ? 'день' : days <= 4 ? 'дня' : 'дней'}`;
+                      }
+                      return `${time} ${time === 1 ? 'час' : time <= 4 ? 'часа' : 'часов'}`;
+                    })()}
                   </Badge>
                 )}
               </div>
