@@ -6,6 +6,7 @@ export interface Booking {
   notificationEnabled: boolean;
   notificationTime: number;
   clientId: number;
+  location?: string;
 }
 
 export interface Project {

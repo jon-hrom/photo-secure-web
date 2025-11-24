@@ -129,34 +129,40 @@ const ClientsCalendarSection = ({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Icon name="Clock" className="text-primary" />
-              Ближайшие записи
+              <Icon name="Calendar" className="text-primary" />
+              Ближайшие встречи
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {upcomingBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="p-3 border rounded-xl hover:bg-muted/50 transition-colors space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{booking.client.name}</span>
-                  <Badge variant="outline">
-                    {booking.date instanceof Date ? booking.date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }) : booking.date}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Icon name="Clock" size={12} />
-                  <span>{booking.time}</span>
-                  {booking.description && (
-                    <>
-                      <span>•</span>
-                      <span className="line-clamp-1">{booking.description}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-2 text-sm font-semibold text-muted-foreground">ФИО</th>
+                    <th className="text-left py-3 px-2 text-sm font-semibold text-muted-foreground">Дата</th>
+                    <th className="text-left py-3 px-2 text-sm font-semibold text-muted-foreground">Время</th>
+                    <th className="text-left py-3 px-2 text-sm font-semibold text-muted-foreground">Локация</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {upcomingBookings.map((booking) => (
+                    <tr
+                      key={booking.id}
+                      className="border-b last:border-0 hover:bg-muted/50 transition-colors"
+                    >
+                      <td className="py-3 px-2 font-medium text-sm">{booking.client.name}</td>
+                      <td className="py-3 px-2 text-sm">
+                        {booking.date instanceof Date ? booking.date.toLocaleDateString('ru-RU') : booking.date}
+                      </td>
+                      <td className="py-3 px-2 text-sm">{booking.time}</td>
+                      <td className="py-3 px-2 text-sm text-muted-foreground">
+                        {booking.location || booking.description || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       )}
