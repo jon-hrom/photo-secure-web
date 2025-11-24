@@ -204,11 +204,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
 
         <Card className="shadow-xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Icon name="User" size={24} />
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Icon name="User" size={20} className="md:w-6 md:h-6" />
               Контактная информация
             </CardTitle>
-            <CardDescription>Управление вашими контактными данными</CardDescription>
+            <CardDescription className="text-xs md:text-sm">Управление вашими контактными данными</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 md:space-y-6">
             <div className="space-y-2">
@@ -245,13 +245,13 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                 )}
               </div>
               {settings.email_verified_at ? (
-                <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
-                  <Icon name="CheckCircle2" size={16} />
+                <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
+                  <Icon name="CheckCircle2" size={14} className="md:w-4 md:h-4" />
                   <span className="font-medium">Почта подтверждена</span>
                 </div>
               ) : settings.email && settings.email.trim() ? (
-                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Icon name="AlertCircle" size={16} />
+                <div className="flex items-center gap-2 text-xs md:text-sm text-amber-700 bg-amber-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Icon name="AlertCircle" size={14} className="md:w-4 md:h-4" />
                   <span className="font-medium">Email не подтверждён</span>
                   <Button
                     variant="link"
@@ -263,9 +263,9 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   </Button>
                 </div>
               ) : settings.source === 'vk' && editedEmail && editedEmail.trim() && editedEmail.includes('@') ? (
-                <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Icon name="Info" size={16} />
-                  <span className="font-medium">Сначала сохраните email, нажав кнопку справа ↪</span>
+                <div className="flex items-center gap-2 text-xs md:text-sm text-blue-700 bg-blue-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-blue-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Icon name="Info" size={14} className="md:w-4 md:h-4" />
+                  <span className="font-medium text-xs md:text-sm">Сначала сохраните email</span>
                 </div>
               ) : null}
             </div>
@@ -325,14 +325,14 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                 )}
               </div>
               {phoneVerified ? (
-                <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
-                  <Icon name="CheckCircle2" size={16} />
+                <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
+                  <Icon name="CheckCircle2" size={14} className="md:w-4 md:h-4" />
                   <span className="font-medium">Телефон подтвержден</span>
                 </div>
               ) : settings.phone && !isEditingPhone ? (
-                <div className="flex items-center justify-between gap-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs md:text-sm text-amber-600 bg-amber-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-amber-200">
                   <div className="flex items-center gap-2">
-                    <Icon name="AlertCircle" size={16} />
+                    <Icon name="AlertCircle" size={14} className="md:w-4 md:h-4" />
                     <span className="font-medium">Телефон не подтвержден</span>
                   </div>
                   <Button
@@ -352,20 +352,20 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
 
         <Card className="shadow-xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Icon name="Shield" size={24} />
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Icon name="Shield" size={20} className="md:w-6 md:h-6" />
               Безопасность
             </CardTitle>
-            <CardDescription>Двухфакторная аутентификация</CardDescription>
+            <CardDescription className="text-xs md:text-sm">Двухфакторная аутентификация</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 md:space-y-6">
             <div className="flex items-center justify-between p-3 md:p-4 bg-muted/30 rounded-xl">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <Icon name="Mail" size={20} className="text-primary" />
+                  <Icon name="Mail" size={18} className="text-primary md:w-5 md:h-5" />
                   <Label className="font-semibold text-sm md:text-base">Email-аутентификация</Label>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground">
                   Код из 5 цифр будет отправлен на вашу почту
                 </p>
               </div>
@@ -377,9 +377,9 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             </div>
 
             <div className="p-3 md:p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
-              <div className="flex items-start gap-3">
-                <Icon name="Info" className="text-blue-600 mt-1" size={20} />
-                <div className="text-sm">
+              <div className="flex items-start gap-2 md:gap-3">
+                <Icon name="Info" className="text-blue-600 mt-0.5 md:mt-1 flex-shrink-0" size={16} />
+                <div className="text-xs md:text-sm">
                   <p className="font-semibold text-blue-900 mb-1">Рекомендация</p>
                   <p className="text-blue-700">
                     Включите двухфакторную аутентификацию для повышения безопасности вашего аккаунта

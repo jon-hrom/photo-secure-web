@@ -101,13 +101,13 @@ const PhoneVerificationDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="MessageSquare" className="text-primary" />
+          <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <Icon name="MessageSquare" className="text-primary" size={20} />
             Подтверждение телефона
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs md:text-sm">
             Введите код из SMS, отправленного на номер {phone}
           </DialogDescription>
         </DialogHeader>

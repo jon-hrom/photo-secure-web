@@ -187,14 +187,14 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
   if (isVerified) {
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Icon name="CheckCircle2" size={24} className="text-green-600" />
+            <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Icon name="CheckCircle2" size={20} className="text-green-600 md:w-6 md:h-6" />
               Почта подтверждена
             </DialogTitle>
           </DialogHeader>
-          <div className="py-6 text-center">
+          <div className="py-4 md:py-6 text-center">
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
               <Icon name="Check" size={32} className="text-green-600" />
             </div>
@@ -211,13 +211,13 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="Mail" size={24} />
+          <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <Icon name="Mail" size={20} className="md:w-6 md:h-6" />
             Подтвердите почту
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs md:text-sm">
             Отправляем 6-значный код на <strong>{userEmail}</strong>
           </DialogDescription>
         </DialogHeader>
@@ -225,8 +225,8 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
         <div className="space-y-4 py-4">
           {!codeSent ? (
             <div className="text-center space-y-4">
-              <p className="text-muted-foreground">Выберите способ получения кода подтверждения</p>
-              <div className="flex gap-2">
+              <p className="text-xs md:text-sm text-muted-foreground">Выберите способ получения кода подтверждения</p>
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                   onClick={() => handleSendCode('email')}
                   disabled={loading}

@@ -76,6 +76,23 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
     };
     
     fetchMeetings();
+    
+    // Автообновление встреч каждые 30 секунд
+    const intervalId = setInterval(fetchMeetings, 30000);
+    
+    // Обновление при возврате на страницу (например, из раздела "Клиенты")
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMeetings();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [propUserId]);
 
   useEffect(() => {
