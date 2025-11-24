@@ -175,7 +175,7 @@ const PhoneVerificationDialog = ({
             <p className="text-sm text-blue-700 flex items-start gap-2">
               <Icon name="Info" size={16} className="mt-0.5 flex-shrink-0" />
               <span>
-                SMS может прийти в течение нескольких минут. Проверьте папку со спамом, если код не приходит.
+                SMS может прийти в течение нескольких минут.
               </span>
             </p>
           </div>
