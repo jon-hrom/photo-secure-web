@@ -71,19 +71,19 @@ const ClientsListSection = ({
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="overflow-hidden">
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+              <table className="w-full min-w-max">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">Клиент</th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Контакты</th>
-                    <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Записи</th>
-                    <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Проекты</th>
-                    <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden xl:table-cell">Оплачено</th>
-                    <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden xl:table-cell">Документы</th>
-                    <th className="text-right p-3 text-sm font-medium text-muted-foreground">Действия</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap sticky left-0 bg-muted/50 z-20">Клиент</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell">Контакты</th>
+                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Записи</th>
+                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Проекты</th>
+                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden xl:table-cell">Оплачено</th>
+                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden xl:table-cell">Документы</th>
+                    <th className="text-right p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap sticky right-0 bg-muted/50 z-20">Действия</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -112,19 +112,19 @@ const ClientsListSection = ({
                             </div>
                           </td>
                         )}
-                        <td className={hasAnyProjects(client) ? 'p-3 pl-4' : 'p-3'}>
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
+                        <td className={`${hasAnyProjects(client) ? 'p-2 md:p-3 pl-3 md:pl-4' : 'p-2 md:p-3'} sticky left-0 bg-white z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]`}>
+                          <div className="flex items-center gap-2 md:gap-3">
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0 text-xs md:text-base">
                               {getClientInitials(client.name)}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-medium truncate">{client.name}</p>
-                              <p className="text-sm text-muted-foreground md:hidden">{client.phone}</p>
+                              <p className="font-medium truncate text-xs md:text-base max-w-[120px] md:max-w-none">{client.name}</p>
+                              <p className="text-xs text-muted-foreground md:hidden truncate">{client.phone}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="p-3 hidden md:table-cell">
-                          <div className="space-y-1 text-sm">
+                        <td className="p-2 md:p-3 hidden md:table-cell">
+                          <div className="space-y-1 text-xs md:text-sm min-w-[180px]">
                             <div className="flex items-center gap-2">
                               <Icon name="Phone" size={14} className="text-muted-foreground flex-shrink-0" />
                               <span className="truncate">{client.phone}</span>
@@ -132,12 +132,12 @@ const ClientsListSection = ({
                             {client.email && (
                               <div className="flex items-center gap-2">
                                 <Icon name="Mail" size={14} className="text-muted-foreground flex-shrink-0" />
-                                <span className="truncate">{client.email}</span>
+                                <span className="truncate max-w-[200px]">{client.email}</span>
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="p-3 text-center hidden lg:table-cell">
+                        <td className="p-2 md:p-3 text-center hidden lg:table-cell whitespace-nowrap">
                           {activeBookings > 0 ? (
                             <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
                               <Icon name="Calendar" size={16} />
@@ -147,7 +147,7 @@ const ClientsListSection = ({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="p-3 text-center hidden lg:table-cell">
+                        <td className="p-2 md:p-3 text-center hidden lg:table-cell whitespace-nowrap">
                           {activeProjects > 0 ? (
                             <div className="inline-flex items-center gap-1 text-purple-600 font-medium">
                               <Icon name="Briefcase" size={16} />
@@ -157,7 +157,7 @@ const ClientsListSection = ({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="p-3 text-center hidden xl:table-cell">
+                        <td className="p-2 md:p-3 text-center hidden xl:table-cell whitespace-nowrap">
                           {totalPaid > 0 ? (
                             <span className="text-green-600 font-medium">
                               {totalPaid.toLocaleString('ru-RU')} ₽
@@ -166,7 +166,7 @@ const ClientsListSection = ({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="p-3 text-center hidden xl:table-cell">
+                        <td className="p-2 md:p-3 text-center hidden xl:table-cell whitespace-nowrap">
                           {documentsCount > 0 ? (
                             <div className="inline-flex items-center gap-1 text-orange-600 font-medium">
                               <Icon name="FileText" size={16} />
@@ -176,36 +176,36 @@ const ClientsListSection = ({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="p-2 md:p-3 sticky right-0 bg-white z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)]">
+                          <div className="flex items-center justify-end gap-0.5 md:gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-7 w-7 md:h-8 md:w-8"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onAddBooking(client);
                               }}
                               title="Добавить запись"
                             >
-                              <Icon name="Plus" size={16} />
+                              <Icon name="Plus" size={14} className="md:w-4 md:h-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-7 w-7 md:h-8 md:w-8"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onEditClient(client);
                               }}
                               title="Редактировать"
                             >
-                              <Icon name="Edit" size={16} />
+                              <Icon name="Edit" size={14} className="md:w-4 md:h-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              className="h-7 w-7 md:h-8 md:w-8 text-destructive hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (confirm(`Удалить клиента "${client.name}"?`)) {
@@ -214,7 +214,7 @@ const ClientsListSection = ({
                               }}
                               title="Удалить"
                             >
-                              <Icon name="Trash2" size={16} />
+                              <Icon name="Trash2" size={14} className="md:w-4 md:h-4" />
                             </Button>
                           </div>
                         </td>
