@@ -628,10 +628,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cursor = conn.cursor()
-                cursor.execute("SELECT is_admin FROM users WHERE id = %s", (admin_user_id,))
+                cursor.execute("SELECT email FROM users WHERE id = %s", (admin_user_id,))
                 user = cursor.fetchone()
                 
-                if not user or not user['is_admin']:
+                # Check if user is admin by email or VK ID
+                is_admin = False
+                if user and user['email'] == 'jonhrom2012@gmail.com':
+                    is_admin = True
+                else:
+                    # Check VK admin by VK ID
+                    cursor.execute("SELECT vk_id FROM vk_users WHERE user_id = %s AND vk_id = '74713477'", (admin_user_id,))
+                    vk_admin = cursor.fetchone()
+                    if vk_admin:
+                        is_admin = True
+                
+                if not is_admin:
                     return {
                         'statusCode': 403,
                         'headers': headers,
@@ -681,10 +692,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cursor = conn.cursor()
-                cursor.execute("SELECT is_admin FROM users WHERE id = %s", (admin_user_id,))
+                cursor.execute("SELECT email FROM users WHERE id = %s", (admin_user_id,))
                 user = cursor.fetchone()
                 
-                if not user or not user['is_admin']:
+                # Check if user is admin by email or VK ID
+                is_admin = False
+                if user and user['email'] == 'jonhrom2012@gmail.com':
+                    is_admin = True
+                else:
+                    # Check VK admin by VK ID
+                    cursor.execute("SELECT vk_id FROM vk_users WHERE user_id = %s AND vk_id = '74713477'", (admin_user_id,))
+                    vk_admin = cursor.fetchone()
+                    if vk_admin:
+                        is_admin = True
+                
+                if not is_admin:
                     return {
                         'statusCode': 403,
                         'headers': headers,
@@ -719,10 +741,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cursor = conn.cursor()
-                cursor.execute("SELECT is_admin, email FROM users WHERE id = %s", (admin_user_id,))
+                cursor.execute("SELECT email FROM users WHERE id = %s", (admin_user_id,))
                 admin = cursor.fetchone()
                 
-                if not admin or not admin['is_admin']:
+                # Check if user is admin by email or VK ID
+                is_admin = False
+                if admin and admin['email'] == 'jonhrom2012@gmail.com':
+                    is_admin = True
+                else:
+                    # Check VK admin by VK ID
+                    cursor.execute("SELECT vk_id FROM vk_users WHERE user_id = %s AND vk_id = '74713477'", (admin_user_id,))
+                    vk_admin = cursor.fetchone()
+                    if vk_admin:
+                        is_admin = True
+                
+                if not is_admin:
                     return {
                         'statusCode': 403,
                         'headers': headers,
