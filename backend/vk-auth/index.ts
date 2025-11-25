@@ -440,6 +440,36 @@ exports.handler = async (event, context) => {
       const createUserData = await createUserResponse.json();
       const userId = createUserData.user_id;
       
+      // Check if user is blocked
+      const blockCheckClient = new Client({ connectionString: DATABASE_URL });
+      try {
+        await blockCheckClient.connect();
+        const blockResult = await blockCheckClient.query(
+          `SELECT is_blocked, email FROM ${SCHEMA}.users WHERE id = ${userId}`
+        );
+        
+        if (blockResult.rows.length > 0 && blockResult.rows[0].is_blocked === true) {
+          return {
+            statusCode: 403,
+            headers: { 
+              'Content-Type': 'application/json', 
+              'Access-Control-Allow-Origin': '*' 
+            },
+            body: JSON.stringify({ 
+              error: 'Доступ заблокирован администратором',
+              blocked: true,
+              message: 'Ваш аккаунт был заблокирован. Обратитесь к администратору через форму обратной связи.',
+              user_id: userId,
+              user_email: blockResult.rows[0].email,
+              auth_method: 'vk'
+            }),
+            isBase64Encoded: false
+          };
+        }
+      } finally {
+        await blockCheckClient.end();
+      }
+      
       // Check if user has 2FA enabled
       const twoFAClient = new Client({ connectionString: DATABASE_URL });
       let requires2FA = false;

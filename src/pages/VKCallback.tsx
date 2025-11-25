@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 import funcUrls from '../../backend/func2url.json';
 
 const VKCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(true);
+  const [showAppealDialog, setShowAppealDialog] = useState(false);
+  const [blockedUserData, setBlockedUserData] = useState<{
+    userId?: number;
+    userEmail?: string;
+    authMethod?: string;
+  } | null>(null);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -30,6 +38,19 @@ const VKCallback = () => {
 
         console.log('VKCallback: Backend response:', data);
 
+        if (response.status === 403 && data.blocked) {
+          console.log('VKCallback: User is blocked');
+          toast.error(data.message || 'Ваш аккаунт заблокирован администратором');
+          setBlockedUserData({
+            userId: data.user_id,
+            userEmail: data.user_email,
+            authMethod: data.auth_method || 'vk'
+          });
+          setShowAppealDialog(true);
+          setProcessing(false);
+          return;
+        }
+        
         if (data.success && data.profile) {
           const { profile, user_id } = data;
           
@@ -73,10 +94,32 @@ const VKCallback = () => {
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-lg text-gray-700">Обработка авторизации VK...</p>
           </>
+        ) : showAppealDialog ? (
+          <p className="text-lg text-gray-700">Ваш аккаунт заблокирован</p>
         ) : (
           <p className="text-lg text-gray-700">Перенаправление...</p>
         )}
       </div>
+
+      <Dialog open={showAppealDialog} onOpenChange={(open) => {
+        setShowAppealDialog(open);
+        if (!open) navigate('/');
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Форма обращения к администратору</DialogTitle>
+          </DialogHeader>
+          <BlockedUserAppeal
+            userId={blockedUserData?.userId}
+            userEmail={blockedUserData?.userEmail}
+            authMethod={blockedUserData?.authMethod}
+            onClose={() => {
+              setShowAppealDialog(false);
+              navigate('/');
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

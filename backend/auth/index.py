@@ -343,7 +343,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     return {
                         'statusCode': 403,
                         'headers': headers,
-                        'body': json.dumps({'error': 'Доступ заблокирован администратором'}),
+                        'body': json.dumps({
+                            'error': 'Доступ заблокирован администратором', 
+                            'blocked': True,
+                            'message': 'Ваш аккаунт был заблокирован. Обратитесь к администратору через форму обратной связи.',
+                            'user_id': user['id'],
+                            'user_email': email
+                        }),
                         'isBase64Encoded': False
                     }
                 
@@ -551,6 +557,142 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 cursor.execute(
                     "UPDATE users SET last_login = NOW(), ip_address = %s, user_agent = %s WHERE email = %s",
                     (ip_address, user_agent, email)
+                )
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': headers,
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'submit_appeal':
+                user_identifier = body.get('user_identifier')
+                user_email = body.get('user_email')
+                user_phone = body.get('user_phone')
+                auth_method = body.get('auth_method')
+                message = body.get('message')
+                
+                if not user_identifier or not message:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'user_identifier и message обязательны'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor = conn.cursor()
+                
+                block_reason = None
+                is_blocked = False
+                if user_email:
+                    cursor.execute(
+                        "SELECT is_blocked, block_reason FROM users WHERE email = %s",
+                        (user_email,)
+                    )
+                    user_data = cursor.fetchone()
+                    if user_data:
+                        is_blocked = user_data['is_blocked']
+                        block_reason = user_data.get('block_reason')
+                
+                cursor.execute(
+                    """INSERT INTO blocked_user_appeals 
+                    (user_identifier, user_email, user_phone, auth_method, message, block_reason, is_blocked)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id""",
+                    (user_identifier, user_email, user_phone, auth_method, message, block_reason, is_blocked)
+                )
+                
+                appeal_id = cursor.fetchone()['id']
+                conn.commit()
+                
+                return {
+                    'statusCode': 201,
+                    'headers': headers,
+                    'body': json.dumps({'success': True, 'appeal_id': appeal_id}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'get_appeals':
+                admin_user_id = body.get('admin_user_id')
+                
+                if not admin_user_id:
+                    return {
+                        'statusCode': 401,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Требуется авторизация администратора'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor = conn.cursor()
+                cursor.execute("SELECT is_admin FROM users WHERE id = %s", (admin_user_id,))
+                user = cursor.fetchone()
+                
+                if not user or not user['is_admin']:
+                    return {
+                        'statusCode': 403,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Доступ запрещён'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor.execute("""
+                    SELECT id, user_identifier, user_email, user_phone, auth_method, 
+                           message, block_reason, is_blocked, is_read, 
+                           created_at, read_at, admin_response, responded_at
+                    FROM blocked_user_appeals
+                    ORDER BY is_read ASC, created_at DESC
+                    LIMIT 100
+                """)
+                
+                appeals = cursor.fetchall()
+                appeals_list = []
+                
+                for appeal in appeals:
+                    appeal_dict = dict(appeal)
+                    if appeal_dict['created_at']:
+                        appeal_dict['created_at'] = appeal_dict['created_at'].isoformat()
+                    if appeal_dict['read_at']:
+                        appeal_dict['read_at'] = appeal_dict['read_at'].isoformat()
+                    if appeal_dict['responded_at']:
+                        appeal_dict['responded_at'] = appeal_dict['responded_at'].isoformat()
+                    appeals_list.append(appeal_dict)
+                
+                return {
+                    'statusCode': 200,
+                    'headers': headers,
+                    'body': json.dumps({'appeals': appeals_list}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'mark_appeal_read':
+                appeal_id = body.get('appeal_id')
+                admin_user_id = body.get('admin_user_id')
+                
+                if not admin_user_id:
+                    return {
+                        'statusCode': 401,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Требуется авторизация администратора'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor = conn.cursor()
+                cursor.execute("SELECT is_admin FROM users WHERE id = %s", (admin_user_id,))
+                user = cursor.fetchone()
+                
+                if not user or not user['is_admin']:
+                    return {
+                        'statusCode': 403,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Доступ запрещён'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor.execute(
+                    "UPDATE blocked_user_appeals SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (appeal_id,)
                 )
                 conn.commit()
                 

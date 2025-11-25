@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import VKAuthButton from '@/components/VKAuthButton';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
+import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string) => void;
@@ -34,6 +35,12 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     vk: true,
     google: true,
   });
+  const [showAppealDialog, setShowAppealDialog] = useState(false);
+  const [blockedUserData, setBlockedUserData] = useState<{
+    userId?: number;
+    userEmail?: string;
+    authMethod?: string;
+  } | null>(null);
 
   useEffect(() => {
     const selectedBgId = localStorage.getItem('loginPageBackground');
@@ -144,6 +151,17 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           onLoginSuccess(data.userId, email);
         }
       } else {
+        if (response.status === 403 && data.blocked) {
+          toast.error(data.message || 'Ваш аккаунт заблокирован администратором');
+          setBlockedUserData({
+            userId: data.user_id,
+            userEmail: data.user_email || email,
+            authMethod: 'password'
+          });
+          setShowAppealDialog(true);
+          return;
+        }
+        
         if (response.status === 404) {
           toast.error('Пользователь с такой почтой не зарегистрирован!');
           return;
@@ -443,6 +461,20 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           onCancel={handle2FACancel}
         />
       )}
+
+      <Dialog open={showAppealDialog} onOpenChange={setShowAppealDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Форма обращения к администратору</DialogTitle>
+          </DialogHeader>
+          <BlockedUserAppeal
+            userId={blockedUserData?.userId}
+            userEmail={blockedUserData?.userEmail}
+            authMethod={blockedUserData?.authMethod}
+            onClose={() => setShowAppealDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
