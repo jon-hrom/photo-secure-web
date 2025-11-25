@@ -235,4 +235,18 @@
     transform: scale(1.1) !important;
     box-shadow: 0 12px 30px -5px rgba(216, 180, 254, 0.4) !important;
   }
+
+  @keyframes slide-in-from-left {
+    0% {
+      opacity: 0;
+      transform: translateX(-120px) scale(0.8);
+    }
+    60% {
+      transform: translateX(10px) scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
 }

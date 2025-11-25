@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -16,6 +17,7 @@ interface MobileNavigationProps {
 const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const navItems: NavItem[] = [
     { icon: 'LayoutDashboard', label: 'Главная', path: '/' },
@@ -27,12 +29,13 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
 
   const handleNavClick = (item: NavItem) => {
     if (item.path === '/') {
-      if (onNavigate) {
-        onNavigate('dashboard');
-      } else {
-        navigate('/');
-      }
-    } else if (item.path === '/clients') {
+      setIsExpanded(!isExpanded);
+      return;
+    }
+
+    setIsExpanded(false);
+    
+    if (item.path === '/clients') {
       if (onNavigate) {
         onNavigate('clients');
       } else {
@@ -61,51 +64,89 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-border/50 z-50 md:hidden animate-slide-up shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-      <div className="flex justify-around items-center py-2 px-2">
-        {navItems.map((item, index) => (
+    <>
+      {isExpanded && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsExpanded(false)}
+        />
+      )}
+      
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+        <div className="flex items-end justify-start pb-4 px-4 gap-2">
           <Button
-            key={item.path}
             variant="ghost"
             className={cn(
-              'flex-1 flex flex-col items-center gap-1 h-auto py-3 px-1 transition-all duration-300 relative',
-              isActive(item.path) && 'text-primary scale-110'
+              'flex flex-col items-center gap-1 h-auto py-3 px-4 transition-all duration-300 relative bg-white/90 backdrop-blur-xl border-2 border-border/50 shadow-2xl hover:shadow-3xl',
+              isActive('/') && 'border-primary/50'
             )}
-            onClick={() => handleNavClick(item)}
-            style={{ 
-              animationDelay: `${index * 50}ms`,
-              animation: 'fade-in-up 0.4s ease-out forwards'
-            }}
+            onClick={() => handleNavClick(navItems[0])}
           >
-            {isActive(item.path) && (
+            {isActive('/') && (
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
             )}
             <div className={cn(
-              'p-2 rounded-xl transition-all duration-300 relative',
-              isActive(item.path) ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100'
+              'p-3 rounded-xl transition-all duration-300 relative',
+              isActive('/') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100'
             )}>
               <Icon 
-                name={item.icon} 
-                size={20} 
+                name={navItems[0].icon} 
+                size={24} 
                 className={cn(
                   'transition-colors duration-300',
-                  isActive(item.path) ? 'text-white' : 'text-gray-600'
+                  isActive('/') ? 'text-white' : 'text-gray-600'
                 )}
               />
             </div>
             <span className={cn(
               'text-xs font-medium transition-all duration-300',
-              isActive(item.path) ? 'text-primary font-bold' : 'text-gray-600'
+              isActive('/') ? 'text-primary font-bold' : 'text-gray-600'
             )}>
-              {item.label}
+              {navItems[0].label}
             </span>
-            {isActive(item.path) && (
-              <div className="absolute -top-1 w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full shadow-lg" />
-            )}
           </Button>
-        ))}
-      </div>
-    </nav>
+
+          {isExpanded && navItems.slice(1).map((item, index) => (
+            <Button
+              key={item.path}
+              variant="ghost"
+              className={cn(
+                'flex flex-col items-center gap-1 h-auto py-3 px-4 relative bg-white/90 backdrop-blur-xl border-2 border-border/50 shadow-2xl hover:shadow-3xl',
+                isActive(item.path) && 'border-primary/50'
+              )}
+              onClick={() => handleNavClick(item)}
+              style={{
+                animation: `slide-in-from-left 0.4s ease-out ${index * 0.1}s both`,
+                transformOrigin: 'left center'
+              }}
+            >
+              {isActive(item.path) && (
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
+              )}
+              <div className={cn(
+                'p-3 rounded-xl transition-all duration-300 relative',
+                isActive(item.path) ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100'
+              )}>
+                <Icon 
+                  name={item.icon} 
+                  size={24} 
+                  className={cn(
+                    'transition-colors duration-300',
+                    isActive(item.path) ? 'text-white' : 'text-gray-600'
+                  )}
+                />
+              </div>
+              <span className={cn(
+                'text-xs font-medium transition-all duration-300',
+                isActive(item.path) ? 'text-primary font-bold' : 'text-gray-600'
+              )}>
+                {item.label}
+              </span>
+            </Button>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 };
 
