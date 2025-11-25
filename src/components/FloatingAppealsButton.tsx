@@ -41,7 +41,7 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
   const previousUnreadCount = useRef<number>(0);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState({ x: window.innerWidth - 100, y: window.innerHeight - 100 });
+  const [position, setPosition] = useState({ x: window.innerWidth - 100, y: 20 });
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
 
   const fetchAppeals = async () => {
@@ -77,7 +77,7 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
   useEffect(() => {
     if (isAdmin) {
       fetchAppeals();
-      const interval = setInterval(fetchAppeals, 30000);
+      const interval = setInterval(fetchAppeals, 10000);
       return () => clearInterval(interval);
     }
   }, [isAdmin, userId]);
