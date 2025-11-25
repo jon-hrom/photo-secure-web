@@ -5,6 +5,7 @@ import AdminWidgets from '@/components/admin/AdminWidgets';
 import EnhancedAdminUsers from '@/components/admin/EnhancedAdminUsers';
 import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
 import EmailNotifications from '@/components/admin/EmailNotifications';
+import NotificationSoundSettings from '@/components/admin/NotificationSoundSettings';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -99,6 +100,13 @@ const AdminPanelTabs = ({
         <AccordionTrigger className="text-lg font-semibold">Email уведомления</AccordionTrigger>
         <AccordionContent>
           <EmailNotifications />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="notification-sound">
+        <AccordionTrigger className="text-lg font-semibold">Звук уведомлений</AccordionTrigger>
+        <AccordionContent>
+          <NotificationSoundSettings />
         </AccordionContent>
       </AccordionItem>
 

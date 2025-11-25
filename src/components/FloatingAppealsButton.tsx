@@ -37,6 +37,8 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
   const [respondingTo, setRespondingTo] = useState<number | null>(null);
   const [responseText, setResponseText] = useState('');
   const [selectedAppeal, setSelectedAppeal] = useState<Appeal | null>(null);
+  const [customSound, setCustomSound] = useState<string | null>(null);
+  const previousUnreadCount = useRef<number>(0);
 
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: window.innerWidth - 100, y: window.innerHeight - 100 });
@@ -60,6 +62,11 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       if (response.ok && data.appeals) {
         setAppeals(data.appeals);
         const unread = data.appeals.filter((a: Appeal) => !a.is_read).length;
+        
+        if (unread > previousUnreadCount.current && previousUnreadCount.current > 0) {
+          playNotificationSound();
+        }
+        previousUnreadCount.current = unread;
         setUnreadCount(unread);
       }
     } catch (error) {
@@ -74,6 +81,24 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       return () => clearInterval(interval);
     }
   }, [isAdmin, userId]);
+
+  useEffect(() => {
+    const savedSound = localStorage.getItem('admin_notification_sound');
+    if (savedSound) {
+      setCustomSound(savedSound);
+    }
+  }, []);
+
+  const playNotificationSound = () => {
+    try {
+      const soundUrl = customSound || 'data:audio/wav;base64,UklGRmQEAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAEAACAP4CAf4B/gICAgH+AgIB/gH+AgICAgICAf4CAgH+Af4CAgICAgICAgH+AgICAgH+Af4B/gICAgICAf4CAgICAf4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+AgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+AgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgICAgA==';
+      const audio = new Audio(soundUrl);
+      audio.volume = 0.5;
+      audio.play().catch(err => console.log('Sound play failed:', err));
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
