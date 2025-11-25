@@ -27,10 +27,17 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
   const navItems: NavItem[] = [
     { icon: 'LayoutDashboard', label: 'Главная', path: 'dashboard' },
     { icon: 'Settings', label: 'Настройки', path: 'settings' },
+    { icon: 'BookOpen', label: 'Справка', path: 'help' },
     { icon: 'Images', label: 'Фото банк', path: 'photo-bank' },
     { icon: 'Users', label: 'Клиенты', path: 'clients' },
     { icon: 'Zap', label: 'Тарифы', path: 'tariffs' },
   ];
+  
+  const getNavClassName = (path: string) => {
+    if (path === 'photo-bank') return 'mobile-nav-photobank';
+    if (path === 'settings') return 'mobile-nav-settings';
+    return '';
+  };
 
   const vibrate = (pattern: number | number[]) => {
     if ('vibrate' in navigator) {
@@ -108,7 +115,8 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
               variant="ghost"
               className={cn(
                 'flex flex-col items-center gap-0.5 h-auto py-2 px-3 relative bg-white/90 backdrop-blur-xl border-2 border-border/50 shadow-2xl hover:shadow-3xl',
-                isActive(item.path) && 'border-primary/50'
+                isActive(item.path) && 'border-primary/50',
+                getNavClassName(item.path)
               )}
               onClick={() => handleNavClick(item)}
               style={{

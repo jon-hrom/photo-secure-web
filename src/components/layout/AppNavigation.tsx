@@ -10,8 +10,8 @@ import {
 import { cn } from '@/lib/utils';
 
 interface AppNavigationProps {
-  currentPage: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs';
-  setCurrentPage: (page: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs') => void;
+  currentPage: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs' | 'help';
+  setCurrentPage: (page: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs' | 'help') => void;
   userName: string;
   userEmail: string;
   userAvatar: string;
@@ -111,6 +111,15 @@ const AppNavigation = ({
                 </div>
               </div>
             )}
+            
+            <Button
+              variant="ghost"
+              onClick={() => setCurrentPage('help')}
+              className="hidden md:flex rounded-full hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-300"
+              title="Справка"
+            >
+              <Icon name="HelpCircle" size={20} />
+            </Button>
             
             <Button
               variant="outline"

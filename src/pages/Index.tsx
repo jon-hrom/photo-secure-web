@@ -8,6 +8,7 @@ import LoginPage from '@/components/LoginPage';
 import SettingsPage from '@/components/SettingsPage';
 import FeaturesPage from '@/components/FeaturesPage';
 import TariffsPage from '@/components/TariffsPage';
+import HelpPage from '@/components/HelpPage';
 import AdminPanel from '@/components/AdminPanel';
 import MaintenancePage from '@/components/MaintenancePage';
 import AppNavigation from '@/components/layout/AppNavigation';
@@ -319,6 +320,7 @@ const Index = () => {
         {currentPage === 'features' && <FeaturesPage />}
         {currentPage === 'tariffs' && <TariffsPage isAdmin={isAdmin} userId={userId?.toString()} />}
         {currentPage === 'settings' && userId && <SettingsPage userId={userId} />}
+        {currentPage === 'help' && <HelpPage />}
         {currentPage === 'admin' && isAdmin && <AdminPanel />}
       </main>
       

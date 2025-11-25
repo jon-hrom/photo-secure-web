@@ -467,6 +467,30 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="shadow-xl bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-white rounded-lg shadow-sm">
+                <Icon name="BookOpen" size={24} className="text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg mb-2">Справочный центр</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Полное руководство по работе с приложением, ответы на частые вопросы и инструкции с примерами
+                </p>
+                <Button
+                  onClick={() => window.location.href = '/#help'}
+                  className="rounded-full"
+                  size="sm"
+                >
+                  <Icon name="ExternalLink" size={16} className="mr-2" />
+                  Открыть справку
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -9,6 +9,8 @@ interface TourStep {
   placement: 'top' | 'bottom' | 'left' | 'right';
   action?: 'click' | 'navigate';
   page?: string;
+  mobileOnly?: boolean;
+  desktopOnly?: boolean;
 }
 
 interface OnboardingTourProps {
@@ -19,15 +21,15 @@ interface OnboardingTourProps {
 const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="dashboard"]',
-    title: 'Панель управления',
-    description: 'Здесь отображается статистика: количество клиентов и фотографий',
+    title: 'Главная страница',
+    description: 'Здесь вы видите статистику: клиенты, проекты, встречи и баланс',
     placement: 'bottom',
     page: 'dashboard'
   },
   {
     target: '[data-tour="clients-nav"]',
-    title: 'Раздел "Клиенты"',
-    description: 'Управляйте списком ваших клиентов и их фотосессиями',
+    title: 'Раздел «Клиенты»',
+    description: 'Управляйте базой клиентов, добавляйте записи и отслеживайте проекты',
     placement: 'right',
     page: 'dashboard',
     action: 'click'
@@ -35,44 +37,63 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="add-client"]',
     title: 'Добавить клиента',
-    description: 'Нажмите эту кнопку, чтобы создать карточку нового клиента',
-    placement: 'left',
+    description: 'Создайте карточку клиента с контактами, адресом и соц. сетями',
+    placement: 'bottom',
     page: 'clients'
   },
   {
     target: '[data-tour="client-card"]',
     title: 'Карточка клиента',
-    description: 'Нажмите на карточку чтобы открыть детали. Свайпайте влево/вправо для быстрых действий',
+    description: 'Нажмите для деталей. На телефоне свайпайте влево/вправо для действий',
     placement: 'top',
     page: 'clients'
   },
   {
+    target: '.mobile-nav-photobank',
+    title: 'Мой фото банк',
+    description: 'Загружайте фото, создавайте папки и управляйте всеми файлами в одном месте',
+    placement: 'top',
+    page: 'clients',
+    action: 'navigate',
+    mobileOnly: true
+  },
+  {
     target: '[data-tour="photobook-nav"]',
-    title: 'Фотобанк',
-    description: 'Храните все ваши фотографии в одном месте с удобным поиском',
+    title: 'Фотокниги',
+    description: 'Создавайте дизайны фотокниг с автоматической раскладкой и 3D-превью',
     placement: 'right',
     page: 'clients',
     action: 'click'
   },
   {
     target: '[data-tour="upload-photos"]',
-    title: 'Загрузка фото',
-    description: 'Перетащите фото сюда или нажмите для выбора файлов',
+    title: 'Создание фотокниги',
+    description: 'Загрузите фото, выберите шаблон и метод заполнения (авто или вручную)',
     placement: 'bottom',
     page: 'photobook'
   },
   {
+    target: '.mobile-nav-settings',
+    title: 'Настройки',
+    description: 'Управление профилем, безопасностью и подсказками',
+    placement: 'top',
+    page: 'photobook',
+    action: 'navigate',
+    mobileOnly: true
+  },
+  {
     target: '[data-tour="settings-nav"]',
     title: 'Настройки',
-    description: 'Управляйте профилем, безопасностью и подсказками интерфейса',
-    placement: 'right',
+    description: 'Управление профилем, двухфакторной аутентификацией и подсказками',
+    placement: 'left',
     page: 'photobook',
-    action: 'click'
+    action: 'click',
+    desktopOnly: true
   },
   {
     target: '[data-tour="hints-settings"]',
-    title: 'Управление подсказками',
-    description: 'Здесь можно отключить обучение или сбросить подсказки',
+    title: 'Управление обучением',
+    description: 'Отключите подсказки или перезапустите обучение в любой момент',
     placement: 'top',
     page: 'settings'
   }
@@ -98,6 +119,18 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
 
     const step = TOUR_STEPS[currentStep];
     if (!step) return;
+
+    const isMobile = window.innerWidth < 768;
+    
+    if (step.mobileOnly && !isMobile) {
+      handleNext();
+      return;
+    }
+    
+    if (step.desktopOnly && isMobile) {
+      handleNext();
+      return;
+    }
 
     if (step.page && step.page !== currentPage) {
       return;
