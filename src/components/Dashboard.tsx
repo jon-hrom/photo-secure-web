@@ -219,54 +219,116 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
       </Card>
       <StorageWarning />
       
-      <DashboardUserCard 
-        vkUser={vkUser}
-        emailUser={emailUser}
-        finalIsAdmin={finalIsAdmin}
-        onOpenAdminPanel={onOpenAdminPanel}
-        onLogout={onLogout}
-      />
-      
       <Card className="bg-gradient-to-br from-primary to-secondary text-white border-0 shadow-xl">
         <CardContent className="p-4 md:p-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 md:gap-4">
-            <div className="flex items-center gap-3 md:gap-4">
-              <Icon name="Clock" size={48} className="opacity-30 hidden sm:block md:w-16 md:h-16" />
-              <div>
-                <h2 className="text-2xl md:text-4xl font-bold mb-1 md:mb-2">{formatTime(currentTime)}</h2>
-                <p className="text-sm md:text-lg opacity-90 capitalize font-light">{formatDate(currentTime)}</p>
-              </div>
+          <div className="space-y-4 md:space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pb-4 border-b border-white/20">
+              {(vkUser || emailUser) && (
+                <>
+                  {(() => {
+                    const displayUser = vkUser || emailUser;
+                    const displayName = displayUser?.name || displayUser?.userEmail || displayUser?.email || 'Пользователь';
+                    const displayEmail = displayUser?.email || displayUser?.userEmail || 'Вход через почту';
+                    const displayAvatar = displayUser?.avatar || null;
+                    const displayVerified = displayUser?.is_verified || displayUser?.verified || false;
+                    
+                    return (
+                      <>
+                        {displayAvatar && (
+                          <div className="relative flex-shrink-0">
+                            <img 
+                              src={displayAvatar} 
+                              alt={displayName}
+                              className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-4 border-white shadow-lg object-cover"
+                            />
+                            {displayVerified && (
+                              <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1">
+                                <Icon name="BadgeCheck" size={14} className="text-blue-500" />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                            <h3 className="text-lg sm:text-xl font-bold truncate">{displayName}</h3>
+                            {displayVerified && (
+                              <Icon name="BadgeCheck" size={18} className="text-white hidden sm:block" />
+                            )}
+                            {finalIsAdmin && (
+                              <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30 w-fit">
+                                Администратор
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs sm:text-sm opacity-90 truncate">{displayEmail}</p>
+                        </div>
+                        <div className="flex flex-row sm:flex-col items-center gap-2 w-full sm:w-auto sm:items-end">
+                          {finalIsAdmin && onOpenAdminPanel && (
+                            <button
+                              onClick={onOpenAdminPanel}
+                              className="px-2.5 py-1.5 sm:px-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors border border-white/30 flex items-center gap-1.5 flex-1 sm:flex-initial justify-center"
+                              title="Админ-панель"
+                            >
+                              <Icon name="ShieldCheck" size={14} className="text-white" />
+                              <span className="text-xs font-semibold">Админка</span>
+                            </button>
+                          )}
+                          {onLogout && (
+                            <button
+                              onClick={onLogout}
+                              className="p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-colors"
+                              title="Выйти"
+                            >
+                              <Icon name="LogOut" size={18} className="text-white" />
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </>
+              )}
             </div>
             
-            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
-              <button 
-                onClick={onOpenAddClient}
-                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
-              >
-                <Icon name="UserPlus" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
-                <span className="text-xs md:text-sm font-medium hidden sm:inline">Добавить клиента</span>
-              </button>
-              <button 
-                onClick={() => onOpenClientBooking?.('')}
-                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
-              >
-                <Icon name="Calendar" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
-                <span className="text-xs md:text-sm font-medium hidden sm:inline">Новая запись</span>
-              </button>
-              <button 
-                onClick={onNavigateToPhotobook}
-                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
-              >
-                <Icon name="BookOpen" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
-                <span className="text-xs md:text-sm font-medium hidden sm:inline">Создать фотокнигу</span>
-              </button>
-              <button 
-                onClick={onNavigateToClients}
-                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
-              >
-                <Icon name="FileText" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
-                <span className="text-xs md:text-sm font-medium hidden sm:inline">Отчёты</span>
-              </button>
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 md:gap-4">
+              <div className="flex items-center gap-3 md:gap-4">
+                <Icon name="Clock" size={48} className="opacity-30 hidden sm:block md:w-16 md:h-16" />
+                <div>
+                  <h2 className="text-2xl md:text-4xl font-bold mb-1 md:mb-2">{formatTime(currentTime)}</h2>
+                  <p className="text-sm md:text-lg opacity-90 capitalize font-light">{formatDate(currentTime)}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                <button 
+                  onClick={onOpenAddClient}
+                  className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                >
+                  <Icon name="UserPlus" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
+                  <span className="text-xs md:text-sm font-medium hidden sm:inline">Добавить клиента</span>
+                </button>
+                <button 
+                  onClick={() => onOpenClientBooking?.('')}
+                  className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                >
+                  <Icon name="Calendar" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
+                  <span className="text-xs md:text-sm font-medium hidden sm:inline">Новая запись</span>
+                </button>
+                <button 
+                  onClick={onNavigateToPhotobook}
+                  className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                >
+                  <Icon name="BookOpen" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
+                  <span className="text-xs md:text-sm font-medium hidden sm:inline">Создать фотокнигу</span>
+                </button>
+                <button 
+                  onClick={onNavigateToClients}
+                  className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                >
+                  <Icon name="FileText" size={18} className="transition-transform duration-300 group-hover:rotate-12 md:w-5 md:h-5" />
+                  <span className="text-xs md:text-sm font-medium hidden sm:inline">Отчёты</span>
+                </button>
+              </div>
             </div>
           </div>
         </CardContent>
