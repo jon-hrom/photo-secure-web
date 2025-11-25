@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
@@ -13,6 +13,7 @@ import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
 import { useClientsData } from '@/hooks/useClientsData';
 import { useClientsDialogs } from '@/hooks/useClientsDialogs';
 import { useClientsHandlers } from '@/hooks/useClientsHandlers';
+import { useNavigationHistory } from '@/hooks/useNavigationHistory';
 
 interface ClientsPageProps {
   autoOpenClient?: string;
@@ -27,6 +28,9 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
   
   // Хук для управления диалогами и состоянием
   const dialogsState = useClientsDialogs();
+  
+  // Хук для навигации
+  const navigation = useNavigationHistory();
   
   // Хук для обработчиков событий
   const handlers = useClientsHandlers({
@@ -97,6 +101,49 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
     }
   }, [autoOpenClient, clients]);
 
+  // Сохранение состояния при изменениях
+  useEffect(() => {
+    if (clients.length > 0) {
+      navigation.pushState({
+        viewMode: dialogsState.viewMode,
+        searchQuery: dialogsState.searchQuery,
+        statusFilter: dialogsState.statusFilter,
+        selectedClientId: dialogsState.selectedClient?.id,
+      });
+    }
+  }, [dialogsState.viewMode, dialogsState.searchQuery, dialogsState.statusFilter, dialogsState.selectedClient?.id]);
+
+  // Обработчики навигации
+  const handleGoBack = useCallback(() => {
+    const prevState = navigation.goBack();
+    if (prevState) {
+      dialogsState.setViewMode(prevState.viewMode);
+      dialogsState.setSearchQuery(prevState.searchQuery);
+      dialogsState.setStatusFilter(prevState.statusFilter);
+      if (prevState.selectedClientId) {
+        const client = clients.find(c => c.id === prevState.selectedClientId);
+        if (client) {
+          dialogsState.setSelectedClient(client);
+        }
+      }
+    }
+  }, [navigation, dialogsState, clients]);
+
+  const handleGoForward = useCallback(() => {
+    const nextState = navigation.goForward();
+    if (nextState) {
+      dialogsState.setViewMode(nextState.viewMode);
+      dialogsState.setSearchQuery(nextState.searchQuery);
+      dialogsState.setStatusFilter(nextState.statusFilter);
+      if (nextState.selectedClientId) {
+        const client = clients.find(c => c.id === nextState.selectedClientId);
+        if (client) {
+          dialogsState.setSelectedClient(client);
+        }
+      }
+    }
+  }, [navigation, dialogsState, clients]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -137,6 +184,10 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
         viewMode={dialogsState.viewMode}
         setViewMode={dialogsState.setViewMode}
         onExportClick={() => dialogsState.setIsExportDialogOpen(true)}
+        canGoBack={navigation.canGoBack}
+        canGoForward={navigation.canGoForward}
+        onGoBack={handleGoBack}
+        onGoForward={handleGoForward}
       />
 
       {dialogsState.viewMode === 'table' ? (

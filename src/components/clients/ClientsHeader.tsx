@@ -30,6 +30,10 @@ interface ClientsHeaderProps {
   viewMode?: 'cards' | 'table';
   setViewMode?: (mode: 'cards' | 'table') => void;
   onExportClick?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  onGoBack?: () => void;
+  onGoForward?: () => void;
 }
 
 const ClientsHeader = ({
@@ -52,41 +56,72 @@ const ClientsHeader = ({
   viewMode = 'cards',
   setViewMode,
   onExportClick,
+  canGoBack = false,
+  canGoForward = false,
+  onGoBack,
+  onGoForward,
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           <h2 className="text-2xl sm:text-3xl font-bold">Система учёта клиентов</h2>
-          <ClientDialogs
-            isAddDialogOpen={isAddDialogOpen}
-            setIsAddDialogOpen={setIsAddDialogOpen}
-            isEditDialogOpen={isEditDialogOpen}
-            setIsEditDialogOpen={setIsEditDialogOpen}
-            newClient={newClient}
-            setNewClient={setNewClient}
-            editingClient={editingClient}
-            setEditingClient={setEditingClient}
-            handleAddClient={handleAddClient}
-            handleUpdateClient={handleUpdateClient}
-            emailVerified={emailVerified}
-          />
-          {setViewMode && (
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'outline'}
-              onClick={() => setViewMode('table')}
-              className="rounded-full"
-            >
-              <Icon name="Users" size={20} className="mr-2" />
-              Мои клиенты
-            </Button>
-          )}
+          
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onGoBack}
+                disabled={!canGoBack}
+                className="h-8 w-8 p-0 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-110 active:scale-95"
+                title="Назад"
+              >
+                <Icon name="ChevronLeft" size={18} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onGoForward}
+                disabled={!canGoForward}
+                className="h-8 w-8 p-0 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-110 active:scale-95"
+                title="Вперёд"
+              >
+                <Icon name="ChevronRight" size={18} />
+              </Button>
+            </div>
+
+            <ClientDialogs
+              isAddDialogOpen={isAddDialogOpen}
+              setIsAddDialogOpen={setIsAddDialogOpen}
+              isEditDialogOpen={isEditDialogOpen}
+              setIsEditDialogOpen={setIsEditDialogOpen}
+              newClient={newClient}
+              setNewClient={setNewClient}
+              editingClient={editingClient}
+              setEditingClient={setEditingClient}
+              handleAddClient={handleAddClient}
+              handleUpdateClient={handleUpdateClient}
+              emailVerified={emailVerified}
+            />
+            
+            {setViewMode && (
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                onClick={() => setViewMode('table')}
+                className="rounded-full transition-all hover:scale-105 active:scale-95"
+              >
+                <Icon name="Users" size={20} className="mr-2" />
+                Мои клиенты
+              </Button>
+            )}
+          </div>
         </div>
+        
         {onExportClick && (
           <Button
-            variant="outline"
             onClick={onExportClick}
-            className="rounded-full"
+            className="rounded-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
           >
             <Icon name="Download" size={20} className="mr-2" />
             Экспорт
