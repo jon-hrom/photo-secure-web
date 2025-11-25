@@ -4,6 +4,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
 import ClientsHeader from '@/components/clients/ClientsHeader';
 import ClientsListSection from '@/components/clients/ClientsListSection';
+import ClientsTableView from '@/components/clients/ClientsTableView';
 import ClientsCalendarSection from '@/components/clients/ClientsCalendarSection';
 import BookingDialogs from '@/components/clients/BookingDialogs';
 import MessageDialog from '@/components/clients/MessageDialog';
@@ -132,26 +133,35 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
         handleAddClient={handlers.handleAddClient}
         handleUpdateClient={handlers.handleUpdateClientFromEdit}
         emailVerified={emailVerified}
+        viewMode={dialogsState.viewMode}
+        setViewMode={dialogsState.setViewMode}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ClientsListSection
-          filteredClients={filteredClients}
-          onSelectClient={dialogsState.openDetailDialog}
-          onEditClient={dialogsState.openEditDialog}
-          onDeleteClient={handlers.handleDeleteClient}
-          onAddBooking={dialogsState.openBookingDialog}
-        />
-
-        <ClientsCalendarSection
-          selectedDate={dialogsState.selectedDate}
-          allBookedDates={allBookedDates}
-          onDateClick={handlers.handleDateClick}
-          selectedClient={dialogsState.selectedClient}
-          onMessageClient={dialogsState.openMessageDialog}
+      {dialogsState.viewMode === 'table' ? (
+        <ClientsTableView
           clients={clients}
+          onSelectClient={dialogsState.openDetailDialog}
         />
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <ClientsListSection
+            filteredClients={filteredClients}
+            onSelectClient={dialogsState.openDetailDialog}
+            onEditClient={dialogsState.openEditDialog}
+            onDeleteClient={handlers.handleDeleteClient}
+            onAddBooking={dialogsState.openBookingDialog}
+          />
+
+          <ClientsCalendarSection
+            selectedDate={dialogsState.selectedDate}
+            allBookedDates={allBookedDates}
+            onDateClick={handlers.handleDateClick}
+            selectedClient={dialogsState.selectedClient}
+            onMessageClient={dialogsState.openMessageDialog}
+            clients={clients}
+          />
+        </div>
+      )}
 
       <BookingDialogs
         isBookingDialogOpen={dialogsState.isBookingDialogOpen}

@@ -16,6 +16,7 @@ export const useClientsDialogs = () => {
   const [messageTab, setMessageTab] = useState<'vk' | 'email'>('vk');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const [newClient, setNewClient] = useState({
     name: '',
@@ -89,6 +90,8 @@ export const useClientsDialogs = () => {
     setSearchQuery,
     statusFilter,
     setStatusFilter,
+    viewMode,
+    setViewMode,
     newClient,
     setNewClient,
     newBooking,

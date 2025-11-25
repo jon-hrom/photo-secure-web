@@ -27,6 +27,8 @@ interface ClientsHeaderProps {
   handleAddClient: () => void;
   handleUpdateClient: () => void;
   emailVerified: boolean;
+  viewMode?: 'cards' | 'table';
+  setViewMode?: (mode: 'cards' | 'table') => void;
 }
 
 const ClientsHeader = ({
@@ -46,24 +48,38 @@ const ClientsHeader = ({
   handleAddClient,
   handleUpdateClient,
   emailVerified,
+  viewMode = 'cards',
+  setViewMode,
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-2xl sm:text-3xl font-bold">Система учёта клиентов</h2>
-        <ClientDialogs
-          isAddDialogOpen={isAddDialogOpen}
-          setIsAddDialogOpen={setIsAddDialogOpen}
-          isEditDialogOpen={isEditDialogOpen}
-          setIsEditDialogOpen={setIsEditDialogOpen}
-          newClient={newClient}
-          setNewClient={setNewClient}
-          editingClient={editingClient}
-          setEditingClient={setEditingClient}
-          handleAddClient={handleAddClient}
-          handleUpdateClient={handleUpdateClient}
-          emailVerified={emailVerified}
-        />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2 className="text-2xl sm:text-3xl font-bold">Система учёта клиентов</h2>
+          <ClientDialogs
+            isAddDialogOpen={isAddDialogOpen}
+            setIsAddDialogOpen={setIsAddDialogOpen}
+            isEditDialogOpen={isEditDialogOpen}
+            setIsEditDialogOpen={setIsEditDialogOpen}
+            newClient={newClient}
+            setNewClient={setNewClient}
+            editingClient={editingClient}
+            setEditingClient={setEditingClient}
+            handleAddClient={handleAddClient}
+            handleUpdateClient={handleUpdateClient}
+            emailVerified={emailVerified}
+          />
+          {setViewMode && (
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'outline'}
+              onClick={() => setViewMode('table')}
+              className="rounded-full"
+            >
+              <Icon name="Users" size={20} className="mr-2" />
+              Мои клиенты
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
