@@ -58,8 +58,8 @@ const BlockedUserDialog = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'create_appeal',
-          user_id: userId,
+          action: 'submit_appeal',
+          user_identifier: String(userId),
           user_email: userEmail,
           auth_method: authMethod,
           message: message.trim()
