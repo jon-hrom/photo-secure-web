@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,55 +32,18 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
     setStatusFilter(externalStatusFilter);
   }, [externalStatusFilter]);
 
-  const filteredClients = useMemo(() => {
-    return clients.filter(client => {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch = (
-        client.name.toLowerCase().includes(query) ||
-        client.phone.includes(query) ||
-        client.email.toLowerCase().includes(query)
-      );
-
-      if (!matchesSearch) return false;
-
-      if (statusFilter === 'all') return true;
-      
-      const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled');
-      const hasActiveBookings = (client.bookings || []).some(b => {
-        const bookingDate = new Date(b.booking_date || b.date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return bookingDate >= today;
-      });
-      const isActive = hasActiveProjects || hasActiveBookings;
-      
-      if (statusFilter === 'active') return isActive;
-      if (statusFilter === 'inactive') return !isActive;
-      
-      return true;
-    });
-  }, [clients, searchQuery, statusFilter]);
-
-  const sortedClients = useMemo(() => {
-    return sortData(filteredClients, columns);
-  }, [filteredClients, sortData, columns]);
-
-  const totalPages = Math.ceil(sortedClients.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedClients = sortedClients.slice(startIndex, startIndex + itemsPerPage);
-
-  const getClientInitials = (name: string) => {
+  const getClientInitials = useCallback((name: string) => {
     const words = name.split(' ');
     return words.map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  };
+  }, []);
 
-  const getActiveProjectsCount = (client: Client) => {
+  const getActiveProjectsCount = useCallback((client: Client) => {
     return (client.projects || []).filter(p => p.status === 'in_progress' || p.status === 'new').length;
-  };
+  }, []);
 
-  const getActiveBookingsCount = (client: Client) => {
+  const getActiveBookingsCount = useCallback((client: Client) => {
     return client.bookings.filter(b => new Date(b.date) >= new Date()).length;
-  };
+  }, []);
 
   const columns: SortableColumn<Client>[] = useMemo(() => [
     {
@@ -136,7 +99,44 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
         return dir === 'asc' ? aCount - bCount : bCount - aCount;
       }
     },
-  ], []);
+  ], [getActiveProjectsCount, getActiveBookingsCount]);
+
+  const filteredClients = useMemo(() => {
+    return clients.filter(client => {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = (
+        client.name.toLowerCase().includes(query) ||
+        client.phone.includes(query) ||
+        client.email.toLowerCase().includes(query)
+      );
+
+      if (!matchesSearch) return false;
+
+      if (statusFilter === 'all') return true;
+      
+      const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled');
+      const hasActiveBookings = (client.bookings || []).some(b => {
+        const bookingDate = new Date(b.booking_date || b.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return bookingDate >= today;
+      });
+      const isActive = hasActiveProjects || hasActiveBookings;
+      
+      if (statusFilter === 'active') return isActive;
+      if (statusFilter === 'inactive') return !isActive;
+      
+      return true;
+    });
+  }, [clients, searchQuery, statusFilter]);
+
+  const sortedClients = useMemo(() => {
+    return sortData(filteredClients, columns);
+  }, [filteredClients, sortData]);
+
+  const totalPages = Math.ceil(sortedClients.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedClients = sortedClients.slice(startIndex, startIndex + itemsPerPage);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
