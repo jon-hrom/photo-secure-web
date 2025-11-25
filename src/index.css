@@ -168,4 +168,41 @@
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
+
+  /* Calendar animations and styles */
+  [data-state="date-picker"] button[role="gridcell"] {
+    @apply transition-all duration-300 relative;
+  }
+
+  [data-state="date-picker"] button[role="gridcell"]:hover {
+    @apply scale-110 z-10;
+  }
+
+  /* Gradient animation for booked dates */
+  @keyframes gradient-shift {
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .rdp-day_selected:not(.rdp-day_outside) {
+    background: linear-gradient(
+      135deg,
+      rgb(168 85 247) 0%,
+      rgb(219 39 119) 100%
+    ) !important;
+    background-size: 200% 200% !important;
+    animation: gradient-shift 3s ease infinite !important;
+    box-shadow: 0 10px 25px -5px rgba(168, 85, 247, 0.4) !important;
+    transform: scale(1.05) !important;
+  }
+
+  .rdp-day_selected:not(.rdp-day_outside):hover {
+    transform: scale(1.15) !important;
+    box-shadow: 0 15px 35px -5px rgba(168, 85, 247, 0.6) !important;
+  }
 }
