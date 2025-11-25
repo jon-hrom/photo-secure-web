@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -18,6 +18,10 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [dragPosition, setDragPosition] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartY = useRef(0);
+  const dragStartTime = useRef(0);
 
   const navItems: NavItem[] = [
     { icon: 'LayoutDashboard', label: 'Главная', path: '/' },
@@ -27,9 +31,37 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
     { icon: 'Zap', label: 'Тарифы', path: '/tariffs' },
   ];
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    dragStartTime.current = Date.now();
+    setIsDragging(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const currentY = e.touches[0].clientY;
+    const deltaY = dragStartY.current - currentY;
+    
+    if (Math.abs(deltaY) > 5) {
+      setIsDragging(true);
+      const maxDrag = window.innerHeight * 0.5;
+      const clampedDelta = Math.max(-maxDrag, Math.min(maxDrag, deltaY));
+      setDragPosition(clampedDelta);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const touchDuration = Date.now() - dragStartTime.current;
+    
+    if (!isDragging && touchDuration < 200) {
+      setIsExpanded(!isExpanded);
+    }
+    
+    setDragPosition(0);
+    setIsDragging(false);
+  };
+
   const handleNavClick = (item: NavItem) => {
     if (item.path === '/') {
-      setIsExpanded(!isExpanded);
       return;
     }
 
@@ -72,14 +104,20 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
         />
       )}
       
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+      <nav 
+        className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
+        style={{
+          transform: `translateY(${-dragPosition}px)`,
+          transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+        }}
+      >
         <div className="flex flex-col items-start justify-end pb-4 px-4 gap-2">
           {isExpanded && navItems.slice(1).reverse().map((item, index) => (
             <Button
               key={item.path}
               variant="ghost"
               className={cn(
-                'flex flex-col items-center gap-1 h-auto py-3 px-4 relative bg-white/90 backdrop-blur-xl border-2 border-border/50 shadow-2xl hover:shadow-3xl',
+                'flex flex-col items-center gap-0.5 h-auto py-2 px-3 relative bg-white/90 backdrop-blur-xl border-2 border-border/50 shadow-2xl hover:shadow-3xl',
                 isActive(item.path) && 'border-primary/50'
               )}
               onClick={() => handleNavClick(item)}
@@ -92,12 +130,12 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
               )}
               <div className={cn(
-                'p-3 rounded-xl transition-all duration-300 relative',
+                'p-2 rounded-lg transition-all duration-300 relative',
                 isActive(item.path) ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100'
               )}>
                 <Icon 
                   name={item.icon} 
-                  size={24} 
+                  size={18} 
                   className={cn(
                     'transition-colors duration-300',
                     isActive(item.path) ? 'text-white' : 'text-gray-600'
@@ -105,7 +143,7 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
                 />
               </div>
               <span className={cn(
-                'text-xs font-medium transition-all duration-300',
+                'text-[10px] font-medium transition-all duration-300',
                 isActive(item.path) ? 'text-primary font-bold' : 'text-gray-600'
               )}>
                 {item.label}
@@ -116,21 +154,23 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
           <Button
             variant="ghost"
             className={cn(
-              'flex flex-col items-center gap-1 h-auto py-3 px-4 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl',
+              'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl touch-none',
               isExpanded 
                 ? 'bg-white/90 border-border/50' 
                 : 'bg-white/20 border-white/20 hover:bg-white/30',
               isActive('/') && 'border-primary/50'
             )}
-            onClick={() => handleNavClick(navItems[0])}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
             {isActive('/') && (
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
             )}
-            <div className="absolute -top-2 -right-2 p-1 bg-gradient-to-br from-primary to-secondary rounded-full shadow-lg">
+            <div className="absolute -top-1.5 -right-1.5 p-0.5 bg-gradient-to-br from-primary to-secondary rounded-full shadow-lg">
               <Icon 
                 name="ChevronUp" 
-                size={16} 
+                size={12} 
                 className={cn(
                   'text-white transition-transform duration-300',
                   isExpanded ? 'rotate-180' : 'rotate-0'
@@ -138,12 +178,12 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
               />
             </div>
             <div className={cn(
-              'p-3 rounded-xl transition-all duration-300 relative',
+              'p-2 rounded-lg transition-all duration-300 relative',
               isActive('/') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100/50'
             )}>
               <Icon 
                 name={navItems[0].icon} 
-                size={24} 
+                size={18} 
                 className={cn(
                   'transition-colors duration-300',
                   isActive('/') ? 'text-white' : 'text-gray-600'
@@ -151,7 +191,7 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
               />
             </div>
             <span className={cn(
-              'text-xs font-medium transition-all duration-300',
+              'text-[10px] font-medium transition-all duration-300',
               isActive('/') ? 'text-primary font-bold' : 'text-gray-600'
             )}>
               {navItems[0].label}
