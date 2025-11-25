@@ -635,20 +635,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 user = cursor.fetchone()
                 print(f'[GET_APPEALS] User: {user}')
                 
-                # Check if user is admin by email or VK ID
+                # Check if user is admin by email or user_id
                 is_admin = False
                 if user and user.get('email') == 'jonhrom2012@gmail.com':
                     is_admin = True
                     print(f'[GET_APPEALS] Admin by email')
-                else:
-                    # Check VK admin by VK ID
-                    print(f'[GET_APPEALS] Checking VK admin...')
-                    cursor.execute("SELECT vk_id FROM t_p28211681_photo_secure_web.vk_users WHERE user_id = %s AND vk_id = '74713477'", (admin_user_id,))
-                    vk_admin = cursor.fetchone()
-                    print(f'[GET_APPEALS] VK admin check: {vk_admin}')
-                    if vk_admin:
-                        is_admin = True
-                        print(f'[GET_APPEALS] Admin by VK ID')
+                elif admin_user_id == 16:
+                    # Direct check for VK admin user_id
+                    is_admin = True
+                    print(f'[GET_APPEALS] Admin by user_id=16')
                 
                 print(f'[GET_APPEALS] is_admin: {is_admin}')
                 
@@ -709,16 +704,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 cursor.execute("SELECT email FROM users WHERE id = %s", (admin_user_id,))
                 user = cursor.fetchone()
                 
-                # Check if user is admin by email or VK ID
+                # Check if user is admin by email or user_id
                 is_admin = False
                 if user and user.get('email') == 'jonhrom2012@gmail.com':
                     is_admin = True
-                else:
-                    # Check VK admin by VK ID
-                    cursor.execute("SELECT vk_id FROM t_p28211681_photo_secure_web.vk_users WHERE user_id = %s AND vk_id = '74713477'", (admin_user_id,))
-                    vk_admin = cursor.fetchone()
-                    if vk_admin:
-                        is_admin = True
+                elif admin_user_id == 16:
+                    # Direct check for VK admin user_id
+                    is_admin = True
                 
                 if not is_admin:
                     return {
@@ -758,16 +750,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 cursor.execute("SELECT email FROM users WHERE id = %s", (admin_user_id,))
                 admin = cursor.fetchone()
                 
-                # Check if user is admin by email or VK ID
+                # Check if user is admin by email or user_id
                 is_admin = False
                 if admin and admin.get('email') == 'jonhrom2012@gmail.com':
                     is_admin = True
-                else:
-                    # Check VK admin by VK ID
-                    cursor.execute("SELECT vk_id FROM t_p28211681_photo_secure_web.vk_users WHERE user_id = %s AND vk_id = '74713477'", (admin_user_id,))
-                    vk_admin = cursor.fetchone()
-                    if vk_admin:
-                        is_admin = True
+                elif admin_user_id == 16:
+                    # Direct check for VK admin user_id
+                    is_admin = True
                 
                 if not is_admin:
                     return {
