@@ -302,7 +302,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 sm:gap-3 text-xl sm:text-2xl">
             <Icon name="User" size={24} className="text-primary sm:w-7 sm:h-7" />

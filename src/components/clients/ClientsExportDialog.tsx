@@ -204,7 +204,7 @@ const ClientsExportDialog = ({ open, onOpenChange, clients, filteredClients }: C
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
+      <DialogContent className="max-w-2xl max-h-[90vh] bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="Download" size={20} />

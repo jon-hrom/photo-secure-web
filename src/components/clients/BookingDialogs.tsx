@@ -55,7 +55,7 @@ const BookingDialogs = ({
   return (
     <>
       <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
           <DialogHeader>
             <DialogTitle>Создать бронирование для {selectedClient?.name}</DialogTitle>
           </DialogHeader>
@@ -151,7 +151,7 @@ const BookingDialogs = ({
       </Dialog>
 
       <Dialog open={isBookingDetailsOpen} onOpenChange={setIsBookingDetailsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
           <DialogHeader>
             <DialogTitle>Детали бронирования</DialogTitle>
           </DialogHeader>
