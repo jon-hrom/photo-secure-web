@@ -127,6 +127,16 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
             {isActive('/') && (
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
             )}
+            <div className="absolute -top-2 -right-2 p-1 bg-gradient-to-br from-primary to-secondary rounded-full shadow-lg">
+              <Icon 
+                name="ChevronUp" 
+                size={16} 
+                className={cn(
+                  'text-white transition-transform duration-300',
+                  isExpanded ? 'rotate-180' : 'rotate-0'
+                )}
+              />
+            </div>
             <div className={cn(
               'p-3 rounded-xl transition-all duration-300 relative',
               isActive('/') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100/50'
