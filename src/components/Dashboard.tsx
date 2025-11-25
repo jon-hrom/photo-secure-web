@@ -182,44 +182,8 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
 
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in-up px-3 sm:px-0">
-      <Card 
-        className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 border-0 shadow-xl cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group"
-        onClick={() => onOpenTariffs?.()}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <CardContent className="pt-4 md:pt-6 relative z-10">
-          <div className="space-y-3 md:space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="p-1.5 md:p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <Icon name="HardDrive" size={18} className="text-white md:w-5 md:h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base md:text-lg">Фото банк</h3>
-                  <Badge variant="outline" className="text-xs mt-1 bg-white/50 backdrop-blur-sm">{storageUsage.plan_name}</Badge>
-                </div>
-              </div>
-              <Badge 
-                variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}
-                className="text-xs md:text-sm font-bold px-2 md:px-3 py-0.5 md:py-1 shadow-md"
-              >
-                {(storageUsage.percent || 0).toFixed(1)}%
-              </Badge>
-            </div>
-            <Progress 
-              value={storageUsage.percent || 0} 
-              className="h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
-            />
-            <div className="flex justify-between text-xs md:text-sm font-medium text-muted-foreground">
-              <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ использовано</span>
-              <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ доступно</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <StorageWarning />
-      
-      <Card className="bg-gradient-to-br from-primary to-secondary text-white border-0 shadow-xl w-full lg:w-1/2">
+      <div className="flex flex-col lg:flex-row gap-4">
+        <Card className="bg-gradient-to-br from-primary to-secondary text-white border-0 shadow-xl w-full lg:w-1/2">
         <CardContent className="p-4 md:p-6">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 md:gap-4">
             <div className="flex items-center gap-3 md:gap-4">
@@ -324,6 +288,45 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
           </div>
         </CardContent>
       </Card>
+        
+        <Card 
+          className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 border-0 shadow-xl cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group w-full lg:w-1/2"
+          onClick={() => onOpenTariffs?.()}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <CardContent className="pt-4 md:pt-6 relative z-10">
+            <div className="space-y-3 md:space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="p-1.5 md:p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Icon name="HardDrive" size={18} className="text-white md:w-5 md:h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base md:text-lg">Фото банк</h3>
+                    <Badge variant="outline" className="text-xs mt-1 bg-white/50 backdrop-blur-sm">{storageUsage.plan_name}</Badge>
+                  </div>
+                </div>
+                <Badge 
+                  variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}
+                  className="text-xs md:text-sm font-bold px-2 md:px-3 py-0.5 md:py-1 shadow-md"
+                >
+                  {(storageUsage.percent || 0).toFixed(1)}%
+                </Badge>
+              </div>
+              <Progress 
+                value={storageUsage.percent || 0} 
+                className="h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
+              />
+              <div className="flex justify-between text-xs md:text-sm font-medium text-muted-foreground">
+                <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ использовано</span>
+                <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ доступно</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <StorageWarning />
 
       <DashboardStatistics 
         trialDaysLeft={trialDaysLeft}
