@@ -51,7 +51,7 @@ const ClientDialogs = ({
     <>
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogTrigger asChild>
-          <Button className="rounded-full shadow-lg hover-scale">
+          <Button className="rounded-full shadow-lg hover-scale" data-tour="add-client">
             <Icon name="UserPlus" size={20} className="mr-2" />
             Добавить клиента
           </Button>

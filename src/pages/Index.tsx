@@ -14,6 +14,7 @@ import AppNavigation from '@/components/layout/AppNavigation';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
+import OnboardingTour from '@/components/OnboardingTour';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { isAdminUser } from '@/utils/adminCheck';
@@ -258,6 +259,8 @@ const Index = () => {
           isVerified={emailVerified}
         />
       )}
+
+      <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
 
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
         {!emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (

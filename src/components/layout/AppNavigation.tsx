@@ -52,6 +52,7 @@ const AppNavigation = ({
                     "rounded-full transition-all duration-300 hover:scale-105",
                     currentPage === 'dashboard' && "bg-gradient-to-r from-primary to-secondary shadow-lg"
                   )}
+                  data-tour="dashboard"
                 >
                   <Icon name="Home" size={18} className="mr-2" />
                   Главная
@@ -63,11 +64,11 @@ const AppNavigation = ({
                   <Icon name="LayoutDashboard" size={18} className="mr-2" />
                   Главная
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('clients')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
+                <DropdownMenuItem onClick={() => setCurrentPage('clients')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200" data-tour="clients-nav">
                   <Icon name="Users" size={18} className="mr-2" />
                   Клиенты
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
+                <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200" data-tour="photobook-nav">
                   <Icon name="Book" size={18} className="mr-2" />
                   Фотокниги
                 </DropdownMenuItem>
@@ -115,6 +116,7 @@ const AppNavigation = ({
               variant="outline"
               onClick={() => setCurrentPage('settings')}
               className="hidden md:flex rounded-full border-2 border-primary/50 hover:border-primary hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-300 hover:scale-105 hover:shadow-lg"
+              data-tour="settings-nav"
             >
               <Icon name="Settings" size={18} className="mr-2" />
               Настройки

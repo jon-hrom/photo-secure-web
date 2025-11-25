@@ -189,6 +189,7 @@ const PhotobookPage = () => {
         <Button 
           className="rounded-full shadow-lg hover-scale w-full md:w-auto"
           onClick={handleCreateClick}
+          data-tour="upload-photos"
         >
           <Icon name="Plus" size={20} className="mr-2" />
           Создать фотокнигу

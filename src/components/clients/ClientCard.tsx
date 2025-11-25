@@ -23,7 +23,7 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: Client
   const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
 
   return (
-    <Card className="hover-scale cursor-pointer" onClick={onSelect}>
+    <Card className="hover-scale cursor-pointer" onClick={onSelect} data-tour="client-card">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
