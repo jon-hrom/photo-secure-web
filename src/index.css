@@ -192,17 +192,19 @@
   .rdp-day_selected:not(.rdp-day_outside) {
     background: linear-gradient(
       135deg,
-      rgb(168 85 247) 0%,
-      rgb(219 39 119) 100%
+      rgb(216 180 254) 0%,
+      rgb(251 207 232) 100%
     ) !important;
     background-size: 200% 200% !important;
     animation: gradient-shift 3s ease infinite !important;
-    box-shadow: 0 10px 25px -5px rgba(168, 85, 247, 0.4) !important;
+    box-shadow: 0 8px 20px -5px rgba(216, 180, 254, 0.3) !important;
     transform: scale(1.05) !important;
+    color: rgb(107 33 168) !important;
+    font-weight: 600 !important;
   }
 
   .rdp-day_selected:not(.rdp-day_outside):hover {
-    transform: scale(1.15) !important;
-    box-shadow: 0 15px 35px -5px rgba(168, 85, 247, 0.6) !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 12px 30px -5px rgba(216, 180, 254, 0.4) !important;
   }
 }
