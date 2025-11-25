@@ -9,6 +9,7 @@ import ClientsCalendarSection from '@/components/clients/ClientsCalendarSection'
 import BookingDialogs from '@/components/clients/BookingDialogs';
 import MessageDialog from '@/components/clients/MessageDialog';
 import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
+import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
 import { useClientsData } from '@/hooks/useClientsData';
 import { useClientsDialogs } from '@/hooks/useClientsDialogs';
 import { useClientsHandlers } from '@/hooks/useClientsHandlers';
@@ -135,6 +136,7 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
         emailVerified={emailVerified}
         viewMode={dialogsState.viewMode}
         setViewMode={dialogsState.setViewMode}
+        onExportClick={() => dialogsState.setIsExportDialogOpen(true)}
       />
 
       {dialogsState.viewMode === 'table' ? (
@@ -204,6 +206,13 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
         handleSearchVK={handlers.handleSearchVK}
         handleSendVKMessage={handlers.handleSendVKMessage}
         handleSendEmail={handlers.handleSendEmail}
+      />
+
+      <ClientsExportDialog
+        open={dialogsState.isExportDialogOpen}
+        onOpenChange={dialogsState.setIsExportDialogOpen}
+        clients={clients}
+        filteredClients={filteredClients}
       />
     </div>
   );

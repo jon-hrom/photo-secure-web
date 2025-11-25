@@ -29,6 +29,7 @@ interface ClientsHeaderProps {
   emailVerified: boolean;
   viewMode?: 'cards' | 'table';
   setViewMode?: (mode: 'cards' | 'table') => void;
+  onExportClick?: () => void;
 }
 
 const ClientsHeader = ({
@@ -50,6 +51,7 @@ const ClientsHeader = ({
   emailVerified,
   viewMode = 'cards',
   setViewMode,
+  onExportClick,
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
@@ -80,6 +82,16 @@ const ClientsHeader = ({
             </Button>
           )}
         </div>
+        {onExportClick && (
+          <Button
+            variant="outline"
+            onClick={onExportClick}
+            className="rounded-full"
+          >
+            <Icon name="Download" size={20} className="mr-2" />
+            Экспорт
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
