@@ -169,6 +169,34 @@
     animation: shimmer 2s infinite;
   }
 
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      box-shadow: 0 4px 20px -5px rgba(168, 85, 247, 0.3);
+    }
+    50% {
+      box-shadow: 0 8px 40px -5px rgba(168, 85, 247, 0.6);
+    }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
   /* Calendar animations and styles */
   [data-state="date-picker"] button[role="gridcell"] {
     @apply transition-all duration-300 relative;
