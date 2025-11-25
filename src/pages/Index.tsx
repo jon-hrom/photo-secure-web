@@ -16,7 +16,7 @@ import MobileNavigation from '@/components/layout/MobileNavigation';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import OnboardingTour from '@/components/OnboardingTour';
-import AdminAppealsNotification from '@/components/AdminAppealsNotification';
+import FloatingAppealsButton from '@/components/FloatingAppealsButton';
 import BlockedUserDialog from '@/components/BlockedUserDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
@@ -295,7 +295,7 @@ const Index = () => {
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
 
       {isAdmin && userId && (
-        <AdminAppealsNotification userId={userId} isAdmin={isAdmin} />
+        <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />
       )}
 
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
