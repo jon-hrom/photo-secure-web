@@ -245,35 +245,48 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
           
           <div className="flex gap-2">
             <Button
-              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              variant="outline"
               size="sm"
               onClick={() => {
                 setStatusFilter('all');
                 presets.clearActivePreset();
               }}
+              className={`rounded-full transition-all hover:scale-105 active:scale-95 ${
+                statusFilter === 'all'
+                  ? 'bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 text-purple-700 border-purple-200/50 hover:from-purple-200 hover:via-pink-100 hover:to-rose-200'
+                  : 'hover:bg-purple-50 hover:border-purple-200'
+              }`}
             >
               Все
             </Button>
             <Button
-              variant={statusFilter === 'active' ? 'default' : 'outline'}
+              variant="outline"
               size="sm"
               onClick={() => {
                 setStatusFilter('active');
                 presets.clearActivePreset();
               }}
-              className="gap-1"
+              className={`gap-1 rounded-full transition-all hover:scale-105 active:scale-95 ${
+                statusFilter === 'active'
+                  ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border-emerald-200/50 hover:from-emerald-200 hover:to-green-200'
+                  : 'hover:bg-emerald-50 hover:border-emerald-200'
+              }`}
             >
               <Icon name="CheckCircle" size={14} />
               Активные
             </Button>
             <Button
-              variant={statusFilter === 'inactive' ? 'default' : 'outline'}
+              variant="outline"
               size="sm"
               onClick={() => {
                 setStatusFilter('inactive');
                 presets.clearActivePreset();
               }}
-              className="gap-1"
+              className={`gap-1 rounded-full transition-all hover:scale-105 active:scale-95 ${
+                statusFilter === 'inactive'
+                  ? 'bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 border-orange-200/50 hover:from-orange-200 hover:to-amber-200'
+                  : 'hover:bg-orange-50 hover:border-orange-200'
+              }`}
             >
               <Icon name="XCircle" size={14} />
               Неактивные

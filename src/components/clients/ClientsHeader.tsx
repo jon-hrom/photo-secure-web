@@ -141,25 +141,37 @@ const ClientsHeader = ({
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button
-            variant={statusFilter === 'all' ? 'default' : 'outline'}
+            variant="outline"
             onClick={() => setStatusFilter('all')}
-            className="text-xs sm:text-sm"
+            className={`text-xs sm:text-sm rounded-full transition-all hover:scale-105 active:scale-95 ${
+              statusFilter === 'all'
+                ? 'bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 text-purple-700 border-purple-200/50 hover:from-purple-200 hover:via-pink-100 hover:to-rose-200'
+                : 'hover:bg-purple-50 hover:border-purple-200'
+            }`}
           >
             Все ({totalClients})
           </Button>
           <Button
-            variant={statusFilter === 'active' ? 'default' : 'outline'}
+            variant="outline"
             onClick={() => setStatusFilter('active')}
-            className="text-xs sm:text-sm"
+            className={`text-xs sm:text-sm rounded-full transition-all hover:scale-105 active:scale-95 ${
+              statusFilter === 'active'
+                ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border-emerald-200/50 hover:from-emerald-200 hover:to-green-200'
+                : 'hover:bg-emerald-50 hover:border-emerald-200'
+            }`}
           >
             <Icon name="CheckCircle" size={16} className="mr-1 sm:mr-2" />
             <span className="hidden xs:inline">Активные</span>
             <span className="xs:hidden">Акт.</span>
           </Button>
           <Button
-            variant={statusFilter === 'inactive' ? 'default' : 'outline'}
+            variant="outline"
             onClick={() => setStatusFilter('inactive')}
-            className="text-xs sm:text-sm"
+            className={`text-xs sm:text-sm rounded-full transition-all hover:scale-105 active:scale-95 ${
+              statusFilter === 'inactive'
+                ? 'bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 border-orange-200/50 hover:from-orange-200 hover:to-amber-200'
+                : 'hover:bg-orange-50 hover:border-orange-200'
+            }`}
           >
             <Icon name="XCircle" size={16} className="mr-1 sm:mr-2" />
             <span className="hidden xs:inline">Неактивные</span>
