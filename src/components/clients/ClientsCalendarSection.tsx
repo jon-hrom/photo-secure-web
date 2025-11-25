@@ -147,7 +147,7 @@ const ClientsCalendarSection = ({
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 shadow-md flex-shrink-0"></div>
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
               <p className="text-sm text-gray-700 font-medium">
                 Дата сегодня
               </p>
