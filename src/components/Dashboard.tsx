@@ -13,6 +13,7 @@ interface DashboardProps {
   userRole: 'user' | 'admin' | 'guest';
   userId?: string | null;
   onOpenClientBooking?: (clientName: string) => void;
+  onMeetingClick?: (meetingId: number) => void;
   onLogout?: () => void;
   onOpenAdminPanel?: () => void;
   isAdmin?: boolean;
@@ -22,7 +23,7 @@ interface DashboardProps {
   onOpenAddClient?: () => void;
 }
 
-const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs, onNavigateToClients, onNavigateToPhotobook, onOpenAddClient }: DashboardProps) => {
+const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetingClick, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs, onNavigateToClients, onNavigateToPhotobook, onOpenAddClient }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -160,8 +161,8 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onLogout
   const isTrialPeriod = trialDaysLeft > 0 && subscriptionDaysLeft === 0;
 
   const handleMeetingClick = (meetingId: number) => {
-    if (onNavigateToClients) {
-      onNavigateToClients();
+    if (onMeetingClick) {
+      onMeetingClick(meetingId);
     }
   };
 

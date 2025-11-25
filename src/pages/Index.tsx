@@ -18,6 +18,7 @@ import TwoFactorDialog from '@/components/TwoFactorDialog';
 import OnboardingTour from '@/components/OnboardingTour';
 import FloatingAppealsButton from '@/components/FloatingAppealsButton';
 import BlockedUserDialog from '@/components/BlockedUserDialog';
+import BookingDetailsDialog from '@/components/BookingDetailsDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { isAdminUser } from '@/utils/adminCheck';
@@ -28,6 +29,8 @@ const Index = () => {
   const [emailVerified, setEmailVerified] = useState(false);
   const [userSource, setUserSource] = useState<'email' | 'vk' | 'google' | 'yandex'>('email');
   const [hasEmail, setHasEmail] = useState(true);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   
   const {
     currentPage,
@@ -302,6 +305,15 @@ const Index = () => {
         <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />
       )}
 
+      {selectedBookingId && (
+        <BookingDetailsDialog
+          open={isBookingDetailsOpen}
+          onOpenChange={setIsBookingDetailsOpen}
+          bookingId={selectedBookingId}
+          userId={userId?.toString() || null}
+        />
+      )}
+
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
         {!emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (
           <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
@@ -344,6 +356,10 @@ const Index = () => {
             onOpenClientBooking={(clientName) => {
               setSelectedClientName(clientName);
               setCurrentPage('clients');
+            }}
+            onMeetingClick={(meetingId) => {
+              setSelectedBookingId(meetingId);
+              setIsBookingDetailsOpen(true);
             }}
             onLogout={handleLogout}
             onOpenAdminPanel={() => setCurrentPage('admin')}

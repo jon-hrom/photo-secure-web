@@ -29,6 +29,7 @@ export const useClientsDialogs = () => {
 
   const [newBooking, setNewBooking] = useState({
     time: '',
+    title: '',
     description: '',
     notificationEnabled: true,
     notificationTime: 24,

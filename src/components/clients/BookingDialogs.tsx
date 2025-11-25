@@ -21,6 +21,7 @@ interface BookingDialogsProps {
   setSelectedDate: (date: Date | undefined) => void;
   newBooking: {
     time: string;
+    title: string;
     description: string;
     notificationEnabled: boolean;
     notificationTime: number;
@@ -97,12 +98,20 @@ const BookingDialogs = ({
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Что за съёмка</Label>
+                <Input
+                  value={newBooking.title}
+                  onChange={(e) => setNewBooking({ ...newBooking, title: e.target.value })}
+                  placeholder="Например: Фотосессия 9 класса на книгу"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Описание</Label>
                 <Textarea
                   value={newBooking.description}
                   onChange={(e) => setNewBooking({ ...newBooking, description: e.target.value })}
                   placeholder="Опишите цель встречи"
-                  rows={4}
+                  rows={3}
                 />
               </div>
               <div className="space-y-3 p-3 border rounded-lg">
@@ -171,6 +180,20 @@ const BookingDialogs = ({
                     </p>
                   </div>
                 </div>
+
+                {selectedBooking.title && (
+                  <div className="group p-4 rounded-2xl bg-gradient-to-br from-green-100/50 to-emerald-100/50 hover:from-green-100 hover:to-emerald-100 transition-all duration-300 shadow-sm hover:shadow-md">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-green-200/50 rounded-lg group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+                        <Icon name="Camera" size={18} className="text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-green-600/70 font-medium mb-1">Что за съёмка</p>
+                        <p className="font-bold text-base text-gray-900">{selectedBooking.title}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="group p-4 rounded-2xl bg-gradient-to-br from-blue-100/50 to-cyan-100/50 hover:from-blue-100 hover:to-cyan-100 transition-all duration-300 shadow-sm hover:shadow-md">

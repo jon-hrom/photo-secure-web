@@ -4,6 +4,7 @@ export interface Booking {
   booking_date?: string;
   booking_time?: string;
   time: string;
+  title?: string;
   description: string;
   notificationEnabled: boolean;
   notification_enabled?: boolean;
