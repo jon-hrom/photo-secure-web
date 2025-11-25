@@ -12,6 +12,9 @@ export interface AuthState {
   currentPage: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin';
   needs2FA: boolean;
   pendingUserData: any | null;
+  isBlocked: boolean;
+  blockReason: string | null;
+  blockData: any | null;
 }
 
 const SESSION_TIMEOUT = 7 * 60 * 1000;
@@ -30,6 +33,9 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
   const [needs2FA, setNeeds2FA] = useState(false);
   const [pendingUserData, setPendingUserData] = useState<any | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState<string | null>(null);
+  const [blockData, setBlockData] = useState<any | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
   const handleLoginSuccess = (uid: number, email?: string) => {
@@ -97,6 +103,13 @@ export const useAuth = () => {
             // Check if user is blocked
             if (data.error && data.blocked) {
               console.log('🚫 User is blocked:', data.message);
+              setIsBlocked(true);
+              setBlockReason(data.message);
+              setBlockData({
+                userId: data.user_id,
+                userEmail: data.user_email,
+                authMethod: data.auth_method || 'vk'
+              });
               setLoading(false);
               window.history.replaceState({}, '', '/');
               return;
@@ -187,6 +200,13 @@ export const useAuth = () => {
                     .then(sessionData => {
                       if (sessionData.error && sessionData.blocked) {
                         console.log('🚫 User is blocked, clearing session');
+                        setIsBlocked(true);
+                        setBlockReason(sessionData.message);
+                        setBlockData({
+                          userId: sessionData.user_id || uid,
+                          userEmail: sessionData.user_email || userData.email,
+                          authMethod: sessionData.auth_method || 'vk'
+                        });
                         handleLogout();
                         setLoading(false);
                         return;
@@ -355,8 +375,12 @@ export const useAuth = () => {
     loading,
     needs2FA,
     pendingUserData,
+    isBlocked,
+    blockReason,
+    blockData,
     setNeeds2FA,
     setPendingUserData,
+    setIsBlocked,
     lastActivityRef,
     handleLoginSuccess,
     handleLogout,

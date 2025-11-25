@@ -17,6 +17,7 @@ import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import OnboardingTour from '@/components/OnboardingTour';
 import AdminAppealsNotification from '@/components/AdminAppealsNotification';
+import BlockedUserDialog from '@/components/BlockedUserDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { isAdminUser } from '@/utils/adminCheck';
@@ -43,7 +44,11 @@ const Index = () => {
     loading,
     needs2FA,
     pendingUserData,
+    isBlocked,
+    blockReason,
+    blockData,
     setNeeds2FA,
+    setIsBlocked,
     lastActivityRef,
     handleLoginSuccess,
     handleLogout,
@@ -169,6 +174,20 @@ const Index = () => {
               setNeeds2FA(false);
               handleLogout();
             }}
+          />
+        )}
+        {isBlocked && blockData && (
+          <BlockedUserDialog
+            open={isBlocked}
+            onOpenChange={(open) => {
+              if (!open) {
+                setIsBlocked(false);
+              }
+            }}
+            blockReason={blockReason || undefined}
+            userEmail={blockData.userEmail}
+            userId={blockData.userId}
+            authMethod={blockData.authMethod}
           />
         )}
       </>
