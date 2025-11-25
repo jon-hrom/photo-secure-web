@@ -473,20 +473,42 @@ exports.handler = async (event, context) => {
         );
         
         if (blockResult.rows.length > 0 && blockResult.rows[0].is_blocked === true) {
+          // Save block data to temp session for redirect
+          const blockSessionId = Array.from({ length: 16 }, () => 
+            Math.random().toString(36).charAt(2)
+          ).join('');
+          
+          const blockData = {
+            blocked: true,
+            error: 'Доступ заблокирован администратором',
+            message: 'Ваш аккаунт был заблокирован. Обратитесь к администратору через форму обратной связи.',
+            user_id: userId,
+            user_email: blockResult.rows[0].email,
+            auth_method: 'vk'
+          };
+          
+          const tempClient = new Client({ connectionString: DATABASE_URL });
+          try {
+            await tempClient.connect();
+            await ensureTablesExist(tempClient);
+            const dataJSON = escapeSQL(JSON.stringify(blockData));
+            await tempClient.query(
+              `INSERT INTO ${SCHEMA}.vk_temp_sessions (session_id, data, expires_at) 
+               VALUES (${escapeSQL(blockSessionId)}, ${dataJSON}, NOW() + INTERVAL '5 minutes')
+               ON CONFLICT (session_id) DO UPDATE SET data = ${dataJSON}, expires_at = NOW() + INTERVAL '5 minutes'`
+            );
+          } finally {
+            await tempClient.end();
+          }
+          
+          // Redirect to frontend with session_id
           return {
-            statusCode: 403,
+            statusCode: 302,
             headers: { 
-              'Content-Type': 'application/json', 
+              'Location': `${BASE_URL}/?vk_session=${blockSessionId}`,
               'Access-Control-Allow-Origin': '*' 
             },
-            body: JSON.stringify({ 
-              error: 'Доступ заблокирован администратором',
-              blocked: true,
-              message: 'Ваш аккаунт был заблокирован. Обратитесь к администратору через форму обратной связи.',
-              user_id: userId,
-              user_email: blockResult.rows[0].email,
-              auth_method: 'vk'
-            }),
+            body: '',
             isBase64Encoded: false
           };
         }
@@ -497,20 +519,42 @@ exports.handler = async (event, context) => {
         );
         
         if (vkBlockResult.rows.length > 0 && vkBlockResult.rows[0].is_blocked === true) {
+          // Save block data to temp session for redirect
+          const blockSessionId = Array.from({ length: 16 }, () => 
+            Math.random().toString(36).charAt(2)
+          ).join('');
+          
+          const blockData = {
+            blocked: true,
+            error: 'Доступ заблокирован администратором',
+            message: vkBlockResult.rows[0].blocked_reason || 'Ваш аккаунт был заблокирован. Обратитесь к администратору через форму обратной связи.',
+            user_id: userId,
+            user_email: vkBlockResult.rows[0].email || blockResult.rows[0]?.email,
+            auth_method: 'vk'
+          };
+          
+          const tempClient = new Client({ connectionString: DATABASE_URL });
+          try {
+            await tempClient.connect();
+            await ensureTablesExist(tempClient);
+            const dataJSON = escapeSQL(JSON.stringify(blockData));
+            await tempClient.query(
+              `INSERT INTO ${SCHEMA}.vk_temp_sessions (session_id, data, expires_at) 
+               VALUES (${escapeSQL(blockSessionId)}, ${dataJSON}, NOW() + INTERVAL '5 minutes')
+               ON CONFLICT (session_id) DO UPDATE SET data = ${dataJSON}, expires_at = NOW() + INTERVAL '5 minutes'`
+            );
+          } finally {
+            await tempClient.end();
+          }
+          
+          // Redirect to frontend with session_id
           return {
-            statusCode: 403,
+            statusCode: 302,
             headers: { 
-              'Content-Type': 'application/json', 
+              'Location': `${BASE_URL}/?vk_session=${blockSessionId}`,
               'Access-Control-Allow-Origin': '*' 
             },
-            body: JSON.stringify({ 
-              error: 'Доступ заблокирован администратором',
-              blocked: true,
-              message: vkBlockResult.rows[0].blocked_reason || 'Ваш аккаунт был заблокирован. Обратитесь к администратору через форму обратной связи.',
-              user_id: userId,
-              user_email: vkBlockResult.rows[0].email || blockResult.rows[0]?.email,
-              auth_method: 'vk'
-            }),
+            body: '',
             isBase64Encoded: false
           };
         }
