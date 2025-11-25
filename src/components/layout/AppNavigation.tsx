@@ -85,33 +85,6 @@ const AppNavigation = ({
           </div>
           
           <div className="flex items-center space-x-3">
-            {userAvatar && (
-              <div className="flex items-center space-x-3 mr-2">
-                <div className="relative">
-                  <img 
-                    src={userAvatar} 
-                    alt={userName}
-                    className="w-10 h-10 rounded-full border-2 border-primary shadow-sm object-cover"
-                  />
-                  {isVerified && (
-                    <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
-                      <Icon name="Check" size={12} className="text-white" />
-                    </div>
-                  )}
-                </div>
-                <div className="hidden md:block">
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm font-medium text-gray-700">
-                      {userName}
-                    </span>
-                    {isVerified && (
-                      <Icon name="BadgeCheck" size={16} className="text-blue-500" />
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <Button
               variant="ghost"
               onClick={() => setCurrentPage('help')}
