@@ -568,11 +568,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             elif action == 'submit_appeal':
+                print('[APPEAL] Received submit_appeal request')
                 user_identifier = body.get('user_identifier')
                 user_email = body.get('user_email')
                 user_phone = body.get('user_phone')
                 auth_method = body.get('auth_method')
                 message = body.get('message')
+                print(f'[APPEAL] Data: user={user_identifier}, email={user_email}, auth={auth_method}')
                 
                 if not user_identifier or not message:
                     return {
@@ -588,13 +590,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 is_blocked = False
                 if user_email:
                     cursor.execute(
-                        "SELECT is_blocked, block_reason FROM users WHERE email = %s",
+                        "SELECT is_blocked, blocked_reason FROM users WHERE email = %s",
                         (user_email,)
                     )
                     user_data = cursor.fetchone()
                     if user_data:
                         is_blocked = user_data['is_blocked']
-                        block_reason = user_data.get('block_reason')
+                        block_reason = user_data.get('blocked_reason')
                 
                 cursor.execute(
                     """INSERT INTO blocked_user_appeals 
