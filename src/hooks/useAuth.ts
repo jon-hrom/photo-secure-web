@@ -96,7 +96,10 @@ export const useAuth = () => {
         console.log('📦 VK session ID in URL detected:', vkSessionId);
         
         fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${vkSessionId}`)
-          .then(res => res.json())
+          .then(res => {
+            // Check if response is ok but might contain block error
+            return res.json();
+          })
           .then(data => {
             console.log('📦 Session data received:', data);
             console.log('🔍 Block check:', { 
@@ -106,7 +109,7 @@ export const useAuth = () => {
             });
             
             // Check if user is blocked
-            if (data.error && data.blocked) {
+            if (data.blocked === true || (data.error && data.blocked)) {
               console.log('🚫 User IS BLOCKED! Setting state...');
               console.log('🚫 Block details:', {
                 message: data.message,
@@ -116,12 +119,14 @@ export const useAuth = () => {
               });
               
               setIsBlocked(true);
-              setBlockReason(data.message);
+              setBlockReason(data.message || 'Ваш аккаунт был заблокирован администратором');
               setBlockData({
                 userId: data.user_id,
                 userEmail: data.user_email,
                 authMethod: data.auth_method || 'vk'
               });
+              setIsAuthenticated(false);
+              setUserId(null);
               setLoading(false);
               window.history.replaceState({}, '', '/');
               
