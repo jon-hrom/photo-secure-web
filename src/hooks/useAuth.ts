@@ -211,6 +211,14 @@ export const useAuth = () => {
               // Check if user is blocked
               if (blockData.blocked === true) {
                 console.log('🚫 User IS BLOCKED! Showing dialog...');
+                
+                // Clear session data without resetting block state
+                localStorage.removeItem('vk_user');
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('authSession');
+                localStorage.removeItem('vk_user_id');
+                localStorage.removeItem('vk_access_token');
+                
                 setIsBlocked(true);
                 setBlockReason(blockData.message || 'Ваш аккаунт был заблокирован администратором');
                 setBlockData({
@@ -218,9 +226,10 @@ export const useAuth = () => {
                   userEmail: blockData.user_email || userData.email,
                   authMethod: blockData.auth_method || 'vk'
                 });
-                handleLogout();
+                setIsAuthenticated(false);
+                setUserId(null);
                 setLoading(false);
-                console.log('🚫 Block dialog should appear now');
+                console.log('🚫 Block state set. Dialog should render now');
                 return;
               }
               
