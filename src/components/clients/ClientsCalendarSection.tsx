@@ -274,6 +274,17 @@ const ClientsCalendarSection = ({
               <Icon name="MessageCircle" size={18} className="mr-2 group-hover:scale-110 transition-transform" />
               Написать сообщение
             </Button>
+            <Button
+              onClick={() => {
+                if (selectedClient.phone) {
+                  window.open(`tel:${selectedClient.phone}`, '_self');
+                }
+              }}
+              className="w-full mt-3 bg-gradient-to-r from-emerald-200 to-cyan-200 hover:from-emerald-300 hover:to-cyan-300 text-emerald-700 hover:text-emerald-800 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl h-12 font-semibold group"
+            >
+              <Icon name="Phone" size={18} className="mr-2 group-hover:scale-110 transition-transform" />
+              Позвонить
+            </Button>
           </CardContent>
         </Card>
       )}
