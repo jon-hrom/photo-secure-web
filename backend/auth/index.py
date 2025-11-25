@@ -617,7 +617,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             elif action == 'get_appeals':
+                print(f'[GET_APPEALS] Starting...')
                 admin_user_id = body.get('admin_user_id')
+                print(f'[GET_APPEALS] admin_user_id: {admin_user_id}')
                 
                 if not admin_user_id:
                     return {
@@ -628,19 +630,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cursor = conn.cursor()
+                print(f'[GET_APPEALS] Fetching user email...')
                 cursor.execute("SELECT email FROM users WHERE id = %s", (admin_user_id,))
                 user = cursor.fetchone()
+                print(f'[GET_APPEALS] User: {user}')
                 
                 # Check if user is admin by email or VK ID
                 is_admin = False
-                if user and user['email'] == 'jonhrom2012@gmail.com':
+                if user and user.get('email') == 'jonhrom2012@gmail.com':
                     is_admin = True
+                    print(f'[GET_APPEALS] Admin by email')
                 else:
                     # Check VK admin by VK ID
+                    print(f'[GET_APPEALS] Checking VK admin...')
                     cursor.execute("SELECT vk_id FROM vk_users WHERE user_id = %s AND vk_id = '74713477'", (admin_user_id,))
                     vk_admin = cursor.fetchone()
+                    print(f'[GET_APPEALS] VK admin check: {vk_admin}')
                     if vk_admin:
                         is_admin = True
+                        print(f'[GET_APPEALS] Admin by VK ID')
+                
+                print(f'[GET_APPEALS] is_admin: {is_admin}')
                 
                 if not is_admin:
                     return {
@@ -650,6 +660,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                print(f'[GET_APPEALS] Fetching appeals from DB...')
                 cursor.execute("""
                     SELECT id, user_identifier, user_email, user_phone, auth_method, 
                            message, block_reason, is_blocked, is_read, 
@@ -659,19 +670,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     LIMIT 100
                 """)
                 
+                print(f'[GET_APPEALS] Fetching results...')
                 appeals = cursor.fetchall()
+                print(f'[GET_APPEALS] Found {len(appeals)} appeals')
                 appeals_list = []
                 
                 for appeal in appeals:
                     appeal_dict = dict(appeal)
                     if appeal_dict['created_at']:
                         appeal_dict['created_at'] = appeal_dict['created_at'].isoformat()
-                    if appeal_dict['read_at']:
+                    if appeal_dict.get('read_at'):
                         appeal_dict['read_at'] = appeal_dict['read_at'].isoformat()
-                    if appeal_dict['responded_at']:
+                    if appeal_dict.get('responded_at'):
                         appeal_dict['responded_at'] = appeal_dict['responded_at'].isoformat()
                     appeals_list.append(appeal_dict)
                 
+                print(f'[GET_APPEALS] Returning {len(appeals_list)} appeals')
                 return {
                     'statusCode': 200,
                     'headers': headers,
