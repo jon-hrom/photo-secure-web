@@ -12,6 +12,7 @@ import AdminPanel from '@/components/AdminPanel';
 import MaintenancePage from '@/components/MaintenancePage';
 import AppNavigation from '@/components/layout/AppNavigation';
 import MobileNavigation from '@/components/layout/MobileNavigation';
+import SwipeContainer from '@/components/layout/SwipeContainer';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +20,7 @@ import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { isAdminUser } from '@/utils/adminCheck';
 
 const Index = () => {
+  const pages = ['dashboard', 'settings', 'photo-bank', 'clients', 'tariffs', 'features', 'photobook'] as const;
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
@@ -211,6 +213,7 @@ const Index = () => {
             </div>
           </div>
         </nav>
+        <SwipeContainer>
         <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 md:p-4 mb-4 md:mb-6 flex items-start md:items-center gap-2 md:gap-3">
             <Icon name="Info" className="text-blue-500 flex-shrink-0" size={20} />
@@ -229,6 +232,7 @@ const Index = () => {
             onOpenAddClient={() => setCurrentPage('auth')}
           />
         </main>
+        </SwipeContainer>
       </div>
     );
   }
@@ -259,6 +263,20 @@ const Index = () => {
         />
       )}
 
+      <SwipeContainer
+        onSwipeLeft={() => {
+          const currentIndex = pages.indexOf(currentPage as any);
+          if (currentIndex < pages.length - 1) {
+            setCurrentPage(pages[currentIndex + 1]);
+          }
+        }}
+        onSwipeRight={() => {
+          const currentIndex = pages.indexOf(currentPage as any);
+          if (currentIndex > 0) {
+            setCurrentPage(pages[currentIndex - 1]);
+          }
+        }}
+      >
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
         {!emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (
           <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
@@ -318,6 +336,7 @@ const Index = () => {
         {currentPage === 'settings' && userId && <SettingsPage userId={userId} />}
         {currentPage === 'admin' && isAdmin && <AdminPanel />}
       </main>
+      </SwipeContainer>
       
       <MobileNavigation onNavigate={setCurrentPage} />
     </div>
