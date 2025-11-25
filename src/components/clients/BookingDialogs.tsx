@@ -61,7 +61,7 @@ const BookingDialogs = ({
             <DialogTitle>Создать бронирование для {selectedClient?.name}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            <div>
+            <div className="space-y-3">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -79,6 +79,10 @@ const BookingDialogs = ({
                 }}
                 className="rounded-md border"
               />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+                <div className="w-4 h-4 rounded-full bg-primary flex-shrink-0"></div>
+                <span>Даты с бронированиями выделены цветом</span>
+              </div>
             </div>
             <div className="space-y-4">
               <div className="space-y-2">
