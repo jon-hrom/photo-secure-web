@@ -39,6 +39,7 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
   const [selectedAppeal, setSelectedAppeal] = useState<Appeal | null>(null);
   const [customSound, setCustomSound] = useState<string | null>(null);
   const previousUnreadCount = useRef<number>(0);
+  const hasPlayedInitialSound = useRef<boolean>(false);
 
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: window.innerWidth - 100, y: 20 });
@@ -63,7 +64,10 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
         setAppeals(data.appeals);
         const unread = data.appeals.filter((a: Appeal) => !a.is_read).length;
         
-        if (unread > previousUnreadCount.current && previousUnreadCount.current > 0) {
+        if (!hasPlayedInitialSound.current && unread > 0) {
+          playNotificationSound();
+          hasPlayedInitialSound.current = true;
+        } else if (unread > previousUnreadCount.current && previousUnreadCount.current >= 0) {
           playNotificationSound();
         }
         previousUnreadCount.current = unread;
