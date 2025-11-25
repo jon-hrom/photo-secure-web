@@ -80,6 +80,9 @@ export const useAuth = () => {
       console.log('🔄 Restoring session...');
       
       const urlParams = new URLSearchParams(window.location.search);
+      console.log('🔍 Full URL:', window.location.href);
+      console.log('🔍 Query params:', Object.fromEntries(urlParams.entries()));
+      
       const forceLogout = urlParams.get('logout');
       
       if (forceLogout === 'true') {
