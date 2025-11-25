@@ -354,22 +354,23 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             </TabsTrigger>
           </TabsList>
 
-          <SwipeContainer
-            onSwipeLeft={() => {
-              const currentIndex = tabs.indexOf(activeTab as any);
-              if (currentIndex < tabs.length - 1) {
-                setActiveTab(tabs[currentIndex + 1]);
-              }
-            }}
-            onSwipeRight={() => {
-              const currentIndex = tabs.indexOf(activeTab as any);
-              if (currentIndex > 0) {
-                setActiveTab(tabs[currentIndex - 1]);
-              }
-            }}
-          >
+          <div className="relative overflow-hidden">
+            <SwipeContainer
+              onSwipeLeft={() => {
+                const currentIndex = tabs.indexOf(activeTab as any);
+                if (currentIndex < tabs.length - 1) {
+                  setActiveTab(tabs[currentIndex + 1]);
+                }
+              }}
+              onSwipeRight={() => {
+                const currentIndex = tabs.indexOf(activeTab as any);
+                if (currentIndex > 0) {
+                  setActiveTab(tabs[currentIndex - 1]);
+                }
+              }}
+            >
 
-          <TabsContent value="overview" className="space-y-4 mt-4">
+          <TabsContent value="overview" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
             <ClientDetailOverview
               projects={projects}
               payments={payments}
@@ -382,7 +383,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             />
           </TabsContent>
 
-          <TabsContent value="projects" className="space-y-4 mt-4">
+          <TabsContent value="projects" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
             <ClientDetailProjects
               projects={projects}
               payments={payments}
@@ -396,7 +397,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             />
           </TabsContent>
 
-          <TabsContent value="documents" className="space-y-4 mt-4">
+          <TabsContent value="documents" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
             <ClientDetailDocumentsHistory
               documents={documents}
               messages={messages}
@@ -409,7 +410,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             />
           </TabsContent>
 
-          <TabsContent value="payments" className="space-y-4 mt-4">
+          <TabsContent value="payments" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
             <ClientDetailPayments
               payments={payments}
               projects={projects}
@@ -422,7 +423,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             />
           </TabsContent>
 
-          <TabsContent value="history" className="space-y-4 mt-4">
+          <TabsContent value="history" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
             <ClientDetailDocumentsHistory
               documents={documents}
               messages={messages}
@@ -436,6 +437,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           </TabsContent>
 
           </SwipeContainer>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>
