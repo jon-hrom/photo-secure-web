@@ -153,6 +153,27 @@ const Index = () => {
     return <MaintenancePage />;
   }
 
+  // Check for blocked user FIRST before showing login
+  if (isBlocked && blockData) {
+    return (
+      <>
+        <LoginPage onLoginSuccess={handleLoginSuccess} />
+        <BlockedUserDialog
+          open={isBlocked}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsBlocked(false);
+            }
+          }}
+          blockReason={blockReason || undefined}
+          userEmail={blockData.userEmail}
+          userId={blockData.userId}
+          authMethod={blockData.authMethod}
+        />
+      </>
+    );
+  }
+
   if (!isAuthenticated && !guestAccess) {
     return (
       <>
@@ -174,20 +195,6 @@ const Index = () => {
               setNeeds2FA(false);
               handleLogout();
             }}
-          />
-        )}
-        {isBlocked && blockData && (
-          <BlockedUserDialog
-            open={isBlocked}
-            onOpenChange={(open) => {
-              if (!open) {
-                setIsBlocked(false);
-              }
-            }}
-            blockReason={blockReason || undefined}
-            userEmail={blockData.userEmail}
-            userId={blockData.userId}
-            authMethod={blockData.authMethod}
           />
         )}
       </>
