@@ -94,6 +94,14 @@ export const useAuth = () => {
           .then(data => {
             console.log('📦 Session data received:', data);
             
+            // Check if user is blocked
+            if (data.error && data.blocked) {
+              console.log('🚫 User is blocked:', data.message);
+              setLoading(false);
+              window.history.replaceState({}, '', '/');
+              return;
+            }
+            
             if (data.userData && data.token) {
               const userData = data.userData;
               const isUserAdmin = isAdminUser(userData.email || null, userData);
@@ -162,55 +170,87 @@ export const useAuth = () => {
       if (vkUser) {
         try {
           const userData = JSON.parse(vkUser);
-          const isUserAdmin = isAdminUser(userData.email || null, userData);
-          
-          console.log('🔍 Checking admin status (localStorage):', {
-            userName: userData.name,
-            userEmail: userData.email,
-            isUserAdmin
-          });
-          
-          console.log('✅ VK user found in localStorage:', userData);
-          
           const uid = userData.user_id || userData.vk_id;
-          localStorage.setItem('userId', uid.toString());
           
-          setIsAuthenticated(true);
-          setUserId(uid);
-          setUserName(userData.name || 'Пользователь VK');
-          setUserAvatar(userData.avatar || '');
-          setIsVerified(userData.is_verified || userData.verified || false);
-          setIsAdmin(isUserAdmin);
-          setCurrentPage('dashboard');
-          lastActivityRef.current = Date.now();
-          
-          const userId = userData.user_id || userData.vk_id;
-          if (userId) {
-            fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`)
-              .then(res => res.json())
-              .then(data => {
-                if (data.email) {
-                  setUserEmail(data.email);
-                  const updatedUserData = { ...userData, email: data.email };
-                  localStorage.setItem('vk_user', JSON.stringify(updatedUserData));
-                  console.log('✅ Email loaded from database:', data.email);
+          // CRITICAL: Check if user is still not blocked before restoring session
+          fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${uid}`)
+            .then(res => res.json())
+            .then(data => {
+              // Check if user is blocked
+              if (data.two_factor_email !== undefined || data.two_factor_sms !== undefined) {
+                // User data loaded successfully, now check via VK auth endpoint
+                const authToken = localStorage.getItem('auth_token');
+                if (authToken) {
+                  // Validate token and check block status
+                  fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${authToken}`)
+                    .then(res => res.json())
+                    .then(sessionData => {
+                      if (sessionData.error && sessionData.blocked) {
+                        console.log('🚫 User is blocked, clearing session');
+                        handleLogout();
+                        setLoading(false);
+                        return;
+                      }
+                      
+                      // User not blocked, continue with session restore
+                      continueSessionRestore(userData, data, uid);
+                    })
+                    .catch(() => {
+                      // If validation fails, continue anyway (backwards compatibility)
+                      continueSessionRestore(userData, data, uid);
+                    });
                 } else {
-                  setUserEmail('');
+                  continueSessionRestore(userData, data, uid);
                 }
-              })
-              .catch(err => {
-                console.error('❌ Error loading user data:', err);
-                setUserEmail(userData.email || '');
-              });
-          } else {
-            setUserEmail(userData.email || '');
-          }
+              } else {
+                continueSessionRestore(userData, {}, uid);
+              }
+            })
+            .catch(err => {
+              console.error('❌ Error checking user status:', err);
+              // On error, logout for safety
+              handleLogout();
+              setLoading(false);
+            });
           
-          if (vkAuthCompleted) {
-            localStorage.removeItem('vk_auth_completed');
-          }
+          const continueSessionRestore = (userData: any, dbData: any, uid: number) => {
+            const isUserAdmin = isAdminUser(userData.email || dbData.email || null, userData);
+            
+            console.log('🔍 Checking admin status (localStorage):', {
+              userName: userData.name,
+              userEmail: userData.email || dbData.email,
+              isUserAdmin
+            });
+            
+            console.log('✅ VK user session validated, not blocked');
+            
+            localStorage.setItem('userId', uid.toString());
+            
+            setIsAuthenticated(true);
+            setUserId(uid);
+            setUserName(userData.name || 'Пользователь VK');
+            setUserAvatar(userData.avatar || '');
+            setIsVerified(userData.is_verified || userData.verified || false);
+            setIsAdmin(isUserAdmin);
+            setCurrentPage('dashboard');
+            lastActivityRef.current = Date.now();
+            
+            if (dbData.email) {
+              setUserEmail(dbData.email);
+              const updatedUserData = { ...userData, email: dbData.email };
+              localStorage.setItem('vk_user', JSON.stringify(updatedUserData));
+              console.log('✅ Email loaded from database:', dbData.email);
+            } else {
+              setUserEmail(userData.email || '');
+            }
+            
+            if (vkAuthCompleted) {
+              localStorage.removeItem('vk_auth_completed');
+            }
+            
+            console.log('✅ VK session restored, redirecting to dashboard');
+          };
           
-          console.log('✅ VK session restored, redirecting to dashboard');
           return;
         } catch (error) {
           console.error('❌ Error restoring VK session:', error);
