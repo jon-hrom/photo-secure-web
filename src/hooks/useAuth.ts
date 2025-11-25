@@ -97,7 +97,16 @@ export const useAuth = () => {
         
         fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${vkSessionId}`)
           .then(res => {
-            // Check if response is ok but might contain block error
+            console.log('📦 Session response status:', res.status);
+            
+            // Check if user is blocked (403 status)
+            if (res.status === 403) {
+              return res.json().then(data => {
+                console.log('🚫 User IS BLOCKED! Status 403 detected');
+                throw { blocked: true, data };
+              });
+            }
+            
             return res.json();
           })
           .then(data => {
@@ -108,8 +117,8 @@ export const useAuth = () => {
               message: data.message 
             });
             
-            // Check if user is blocked
-            if (data.blocked === true || (data.error && data.blocked)) {
+            // Double check if user is blocked (in case status wasn't 403)
+            if (data.blocked === true) {
               console.log('🚫 User IS BLOCKED! Setting state...');
               console.log('🚫 Block details:', {
                 message: data.message,
@@ -183,6 +192,24 @@ export const useAuth = () => {
           })
           .catch(error => {
             console.error('❌ Error fetching VK session:', error);
+            
+            // Check if error is because user is blocked
+            if (error.blocked && error.data) {
+              console.log('🚫 Handling blocked user from catch:', error.data);
+              setIsBlocked(true);
+              setBlockReason(error.data.message || 'Ваш аккаунт был заблокирован администратором');
+              setBlockData({
+                userId: error.data.user_id,
+                userEmail: error.data.user_email,
+                authMethod: error.data.auth_method || 'vk'
+              });
+              setIsAuthenticated(false);
+              setUserId(null);
+              setLoading(false);
+              window.history.replaceState({}, '', '/');
+              return;
+            }
+            
             setLoading(false);
           });
         

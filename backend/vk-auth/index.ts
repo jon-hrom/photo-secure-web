@@ -301,6 +301,19 @@ exports.handler = async (event, context) => {
         
         const sessionData = result.rows[0].data;
         
+        // Check if session contains blocked user data
+        if (sessionData.blocked === true) {
+          return {
+            statusCode: 403,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify(sessionData),
+            isBase64Encoded: false
+          };
+        }
+        
         return {
           statusCode: 200,
           headers: { 
