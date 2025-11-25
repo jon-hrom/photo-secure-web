@@ -31,6 +31,12 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
     { icon: 'Zap', label: 'Тарифы', path: '/tariffs' },
   ];
 
+  const vibrate = (pattern: number | number[]) => {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     dragStartY.current = e.touches[0].clientY;
     dragStartTime.current = Date.now();
@@ -53,6 +59,7 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
     const touchDuration = Date.now() - dragStartTime.current;
     
     if (!isDragging && touchDuration < 200) {
+      vibrate(isExpanded ? 30 : [20, 10, 20]);
       setIsExpanded(!isExpanded);
     }
     
@@ -65,6 +72,7 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
       return;
     }
 
+    vibrate(15);
     setIsExpanded(false);
     
     if (item.path === '/clients') {
