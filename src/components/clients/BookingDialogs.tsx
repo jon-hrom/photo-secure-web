@@ -79,9 +79,15 @@ const BookingDialogs = ({
                 }}
                 className="rounded-md border"
               />
-              <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
-                <div className="w-4 h-4 rounded-full bg-primary flex-shrink-0"></div>
-                <span>Даты с бронированиями выделены цветом</span>
+              <div className="space-y-2 px-1">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-4 h-4 rounded-full bg-primary flex-shrink-0"></div>
+                  <span>Даты с бронированиями выделены цветом</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-4 h-4 rounded-full bg-purple-400 flex-shrink-0"></div>
+                  <span>Дата сегодня</span>
+                </div>
               </div>
             </div>
             <div className="space-y-4">
