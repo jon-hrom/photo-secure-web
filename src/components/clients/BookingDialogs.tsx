@@ -151,60 +151,93 @@ const BookingDialogs = ({
       </Dialog>
 
       <Dialog open={isBookingDetailsOpen} onOpenChange={setIsBookingDetailsOpen}>
-        <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
-          <DialogHeader>
-            <DialogTitle>Детали бронирования</DialogTitle>
+        <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm border-2 border-purple-200/50 shadow-2xl">
+          <DialogHeader className="border-b border-purple-200/30 pb-4">
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Детали бронирования
+            </DialogTitle>
           </DialogHeader>
           {selectedBooking && (
-            <div className="space-y-4 pt-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Icon name="User" size={18} className="text-muted-foreground" />
-                  <span className="font-medium">
-                    {clients.find(c => c.id === selectedBooking.clientId)?.name}
-                  </span>
+            <div className="space-y-6 pt-6">
+              <div className="space-y-4">
+                <div className="group flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-purple-100/50 to-pink-100/50 hover:from-purple-100 hover:to-pink-100 transition-all duration-300 shadow-sm hover:shadow-md">
+                  <div className="p-3 bg-gradient-to-br from-purple-200 to-pink-200 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300">
+                    <Icon name="User" size={20} className="text-purple-700" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-600/70 font-medium mb-1">Клиент</p>
+                    <p className="font-bold text-lg text-gray-900">
+                      {clients.find(c => c.id === selectedBooking.clientId)?.name}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Icon name="Calendar" size={18} className="text-muted-foreground" />
-                  <span>
-                    {selectedBooking.booking_date 
-                      ? new Date(selectedBooking.booking_date).toLocaleDateString('ru-RU')
-                      : selectedBooking.date instanceof Date 
-                        ? selectedBooking.date.toLocaleDateString('ru-RU') 
-                        : selectedBooking.date
-                    }
-                  </span>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="group p-4 rounded-2xl bg-gradient-to-br from-blue-100/50 to-cyan-100/50 hover:from-blue-100 hover:to-cyan-100 transition-all duration-300 shadow-sm hover:shadow-md">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-2 bg-blue-200/50 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                        <Icon name="Calendar" size={16} className="text-blue-600" />
+                      </div>
+                      <p className="text-xs text-blue-600/70 font-medium">Дата</p>
+                    </div>
+                    <p className="font-bold text-gray-900">
+                      {selectedBooking.booking_date 
+                        ? new Date(selectedBooking.booking_date).toLocaleDateString('ru-RU')
+                        : selectedBooking.date instanceof Date 
+                          ? selectedBooking.date.toLocaleDateString('ru-RU') 
+                          : selectedBooking.date
+                      }
+                    </p>
+                  </div>
+
+                  <div className="group p-4 rounded-2xl bg-gradient-to-br from-indigo-100/50 to-purple-100/50 hover:from-indigo-100 hover:to-purple-100 transition-all duration-300 shadow-sm hover:shadow-md">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-2 bg-indigo-200/50 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                        <Icon name="Clock" size={16} className="text-indigo-600" />
+                      </div>
+                      <p className="text-xs text-indigo-600/70 font-medium">Время</p>
+                    </div>
+                    <p className="font-bold text-gray-900">{selectedBooking.booking_time || selectedBooking.time}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Icon name="Clock" size={18} className="text-muted-foreground" />
-                  <span>{selectedBooking.booking_time || selectedBooking.time}</span>
-                </div>
+
                 {selectedBooking.description && (
-                  <div className="flex items-start gap-2">
-                    <Icon name="FileText" size={18} className="text-muted-foreground mt-1" />
-                    <p className="text-sm">{selectedBooking.description}</p>
+                  <div className="group p-4 rounded-2xl bg-gradient-to-r from-amber-100/50 to-orange-100/50 hover:from-amber-100 hover:to-orange-100 transition-all duration-300 shadow-sm hover:shadow-md">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-2 bg-amber-200/50 rounded-lg group-hover:scale-110 transition-transform duration-300">
+                        <Icon name="FileText" size={16} className="text-amber-600" />
+                      </div>
+                      <p className="text-xs text-amber-600/70 font-medium">Описание</p>
+                    </div>
+                    <p className="text-gray-700 leading-relaxed">{selectedBooking.description}</p>
                   </div>
                 )}
+
                 {(selectedBooking.notification_enabled || selectedBooking.notificationEnabled) && (
-                  <Badge variant="secondary">
-                    <Icon name="Bell" size={12} className="mr-1" />
-                    Уведомление за {(() => {
-                      const time = selectedBooking.notification_time || selectedBooking.notificationTime || 24;
-                      if (time >= 24) {
-                        const days = time / 24;
-                        return `${days} ${days === 1 ? 'день' : days <= 4 ? 'дня' : 'дней'}`;
-                      }
-                      return `${time} ${time === 1 ? 'час' : time <= 4 ? 'часа' : 'часов'}`;
-                    })()}
-                  </Badge>
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-gradient-to-r from-cyan-100/50 to-teal-100/50 border border-cyan-200/50">
+                    <div className="p-2 bg-cyan-200/50 rounded-lg">
+                      <Icon name="Bell" size={16} className="text-cyan-600" />
+                    </div>
+                    <span className="text-sm font-medium text-cyan-700">
+                      Уведомление за {(() => {
+                        const time = selectedBooking.notification_time || selectedBooking.notificationTime || 24;
+                        if (time >= 24) {
+                          const days = time / 24;
+                          return `${days} ${days === 1 ? 'день' : days <= 4 ? 'дня' : 'дней'}`;
+                        }
+                        return `${time} ${time === 1 ? 'час' : time <= 4 ? 'часа' : 'часов'}`;
+                      })()}
+                    </span>
+                  </div>
                 )}
               </div>
+
               <Button
-                variant="destructive"
+                variant="outline"
                 onClick={() => handleDeleteBooking(selectedBooking.id)}
-                className="w-full"
+                className="w-full rounded-xl h-12 bg-gradient-to-r from-red-100 to-rose-100 hover:from-red-200 hover:to-rose-200 text-red-700 hover:text-red-800 border-red-200/50 shadow-md hover:shadow-lg transition-all duration-300 font-semibold group"
               >
-                <Icon name="Trash2" size={18} className="mr-2" />
+                <Icon name="Trash2" size={18} className="mr-2 group-hover:scale-110 transition-transform" />
                 Удалить бронирование
               </Button>
             </div>
