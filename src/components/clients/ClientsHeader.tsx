@@ -69,20 +69,6 @@ const ClientsHeader = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <ClientDialogs
-            isAddDialogOpen={isAddDialogOpen}
-            setIsAddDialogOpen={setIsAddDialogOpen}
-            isEditDialogOpen={isEditDialogOpen}
-            setIsEditDialogOpen={setIsEditDialogOpen}
-            newClient={newClient}
-            setNewClient={setNewClient}
-            editingClient={editingClient}
-            setEditingClient={setEditingClient}
-            handleAddClient={handleAddClient}
-            handleUpdateClient={handleUpdateClient}
-            emailVerified={emailVerified}
-          />
-          
           <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm">
             <Button
               variant="ghost"
@@ -107,6 +93,20 @@ const ClientsHeader = ({
               <Icon name="ChevronRight" size={18} />
             </Button>
           </div>
+          
+          <ClientDialogs
+            isAddDialogOpen={isAddDialogOpen}
+            setIsAddDialogOpen={setIsAddDialogOpen}
+            isEditDialogOpen={isEditDialogOpen}
+            setIsEditDialogOpen={setIsEditDialogOpen}
+            newClient={newClient}
+            setNewClient={setNewClient}
+            editingClient={editingClient}
+            setEditingClient={setEditingClient}
+            handleAddClient={handleAddClient}
+            handleUpdateClient={handleUpdateClient}
+            emailVerified={emailVerified}
+          />
           
           {setViewMode && (
             <Button
