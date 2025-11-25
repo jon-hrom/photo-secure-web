@@ -328,12 +328,6 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
       
       <StorageWarning />
 
-      <DashboardStatistics 
-        trialDaysLeft={trialDaysLeft}
-        subscriptionDaysLeft={subscriptionDaysLeft}
-        isTrialPeriod={isTrialPeriod}
-      />
-
       {upcomingMeetings.length > 0 && upcomingMeetings[0] && (
         <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-secondary/5 shadow-lg hover:shadow-xl transition-all duration-300">
           <CardContent className="p-3 md:p-4">
@@ -369,6 +363,11 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
         onMeetingClick={handleMeetingClick}
       />
 
+      <DashboardStatistics 
+        trialDaysLeft={trialDaysLeft}
+        subscriptionDaysLeft={subscriptionDaysLeft}
+        isTrialPeriod={isTrialPeriod}
+      />
 
     </div>
   );
