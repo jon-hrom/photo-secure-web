@@ -372,13 +372,13 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           <div className="relative overflow-hidden">
             {showSwipeHint && (
               <>
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-left-4 fade-in duration-700">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-left-4 fade-in duration-700 lg:hidden">
                   <div className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full shadow-lg">
                     <Icon name="ChevronLeft" size={20} />
                     <span className="text-sm font-medium">Свайпните</span>
                   </div>
                 </div>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-right-4 fade-in duration-700">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-right-4 fade-in duration-700 lg:hidden">
                   <div className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2 rounded-full shadow-lg">
                     <span className="text-sm font-medium">для навигации</span>
                     <Icon name="ChevronRight" size={20} />
