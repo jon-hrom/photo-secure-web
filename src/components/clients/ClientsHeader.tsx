@@ -66,29 +66,6 @@ const ClientsHeader = ({
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h2 className="text-2xl sm:text-3xl font-bold">Система учёта клиентов</h2>
-          
-          <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onGoBack}
-              disabled={!canGoBack}
-              className="h-8 w-8 p-0 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-110 active:scale-95"
-              title="Назад"
-            >
-              <Icon name="ChevronLeft" size={18} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onGoForward}
-              disabled={!canGoForward}
-              className="h-8 w-8 p-0 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-110 active:scale-95"
-              title="Вперёд"
-            >
-              <Icon name="ChevronRight" size={18} />
-            </Button>
-          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -105,6 +82,31 @@ const ClientsHeader = ({
             handleUpdateClient={handleUpdateClient}
             emailVerified={emailVerified}
           />
+          
+          <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onGoBack}
+              disabled={!canGoBack}
+              className="h-8 px-3 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+              title="Назад"
+            >
+              <Icon name="ChevronLeft" size={18} />
+              <span className="text-sm">Назад</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onGoForward}
+              disabled={!canGoForward}
+              className="h-8 px-3 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+              title="Вперёд"
+            >
+              <span className="text-sm">Вперёд</span>
+              <Icon name="ChevronRight" size={18} />
+            </Button>
+          </div>
           
           {setViewMode && (
             <Button
