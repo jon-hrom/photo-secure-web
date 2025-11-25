@@ -9,6 +9,7 @@ import ClientDetailOverview from '@/components/clients/detail/ClientDetailOvervi
 import ClientDetailProjects from '@/components/clients/detail/ClientDetailProjects';
 import ClientDetailPayments from '@/components/clients/detail/ClientDetailPayments';
 import ClientDetailDocumentsHistory from '@/components/clients/detail/ClientDetailDocumentsHistory';
+import SwipeContainer from '@/components/layout/SwipeContainer';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
 
 interface ClientDetailDialogProps {
@@ -19,6 +20,7 @@ interface ClientDetailDialogProps {
 }
 
 const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDetailDialogProps) => {
+  const tabs = ['overview', 'projects', 'documents', 'payments', 'history'] as const;
   const [activeTab, setActiveTab] = useState('overview');
   const [newProject, setNewProject] = useState({ 
     name: '', 
@@ -352,6 +354,21 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             </TabsTrigger>
           </TabsList>
 
+          <SwipeContainer
+            onSwipeLeft={() => {
+              const currentIndex = tabs.indexOf(activeTab as any);
+              if (currentIndex < tabs.length - 1) {
+                setActiveTab(tabs[currentIndex + 1]);
+              }
+            }}
+            onSwipeRight={() => {
+              const currentIndex = tabs.indexOf(activeTab as any);
+              if (currentIndex > 0) {
+                setActiveTab(tabs[currentIndex - 1]);
+              }
+            }}
+          >
+
           <TabsContent value="overview" className="space-y-4 mt-4">
             <ClientDetailOverview
               projects={projects}
@@ -417,6 +434,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
               onDocumentDeleted={handleDocumentDeleted}
             />
           </TabsContent>
+
+          </SwipeContainer>
         </Tabs>
       </DialogContent>
     </Dialog>
