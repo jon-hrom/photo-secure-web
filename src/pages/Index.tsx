@@ -62,6 +62,10 @@ const Index = () => {
   });
 
   useEffect(() => {
+    console.log('🔍 [Index] Block state:', { isBlocked, blockReason, blockData });
+  }, [isBlocked, blockReason, blockData]);
+
+  useEffect(() => {
     if (currentPage !== 'clients' && selectedClientName !== undefined) {
       setSelectedClientName(undefined);
     }

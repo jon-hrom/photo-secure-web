@@ -99,10 +99,22 @@ export const useAuth = () => {
           .then(res => res.json())
           .then(data => {
             console.log('📦 Session data received:', data);
+            console.log('🔍 Block check:', { 
+              hasError: !!data.error, 
+              isBlocked: !!data.blocked,
+              message: data.message 
+            });
             
             // Check if user is blocked
             if (data.error && data.blocked) {
-              console.log('🚫 User is blocked:', data.message);
+              console.log('🚫 User IS BLOCKED! Setting state...');
+              console.log('🚫 Block details:', {
+                message: data.message,
+                userId: data.user_id,
+                userEmail: data.user_email,
+                authMethod: data.auth_method
+              });
+              
               setIsBlocked(true);
               setBlockReason(data.message);
               setBlockData({
@@ -112,6 +124,8 @@ export const useAuth = () => {
               });
               setLoading(false);
               window.history.replaceState({}, '', '/');
+              
+              console.log('🚫 State updated. isBlocked should be TRUE now');
               return;
             }
             
@@ -198,8 +212,9 @@ export const useAuth = () => {
                   fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${authToken}`)
                     .then(res => res.json())
                     .then(sessionData => {
+                      console.log('🔍 Validating existing session:', sessionData);
                       if (sessionData.error && sessionData.blocked) {
-                        console.log('🚫 User is blocked, clearing session');
+                        console.log('🚫 User IS BLOCKED (existing session)! Setting state...');
                         setIsBlocked(true);
                         setBlockReason(sessionData.message);
                         setBlockData({
@@ -209,6 +224,7 @@ export const useAuth = () => {
                         });
                         handleLogout();
                         setLoading(false);
+                        console.log('🚫 State updated (existing session). isBlocked should be TRUE');
                         return;
                       }
                       
