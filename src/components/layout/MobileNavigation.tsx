@@ -116,10 +116,10 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
           <Button
             variant="ghost"
             className={cn(
-              'flex flex-col items-center gap-1 h-auto py-3 px-4 transition-all duration-300 relative backdrop-blur-xl border-2 shadow-2xl hover:shadow-3xl',
+              'flex flex-col items-center gap-1 h-auto py-3 px-4 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl',
               isExpanded 
                 ? 'bg-white/90 border-border/50' 
-                : 'bg-white/40 border-white/30 hover:bg-white/50',
+                : 'bg-white/20 border-white/20 hover:bg-white/30',
               isActive('/') && 'border-primary/50'
             )}
             onClick={() => handleNavClick(navItems[0])}
