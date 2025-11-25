@@ -77,11 +77,11 @@ const ClientsListSection = ({
               <table className="w-full min-w-max">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap sticky left-0 bg-muted/50 z-20">Клиент</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell">Контакты</th>
-                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Записи</th>
-                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Проекты</th>
-                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden xl:table-cell">Оплачено</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap sticky left-0 bg-muted/50 z-20 px-[104px]">Клиент</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell my-[9px] py-2 mx-2.5 px-[70px]">Контакты</th>
+                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell px-1 mx-[11px] my-3.5">Записи</th>
+                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell px-0.5">Проекты</th>
+                    <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden xl:table-cell px-0">Оплачено</th>
                     <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden xl:table-cell">Документы</th>
                     <th className="text-right p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap sticky right-0 bg-muted/50 z-20">Действия</th>
                   </tr>
@@ -121,7 +121,7 @@ const ClientsListSection = ({
                             </div>
                           </div>
                         </td>
-                        <td className="p-2 md:p-3 hidden md:table-cell">
+                        <td className="p-2 md:p-3 hidden md:table-cell my-0 py-[13px] px-[53px] mx-[9px]">
                           <div className="space-y-1 text-xs md:text-sm min-w-[180px]">
                             <div className="flex items-center gap-2">
                               <Icon name="Phone" size={14} className="text-muted-foreground flex-shrink-0" />
