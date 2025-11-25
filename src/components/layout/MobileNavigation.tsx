@@ -121,7 +121,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
               )}
               <div className={cn(
                 'p-2 rounded-lg transition-all duration-300 relative',
-                isActive(item.path) ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100'
+                isActive(item.path) ? 'bg-gradient-to-br from-primary to-secondary shadow-lg animate-pulse-active' : 'hover:bg-gray-100'
               )}>
                 <Icon 
                   name={item.icon} 
@@ -169,7 +169,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
             </div>
             <div className={cn(
               'p-2 rounded-lg transition-all duration-300 relative',
-              isActive('dashboard') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100/50'
+              isActive('dashboard') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg animate-pulse-active' : 'hover:bg-gray-100/50'
             )}>
               <Icon 
                 name={navItems[0].icon} 
