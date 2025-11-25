@@ -91,7 +91,7 @@ const AppNavigation = ({
                   <img 
                     src={userAvatar} 
                     alt={userName}
-                    className="w-10 h-10 rounded-full border-2 border-primary shadow-sm"
+                    className="w-10 h-10 rounded-full border-2 border-primary shadow-sm object-cover"
                   />
                   {isVerified && (
                     <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
@@ -140,7 +140,7 @@ const AppNavigation = ({
                     <img 
                       src={userAvatar} 
                       alt={userName}
-                      className="w-8 h-8 rounded-full border border-gray-200"
+                      className="w-8 h-8 rounded-full border border-gray-200 object-cover"
                     />
                   ) : (
                     <Icon name="User" size={20} />
