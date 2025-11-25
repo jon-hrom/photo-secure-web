@@ -22,6 +22,7 @@ interface ClientDetailDialogProps {
 const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDetailDialogProps) => {
   const tabs = ['overview', 'projects', 'documents', 'payments', 'history'] as const;
   const [activeTab, setActiveTab] = useState('overview');
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [newProject, setNewProject] = useState({ 
     name: '', 
     budget: '', 
@@ -48,6 +49,20 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       setLocalClient(client);
     }
   }, [client]);
+
+  // Показываем подсказку при первом открытии
+  useEffect(() => {
+    if (open) {
+      const hasSeenHint = localStorage.getItem('clientDetailSwipeHintSeen');
+      if (!hasSeenHint) {
+        setShowSwipeHint(true);
+        setTimeout(() => {
+          setShowSwipeHint(false);
+          localStorage.setItem('clientDetailSwipeHintSeen', 'true');
+        }, 3500);
+      }
+    }
+  }, [open]);
 
   if (!localClient) return null;
 
@@ -355,6 +370,22 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           </TabsList>
 
           <div className="relative overflow-hidden">
+            {showSwipeHint && (
+              <>
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-left-4 fade-in duration-700">
+                  <div className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full shadow-lg">
+                    <Icon name="ChevronLeft" size={20} />
+                    <span className="text-sm font-medium">Свайпните</span>
+                  </div>
+                </div>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-right-4 fade-in duration-700">
+                  <div className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2 rounded-full shadow-lg">
+                    <span className="text-sm font-medium">для навигации</span>
+                    <Icon name="ChevronRight" size={20} />
+                  </div>
+                </div>
+              </>
+            )}
             <SwipeContainer
               onSwipeLeft={() => {
                 const currentIndex = tabs.indexOf(activeTab as any);
