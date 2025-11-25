@@ -174,12 +174,21 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     
     // First check if user exists by vk_sub in vk_users table
     const vkUserResult = await client.query(
-      `SELECT user_id FROM ${SCHEMA}.vk_users WHERE vk_sub = ${escapeSQL(vkUserId)}`
+      `SELECT user_id, is_blocked, blocked_reason FROM ${SCHEMA}.vk_users WHERE vk_sub = ${escapeSQL(vkUserId)}`
     );
     
     if (vkUserResult.rows.length > 0) {
-      // User exists, return their user_id (read-only mode)
-      return vkUserResult.rows[0].user_id;
+      const vkUser = vkUserResult.rows[0];
+      
+      // Check if user is blocked
+      if (vkUser.is_blocked) {
+        const error = new Error('USER_BLOCKED');
+        error.blockedReason = vkUser.blocked_reason || 'Ваш аккаунт был заблокирован администратором';
+        throw error;
+      }
+      
+      // User exists and not blocked, return their user_id
+      return vkUser.user_id;
     }
     
     // Check if user exists in users table by vk_id
@@ -440,10 +449,12 @@ exports.handler = async (event, context) => {
       const createUserData = await createUserResponse.json();
       const userId = createUserData.user_id;
       
-      // Check if user is blocked
+      // Check if user is blocked (in both users and vk_users tables)
       const blockCheckClient = new Client({ connectionString: DATABASE_URL });
       try {
         await blockCheckClient.connect();
+        
+        // Check users table
         const blockResult = await blockCheckClient.query(
           `SELECT is_blocked, email FROM ${SCHEMA}.users WHERE id = ${userId}`
         );
@@ -461,6 +472,30 @@ exports.handler = async (event, context) => {
               message: 'Ваш аккаунт был заблокирован. Обратитесь к администратору через форму обратной связи.',
               user_id: userId,
               user_email: blockResult.rows[0].email,
+              auth_method: 'vk'
+            }),
+            isBase64Encoded: false
+          };
+        }
+        
+        // Check vk_users table
+        const vkBlockResult = await blockCheckClient.query(
+          `SELECT is_blocked, blocked_reason, email FROM ${SCHEMA}.vk_users WHERE user_id = ${userId}`
+        );
+        
+        if (vkBlockResult.rows.length > 0 && vkBlockResult.rows[0].is_blocked === true) {
+          return {
+            statusCode: 403,
+            headers: { 
+              'Content-Type': 'application/json', 
+              'Access-Control-Allow-Origin': '*' 
+            },
+            body: JSON.stringify({ 
+              error: 'Доступ заблокирован администратором',
+              blocked: true,
+              message: vkBlockResult.rows[0].blocked_reason || 'Ваш аккаунт был заблокирован. Обратитесь к администратору через форму обратной связи.',
+              user_id: userId,
+              user_email: vkBlockResult.rows[0].email || blockResult.rows[0]?.email,
               auth_method: 'vk'
             }),
             isBase64Encoded: false
