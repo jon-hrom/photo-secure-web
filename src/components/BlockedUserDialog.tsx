@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,19 @@ const BlockedUserDialog = ({
 }: BlockedUserDialogProps) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE');
+      audio.volume = 0.3;
+      audio.play().catch(() => {});
+      
+      setTimeout(() => setIsVisible(true), 50);
+    } else {
+      setIsVisible(false);
+    }
+  }, [open]);
 
   const handleSendAppeal = async () => {
     if (!message.trim()) {
@@ -72,10 +85,14 @@ const BlockedUserDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className={`sm:max-w-[500px] transition-all duration-300 ${
+        isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+      }`}>
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+            <div className={`w-16 h-16 rounded-full bg-red-100 flex items-center justify-center transition-all duration-500 ${
+              isVisible ? 'scale-100 rotate-0' : 'scale-0 rotate-180'
+            }`}>
               <Icon name="ShieldAlert" size={32} className="text-red-600" />
             </div>
           </div>
@@ -89,7 +106,9 @@ const BlockedUserDialog = ({
 
         <div className="space-y-6">
           {blockReason && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className={`p-4 bg-red-50 border border-red-200 rounded-lg transition-all duration-300 delay-100 ${
+              isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+            }`}>
               <div className="flex items-start gap-3">
                 <Icon name="Info" size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
                 <div>
@@ -100,7 +119,9 @@ const BlockedUserDialog = ({
             </div>
           )}
 
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className={`p-4 bg-blue-50 border border-blue-200 rounded-lg transition-all duration-300 delay-200 ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}>
             <div className="flex items-start gap-3">
               <Icon name="Mail" size={20} className="text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
@@ -149,7 +170,9 @@ const BlockedUserDialog = ({
             </div>
           </div>
 
-          <div className="flex justify-center">
+          <div className={`flex justify-center transition-all duration-300 delay-300 ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}>
             <Button
               variant="outline"
               onClick={() => {
