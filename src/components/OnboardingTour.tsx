@@ -226,62 +226,127 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
     return null;
   }
 
+  const isMobile = window.innerWidth < 768;
+  
+  const getTooltipPosition = () => {
+    if (!targetRect) return position;
+    
+    const tooltipWidth = isMobile ? Math.min(window.innerWidth - 32, 350) : 384;
+    const tooltipHeight = 200;
+    const spacing = 16;
+    
+    let top = position.top;
+    let left = position.left;
+    
+    if (isMobile) {
+      top = targetRect.bottom + window.scrollY + spacing;
+      left = window.innerWidth / 2;
+      
+      if (top + tooltipHeight > window.innerHeight + window.scrollY) {
+        top = targetRect.top + window.scrollY - tooltipHeight - spacing;
+      }
+      
+      return { top, left };
+    }
+    
+    if (step.placement === 'right') {
+      if (left + tooltipWidth > window.innerWidth) {
+        left = targetRect.left + window.scrollX - tooltipWidth - spacing;
+      }
+    }
+    
+    if (step.placement === 'bottom' || step.placement === 'top') {
+      const halfWidth = tooltipWidth / 2;
+      if (left - halfWidth < spacing) {
+        left = halfWidth + spacing;
+      } else if (left + halfWidth > window.innerWidth - spacing) {
+        left = window.innerWidth - halfWidth - spacing;
+      }
+    }
+    
+    return { top, left };
+  };
+
+  const tooltipPos = getTooltipPosition();
+  
   const tooltipStyle: React.CSSProperties = {
     position: 'absolute',
-    top: `${position.top}px`,
-    left: `${position.left}px`,
-    transform: step.placement === 'bottom' || step.placement === 'top' 
+    top: `${tooltipPos.top}px`,
+    left: `${tooltipPos.left}px`,
+    transform: isMobile 
+      ? 'translateX(-50%)'
+      : step.placement === 'bottom' || step.placement === 'top' 
       ? 'translateX(-50%)' 
       : step.placement === 'right'
       ? 'translateY(-50%)'
       : 'translate(-100%, -50%)',
-    zIndex: 10001
+    zIndex: 10001,
+    maxWidth: isMobile ? 'calc(100vw - 32px)' : '24rem',
+    width: isMobile ? 'calc(100vw - 32px)' : 'auto'
   };
 
   return (
     <>
       <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        style={{ zIndex: 9999 }}
+        className="fixed inset-0"
+        style={{ 
+          zIndex: 9999,
+          background: 'rgba(0, 0, 0, 0.2)',
+          backdropFilter: 'blur(2px)'
+        }}
         onClick={handleSkip}
       />
       
       {targetRect && (
-        <div
-          className="fixed border-4 border-primary rounded-xl pointer-events-none animate-pulse"
-          style={{
-            top: `${targetRect.top + window.scrollY - 8}px`,
-            left: `${targetRect.left + window.scrollX - 8}px`,
-            width: `${targetRect.width + 16}px`,
-            height: `${targetRect.height + 16}px`,
-            zIndex: 10000,
-            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)'
-          }}
-        />
+        <>
+          <div
+            className="fixed pointer-events-none"
+            style={{
+              top: `${targetRect.top + window.scrollY}px`,
+              left: `${targetRect.left + window.scrollX}px`,
+              width: `${targetRect.width}px`,
+              height: `${targetRect.height}px`,
+              zIndex: 10000,
+              background: 'white',
+              borderRadius: '12px'
+            }}
+          />
+          
+          <div
+            className="fixed border-4 border-primary rounded-xl pointer-events-none animate-pulse"
+            style={{
+              top: `${targetRect.top + window.scrollY - 8}px`,
+              left: `${targetRect.left + window.scrollX - 8}px`,
+              width: `${targetRect.width + 16}px`,
+              height: `${targetRect.height + 16}px`,
+              zIndex: 10000
+            }}
+          />
+        </>
       )}
 
       <div
         style={tooltipStyle}
-        className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="bg-white rounded-2xl shadow-2xl p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300"
       >
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Icon name="Lightbulb" size={20} className="text-primary" />
+        <div className="flex items-start gap-2 md:gap-3 mb-3 md:mb-4">
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Icon name="Lightbulb" size={18} className="text-primary md:w-5 md:h-5" />
           </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-lg mb-1">{step.title}</h3>
-            <p className="text-sm text-muted-foreground">{step.description}</p>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base md:text-lg mb-1">{step.title}</h3>
+            <p className="text-xs md:text-sm text-muted-foreground">{step.description}</p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-2 md:gap-3">
           <div className="flex gap-1">
             {TOUR_STEPS.map((_, index) => (
               <div
                 key={index}
                 className={`h-1.5 rounded-full transition-all ${
                   index === currentStep 
-                    ? 'w-8 bg-primary' 
+                    ? 'w-6 md:w-8 bg-primary' 
                     : index < currentStep
                     ? 'w-1.5 bg-primary/50'
                     : 'w-1.5 bg-gray-300'
@@ -290,28 +355,33 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
             ))}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-1 md:gap-2">
             <Button
               onClick={handleSkip}
               variant="ghost"
               size="sm"
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground text-xs md:text-sm px-2 md:px-3"
             >
-              Пропустить
+              <span className="hidden sm:inline">Пропустить</span>
+              <span className="sm:hidden">
+                <Icon name="X" size={16} />
+              </span>
             </Button>
             <Button
               onClick={handleNext}
               size="sm"
-              className="rounded-xl"
+              className="rounded-xl text-xs md:text-sm px-2 md:px-4"
             >
               {currentStep === TOUR_STEPS.length - 1 ? (
                 <>
                   <Icon name="Check" size={16} className="mr-1" />
-                  Завершить
+                  <span className="hidden sm:inline">Завершить</span>
+                  <span className="sm:hidden">OK</span>
                 </>
               ) : (
                 <>
-                  Продолжить
+                  <span className="hidden sm:inline">Продолжить</span>
+                  <span className="sm:hidden">Далее</span>
                   <Icon name="ArrowRight" size={16} className="ml-1" />
                 </>
               )}
