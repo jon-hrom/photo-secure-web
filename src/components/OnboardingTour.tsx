@@ -148,6 +148,38 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
     };
   }, [isActive, currentStep, currentPage]);
 
+  const playSound = (type: 'next' | 'complete' | 'skip') => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    
+    if (type === 'next') {
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1000, audioContext.currentTime + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } else if (type === 'complete') {
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1);
+      oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.2);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } else if (type === 'skip') {
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.15);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+    }
+  };
+
   const handleNext = () => {
     const step = TOUR_STEPS[currentStep];
     
@@ -166,13 +198,16 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
     }
 
     if (currentStep < TOUR_STEPS.length - 1) {
+      playSound('next');
       setCurrentStep(currentStep + 1);
     } else {
+      playSound('complete');
       completeTour();
     }
   };
 
   const handleSkip = () => {
+    playSound('skip');
     setIsActive(false);
     localStorage.setItem('onboardingTourCompleted', 'true');
   };
