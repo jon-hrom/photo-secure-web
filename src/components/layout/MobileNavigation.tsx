@@ -73,40 +73,8 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
       )}
       
       <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-        <div className="flex items-end justify-start pb-4 px-4 gap-2">
-          <Button
-            variant="ghost"
-            className={cn(
-              'flex flex-col items-center gap-1 h-auto py-3 px-4 transition-all duration-300 relative bg-white/90 backdrop-blur-xl border-2 border-border/50 shadow-2xl hover:shadow-3xl',
-              isActive('/') && 'border-primary/50'
-            )}
-            onClick={() => handleNavClick(navItems[0])}
-          >
-            {isActive('/') && (
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
-            )}
-            <div className={cn(
-              'p-3 rounded-xl transition-all duration-300 relative',
-              isActive('/') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100'
-            )}>
-              <Icon 
-                name={navItems[0].icon} 
-                size={24} 
-                className={cn(
-                  'transition-colors duration-300',
-                  isActive('/') ? 'text-white' : 'text-gray-600'
-                )}
-              />
-            </div>
-            <span className={cn(
-              'text-xs font-medium transition-all duration-300',
-              isActive('/') ? 'text-primary font-bold' : 'text-gray-600'
-            )}>
-              {navItems[0].label}
-            </span>
-          </Button>
-
-          {isExpanded && navItems.slice(1).map((item, index) => (
+        <div className="flex flex-col items-start justify-end pb-4 px-4 gap-2">
+          {isExpanded && navItems.slice(1).reverse().map((item, index) => (
             <Button
               key={item.path}
               variant="ghost"
@@ -116,8 +84,8 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
               )}
               onClick={() => handleNavClick(item)}
               style={{
-                animation: `slide-in-from-left 0.4s ease-out ${index * 0.1}s both`,
-                transformOrigin: 'left center'
+                animation: `slide-in-from-bottom 0.4s ease-out ${index * 0.1}s both`,
+                transformOrigin: 'bottom center'
               }}
             >
               {isActive(item.path) && (
@@ -144,6 +112,41 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
               </span>
             </Button>
           ))}
+
+          <Button
+            variant="ghost"
+            className={cn(
+              'flex flex-col items-center gap-1 h-auto py-3 px-4 transition-all duration-300 relative backdrop-blur-xl border-2 shadow-2xl hover:shadow-3xl',
+              isExpanded 
+                ? 'bg-white/90 border-border/50' 
+                : 'bg-white/40 border-white/30 hover:bg-white/50',
+              isActive('/') && 'border-primary/50'
+            )}
+            onClick={() => handleNavClick(navItems[0])}
+          >
+            {isActive('/') && (
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
+            )}
+            <div className={cn(
+              'p-3 rounded-xl transition-all duration-300 relative',
+              isActive('/') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100/50'
+            )}>
+              <Icon 
+                name={navItems[0].icon} 
+                size={24} 
+                className={cn(
+                  'transition-colors duration-300',
+                  isActive('/') ? 'text-white' : 'text-gray-600'
+                )}
+              />
+            </div>
+            <span className={cn(
+              'text-xs font-medium transition-all duration-300',
+              isActive('/') ? 'text-primary font-bold' : 'text-gray-600'
+            )}>
+              {navItems[0].label}
+            </span>
+          </Button>
         </div>
       </nav>
     </>
