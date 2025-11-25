@@ -121,6 +121,7 @@ export const useTableSort = <T extends Record<string, any>>() => {
 
   return {
     sortConfigs,
+    setSortConfigs,
     handleSort,
     clearSort,
     getSortDirection,

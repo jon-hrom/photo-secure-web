@@ -1,33 +1,65 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { useTableSort, SortableColumn } from '@/hooks/useTableSort';
+import { useViewPresets } from '@/hooks/useViewPresets';
+import ViewPresetsDropdown from '@/components/clients/ViewPresetsDropdown';
 
 interface ClientsTableViewProps {
   clients: Client[];
   onSelectClient: (client: Client) => void;
+  externalSearchQuery?: string;
+  externalStatusFilter?: 'all' | 'active' | 'inactive';
 }
 
-const ClientsTableView = ({ clients, onSelectClient }: ClientsTableViewProps) => {
-  const [searchQuery, setSearchQuery] = useState('');
+const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', externalStatusFilter = 'all' }: ClientsTableViewProps) => {
+  const [searchQuery, setSearchQuery] = useState(externalSearchQuery);
+  const [statusFilter, setStatusFilter] = useState(externalStatusFilter);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
-  const { sortConfigs, handleSort, clearSort, getSortDirection, getSortPriority, sortData, hasSorting } = useTableSort<Client>();
+  const { sortConfigs, handleSort, clearSort, getSortDirection, getSortPriority, sortData, hasSorting, setSortConfigs } = useTableSort<Client>();
+  const presets = useViewPresets();
+
+  useEffect(() => {
+    setSearchQuery(externalSearchQuery);
+  }, [externalSearchQuery]);
+
+  useEffect(() => {
+    setStatusFilter(externalStatusFilter);
+  }, [externalStatusFilter]);
 
   const filteredClients = useMemo(() => {
     return clients.filter(client => {
       const query = searchQuery.toLowerCase();
-      return (
+      const matchesSearch = (
         client.name.toLowerCase().includes(query) ||
         client.phone.includes(query) ||
         client.email.toLowerCase().includes(query)
       );
+
+      if (!matchesSearch) return false;
+
+      if (statusFilter === 'all') return true;
+      
+      const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled');
+      const hasActiveBookings = (client.bookings || []).some(b => {
+        const bookingDate = new Date(b.booking_date || b.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return bookingDate >= today;
+      });
+      const isActive = hasActiveProjects || hasActiveBookings;
+      
+      if (statusFilter === 'active') return isActive;
+      if (statusFilter === 'inactive') return !isActive;
+      
+      return true;
     });
-  }, [clients, searchQuery]);
+  }, [clients, searchQuery, statusFilter]);
 
   const sortedClients = useMemo(() => {
     return sortData(filteredClients, columns);
@@ -114,6 +146,25 @@ const ClientsTableView = ({ clients, onSelectClient }: ClientsTableViewProps) =>
   const handleColumnSort = (columnKey: string, event: React.MouseEvent) => {
     handleSort(columnKey, event.shiftKey);
     setCurrentPage(1);
+    presets.clearActivePreset();
+  };
+
+  const handleApplyPreset = (presetId: string) => {
+    const preset = presets.applyPreset(presetId);
+    if (preset) {
+      setSearchQuery(preset.searchQuery);
+      setStatusFilter(preset.statusFilter);
+      setSortConfigs(preset.sortConfigs);
+      setCurrentPage(1);
+    }
+  };
+
+  const handleSavePreset = (presetData: any) => {
+    presets.savePreset(presetData);
+  };
+
+  const handleDeletePreset = (presetId: string) => {
+    presets.deletePreset(presetId);
   };
 
   const renderSortIndicator = (columnKey: string) => {
@@ -142,7 +193,7 @@ const ClientsTableView = ({ clients, onSelectClient }: ClientsTableViewProps) =>
 
   return (
     <Card>
-      <CardHeader className="border-b">
+      <CardHeader className="border-b space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold">Все клиенты ({sortedClients.length})</h3>
@@ -150,7 +201,10 @@ const ClientsTableView = ({ clients, onSelectClient }: ClientsTableViewProps) =>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={clearSort}
+                onClick={() => {
+                  clearSort();
+                  presets.clearActivePreset();
+                }}
                 className="h-7 text-xs gap-1 hover:bg-destructive/10 hover:text-destructive transition-colors"
               >
                 <Icon name="X" size={14} />
@@ -166,9 +220,64 @@ const ClientsTableView = ({ clients, onSelectClient }: ClientsTableViewProps) =>
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
+                presets.clearActivePreset();
               }}
               className="pl-10"
             />
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between gap-3">
+          <ViewPresetsDropdown
+            allPresets={presets.allPresets}
+            defaultPresets={presets.defaultPresets}
+            customPresets={presets.customPresets}
+            activePresetId={presets.activePresetId}
+            onApplyPreset={handleApplyPreset}
+            onSavePreset={handleSavePreset}
+            onDeletePreset={handleDeletePreset}
+            currentState={{
+              searchQuery,
+              statusFilter,
+              sortConfigs,
+            }}
+          />
+          
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setStatusFilter('all');
+                presets.clearActivePreset();
+              }}
+            >
+              Все
+            </Button>
+            <Button
+              variant={statusFilter === 'active' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setStatusFilter('active');
+                presets.clearActivePreset();
+              }}
+              className="gap-1"
+            >
+              <Icon name="CheckCircle" size={14} />
+              Активные
+            </Button>
+            <Button
+              variant={statusFilter === 'inactive' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setStatusFilter('inactive');
+                presets.clearActivePreset();
+              }}
+              className="gap-1"
+            >
+              <Icon name="XCircle" size={14} />
+              Неактивные
+            </Button>
           </div>
         </div>
       </CardHeader>
