@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import { useTableSort, SortableColumn } from '@/hooks/useTableSort';
 
 interface ClientsTableViewProps {
   clients: Client[];
@@ -14,19 +15,27 @@ const ClientsTableView = ({ clients, onSelectClient }: ClientsTableViewProps) =>
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  
+  const { sortConfigs, handleSort, clearSort, getSortDirection, getSortPriority, sortData, hasSorting } = useTableSort<Client>();
 
-  const filteredClients = clients.filter(client => {
-    const query = searchQuery.toLowerCase();
-    return (
-      client.name.toLowerCase().includes(query) ||
-      client.phone.includes(query) ||
-      client.email.toLowerCase().includes(query)
-    );
-  });
+  const filteredClients = useMemo(() => {
+    return clients.filter(client => {
+      const query = searchQuery.toLowerCase();
+      return (
+        client.name.toLowerCase().includes(query) ||
+        client.phone.includes(query) ||
+        client.email.toLowerCase().includes(query)
+      );
+    });
+  }, [clients, searchQuery]);
 
-  const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+  const sortedClients = useMemo(() => {
+    return sortData(filteredClients, columns);
+  }, [filteredClients, sortData, columns]);
+
+  const totalPages = Math.ceil(sortedClients.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedClients = filteredClients.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedClients = sortedClients.slice(startIndex, startIndex + itemsPerPage);
 
   const getClientInitials = (name: string) => {
     const words = name.split(' ');
@@ -41,16 +50,114 @@ const ClientsTableView = ({ clients, onSelectClient }: ClientsTableViewProps) =>
     return client.bookings.filter(b => new Date(b.date) >= new Date()).length;
   };
 
+  const columns: SortableColumn<Client>[] = useMemo(() => [
+    {
+      key: 'name',
+      label: 'Клиент',
+      sortable: true,
+      compareFn: (a, b, dir) => {
+        const comparison = a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
+        return dir === 'asc' ? comparison : -comparison;
+      }
+    },
+    {
+      key: 'phone',
+      label: 'Телефон',
+      sortable: true,
+      compareFn: (a, b, dir) => {
+        const aNorm = a.phone.replace(/\D/g, '');
+        const bNorm = b.phone.replace(/\D/g, '');
+        const comparison = aNorm.localeCompare(bNorm);
+        return dir === 'asc' ? comparison : -comparison;
+      }
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      sortable: true,
+      compareFn: (a, b, dir) => {
+        const aEmail = (a.email || '').toLowerCase();
+        const bEmail = (b.email || '').toLowerCase();
+        if (!aEmail) return 1;
+        if (!bEmail) return -1;
+        const comparison = aEmail.localeCompare(bEmail);
+        return dir === 'asc' ? comparison : -comparison;
+      }
+    },
+    {
+      key: 'activeProjects',
+      label: 'Проекты',
+      sortable: true,
+      compareFn: (a, b, dir) => {
+        const aCount = getActiveProjectsCount(a);
+        const bCount = getActiveProjectsCount(b);
+        return dir === 'asc' ? aCount - bCount : bCount - aCount;
+      }
+    },
+    {
+      key: 'activeBookings',
+      label: 'Записи',
+      sortable: true,
+      compareFn: (a, b, dir) => {
+        const aCount = getActiveBookingsCount(a);
+        const bCount = getActiveBookingsCount(b);
+        return dir === 'asc' ? aCount - bCount : bCount - aCount;
+      }
+    },
+  ], []);
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleColumnSort = (columnKey: string, event: React.MouseEvent) => {
+    handleSort(columnKey, event.shiftKey);
+    setCurrentPage(1);
+  };
+
+  const renderSortIndicator = (columnKey: string) => {
+    const direction = getSortDirection(columnKey);
+    const priority = getSortPriority(columnKey);
+    
+    if (direction === null) {
+      return (
+        <Icon name="ChevronsUpDown" size={14} className="ml-1 opacity-0 group-hover:opacity-40 transition-opacity" />
+      );
+    }
+    
+    return (
+      <div className="ml-1 flex items-center gap-1">
+        <Icon 
+          name={direction === 'asc' ? 'ChevronUp' : 'ChevronDown'} 
+          size={14} 
+          className="text-primary"
+        />
+        {sortConfigs.length > 1 && priority !== null && (
+          <span className="text-xs text-primary font-semibold">{priority + 1}</span>
+        )}
+      </div>
+    );
   };
 
   return (
     <Card>
       <CardHeader className="border-b">
         <div className="flex items-center justify-between gap-4">
-          <h3 className="text-lg font-semibold">Все клиенты ({filteredClients.length})</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold">Все клиенты ({sortedClients.length})</h3>
+            {hasSorting && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSort}
+                className="h-7 text-xs gap-1 hover:bg-destructive/10 hover:text-destructive transition-colors"
+              >
+                <Icon name="X" size={14} />
+                Сбросить
+              </Button>
+            )}
+          </div>
           <div className="relative w-full max-w-sm">
             <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -70,11 +177,24 @@ const ClientsTableView = ({ clients, onSelectClient }: ClientsTableViewProps) =>
           <table className="w-full">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground whitespace-nowrap">Клиент</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground whitespace-nowrap">Телефон</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground whitespace-nowrap">Email</th>
-                <th className="text-center p-4 text-sm font-medium text-muted-foreground whitespace-nowrap">Проекты</th>
-                <th className="text-center p-4 text-sm font-medium text-muted-foreground whitespace-nowrap">Записи</th>
+                {columns.map((column, index) => (
+                  <th
+                    key={column.key}
+                    className={`p-4 text-sm font-medium text-muted-foreground whitespace-nowrap ${
+                      index < 3 ? 'text-left' : 'text-center'
+                    } ${
+                      column.sortable ? 'cursor-pointer select-none group hover:bg-accent/50 transition-colors' : ''
+                    }`}
+                    onClick={(e) => column.sortable && handleColumnSort(column.key, e)}
+                    aria-sort={getSortDirection(column.key) || 'none'}
+                    title={column.sortable ? 'Кликните для сортировки, Shift+клик для мультисортировки' : undefined}
+                  >
+                    <div className="flex items-center justify-start gap-1">
+                      <span>{column.label}</span>
+                      {column.sortable && renderSortIndicator(column.key)}
+                    </div>
+                  </th>
+                ))}
                 <th className="text-right p-4 text-sm font-medium text-muted-foreground whitespace-nowrap">Действия</th>
               </tr>
             </thead>
