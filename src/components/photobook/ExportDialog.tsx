@@ -69,7 +69,7 @@ const ExportDialog = ({ open, onClose, spreads, photos, format }: ExportDialogPr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="Download" size={24} />

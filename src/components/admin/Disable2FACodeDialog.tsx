@@ -97,7 +97,7 @@ const Disable2FACodeDialog = ({ open, onClose, userId, disableType, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="ShieldOff" size={24} className="text-red-500" />

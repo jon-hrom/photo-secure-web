@@ -145,7 +145,7 @@ const TwoFactorDialog = ({ open, userId, userEmail, type, onSuccess, onCancel }:
 
   return (
     <Dialog open={open} onOpenChange={onCancel}>
-      <DialogContent className="sm:max-w-md max-w-[95vw]">
+      <DialogContent className="sm:max-w-md max-w-[95vw] bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Icon name="Shield" size={20} className="sm:w-6 sm:h-6" />

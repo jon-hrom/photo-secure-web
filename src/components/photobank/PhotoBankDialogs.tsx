@@ -37,7 +37,7 @@ const PhotoBankDialogs = ({
   return (
     <>
       <Dialog open={showCreateFolder} onOpenChange={onSetShowCreateFolder}>
-        <DialogContent>
+        <DialogContent className="bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
           <DialogHeader>
             <DialogTitle>Создать папку</DialogTitle>
             <DialogDescription>
@@ -63,7 +63,7 @@ const PhotoBankDialogs = ({
       </Dialog>
 
       <Dialog open={showClearConfirm} onOpenChange={onSetShowClearConfirm}>
-        <DialogContent>
+        <DialogContent className="bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Icon name="AlertTriangle" size={24} />

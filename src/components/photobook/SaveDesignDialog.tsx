@@ -39,7 +39,7 @@ const SaveDesignDialog = ({ open, onClose, onSave }: SaveDesignDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
         {step === 'confirm' && (
           <>
             <DialogHeader>
