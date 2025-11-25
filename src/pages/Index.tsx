@@ -338,7 +338,7 @@ const Index = () => {
       </main>
       </SwipeContainer>
       
-      <MobileNavigation onNavigate={setCurrentPage} />
+      <MobileNavigation onNavigate={setCurrentPage} currentPage={currentPage} />
     </div>
   );
 };

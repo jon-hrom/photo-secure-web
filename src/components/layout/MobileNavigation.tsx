@@ -12,9 +12,10 @@ interface NavItem {
 
 interface MobileNavigationProps {
   onNavigate?: (page: string) => void;
+  currentPage?: string;
 }
 
-const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
+const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -24,11 +25,11 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
   const dragStartTime = useRef(0);
 
   const navItems: NavItem[] = [
-    { icon: 'LayoutDashboard', label: 'Главная', path: '/' },
-    { icon: 'Settings', label: 'Настройки', path: '/settings' },
-    { icon: 'Images', label: 'Фото банк', path: '/photo-bank' },
-    { icon: 'Users', label: 'Клиенты', path: '/clients' },
-    { icon: 'Zap', label: 'Тарифы', path: '/tariffs' },
+    { icon: 'LayoutDashboard', label: 'Главная', path: 'dashboard' },
+    { icon: 'Settings', label: 'Настройки', path: 'settings' },
+    { icon: 'Images', label: 'Фото банк', path: 'photo-bank' },
+    { icon: 'Users', label: 'Клиенты', path: 'clients' },
+    { icon: 'Zap', label: 'Тарифы', path: 'tariffs' },
   ];
 
   const vibrate = (pattern: number | number[]) => {
@@ -68,39 +69,20 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
   };
 
   const handleNavClick = (item: NavItem) => {
-    if (item.path === '/') {
-      return;
-    }
-
     vibrate(15);
     setIsExpanded(false);
     
-    if (item.path === '/clients') {
-      if (onNavigate) {
-        onNavigate('clients');
-      } else {
-        navigate('/');
-      }
-    } else if (item.path === '/tariffs') {
-      if (onNavigate) {
-        onNavigate('tariffs');
-      } else {
-        navigate('/');
-      }
-    } else if (item.path === '/settings') {
-      if (onNavigate) {
-        onNavigate('settings');
-      } else {
-        navigate('/');
-      }
-    } else {
-      navigate(item.path);
+    if (onNavigate) {
+      onNavigate(item.path);
     }
   };
 
   const isActive = (path: string) => {
-    if (path === '/') return location.pathname === '/';
-    return location.pathname.startsWith(path);
+    if (currentPage) {
+      return currentPage === path;
+    }
+    if (path === 'dashboard') return location.pathname === '/';
+    return location.pathname.includes(path);
   };
 
   return (
@@ -166,13 +148,13 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
               isExpanded 
                 ? 'bg-white/90 border-border/50' 
                 : 'bg-white/20 border-white/20 hover:bg-white/30',
-              isActive('/') && 'border-primary/50'
+              isActive('dashboard') && 'border-primary/50'
             )}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            {isActive('/') && (
+            {isActive('dashboard') && (
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
             )}
             <div className="absolute -top-1.5 -right-1.5 p-0.5 bg-gradient-to-br from-primary to-secondary rounded-full shadow-lg">
@@ -187,20 +169,20 @@ const MobileNavigation = ({ onNavigate }: MobileNavigationProps) => {
             </div>
             <div className={cn(
               'p-2 rounded-lg transition-all duration-300 relative',
-              isActive('/') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100/50'
+              isActive('dashboard') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg' : 'hover:bg-gray-100/50'
             )}>
               <Icon 
                 name={navItems[0].icon} 
                 size={18} 
                 className={cn(
                   'transition-colors duration-300',
-                  isActive('/') ? 'text-white' : 'text-gray-600'
+                  isActive('dashboard') ? 'text-white' : 'text-gray-600'
                 )}
               />
             </div>
             <span className={cn(
               'text-[10px] font-medium transition-all duration-300',
-              isActive('/') ? 'text-primary font-bold' : 'text-gray-600'
+              isActive('dashboard') ? 'text-primary font-bold' : 'text-gray-600'
             )}>
               {navItems[0].label}
             </span>
