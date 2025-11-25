@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
@@ -6,6 +6,7 @@ import ClientsHeader from '@/components/clients/ClientsHeader';
 import ClientsListSection from '@/components/clients/ClientsListSection';
 import ClientsTableView from '@/components/clients/ClientsTableView';
 import ClientsCalendarSection from '@/components/clients/ClientsCalendarSection';
+import ClientsFilterSidebar, { FilterType } from '@/components/clients/ClientsFilterSidebar';
 import BookingDialogs from '@/components/clients/BookingDialogs';
 import MessageDialog from '@/components/clients/MessageDialog';
 import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
@@ -14,6 +15,7 @@ import { useClientsData } from '@/hooks/useClientsData';
 import { useClientsDialogs } from '@/hooks/useClientsDialogs';
 import { useClientsHandlers } from '@/hooks/useClientsHandlers';
 import { useNavigationHistory } from '@/hooks/useNavigationHistory';
+import { Client } from '@/components/clients/ClientsTypes';
 
 interface ClientsPageProps {
   autoOpenClient?: string;
@@ -22,6 +24,7 @@ interface ClientsPageProps {
 
 const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) => {
   const userId = propUserId || localStorage.getItem('userId');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   
   // Хук для работы с данными
   const { clients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId);
@@ -60,8 +63,8 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
     setEmailBody: dialogsState.setEmailBody,
   });
 
-  // Фильтрация клиентов
-  const filteredClients = clients.filter(client => {
+  // Фильтрация клиентов по поиску
+  const searchFilteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(dialogsState.searchQuery.toLowerCase()) ||
                          client.phone.includes(dialogsState.searchQuery) ||
                          client.email.toLowerCase().includes(dialogsState.searchQuery.toLowerCase());
@@ -84,6 +87,50 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
     
     return matchesSearch;
   });
+
+  // Применение фильтров из боковой панели
+  const applyAdvancedFilter = (clientsList: Client[]): Client[] => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    switch (activeFilter) {
+      case 'all':
+        return clientsList;
+      
+      case 'active-projects':
+        return clientsList.filter(c => 
+          (c.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled')
+        );
+      
+      case 'upcoming-meetings':
+        return clientsList.filter(c =>
+          (c.bookings || []).some(b => {
+            const bookingDate = new Date(b.booking_date || b.date);
+            return bookingDate >= now;
+          })
+        );
+      
+      case 'new-clients':
+        return clientsList.filter(c => {
+          if (!c.created_at) return false;
+          const createdDate = new Date(c.created_at);
+          return createdDate >= sevenDaysAgo;
+        });
+      
+      case 'alphabetical':
+        return [...clientsList].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+      
+      case 'most-projects':
+        return [...clientsList].sort((a, b) => 
+          (b.projects?.length || 0) - (a.projects?.length || 0)
+        );
+      
+      default:
+        return clientsList;
+    }
+  };
+
+  const filteredClients = applyAdvancedFilter(searchFilteredClients);
 
   // Все забронированные даты
   const allBookedDates = clients.flatMap(c => c.bookings.map(b => b.date));
@@ -196,7 +243,13 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
           onSelectClient={dialogsState.openDetailDialog}
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_1fr] gap-6">
+          <ClientsFilterSidebar
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            clients={clients}
+          />
+
           <ClientsListSection
             filteredClients={filteredClients}
             onSelectClient={dialogsState.openDetailDialog}

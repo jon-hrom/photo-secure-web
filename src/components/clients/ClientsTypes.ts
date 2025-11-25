@@ -72,4 +72,5 @@ export interface Client {
   payments?: Payment[];
   messages?: Message[];
   comments?: Comment[];
+  created_at?: string;
 }
