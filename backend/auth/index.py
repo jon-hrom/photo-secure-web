@@ -599,7 +599,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         block_reason = user_data.get('blocked_reason')
                 
                 cursor.execute(
-                    """INSERT INTO blocked_user_appeals 
+                    """INSERT INTO t_p28211681_photo_secure_web.blocked_user_appeals 
                     (user_identifier, user_email, user_phone, auth_method, message, block_reason, is_blocked)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING id""",
@@ -643,7 +643,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     SELECT id, user_identifier, user_email, user_phone, auth_method, 
                            message, block_reason, is_blocked, is_read, 
                            created_at, read_at, admin_response, responded_at
-                    FROM blocked_user_appeals
+                    FROM t_p28211681_photo_secure_web.blocked_user_appeals
                     ORDER BY is_read ASC, created_at DESC
                     LIMIT 100
                 """)
@@ -693,7 +693,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cursor.execute(
-                    "UPDATE blocked_user_appeals SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    "UPDATE t_p28211681_photo_secure_web.blocked_user_appeals SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (appeal_id,)
                 )
                 conn.commit()
@@ -732,7 +732,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 cursor.execute(
                     """SELECT user_email, user_identifier, message 
-                       FROM blocked_user_appeals 
+                       FROM t_p28211681_photo_secure_web.blocked_user_appeals 
                        WHERE id = %s""",
                     (appeal_id,)
                 )
@@ -755,7 +755,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cursor.execute(
-                    """UPDATE blocked_user_appeals 
+                    """UPDATE t_p28211681_photo_secure_web.blocked_user_appeals 
                        SET admin_response = %s, responded_at = CURRENT_TIMESTAMP, is_read = true, read_at = CURRENT_TIMESTAMP 
                        WHERE id = %s""",
                     (admin_response, appeal_id)
