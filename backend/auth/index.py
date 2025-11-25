@@ -702,6 +702,166 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'success': True}),
                     'isBase64Encoded': False
                 }
+            
+            elif action == 'respond_to_appeal':
+                appeal_id = body.get('appeal_id')
+                admin_user_id = body.get('admin_user_id')
+                admin_response = body.get('admin_response')
+                
+                if not admin_user_id or not appeal_id or not admin_response:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Все поля обязательны'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor = conn.cursor()
+                cursor.execute("SELECT is_admin, email FROM users WHERE id = %s", (admin_user_id,))
+                admin = cursor.fetchone()
+                
+                if not admin or not admin['is_admin']:
+                    return {
+                        'statusCode': 403,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Доступ запрещён'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor.execute(
+                    """SELECT user_email, user_identifier, message 
+                       FROM blocked_user_appeals 
+                       WHERE id = %s""",
+                    (appeal_id,)
+                )
+                appeal = cursor.fetchone()
+                
+                if not appeal:
+                    return {
+                        'statusCode': 404,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Обращение не найдено'}),
+                        'isBase64Enabled': False
+                    }
+                
+                if not appeal['user_email']:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'У пользователя нет email для ответа'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor.execute(
+                    """UPDATE blocked_user_appeals 
+                       SET admin_response = %s, responded_at = CURRENT_TIMESTAMP, is_read = true, read_at = CURRENT_TIMESTAMP 
+                       WHERE id = %s""",
+                    (admin_response, appeal_id)
+                )
+                conn.commit()
+                
+                try:
+                    ses_client = get_ses_client()
+                    
+                    email_subject = 'Ответ администратора foto-mix.ru'
+                    email_text = f'''Здравствуйте!
+
+Вы получили ответ на ваше обращение к администратору foto-mix.ru.
+
+Ваше сообщение:
+{appeal['message']}
+
+Ответ администратора:
+{admin_response}
+
+---
+С уважением,
+Команда foto-mix.ru'''
+                    
+                    email_html = f'''<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ответ администратора</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f4f7">
+        <tr>
+            <td align="center" style="padding:40px 20px">
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+                    
+                    <tr>
+                        <td style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);padding:40px 30px;text-align:center">
+                            <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700">Ответ администратора</h1>
+                            <p style="margin:10px 0 0 0;color:#d1fae5;font-size:16px">foto-mix.ru</p>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="padding:40px 30px">
+                            <p style="margin:0 0 20px 0;color:#666666;font-size:16px;line-height:1.6">
+                                Здравствуйте! Вы получили ответ на ваше обращение.
+                            </p>
+                            
+                            <div style="background-color:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:20px">
+                                <p style="margin:0 0 10px 0;color:#999999;font-size:13px;font-weight:600">Ваше сообщение:</p>
+                                <p style="margin:0;color:#333333;font-size:15px;line-height:1.6">{appeal['message']}</p>
+                            </div>
+                            
+                            <div style="background:linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);padding:25px;border-radius:12px;border-left:4px solid #3b82f6">
+                                <p style="margin:0 0 10px 0;color:#1e40af;font-size:13px;font-weight:600">Ответ администратора:</p>
+                                <p style="margin:0;color:#1e3a8a;font-size:15px;line-height:1.6;font-weight:500">{admin_response}</p>
+                            </div>
+                            
+                            <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center">
+                                <p style="margin:0;color:#999999;font-size:13px">
+                                    С уважением,<br>
+                                    <strong style="color:#333333">Команда foto-mix.ru</strong>
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>'''
+                    
+                    ses_client.send_email(
+                        FromEmailAddress='noreply@foto-mix.ru',
+                        Destination={'ToAddresses': [appeal['user_email']]},
+                        Content={
+                            'Simple': {
+                                'Subject': {'Data': email_subject, 'Charset': 'UTF-8'},
+                                'Body': {
+                                    'Text': {'Data': email_text, 'Charset': 'UTF-8'},
+                                    'Html': {'Data': email_html, 'Charset': 'UTF-8'}
+                                }
+                            }
+                        }
+                    )
+                    
+                    return {
+                        'statusCode': 200,
+                        'headers': headers,
+                        'body': json.dumps({'success': True, 'message': 'Ответ отправлен на email пользователя'}),
+                        'isBase64Encoded': False
+                    }
+                    
+                except Exception as email_error:
+                    return {
+                        'statusCode': 200,
+                        'headers': headers,
+                        'body': json.dumps({
+                            'success': True, 
+                            'message': 'Ответ сохранён, но email не отправлен',
+                            'email_error': str(email_error)
+                        }),
+                        'isBase64Encoded': False
+                    }
         
         elif method == 'GET':
             user_id = params.get('userId')

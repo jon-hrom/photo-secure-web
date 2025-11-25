@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
@@ -33,6 +34,8 @@ const AdminAppealsNotification = ({ userId, isAdmin }: AdminAppealsNotificationP
   const [showDialog, setShowDialog] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [respondingTo, setRespondingTo] = useState<number | null>(null);
+  const [responseText, setResponseText] = useState('');
 
   const fetchAppeals = async () => {
     if (!isAdmin) return;
@@ -95,6 +98,45 @@ const AdminAppealsNotification = ({ userId, isAdmin }: AdminAppealsNotificationP
     } catch (error) {
       console.error('Error marking appeal as read:', error);
       toast.error('Ошибка при обновлении статуса');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendResponse = async (appealId: number) => {
+    if (!responseText.trim()) {
+      toast.error('Введите текст ответа');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'respond_to_appeal',
+          appeal_id: appealId,
+          admin_user_id: userId,
+          admin_response: responseText.trim()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success('Ответ отправлен на email пользователя');
+        setResponseText('');
+        setRespondingTo(null);
+        await fetchAppeals();
+      } else {
+        toast.error(data.error || 'Ошибка при отправке ответа');
+      }
+    } catch (error) {
+      console.error('Error sending response:', error);
+      toast.error('Ошибка сети');
     } finally {
       setLoading(false);
     }
@@ -211,10 +253,27 @@ const AdminAppealsNotification = ({ userId, isAdmin }: AdminAppealsNotificationP
                         </div>
                       )}
 
-                      <div className="p-3 bg-white border border-gray-200 rounded-md">
+                      <div className="p-3 bg-white border border-gray-200 rounded-md mb-3">
                         <p className="text-xs font-semibold text-gray-600 mb-1">Сообщение пользователя:</p>
                         <p className="text-sm text-gray-900 whitespace-pre-wrap">{appeal.message}</p>
                       </div>
+
+                      {appeal.admin_response && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                          <div className="flex items-start gap-2">
+                            <Icon name="MessageSquare" size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-xs font-semibold text-blue-900">Ответ администратора:</p>
+                                {appeal.responded_at && (
+                                  <span className="text-xs text-blue-600">{formatDate(appeal.responded_at)}</span>
+                                )}
+                              </div>
+                              <p className="text-sm text-blue-800 whitespace-pre-wrap">{appeal.admin_response}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {!appeal.is_read && (
@@ -233,17 +292,82 @@ const AdminAppealsNotification = ({ userId, isAdmin }: AdminAppealsNotificationP
 
                   <Separator className="my-3" />
 
-                  <div className="flex items-center gap-3 text-xs">
-                    <Badge variant={appeal.is_blocked ? 'destructive' : 'secondary'}>
-                      {appeal.is_blocked ? 'Заблокирован' : 'Активен'}
-                    </Badge>
-                    {appeal.is_read && appeal.read_at && (
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <Icon name="Eye" size={12} />
-                        Прочитано: {formatDate(appeal.read_at)}
-                      </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-xs">
+                      <Badge variant={appeal.is_blocked ? 'destructive' : 'secondary'}>
+                        {appeal.is_blocked ? 'Заблокирован' : 'Активен'}
+                      </Badge>
+                      {appeal.is_read && appeal.read_at && (
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Icon name="Eye" size={12} />
+                          Прочитано: {formatDate(appeal.read_at)}
+                        </span>
+                      )}
+                    </div>
+
+                    {appeal.user_email && !appeal.admin_response && (
+                      <Button
+                        onClick={() => {
+                          setRespondingTo(appeal.id);
+                          setResponseText('');
+                        }}
+                        size="sm"
+                        variant="default"
+                        disabled={loading}
+                      >
+                        <Icon name="Reply" size={14} className="mr-1" />
+                        Ответить
+                      </Button>
                     )}
                   </div>
+
+                  {respondingTo === appeal.id && (
+                    <div className="mt-4 pt-4 border-t space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Ваш ответ пользователю</label>
+                        <Textarea
+                          value={responseText}
+                          onChange={(e) => setResponseText(e.target.value)}
+                          placeholder="Напишите ответ на обращение пользователя..."
+                          className="min-h-[120px] resize-none"
+                          disabled={loading}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Ответ будет отправлен на email: {appeal.user_email}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => sendResponse(appeal.id)}
+                          disabled={loading || !responseText.trim()}
+                          size="sm"
+                        >
+                          {loading ? (
+                            <>
+                              <Icon name="Loader2" size={14} className="mr-1 animate-spin" />
+                              Отправка...
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="Send" size={14} className="mr-1" />
+                              Отправить ответ
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setRespondingTo(null);
+                            setResponseText('');
+                          }}
+                          variant="outline"
+                          size="sm"
+                          disabled={loading}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
