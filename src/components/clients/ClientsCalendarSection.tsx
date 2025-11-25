@@ -139,13 +139,19 @@ const ClientsCalendarSection = ({
               className="rounded-xl border-0 w-full"
             />
           </div>
-          <div className="mt-5 p-4 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-2xl border border-blue-200/50 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 delay-500">
-            <p className="text-sm text-purple-700 flex items-center gap-2 font-medium">
-              <div className="p-1.5 bg-purple-200/50 rounded-lg">
-                <Icon name="Sparkles" size={16} className="text-purple-600" />
-              </div>
-              Даты с бронированиями выделены цветом
-            </p>
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
+              <p className="text-sm text-gray-700 font-medium">
+                Даты с бронированиями выделены цветом
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 shadow-md flex-shrink-0"></div>
+              <p className="text-sm text-gray-700 font-medium">
+                Дата сегодня
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
