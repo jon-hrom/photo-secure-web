@@ -34,6 +34,103 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     try:
         if method == 'GET':
+            params = event.get('queryStringParameters') or {}
+            check_user_id = params.get('checkUserId')
+            
+            # Check single user block status
+            if check_user_id:
+                # Check in vk_users table
+                cur.execute("""
+                    SELECT is_blocked, blocked_reason, email 
+                    FROM t_p28211681_photo_secure_web.vk_users 
+                    WHERE user_id = %s
+                """, (int(check_user_id),))
+                
+                vk_result = cur.fetchone()
+                
+                if vk_result:
+                    is_blocked, blocked_reason, email = vk_result
+                    
+                    if is_blocked:
+                        return {
+                            'statusCode': 200,
+                            'headers': {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            'body': json.dumps({
+                                'blocked': True,
+                                'error': 'User is blocked',
+                                'message': blocked_reason or 'Ваш аккаунт заблокирован администратором',
+                                'user_id': int(check_user_id),
+                                'user_email': email,
+                                'auth_method': 'vk'
+                            }),
+                            'isBase64Encoded': False
+                        }
+                    else:
+                        return {
+                            'statusCode': 200,
+                            'headers': {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            'body': json.dumps({'blocked': False}),
+                            'isBase64Encoded': False
+                        }
+                
+                # Check in users table
+                cur.execute("""
+                    SELECT is_blocked, blocked_reason, email 
+                    FROM t_p28211681_photo_secure_web.users 
+                    WHERE id = %s
+                """, (int(check_user_id),))
+                
+                user_result = cur.fetchone()
+                
+                if user_result:
+                    is_blocked, blocked_reason, email = user_result
+                    
+                    if is_blocked:
+                        return {
+                            'statusCode': 200,
+                            'headers': {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            'body': json.dumps({
+                                'blocked': True,
+                                'error': 'User is blocked',
+                                'message': blocked_reason or 'Ваш аккаунт заблокирован администратором',
+                                'user_id': int(check_user_id),
+                                'user_email': email,
+                                'auth_method': 'email'
+                            }),
+                            'isBase64Encoded': False
+                        }
+                    else:
+                        return {
+                            'statusCode': 200,
+                            'headers': {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            'body': json.dumps({'blocked': False}),
+                            'isBase64Encoded': False
+                        }
+                
+                # User not found
+                return {
+                    'statusCode': 404,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'error': 'User not found', 'blocked': False}),
+                    'isBase64Encoded': False
+                }
+            
+            # Return all users (existing logic)
             users = []
             
             # Получить пользователей с обычной регистрацией (email/phone)

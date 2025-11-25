@@ -200,51 +200,45 @@ export const useAuth = () => {
           const uid = userData.user_id || userData.vk_id;
           
           // CRITICAL: Check if user is still not blocked before restoring session
-          fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${uid}`)
+          console.log('🔍 Checking if user is blocked before restoring session...');
+          
+          // Check block status via users-management endpoint
+          fetch(`https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a?checkUserId=${uid}`)
             .then(res => res.json())
-            .then(data => {
+            .then(blockData => {
+              console.log('🔍 Block check result:', blockData);
+              
               // Check if user is blocked
-              if (data.two_factor_email !== undefined || data.two_factor_sms !== undefined) {
-                // User data loaded successfully, now check via VK auth endpoint
-                const authToken = localStorage.getItem('auth_token');
-                if (authToken) {
-                  // Validate token and check block status
-                  fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${authToken}`)
-                    .then(res => res.json())
-                    .then(sessionData => {
-                      console.log('🔍 Validating existing session:', sessionData);
-                      if (sessionData.error && sessionData.blocked) {
-                        console.log('🚫 User IS BLOCKED (existing session)! Setting state...');
-                        setIsBlocked(true);
-                        setBlockReason(sessionData.message);
-                        setBlockData({
-                          userId: sessionData.user_id || uid,
-                          userEmail: sessionData.user_email || userData.email,
-                          authMethod: sessionData.auth_method || 'vk'
-                        });
-                        handleLogout();
-                        setLoading(false);
-                        console.log('🚫 State updated (existing session). isBlocked should be TRUE');
-                        return;
-                      }
-                      
-                      // User not blocked, continue with session restore
-                      continueSessionRestore(userData, data, uid);
-                    })
-                    .catch(() => {
-                      // If validation fails, continue anyway (backwards compatibility)
-                      continueSessionRestore(userData, data, uid);
-                    });
-                } else {
-                  continueSessionRestore(userData, data, uid);
-                }
-              } else {
-                continueSessionRestore(userData, {}, uid);
+              if (blockData.blocked === true) {
+                console.log('🚫 User IS BLOCKED! Showing dialog...');
+                setIsBlocked(true);
+                setBlockReason(blockData.message || 'Ваш аккаунт был заблокирован администратором');
+                setBlockData({
+                  userId: blockData.user_id || uid,
+                  userEmail: blockData.user_email || userData.email,
+                  authMethod: blockData.auth_method || 'vk'
+                });
+                handleLogout();
+                setLoading(false);
+                console.log('🚫 Block dialog should appear now');
+                return;
               }
+              
+              console.log('✅ User not blocked, loading user data...');
+              
+              // User not blocked, load user data
+              fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${uid}`)
+                .then(res => res.json())
+                .then(data => {
+                  continueSessionRestore(userData, data, uid);
+                })
+                .catch(err => {
+                  console.error('❌ Error loading user data:', err);
+                  continueSessionRestore(userData, {}, uid);
+                });
             })
             .catch(err => {
-              console.error('❌ Error checking user status:', err);
-              // On error, logout for safety
+              console.error('❌ Error checking block status:', err);
               handleLogout();
               setLoading(false);
             });
