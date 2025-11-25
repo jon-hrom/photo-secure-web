@@ -192,7 +192,7 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
   };
 
   return (
-    <Card>
+    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 border border-purple-100/50">
       <CardHeader className="border-b space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -336,12 +336,12 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
                   return (
                     <tr
                       key={client.id}
-                      className="border-b hover:bg-accent/50 transition-colors cursor-pointer"
+                      className="border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 cursor-pointer group"
                       onClick={() => onSelectClient(client)}
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
                             {getClientInitials(client.name)}
                           </div>
                           <div className="min-w-0">

@@ -97,7 +97,7 @@ const ClientsCalendarSection = ({
       </div>
 
       {/* Calendar Card */}
-      <Card className="overflow-hidden border border-purple-200/50 shadow-md animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
+      <Card className="overflow-hidden border border-purple-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
         <div className="bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 p-6">
           <CardTitle className="flex items-center gap-3 text-purple-700">
             <div className="p-2 bg-purple-200/40 backdrop-blur-sm rounded-lg">
@@ -152,7 +152,7 @@ const ClientsCalendarSection = ({
 
       {/* Today's Bookings */}
       {todayBookings.length > 0 && (
-        <Card className="overflow-hidden border border-orange-200/50 shadow-md animate-in fade-in slide-in-from-bottom-6 duration-700 delay-400">
+        <Card className="overflow-hidden border border-orange-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-400">
           <div className="bg-gradient-to-r from-orange-100 via-rose-50 to-pink-100 p-5">
             <CardTitle className="flex items-center gap-3 text-orange-700">
               <div className="p-2 bg-orange-200/40 backdrop-blur-sm rounded-lg animate-pulse">
@@ -165,7 +165,7 @@ const ClientsCalendarSection = ({
             {todayBookings.map((booking, index) => (
               <div 
                 key={booking.id}
-                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50 p-4 border border-gray-200 hover:border-purple-300 hover:shadow-lg transition-all duration-300 cursor-pointer animate-in fade-in slide-in-from-left-4"
+                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-gray-50 p-4 border border-gray-200 hover:border-purple-300 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer animate-in fade-in slide-in-from-left-4"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-100/0 to-pink-100/0 group-hover:from-purple-100/50 group-hover:to-pink-100/50 transition-all duration-300" />
@@ -199,7 +199,7 @@ const ClientsCalendarSection = ({
 
       {/* Selected Client Card */}
       {selectedClient && (
-        <Card className="overflow-hidden border border-emerald-200/50 shadow-md animate-in fade-in zoom-in duration-500">
+        <Card className="overflow-hidden border border-emerald-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in zoom-in duration-500">
           <div className="bg-gradient-to-r from-emerald-100 via-teal-50 to-cyan-100 p-5">
             <CardTitle className="flex items-center gap-3 text-emerald-700">
               <div className="p-2 bg-emerald-200/40 backdrop-blur-sm rounded-lg">
@@ -240,7 +240,7 @@ const ClientsCalendarSection = ({
                   {selectedClient.bookings.map((booking, index) => (
                     <div 
                       key={booking.id} 
-                      className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-emerald-50/50 to-cyan-50/50 hover:from-emerald-100/50 hover:to-cyan-100/50 transition-all duration-300 animate-in fade-in slide-in-from-right-4"
+                      className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-emerald-50/50 to-cyan-50/50 hover:from-emerald-100/50 hover:to-cyan-100/50 shadow-sm hover:shadow-md transition-all duration-300 animate-in fade-in slide-in-from-right-4"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-center gap-2 text-sm">
@@ -276,7 +276,7 @@ const ClientsCalendarSection = ({
 
       {/* Upcoming Bookings */}
       {upcomingBookings.length > 0 && (
-        <Card className="overflow-hidden border border-indigo-200/50 shadow-md animate-in fade-in slide-in-from-bottom-6 duration-700 delay-600">
+        <Card className="overflow-hidden border border-indigo-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-600">
           <div className="bg-gradient-to-r from-indigo-100 via-blue-50 to-cyan-100 p-5">
             <CardTitle className="flex items-center gap-3 text-indigo-700">
               <div className="p-2 bg-indigo-200/40 backdrop-blur-sm rounded-lg">

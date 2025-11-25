@@ -71,7 +71,7 @@ const ClientsListSection = ({
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 border border-purple-100/50">
           <CardContent className="p-0">
             <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
               <table className="w-full min-w-max">
@@ -96,10 +96,10 @@ const ClientsListSection = ({
                     return (
                       <tr
                         key={client.id}
-                        className="border-b hover:bg-accent/50 transition-colors cursor-pointer"
+                        className="border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 cursor-pointer group"
                         onClick={() => onSelectClient(client)}
                       >
-                        <td className="p-2 md:p-3 sticky left-0 bg-white z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)] relative">
+                        <td className="p-2 md:p-3 sticky left-0 bg-white group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)] relative transition-all duration-200">
                           {hasAnyProjects(client) && (
                             <div className="absolute left-0 top-0 bottom-0 w-1 flex flex-col">
                               {(client.projects || []).map((project, idx) => (
@@ -112,7 +112,7 @@ const ClientsListSection = ({
                             </div>
                           )}
                           <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0 text-xs md:text-base">
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 text-xs md:text-base shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
                               {getClientInitials(client.name)}
                             </div>
                             <div className="min-w-0">
