@@ -66,6 +66,10 @@ const Index = () => {
   }, [isBlocked, blockReason, blockData]);
 
   useEffect(() => {
+    console.log('🔍 [Index] Admin state:', { isAdmin, userId, isAuthenticated });
+  }, [isAdmin, userId, isAuthenticated]);
+
+  useEffect(() => {
     if (currentPage !== 'clients' && selectedClientName !== undefined) {
       setSelectedClientName(undefined);
     }

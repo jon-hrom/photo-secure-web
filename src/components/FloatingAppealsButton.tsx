@@ -46,7 +46,12 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
 
   const fetchAppeals = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      console.log('[APPEALS] Not admin, skipping fetch');
+      return;
+    }
+
+    console.log('[APPEALS] Fetching appeals for admin userId:', userId);
 
     try {
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
@@ -59,22 +64,29 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       });
 
       const data = await response.json();
+      console.log('[APPEALS] Response:', { status: response.status, data });
 
       if (response.ok && data.appeals) {
+        console.log('[APPEALS] Got appeals:', data.appeals.length);
         setAppeals(data.appeals);
         const unread = data.appeals.filter((a: Appeal) => !a.is_read).length;
+        console.log('[APPEALS] Unread count:', unread);
         
         if (!hasPlayedInitialSound.current && unread > 0) {
+          console.log('[APPEALS] Playing initial sound');
           playNotificationSound();
           hasPlayedInitialSound.current = true;
         } else if (unread > previousUnreadCount.current && previousUnreadCount.current >= 0) {
+          console.log('[APPEALS] Playing new appeal sound');
           playNotificationSound();
         }
         previousUnreadCount.current = unread;
         setUnreadCount(unread);
+      } else {
+        console.error('[APPEALS] Error in response:', data);
       }
     } catch (error) {
-      console.error('Error fetching appeals:', error);
+      console.error('[APPEALS] Error fetching appeals:', error);
     }
   };
 
@@ -223,7 +235,14 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
     });
   };
 
-  if (!isAdmin) return null;
+  useEffect(() => {
+    console.log('[APPEALS_BTN] Component rendered:', { isAdmin, userId });
+  }, [isAdmin, userId]);
+
+  if (!isAdmin) {
+    console.log('[APPEALS_BTN] Not rendering - isAdmin:', isAdmin);
+    return null;
+  }
 
   return (
     <>
