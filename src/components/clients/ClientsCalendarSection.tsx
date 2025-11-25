@@ -142,9 +142,7 @@ const ClientsCalendarSection = ({
           <div className="mt-5 space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
-              <p className="text-sm text-gray-700 font-medium">
-                Даты с бронированиями выделены цветом
-              </p>
+              <p className="text-sm text-gray-700 font-medium">Даты с бронированиями </p>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
