@@ -134,34 +134,71 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             action = body_data.get('action')
             reason = body_data.get('reason', '')
             
-            # Определяем источник пользователя и блокируем
+            # Определяем источник пользователя и блокируем в ОБЕИХ таблицах
             if user_id_str.startswith('vk_'):
                 vk_id = user_id_str.replace('vk_', '')
+                user_id = int(vk_id)
+                
                 if action == 'block':
+                    # Блокируем в vk_users
                     cur.execute("""
                         UPDATE t_p28211681_photo_secure_web.vk_users
                         SET is_blocked = true, blocked_at = CURRENT_TIMESTAMP, blocked_reason = %s
                         WHERE user_id = %s
-                    """, (reason, int(vk_id)))
+                    """, (reason, user_id))
+                    
+                    # Синхронизируем в users
+                    cur.execute("""
+                        UPDATE t_p28211681_photo_secure_web.users
+                        SET is_blocked = true, blocked_at = CURRENT_TIMESTAMP, blocked_reason = %s
+                        WHERE id = %s AND (source = 'vk' OR vk_id IS NOT NULL)
+                    """, (reason, user_id))
+                    
                 elif action == 'unblock':
+                    # Разблокируем в vk_users
                     cur.execute("""
                         UPDATE t_p28211681_photo_secure_web.vk_users
                         SET is_blocked = false, blocked_at = NULL, blocked_reason = NULL
                         WHERE user_id = %s
-                    """, (int(vk_id),))
+                    """, (user_id,))
+                    
+                    # Синхронизируем в users
+                    cur.execute("""
+                        UPDATE t_p28211681_photo_secure_web.users
+                        SET is_blocked = false, blocked_at = NULL, blocked_reason = NULL
+                        WHERE id = %s AND (source = 'vk' OR vk_id IS NOT NULL)
+                    """, (user_id,))
             else:
                 user_id = int(user_id_str)
+                
                 if action == 'block':
+                    # Блокируем в users
                     cur.execute("""
                         UPDATE t_p28211681_photo_secure_web.users
                         SET is_blocked = true, blocked_at = CURRENT_TIMESTAMP, blocked_reason = %s
                         WHERE id = %s
                     """, (reason, user_id))
+                    
+                    # Синхронизируем в vk_users (если это VK пользователь)
+                    cur.execute("""
+                        UPDATE t_p28211681_photo_secure_web.vk_users
+                        SET is_blocked = true, blocked_at = CURRENT_TIMESTAMP, blocked_reason = %s
+                        WHERE user_id = %s
+                    """, (reason, user_id))
+                    
                 elif action == 'unblock':
+                    # Разблокируем в users
                     cur.execute("""
                         UPDATE t_p28211681_photo_secure_web.users
                         SET is_blocked = false, blocked_at = NULL, blocked_reason = NULL
                         WHERE id = %s
+                    """, (user_id,))
+                    
+                    # Синхронизируем в vk_users (если это VK пользователь)
+                    cur.execute("""
+                        UPDATE t_p28211681_photo_secure_web.vk_users
+                        SET is_blocked = false, blocked_at = NULL, blocked_reason = NULL
+                        WHERE user_id = %s
                     """, (user_id,))
             
             conn.commit()
