@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface NavigationState {
   viewMode: 'cards' | 'table';
@@ -11,41 +11,64 @@ interface NavigationState {
 export const useNavigationHistory = () => {
   const [history, setHistory] = useState<NavigationState[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const lastPushTime = useRef<number>(0);
 
   const pushState = useCallback((state: Omit<NavigationState, 'timestamp'>) => {
-    const newState: NavigationState = {
-      ...state,
-      timestamp: Date.now(),
-    };
+    const now = Date.now();
+    
+    // Дебаунс: игнорируем быстрые последовательные вызовы (< 500ms)
+    if (now - lastPushTime.current < 500) {
+      return;
+    }
+    lastPushTime.current = now;
 
     setHistory(prev => {
+      const newState: NavigationState = {
+        ...state,
+        timestamp: now,
+      };
+
+      // Если мы не в конце истории, удаляем всё после текущей позиции
       const newHistory = prev.slice(0, currentIndex + 1);
+      
+      // Не добавляем дубликаты
+      const lastState = newHistory[newHistory.length - 1];
+      if (lastState && 
+          lastState.viewMode === newState.viewMode &&
+          lastState.searchQuery === newState.searchQuery &&
+          lastState.statusFilter === newState.statusFilter &&
+          lastState.selectedClientId === newState.selectedClientId) {
+        return prev;
+      }
+
       newHistory.push(newState);
+      
+      // Ограничиваем размер истории до 50 записей
       if (newHistory.length > 50) {
         newHistory.shift();
+        setCurrentIndex(newHistory.length - 1);
         return newHistory;
       }
+      
+      setCurrentIndex(newHistory.length - 1);
       return newHistory;
-    });
-    
-    setCurrentIndex(prev => {
-      const newIndex = Math.min(prev + 1, 49);
-      return newIndex;
     });
   }, [currentIndex]);
 
   const goBack = useCallback(() => {
     if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-      return history[currentIndex - 1];
+      const newIndex = currentIndex - 1;
+      setCurrentIndex(newIndex);
+      return history[newIndex];
     }
     return null;
   }, [currentIndex, history]);
 
   const goForward = useCallback(() => {
     if (currentIndex < history.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      return history[currentIndex + 1];
+      const newIndex = currentIndex + 1;
+      setCurrentIndex(newIndex);
+      return history[newIndex];
     }
     return null;
   }, [currentIndex, history]);
@@ -60,5 +83,7 @@ export const useNavigationHistory = () => {
     canGoBack,
     canGoForward,
     currentState: history[currentIndex],
+    historyLength: history.length,
+    currentIndex,
   };
 };

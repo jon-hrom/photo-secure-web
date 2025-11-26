@@ -158,7 +158,7 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
         selectedClientId: dialogsState.selectedClient?.id,
       });
     }
-  }, [dialogsState.viewMode, dialogsState.searchQuery, dialogsState.statusFilter, dialogsState.selectedClient?.id]);
+  }, [dialogsState.viewMode, dialogsState.searchQuery, dialogsState.statusFilter, dialogsState.selectedClient?.id, clients.length, navigation]);
 
   // Обработчики навигации
   const handleGoBack = useCallback(() => {
