@@ -243,29 +243,35 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
           onSelectClient={dialogsState.openDetailDialog}
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_400px] gap-6">
-          <ClientsFilterSidebar
-            activeFilter={activeFilter}
-            onFilterChange={setActiveFilter}
-            clients={clients}
-          />
+        <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_400px] gap-6">
+          <div className="xl:order-1">
+            <ClientsFilterSidebar
+              activeFilter={activeFilter}
+              onFilterChange={setActiveFilter}
+              clients={clients}
+            />
+          </div>
 
-          <ClientsListSection
-            filteredClients={filteredClients}
-            onSelectClient={dialogsState.openDetailDialog}
-            onEditClient={dialogsState.openEditDialog}
-            onDeleteClient={handlers.handleDeleteClient}
-            onAddBooking={dialogsState.openBookingDialog}
-          />
+          <div className="xl:order-2">
+            <ClientsListSection
+              filteredClients={filteredClients}
+              onSelectClient={dialogsState.openDetailDialog}
+              onEditClient={dialogsState.openEditDialog}
+              onDeleteClient={handlers.handleDeleteClient}
+              onAddBooking={dialogsState.openBookingDialog}
+            />
+          </div>
 
-          <ClientsCalendarSection
-            selectedDate={dialogsState.selectedDate}
-            allBookedDates={allBookedDates}
-            onDateClick={handlers.handleDateClick}
-            selectedClient={dialogsState.selectedClient}
-            onMessageClient={dialogsState.openMessageDialog}
-            clients={clients}
-          />
+          <div className="xl:order-3">
+            <ClientsCalendarSection
+              selectedDate={dialogsState.selectedDate}
+              allBookedDates={allBookedDates}
+              onDateClick={handlers.handleDateClick}
+              selectedClient={dialogsState.selectedClient}
+              onMessageClient={dialogsState.openMessageDialog}
+              clients={clients}
+            />
+          </div>
         </div>
       )}
 
