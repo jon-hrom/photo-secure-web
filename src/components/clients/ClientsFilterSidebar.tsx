@@ -19,7 +19,7 @@ interface ClientsFilterSidebarProps {
 }
 
 const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: ClientsFilterSidebarProps) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -125,7 +125,7 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
               />
               <div className="flex-1 text-left">
                 <div className="flex items-center justify-between">
-                  <p className={`text-sm font-medium ${activeFilter === filter.id ? 'text-purple-700' : ''}`}>
+                  <p className={`text-sm font-medium ${activeFilter === filter.id ? 'text-gray-900 font-semibold' : ''}`}>
                     {filter.label}
                   </p>
                   {filter.count !== null && (

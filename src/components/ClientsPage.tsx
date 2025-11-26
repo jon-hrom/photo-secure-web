@@ -24,7 +24,7 @@ interface ClientsPageProps {
 
 const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) => {
   const userId = propUserId || localStorage.getItem('userId');
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('active-projects');
   
   // Хук для работы с данными
   const { clients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId);
