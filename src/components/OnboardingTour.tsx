@@ -7,10 +7,11 @@ interface TourStep {
   title: string;
   description: string;
   placement: 'top' | 'bottom' | 'left' | 'right';
-  action?: 'click' | 'navigate';
+  action?: 'click' | 'navigate' | 'hover';
   page?: string;
   mobileOnly?: boolean;
   desktopOnly?: boolean;
+  sectionTitle?: string;
 }
 
 interface OnboardingTourProps {
@@ -21,10 +22,20 @@ interface OnboardingTourProps {
 const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="dashboard"]',
-    title: 'Главная страница',
-    description: 'Здесь вы видите статистику: клиенты, проекты, встречи и баланс',
+    title: 'Добро пожаловать!',
+    description: 'Сейчас я покажу основные разделы приложения. Начнём с главной страницы',
     placement: 'bottom',
-    page: 'dashboard'
+    page: 'dashboard',
+    sectionTitle: '📊 Обзор приложения'
+  },
+  {
+    target: 'nav',
+    title: 'Навигация',
+    description: 'В меню слева находятся все основные разделы. Давайте их изучим',
+    placement: 'right',
+    page: 'dashboard',
+    action: 'hover',
+    desktopOnly: true
   },
   {
     target: '[data-tour="clients-nav"]',
@@ -32,7 +43,8 @@ const TOUR_STEPS: TourStep[] = [
     description: 'Управляйте базой клиентов, добавляйте записи и отслеживайте проекты',
     placement: 'right',
     page: 'dashboard',
-    action: 'click'
+    action: 'click',
+    sectionTitle: '👥 Работа с клиентами'
   },
   {
     target: '[data-tour="add-client"]',
@@ -49,21 +61,33 @@ const TOUR_STEPS: TourStep[] = [
     page: 'clients'
   },
   {
+    target: '[data-tour="dashboard-nav"]',
+    title: 'Вернёмся в главное меню',
+    description: 'Теперь посмотрим другие разделы',
+    placement: 'right',
+    page: 'clients',
+    action: 'click',
+    desktopOnly: true
+  },
+  {
     target: '.mobile-nav-photobank',
     title: 'Мой фото банк',
-    description: 'Загружайте фото, создавайте папки и управляйте всеми файлами в одном месте',
+    description: 'Загружайте фото, создавайте папки и управляйте файлами',
     placement: 'top',
     page: 'clients',
     action: 'navigate',
-    mobileOnly: true
+    mobileOnly: true,
+    sectionTitle: '📸 Фото банк'
   },
   {
     target: '[data-tour="photobook-nav"]',
-    title: 'Фотокниги',
+    title: 'Раздел «Фотокниги»',
     description: 'Создавайте дизайны фотокниг с автоматической раскладкой и 3D-превью',
     placement: 'right',
-    page: 'clients',
-    action: 'click'
+    page: 'dashboard',
+    action: 'click',
+    sectionTitle: '📚 Фотокниги',
+    desktopOnly: true
   },
   {
     target: '[data-tour="upload-photos"]',
@@ -73,22 +97,33 @@ const TOUR_STEPS: TourStep[] = [
     page: 'photobook'
   },
   {
+    target: '[data-tour="dashboard-nav"]',
+    title: 'Последний раздел',
+    description: 'Вернёмся в меню для настроек',
+    placement: 'right',
+    page: 'photobook',
+    action: 'click',
+    desktopOnly: true
+  },
+  {
     target: '.mobile-nav-settings',
     title: 'Настройки',
     description: 'Управление профилем, безопасностью и подсказками',
     placement: 'top',
     page: 'photobook',
     action: 'navigate',
-    mobileOnly: true
+    mobileOnly: true,
+    sectionTitle: '⚙️ Настройки'
   },
   {
     target: '[data-tour="settings-nav"]',
-    title: 'Настройки',
+    title: 'Раздел «Настройки»',
     description: 'Управление профилем, двухфакторной аутентификацией и подсказками',
-    placement: 'left',
-    page: 'photobook',
+    placement: 'right',
+    page: 'dashboard',
     action: 'click',
-    desktopOnly: true
+    desktopOnly: true,
+    sectionTitle: '⚙️ Настройки'
   },
   {
     target: '[data-tour="hints-settings"]',
@@ -367,6 +402,11 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
         style={tooltipStyle}
         className="bg-white rounded-2xl shadow-2xl p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300"
       >
+        {step.sectionTitle && (
+          <div className="mb-3 pb-3 border-b border-gray-200">
+            <p className="text-xs md:text-sm font-semibold text-primary">{step.sectionTitle}</p>
+          </div>
+        )}
         <div className="flex items-start gap-2 md:gap-3 mb-3 md:mb-4">
           <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <Icon name="Lightbulb" size={18} className="text-primary md:w-5 md:h-5" />
