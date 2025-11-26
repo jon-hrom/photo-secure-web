@@ -1,10 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { TrashedPhoto } from './types';
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { useState } from 'react';
+import TrashedPhotosHeader from './TrashedPhotosHeader';
+import TrashedPhotoCard from './TrashedPhotoCard';
+import TrashedPhotoViewer from './TrashedPhotoViewer';
 
 interface TrashedPhotosGridProps {
   photos: TrashedPhoto[];
@@ -60,9 +60,6 @@ const TrashedPhotosGrid = ({
   formatDate
 }: TrashedPhotosGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<TrashedPhoto | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
-  const [isLandscape, setIsLandscape] = useState(false);
   
   const handlePhotoClick = (photo: TrashedPhoto) => {
     if (!selectionMode) {
@@ -91,220 +88,34 @@ const TrashedPhotosGrid = ({
     }
   };
 
-  const currentPhotoIndex = viewPhoto ? filteredAndSortedPhotos.findIndex(p => p.id === viewPhoto.id) : -1;
-  const hasPrev = currentPhotoIndex > 0;
-  const hasNext = currentPhotoIndex >= 0 && currentPhotoIndex < filteredAndSortedPhotos.length - 1;
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!viewPhoto) return;
-      
-      if (e.key === 'Escape') {
-        setViewPhoto(null);
-        setZoom(1);
-      } else if (e.key === 'ArrowLeft' && hasPrev) {
-        handleNavigate('prev');
-        setZoom(1);
-      } else if (e.key === 'ArrowRight' && hasNext) {
-        handleNavigate('next');
-        setZoom(1);
-      }
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!viewPhoto) return;
-      e.preventDefault();
-      
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => Math.max(1, Math.min(2, prev + delta)));
-    };
-
-    const checkOrientation = () => {
-      setIsLandscape(window.innerWidth > window.innerHeight);
-    };
-
-    checkOrientation();
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('resize', checkOrientation);
-      window.removeEventListener('orientationchange', checkOrientation);
-    };
-  }, [viewPhoto, hasPrev, hasNext]);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touchCount = e.touches.length;
-    if (touchCount === 1) {
-      setTouchStart({
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-        time: Date.now(),
-        touches: touchCount
-      });
-    } else if (touchCount > 1) {
-      setTouchStart({
-        x: 0,
-        y: 0,
-        time: Date.now(),
-        touches: touchCount
-      });
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart || !viewPhoto) return;
-
-    if (touchStart.touches > 1) {
-      setTouchStart(null);
-      return;
-    }
-
-    const touchEnd = {
-      x: e.changedTouches[0].clientX,
-      y: e.changedTouches[0].clientY,
-      time: Date.now()
-    };
-
-    const deltaX = touchEnd.x - touchStart.x;
-    const deltaY = touchEnd.y - touchStart.y;
-    const deltaTime = touchEnd.time - touchStart.time;
-    const absDeltaX = Math.abs(deltaX);
-    const absDeltaY = Math.abs(deltaY);
-
-    if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
-      setTouchStart(null);
-      return;
-    }
-
-    if (absDeltaX > absDeltaY && absDeltaX > 50) {
-      if (deltaX > 0 && hasPrev) {
-        handleNavigate('prev');
-        setZoom(1);
-      } else if (deltaX < 0 && hasNext) {
-        handleNavigate('next');
-        setZoom(1);
-      }
-    } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
-      const zoomSteps = Math.floor(absDeltaY / 50);
-      if (deltaY < 0) {
-        setZoom(prev => Math.min(2, prev + (zoomSteps * 0.15)));
-      } else {
-        setZoom(prev => Math.max(1, prev - (zoomSteps * 0.15)));
-      }
-    }
-
-    setTouchStart(null);
-  };
-
-  const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault();
-    setZoom(1);
+  const handleCancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedPhotoIds(new Set());
   };
 
   if (photos.length === 0) return null;
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <CardTitle className="flex items-center gap-2">
-            <Icon name="Image" size={20} />
-            Удаленные фото ({filteredAndSortedPhotos.length}/{photos.length})
-          </CardTitle>
-          <div className="flex items-center gap-2 flex-wrap">
-            {!selectionMode ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectionMode(true)}
-              >
-                <Icon name="CheckSquare" className="mr-2" size={16} />
-                Выбрать
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onSelectAll}
-                >
-                  Выбрать все
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onDeselectAll}
-                >
-                  Снять выбор
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={onBulkRestore}
-                  disabled={selectedPhotoIds.size === 0 || loading}
-                >
-                  <Icon name="Undo2" className="mr-2" size={16} />
-                  Восстановить ({selectedPhotoIds.size})
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={onBulkDelete}
-                  disabled={selectedPhotoIds.size === 0 || loading}
-                >
-                  <Icon name="Trash2" className="mr-2" size={16} />
-                  Удалить ({selectedPhotoIds.size})
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectionMode(false);
-                    setSelectedPhotoIds(new Set());
-                  }}
-                >
-                  Отмена
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 mt-4 flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Поиск по имени..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="date">По дате</option>
-            <option value="name">По имени</option>
-            <option value="size">По размеру</option>
-          </select>
-          <Button
-            variant={filterCritical ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilterCritical(!filterCritical)}
-          >
-            <Icon name="AlertTriangle" className="mr-2" size={16} />
-            Только критичные
-          </Button>
-        </div>
-      </CardHeader>
+      <TrashedPhotosHeader
+        photosCount={photos.length}
+        filteredCount={filteredAndSortedPhotos.length}
+        selectionMode={selectionMode}
+        selectedCount={selectedPhotoIds.size}
+        loading={loading}
+        searchQuery={searchQuery}
+        sortBy={sortBy}
+        filterCritical={filterCritical}
+        onSetSelectionMode={setSelectionMode}
+        onSelectAll={onSelectAll}
+        onDeselectAll={onDeselectAll}
+        onBulkRestore={onBulkRestore}
+        onBulkDelete={onBulkDelete}
+        onSetSearchQuery={setSearchQuery}
+        onSetSortBy={setSortBy}
+        onSetFilterCritical={setFilterCritical}
+        onCancelSelection={handleCancelSelection}
+      />
       <CardContent>
         {filteredAndSortedPhotos.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -313,240 +124,38 @@ const TrashedPhotosGrid = ({
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {filteredAndSortedPhotos.map((photo) => {
-              const isVertical = (photo.height || 0) > (photo.width || 0);
-              return (
-            <div
-              key={photo.id}
-              className={`relative group rounded-lg overflow-hidden border-2 transition-colors bg-muted/30 ${
-                selectedPhotoIds.has(photo.id) 
-                  ? 'border-primary ring-2 ring-primary' 
-                  : 'border-muted hover:border-muted-foreground/20'
-              } ${isVertical ? 'aspect-[3/4]' : 'aspect-[4/3]'}`}
-              onClick={() => handlePhotoClick(photo)}
-            >
-              {selectionMode && (
-                <div className="absolute top-2 left-2 z-10">
-                  <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
-                    selectedPhotoIds.has(photo.id)
-                      ? 'bg-primary border-primary'
-                      : 'bg-white/80 border-white'
-                  }`}>
-                    {selectedPhotoIds.has(photo.id) && (
-                      <Icon name="Check" size={16} className="text-white" />
-                    )}
-                  </div>
-                </div>
-              )}
-              <div className="w-full h-full">
-                {photo.s3_url ? (
-                  <img
-                    src={photo.s3_url}
-                    alt={photo.file_name}
-                    className="w-full h-full object-contain"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Icon name="ImageOff" size={32} className="text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-              {!selectionMode && (
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 p-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onRestorePhoto(photo.id, photo.file_name)}
-                  disabled={restoring === photo.id || deleting === photo.id}
-                  className="w-full"
-                >
-                  {restoring === photo.id ? (
-                    <Icon name="Loader2" size={14} className="animate-spin" />
-                  ) : (
-                    <>
-                      <Icon name="Undo2" size={14} className="mr-1" />
-                      Восстановить
-                    </>
-                  )}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => onDeletePhotoForever(photo.id, photo.file_name)}
-                  disabled={restoring === photo.id || deleting === photo.id}
-                  className="w-full"
-                >
-                  {deleting === photo.id ? (
-                    <Icon name="Loader2" size={14} className="animate-spin" />
-                  ) : (
-                    <>
-                      <Icon name="Trash2" size={14} className="mr-1" />
-                      Удалить навсегда
-                    </>
-                  )}
-                </Button>
-                </div>
-              )}
-              {!selectionMode && (
-                <div className="absolute top-2 right-2">
-                <Badge 
-                  variant={getDaysLeftBadge(photo.trashed_at).variant as any}
-                  className="text-[10px] px-1.5 py-0.5"
-                >
-                  <Icon name="Clock" size={10} className="mr-0.5" />
-                  {getDaysLeftBadge(photo.trashed_at).text}
-                </Badge>
-                </div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                <p className="text-xs text-white truncate">{photo.file_name}</p>
-                <p className="text-[10px] text-white/70">{formatDate(photo.trashed_at)}</p>
-              </div>
-            </div>
-          );
-          })}
+            {filteredAndSortedPhotos.map((photo) => (
+              <TrashedPhotoCard
+                key={photo.id}
+                photo={photo}
+                selectionMode={selectionMode}
+                isSelected={selectedPhotoIds.has(photo.id)}
+                restoring={restoring}
+                deleting={deleting}
+                onPhotoClick={handlePhotoClick}
+                onRestorePhoto={onRestorePhoto}
+                onDeletePhotoForever={onDeletePhotoForever}
+                getDaysLeftBadge={getDaysLeftBadge}
+                formatDate={formatDate}
+              />
+            ))}
           </div>
         )}
       </CardContent>
 
-      <Dialog open={!!viewPhoto} onOpenChange={() => { setViewPhoto(null); setZoom(1); }}>
-        <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none">
-          {viewPhoto && (
-            <div className="relative w-full h-full flex items-center justify-center">
-              {!isLandscape && (
-                <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
-                  <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                    {currentPhotoIndex + 1} / {filteredAndSortedPhotos.length}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                      {Math.round(zoom * 100)}%
-                    </div>
-                    <button
-                      onClick={() => setViewPhoto(null)}
-                      className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-                    >
-                      <Icon name="X" size={24} className="text-white" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {isLandscape && (
-                <button
-                  onClick={() => setViewPhoto(null)}
-                  className="absolute top-2 right-2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-                >
-                  <Icon name="X" size={20} className="text-white" />
-                </button>
-              )}
-
-              {hasPrev && (
-                <button
-                  onClick={() => { handleNavigate('prev'); setZoom(1); }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-                >
-                  <Icon name="ChevronLeft" size={28} className="text-white" />
-                </button>
-              )}
-
-              {hasNext && (
-                <button
-                  onClick={() => { handleNavigate('next'); setZoom(1); }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-                >
-                  <Icon name="ChevronRight" size={28} className="text-white" />
-                </button>
-              )}
-              
-              <div 
-                className="relative w-full h-full flex items-center justify-center overflow-auto"
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-              >
-                <img
-                  src={viewPhoto.s3_url || ''}
-                  alt={viewPhoto.file_name}
-                  className="object-contain cursor-move transition-transform duration-200 select-none"
-                  style={{
-                    transform: `scale(${zoom})`,
-                    maxWidth: '100%',
-                    maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)'
-                  }}
-                  onDoubleClick={handleDoubleTap}
-                  onTouchEnd={(e) => {
-                    if (e.timeStamp - (touchStart?.time || 0) < 300) {
-                      handleDoubleTap(e);
-                    }
-                  }}
-                  draggable={false}
-                />
-              </div>
-
-              {!isLandscape && (
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <p className="text-white font-medium text-lg">{viewPhoto.file_name}</p>
-                  <Badge 
-                    variant={getDaysLeftBadge(viewPhoto.trashed_at).variant as any}
-                    className="text-xs"
-                  >
-                    <Icon name="Clock" size={12} className="mr-1" />
-                    {getDaysLeftBadge(viewPhoto.trashed_at).text}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-4 text-white/70 text-sm mb-4">
-                  <span>{formatBytes(viewPhoto.file_size || 0)}</span>
-                  {viewPhoto.width && viewPhoto.height && (
-                    <span>{viewPhoto.width} × {viewPhoto.height}</span>
-                  )}
-                  <span>Удалено: {formatDate(viewPhoto.trashed_at)}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRestorePhoto(viewPhoto.id, viewPhoto.file_name);
-                      setViewPhoto(null);
-                    }}
-                    disabled={restoring === viewPhoto.id}
-                    className="bg-green-600/80 hover:bg-green-600 text-white border-0"
-                  >
-                    {restoring === viewPhoto.id ? (
-                      <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-                    ) : (
-                      <Icon name="Undo2" size={16} className="mr-2" />
-                    )}
-                    Восстановить
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeletePhotoForever(viewPhoto.id, viewPhoto.file_name);
-                      setViewPhoto(null);
-                    }}
-                    disabled={deleting === viewPhoto.id}
-                    className="bg-red-600/80 hover:bg-red-600 border-0"
-                  >
-                    {deleting === viewPhoto.id ? (
-                      <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-                    ) : (
-                      <Icon name="Trash2" size={16} className="mr-2" />
-                    )}
-                    Удалить навсегда
-                  </Button>
-                </div>
-              </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <TrashedPhotoViewer
+        viewPhoto={viewPhoto}
+        photos={filteredAndSortedPhotos}
+        restoring={restoring}
+        deleting={deleting}
+        onClose={() => setViewPhoto(null)}
+        onNavigate={handleNavigate}
+        onRestorePhoto={onRestorePhoto}
+        onDeletePhotoForever={onDeletePhotoForever}
+        getDaysLeftBadge={getDaysLeftBadge}
+        formatDate={formatDate}
+        formatBytes={formatBytes}
+      />
     </Card>
   );
 };
