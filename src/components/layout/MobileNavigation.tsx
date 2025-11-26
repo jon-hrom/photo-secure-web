@@ -26,11 +26,12 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
 
   const navItems: NavItem[] = [
     { icon: 'LayoutDashboard', label: 'Главная', path: 'dashboard' },
-    { icon: 'Settings', label: 'Настройки', path: 'settings' },
-    { icon: 'BookOpen', label: 'Справка', path: 'help' },
-    { icon: 'Images', label: 'Фото банк', path: 'photo-bank' },
+    { icon: 'Home', label: 'На главную', path: '/' },
+    { icon: 'Images', label: 'Фото банк', path: '/photo-bank' },
     { icon: 'Users', label: 'Клиенты', path: 'clients' },
     { icon: 'Zap', label: 'Тарифы', path: 'tariffs' },
+    { icon: 'Settings', label: 'Настройки', path: 'settings' },
+    { icon: 'BookOpen', label: 'Справка', path: 'help' },
   ];
   
   const getNavClassName = (path: string) => {
@@ -79,12 +80,17 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     vibrate(15);
     setIsExpanded(false);
     
-    if (onNavigate) {
+    if (item.path.startsWith('/')) {
+      navigate(item.path);
+    } else if (onNavigate) {
       onNavigate(item.path);
     }
   };
 
   const isActive = (path: string) => {
+    if (path.startsWith('/')) {
+      return location.pathname === path;
+    }
     if (currentPage) {
       return currentPage === path;
     }
