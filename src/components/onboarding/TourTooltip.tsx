@@ -102,14 +102,14 @@ const TourTooltip = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 md:gap-3">
-        <div className="flex gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex gap-1 flex-shrink-0">
           {Array.from({ length: totalSteps }).map((_, index) => (
             <div
               key={index}
               className={`h-1.5 rounded-full transition-all ${
                 index === currentStep 
-                  ? 'w-6 md:w-8 bg-primary' 
+                  ? 'w-5 md:w-6 bg-primary' 
                   : index < currentStep
                   ? 'w-1.5 bg-primary/50'
                   : 'w-1.5 bg-gray-300'
@@ -118,16 +118,16 @@ const TourTooltip = ({
           ))}
         </div>
 
-        <div className="flex gap-1 md:gap-2">
+        <div className="flex gap-1 flex-shrink-0">
           <Button
             onClick={onSkip}
             variant="ghost"
             size="sm"
-            className="text-muted-foreground hover:text-foreground text-xs md:text-sm px-2 md:px-3"
+            className="text-muted-foreground hover:text-foreground text-xs px-2 h-8"
           >
             <span className="hidden sm:inline">Пропустить</span>
             <span className="sm:hidden">
-              <Icon name="X" size={16} />
+              <Icon name="X" size={14} />
             </span>
           </Button>
           
@@ -136,9 +136,9 @@ const TourTooltip = ({
               onClick={onBack}
               variant="outline"
               size="sm"
-              className="text-xs md:text-sm px-2 md:px-3"
+              className="text-xs px-2 h-8"
             >
-              <Icon name="ArrowLeft" size={16} className="mr-0 md:mr-1" />
+              <Icon name="ArrowLeft" size={14} className="mr-0 md:mr-1" />
               <span className="hidden md:inline">Назад</span>
             </Button>
           )}
@@ -146,19 +146,18 @@ const TourTooltip = ({
           <Button
             onClick={onNext}
             size="sm"
-            className="rounded-xl text-xs md:text-sm px-2 md:px-4"
+            className="rounded-xl text-xs px-3 h-8"
           >
             {currentStep === totalSteps - 1 ? (
               <>
-                <Icon name="Check" size={16} className="mr-1" />
+                <Icon name="Check" size={14} className="mr-1" />
                 <span className="hidden sm:inline">Завершить</span>
                 <span className="sm:hidden">OK</span>
               </>
             ) : (
               <>
-                <span className="hidden sm:inline">Продолжить</span>
-                <span className="sm:hidden">Далее</span>
-                <Icon name="ArrowRight" size={16} className="ml-1" />
+                <span>Продолжить</span>
+                <Icon name="ArrowRight" size={14} className="ml-1" />
               </>
             )}
           </Button>
