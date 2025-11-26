@@ -18,10 +18,21 @@ interface Appeal {
   block_reason: string | null;
   is_blocked: boolean;
   is_read: boolean;
+  is_archived: boolean;
   created_at: string;
   read_at: string | null;
   admin_response: string | null;
   responded_at: string | null;
+}
+
+interface GroupedAppeals {
+  userIdentifier: string;
+  userEmail: string | null;
+  appeals: Appeal[];
+  totalCount: number;
+  unreadCount: number;
+  isBlocked: boolean;
+  latestDate: string;
 }
 
 interface FloatingAppealsButtonProps {
@@ -37,6 +48,8 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
   const [respondingTo, setRespondingTo] = useState<number | null>(null);
   const [responseText, setResponseText] = useState('');
   const [selectedAppeal, setSelectedAppeal] = useState<Appeal | null>(null);
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [customSound, setCustomSound] = useState<string | null>(null);
   const previousUnreadCount = useRef<number>(0);
   const hasPlayedInitialSound = useRef<boolean>(false);
@@ -69,7 +82,7 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       if (response.ok && data.appeals) {
         console.log('[APPEALS] Got appeals:', data.appeals.length);
         setAppeals(data.appeals);
-        const unread = data.appeals.filter((a: Appeal) => !a.is_read).length;
+        const unread = data.appeals.filter((a: Appeal) => !a.is_read && !a.is_archived).length;
         console.log('[APPEALS] Unread count:', unread);
         
         if (!hasPlayedInitialSound.current && unread > 0) {
@@ -235,6 +248,123 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
     });
   };
 
+  const groupAppealsByUser = (appeals: Appeal[]): GroupedAppeals[] => {
+    const grouped = new Map<string, GroupedAppeals>();
+    
+    appeals.forEach((appeal) => {
+      const key = appeal.user_identifier;
+      
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          userIdentifier: appeal.user_identifier,
+          userEmail: appeal.user_email,
+          appeals: [],
+          totalCount: 0,
+          unreadCount: 0,
+          isBlocked: appeal.is_blocked,
+          latestDate: appeal.created_at,
+        });
+      }
+      
+      const group = grouped.get(key)!;
+      group.appeals.push(appeal);
+      group.totalCount++;
+      if (!appeal.is_read) group.unreadCount++;
+      
+      if (new Date(appeal.created_at) > new Date(group.latestDate)) {
+        group.latestDate = appeal.created_at;
+      }
+    });
+    
+    return Array.from(grouped.values()).sort(
+      (a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime()
+    );
+  };
+
+  const archiveAppeal = async (appealId: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'archive_appeal',
+          appeal_id: appealId,
+          admin_user_id: userId
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Обращение перенесено в архив');
+        await fetchAppeals();
+      }
+    } catch (error) {
+      console.error('Error archiving appeal:', error);
+      toast.error('Ошибка при архивировании');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteAppeal = async (appealId: number) => {
+    if (!confirm('Вы уверены, что хотите удалить это обращение?')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete_appeal',
+          appeal_id: appealId,
+          admin_user_id: userId
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Обращение удалено');
+        setSelectedAppeal(null);
+        await fetchAppeals();
+      }
+    } catch (error) {
+      console.error('Error deleting appeal:', error);
+      toast.error('Ошибка при удалении');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAllAsRead = async (userIdentifier: string) => {
+    setLoading(true);
+    try {
+      const userAppeals = appeals.filter(
+        a => a.user_identifier === userIdentifier && !a.is_read
+      );
+
+      for (const appeal of userAppeals) {
+        await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'mark_appeal_read',
+            appeal_id: appeal.id,
+            admin_user_id: userId
+          }),
+        });
+      }
+
+      toast.success('Все сообщения отмечены как прочитанные');
+      await fetchAppeals();
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      toast.error('Ошибка при обновлении статуса');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     console.log('[APPEALS_BTN] Component rendered:', { isAdmin, userId });
   }, [isAdmin, userId]);
@@ -295,65 +425,147 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
             </div>
           </DialogHeader>
 
-          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4 h-[calc(85vh-120px)]">
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <Button
+              variant={showArchived ? 'outline' : 'default'}
+              size="sm"
+              onClick={() => setShowArchived(false)}
+              className="text-xs"
+            >
+              <Icon name="Inbox" size={14} className="mr-1" />
+              Активные
+            </Button>
+            <Button
+              variant={showArchived ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowArchived(true)}
+              className="text-xs"
+            >
+              <Icon name="Archive" size={14} className="mr-1" />
+              Архив
+            </Button>
+          </div>
+
+          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4 h-[calc(85vh-160px)]">
             <ScrollArea className={`h-full pr-0 sm:pr-3 ${
               selectedAppeal ? 'hidden sm:block' : 'block'
             }`}>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {appeals.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Icon name="Inbox" size={48} className="mx-auto mb-4 opacity-30" />
                     <p>Нет обращений</p>
                   </div>
                 ) : (
-                  appeals.map((appeal) => (
-                    <div
-                      key={appeal.id}
-                      onClick={() => {
-                        setSelectedAppeal(appeal);
-                        if (!appeal.is_read) {
-                          markAsRead(appeal.id);
-                        }
-                      }}
-                      className={`p-3 sm:p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        selectedAppeal?.id === appeal.id
-                          ? 'bg-blue-50 border-blue-400 shadow-lg scale-[1.02]'
-                          : appeal.is_read
-                          ? 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                          : 'bg-amber-50 border-amber-400 hover:border-amber-500 shadow-md'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-1 sm:mb-2">
-                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-                          <Icon 
-                            name={appeal.is_blocked ? 'ShieldAlert' : 'CheckCircle'} 
-                            size={16} 
-                            className={`shrink-0 sm:w-5 sm:h-5 ${appeal.is_blocked ? 'text-red-600' : 'text-green-600'}`}
-                          />
-                          <span className="font-semibold text-xs sm:text-sm truncate">
-                            {appeal.user_email || appeal.user_identifier}
-                          </span>
+                  (() => {
+                    const filteredAppeals = appeals.filter(a => 
+                      showArchived ? a.is_archived : !a.is_archived
+                    );
+                    const grouped = groupAppealsByUser(filteredAppeals);
+                    
+                    return grouped.map((group) => (
+                      <div key={group.userIdentifier} className="border rounded-lg overflow-hidden">
+                        <div
+                          onClick={() => {
+                            if (expandedUser === group.userIdentifier) {
+                              setExpandedUser(null);
+                            } else {
+                              setExpandedUser(group.userIdentifier);
+                            }
+                          }}
+                          className={`p-3 cursor-pointer transition-colors ${
+                            group.unreadCount > 0
+                              ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-400'
+                              : 'bg-gray-50 hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <Icon 
+                                name={expandedUser === group.userIdentifier ? 'ChevronDown' : 'ChevronRight'} 
+                                size={16}
+                                className="shrink-0"
+                              />
+                              <Icon 
+                                name={group.isBlocked ? 'ShieldAlert' : 'User'} 
+                                size={16} 
+                                className={`shrink-0 ${group.isBlocked ? 'text-red-600' : 'text-blue-600'}`}
+                              />
+                              <span className="font-semibold text-xs sm:text-sm truncate">
+                                {group.userEmail || group.userIdentifier}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {group.unreadCount > 0 && (
+                                <Badge variant="destructive" className="text-xs">
+                                  {group.unreadCount}
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs">
+                                {group.totalCount}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
-                        {!appeal.is_read && (
-                          <Badge variant="destructive" className="text-xs shrink-0">Новое</Badge>
+
+                        {expandedUser === group.userIdentifier && (
+                          <div className="border-t">
+                            <div className="p-2 bg-muted/50 flex items-center gap-1 border-b">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markAllAsRead(group.userIdentifier);
+                                }}
+                                disabled={loading || group.unreadCount === 0}
+                                className="h-7 text-xs"
+                              >
+                                <Icon name="CheckCheck" size={12} className="mr-1" />
+                                Все прочитано
+                              </Button>
+                            </div>
+                            {group.appeals.map((appeal) => (
+                              <div
+                                key={appeal.id}
+                                onClick={() => {
+                                  setSelectedAppeal(appeal);
+                                  if (!appeal.is_read) {
+                                    markAsRead(appeal.id);
+                                  }
+                                }}
+                                className={`p-3 cursor-pointer transition-colors border-b last:border-b-0 ${
+                                  selectedAppeal?.id === appeal.id
+                                    ? 'bg-blue-100'
+                                    : !appeal.is_read
+                                    ? 'bg-amber-50 hover:bg-amber-100'
+                                    : 'bg-white hover:bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between mb-1">
+                                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 flex-1">
+                                    {appeal.message}
+                                  </p>
+                                  {!appeal.is_read && (
+                                    <Badge variant="destructive" className="text-xs ml-2 shrink-0">Новое</Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>{formatDate(appeal.created_at)}</span>
+                                  {appeal.admin_response && (
+                                    <Badge variant="outline" className="text-xs">
+                                      <Icon name="CheckCheck" size={10} className="mr-1" />
+                                      Отвечено
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-
-                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-1.5 sm:mb-2">
-                        {appeal.message}
-                      </p>
-
-                      <div className="flex items-center justify-between text-xs text-muted-foreground gap-2">
-                        <span>{formatDate(appeal.created_at)}</span>
-                        {appeal.admin_response && (
-                          <Badge variant="outline" className="text-xs">
-                            <Icon name="CheckCheck" size={12} className="mr-1" />
-                            Отвечено
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))
+                    ));
+                  })()
                 )}
               </div>
             </ScrollArea>
@@ -374,10 +586,53 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
                   </Button>
                   <div className="flex-1 overflow-auto">
                     <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b">
-                      <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                        <Icon name="User" size={18} className="text-blue-600 sm:hidden" />
-                        <Icon name="User" size={20} className="text-blue-600 hidden sm:block" />
-                        <h3 className="font-bold text-base sm:text-lg truncate">{selectedAppeal.user_email || selectedAppeal.user_identifier}</h3>
+                      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Icon name="User" size={18} className="text-blue-600 sm:hidden" />
+                          <Icon name="User" size={20} className="text-blue-600 hidden sm:block" />
+                          <h3 className="font-bold text-base sm:text-lg truncate">{selectedAppeal.user_email || selectedAppeal.user_identifier}</h3>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!selectedAppeal.is_read && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => markAsRead(selectedAppeal.id)}
+                              disabled={loading}
+                              className="h-7 text-xs"
+                              title="Отметить как прочитанное"
+                            >
+                              <Icon name="Check" size={12} />
+                            </Button>
+                          )}
+                          {!selectedAppeal.is_archived ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => archiveAppeal(selectedAppeal.id)}
+                              disabled={loading}
+                              className="h-7 text-xs"
+                              title="В архив"
+                            >
+                              <Icon name="Archive" size={12} />
+                            </Button>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              <Icon name="Archive" size={10} className="mr-1" />
+                              В архиве
+                            </Badge>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteAppeal(selectedAppeal.id)}
+                            disabled={loading}
+                            className="h-7 text-xs text-red-600 hover:text-red-700"
+                            title="Удалить обращение"
+                          >
+                            <Icon name="Trash2" size={12} />
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm mb-3 sm:mb-4">

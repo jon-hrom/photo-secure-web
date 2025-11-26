@@ -658,11 +658,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 print(f'[GET_APPEALS] Fetching appeals from DB...')
                 cursor.execute("""
                     SELECT id, user_identifier, user_email, user_phone, auth_method, 
-                           message, block_reason, is_blocked, is_read, 
+                           message, block_reason, is_blocked, is_read, is_archived,
                            created_at, read_at, admin_response, responded_at
                     FROM t_p28211681_photo_secure_web.blocked_user_appeals
-                    ORDER BY is_read ASC, created_at DESC
-                    LIMIT 100
+                    ORDER BY is_archived ASC, is_read ASC, created_at DESC
+                    LIMIT 200
                 """)
                 
                 print(f'[GET_APPEALS] Fetching results...')
@@ -722,6 +722,95 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 cursor.execute(
                     "UPDATE t_p28211681_photo_secure_web.blocked_user_appeals SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (appeal_id,)
+                )
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': headers,
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'archive_appeal':
+                appeal_id = body.get('appeal_id')
+                admin_user_id = body.get('admin_user_id')
+                
+                if not admin_user_id or not appeal_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Все поля обязательны'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor = conn.cursor()
+                cursor.execute("SELECT email FROM users WHERE id = %s", (admin_user_id,))
+                admin = cursor.fetchone()
+                
+                is_admin = False
+                if admin and admin.get('email') == 'jonhrom2012@gmail.com':
+                    is_admin = True
+                elif admin_user_id == 16:
+                    is_admin = True
+                
+                if not is_admin:
+                    return {
+                        'statusCode': 403,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Доступ запрещён'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor.execute(
+                    """UPDATE t_p28211681_photo_secure_web.blocked_user_appeals 
+                       SET is_archived = true 
+                       WHERE id = %s""",
+                    (appeal_id,)
+                )
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': headers,
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'delete_appeal':
+                appeal_id = body.get('appeal_id')
+                admin_user_id = body.get('admin_user_id')
+                
+                if not admin_user_id or not appeal_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Все поля обязательны'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor = conn.cursor()
+                cursor.execute("SELECT email FROM users WHERE id = %s", (admin_user_id,))
+                admin = cursor.fetchone()
+                
+                is_admin = False
+                if admin and admin.get('email') == 'jonhrom2012@gmail.com':
+                    is_admin = True
+                elif admin_user_id == 16:
+                    is_admin = True
+                
+                if not is_admin:
+                    return {
+                        'statusCode': 403,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Доступ запрещён'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cursor.execute(
+                    """DELETE FROM t_p28211681_photo_secure_web.blocked_user_appeals 
+                       WHERE id = %s""",
                     (appeal_id,)
                 )
                 conn.commit()
