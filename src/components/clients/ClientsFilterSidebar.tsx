@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
@@ -18,6 +19,7 @@ interface ClientsFilterSidebarProps {
 }
 
 const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: ClientsFilterSidebarProps) => {
+  const [isExpanded, setIsExpanded] = useState(true);
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -92,19 +94,21 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
   return (
     <Card className="border-purple-200/50 shadow-lg sticky top-6">
       <CardContent className="p-4">
-        <div className="mb-4">
-          <h3 className="text-lg font-bold mb-1">Быстрые представления</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold">Быстрые представления</h3>
           <Button
             variant="ghost"
             size="sm"
-            className="text-xs text-muted-foreground hover:text-primary p-0 h-auto"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="h-8 w-8 p-0"
           >
-            + Сохранить
+            <Icon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} size={20} />
           </Button>
         </div>
 
-        <div className="space-y-1">
-          <p className="text-xs font-semibold text-muted-foreground px-3 py-2">Стандартные</p>
+        {isExpanded && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground px-3 py-2">Стандартные</p>
           
           {filters.map((filter) => (
             <button
@@ -132,7 +136,8 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
               </div>
             </button>
           ))}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
