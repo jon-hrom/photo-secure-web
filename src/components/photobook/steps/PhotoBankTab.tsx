@@ -51,6 +51,8 @@ const PhotoBankTab = ({
 }: PhotoBankTabProps) => {
   const [viewPhoto, setViewPhoto] = useState<PhotoBankPhoto | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number } | null>(null);
+  const [isLandscape, setIsLandscape] = useState(false);
   
   const handlePhotoClick = (photo: PhotoBankPhoto, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -101,16 +103,78 @@ const PhotoBankTab = ({
       e.preventDefault();
       
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => Math.max(0.5, Math.min(5, prev + delta)));
+      setZoom(prev => Math.max(1, Math.min(2, prev + delta)));
     };
 
+    const checkOrientation = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
+
+    checkOrientation();
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
     };
   }, [viewPhoto, hasPrev, hasNext]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setTouchStart({
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        time: Date.now()
+      });
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart || !viewPhoto) return;
+
+    const touchEnd = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY,
+      time: Date.now()
+    };
+
+    const deltaX = touchEnd.x - touchStart.x;
+    const deltaY = touchEnd.y - touchStart.y;
+    const deltaTime = touchEnd.time - touchStart.time;
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
+
+    if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
+      return;
+    }
+
+    if (absDeltaX > absDeltaY && absDeltaX > 50) {
+      if (deltaX > 0 && hasPrev) {
+        handleNavigate('prev');
+        setZoom(1);
+      } else if (deltaX < 0 && hasNext) {
+        handleNavigate('next');
+        setZoom(1);
+      }
+    } else if (absDeltaY > absDeltaX && absDeltaY > 30) {
+      if (deltaY < 0) {
+        setZoom(prev => Math.min(2, prev + 0.1));
+      } else {
+        setZoom(prev => Math.max(1, prev - 0.1));
+      }
+    }
+
+    setTouchStart(null);
+  };
+
+  const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setZoom(1);
+  };
 
   return (
     <div className="grid grid-cols-[250px_1fr] flex-1 overflow-hidden">
@@ -245,25 +309,36 @@ const PhotoBankTab = ({
       </div>
 
       <Dialog open={!!viewPhoto} onOpenChange={() => { setViewPhoto(null); setZoom(1); }}>
-        <DialogContent hideCloseButton className="max-w-[98vw] max-h-[98vh] w-auto h-auto p-0 bg-black/95 border-0">
+        <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none">
           {viewPhoto && (
             <div className="relative w-full h-full flex items-center justify-center">
-              <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
-                <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  {currentPhotoIndex + 1} / {photoBankPhotos.length}
-                </div>
-                <div className="flex items-center gap-2">
+              {!isLandscape && (
+                <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
                   <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                    {Math.round(zoom * 100)}%
+                    {currentPhotoIndex + 1} / {photoBankPhotos.length}
                   </div>
-                  <button
-                    onClick={() => setViewPhoto(null)}
-                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-                  >
-                    <Icon name="X" size={24} className="text-white" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                      {Math.round(zoom * 100)}%
+                    </div>
+                    <button
+                      onClick={() => setViewPhoto(null)}
+                      className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                    >
+                      <Icon name="X" size={24} className="text-white" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {isLandscape && (
+                <button
+                  onClick={() => setViewPhoto(null)}
+                  className="absolute top-2 right-2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                >
+                  <Icon name="X" size={20} className="text-white" />
+                </button>
+              )}
 
               {hasPrev && (
                 <button
@@ -283,20 +358,32 @@ const PhotoBankTab = ({
                 </button>
               )}
               
-              <div className="relative w-full h-[calc(100vh-120px)] flex items-center justify-center overflow-auto p-4">
+              <div 
+                className="relative w-full h-full flex items-center justify-center overflow-auto"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
                 <img
                   src={viewPhoto.s3_url || viewPhoto.data_url || ''}
                   alt={viewPhoto.file_name}
-                  className="object-contain rounded-lg cursor-move transition-transform duration-200"
+                  className="object-contain cursor-move transition-transform duration-200 select-none"
                   style={{
                     transform: `scale(${zoom})`,
-                    maxWidth: zoom > 1 ? 'none' : '100%',
-                    maxHeight: zoom > 1 ? 'none' : '90vh'
+                    maxWidth: '100%',
+                    maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)'
                   }}
+                  onDoubleClick={handleDoubleTap}
+                  onTouchEnd={(e) => {
+                    if (e.timeStamp - (touchStart?.time || 0) < 300) {
+                      handleDoubleTap(e);
+                    }
+                  }}
+                  draggable={false}
                 />
               </div>
 
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6">
+              {!isLandscape && (
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 md:p-6">
                 <p className="text-white font-medium text-lg mb-2">{viewPhoto.file_name}</p>
                 <div className="flex items-center gap-4 text-white/70 text-sm mb-4">
                   <span>{formatBytes(viewPhoto.file_size)}</span>
@@ -330,6 +417,7 @@ const PhotoBankTab = ({
                   )}
                 </Button>
               </div>
+              )}
             </div>
           )}
         </DialogContent>
