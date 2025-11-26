@@ -216,7 +216,7 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
     };
   }, [isActive, currentStep, currentPage]);
 
-  const playSound = (type: 'next' | 'complete' | 'skip') => {
+  const playSound = (type: 'next' | 'complete' | 'skip' | 'back') => {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -245,6 +245,12 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.15);
+    } else if (type === 'back') {
+      oscillator.frequency.setValueAtTime(700, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(550, audioContext.currentTime + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
     }
   };
 
@@ -271,6 +277,19 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
     } else {
       playSound('complete');
       completeTour();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      playSound('back');
+      const prevStep = TOUR_STEPS[currentStep - 1];
+      
+      if (prevStep.page && prevStep.page !== currentPage) {
+        onPageChange(prevStep.page);
+      }
+      
+      setCurrentStep(currentStep - 1);
     }
   };
 
@@ -445,6 +464,19 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
                 <Icon name="X" size={16} />
               </span>
             </Button>
+            
+            {currentStep > 0 && (
+              <Button
+                onClick={handleBack}
+                variant="outline"
+                size="sm"
+                className="text-xs md:text-sm px-2 md:px-3"
+              >
+                <Icon name="ArrowLeft" size={16} className="mr-0 md:mr-1" />
+                <span className="hidden md:inline">Назад</span>
+              </Button>
+            )}
+            
             <Button
               onClick={handleNext}
               size="sm"
