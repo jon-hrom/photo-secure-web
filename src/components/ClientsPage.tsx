@@ -243,7 +243,7 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
           onSelectClient={dialogsState.openDetailDialog}
         />
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_350px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(240px,280px)_1fr] xl:grid-cols-[minmax(240px,280px)_minmax(400px,1fr)_minmax(300px,380px)] gap-4 lg:gap-6">
           <div className="xl:order-1">
             <ClientsFilterSidebar
               activeFilter={activeFilter}
@@ -262,7 +262,7 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
             />
           </div>
 
-          <div className="xl:order-3">
+          <div className="xl:order-3 hidden xl:block">
             <ClientsCalendarSection
               selectedDate={dialogsState.selectedDate}
               allBookedDates={allBookedDates}
@@ -324,11 +324,6 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
         clients={clients}
         filteredClients={filteredClients}
       />
-
-      {/* Индикатор версии для проверки обновления */}
-      <div className="fixed bottom-4 right-4 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-mono shadow-lg border border-purple-200 z-50">
-        v2.1 • Центр
-      </div>
     </div>
   );
 };
