@@ -243,7 +243,13 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
           onSelectClient={dialogsState.openDetailDialog}
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_1fr] gap-6">
+          <ClientsFilterSidebar
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            clients={clients}
+          />
+
           <ClientsListSection
             filteredClients={filteredClients}
             onSelectClient={dialogsState.openDetailDialog}
@@ -252,22 +258,14 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
             onAddBooking={dialogsState.openBookingDialog}
           />
 
-          <div className="space-y-6">
-            <ClientsFilterSidebar
-              activeFilter={activeFilter}
-              onFilterChange={setActiveFilter}
-              clients={clients}
-            />
-
-            <ClientsCalendarSection
-              selectedDate={dialogsState.selectedDate}
-              allBookedDates={allBookedDates}
-              onDateClick={handlers.handleDateClick}
-              selectedClient={dialogsState.selectedClient}
-              onMessageClient={dialogsState.openMessageDialog}
-              clients={clients}
-            />
-          </div>
+          <ClientsCalendarSection
+            selectedDate={dialogsState.selectedDate}
+            allBookedDates={allBookedDates}
+            onDateClick={handlers.handleDateClick}
+            selectedClient={dialogsState.selectedClient}
+            onMessageClient={dialogsState.openMessageDialog}
+            clients={clients}
+          />
         </div>
       )}
 

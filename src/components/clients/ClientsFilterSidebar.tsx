@@ -92,7 +92,7 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
   ];
 
   return (
-    <Card className="border-purple-200/50 shadow-lg">
+    <Card className="border-purple-200/50 shadow-lg sticky top-6">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold">Быстрые представления</h3>
