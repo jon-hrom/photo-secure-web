@@ -51,7 +51,7 @@ const PhotoBankTab = ({
 }: PhotoBankTabProps) => {
   const [viewPhoto, setViewPhoto] = useState<PhotoBankPhoto | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number } | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
   const [isLandscape, setIsLandscape] = useState(false);
   
   const handlePhotoClick = (photo: PhotoBankPhoto, e: React.MouseEvent) => {
@@ -124,17 +124,31 @@ const PhotoBankTab = ({
   }, [viewPhoto, hasPrev, hasNext]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
+    const touchCount = e.touches.length;
+    if (touchCount === 1) {
       setTouchStart({
         x: e.touches[0].clientX,
         y: e.touches[0].clientY,
-        time: Date.now()
+        time: Date.now(),
+        touches: touchCount
+      });
+    } else if (touchCount > 1) {
+      setTouchStart({
+        x: 0,
+        y: 0,
+        time: Date.now(),
+        touches: touchCount
       });
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!touchStart || !viewPhoto) return;
+
+    if (touchStart.touches > 1) {
+      setTouchStart(null);
+      return;
+    }
 
     const touchEnd = {
       x: e.changedTouches[0].clientX,
@@ -149,6 +163,7 @@ const PhotoBankTab = ({
     const absDeltaY = Math.abs(deltaY);
 
     if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
+      setTouchStart(null);
       return;
     }
 
@@ -160,11 +175,12 @@ const PhotoBankTab = ({
         handleNavigate('next');
         setZoom(1);
       }
-    } else if (absDeltaY > absDeltaX && absDeltaY > 30) {
+    } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
+      const zoomSteps = Math.floor(absDeltaY / 50);
       if (deltaY < 0) {
-        setZoom(prev => Math.min(2, prev + 0.1));
+        setZoom(prev => Math.min(2, prev + (zoomSteps * 0.15)));
       } else {
-        setZoom(prev => Math.max(1, prev - 0.1));
+        setZoom(prev => Math.max(1, prev - (zoomSteps * 0.15)));
       }
     }
 
