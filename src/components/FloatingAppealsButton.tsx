@@ -270,21 +270,35 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-xl">
-              <Icon name="Mail" size={28} className="text-blue-600" />
-              Обращения пользователей
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="text-sm px-3 py-1">
-                  {unreadCount} новых
-                </Badge>
-              )}
-            </DialogTitle>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden sm:max-w-[95vw]">
+          <DialogHeader className="border-b pb-3">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 sm:gap-3 text-base sm:text-xl">
+                <Icon name="Mail" size={24} className="text-blue-600 sm:hidden" />
+                <Icon name="Mail" size={28} className="text-blue-600 hidden sm:block" />
+                <span className="hidden sm:inline">Обращения пользователей</span>
+                <span className="sm:hidden">Обращения</span>
+                {unreadCount > 0 && (
+                  <Badge variant="destructive" className="text-xs sm:text-sm px-2 sm:px-3 py-1">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDialog(false)}
+                className="sm:hidden h-8 w-8 p-0"
+              >
+                <Icon name="X" size={20} />
+              </Button>
+            </div>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-4 h-[calc(85vh-120px)]">
-            <ScrollArea className="h-full pr-3">
+          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4 h-[calc(85vh-120px)]">
+            <ScrollArea className={`h-full pr-0 sm:pr-3 ${
+              selectedAppeal ? 'hidden sm:block' : 'block'
+            }`}>
               <div className="space-y-3">
                 {appeals.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
@@ -301,7 +315,7 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
                           markAsRead(appeal.id);
                         }
                       }}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      className={`p-3 sm:p-4 rounded-xl border-2 cursor-pointer transition-all ${
                         selectedAppeal?.id === appeal.id
                           ? 'bg-blue-50 border-blue-400 shadow-lg scale-[1.02]'
                           : appeal.is_read
@@ -309,27 +323,27 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
                           : 'bg-amber-50 border-amber-400 hover:border-amber-500 shadow-md'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-start justify-between mb-1 sm:mb-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
                           <Icon 
                             name={appeal.is_blocked ? 'ShieldAlert' : 'CheckCircle'} 
-                            size={20} 
-                            className={appeal.is_blocked ? 'text-red-600' : 'text-green-600'}
+                            size={16} 
+                            className={`shrink-0 sm:w-5 sm:h-5 ${appeal.is_blocked ? 'text-red-600' : 'text-green-600'}`}
                           />
-                          <span className="font-semibold text-sm">
+                          <span className="font-semibold text-xs sm:text-sm truncate">
                             {appeal.user_email || appeal.user_identifier}
                           </span>
                         </div>
                         {!appeal.is_read && (
-                          <Badge variant="destructive" className="text-xs">Новое</Badge>
+                          <Badge variant="destructive" className="text-xs shrink-0">Новое</Badge>
                         )}
                       </div>
 
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-1.5 sm:mb-2">
                         {appeal.message}
                       </p>
 
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground gap-2">
                         <span>{formatDate(appeal.created_at)}</span>
                         {appeal.admin_response && (
                           <Badge variant="outline" className="text-xs">
@@ -344,17 +358,29 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
               </div>
             </ScrollArea>
 
-            <div className="border-l-2 pl-4">
+            <div className={`border-l-0 sm:border-l-2 pl-0 sm:pl-4 ${
+              selectedAppeal ? 'block' : 'hidden sm:block'
+            }`}>
               {selectedAppeal ? (
                 <div className="h-full flex flex-col">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedAppeal(null)}
+                    className="sm:hidden mb-3 self-start -ml-2"
+                  >
+                    <Icon name="ArrowLeft" size={20} className="mr-2" />
+                    Назад
+                  </Button>
                   <div className="flex-1 overflow-auto">
-                    <div className="mb-4 pb-4 border-b">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Icon name="User" size={20} className="text-blue-600" />
-                        <h3 className="font-bold text-lg">{selectedAppeal.user_email || selectedAppeal.user_identifier}</h3>
+                    <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b">
+                      <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                        <Icon name="User" size={18} className="text-blue-600 sm:hidden" />
+                        <Icon name="User" size={20} className="text-blue-600 hidden sm:block" />
+                        <h3 className="font-bold text-base sm:text-lg truncate">{selectedAppeal.user_email || selectedAppeal.user_identifier}</h3>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm mb-3 sm:mb-4">
                         <div className="flex items-center gap-2">
                           <Icon name="Mail" size={16} className="text-muted-foreground" />
                           <span>{selectedAppeal.user_email || 'Нет email'}</span>
@@ -377,18 +403,18 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
                         </div>
                       )}
 
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="font-semibold text-sm text-blue-900 mb-2">Сообщение от пользователя:</p>
-                        <p className="text-sm text-blue-800 whitespace-pre-wrap">{selectedAppeal.message}</p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                        <p className="font-semibold text-xs sm:text-sm text-blue-900 mb-2">Сообщение от пользователя:</p>
+                        <p className="text-xs sm:text-sm text-blue-800 whitespace-pre-wrap break-words">{selectedAppeal.message}</p>
                       </div>
 
                       {selectedAppeal.admin_response && (
-                        <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="mt-3 sm:mt-4 bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
                           <div className="flex items-center gap-2 mb-2">
                             <Icon name="CheckCircle" size={18} className="text-green-600" />
-                            <p className="font-semibold text-sm text-green-900">Ваш ответ:</p>
+                            <p className="font-semibold text-xs sm:text-sm text-green-900">Ваш ответ:</p>
                           </div>
-                          <p className="text-sm text-green-800 whitespace-pre-wrap">{selectedAppeal.admin_response}</p>
+                          <p className="text-xs sm:text-sm text-green-800 whitespace-pre-wrap break-words">{selectedAppeal.admin_response}</p>
                           <p className="text-xs text-green-600 mt-2">
                             Отправлено: {formatDate(selectedAppeal.responded_at!)}
                           </p>
@@ -397,8 +423,8 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
                     </div>
                   </div>
 
-                  <div className="mt-auto pt-4 border-t">
-                    <Label htmlFor="response" className="text-sm font-semibold mb-2 block">
+                  <div className="mt-auto pt-3 sm:pt-4 border-t">
+                    <Label htmlFor="response" className="text-xs sm:text-sm font-semibold mb-2 block">
                       Ответ пользователю (будет отправлен на email):
                     </Label>
                     <Textarea
@@ -406,24 +432,26 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
                       value={responseText}
                       onChange={(e) => setResponseText(e.target.value)}
                       placeholder="Напишите ответ пользователю..."
-                      className="min-h-[120px] resize-none mb-3"
+                      className="min-h-[100px] sm:min-h-[120px] resize-none mb-3 text-sm"
                       disabled={loading}
                     />
                     <Button
                       onClick={() => sendResponse(selectedAppeal)}
                       disabled={loading || !responseText.trim()}
-                      className="w-full"
-                      size="lg"
+                      className="w-full text-sm sm:text-base"
+                      size="default"
                     >
                       {loading ? (
                         <>
-                          <Icon name="Loader2" size={18} className="mr-2 animate-spin" />
-                          Отправка...
+                          <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
+                          <span className="hidden sm:inline">Отправка...</span>
+                          <span className="sm:hidden">Отправка</span>
                         </>
                       ) : (
                         <>
-                          <Icon name="Send" size={18} className="mr-2" />
-                          Отправить ответ на email
+                          <Icon name="Send" size={16} className="mr-2" />
+                          <span className="hidden sm:inline">Отправить ответ на email</span>
+                          <span className="sm:hidden">Отправить</span>
                         </>
                       )}
                     </Button>
