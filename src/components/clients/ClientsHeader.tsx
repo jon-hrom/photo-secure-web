@@ -160,7 +160,7 @@ const ClientsHeader = ({
             onClick={() => setStatusFilter('active')}
             className={`text-xs sm:text-sm rounded-full transition-all hover:scale-105 active:scale-95 ${
               statusFilter === 'active'
-                ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border-emerald-200/50 hover:from-emerald-200 hover:to-green-200'
+                ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-gray-900 font-semibold border-emerald-200/50 hover:from-emerald-200 hover:to-green-200'
                 : 'hover:bg-emerald-50 hover:border-emerald-200'
             }`}
           >
