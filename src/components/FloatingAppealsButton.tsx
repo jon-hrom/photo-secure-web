@@ -2,38 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
-
-interface Appeal {
-  id: number;
-  user_identifier: string;
-  user_email: string | null;
-  user_phone: string | null;
-  auth_method: string;
-  message: string;
-  block_reason: string | null;
-  is_blocked: boolean;
-  is_read: boolean;
-  is_archived: boolean;
-  created_at: string;
-  read_at: string | null;
-  admin_response: string | null;
-  responded_at: string | null;
-}
-
-interface GroupedAppeals {
-  userIdentifier: string;
-  userEmail: string | null;
-  appeals: Appeal[];
-  totalCount: number;
-  unreadCount: number;
-  isBlocked: boolean;
-  latestDate: string;
-}
+import { Appeal, GroupedAppeals } from './appeals/types';
+import AppealsListSidebar from './appeals/AppealsListSidebar';
+import AppealDetail from './appeals/AppealDetail';
 
 interface FloatingAppealsButtonProps {
   userId: number;
@@ -425,301 +398,37 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
             </div>
           </DialogHeader>
 
-          <div className="flex items-center gap-2 mb-3 px-1">
-            <Button
-              variant={showArchived ? 'outline' : 'default'}
-              size="sm"
-              onClick={() => setShowArchived(false)}
-              className="text-xs"
-            >
-              <Icon name="Inbox" size={14} className="mr-1" />
-              Активные
-            </Button>
-            <Button
-              variant={showArchived ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowArchived(true)}
-              className="text-xs"
-            >
-              <Icon name="Archive" size={14} className="mr-1" />
-              Архив
-            </Button>
-          </div>
-
           <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4 h-[calc(85vh-160px)]">
-            <ScrollArea className={`h-full pr-0 sm:pr-3 ${
-              selectedAppeal ? 'hidden sm:block' : 'block'
-            }`}>
-              <div className="space-y-2">
-                {appeals.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Icon name="Inbox" size={48} className="mx-auto mb-4 opacity-30" />
-                    <p>Нет обращений</p>
-                  </div>
-                ) : (
-                  (() => {
-                    const filteredAppeals = appeals.filter(a => 
-                      showArchived ? a.is_archived : !a.is_archived
-                    );
-                    const grouped = groupAppealsByUser(filteredAppeals);
-                    
-                    return grouped.map((group) => (
-                      <div key={group.userIdentifier} className="border rounded-lg overflow-hidden">
-                        <div
-                          onClick={() => {
-                            if (expandedUser === group.userIdentifier) {
-                              setExpandedUser(null);
-                            } else {
-                              setExpandedUser(group.userIdentifier);
-                            }
-                          }}
-                          className={`p-3 cursor-pointer transition-colors ${
-                            group.unreadCount > 0
-                              ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-400'
-                              : 'bg-gray-50 hover:bg-gray-100'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <Icon 
-                                name={expandedUser === group.userIdentifier ? 'ChevronDown' : 'ChevronRight'} 
-                                size={16}
-                                className="shrink-0"
-                              />
-                              <Icon 
-                                name={group.isBlocked ? 'ShieldAlert' : 'User'} 
-                                size={16} 
-                                className={`shrink-0 ${group.isBlocked ? 'text-red-600' : 'text-blue-600'}`}
-                              />
-                              <span className="font-semibold text-xs sm:text-sm truncate">
-                                {group.userEmail || group.userIdentifier}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {group.unreadCount > 0 && (
-                                <Badge variant="destructive" className="text-xs">
-                                  {group.unreadCount}
-                                </Badge>
-                              )}
-                              <Badge variant="outline" className="text-xs">
-                                {group.totalCount}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-
-                        {expandedUser === group.userIdentifier && (
-                          <div className="border-t">
-                            <div className="p-2 bg-muted/50 flex items-center gap-1 border-b">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  markAllAsRead(group.userIdentifier);
-                                }}
-                                disabled={loading || group.unreadCount === 0}
-                                className="h-7 text-xs"
-                              >
-                                <Icon name="CheckCheck" size={12} className="mr-1" />
-                                Все прочитано
-                              </Button>
-                            </div>
-                            {group.appeals.map((appeal) => (
-                              <div
-                                key={appeal.id}
-                                onClick={() => {
-                                  setSelectedAppeal(appeal);
-                                  if (!appeal.is_read) {
-                                    markAsRead(appeal.id);
-                                  }
-                                }}
-                                className={`p-3 cursor-pointer transition-colors border-b last:border-b-0 ${
-                                  selectedAppeal?.id === appeal.id
-                                    ? 'bg-blue-100'
-                                    : !appeal.is_read
-                                    ? 'bg-amber-50 hover:bg-amber-100'
-                                    : 'bg-white hover:bg-gray-50'
-                                }`}
-                              >
-                                <div className="flex items-start justify-between mb-1">
-                                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 flex-1">
-                                    {appeal.message}
-                                  </p>
-                                  {!appeal.is_read && (
-                                    <Badge variant="destructive" className="text-xs ml-2 shrink-0">Новое</Badge>
-                                  )}
-                                </div>
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>{formatDate(appeal.created_at)}</span>
-                                  {appeal.admin_response && (
-                                    <Badge variant="outline" className="text-xs">
-                                      <Icon name="CheckCheck" size={10} className="mr-1" />
-                                      Отвечено
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ));
-                  })()
-                )}
-              </div>
-            </ScrollArea>
+            <AppealsListSidebar
+              appeals={appeals}
+              showArchived={showArchived}
+              selectedAppeal={selectedAppeal}
+              expandedUser={expandedUser}
+              loading={loading}
+              onToggleArchive={setShowArchived}
+              onSelectAppeal={setSelectedAppeal}
+              onToggleUserExpanded={setExpandedUser}
+              onMarkAsRead={markAsRead}
+              onMarkAllAsRead={markAllAsRead}
+              groupAppealsByUser={groupAppealsByUser}
+              formatDate={formatDate}
+            />
 
             <div className={`border-l-0 sm:border-l-2 pl-0 sm:pl-4 ${
               selectedAppeal ? 'block' : 'hidden sm:block'
             }`}>
-              {selectedAppeal ? (
-                <div className="h-full flex flex-col">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedAppeal(null)}
-                    className="sm:hidden mb-3 self-start -ml-2"
-                  >
-                    <Icon name="ArrowLeft" size={20} className="mr-2" />
-                    Назад
-                  </Button>
-                  <div className="flex-1 overflow-auto">
-                    <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b">
-                      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <Icon name="User" size={18} className="text-blue-600 sm:hidden" />
-                          <Icon name="User" size={20} className="text-blue-600 hidden sm:block" />
-                          <h3 className="font-bold text-base sm:text-lg truncate">{selectedAppeal.user_email || selectedAppeal.user_identifier}</h3>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {!selectedAppeal.is_read && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => markAsRead(selectedAppeal.id)}
-                              disabled={loading}
-                              className="h-7 text-xs"
-                              title="Отметить как прочитанное"
-                            >
-                              <Icon name="Check" size={12} />
-                            </Button>
-                          )}
-                          {!selectedAppeal.is_archived ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => archiveAppeal(selectedAppeal.id)}
-                              disabled={loading}
-                              className="h-7 text-xs"
-                              title="В архив"
-                            >
-                              <Icon name="Archive" size={12} />
-                            </Button>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">
-                              <Icon name="Archive" size={10} className="mr-1" />
-                              В архиве
-                            </Badge>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => deleteAppeal(selectedAppeal.id)}
-                            disabled={loading}
-                            className="h-7 text-xs text-red-600 hover:text-red-700"
-                            title="Удалить обращение"
-                          >
-                            <Icon name="Trash2" size={12} />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm mb-3 sm:mb-4">
-                        <div className="flex items-center gap-2">
-                          <Icon name="Mail" size={16} className="text-muted-foreground" />
-                          <span>{selectedAppeal.user_email || 'Нет email'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Icon name="Clock" size={16} className="text-muted-foreground" />
-                          <span>{formatDate(selectedAppeal.created_at)}</span>
-                        </div>
-                      </div>
-
-                      {selectedAppeal.is_blocked && selectedAppeal.block_reason && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                          <div className="flex items-start gap-2">
-                            <Icon name="ShieldAlert" size={18} className="text-red-600 mt-0.5" />
-                            <div>
-                              <p className="font-semibold text-sm text-red-900 mb-1">Причина блокировки:</p>
-                              <p className="text-sm text-red-700">{selectedAppeal.block_reason}</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-                        <p className="font-semibold text-xs sm:text-sm text-blue-900 mb-2">Сообщение от пользователя:</p>
-                        <p className="text-xs sm:text-sm text-blue-800 whitespace-pre-wrap break-words">{selectedAppeal.message}</p>
-                      </div>
-
-                      {selectedAppeal.admin_response && (
-                        <div className="mt-3 sm:mt-4 bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Icon name="CheckCircle" size={18} className="text-green-600" />
-                            <p className="font-semibold text-xs sm:text-sm text-green-900">Ваш ответ:</p>
-                          </div>
-                          <p className="text-xs sm:text-sm text-green-800 whitespace-pre-wrap break-words">{selectedAppeal.admin_response}</p>
-                          <p className="text-xs text-green-600 mt-2">
-                            Отправлено: {formatDate(selectedAppeal.responded_at!)}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-auto pt-3 sm:pt-4 border-t">
-                    <Label htmlFor="response" className="text-xs sm:text-sm font-semibold mb-2 block">
-                      Ответ пользователю (будет отправлен на email):
-                    </Label>
-                    <Textarea
-                      id="response"
-                      value={responseText}
-                      onChange={(e) => setResponseText(e.target.value)}
-                      placeholder="Напишите ответ пользователю..."
-                      className="min-h-[100px] sm:min-h-[120px] resize-none mb-3 text-sm"
-                      disabled={loading}
-                    />
-                    <Button
-                      onClick={() => sendResponse(selectedAppeal)}
-                      disabled={loading || !responseText.trim()}
-                      className="w-full text-sm sm:text-base"
-                      size="default"
-                    >
-                      {loading ? (
-                        <>
-                          <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-                          <span className="hidden sm:inline">Отправка...</span>
-                          <span className="sm:hidden">Отправка</span>
-                        </>
-                      ) : (
-                        <>
-                          <Icon name="Send" size={16} className="mr-2" />
-                          <span className="hidden sm:inline">Отправить ответ на email</span>
-                          <span className="sm:hidden">Отправить</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <Icon name="MousePointerClick" size={48} className="mx-auto mb-4 opacity-30" />
-                    <p>Выберите обращение для просмотра</p>
-                  </div>
-                </div>
-              )}
+              <AppealDetail
+                selectedAppeal={selectedAppeal}
+                responseText={responseText}
+                loading={loading}
+                onBack={() => setSelectedAppeal(null)}
+                onMarkAsRead={markAsRead}
+                onArchive={archiveAppeal}
+                onDelete={deleteAppeal}
+                onResponseChange={setResponseText}
+                onSendResponse={sendResponse}
+                formatDate={formatDate}
+              />
             </div>
           </div>
         </DialogContent>
