@@ -332,7 +332,19 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
       
       {targetRect && (
         <>
-
+          <div
+            className="fixed pointer-events-none"
+            style={{
+              top: `${targetRect.top + window.scrollY - 8}px`,
+              left: `${targetRect.left + window.scrollX - 8}px`,
+              width: `${targetRect.width + 16}px`,
+              height: `${targetRect.height + 16}px`,
+              zIndex: 10000,
+              background: 'rgba(255, 255, 255, 0.3)',
+              backdropFilter: 'blur(0px)',
+              borderRadius: '12px'
+            }}
+          />
           
           <div
             className="fixed border-4 border-primary rounded-xl pointer-events-none animate-pulse"
