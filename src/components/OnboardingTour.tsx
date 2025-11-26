@@ -18,9 +18,10 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
     const tourCompleted = localStorage.getItem('onboardingTourCompleted');
     const tourDisabled = localStorage.getItem('onboardingTourDisabled');
     
-    if (!tourCompleted && !tourDisabled) {
-      setTimeout(() => setIsActive(true), 500);
-    }
+    // Временно отключаем автозапуск для отладки
+    // if (!tourCompleted && !tourDisabled) {
+    //   setTimeout(() => setIsActive(true), 500);
+    // }
   }, []);
 
   useEffect(() => {

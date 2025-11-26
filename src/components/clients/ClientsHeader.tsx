@@ -69,30 +69,32 @@ const ClientsHeader = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onGoBack}
-              disabled={!canGoBack}
-              className="h-8 px-3 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
-              title="Назад"
-            >
-              <Icon name="ChevronLeft" size={18} />
-              <span className="text-sm">Назад</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onGoForward}
-              disabled={!canGoForward}
-              className="h-8 px-3 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
-              title="Вперёд"
-            >
-              <span className="text-sm">Вперёд</span>
-              <Icon name="ChevronRight" size={18} />
-            </Button>
-          </div>
+          {(onGoBack || onGoForward) && (
+            <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onGoBack}
+                disabled={!canGoBack}
+                className="h-8 px-2 sm:px-3 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+                title="Назад"
+              >
+                <Icon name="ChevronLeft" size={18} />
+                <span className="text-sm hidden sm:inline">Назад</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onGoForward}
+                disabled={!canGoForward}
+                className="h-8 px-2 sm:px-3 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+                title="Вперёд"
+              >
+                <span className="text-sm hidden sm:inline">Вперёд</span>
+                <Icon name="ChevronRight" size={18} />
+              </Button>
+            </div>
+          )
           
           <ClientDialogs
             isAddDialogOpen={isAddDialogOpen}
