@@ -332,18 +332,7 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
       
       {targetRect && (
         <>
-          <div
-            className="fixed pointer-events-none"
-            style={{
-              top: `${targetRect.top + window.scrollY}px`,
-              left: `${targetRect.left + window.scrollX}px`,
-              width: `${targetRect.width}px`,
-              height: `${targetRect.height}px`,
-              zIndex: 10000,
-              background: 'white',
-              borderRadius: '12px'
-            }}
-          />
+
           
           <div
             className="fixed border-4 border-primary rounded-xl pointer-events-none animate-pulse"
@@ -360,7 +349,7 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
 
       <div
         style={tooltipStyle}
-        className="bg-transparent rounded-2xl shadow-2xl p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="bg-white rounded-2xl shadow-2xl p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300"
       >
         <div className="flex items-start gap-2 md:gap-3 mb-3 md:mb-4">
           <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
