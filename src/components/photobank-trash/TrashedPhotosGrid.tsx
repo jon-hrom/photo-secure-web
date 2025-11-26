@@ -60,6 +60,7 @@ const TrashedPhotosGrid = ({
   formatDate
 }: TrashedPhotosGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<TrashedPhoto | null>(null);
+  const [zoom, setZoom] = useState(1);
   
   const handlePhotoClick = (photo: TrashedPhoto) => {
     if (!selectionMode) {
@@ -98,15 +99,30 @@ const TrashedPhotosGrid = ({
       
       if (e.key === 'Escape') {
         setViewPhoto(null);
+        setZoom(1);
       } else if (e.key === 'ArrowLeft' && hasPrev) {
         handleNavigate('prev');
+        setZoom(1);
       } else if (e.key === 'ArrowRight' && hasNext) {
         handleNavigate('next');
+        setZoom(1);
       }
     };
 
+    const handleWheel = (e: WheelEvent) => {
+      if (!viewPhoto) return;
+      e.preventDefault();
+      
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom(prev => Math.max(0.5, Math.min(5, prev + delta)));
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('wheel', handleWheel);
+    };
   }, [viewPhoto, hasPrev, hasNext]);
 
   if (photos.length === 0) return null;
@@ -314,25 +330,30 @@ const TrashedPhotosGrid = ({
         )}
       </CardContent>
 
-      <Dialog open={!!viewPhoto} onOpenChange={() => setViewPhoto(null)}>
-        <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0 bg-black/95 border-0">
+      <Dialog open={!!viewPhoto} onOpenChange={() => { setViewPhoto(null); setZoom(1); }}>
+        <DialogContent hideCloseButton className="max-w-[98vw] max-h-[98vh] w-auto h-auto p-0 bg-black/95 border-0">
           {viewPhoto && (
             <div className="relative w-full h-full flex items-center justify-center">
               <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
                 <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
                   {currentPhotoIndex + 1} / {filteredAndSortedPhotos.length}
                 </div>
-                <button
-                  onClick={() => setViewPhoto(null)}
-                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-                >
-                  <Icon name="X" size={24} className="text-white" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                    {Math.round(zoom * 100)}%
+                  </div>
+                  <button
+                    onClick={() => setViewPhoto(null)}
+                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                  >
+                    <Icon name="X" size={24} className="text-white" />
+                  </button>
+                </div>
               </div>
 
               {hasPrev && (
                 <button
-                  onClick={() => handleNavigate('prev')}
+                  onClick={() => { handleNavigate('prev'); setZoom(1); }}
                   className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
                 >
                   <Icon name="ChevronLeft" size={28} className="text-white" />
@@ -341,18 +362,23 @@ const TrashedPhotosGrid = ({
 
               {hasNext && (
                 <button
-                  onClick={() => handleNavigate('next')}
+                  onClick={() => { handleNavigate('next'); setZoom(1); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
                 >
                   <Icon name="ChevronRight" size={28} className="text-white" />
                 </button>
               )}
               
-              <div className="relative max-w-full max-h-[90vh] flex items-center justify-center p-4">
+              <div className="relative w-full h-[calc(100vh-120px)] flex items-center justify-center overflow-auto p-4">
                 <img
                   src={viewPhoto.s3_url || ''}
                   alt={viewPhoto.file_name}
-                  className="max-w-full max-h-[85vh] object-contain rounded-lg"
+                  className="object-contain rounded-lg cursor-move transition-transform duration-200"
+                  style={{
+                    transform: `scale(${zoom})`,
+                    maxWidth: zoom > 1 ? 'none' : '100%',
+                    maxHeight: zoom > 1 ? 'none' : '90vh'
+                  }}
                 />
               </div>
 
