@@ -324,6 +324,11 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
         clients={clients}
         filteredClients={filteredClients}
       />
+
+      {/* Индикатор версии для проверки обновления */}
+      <div className="fixed bottom-4 right-4 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-mono shadow-lg border border-purple-200 z-50">
+        v2.1 • Центр
+      </div>
     </div>
   );
 };
