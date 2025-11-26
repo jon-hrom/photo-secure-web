@@ -32,6 +32,10 @@ interface PhotoBankHeaderProps {
   onStartSelection: () => void;
   onShowCreateFolder: () => void;
   onShowClearConfirm: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  onGoBack?: () => void;
+  onGoForward?: () => void;
 }
 
 const PhotoBankHeader = ({
@@ -45,21 +49,54 @@ const PhotoBankHeader = ({
   onCancelSelection,
   onStartSelection,
   onShowCreateFolder,
-  onShowClearConfirm
+  onShowClearConfirm,
+  canGoBack = false,
+  canGoForward = false,
+  onGoBack,
+  onGoForward,
 }: PhotoBankHeaderProps) => {
   const navigate = useNavigate();
   
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={onNavigateBack}
-        >
-          <Icon name="ArrowLeft" size={24} />
-        </Button>
-        <h1 className="text-3xl font-bold">Мой фото банк</h1>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={onNavigateBack}
+          >
+            <Icon name="ArrowLeft" size={24} />
+          </Button>
+          <h1 className="text-3xl font-bold">Мой фото банк</h1>
+        </div>
+        
+        {(onGoBack || onGoForward) && (
+          <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onGoBack}
+              disabled={!canGoBack}
+              className="h-8 px-2 sm:px-3 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+              title="Назад"
+            >
+              <Icon name="ChevronLeft" size={18} />
+              <span className="text-sm hidden sm:inline">Назад</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onGoForward}
+              disabled={!canGoForward}
+              className="h-8 px-2 sm:px-3 rounded-full hover:bg-accent disabled:opacity-30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+              title="Вперёд"
+            >
+              <span className="text-sm hidden sm:inline">Вперёд</span>
+              <Icon name="ChevronRight" size={18} />
+            </Button>
+          </div>
+        )}
       </div>
       <div className="flex gap-2">
         {selectionMode && (

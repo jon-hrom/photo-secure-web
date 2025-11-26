@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIndicator';
 import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
@@ -9,6 +9,7 @@ import MobileNavigation from '@/components/layout/MobileNavigation';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
+import { usePhotoBankNavigationHistory } from '@/hooks/usePhotoBankNavigationHistory';
 import { isAdminUser } from '@/utils/adminCheck';
 
 const PhotoBank = () => {
@@ -81,6 +82,8 @@ const PhotoBank = () => {
     
     checkAuth();
   }, [navigate]);
+
+  const navigation = usePhotoBankNavigationHistory();
 
   const {
     folders,
@@ -205,6 +208,35 @@ const PhotoBank = () => {
     }
   }, [selectedFolder]);
 
+  // Сохранение состояния навигации
+  useEffect(() => {
+    if (folders.length > 0) {
+      navigation.pushState({
+        selectedFolderId: selectedFolder?.id || null,
+        selectionMode,
+      });
+    }
+  }, [selectedFolder?.id, selectionMode, folders.length, navigation]);
+
+  // Обработчики навигации
+  const handleGoBack = useCallback(() => {
+    const prevState = navigation.goBack();
+    if (prevState) {
+      const folder = folders.find(f => f.id === prevState.selectedFolderId);
+      setSelectedFolder(folder || null);
+      setSelectionMode(prevState.selectionMode);
+    }
+  }, [navigation, folders, setSelectedFolder, setSelectionMode]);
+
+  const handleGoForward = useCallback(() => {
+    const nextState = navigation.goForward();
+    if (nextState) {
+      const folder = folders.find(f => f.id === nextState.selectedFolderId);
+      setSelectedFolder(folder || null);
+      setSelectionMode(nextState.selectionMode);
+    }
+  }, [navigation, folders, setSelectedFolder, setSelectionMode]);
+
   if (authChecking || !userId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -248,6 +280,10 @@ const PhotoBank = () => {
           onStartSelection={() => setSelectionMode(true)}
           onShowCreateFolder={() => setShowCreateFolder(true)}
           onShowClearConfirm={() => setShowClearConfirm(true)}
+          canGoBack={navigation.canGoBack}
+          canGoForward={navigation.canGoForward}
+          onGoBack={handleGoBack}
+          onGoForward={handleGoForward}
         />
 
         {!selectedFolder ? (
