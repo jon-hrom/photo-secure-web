@@ -43,6 +43,10 @@ const TourTooltip = ({
         top = targetRect.top + window.scrollY - tooltipHeight - spacing;
       }
       
+      if (top < window.scrollY + spacing) {
+        top = window.scrollY + spacing;
+      }
+      
       return { top, left };
     }
     
@@ -59,6 +63,14 @@ const TourTooltip = ({
       } else if (left + halfWidth > window.innerWidth - spacing) {
         left = window.innerWidth - halfWidth - spacing;
       }
+    }
+    
+    if (top < window.scrollY + spacing) {
+      top = window.scrollY + spacing;
+    }
+    
+    if (top + tooltipHeight > window.innerHeight + window.scrollY - spacing) {
+      top = window.innerHeight + window.scrollY - tooltipHeight - spacing;
     }
     
     return { top, left };
