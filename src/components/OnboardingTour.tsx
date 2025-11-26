@@ -320,43 +320,47 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
 
   return (
     <>
+      <svg className="fixed inset-0 pointer-events-none" style={{ zIndex: 9999 }}>
+        <defs>
+          <mask id="spotlight-mask">
+            <rect width="100%" height="100%" fill="white" />
+            {targetRect && (
+              <rect
+                x={targetRect.left + window.scrollX - 8}
+                y={targetRect.top + window.scrollY - 8}
+                width={targetRect.width + 16}
+                height={targetRect.height + 16}
+                rx="12"
+                fill="black"
+              />
+            )}
+          </mask>
+        </defs>
+        <rect 
+          width="100%" 
+          height="100%" 
+          fill="rgba(0, 0, 0, 0.2)" 
+          mask="url(#spotlight-mask)"
+        />
+      </svg>
+      
       <div 
         className="fixed inset-0"
-        style={{ 
-          zIndex: 9999,
-          background: 'rgba(0, 0, 0, 0.2)',
-          backdropFilter: 'blur(2px)'
-        }}
+        style={{ zIndex: 9999 }}
         onClick={handleSkip}
       />
       
       {targetRect && (
-        <>
-          <div
-            className="fixed pointer-events-none"
-            style={{
-              top: `${targetRect.top + window.scrollY - 8}px`,
-              left: `${targetRect.left + window.scrollX - 8}px`,
-              width: `${targetRect.width + 16}px`,
-              height: `${targetRect.height + 16}px`,
-              zIndex: 10000,
-              background: 'rgba(255, 255, 255, 0.3)',
-              backdropFilter: 'blur(0px)',
-              borderRadius: '12px'
-            }}
-          />
-          
-          <div
-            className="fixed border-4 border-primary rounded-xl pointer-events-none animate-pulse"
-            style={{
-              top: `${targetRect.top + window.scrollY - 8}px`,
-              left: `${targetRect.left + window.scrollX - 8}px`,
-              width: `${targetRect.width + 16}px`,
-              height: `${targetRect.height + 16}px`,
-              zIndex: 10000
-            }}
-          />
-        </>
+        <div
+          className="fixed border-4 border-primary rounded-xl pointer-events-none animate-pulse"
+          style={{
+            top: `${targetRect.top + window.scrollY - 8}px`,
+            left: `${targetRect.left + window.scrollX - 8}px`,
+            width: `${targetRect.width + 16}px`,
+            height: `${targetRect.height + 16}px`,
+            zIndex: 10000
+          }}
+        />
       )}
 
       <div
