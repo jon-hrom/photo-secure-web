@@ -94,7 +94,7 @@ const ClientsHeader = ({
                 <Icon name="ChevronRight" size={18} />
               </Button>
             </div>
-          )
+          )}
           
           <ClientDialogs
             isAddDialogOpen={isAddDialogOpen}
