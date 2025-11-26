@@ -78,20 +78,22 @@ const TourTooltip = ({
 
   const tooltipPos = getTooltipPosition();
   
-  const tooltipStyle: React.CSSProperties = {
+  const tooltipStyle: React.CSSProperties = isMobile ? {
     position: 'absolute',
     top: `${tooltipPos.top}px`,
     left: `${tooltipPos.left}px`,
-    transform: isMobile 
-      ? 'translateX(-50%)'
-      : step.placement === 'bottom' || step.placement === 'top' 
-      ? 'translateX(-50%)' 
-      : step.placement === 'right'
-      ? 'translateY(-50%)'
-      : 'translate(-100%, -50%)',
+    transform: 'translateX(-50%)',
     zIndex: 10001,
-    maxWidth: isMobile ? 'calc(100vw - 32px)' : '24rem',
-    width: isMobile ? 'calc(100vw - 32px)' : 'auto'
+    maxWidth: 'calc(100vw - 32px)',
+    width: 'calc(100vw - 32px)'
+  } : {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    zIndex: 10001,
+    maxWidth: '28rem',
+    width: '28rem'
   };
 
   return (

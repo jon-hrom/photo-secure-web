@@ -32,13 +32,21 @@ const OnboardingTour = ({ currentPage, onPageChange }: OnboardingTourProps) => {
     const isMobile = window.innerWidth < 768;
     
     if (step.mobileOnly && !isMobile) {
-      handleNext();
-      return;
+      const timer = setTimeout(() => {
+        if (currentStep < TOUR_STEPS.length - 1) {
+          setCurrentStep(currentStep + 1);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
     
     if (step.desktopOnly && isMobile) {
-      handleNext();
-      return;
+      const timer = setTimeout(() => {
+        if (currentStep < TOUR_STEPS.length - 1) {
+          setCurrentStep(currentStep + 1);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     if (step.page && step.page !== currentPage) {

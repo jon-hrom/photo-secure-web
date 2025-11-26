@@ -40,7 +40,15 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="add-client"]',
     title: 'Добавить клиента',
-    description: 'Создайте карточку клиента с контактами, адресом и соц. сетями',
+    description: 'Нажмите, чтобы открыть форму создания нового клиента',
+    placement: 'bottom',
+    page: 'clients',
+    action: 'click'
+  },
+  {
+    target: '[data-tour="client-form"]',
+    title: 'Форма клиента',
+    description: 'Здесь вводите имя, контакты, адрес и ссылки на соц. сети',
     placement: 'bottom',
     page: 'clients'
   },
