@@ -25,18 +25,17 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
   const dragStartTime = useRef(0);
 
   const navItems: NavItem[] = [
-    { icon: 'LayoutDashboard', label: 'Главная', path: 'dashboard' },
-    { icon: 'Home', label: 'На главную', path: '/' },
+    { icon: 'LayoutDashboard', label: 'Главная', path: '/' },
+    { icon: 'BookOpen', label: 'Справка', path: '/help' },
+    { icon: 'Settings', label: 'Настройки', path: '/settings' },
+    { icon: 'Zap', label: 'Тарифы', path: '/tariffs' },
     { icon: 'Images', label: 'Фото банк', path: '/photo-bank' },
-    { icon: 'Users', label: 'Клиенты', path: 'clients' },
-    { icon: 'Zap', label: 'Тарифы', path: 'tariffs' },
-    { icon: 'Settings', label: 'Настройки', path: 'settings' },
-    { icon: 'BookOpen', label: 'Справка', path: 'help' },
+    { icon: 'Users', label: 'Клиенты', path: '/clients' },
   ];
   
   const getNavClassName = (path: string) => {
-    if (path === 'photo-bank') return 'mobile-nav-photobank';
-    if (path === 'settings') return 'mobile-nav-settings';
+    if (path === '/photo-bank') return 'mobile-nav-photobank';
+    if (path === '/settings') return 'mobile-nav-settings';
     return '';
   };
 
@@ -88,14 +87,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
   };
 
   const isActive = (path: string) => {
-    if (path.startsWith('/')) {
-      return location.pathname === path;
-    }
-    if (currentPage) {
-      return currentPage === path;
-    }
-    if (path === 'dashboard') return location.pathname === '/';
-    return location.pathname.includes(path);
+    return location.pathname === path;
   };
 
   return (

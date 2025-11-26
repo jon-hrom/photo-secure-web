@@ -15,6 +15,10 @@ import MyFiles from "./pages/MyFiles";
 import AdminStorage from "./pages/AdminStorage";
 import PhotoBank from "./pages/PhotoBank";
 import PhotoBankTrash from "./pages/PhotoBankTrash";
+import Help from "./pages/webapp/Help";
+import Settings from "./pages/webapp/Settings";
+import Tariffs from "./pages/webapp/Tariffs";
+import Clients from "./pages/webapp/Clients";
 
 const queryClient = new QueryClient();
 
@@ -27,9 +31,13 @@ const App = () => (
         <BackButton />
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/my-files" element={<MyFiles />} />
+          <Route path="/help" element={<Help />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/tariffs" element={<Tariffs />} />
+          <Route path="/clients" element={<Clients />} />
           <Route path="/photo-bank" element={<PhotoBank />} />
           <Route path="/photo-bank/trash" element={<PhotoBankTrash />} />
+          <Route path="/my-files" element={<MyFiles />} />
           <Route path="/admin/storage" element={<AdminStorage />} />
           <Route path="/face-blur" element={<FaceBlurEditor />} />
           <Route path="/vk-callback" element={<VKCallbackDirect />} />
