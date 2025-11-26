@@ -243,7 +243,7 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
           onSelectClient={dialogsState.openDetailDialog}
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_1fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_400px] gap-6">
           <ClientsFilterSidebar
             activeFilter={activeFilter}
             onFilterChange={setActiveFilter}
