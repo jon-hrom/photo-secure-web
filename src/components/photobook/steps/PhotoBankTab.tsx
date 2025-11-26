@@ -137,21 +137,23 @@ const PhotoBankTab = ({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-4 gap-4">
-                  {photoBankPhotos.map(photo => (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {photoBankPhotos.map(photo => {
+                    const isVertical = (photo.height || 0) > (photo.width || 0);
+                    return (
                     <div
                       key={photo.id}
-                      className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                      className={`relative rounded-lg overflow-hidden cursor-pointer border-2 transition-all bg-muted/30 ${
                         photoBankSelectedPhotos.has(photo.id)
                           ? 'border-purple-600 ring-4 ring-purple-200'
                           : 'border-transparent hover:border-purple-300'
-                      }`}
+                      } ${isVertical ? 'aspect-[3/4]' : 'aspect-[4/3]'}`}
                       onClick={() => onTogglePhotoSelection(photo.id)}
                     >
                       <img
                         src={photo.s3_url || photo.data_url || ''}
                         alt={photo.file_name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                       {photoBankSelectedPhotos.has(photo.id) && (
                         <div className="absolute top-2 right-2 bg-purple-600 rounded-full p-1">
@@ -162,7 +164,8 @@ const PhotoBankTab = ({
                         <p className="text-white text-xs truncate">{photo.file_name}</p>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

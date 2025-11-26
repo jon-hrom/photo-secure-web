@@ -164,15 +164,17 @@ const TrashedPhotosGrid = ({
             <p className="text-sm">Ничего не найдено</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {filteredAndSortedPhotos.map((photo) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+            {filteredAndSortedPhotos.map((photo) => {
+              const isVertical = (photo.height || 0) > (photo.width || 0);
+              return (
             <div
               key={photo.id}
-              className={`relative group rounded-lg overflow-hidden border-2 transition-colors ${
+              className={`relative group rounded-lg overflow-hidden border-2 transition-colors bg-muted/30 ${
                 selectedPhotoIds.has(photo.id) 
                   ? 'border-primary ring-2 ring-primary' 
                   : 'border-muted hover:border-muted-foreground/20'
-              }`}
+              } ${isVertical ? 'aspect-[3/4]' : 'aspect-[4/3]'}`}
               onClick={() => selectionMode && onToggleSelection(photo.id)}
             >
               {selectionMode && (
@@ -188,12 +190,12 @@ const TrashedPhotosGrid = ({
                   </div>
                 </div>
               )}
-              <div className="aspect-square bg-muted">
+              <div className="w-full h-full">
                 {photo.s3_url ? (
                   <img
                     src={photo.s3_url}
                     alt={photo.file_name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     loading="lazy"
                   />
                 ) : (
@@ -254,7 +256,8 @@ const TrashedPhotosGrid = ({
                 <p className="text-[10px] text-white/70">{formatDate(photo.trashed_at)}</p>
               </div>
             </div>
-          ))}
+          );
+          })}
           </div>
         )}
       </CardContent>

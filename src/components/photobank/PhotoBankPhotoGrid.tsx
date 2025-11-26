@@ -176,15 +176,17 @@ const PhotoBankPhotoGrid = ({
             <p className="text-sm mb-4">Загрузите первое фото в эту папку</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {photos.map((photo) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+            {photos.map((photo) => {
+              const isVertical = (photo.height || 0) > (photo.width || 0);
+              return (
               <div
                 key={photo.id}
-                className={`group relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                className={`group relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-muted/30 ${
                   selectionMode && selectedPhotos.has(photo.id)
                     ? 'border-primary ring-4 ring-primary/20'
                     : 'border-muted hover:border-primary'
-                }`}
+                } ${isVertical ? 'aspect-[3/4]' : 'aspect-[4/3]'}`}
                 onClick={() => selectionMode && onTogglePhotoSelection(photo.id)}
               >
                 {selectionMode && (
@@ -203,7 +205,7 @@ const PhotoBankPhotoGrid = ({
                 <img
                   src={photo.s3_url || photo.data_url || ''}
                   alt={photo.file_name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
                 {!selectionMode && (
                   <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
@@ -241,7 +243,8 @@ const PhotoBankPhotoGrid = ({
                   </p>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </CardContent>
