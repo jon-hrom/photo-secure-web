@@ -1,5 +1,7 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface PhotoFolder {
   id: number;
@@ -47,6 +49,53 @@ const PhotoBankTab = ({
   onClearSelection,
   onAddPhotosToSelection
 }: PhotoBankTabProps) => {
+  const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
+  
+  const handlePhotoClick = (photo: Photo, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setViewPhoto(photo);
+  };
+  
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Б';
+    const k = 1024;
+    const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    if (!viewPhoto) return;
+    const currentIndex = photoBankPhotos.findIndex(p => p.id === viewPhoto.id);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex >= 0 && newIndex < photoBankPhotos.length) {
+      setViewPhoto(photoBankPhotos[newIndex]);
+    }
+  };
+
+  const currentPhotoIndex = viewPhoto ? photoBankPhotos.findIndex(p => p.id === viewPhoto.id) : -1;
+  const hasPrev = currentPhotoIndex > 0;
+  const hasNext = currentPhotoIndex >= 0 && currentPhotoIndex < photoBankPhotos.length - 1;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!viewPhoto) return;
+      
+      if (e.key === 'Escape') {
+        setViewPhoto(null);
+      } else if (e.key === 'ArrowLeft' && hasPrev) {
+        handleNavigate('prev');
+      } else if (e.key === 'ArrowRight' && hasNext) {
+        handleNavigate('next');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewPhoto, hasPrev, hasNext]);
+
   return (
     <div className="grid grid-cols-[250px_1fr] flex-1 overflow-hidden">
       <div className="border-r p-4 overflow-y-auto">
@@ -160,6 +209,12 @@ const PhotoBankTab = ({
                           <Icon name="Check" size={16} className="text-white" />
                         </div>
                       )}
+                      <button
+                        onClick={(e) => handlePhotoClick(photo, e)}
+                        className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-all z-10"
+                      >
+                        <Icon name="Eye" size={16} className="text-white" />
+                      </button>
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                         <p className="text-white text-xs truncate">{photo.file_name}</p>
                       </div>
@@ -172,6 +227,87 @@ const PhotoBankTab = ({
           </>
         )}
       </div>
+
+      <Dialog open={!!viewPhoto} onOpenChange={() => setViewPhoto(null)}>
+        <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0 bg-black/95 border-0">
+          {viewPhoto && (
+            <div className="relative w-full h-full flex items-center justify-center">
+              <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
+                <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  {currentPhotoIndex + 1} / {photoBankPhotos.length}
+                </div>
+                <button
+                  onClick={() => setViewPhoto(null)}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                >
+                  <Icon name="X" size={24} className="text-white" />
+                </button>
+              </div>
+
+              {hasPrev && (
+                <button
+                  onClick={() => handleNavigate('prev')}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                >
+                  <Icon name="ChevronLeft" size={28} className="text-white" />
+                </button>
+              )}
+
+              {hasNext && (
+                <button
+                  onClick={() => handleNavigate('next')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                >
+                  <Icon name="ChevronRight" size={28} className="text-white" />
+                </button>
+              )}
+              
+              <div className="relative max-w-full max-h-[90vh] flex items-center justify-center p-4">
+                <img
+                  src={viewPhoto.s3_url || viewPhoto.data_url || ''}
+                  alt={viewPhoto.file_name}
+                  className="max-w-full max-h-[85vh] object-contain rounded-lg"
+                />
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6">
+                <p className="text-white font-medium text-lg mb-2">{viewPhoto.file_name}</p>
+                <div className="flex items-center gap-4 text-white/70 text-sm mb-4">
+                  <span>{formatBytes(viewPhoto.file_size)}</span>
+                  {viewPhoto.width && viewPhoto.height && (
+                    <span>{viewPhoto.width} × {viewPhoto.height}</span>
+                  )}
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!photoBankSelectedPhotos.has(viewPhoto.id)) {
+                      onTogglePhotoSelection(viewPhoto.id);
+                    }
+                    setViewPhoto(null);
+                  }}
+                  disabled={photoBankSelectedPhotos.has(viewPhoto.id)}
+                  className="bg-purple-600/80 hover:bg-purple-600 text-white border-0"
+                >
+                  {photoBankSelectedPhotos.has(viewPhoto.id) ? (
+                    <>
+                      <Icon name="Check" size={16} className="mr-2" />
+                      Уже выбрано
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="Plus" size={16} className="mr-2" />
+                      Добавить в фотобук
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

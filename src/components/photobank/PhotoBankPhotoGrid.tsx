@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface Photo {
   id: number;
@@ -67,6 +69,8 @@ const PhotoBankPhotoGrid = ({
   onTogglePhotoSelection,
   onCancelUpload
 }: PhotoBankPhotoGridProps) => {
+  const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
+  
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Б';
     const k = 1024;
@@ -74,6 +78,46 @@ const PhotoBankPhotoGrid = ({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
+
+  const handlePhotoClick = (photo: Photo) => {
+    if (!selectionMode) {
+      setViewPhoto(photo);
+    } else {
+      onTogglePhotoSelection(photo.id);
+    }
+  };
+
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    if (!viewPhoto) return;
+    const currentIndex = photos.findIndex(p => p.id === viewPhoto.id);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex >= 0 && newIndex < photos.length) {
+      setViewPhoto(photos[newIndex]);
+    }
+  };
+
+  const currentPhotoIndex = viewPhoto ? photos.findIndex(p => p.id === viewPhoto.id) : -1;
+  const hasPrev = currentPhotoIndex > 0;
+  const hasNext = currentPhotoIndex >= 0 && currentPhotoIndex < photos.length - 1;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!viewPhoto) return;
+      
+      if (e.key === 'Escape') {
+        setViewPhoto(null);
+      } else if (e.key === 'ArrowLeft' && hasPrev) {
+        handleNavigate('prev');
+      } else if (e.key === 'ArrowRight' && hasNext) {
+        handleNavigate('next');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewPhoto, hasPrev, hasNext]);
 
   return (
     <Card>
@@ -187,7 +231,7 @@ const PhotoBankPhotoGrid = ({
                     ? 'border-primary ring-4 ring-primary/20'
                     : 'border-muted hover:border-primary'
                 } ${isVertical ? 'aspect-[3/4]' : 'aspect-[4/3]'}`}
-                onClick={() => selectionMode && onTogglePhotoSelection(photo.id)}
+                onClick={() => handlePhotoClick(photo)}
               >
                 {selectionMode && (
                   <div className="absolute top-2 right-2 z-10">
@@ -248,6 +292,89 @@ const PhotoBankPhotoGrid = ({
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!viewPhoto} onOpenChange={() => setViewPhoto(null)}>
+        <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0 bg-black/95 border-0">
+          {viewPhoto && (
+            <div className="relative w-full h-full flex items-center justify-center">
+              <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
+                <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  {currentPhotoIndex + 1} / {photos.length}
+                </div>
+                <button
+                  onClick={() => setViewPhoto(null)}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                >
+                  <Icon name="X" size={24} className="text-white" />
+                </button>
+              </div>
+
+              {hasPrev && (
+                <button
+                  onClick={() => handleNavigate('prev')}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                >
+                  <Icon name="ChevronLeft" size={28} className="text-white" />
+                </button>
+              )}
+
+              {hasNext && (
+                <button
+                  onClick={() => handleNavigate('next')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                >
+                  <Icon name="ChevronRight" size={28} className="text-white" />
+                </button>
+              )}
+              
+              <div className="relative max-w-full max-h-[90vh] flex items-center justify-center p-4">
+                <img
+                  src={viewPhoto.s3_url || viewPhoto.data_url || ''}
+                  alt={viewPhoto.file_name}
+                  className="max-w-full max-h-[85vh] object-contain rounded-lg"
+                />
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6">
+                <p className="text-white font-medium text-lg mb-2">{viewPhoto.file_name}</p>
+                <div className="flex items-center gap-4 text-white/70 text-sm">
+                  <span>{formatBytes(viewPhoto.file_size)}</span>
+                  {viewPhoto.width && viewPhoto.height && (
+                    <span>{viewPhoto.width} × {viewPhoto.height}</span>
+                  )}
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload(viewPhoto.s3_url || viewPhoto.data_url || '', viewPhoto.file_name);
+                    }}
+                    className="bg-white/20 hover:bg-white/30 text-white border-0"
+                  >
+                    <Icon name="Download" size={16} className="mr-2" />
+                    Скачать
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeletePhoto(viewPhoto.id, viewPhoto.file_name);
+                      setViewPhoto(null);
+                    }}
+                    className="bg-red-600/80 hover:bg-red-600 border-0"
+                  >
+                    <Icon name="Trash2" size={16} className="mr-2" />
+                    Удалить
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
