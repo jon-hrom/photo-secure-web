@@ -171,6 +171,12 @@ export const useClientsHandlers = ({
       return;
     }
     
+    // Форматируем дату в YYYY-MM-DD без учёта часового пояса
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const dateString = `${year}-${month}-${day}`;
+    
     try {
       const res = await fetch(CLIENTS_API, {
         method: 'POST',
@@ -181,7 +187,7 @@ export const useClientsHandlers = ({
         body: JSON.stringify({
           action: 'add_booking',
           clientId: selectedClient.id,
-          date: selectedDate.toISOString(),
+          date: dateString,
           time: newBooking.time,
           description: newBooking.description,
           notificationEnabled: newBooking.notificationEnabled,
