@@ -56,115 +56,121 @@ const BookingDialogs = ({
   return (
     <>
       <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
-        <DialogContent className="max-w-3xl bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Создать бронирование для {selectedClient?.name}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            <div className="space-y-3">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                modifiers={{
-                  booked: allBookedDates,
-                }}
-                modifiersStyles={{
-                  booked: {
-                    backgroundColor: 'hsl(var(--primary))',
-                    color: 'white',
-                    fontWeight: 'bold',
-                  },
-                }}
-                className="rounded-md border"
-              />
-              <div className="space-y-2 px-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-4 h-4 rounded-full bg-primary flex-shrink-0"></div>
-                  <span>Даты с бронированиями выделены цветом</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-4 h-4 rounded-full bg-purple-400 flex-shrink-0"></div>
-                  <span>Дата сегодня</span>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Время</Label>
-                <Select
-                  value={newBooking.time}
-                  onValueChange={(value) => setNewBooking({ ...newBooking, time: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите время" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeSlots.map(slot => (
-                      <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Что за съёмка</Label>
-                <Input
-                  value={newBooking.title}
-                  onChange={(e) => setNewBooking({ ...newBooking, title: e.target.value })}
-                  placeholder="Например: Фотосессия 9 класса на книгу"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Описание</Label>
-                <Textarea
-                  value={newBooking.description}
-                  onChange={(e) => setNewBooking({ ...newBooking, description: e.target.value })}
-                  placeholder="Опишите цель встречи"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-3 p-3 border rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Уведомления на Email</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Отправить напоминание клиенту
-                    </p>
-                  </div>
-                  <Switch
-                    checked={newBooking.notificationEnabled}
-                    onCheckedChange={(checked) => setNewBooking({ ...newBooking, notificationEnabled: checked })}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div className="scale-90 md:scale-100 origin-top">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                    modifiers={{
+                      booked: allBookedDates,
+                    }}
+                    modifiersStyles={{
+                      booked: {
+                        backgroundColor: 'hsl(var(--primary))',
+                        color: 'white',
+                        fontWeight: 'bold',
+                      },
+                    }}
+                    className="rounded-md border"
                   />
                 </div>
-                {newBooking.notificationEnabled && (
-                  <div className="space-y-2">
-                    <Label className="text-sm">Отправить за</Label>
-                    <Select
-                      value={String(newBooking.notificationTime)}
-                      onValueChange={(value) => setNewBooking({ ...newBooking, notificationTime: parseInt(value) })}
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 час до встречи</SelectItem>
-                        <SelectItem value="2">2 часа до встречи</SelectItem>
-                        <SelectItem value="3">3 часа до встречи</SelectItem>
-                        <SelectItem value="6">6 часов до встречи</SelectItem>
-                        <SelectItem value="24">1 день до встречи</SelectItem>
-                        <SelectItem value="48">2 дня до встречи</SelectItem>
-                        <SelectItem value="168">1 неделю до встречи</SelectItem>
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-2 px-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="w-4 h-4 rounded-full bg-primary flex-shrink-0"></div>
+                    <span>Даты с бронированиями выделены цветом</span>
                   </div>
-                )}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="w-4 h-4 rounded-full bg-purple-400 flex-shrink-0"></div>
+                    <span>Дата сегодня</span>
+                  </div>
+                </div>
               </div>
-              <Button onClick={handleAddBooking} className="w-full">
-                <Icon name="CalendarCheck" size={18} className="mr-2" />
-                Создать бронирование
-              </Button>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Время</Label>
+                  <Select
+                    value={newBooking.time}
+                    onValueChange={(value) => setNewBooking({ ...newBooking, time: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите время" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeSlots.map(slot => (
+                        <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Что за съёмка</Label>
+                  <Input
+                    value={newBooking.title}
+                    onChange={(e) => setNewBooking({ ...newBooking, title: e.target.value })}
+                    placeholder="Например: Фотосессия 9 класса на книгу"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Описание</Label>
+                  <Textarea
+                    value={newBooking.description}
+                    onChange={(e) => setNewBooking({ ...newBooking, description: e.target.value })}
+                    placeholder="Опишите цель встречи"
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-3 p-3 border rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Уведомления на Email</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Отправить напоминание клиенту
+                      </p>
+                    </div>
+                    <Switch
+                      checked={newBooking.notificationEnabled}
+                      onCheckedChange={(checked) => setNewBooking({ ...newBooking, notificationEnabled: checked })}
+                    />
+                  </div>
+                  {newBooking.notificationEnabled && (
+                    <div className="space-y-2">
+                      <Label className="text-sm">Отправить за</Label>
+                      <Select
+                        value={String(newBooking.notificationTime)}
+                        onValueChange={(value) => setNewBooking({ ...newBooking, notificationTime: parseInt(value) })}
+                      >
+                        <SelectTrigger className="text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 час до встречи</SelectItem>
+                          <SelectItem value="2">2 часа до встречи</SelectItem>
+                          <SelectItem value="3">3 часа до встречи</SelectItem>
+                          <SelectItem value="6">6 часов до встречи</SelectItem>
+                          <SelectItem value="24">1 день до встречи</SelectItem>
+                          <SelectItem value="48">2 дня до встречи</SelectItem>
+                          <SelectItem value="168">1 неделю до встречи</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+          </div>
+          <div className="px-6 py-4 border-t bg-white/50 backdrop-blur-sm sticky bottom-0">
+            <Button onClick={handleAddBooking} className="w-full">
+              <Icon name="CalendarCheck" size={18} className="mr-2" />
+              Создать бронирование
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
