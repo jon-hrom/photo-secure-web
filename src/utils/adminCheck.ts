@@ -5,7 +5,8 @@ export const isAdminUser = (userEmail?: string | null, vkUser?: any): boolean =>
   }
   
   // Check VK admin by VK ID (more reliable than name)
-  if (vkUser && vkUser.vk_id === '74713477') {
+  // VK API returns user_id as number, so convert to string for comparison
+  if (vkUser && (vkUser.vk_id === '74713477' || String(vkUser.vk_id) === '74713477')) {
     return true;
   }
   
