@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { isAdminUser } from '@/utils/adminCheck';
 
@@ -8,6 +9,7 @@ interface AdminStorageAuthProps {
 
 export const AdminStorageAuth = ({ onAuthSuccess }: AdminStorageAuthProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     console.log('[ADMIN_STORAGE] Component mounted, checking admin rights...');
@@ -47,16 +49,17 @@ export const AdminStorageAuth = ({ onAuthSuccess }: AdminStorageAuthProps) => {
       console.error('[ADMIN_STORAGE] Access denied - not an admin');
       toast({ 
         title: 'Ошибка доступа', 
-        description: 'У вас нет прав администратора для доступа к этой странице.', 
+        description: 'У вас нет прав администратора. Перенаправление на главную...', 
         variant: 'destructive' 
       });
+      setTimeout(() => navigate('/'), 2000);
       return;
     }
     
     const key = 'admin123';
     onAuthSuccess(key);
     console.log('[ADMIN_STORAGE] Admin access granted, adminKey set');
-  }, [onAuthSuccess, toast]);
+  }, [onAuthSuccess, toast, navigate]);
 
   return null;
 };
