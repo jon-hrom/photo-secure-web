@@ -657,15 +657,63 @@ exports.handler = async (event, context) => {
         await tempClient.end();
       }
       
-      // HTTP 302 redirect instead of HTML with script
+      // HTML with JavaScript redirect (more reliable than HTTP 302 in browsers)
+      const redirectUrl = `${BASE_URL}/?vk_session=${sessionId}`;
+      const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Авторизация завершена</title>
+  <style>
+    body { 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      height: 100vh; 
+      margin: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .container { text-align: center; }
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top: 3px solid white;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  <script>
+    setTimeout(function() {
+      window.location.replace('${redirectUrl}');
+    }, 100);
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h2>Вход выполнен успешно!</h2>
+    <p>Перенаправление на foto-mix.ru...</p>
+  </div>
+</body>
+</html>`;
+      
       return {
-        statusCode: 302,
+        statusCode: 200,
         headers: { 
-          'Location': `${BASE_URL}/?vk_session=${sessionId}`,
+          'Content-Type': 'text/html; charset=utf-8',
           'Set-Cookie': `vk_session=${sessionToken}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax`,
           'Access-Control-Allow-Origin': '*'
         },
-        body: '',
+        body: htmlBody,
         isBase64Encoded: false
       };
     }
