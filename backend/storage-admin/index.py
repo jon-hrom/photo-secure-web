@@ -2,6 +2,7 @@
 Админ-панель управления хранилищем: создание тарифов, управление пользователями, статистика и финансы
 Args: event с httpMethod, body, queryStringParameters, headers с X-Admin-Key; context с request_id
 Returns: HTTP ответ с statusCode, headers, body
+Version: 2.0 (redeployed)
 '''
 
 import json
