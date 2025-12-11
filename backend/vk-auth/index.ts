@@ -180,14 +180,17 @@ async function upsertVKUser(vkUserId, firstName, lastName, avatarUrl, isVerified
     if (vkUserResult.rows.length > 0) {
       const vkUser = vkUserResult.rows[0];
       
-      // Check if user is blocked
-      if (vkUser.is_blocked) {
+      // Check if user is main admin (by VK ID or email)
+      const isMainAdmin = vkUserId === '74713477' || email === 'jonhrom2012@gmail.com';
+      
+      // Check if user is blocked (skip check for main admin)
+      if (!isMainAdmin && vkUser.is_blocked) {
         const error = new Error('USER_BLOCKED');
         error.blockedReason = vkUser.blocked_reason || 'Ваш аккаунт был заблокирован администратором';
         throw error;
       }
       
-      // User exists and not blocked, return their user_id
+      // User exists and not blocked (or is admin), return their user_id
       return vkUser.user_id;
     }
     
