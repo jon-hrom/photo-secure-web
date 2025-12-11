@@ -69,9 +69,16 @@ const AdminStorage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-2 sm:p-4 md:p-6">
+    <div className="min-h-screen bg-background p-2 sm:p-4 md:p-6 pb-20">
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => window.history.back()}
+            className="p-2 hover:bg-accent rounded-lg transition-colors"
+            aria-label="Назад"
+          >
+            <Icon name="ArrowLeft" className="h-5 w-5" />
+          </button>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Управление хранилищем</h1>
         </div>
 
