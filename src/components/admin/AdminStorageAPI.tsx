@@ -61,28 +61,45 @@ export const useAdminStorageAPI = (adminKey: string) => {
     try {
       console.log('[FETCH_PLANS] Starting request to:', `${ADMIN_API}?action=list-plans`);
       console.log('[FETCH_PLANS] Using adminKey:', adminKey);
+      console.log('[FETCH_PLANS] Full URL:', `${ADMIN_API}?action=list-plans`);
+      console.log('[FETCH_PLANS] Headers:', { 'X-Admin-Key': adminKey });
       
       const res = await fetch(`${ADMIN_API}?action=list-plans`, {
         headers: { 'X-Admin-Key': adminKey }
       });
       
+      console.log('[FETCH_PLANS] Response received');
       console.log('[FETCH_PLANS] Response status:', res.status);
+      console.log('[FETCH_PLANS] Response statusText:', res.statusText);
       console.log('[FETCH_PLANS] Response ok:', res.ok);
+      console.log('[FETCH_PLANS] Response headers:', JSON.stringify([...res.headers.entries()]));
       
-      const data = await res.json();
-      console.log('[FETCH_PLANS] Response data:', data);
+      const rawText = await res.text();
+      console.log('[FETCH_PLANS] Raw response text:', rawText);
+      
+      let data;
+      try {
+        data = JSON.parse(rawText);
+        console.log('[FETCH_PLANS] Parsed response data:', data);
+      } catch (parseError) {
+        console.error('[FETCH_PLANS] JSON parse error:', parseError);
+        throw new Error(`Invalid JSON response: ${rawText.substring(0, 100)}`);
+      }
       
       if (!res.ok) {
-        throw new Error(data.error || `HTTP ${res.status}`);
+        throw new Error(data.error || `HTTP ${res.status}: ${res.statusText}`);
       }
       
       setPlans(data.plans || []);
       console.log('[FETCH_PLANS] Plans loaded successfully:', data.plans?.length || 0);
     } catch (error: any) {
-      console.error('[FETCH_PLANS] Error:', error);
+      console.error('[FETCH_PLANS] Error caught:', error);
+      console.error('[FETCH_PLANS] Error name:', error.name);
+      console.error('[FETCH_PLANS] Error message:', error.message);
+      console.error('[FETCH_PLANS] Error stack:', error.stack);
       toast({ 
-        title: 'Ошибка', 
-        description: `Не удалось загрузить тарифы: ${error.message}`, 
+        title: 'Ошибка загрузки тарифов', 
+        description: `${error.message || error}`, 
         variant: 'destructive' 
       });
     }
