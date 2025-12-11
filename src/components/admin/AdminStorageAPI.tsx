@@ -59,14 +59,10 @@ export const useAdminStorageAPI = (adminKey: string) => {
       return;
     }
     try {
-      console.log('[FETCH_PLANS] Starting request to:', `${ADMIN_API}?action=list-plans`);
+      console.log('[FETCH_PLANS] Starting request to:', `${ADMIN_API}?action=list-plans&admin_key=${adminKey}`);
       console.log('[FETCH_PLANS] Using adminKey:', adminKey);
-      console.log('[FETCH_PLANS] Full URL:', `${ADMIN_API}?action=list-plans`);
-      console.log('[FETCH_PLANS] Headers:', { 'X-Admin-Key': adminKey });
       
-      const res = await fetch(`${ADMIN_API}?action=list-plans`, {
-        headers: { 'X-Admin-Key': adminKey }
-      });
+      const res = await fetch(`${ADMIN_API}?action=list-plans&admin_key=${adminKey}`);
       
       console.log('[FETCH_PLANS] Response received');
       console.log('[FETCH_PLANS] Response status:', res.status);
@@ -112,9 +108,7 @@ export const useAdminStorageAPI = (adminKey: string) => {
     }
     try {
       console.log('[FETCH_USERS] Starting request...');
-      const res = await fetch(`${ADMIN_API}?action=list-users&limit=100&offset=0`, {
-        headers: { 'X-Admin-Key': adminKey }
-      });
+      const res = await fetch(`${ADMIN_API}?action=list-users&limit=100&offset=0&admin_key=${adminKey}`);
       console.log('[FETCH_USERS] Response status:', res.status);
       const data = await res.json();
       console.log('[FETCH_USERS] Response data:', data);
@@ -148,12 +142,8 @@ export const useAdminStorageAPI = (adminKey: string) => {
     try {
       console.log('[FETCH_STATS] Starting requests...');
       const [usageRes, revenueRes] = await Promise.all([
-        fetch(`${ADMIN_API}?action=usage-stats&days=30`, {
-          headers: { 'X-Admin-Key': adminKey }
-        }),
-        fetch(`${ADMIN_API}?action=revenue-stats`, {
-          headers: { 'X-Admin-Key': adminKey }
-        })
+        fetch(`${ADMIN_API}?action=usage-stats&days=30&admin_key=${adminKey}`),
+        fetch(`${ADMIN_API}?action=revenue-stats&admin_key=${adminKey}`)
       ]);
 
       console.log('[FETCH_STATS] Usage response status:', usageRes.status);
@@ -184,9 +174,7 @@ export const useAdminStorageAPI = (adminKey: string) => {
     setLoading(true);
     try {
       console.log('[FETCH_FINANCIAL] Starting request for period:', period);
-      const res = await fetch(`${ADMIN_API}?action=financial-stats&period=${period}`, {
-        headers: { 'X-Admin-Key': adminKey }
-      });
+      const res = await fetch(`${ADMIN_API}?action=financial-stats&period=${period}&admin_key=${adminKey}`);
       console.log('[FETCH_FINANCIAL] Response status:', res.status);
       const data = await res.json();
       console.log('[FETCH_FINANCIAL] Response data:', data);
@@ -208,11 +196,10 @@ export const useAdminStorageAPI = (adminKey: string) => {
       const action = editingPlan.plan_id ? 'update-plan' : 'create-plan';
       console.log('[SAVE_PLAN] Sending request:', { action, plan: editingPlan });
       
-      const res = await fetch(`${ADMIN_API}?action=${action}`, {
+      const res = await fetch(`${ADMIN_API}?action=${action}&admin_key=${adminKey}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Key': adminKey
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(editingPlan)
       });
@@ -241,11 +228,10 @@ export const useAdminStorageAPI = (adminKey: string) => {
     if (!confirm('Удалить тариф?')) return;
 
     try {
-      await fetch(`${ADMIN_API}?action=delete-plan`, {
+      await fetch(`${ADMIN_API}?action=delete-plan&admin_key=${adminKey}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Key': adminKey
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ plan_id: planId })
       });
@@ -266,11 +252,10 @@ export const useAdminStorageAPI = (adminKey: string) => {
     try {
       console.log('[UPDATE_USER] Sending request:', editingUser);
       
-      const res = await fetch(`${ADMIN_API}?action=update-user`, {
+      const res = await fetch(`${ADMIN_API}?action=update-user&admin_key=${adminKey}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Key': adminKey
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           user_id: editingUser.user_id,
@@ -305,11 +290,10 @@ export const useAdminStorageAPI = (adminKey: string) => {
     if (!confirm('Назначить этот тариф всем пользователям без тарифа?')) return;
 
     try {
-      const res = await fetch(`${ADMIN_API}?action=set-default-plan`, {
+      const res = await fetch(`${ADMIN_API}?action=set-default-plan&admin_key=${adminKey}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Key': adminKey
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ plan_id: planId })
       });

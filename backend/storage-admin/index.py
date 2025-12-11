@@ -19,6 +19,13 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
 def check_admin(event: Dict[str, Any]) -> bool:
+    # Check admin key from query params (no CORS preflight needed)
+    params = event.get('queryStringParameters', {}) or {}
+    admin_key_query = params.get('admin_key')
+    if admin_key_query == ADMIN_KEY:
+        return True
+    
+    # Fallback: check headers (triggers CORS preflight)
     headers = event.get('headers', {})
     admin_key = headers.get('X-Admin-Key') or headers.get('x-admin-key')
     return admin_key == ADMIN_KEY
@@ -44,9 +51,12 @@ CORS_HEADERS = {
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
+    print(f'[HANDLER] Received {method} request')
+    print(f'[HANDLER] Event: {json.dumps(event, default=str)}')
     
     # CRITICAL: Always handle OPTIONS first for CORS preflight
     if method == 'OPTIONS':
+        print('[OPTIONS] Handling CORS preflight')
         return {
             'statusCode': 200,
             'headers': CORS_HEADERS,
