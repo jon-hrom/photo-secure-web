@@ -31,8 +31,8 @@ interface FinancialSummary {
 interface FinancialTabProps {
   financialStats: FinancialStat[];
   financialSummary: FinancialSummary | null;
-  financialPeriod: 'day' | 'week' | 'month' | 'year';
-  onPeriodChange: (period: 'day' | 'week' | 'month' | 'year') => void;
+  financialPeriod: 'day' | 'week' | 'month' | 'year' | 'all';
+  onPeriodChange: (period: 'day' | 'week' | 'month' | 'year' | 'all') => void;
 }
 
 export const FinancialTab = ({ financialStats, financialSummary, financialPeriod, onPeriodChange }: FinancialTabProps) => {
@@ -69,6 +69,13 @@ export const FinancialTab = ({ financialStats, financialSummary, financialPeriod
               onClick={() => onPeriodChange('year')}
             >
               Год
+            </Button>
+            <Button
+              variant={financialPeriod === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onPeriodChange('all')}
+            >
+              Всё время
             </Button>
           </div>
         </div>

@@ -25,7 +25,7 @@ const AdminStorage = () => {
   const [revenueStats, setRevenueStats] = useState<RevenueStat[]>([]);
   const [financialStats, setFinancialStats] = useState<FinancialStat[]>([]);
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null);
-  const [financialPeriod, setFinancialPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
+  const [financialPeriod, setFinancialPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all'>('month');
   const [loading, setLoading] = useState(false);
   const [adminKey, setAdminKey] = useState('');
 
