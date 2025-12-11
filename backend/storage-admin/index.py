@@ -34,18 +34,22 @@ def escape_sql_string(value: Any) -> str:
     # Экранируем одинарные кавычки удвоением
     return "'" + str(value).replace("'", "''") + "'"
 
+CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Session-Id',
+    'Access-Control-Max-Age': '86400',
+    'Content-Type': 'application/json'
+}
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
     
+    # CRITICAL: Always handle OPTIONS first for CORS preflight
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
-                'Access-Control-Max-Age': '86400'
-            },
+            'headers': CORS_HEADERS,
             'body': '',
             'isBase64Encoded': False
         }
@@ -53,7 +57,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if not check_admin(event):
         return {
             'statusCode': 403,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Admin access required'}),
             'isBase64Encoded': False
         }
@@ -79,7 +83,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if not handler_func:
         return {
             'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Unknown action: {action}'}),
             'isBase64Encoded': False
         }
@@ -118,7 +122,7 @@ def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'plans': [dict(p) for p in plans]}, default=str),
                 'isBase64Encoded': False
             }
@@ -126,7 +130,7 @@ def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
         print(f'[ERROR] list_plans failed: {e}')
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to list plans: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -153,7 +157,7 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     if not plan_name or quota_gb is None:
         return {
             'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Missing plan_name or quota_gb'}),
             'isBase64Encoded': False
         }
@@ -205,7 +209,7 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 201,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'plan': dict(plan)}, default=str),
                 'isBase64Encoded': False
             }
@@ -214,7 +218,7 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         conn.rollback()
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to create plan: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -228,7 +232,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     if not plan_id:
         return {
             'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Missing plan_id'}),
             'isBase64Encoded': False
         }
@@ -267,7 +271,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     if not updates:
         return {
             'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'No fields to update'}),
             'isBase64Encoded': False
         }
@@ -295,7 +299,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             if not plan:
                 return {
                     'statusCode': 404,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': CORS_HEADERS,
                     'body': json.dumps({'error': 'Plan not found'}),
                     'isBase64Encoded': False
                 }
@@ -305,7 +309,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'plan': dict(plan)}, default=str),
                 'isBase64Encoded': False
             }
@@ -314,7 +318,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         conn.rollback()
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to update plan: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -328,7 +332,7 @@ def delete_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     if not plan_id:
         return {
             'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Missing plan_id'}),
             'isBase64Encoded': False
         }
@@ -343,7 +347,7 @@ def delete_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'success': True}),
                 'isBase64Encoded': False
             }
@@ -352,7 +356,7 @@ def delete_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         conn.rollback()
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to delete plan: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -366,7 +370,7 @@ def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     if not plan_id:
         return {
             'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Missing plan_id'}),
             'isBase64Encoded': False
         }
@@ -389,7 +393,7 @@ def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'success': True}),
                 'isBase64Encoded': False
             }
@@ -398,7 +402,7 @@ def set_default_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         conn.rollback()
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to set default plan: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -455,7 +459,7 @@ def list_users(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'users': [dict(u) for u in users]}, default=str),
                 'isBase64Encoded': False
             }
@@ -463,7 +467,7 @@ def list_users(event: Dict[str, Any]) -> Dict[str, Any]:
         print(f'[ERROR] list_users failed: {e}')
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to list users: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -482,7 +486,7 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
     if not user_id:
         return {
             'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Missing user_id'}),
             'isBase64Encoded': False
         }
@@ -540,7 +544,7 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'success': True}),
                 'isBase64Encoded': False
             }
@@ -549,7 +553,7 @@ def update_user(event: Dict[str, Any]) -> Dict[str, Any]:
         conn.rollback()
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to update user: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -564,7 +568,7 @@ def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
     if not user_id or not plan_id:
         return {
             'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Missing user_id or plan_id'}),
             'isBase64Encoded': False
         }
@@ -579,7 +583,7 @@ def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
             if not plan:
                 return {
                     'statusCode': 404,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': CORS_HEADERS,
                     'body': json.dumps({'error': 'Plan not found'}),
                     'isBase64Encoded': False
                 }
@@ -616,7 +620,7 @@ def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 201,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'subscription_id': result['id']}),
                 'isBase64Encoded': False
             }
@@ -625,7 +629,7 @@ def subscribe_user(event: Dict[str, Any]) -> Dict[str, Any]:
         conn.rollback()
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to subscribe user: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -658,7 +662,7 @@ def usage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'stats': [dict(s) for s in stats]}, default=str),
                 'isBase64Encoded': False
             }
@@ -666,7 +670,7 @@ def usage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
         print(f'[ERROR] usage_stats failed: {e}')
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to get usage stats: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -695,7 +699,7 @@ def revenue_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'revenue': [dict(r) for r in revenue]}, default=str),
                 'isBase64Encoded': False
             }
@@ -703,7 +707,7 @@ def revenue_stats(event: Dict[str, Any]) -> Dict[str, Any]:
         print(f'[ERROR] revenue_stats failed: {e}')
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to get revenue stats: {str(e)}'}),
             'isBase64Encoded': False
         }
@@ -783,7 +787,7 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': CORS_HEADERS,
                 'body': json.dumps({
                     'stats': [dict(s) for s in stats],
                     'summary': {
@@ -799,7 +803,7 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
         print(f'[ERROR] financial_stats failed: {e}')
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to get financial stats: {str(e)}'}),
             'isBase64Encoded': False
         }
