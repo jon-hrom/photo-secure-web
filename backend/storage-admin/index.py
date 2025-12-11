@@ -82,7 +82,23 @@ def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             print('[LIST_PLANS] Executing query...')
             cur.execute(f'''
-                SELECT id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, created_at, visible_to_users, max_clients, description
+                SELECT 
+                    id as plan_id, 
+                    name as plan_name, 
+                    quota_gb, 
+                    monthly_price_rub as price_rub, 
+                    is_active, 
+                    created_at, 
+                    visible_to_users, 
+                    max_clients, 
+                    description,
+                    stats_enabled,
+                    track_storage_usage,
+                    track_client_count,
+                    track_booking_analytics,
+                    track_revenue,
+                    track_upload_history,
+                    track_download_stats
                 FROM {SCHEMA}.storage_plans
                 ORDER BY quota_gb ASC
             ''')
@@ -115,6 +131,13 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     visible_to_users = body.get('visible_to_users', False)
     max_clients = body.get('max_clients')
     description = body.get('description')
+    stats_enabled = body.get('stats_enabled', True)
+    track_storage_usage = body.get('track_storage_usage', True)
+    track_client_count = body.get('track_client_count', True)
+    track_booking_analytics = body.get('track_booking_analytics', True)
+    track_revenue = body.get('track_revenue', True)
+    track_upload_history = body.get('track_upload_history', True)
+    track_download_stats = body.get('track_download_stats', True)
     
     if not plan_name or quota_gb is None:
         return {
@@ -127,12 +150,23 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            print(f'[CREATE_PLAN] Creating plan: name={plan_name}, quota={quota_gb}, price={price_rub}, active={is_active}, visible={visible_to_users}, max_clients={max_clients}, description={description}')
+            print(f'[CREATE_PLAN] Creating plan: name={plan_name}, quota={quota_gb}, price={price_rub}')
             cur.execute(f'''
-                INSERT INTO {SCHEMA}.storage_plans (name, quota_gb, monthly_price_rub, is_active, visible_to_users, max_clients, description)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, visible_to_users, created_at, max_clients, description
-            ''', (plan_name, quota_gb, price_rub, is_active, visible_to_users, max_clients, description))
+                INSERT INTO {SCHEMA}.storage_plans (
+                    name, quota_gb, monthly_price_rub, is_active, visible_to_users, 
+                    max_clients, description, stats_enabled, track_storage_usage,
+                    track_client_count, track_booking_analytics, track_revenue,
+                    track_upload_history, track_download_stats
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING 
+                    id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, 
+                    is_active, visible_to_users, created_at, max_clients, description,
+                    stats_enabled, track_storage_usage, track_client_count, 
+                    track_booking_analytics, track_revenue, track_upload_history, track_download_stats
+            ''', (plan_name, quota_gb, price_rub, is_active, visible_to_users, max_clients, 
+                  description, stats_enabled, track_storage_usage, track_client_count,
+                  track_booking_analytics, track_revenue, track_upload_history, track_download_stats))
             plan = cur.fetchone()
             conn.commit()
             print(f'[CREATE_PLAN] Successfully created plan_id={plan["plan_id"]}')
@@ -200,6 +234,41 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         updates.append('visible_to_users = %s')
         params.append(visible_to_users)
     
+    stats_enabled = body.get('stats_enabled')
+    if stats_enabled is not None:
+        updates.append('stats_enabled = %s')
+        params.append(stats_enabled)
+    
+    track_storage_usage = body.get('track_storage_usage')
+    if track_storage_usage is not None:
+        updates.append('track_storage_usage = %s')
+        params.append(track_storage_usage)
+    
+    track_client_count = body.get('track_client_count')
+    if track_client_count is not None:
+        updates.append('track_client_count = %s')
+        params.append(track_client_count)
+    
+    track_booking_analytics = body.get('track_booking_analytics')
+    if track_booking_analytics is not None:
+        updates.append('track_booking_analytics = %s')
+        params.append(track_booking_analytics)
+    
+    track_revenue = body.get('track_revenue')
+    if track_revenue is not None:
+        updates.append('track_revenue = %s')
+        params.append(track_revenue)
+    
+    track_upload_history = body.get('track_upload_history')
+    if track_upload_history is not None:
+        updates.append('track_upload_history = %s')
+        params.append(track_upload_history)
+    
+    track_download_stats = body.get('track_download_stats')
+    if track_download_stats is not None:
+        updates.append('track_download_stats = %s')
+        params.append(track_download_stats)
+    
     if not updates:
         return {
             'statusCode': 400,
@@ -219,7 +288,11 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
                 UPDATE {SCHEMA}.storage_plans
                 SET {", ".join(updates)}
                 WHERE id = %s
-                RETURNING id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, is_active, visible_to_users, created_at, max_clients, description
+                RETURNING 
+                    id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, 
+                    is_active, visible_to_users, created_at, max_clients, description,
+                    stats_enabled, track_storage_usage, track_client_count,
+                    track_booking_analytics, track_revenue, track_upload_history, track_download_stats
             ''', params)
             plan = cur.fetchone()
             conn.commit()
