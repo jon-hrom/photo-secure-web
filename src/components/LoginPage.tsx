@@ -9,6 +9,7 @@ import Icon from '@/components/ui/icon';
 import VKAuthButton from '@/components/VKAuthButton';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
+import ForgotPasswordDialog from '@/components/ForgotPasswordDialog';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string) => void;
@@ -41,6 +42,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     userEmail?: string;
     authMethod?: string;
   } | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [loginAttemptFailed, setLoginAttemptFailed] = useState(false);
 
   useEffect(() => {
     const selectedBgId = localStorage.getItem('loginPageBackground');
@@ -179,6 +182,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         } else {
           localStorage.setItem('loginBlock', JSON.stringify({ blockUntil: 0, attempts: newAttempts }));
           toast.error(`Неверные данные. Осталось попыток: ${newAttempts}`);
+          setLoginAttemptFailed(true);
         }
       }
     } catch (error) {
@@ -401,6 +405,16 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
             >
               {isRegistering ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
             </Button>
+
+            {loginAttemptFailed && !isBlocked && !isRegistering && (
+              <button
+                onClick={() => setShowForgotPassword(true)}
+                className="w-full text-sm text-primary hover:underline flex items-center gap-2 justify-center"
+              >
+                <Icon name="KeyRound" size={16} />
+                Забыли пароль? Восстановить
+              </button>
+            )}
           </div>
 
           {(authProviders.yandex || authProviders.vk || authProviders.google) && (
@@ -461,6 +475,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           onCancel={handle2FACancel}
         />
       )}
+
+      <ForgotPasswordDialog 
+        open={showForgotPassword} 
+        onClose={() => setShowForgotPassword(false)}
+      />
 
       <Dialog open={showAppealDialog} onOpenChange={setShowAppealDialog}>
         <DialogContent className="max-w-2xl">
