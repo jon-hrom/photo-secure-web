@@ -65,9 +65,13 @@ export const UsersTab = ({ users, plans, onUpdateUser }: UsersTabProps) => {
 
   const handleOpenDialog = (user: User) => {
     const plan = plans.find(p => p.plan_id === user.plan_id);
+    console.log('[EDIT_USER] Opening dialog for user:', user);
+    console.log('[EDIT_USER] Found plan:', plan);
+    console.log('[EDIT_USER] All plans:', plans);
     setEditingUser({
       ...user,
-      custom_price: plan?.price_rub,
+      plan_id: user.plan_id || null,
+      custom_price: plan?.price_rub || 0,
       started_at: new Date().toISOString().split('T')[0],
       ended_at: ''
     });
@@ -130,10 +134,12 @@ export const UsersTab = ({ users, plans, onUpdateUser }: UsersTabProps) => {
                             <div className="space-y-2">
                               <Label>Тарифный план</Label>
                               <Select
-                                value={editingUser?.plan_id?.toString() || ''}
+                                value={editingUser?.plan_id ? editingUser.plan_id.toString() : 'none'}
                                 onValueChange={(value) => {
-                                  const planId = value ? Number(value) : null;
+                                  console.log('[EDIT_USER] Plan selected:', value);
+                                  const planId = value !== 'none' ? Number(value) : null;
                                   const selectedPlan = plans.find(p => p.plan_id === planId);
+                                  console.log('[EDIT_USER] Selected plan:', selectedPlan);
                                   setEditingUser({
                                     ...editingUser,
                                     plan_id: planId,
@@ -145,14 +151,17 @@ export const UsersTab = ({ users, plans, onUpdateUser }: UsersTabProps) => {
                                   <SelectValue placeholder="Выберите тариф" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">Без тарифа</SelectItem>
-                                  {plans.map((plan) => (
+                                  <SelectItem value="none">Без тарифа</SelectItem>
+                                  {plans.filter(p => p.is_active).map((plan) => (
                                     <SelectItem key={plan.plan_id} value={plan.plan_id.toString()}>
                                       {plan.plan_name} — {plan.quota_gb} GB — {plan.price_rub} ₽/мес
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {plans.length === 0 && (
+                                <p className="text-sm text-red-500">⚠️ Нет доступных тарифов. Создайте тариф во вкладке "Тарифы"</p>
+                              )}
                             </div>
 
                             {editingUser?.plan_id && (
