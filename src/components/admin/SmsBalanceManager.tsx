@@ -12,6 +12,7 @@ const SmsBalanceManager = () => {
   const [balance, setBalance] = useState<number | null>(null);
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('Тестовое сообщение от foto-mix.ru');
+  const [apiKeyPreview, setApiKeyPreview] = useState<string | null>(null);
 
   const checkBalance = async () => {
     setLoading(true);
@@ -90,8 +91,25 @@ const SmsBalanceManager = () => {
     }
   };
 
-  // Removed auto balance check on mount since SMS.SU doesn't support it
-  // Balance will be updated after sending test SMS
+  // Load API key preview on mount
+  useEffect(() => {
+    const loadApiKeyPreview = async () => {
+      try {
+        const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-api-key-preview' })
+        });
+        const data = await response.json();
+        if (data.ok) {
+          setApiKeyPreview(`${data.preview} (${data.length} символов)`);
+        }
+      } catch (error) {
+        console.error('Failed to load API key preview:', error);
+      }
+    };
+    loadApiKeyPreview();
+  }, []);
 
   return (
     <Card>
@@ -160,28 +178,51 @@ const SmsBalanceManager = () => {
               </div>
             </div>
           )}
-          <div className="mt-2 text-xs text-gray-500">
+          <div className="mt-2 text-xs text-muted-foreground">
             1 SMS сегмент ≈ 3-4 руб. (до 70 символов)
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+            <div className="text-xs text-muted-foreground">
+              <strong>Важно:</strong> Поле <code>credits</code> в ответе SMS.SU — это <strong>оставшийся баланс ПОСЛЕ отправки</strong>, а не стоимость SMS.
+            </div>
+            {apiKeyPreview && (
+              <div className="text-xs">
+                <span className="text-muted-foreground">API ключ: </span>
+                <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">{apiKeyPreview}</code>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Диагностика баланса */}
+        {balance !== null && balance < 100 && (
+          <Alert variant="destructive">
+            <Icon name="AlertCircle" className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-semibold">⚠️ Баланс {balance.toFixed(2)} руб. — недостаточно для надежной отправки!</p>
+                <p className="text-sm">
+                  Если вы уверены, что пополнили баланс на SMS.SU до большей суммы, проверьте:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm ml-2">
+                  <li>Правильный ли API ключ указан в проекте (см. выше)</li>
+                  <li>Нет ли у вас нескольких аккаунтов SMS.SU</li>
+                  <li>Зайдите в <a href="https://sms.su/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold">личный кабинет SMS.SU</a> и проверьте реальный баланс</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  💡 Баланс обновляется после каждой тестовой отправки SMS
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Инструкция по пополнению */}
-        <Alert variant={balance !== null && balance < 100 ? 'destructive' : 'default'}>
-          <Icon name={balance !== null && balance < 100 ? 'AlertTriangle' : 'Info'} className="h-4 w-4" />
+        <Alert variant="default">
+          <Icon name="Info" className="h-4 w-4" />
           <AlertDescription>
             <div className="space-y-2">
-              <p className="font-semibold">
-                {balance !== null && balance < 100 
-                  ? '⚠️ Рекомендуем пополнить баланс!' 
-                  : 'Как пополнить баланс SMS.SU:'}
-              </p>
-              {balance !== null && balance < 100 && (
-                <p className="text-sm">
-                  При балансе ниже 100 руб. рекомендуется пополнить счет. 
-                  SMS.SU может возвращать успешные ответы (err_code: 0), 
-                  но <strong>не отправлять SMS реально</strong> при недостаточных средствах.
-                </p>
-              )}
+              <p className="font-semibold">Как пополнить баланс SMS.SU:</p>
               <ol className="list-decimal list-inside space-y-1 text-sm">
                 <li>Перейдите на сайт <a href="https://sms.su/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">sms.su</a></li>
                 <li>Войдите в личный кабинет с вашим API ключом</li>

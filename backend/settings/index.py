@@ -376,6 +376,42 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
         
+        # Get API key preview (first 8 chars for verification)
+        if action == 'get-api-key-preview':
+            api_key_raw = os.environ.get('API_KEY', '').strip()
+            
+            if api_key_raw.startswith('API_KEY='):
+                api_key = api_key_raw[8:]
+            else:
+                api_key = api_key_raw
+            
+            if not api_key:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'API_KEY не настроен'}),
+                    'isBase64Encoded': False
+                }
+            
+            # Return first 8 chars and total length
+            preview = api_key[:8] + '...' if len(api_key) > 8 else api_key
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'ok': True, 
+                    'preview': preview,
+                    'length': len(api_key)
+                }),
+                'isBase64Encoded': False
+            }
+        
         # Send test SMS (from admin panel)
         if action == 'send-sms':
             print('[SEND_SMS] Sending test SMS...')
