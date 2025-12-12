@@ -466,9 +466,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             import random
             verification_code = str(random.randint(100000, 999999))
             
-            # Save code to database with expiration (5 minutes)
+            # Save code to database with expiration (10 minutes)
             from datetime import datetime, timedelta
-            expires_at = datetime.utcnow() + timedelta(minutes=5)
+            expires_at = datetime.utcnow() + timedelta(minutes=10)
             
             cursor.execute('''
                 INSERT INTO phone_verification_codes (phone, code, expires_at, created_at)
@@ -482,7 +482,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn.commit()
             
             # Send SMS
-            text = f'Код подтверждения: {verification_code}'
+            text = f'Код подтверждения телефона foto-mix.ru: {verification_code}. Действителен 10 минут.'
             result = send_sms(phone, text, 2)
             
             cursor.close()
