@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import Icon from '@/components/ui/icon';
+import VKAuthButton from '@/components/VKAuthButton';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 import ForgotPasswordDialog from '@/components/ForgotPasswordDialog';
-import LoginForm from '@/components/LoginForm';
-import RegisterForm from '@/components/RegisterForm';
-import LoginPageBackground from '@/components/LoginPageBackground';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string) => void;
@@ -27,6 +29,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [pendingUserId, setPendingUserId] = useState<number | null>(null);
   const [twoFactorType, setTwoFactorType] = useState<'email'>('email');
   const [passwordError, setPasswordError] = useState('');
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
+  const [backgroundOpacity, setBackgroundOpacity] = useState<number>(20);
   const [authProviders, setAuthProviders] = useState({
     yandex: true,
     vk: true,
@@ -40,6 +44,25 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   } | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loginAttemptFailed, setLoginAttemptFailed] = useState(false);
+
+  useEffect(() => {
+    const selectedBgId = localStorage.getItem('loginPageBackground');
+    if (selectedBgId) {
+      const savedImages = localStorage.getItem('backgroundImages');
+      if (savedImages) {
+        const images = JSON.parse(savedImages);
+        const selectedImage = images.find((img: any) => img.id === selectedBgId);
+        if (selectedImage) {
+          setBackgroundImage(selectedImage.url);
+        }
+      }
+    }
+    
+    const savedOpacity = localStorage.getItem('loginPageBackgroundOpacity');
+    if (savedOpacity) {
+      setBackgroundOpacity(Number(savedOpacity));
+    }
+  }, []);
 
   useEffect(() => {
     const loadAuthProviders = async () => {
@@ -214,131 +237,264 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     }
   };
 
-  const handle2FAVerify = async () => {
-    if (!twoFactorCode || !pendingUserId) {
-      toast.error('Введите код подтверждения');
-      return;
-    }
+  const handleOAuthLogin = (provider: 'yandex' | 'vk' | 'google') => {
+    toast.info(`OAuth через ${provider} будет доступен в следующей версии`);
+  };
 
-    try {
-      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'verify_2fa',
-          userId: pendingUserId,
-          code: twoFactorCode,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Код подтвержден!');
-        setIs2FADialogOpen(false);
-        setTwoFactorCode('');
-        onLoginSuccess(pendingUserId, email);
-      } else {
-        toast.error(data.error || 'Неверный код');
-      }
-    } catch (error) {
-      toast.error('Ошибка подключения к серверу');
+  const handle2FASuccess = () => {
+    if (pendingUserId) {
+      setRemainingAttempts(5);
+      localStorage.removeItem('loginBlock');
+      setIs2FADialogOpen(false);
+      toast.success('Вход выполнен успешно!');
+      onLoginSuccess(pendingUserId, email);
+      setPendingUserId(null);
     }
   };
 
-  const handleVKSuccess = (userId: number, vkEmail?: string) => {
-    onLoginSuccess(userId, vkEmail);
+  const handle2FACancel = () => {
+    setIs2FADialogOpen(false);
+    setPendingUserId(null);
+    toast.info('Вход отменён');
   };
 
   return (
-    <LoginPageBackground>
-      <Card>
-        <CardHeader>
-          <CardTitle>{isRegistering ? 'Регистрация' : 'Вход в систему'}</CardTitle>
-          <CardDescription>
-            {isRegistering
-              ? 'Создайте новый аккаунт для доступа к фотосервису'
-              : 'Войдите в свой аккаунт для управления фотосервисом'}
-          </CardDescription>
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: backgroundImage ? undefined : '#f8f9fa',
+      }}
+    >
+      {backgroundImage && (
+        <div 
+          className="absolute inset-0 backdrop-blur-sm" 
+          style={{
+            backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity / 100})`
+          }}
+        />
+      )}
+      <Card 
+        className="w-full max-w-md shadow-2xl relative z-10 overflow-hidden"
+        style={{
+          backgroundImage: `url(https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg)`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-0" />
+        <div className="relative z-10">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+            <Icon name="Lock" size={32} className="text-primary" />
+          </div>
+          <CardTitle className="text-2xl">Foto-Mix</CardTitle>
+          <CardDescription className="text-base">Умная платформа для фотографов</CardDescription>
+          <div className="mt-3 text-sm text-muted-foreground">
+            {isRegistering ? 'Создайте новый аккаунт' : 'Вход в систему'}
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {isRegistering ? (
-            <RegisterForm
-              email={email}
-              setEmail={setEmail}
-              password={password}
-              setPassword={setPassword}
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-              phone={phone}
-              setPhone={setPhone}
-              passwordError={passwordError}
-              onRegister={handleRegister}
-            />
-          ) : (
-            <LoginForm
-              email={email}
-              setEmail={setEmail}
-              password={password}
-              setPassword={setPassword}
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-              onLogin={handleLogin}
-              onVKSuccess={handleVKSuccess}
-              authProviders={authProviders}
-              isBlocked={isBlocked}
-              blockTimeRemaining={blockTimeRemaining}
-              formatTime={formatTime}
-              loginAttemptFailed={loginAttemptFailed}
-              onForgotPasswordClick={() => setShowForgotPassword(true)}
-            />
+        <CardContent className="space-y-6">
+          {isBlocked && (
+            <div className="p-4 bg-destructive/10 border-2 border-destructive rounded-xl text-center">
+              <Icon name="ShieldAlert" size={32} className="text-destructive mx-auto mb-2" />
+              <p className="font-bold text-destructive">Доступ временно заблокирован</p>
+              <p className="text-2xl font-mono font-bold mt-2">{formatTime(blockTimeRemaining)}</p>
+            </div>
           )}
 
-          <div className="text-center text-sm text-muted-foreground">
-            {isRegistering ? (
-              <>
-                Уже есть аккаунт?{' '}
-                <Button variant="link" className="p-0 h-auto" onClick={() => setIsRegistering(false)}>
-                  Войти
+          {!isBlocked && remainingAttempts < 5 && (
+            <div className="p-3 bg-orange-50 border-2 border-orange-300 rounded-xl">
+              <p className="text-sm text-orange-700 flex items-center gap-2">
+                <Icon name="AlertTriangle" size={16} />
+                Осталось попыток: <strong>{remainingAttempts}</strong>
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="example@mail.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isBlocked}
+                className="rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Пароль</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (isRegistering && e.target.value.length > 0 && e.target.value.length < 8) {
+                      setPasswordError('Минимум 8 символов');
+                    } else {
+                      setPasswordError('');
+                    }
+                  }}
+                  disabled={isBlocked}
+                  className="rounded-xl pr-10"
+                  onKeyDown={(e) => e.key === 'Enter' && !isRegistering && handleLogin()}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isBlocked}
+                >
+                  <Icon name={showPassword ? "EyeOff" : "Eye"} size={18} className="text-muted-foreground" />
                 </Button>
-              </>
-            ) : (
-              <>
-                Нет аккаунта?{' '}
-                <Button variant="link" className="p-0 h-auto" onClick={() => setIsRegistering(true)}>
-                  Зарегистрироваться
-                </Button>
-              </>
+              </div>
+              {isRegistering && passwordError && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <Icon name="AlertCircle" size={14} />
+                  {passwordError}
+                </p>
+              )}
+            </div>
+
+            {isRegistering && (
+              <div className="space-y-2">
+                <Label htmlFor="phone">Телефон *</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+7 (___) ___-__-__"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="rounded-xl"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  <Icon name="Info" size={12} className="inline mr-1" />
+                  Обязательное поле для регистрации
+                </p>
+              </div>
+            )}
+
+            <Button
+              onClick={isRegistering ? handleRegister : handleLogin}
+              disabled={isBlocked}
+              className="w-full rounded-xl"
+            >
+              {isRegistering ? 'Зарегистрироваться' : 'Войти'}
+            </Button>
+
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsRegistering(!isRegistering);
+                setPassword('');
+              }}
+              className="w-full rounded-xl"
+            >
+              {isRegistering ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
+            </Button>
+
+            {loginAttemptFailed && !isBlocked && !isRegistering && (
+              <button
+                onClick={() => setShowForgotPassword(true)}
+                className="w-full text-sm text-primary hover:underline flex items-center gap-2 justify-center"
+              >
+                <Icon name="KeyRound" size={16} />
+                Забыли пароль? Восстановить
+              </button>
             )}
           </div>
+
+          {(authProviders.yandex || authProviders.vk || authProviders.google) && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Или войти через</span>
+                </div>
+              </div>
+
+              {authProviders.vk && (
+                <div className="flex justify-center">
+                  <VKAuthButton onSuccess={onLoginSuccess} disabled={isBlocked} />
+                </div>
+              )}
+
+              {(authProviders.yandex || authProviders.google) && (
+                <div className="flex justify-center gap-3">
+                  {authProviders.yandex && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleOAuthLogin('yandex')}
+                      disabled={isBlocked}
+                      className="rounded-xl flex-1"
+                      title="Войти через Яндекс"
+                    >
+                      <Icon name="Circle" size={20} className="text-red-500" />
+                    </Button>
+                  )}
+                  {authProviders.google && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleOAuthLogin('google')}
+                      disabled={isBlocked}
+                      className="rounded-xl flex-1"
+                      title="Войти через Google"
+                    >
+                      <Icon name="Mail" size={20} className="text-red-600" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
+        </div>
       </Card>
 
-      <TwoFactorDialog
-        open={is2FADialogOpen}
-        onOpenChange={setIs2FADialogOpen}
-        code={twoFactorCode}
-        onCodeChange={setTwoFactorCode}
-        onVerify={handle2FAVerify}
-        type={twoFactorType}
-      />
+      {is2FADialogOpen && pendingUserId && (
+        <TwoFactorDialog
+          open={is2FADialogOpen}
+          userId={pendingUserId}
+          type={twoFactorType}
+          onSuccess={handle2FASuccess}
+          onCancel={handle2FACancel}
+        />
+      )}
 
-      <BlockedUserAppeal
-        open={showAppealDialog}
-        onClose={() => {
-          setShowAppealDialog(false);
-          setBlockedUserData(null);
-        }}
-        userId={blockedUserData?.userId}
-        userEmail={blockedUserData?.userEmail}
-        authMethod={blockedUserData?.authMethod}
-      />
-
-      <ForgotPasswordDialog
-        open={showForgotPassword}
+      <ForgotPasswordDialog 
+        open={showForgotPassword} 
         onClose={() => setShowForgotPassword(false)}
       />
-    </LoginPageBackground>
+
+      <Dialog open={showAppealDialog} onOpenChange={setShowAppealDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Форма обращения к администратору</DialogTitle>
+          </DialogHeader>
+          <BlockedUserAppeal
+            userId={blockedUserData?.userId}
+            userEmail={blockedUserData?.userEmail}
+            authMethod={blockedUserData?.authMethod}
+            onClose={() => setShowAppealDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
