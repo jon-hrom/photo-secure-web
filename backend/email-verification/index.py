@@ -80,7 +80,7 @@ def send_sms_code(phone: str, code: str) -> bool:
     if not re.match(r'^7\d{10}$', phone):
         raise Exception('Неверный формат телефона')
     
-    message = f'Ваш код подтверждения для foto-mix.ru: {code}. Действителен {TTL_MIN} минут.'
+    message = f'foto-mix.ru код: {code}'
     
     payload = {
         'method': 'push_msg',
