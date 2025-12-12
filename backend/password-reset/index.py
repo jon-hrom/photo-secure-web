@@ -17,6 +17,7 @@ import boto3
 from botocore.config import Config
 import urllib.request
 import urllib.parse
+import urllib.error
 import re
 
 def get_db_connection():
@@ -109,14 +110,30 @@ def send_sms_code(phone: str, code: str) -> bool:
     url = f"https://ssl.bs00.ru/?{urllib.parse.urlencode(payload)}"
     
     try:
+        print(f'[SMS_SU] Sending SMS to {phone}')
+        print(f'[SMS_SU] URL (masked): {url.replace(api_key, "***KEY***")}')
         req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
         with urllib.request.urlopen(req, timeout=20) as response:
-            result = json.loads(response.read().decode('utf-8'))
+            raw_response = response.read().decode('utf-8')
+            print(f'[SMS_SU] Raw response: {raw_response}')
+            result = json.loads(raw_response)
+            print(f'[SMS_SU] Parsed response: {result}')
+            
             if result.get('response') == 1:
+                print(f'[SMS_SU] SMS sent successfully')
                 return True
             else:
-                raise Exception(f"SMS.SU error: {result.get('error_msg', 'Unknown error')}")
+                error_msg = result.get('error_msg', result.get('error', 'Unknown error'))
+                print(f'[SMS_SU] Error: {error_msg}')
+                raise Exception(f"SMS.SU error: {error_msg}")
+    except json.JSONDecodeError as e:
+        print(f'[SMS_SU] JSON decode error: {str(e)}')
+        raise Exception(f'SMS.SU invalid response format')
+    except urllib.error.URLError as e:
+        print(f'[SMS_SU] Network error: {str(e)}')
+        raise Exception(f'SMS.SU connection failed: {str(e)}')
     except Exception as e:
+        print(f'[SMS_SU] Unexpected error: {str(e)}')
         raise Exception(f'SMS sending failed: {str(e)}')
 
 def send_reset_email(to: str, code: str):

@@ -234,7 +234,15 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
           </div>
           <DialogTitle className="text-center">Восстановление пароля</DialogTitle>
           <DialogDescription className="text-center">
-            {step === 'contact' && 'Введите email или телефон для восстановления'}
+            {step === 'contact' && (
+              <>
+                Введите email или телефон, который указывали в настройках аккаунта
+                <br />
+                <span className="text-xs text-muted-foreground mt-1 block">
+                  После проверки будет предложен способ получения кода
+                </span>
+              </>
+            )}
             {step === 'method' && 'Выберите способ получения кода'}
             {step === 'code' && 'Введите код из сообщения'}
             {step === 'password' && 'Создайте новый пароль'}
