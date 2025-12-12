@@ -95,7 +95,7 @@ def send_sms_code(phone: str, code: str) -> bool:
     if not re.match(r'^7\d{10}$', phone):
         raise Exception('Неверный формат телефона')
     
-    message = f'Код для восстановления пароля foto-mix.ru: {code}. Действителен 10 минут.'
+    message = f'Код для восстановления пароля foto-mix.ru: {code}. Действителен 10 минут'
     
     payload = {
         'method': 'push_msg',
