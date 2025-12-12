@@ -76,10 +76,10 @@ export const useAuth = () => {
   };
 
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    
     const restoreSession = () => {
       console.log('🔄 Restoring session...');
-      
-      const urlParams = new URLSearchParams(window.location.search);
       console.log('🔍 Full URL:', window.location.href);
       console.log('🔍 Query params:', Object.fromEntries(urlParams.entries()));
       
@@ -365,13 +365,28 @@ export const useAuth = () => {
         setGuestAccess(settings.guest_access || false);
       } catch (error) {
         console.error('Ошибка загрузки настроек:', error);
+        setMaintenanceMode(false);
+        setGuestAccess(true);
       } finally {
         setLoading(false);
       }
     };
     
     restoreSession();
-    checkSettings();
+    
+    // OPTIMIZATION: Only check settings if user has session or VK callback
+    const hasSession = localStorage.getItem('authSession') || 
+                      localStorage.getItem('vk_user') || 
+                      urlParams.get('vk_session');
+    
+    if (hasSession) {
+      checkSettings();
+    } else {
+      // No session = guest mode, skip settings check
+      setMaintenanceMode(false);
+      setGuestAccess(true);
+      setLoading(false);
+    }
     
     // Фикс для пользователей у которых нет userId в localStorage но есть vk_user
     const fixMissingUserId = () => {

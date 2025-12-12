@@ -80,8 +80,17 @@ const Index = () => {
 
   useEffect(() => {
     const checkEmailVerification = async () => {
+      // OPTIMIZATION: Skip check completely if not authenticated
       if (!isAuthenticated || !userId) {
         console.log('[EMAIL_CHECK] Skipping - not authenticated or no userId:', { isAuthenticated, userId });
+        setEmailVerified(false);
+        setShowEmailVerification(false);
+        return;
+      }
+      
+      // OPTIMIZATION: Only check on dashboard page to avoid unnecessary requests
+      if (currentPage !== 'dashboard') {
+        console.log('[EMAIL_CHECK] Skipping - not on dashboard page');
         return;
       }
       
