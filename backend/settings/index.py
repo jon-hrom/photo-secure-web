@@ -296,9 +296,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body_data = json.loads(event.get('body', '{}'))
         action = body_data.get('action')
         
-        # Check SMS balance (no DB needed)
+        # Check SMS balance via cost check (SMS.SU doesn't have balance API)
         if action == 'check-sms-balance':
-            print('[SMS_BALANCE] Checking SMS.SU balance...')
+            print('[SMS_BALANCE] Checking SMS.SU balance via cost check...')
             api_key_raw = os.environ.get('API_KEY', '').strip()
             
             if api_key_raw.startswith('API_KEY='):
@@ -319,10 +319,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             try:
-                # SMS.SU balance check endpoint
+                # SMS.SU doesn't have separate balance API, use cost check
                 payload = {
-                    'method': 'balance',
+                    'method': 'get_cost',
                     'key': api_key,
+                    'text': 'test',
+                    'phone': '79000000000',
                     'format': 'json'
                 }
                 
@@ -370,7 +372,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'Content-Type': 'application/json',
                         'Access-Control-Allow-Origin': '*'
                     },
-                    'body': json.dumps({'ok': False, 'error': f'Ошибка проверки баланса: {str(e)}'}),
+                    'body': json.dumps({'ok': False, 'error': f'SMS.SU API не поддерживает прямую проверку баланса. Используйте тестовую отправку SMS для проверки баланса.'}),
                     'isBase64Encoded': False
                 }
         

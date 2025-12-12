@@ -16,7 +16,7 @@ const SmsBalanceManager = () => {
   const checkBalance = async () => {
     setLoading(true);
     try {
-      // SMS.SU API для проверки баланса
+      // SMS.SU API для проверки баланса (через тестовую отправку)
       const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,9 +29,12 @@ const SmsBalanceManager = () => {
       
       if (data.ok && typeof data.balance === 'number') {
         setBalance(data.balance);
-        toast.success(`Баланс: ${data.balance} руб.`);
+        toast.success(`Баланс: ${data.balance.toFixed(2)} руб.`);
       } else {
-        toast.error(data.error || 'Не удалось получить баланс');
+        // SMS.SU API doesn't support direct balance check
+        toast.info('SMS.SU не поддерживает прямую проверку баланса. Используйте тестовую отправку для проверки баланса.', {
+          duration: 5000
+        });
       }
     } catch (error) {
       toast.error('Ошибка подключения к серверу');
@@ -87,9 +90,8 @@ const SmsBalanceManager = () => {
     }
   };
 
-  useEffect(() => {
-    checkBalance();
-  }, []);
+  // Removed auto balance check on mount since SMS.SU doesn't support it
+  // Balance will be updated after sending test SMS
 
   return (
     <Card>
@@ -107,25 +109,27 @@ const SmsBalanceManager = () => {
       <CardContent className="space-y-6">
         {/* Баланс */}
         <div className={`p-4 rounded-lg border ${
-          balance !== null && balance < 10 
+          balance !== null && balance < 100 
             ? 'bg-gradient-to-br from-red-50 to-orange-50 border-red-200' 
-            : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+            : balance !== null 
+            ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+            : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-200'
         }`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Icon name="Wallet" className={`h-5 w-5 ${
-                balance !== null && balance < 10 ? 'text-red-600' : 'text-green-600'
+                balance !== null && balance < 100 ? 'text-red-600' : balance !== null ? 'text-green-600' : 'text-gray-400'
               }`} />
-              <span className="font-semibold text-gray-700">Текущий баланс</span>
+              <span className="font-semibold text-gray-700">Баланс SMS.SU</span>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={checkBalance}
               disabled={loading}
+              title="SMS.SU не поддерживает прямую проверку баланса"
             >
-              <Icon name="RefreshCw" className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Обновить
+              <Icon name="Info" className="h-4 w-4" />
             </Button>
           </div>
           {balance !== null ? (
@@ -135,7 +139,7 @@ const SmsBalanceManager = () => {
               }`}>
                 {balance.toFixed(2)} ₽
               </div>
-              {balance < 10 && (
+              {balance < 100 && (
                 <div className="mt-2 flex items-start gap-2 text-xs text-red-600">
                   <Icon name="AlertCircle" className="h-4 w-4 mt-0.5 flex-shrink-0" />
                   <span>
@@ -144,9 +148,17 @@ const SmsBalanceManager = () => {
                   </span>
                 </div>
               )}
+              <div className="mt-2 text-xs text-gray-500">
+                Баланс обновлен: {new Date().toLocaleTimeString('ru-RU')}
+              </div>
             </>
           ) : (
-            <div className="text-gray-400">Загрузка...</div>
+            <div className="space-y-1">
+              <div className="text-gray-400">Баланс не проверен</div>
+              <div className="text-xs text-gray-500">
+                Отправьте тестовую SMS для проверки баланса
+              </div>
+            </div>
           )}
           <div className="mt-2 text-xs text-gray-500">
             1 SMS сегмент ≈ 3-4 руб. (до 70 символов)
@@ -154,20 +166,20 @@ const SmsBalanceManager = () => {
         </div>
 
         {/* Инструкция по пополнению */}
-        <Alert variant={balance !== null && balance < 10 ? 'destructive' : 'default'}>
-          <Icon name={balance !== null && balance < 10 ? 'AlertTriangle' : 'Info'} className="h-4 w-4" />
+        <Alert variant={balance !== null && balance < 100 ? 'destructive' : 'default'}>
+          <Icon name={balance !== null && balance < 100 ? 'AlertTriangle' : 'Info'} className="h-4 w-4" />
           <AlertDescription>
             <div className="space-y-2">
               <p className="font-semibold">
-                {balance !== null && balance < 10 
-                  ? '⚠️ Срочно пополните баланс!' 
+                {balance !== null && balance < 100 
+                  ? '⚠️ Рекомендуем пополнить баланс!' 
                   : 'Как пополнить баланс SMS.SU:'}
               </p>
-              {balance !== null && balance < 10 && (
+              {balance !== null && balance < 100 && (
                 <p className="text-sm">
-                  При балансе ниже 10 руб. SMS.SU возвращает успешные ответы (err_code: 0), 
-                  но <strong>не отправляет SMS реально</strong>. Баланс остается неизменным — 
-                  это признак недостаточных средств.
+                  При балансе ниже 100 руб. рекомендуется пополнить счет. 
+                  SMS.SU может возвращать успешные ответы (err_code: 0), 
+                  но <strong>не отправлять SMS реально</strong> при недостаточных средствах.
                 </p>
               )}
               <ol className="list-decimal list-inside space-y-1 text-sm">
