@@ -18,6 +18,19 @@ import {
   type FinancialSummary,
 } from '@/components/admin/AdminStorageAPI';
 
+interface CachedData {
+  plans: Plan[];
+  users: User[];
+  usageStats: UsageStat[];
+  revenueStats: RevenueStat[];
+  financialStats: FinancialStat[];
+  financialSummary: FinancialSummary | null;
+  timestamp: number;
+}
+
+const CACHE_KEY = 'admin_storage_cache';
+const CACHE_DURATION = 5 * 60 * 1000;
+
 const AdminStorage = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -28,8 +41,77 @@ const AdminStorage = () => {
   const [financialPeriod, setFinancialPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all'>('month');
   const [loading, setLoading] = useState(false);
   const [adminKey, setAdminKey] = useState('');
+  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
 
   const api = useAdminStorageAPI(adminKey);
+
+  const saveToCache = (data: Omit<CachedData, 'timestamp'>) => {
+    const cached: CachedData = { ...data, timestamp: Date.now() };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+    setLastUpdate(Date.now());
+    console.log('[CACHE] Data saved to cache');
+  };
+
+  const loadFromCache = (): CachedData | null => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) return null;
+      
+      const data: CachedData = JSON.parse(cached);
+      const age = Date.now() - data.timestamp;
+      
+      if (age > CACHE_DURATION) {
+        console.log('[CACHE] Cache expired, age:', Math.floor(age / 1000), 'seconds');
+        localStorage.removeItem(CACHE_KEY);
+        return null;
+      }
+      
+      console.log('[CACHE] Cache loaded, age:', Math.floor(age / 1000), 'seconds');
+      return data;
+    } catch (error) {
+      console.error('[CACHE] Error loading cache:', error);
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+  };
+
+  const clearCache = () => {
+    localStorage.removeItem(CACHE_KEY);
+    setLastUpdate(null);
+    console.log('[CACHE] Cache cleared');
+  };
+
+  const fetchAllData = async () => {
+    console.log('[FETCH] Starting fresh data fetch...');
+    setLoading(true);
+    
+    const tempPlans: Plan[] = [];
+    const tempUsers: User[] = [];
+    const tempUsageStats: UsageStat[] = [];
+    const tempRevenueStats: RevenueStat[] = [];
+    
+    await Promise.all([
+      api.fetchPlans((p) => { tempPlans.push(...p); setPlans(p); }),
+      api.fetchUsers((u) => { tempUsers.push(...u); setUsers(u); }),
+      api.fetchStats(
+        (us) => { tempUsageStats.push(...us); setUsageStats(us); },
+        (rs) => { tempRevenueStats.push(...rs); setRevenueStats(rs); },
+        setLoading
+      ),
+    ]);
+    
+    saveToCache({
+      plans: tempPlans,
+      users: tempUsers,
+      usageStats: tempUsageStats,
+      revenueStats: tempRevenueStats,
+      financialStats,
+      financialSummary,
+    });
+    
+    setLoading(false);
+    console.log('[FETCH] Fresh data fetched and cached');
+  };
 
   const refetchPlans = () => api.fetchPlans(setPlans);
   const refetchUsers = () => api.fetchUsers(setUsers);
@@ -43,10 +125,22 @@ const AdminStorage = () => {
 
   useEffect(() => {
     if (adminKey) {
-      console.log('[ADMIN_STORAGE] AdminKey set, fetching data...');
-      refetchPlans();
-      refetchUsers();
-      refetchStats();
+      console.log('[ADMIN_STORAGE] AdminKey set, checking cache...');
+      
+      const cached = loadFromCache();
+      if (cached) {
+        console.log('[ADMIN_STORAGE] Loading from cache');
+        setPlans(cached.plans);
+        setUsers(cached.users);
+        setUsageStats(cached.usageStats);
+        setRevenueStats(cached.revenueStats);
+        setFinancialStats(cached.financialStats);
+        setFinancialSummary(cached.financialSummary);
+        setLastUpdate(cached.timestamp);
+      } else {
+        console.log('[ADMIN_STORAGE] No valid cache, fetching fresh data...');
+        fetchAllData();
+      }
     }
   }, [adminKey]);
 
@@ -71,15 +165,35 @@ const AdminStorage = () => {
   return (
     <div className="min-h-screen bg-background p-2 sm:p-4 md:p-6 pb-20">
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => window.history.back()}
+              className="p-2 hover:bg-accent rounded-lg transition-colors"
+              aria-label="Назад"
+            >
+              <Icon name="ArrowLeft" className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Управление хранилищем</h1>
+              {lastUpdate && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Обновлено {Math.floor((Date.now() - lastUpdate) / 1000 / 60)} мин назад
+                </p>
+              )}
+            </div>
+          </div>
           <button
-            onClick={() => window.history.back()}
-            className="p-2 hover:bg-accent rounded-lg transition-colors"
-            aria-label="Назад"
+            onClick={() => {
+              clearCache();
+              fetchAllData();
+            }}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm"
           >
-            <Icon name="ArrowLeft" className="h-5 w-5" />
+            <Icon name="RefreshCw" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Обновить</span>
           </button>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Управление хранилищем</h1>
         </div>
 
         <AdminStorageStats
