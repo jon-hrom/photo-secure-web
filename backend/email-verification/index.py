@@ -16,6 +16,7 @@ import boto3
 from botocore.config import Config
 import urllib.request
 import urllib.parse
+import re
 
 POSTBOX_ENDPOINT = 'https://postbox.cloud.yandex.net'
 POSTBOX_REGION = 'ru-central1'
@@ -53,26 +54,54 @@ def gen_code(length: int = 6) -> str:
         return f'{random.randint(10000, 99999)}'
     return f'{random.randint(100000, 999999)}'
 
+def normalize_phone(phone: str) -> str:
+    """Normalize phone to 7XXXXXXXXXX format"""
+    digits = re.sub(r'\D+', '', phone or '')
+    if len(digits) == 11 and digits[0] in ('8', '7'):
+        digits = '7' + digits[1:]
+    elif len(digits) == 10:
+        digits = '7' + digits
+    return digits
+
 def send_sms_code(phone: str, code: str) -> bool:
-    api_key = os.environ.get('SMSRU_API_KEY')
+    """Send SMS via SMS.SU service"""
+    api_key_raw = os.environ.get('API_KEY', '').strip()
+    
+    if api_key_raw.startswith('API_KEY='):
+        api_key = api_key_raw[8:]
+    else:
+        api_key = api_key_raw
+    
     if not api_key:
-        raise Exception('SMSRU_API_KEY not configured')
+        raise Exception('API_KEY not configured')
+    
+    phone = normalize_phone(phone)
+    
+    if not re.match(r'^7\d{10}$', phone):
+        raise Exception('Неверный формат телефона')
     
     message = f'Ваш код подтверждения для foto-mix.ru: {code}. Действителен {TTL_MIN} минут.'
     
-    params = urllib.parse.urlencode({
-        'api_id': api_key,
-        'to': phone,
-        'msg': message,
-        'json': 1
-    })
+    payload = {
+        'method': 'push_msg',
+        'key': api_key,
+        'text': message,
+        'phone': phone,
+        'sender_name': 'foto-mix',
+        'priority': 2,
+        'format': 'json',
+    }
     
-    url = f'https://sms.ru/sms/send?{params}'
+    url = f"https://ssl.bs00.ru/?{urllib.parse.urlencode(payload)}"
     
     try:
-        with urllib.request.urlopen(url, timeout=10) as response:
+        req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
+        with urllib.request.urlopen(req, timeout=20) as response:
             result = json.loads(response.read().decode('utf-8'))
-            return result.get('status') == 'OK'
+            if result.get('response') == 1:
+                return True
+            else:
+                raise Exception(f"SMS.SU error: {result.get('error_msg', 'Unknown error')}")
     except Exception as e:
         raise Exception(f'SMS sending failed: {str(e)}')
 

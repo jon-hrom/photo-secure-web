@@ -19,8 +19,8 @@ interface ForgotPasswordDialogProps {
 }
 
 const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
-  const [step, setStep] = useState<'email' | 'method' | 'code' | 'password'>('email');
-  const [email, setEmail] = useState('');
+  const [step, setStep] = useState<'contact' | 'method' | 'code' | 'password'>('contact');
+  const [contact, setContact] = useState('');
   const [method, setMethod] = useState<'email' | 'sms'>('email');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -30,6 +30,10 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
   const [minPasswordLength, setMinPasswordLength] = useState(8);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [userPhone, setUserPhone] = useState('');
+  const [canUseEmail, setCanUseEmail] = useState(false);
+  const [canUseSms, setCanUseSms] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -50,19 +54,23 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
 
   useEffect(() => {
     if (!open) {
-      setStep('email');
-      setEmail('');
+      setStep('contact');
+      setContact('');
       setMethod('email');
       setCode('');
       setNewPassword('');
       setConfirmPassword('');
       setSessionToken('');
+      setUserEmail('');
+      setUserPhone('');
+      setCanUseEmail(false);
+      setCanUseSms(false);
     }
   }, [open]);
 
-  const handleEmailSubmit = async () => {
-    if (!email) {
-      toast.error('Введите email');
+  const handleContactSubmit = async () => {
+    if (!contact) {
+      toast.error('Введите email или телефон');
       return;
     }
 
@@ -72,22 +80,32 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          action: 'check_email', 
-          email 
+          action: 'check_contact', 
+          contact 
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        if (data.hasSmsEnabled) {
+        setUserEmail(data.email || '');
+        setUserPhone(data.phone || '');
+        setCanUseEmail(data.canUseEmail);
+        setCanUseSms(data.canUseSms);
+        
+        if (data.hasBothMethods) {
           setStep('method');
-        } else {
+        } else if (data.canUseEmail) {
           setMethod('email');
           await sendCode('email');
+        } else if (data.canUseSms) {
+          setMethod('sms');
+          await sendCode('sms');
+        } else {
+          toast.error('У пользователя нет контактных данных');
         }
       } else {
-        toast.error(data.error || 'Email не найден');
+        toast.error(data.error || 'Пользователь не найден');
       }
     } catch (error) {
       toast.error('Ошибка подключения к серверу');
@@ -104,7 +122,7 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'send_code', 
-          email,
+          contact,
           method: selectedMethod
         }),
       });
@@ -142,7 +160,7 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'verify_code', 
-          email,
+          contact,
           code,
           session_token: sessionToken
         }),
@@ -186,7 +204,7 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'reset_password', 
-          email,
+          contact,
           new_password: newPassword,
           session_token: sessionToken
         }),
@@ -216,7 +234,7 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
           </div>
           <DialogTitle className="text-center">Восстановление пароля</DialogTitle>
           <DialogDescription className="text-center">
-            {step === 'email' && 'Введите email для восстановления доступа'}
+            {step === 'contact' && 'Введите email или телефон для восстановления'}
             {step === 'method' && 'Выберите способ получения кода'}
             {step === 'code' && 'Введите код из сообщения'}
             {step === 'password' && 'Создайте новый пароль'}
@@ -224,21 +242,21 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          {step === 'email' && (
+          {step === 'contact' && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="reset-email">Email</Label>
+                <Label htmlFor="reset-contact">Email или телефон</Label>
                 <Input
-                  id="reset-email"
-                  type="email"
-                  placeholder="example@mail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
+                  id="reset-contact"
+                  type="text"
+                  placeholder="example@mail.com или +7 (900) 123-45-67"
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleContactSubmit()}
                 />
               </div>
               <Button
-                onClick={handleEmailSubmit}
+                onClick={handleContactSubmit}
                 disabled={loading}
                 className="w-full"
               >
@@ -256,18 +274,22 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="email">
-                      <div className="flex items-center gap-2">
-                        <Icon name="Mail" size={16} />
-                        Отправить на email
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="sms">
-                      <div className="flex items-center gap-2">
-                        <Icon name="Smartphone" size={16} />
-                        Отправить SMS
-                      </div>
-                    </SelectItem>
+                    {canUseEmail && (
+                      <SelectItem value="email">
+                        <div className="flex items-center gap-2">
+                          <Icon name="Mail" size={16} />
+                          Отправить на {userEmail}
+                        </div>
+                      </SelectItem>
+                    )}
+                    {canUseSms && (
+                      <SelectItem value="sms">
+                        <div className="flex items-center gap-2">
+                          <Icon name="Smartphone" size={16} />
+                          Отправить SMS на {userPhone}
+                        </div>
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

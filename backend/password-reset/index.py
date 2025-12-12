@@ -17,6 +17,7 @@ import boto3
 from botocore.config import Config
 import urllib.request
 import urllib.parse
+import re
 
 def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
@@ -58,26 +59,63 @@ def escape_sql(value):
 def generate_code() -> str:
     return ''.join([str(secrets.randbelow(10)) for _ in range(6)])
 
+def normalize_phone(phone: str) -> str:
+    """Normalize phone to 7XXXXXXXXXX format"""
+    digits = re.sub(r'\D+', '', phone or '')
+    if len(digits) == 11 and digits[0] in ('8', '7'):
+        digits = '7' + digits[1:]
+    elif len(digits) == 10:
+        digits = '7' + digits
+    return digits
+
+def is_phone(value: str) -> bool:
+    """Check if value looks like a phone number"""
+    digits = re.sub(r'\D+', '', value or '')
+    return len(digits) >= 10 and digits.isdigit()
+
+def is_email(value: str) -> bool:
+    """Check if value looks like an email"""
+    return '@' in value and '.' in value.split('@')[-1]
+
 def send_sms_code(phone: str, code: str) -> bool:
-    api_key = os.environ.get('SMSRU_API_KEY')
+    """Send SMS via SMS.SU service"""
+    api_key_raw = os.environ.get('API_KEY', '').strip()
+    
+    if api_key_raw.startswith('API_KEY='):
+        api_key = api_key_raw[8:]
+    else:
+        api_key = api_key_raw
+    
     if not api_key:
-        raise Exception('SMSRU_API_KEY not configured')
+        raise Exception('API_KEY not configured')
+    
+    phone = normalize_phone(phone)
+    
+    if not re.match(r'^7\d{10}$', phone):
+        raise Exception('Неверный формат телефона')
     
     message = f'Код для восстановления пароля foto-mix.ru: {code}. Действителен 10 минут.'
     
-    params = urllib.parse.urlencode({
-        'api_id': api_key,
-        'to': phone,
-        'msg': message,
-        'json': 1
-    })
+    payload = {
+        'method': 'push_msg',
+        'key': api_key,
+        'text': message,
+        'phone': phone,
+        'sender_name': 'foto-mix',
+        'priority': 2,
+        'format': 'json',
+    }
     
-    url = f'https://sms.ru/sms/send?{params}'
+    url = f"https://ssl.bs00.ru/?{urllib.parse.urlencode(payload)}"
     
     try:
-        with urllib.request.urlopen(url, timeout=10) as response:
+        req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
+        with urllib.request.urlopen(req, timeout=20) as response:
             result = json.loads(response.read().decode('utf-8'))
-            return result.get('status') == 'OK'
+            if result.get('response') == 1:
+                return True
+            else:
+                raise Exception(f"SMS.SU error: {result.get('error_msg', 'Unknown error')}")
     except Exception as e:
         raise Exception(f'SMS sending failed: {str(e)}')
 
@@ -161,21 +199,39 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        if action == 'check_email':
-            email = body.get('email')
-            if not email:
+        if action == 'check_contact':
+            contact = body.get('contact')
+            if not contact:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Email обязателен'}),
+                    'body': json.dumps({'error': 'Email или телефон обязателен'}),
                     'isBase64Encoded': False
                 }
             
-            cursor.execute(
-                "SELECT id as user_id, phone FROM users WHERE email = %s",
-                (email,)
-            )
-            user = cursor.fetchone()
+            # Determine if it's email or phone
+            if is_email(contact):
+                cursor.execute(
+                    "SELECT id as user_id, email, phone FROM users WHERE email = %s",
+                    (contact,)
+                )
+                user = cursor.fetchone()
+                contact_type = 'email'
+            elif is_phone(contact):
+                normalized_phone = normalize_phone(contact)
+                cursor.execute(
+                    "SELECT id as user_id, email, phone FROM users WHERE phone = %s",
+                    (normalized_phone,)
+                )
+                user = cursor.fetchone()
+                contact_type = 'phone'
+            else:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Неверный формат email или телефона'}),
+                    'isBase64Encoded': False
+                }
             
             if not user:
                 return {
@@ -185,32 +241,50 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            # If user entered phone but has no phone in DB, or entered email but has no email
+            can_use_email = bool(user.get('email'))
+            can_use_sms = bool(user.get('phone'))
+            
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
                     'success': True,
-                    'hasSmsEnabled': bool(user['phone'])
+                    'contactType': contact_type,
+                    'email': user.get('email'),
+                    'phone': user.get('phone'),
+                    'canUseEmail': can_use_email,
+                    'canUseSms': can_use_sms,
+                    'hasBothMethods': can_use_email and can_use_sms
                 }),
                 'isBase64Encoded': False
             }
         
         elif action == 'send_code':
-            email = body.get('email')
+            contact = body.get('contact')
             method_type = body.get('method', 'email')
             
-            if not email:
+            if not contact:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Email обязателен'}),
+                    'body': json.dumps({'error': 'Email или телефон обязателен'}),
                     'isBase64Encoded': False
                 }
             
-            cursor.execute(
-                "SELECT id as user_id FROM users WHERE email = %s",
-                (email,)
-            )
+            # Find user by email or phone
+            if is_email(contact):
+                cursor.execute(
+                    "SELECT id as user_id, email, phone FROM users WHERE email = %s",
+                    (contact,)
+                )
+            else:
+                normalized_phone = normalize_phone(contact)
+                cursor.execute(
+                    "SELECT id as user_id, email, phone FROM users WHERE phone = %s",
+                    (normalized_phone,)
+                )
+            
             user = cursor.fetchone()
             
             if not user:
@@ -241,22 +315,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             conn.commit()
             
             if method_type == 'email':
-                send_reset_email(email, code)
-            elif method_type == 'sms':
-                cursor.execute(
-                    "SELECT phone FROM users WHERE email = %s",
-                    (email,)
-                )
-                user_phone = cursor.fetchone()
-                if user_phone and user_phone['phone']:
-                    send_sms_code(user_phone['phone'], code)
-                else:
+                if not user.get('email'):
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'Телефон не найден'}),
+                        'body': json.dumps({'error': 'Email не найден у пользователя'}),
                         'isBase64Encoded': False
                     }
+                send_reset_email(user['email'], code)
+            elif method_type == 'sms':
+                if not user.get('phone'):
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Телефон не найден у пользователя'}),
+                        'isBase64Encoded': False
+                    }
+                send_sms_code(user['phone'], code)
             
             return {
                 'statusCode': 200,
@@ -269,11 +344,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         elif action == 'verify_code':
-            email = body.get('email')
+            contact = body.get('contact')
             code = body.get('code')
             session_token = body.get('session_token')
             
-            if not all([email, code, session_token]):
+            if not all([contact, code, session_token]):
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -281,17 +356,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            # Find user by email or phone
+            if is_email(contact):
+                where_clause = "u.email = %s"
+                contact_value = contact
+            else:
+                where_clause = "u.phone = %s"
+                contact_value = normalize_phone(contact)
+            
             cursor.execute(
-                """
+                f"""
                 SELECT prc.* FROM password_reset_codes prc
                 JOIN users u ON u.id = prc.user_id
-                WHERE u.email = %s
+                WHERE {where_clause}
                 AND prc.code = %s
                 AND prc.session_token = %s
                 AND prc.expires_at > NOW()
                 AND prc.used = FALSE
                 """,
-                (email, code, session_token)
+                (contact_value, code, session_token)
             )
             
             reset_code = cursor.fetchone()
@@ -312,11 +395,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         elif action == 'reset_password':
-            email = body.get('email')
+            contact = body.get('contact')
             new_password = body.get('new_password')
             session_token = body.get('session_token')
             
-            if not all([email, new_password, session_token]):
+            if not all([contact, new_password, session_token]):
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -324,16 +407,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            # Find user by email or phone
+            if is_email(contact):
+                where_clause = "u.email = %s"
+                contact_value = contact
+            else:
+                where_clause = "u.phone = %s"
+                contact_value = normalize_phone(contact)
+            
             cursor.execute(
-                """
-                SELECT prc.user_id FROM password_reset_codes prc
+                f"""
+                SELECT prc.user_id, u.email FROM password_reset_codes prc
                 JOIN users u ON u.id = prc.user_id
-                WHERE u.email = %s
+                WHERE {where_clause}
                 AND prc.session_token = %s
                 AND prc.expires_at > NOW()
                 AND prc.used = FALSE
                 """,
-                (email, session_token)
+                (contact_value, session_token)
             )
             
             reset_code = cursor.fetchone()
@@ -347,10 +438,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             hashed = hash_password(new_password)
+            user_email = reset_code.get('email')
             
             cursor.execute(
-                "UPDATE users SET password_hash = %s WHERE email = %s",
-                (hashed, email)
+                "UPDATE users SET password_hash = %s WHERE id = %s",
+                (hashed, reset_code['user_id'])
             )
             
             cursor.execute(
