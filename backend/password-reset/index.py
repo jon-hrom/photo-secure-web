@@ -119,13 +119,20 @@ def send_sms_code(phone: str, code: str) -> bool:
             result = json.loads(raw_response)
             print(f'[SMS_SU] Parsed response: {result}')
             
-            if result.get('response') == 1:
-                print(f'[SMS_SU] SMS sent successfully')
-                return True
+            # Check if SMS.SU returned success
+            if 'response' in result and isinstance(result['response'], dict):
+                msg = result['response'].get('msg', {})
+                err_code = msg.get('err_code', '999')
+                if err_code == '0':
+                    print(f'[SMS_SU] SMS sent successfully')
+                    return True
+                else:
+                    error_msg = msg.get('text', 'Unknown error')
+                    print(f'[SMS_SU] Error: {error_msg} (code: {err_code})')
+                    raise Exception(f"SMS.SU error: {error_msg}")
             else:
-                error_msg = result.get('error_msg', result.get('error', 'Unknown error'))
-                print(f'[SMS_SU] Error: {error_msg}')
-                raise Exception(f"SMS.SU error: {error_msg}")
+                print(f'[SMS_SU] Unexpected response format')
+                raise Exception(f"SMS.SU unexpected response format")
     except json.JSONDecodeError as e:
         print(f'[SMS_SU] JSON decode error: {str(e)}')
         raise Exception(f'SMS.SU invalid response format')

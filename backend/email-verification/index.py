@@ -98,10 +98,18 @@ def send_sms_code(phone: str, code: str) -> bool:
         req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
         with urllib.request.urlopen(req, timeout=20) as response:
             result = json.loads(response.read().decode('utf-8'))
-            if result.get('response') == 1:
-                return True
+            
+            # Check if SMS.SU returned success
+            if 'response' in result and isinstance(result['response'], dict):
+                msg = result['response'].get('msg', {})
+                err_code = msg.get('err_code', '999')
+                if err_code == '0':
+                    return True
+                else:
+                    error_msg = msg.get('text', 'Unknown error')
+                    raise Exception(f"SMS.SU error: {error_msg}")
             else:
-                raise Exception(f"SMS.SU error: {result.get('error_msg', 'Unknown error')}")
+                raise Exception(f"SMS.SU unexpected response format")
     except Exception as e:
         raise Exception(f'SMS sending failed: {str(e)}')
 
