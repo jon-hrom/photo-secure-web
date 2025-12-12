@@ -358,9 +358,39 @@ export const useAuth = () => {
     };
 
     const checkSettings = async () => {
+      // OPTIMIZATION: Check cache first (30 min TTL)
+      const CACHE_KEY = 'settings_cache';
+      const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+      
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          const age = Date.now() - timestamp;
+          
+          if (age < CACHE_TTL) {
+            console.log('⚡ Using cached settings, age:', Math.round(age / 1000), 'sec');
+            setMaintenanceMode(data.maintenance_mode || false);
+            setGuestAccess(data.guest_access || false);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Cache read error:', e);
+      }
+      
+      // Cache miss or expired - fetch from server
       try {
         const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0');
         const settings = await response.json();
+        
+        // Save to cache
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          data: settings,
+          timestamp: Date.now()
+        }));
+        
         setMaintenanceMode(settings.maintenance_mode || false);
         setGuestAccess(settings.guest_access || false);
       } catch (error) {

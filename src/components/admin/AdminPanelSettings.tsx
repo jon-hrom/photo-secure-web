@@ -174,6 +174,11 @@ export const useAdminPanelSettings = () => {
             value: newValue
           })
         });
+        
+        // CRITICAL: Clear settings cache to force refresh for all users
+        localStorage.removeItem('settings_cache');
+        console.log('🔄 Settings cache cleared after', key, 'change');
+        
         toast.success('Настройка обновлена');
       } catch (error) {
         console.error('Ошибка сохранения настройки:', error);
