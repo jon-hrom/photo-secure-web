@@ -428,36 +428,36 @@ def list_users(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Получаем пользователей с их тарифами и подписками
+            # Получаем дефолтный тариф
+            cur.execute(f'''
+                SELECT id, name FROM {SCHEMA}.storage_plans 
+                WHERE is_active = TRUE 
+                ORDER BY monthly_price_rub ASC 
+                LIMIT 1
+            ''')
+            default_plan = cur.fetchone()
+            default_plan_id = default_plan['id'] if default_plan else None
+            default_plan_name = default_plan['name'] if default_plan else 'Бесплатный'
+            
+            # Получаем пользователей с их подписками (без подзапросов на размер)
             query = f'''
                 SELECT 
                     v.user_id,
                     v.full_name as username,
                     v.email,
-                    COALESCE(s.plan_id, p_default.id) as plan_id,
-                    COALESCE(p_active.name, p_default.name, 'Бесплатный') as plan_name,
+                    COALESCE(s.plan_id, {default_plan_id if default_plan_id else 'NULL'}) as plan_id,
+                    COALESCE(p_active.name, '{default_plan_name}') as plan_name,
                     s.custom_quota_gb,
                     s.amount_rub,
                     s.started_at,
                     s.ended_at,
                     s.status as subscription_status,
-                    COALESCE(
-                        (SELECT COALESCE(SUM(file_size), 0) / 1073741824.0 
-                         FROM {SCHEMA}.photo_bank 
-                         WHERE user_id = v.user_id AND is_deleted = FALSE),
-                        0
-                    ) as used_gb,
+                    0.0 as used_gb,
                     v.registered_at as created_at
                 FROM {SCHEMA}.vk_users v
                 LEFT JOIN {SCHEMA}.user_subscriptions s ON v.user_id = s.user_id 
                     AND s.status = 'active' AND s.ended_at > NOW()
                 LEFT JOIN {SCHEMA}.storage_plans p_active ON s.plan_id = p_active.id
-                LEFT JOIN (
-                    SELECT * FROM {SCHEMA}.storage_plans 
-                    WHERE is_active = TRUE 
-                    ORDER BY monthly_price_rub ASC 
-                    LIMIT 1
-                ) p_default ON TRUE
                 WHERE v.is_active = TRUE
                 ORDER BY v.registered_at DESC
                 LIMIT {limit} OFFSET {offset}
@@ -468,6 +468,16 @@ def list_users(event: Dict[str, Any]) -> Dict[str, Any]:
             users = cur.fetchall()
             print(f'[LIST_USERS] Found {len(users)} users')
             
+            # Получаем размеры хранилища для каждого пользователя отдельным запросом
+            for user in users:
+                cur.execute(f'''
+                    SELECT COALESCE(SUM(file_size), 0) / 1073741824.0 as used_gb
+                    FROM {SCHEMA}.photo_bank 
+                    WHERE user_id = {user['user_id']} AND is_trashed = FALSE
+                ''')
+                size_result = cur.fetchone()
+                user['used_gb'] = float(size_result['used_gb']) if size_result else 0.0
+            
             return {
                 'statusCode': 200,
                 'headers': CORS_HEADERS,
@@ -476,6 +486,8 @@ def list_users(event: Dict[str, Any]) -> Dict[str, Any]:
             }
     except Exception as e:
         print(f'[ERROR] list_users failed: {e}')
+        import traceback
+        print(f'[ERROR] Traceback: {traceback.format_exc()}')
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
@@ -656,20 +668,21 @@ def usage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             query = f'''
                 SELECT 
-                    DATE(uploaded_at) as date,
+                    DATE(created_at) as date,
                     COUNT(*) as uploads,
                     COALESCE(SUM(file_size) / 1073741824.0, 0) as total_size_gb,
                     COUNT(DISTINCT user_id) as unique_users
                 FROM {SCHEMA}.photo_bank
-                WHERE uploaded_at >= NOW() - INTERVAL '{days} days'
-                    AND is_deleted = FALSE
-                GROUP BY DATE(uploaded_at)
+                WHERE created_at >= NOW() - INTERVAL '{days} days'
+                    AND is_trashed = FALSE
+                GROUP BY DATE(created_at)
                 ORDER BY date DESC
             '''
             
             print(f'[USAGE_STATS] Fetching stats for last {days} days')
             cur.execute(query)
             stats = cur.fetchall()
+            print(f'[USAGE_STATS] Found {len(stats)} stat records')
             
             return {
                 'statusCode': 200,
@@ -679,6 +692,8 @@ def usage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             }
     except Exception as e:
         print(f'[ERROR] usage_stats failed: {e}')
+        import traceback
+        print(f'[ERROR] Traceback: {traceback.format_exc()}')
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
@@ -749,22 +764,14 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Статистика по периодам
+            # Упрощенная статистика по периодам (без подзапросов на размер хранилища)
             stats_query = f'''
                 SELECT 
                     DATE_TRUNC('{date_trunc}', s.created_at) as date,
-                    COALESCE(SUM(
-                        (SELECT COALESCE(SUM(file_size), 0) / 1073741824.0 
-                         FROM {SCHEMA}.photo_bank 
-                         WHERE user_id = s.user_id AND is_deleted = FALSE)
-                    ), 0) as storage_gb,
+                    0.0 as storage_gb,
                     COUNT(DISTINCT s.user_id) as active_users,
                     COALESCE(SUM(s.amount_rub), 0) as total_revenue,
-                    COALESCE(SUM(
-                        (SELECT COALESCE(SUM(file_size), 0) / 1073741824.0 
-                         FROM {SCHEMA}.photo_bank 
-                         WHERE user_id = s.user_id AND is_deleted = FALSE) * 2
-                    ), 0) as estimated_cost
+                    0.0 as estimated_cost
                 FROM {SCHEMA}.user_subscriptions s
                 WHERE s.status = 'active' 
                     AND s.created_at >= NOW() - INTERVAL '{interval}'
@@ -775,16 +782,13 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             print(f'[FINANCIAL_STATS] Fetching stats for period={period}')
             cur.execute(stats_query)
             stats = cur.fetchall()
+            print(f'[FINANCIAL_STATS] Found {len(stats)} stat records')
             
-            # Итоговые показатели
+            # Итоговые показатели (упрощенные)
             summary_query = f'''
                 SELECT 
                     COALESCE(SUM(s.amount_rub), 0) as total_revenue,
-                    COALESCE(SUM(
-                        (SELECT COALESCE(SUM(file_size), 0) / 1073741824.0 
-                         FROM {SCHEMA}.photo_bank 
-                         WHERE user_id = s.user_id AND is_deleted = FALSE) * 2
-                    ), 0) as total_cost
+                    0.0 as total_cost
                 FROM {SCHEMA}.user_subscriptions s
                 WHERE s.status = 'active' 
                     AND s.created_at >= NOW() - INTERVAL '{interval}'
@@ -812,6 +816,8 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             }
     except Exception as e:
         print(f'[ERROR] financial_stats failed: {e}')
+        import traceback
+        print(f'[ERROR] Traceback: {traceback.format_exc()}')
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
