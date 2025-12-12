@@ -62,7 +62,17 @@ const SmsBalanceManager = () => {
       const data = await response.json();
       
       if (data.ok) {
-        toast.success('SMS отправлено успешно!');
+        const oldBalance = balance;
+        const newBalance = data.credits || balance;
+        
+        if (oldBalance !== null && Math.abs(oldBalance - newBalance) < 0.01) {
+          toast.warning('⚠️ SMS принято SMS.SU, но баланс не изменился! Это означает недостаточно средств для реальной отправки. Пополните баланс.', {
+            duration: 7000
+          });
+        } else {
+          toast.success(`✅ SMS отправлено! Новый баланс: ${newBalance.toFixed(2)} руб.`);
+        }
+        
         if (data.credits) {
           setBalance(data.credits);
         }
@@ -96,10 +106,16 @@ const SmsBalanceManager = () => {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Баланс */}
-        <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
+        <div className={`p-4 rounded-lg border ${
+          balance !== null && balance < 10 
+            ? 'bg-gradient-to-br from-red-50 to-orange-50 border-red-200' 
+            : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+        }`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Icon name="Wallet" className="h-5 w-5 text-green-600" />
+              <Icon name="Wallet" className={`h-5 w-5 ${
+                balance !== null && balance < 10 ? 'text-red-600' : 'text-green-600'
+              }`} />
               <span className="font-semibold text-gray-700">Текущий баланс</span>
             </div>
             <Button
@@ -113,9 +129,22 @@ const SmsBalanceManager = () => {
             </Button>
           </div>
           {balance !== null ? (
-            <div className="text-3xl font-bold text-green-600">
-              {balance.toFixed(2)} ₽
-            </div>
+            <>
+              <div className={`text-3xl font-bold ${
+                balance < 10 ? 'text-red-600' : 'text-green-600'
+              }`}>
+                {balance.toFixed(2)} ₽
+              </div>
+              {balance < 10 && (
+                <div className="mt-2 flex items-start gap-2 text-xs text-red-600">
+                  <Icon name="AlertCircle" className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Недостаточно средств!</strong> SMS.SU принимает запросы, но не отправляет SMS реально. 
+                    Пополните баланс минимум на 100 руб.
+                  </span>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-gray-400">Загрузка...</div>
           )}
@@ -125,11 +154,22 @@ const SmsBalanceManager = () => {
         </div>
 
         {/* Инструкция по пополнению */}
-        <Alert>
-          <Icon name="Info" className="h-4 w-4" />
+        <Alert variant={balance !== null && balance < 10 ? 'destructive' : 'default'}>
+          <Icon name={balance !== null && balance < 10 ? 'AlertTriangle' : 'Info'} className="h-4 w-4" />
           <AlertDescription>
             <div className="space-y-2">
-              <p className="font-semibold">Как пополнить баланс SMS.SU:</p>
+              <p className="font-semibold">
+                {balance !== null && balance < 10 
+                  ? '⚠️ Срочно пополните баланс!' 
+                  : 'Как пополнить баланс SMS.SU:'}
+              </p>
+              {balance !== null && balance < 10 && (
+                <p className="text-sm">
+                  При балансе ниже 10 руб. SMS.SU возвращает успешные ответы (err_code: 0), 
+                  но <strong>не отправляет SMS реально</strong>. Баланс остается неизменным — 
+                  это признак недостаточных средств.
+                </p>
+              )}
               <ol className="list-decimal list-inside space-y-1 text-sm">
                 <li>Перейдите на сайт <a href="https://sms.su/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">sms.su</a></li>
                 <li>Войдите в личный кабинет с вашим API ключом</li>
