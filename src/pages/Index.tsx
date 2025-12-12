@@ -373,7 +373,7 @@ const Index = () => {
         {currentPage === 'clients' && <ClientsPage autoOpenClient={selectedClientName} userId={userId?.toString() || null} />}
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'features' && <FeaturesPage />}
-        {currentPage === 'tariffs' && <TariffsPage isAdmin={isAdmin} userId={userId?.toString()} />}
+        {currentPage === 'tariffs' && <TariffsPage userId={userId} />}
         {currentPage === 'settings' && userId && <SettingsPage userId={userId} />}
         {currentPage === 'help' && <HelpPage />}
         {currentPage === 'admin' && isAdmin && <AdminPanel />}

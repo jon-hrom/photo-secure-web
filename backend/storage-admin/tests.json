@@ -10,14 +10,10 @@
       }
     },
     {
-      "name": "List plans without admin key",
+      "name": "Public access to list plans",
       "method": "GET",
       "path": "/?action=list-plans",
-      "expectedStatus": 403,
-      "expectedBody": {
-        "error": "string"
-      },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     }
   ]
 }

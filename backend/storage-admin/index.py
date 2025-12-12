@@ -65,6 +65,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
+    params = event.get('queryStringParameters', {}) or {}
+    action = params.get('action', 'list-plans')
+    
+    # Публичный доступ к списку тарифов (только активные)
+    if action == 'list-plans' and not check_admin(event):
+        print('[HANDLER] Public access to list-plans')
+        return list_plans_public(event)
+    
+    # Для остальных действий требуется admin доступ
     if not check_admin(event):
         return {
             'statusCode': 403,
@@ -72,9 +81,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({'error': 'Admin access required'}),
             'isBase64Encoded': False
         }
-    
-    params = event.get('queryStringParameters', {}) or {}
-    action = params.get('action', 'list-plans')
     
     handlers = {
         'list-plans': list_plans,
@@ -143,6 +149,53 @@ def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
             }
     except Exception as e:
         print(f'[ERROR] list_plans failed: {e}')
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Failed to list plans: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+def list_plans_public(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Публичный доступ к списку тарифов - только активные"""
+    print('[LIST_PLANS_PUBLIC] Starting...')
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print('[LIST_PLANS_PUBLIC] Executing query...')
+            cur.execute(f'''
+                SELECT 
+                    id as plan_id, 
+                    name as plan_name, 
+                    quota_gb, 
+                    monthly_price_rub as price_rub, 
+                    is_active, 
+                    max_clients, 
+                    description,
+                    stats_enabled,
+                    track_storage_usage,
+                    track_client_count,
+                    track_booking_analytics,
+                    track_revenue,
+                    track_upload_history,
+                    track_download_stats
+                FROM {SCHEMA}.storage_plans
+                WHERE is_active = TRUE
+                ORDER BY monthly_price_rub ASC
+            ''')
+            plans = cur.fetchall()
+            print(f'[LIST_PLANS_PUBLIC] Found {len(plans)} active plans')
+            
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'plans': [dict(p) for p in plans]}, default=str),
+                'isBase64Encoded': False
+            }
+    except Exception as e:
+        print(f'[ERROR] list_plans_public failed: {e}')
         return {
             'statusCode': 500,
             'headers': CORS_HEADERS,
