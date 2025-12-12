@@ -4,6 +4,7 @@ import AdminPanelHistory from '@/components/admin/AdminPanelHistory';
 import AdminPanelTabs from '@/components/admin/AdminPanelTabs';
 import UserImpersonation from '@/components/admin/UserImpersonation';
 import UserViewWrapper from '@/components/admin/UserViewWrapper';
+import AdminNotifications from '@/components/admin/AdminNotifications';
 import { useAdminPanelSettings } from '@/components/admin/AdminPanelSettings';
 import { useAdminPanelUsers } from '@/components/admin/AdminPanelUsers';
 import { useAdminPanelRoleManager } from '@/components/admin/AdminPanelRoleManager';
@@ -102,6 +103,8 @@ const AdminPanel = () => {
 
       {currentRole === 'admin' && (
         <>
+          <AdminNotifications />
+
           <UserImpersonation
             users={users}
             onEnterUserView={handleEnterUserView}

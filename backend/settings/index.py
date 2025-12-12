@@ -11,10 +11,15 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from typing import Dict, Any
+from datetime import datetime, timedelta
+import boto3
+from botocore.config import Config
 
 SMS_SU_ENDPOINT = 'https://ssl.bs00.ru/'
 SMS_SENDER_NAME = 'foto-mix'
 DEFAULT_PRIORITY = 2
+LOW_BALANCE_THRESHOLD = 50.0
+ADMIN_EMAIL = 'jon-hrom2012@gmail.com'
 
 def normalize_phone(phone: str) -> str:
     digits = re.sub(r'\D+', '', phone or '')
@@ -23,6 +28,162 @@ def normalize_phone(phone: str) -> str:
     elif len(digits) == 10:
         digits = '7' + digits
     return digits
+
+def send_low_balance_email(balance: float):
+    """Отправить email о низком балансе SMS"""
+    try:
+        ses = boto3.client('sesv2',
+            endpoint_url='https://postbox.cloud.yandex.net',
+            region_name='ru-central1',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            config=Config(signature_version='v4')
+        )
+        
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                .header {{ text-align: center; margin-bottom: 30px; }}
+                .alert {{ background: #fee; border-left: 4px solid #e11; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+                .balance {{ font-size: 32px; font-weight: bold; color: #e11; text-align: center; margin: 20px 0; }}
+                .button {{ display: inline-block; background: #4CAF50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1 style="color: #e11; margin: 0;">⚠️ Низкий баланс SMS</h1>
+                </div>
+                
+                <div class="alert">
+                    <strong>Внимание!</strong> Баланс SMS.SU упал ниже критического уровня.
+                </div>
+                
+                <div class="balance">
+                    {balance:.2f} ₽
+                </div>
+                
+                <p>На балансе SMS.SU осталось менее 50 рублей. Пользователи не смогут получать SMS-уведомления (коды подтверждения, восстановление пароля).</p>
+                
+                <p><strong>Что нужно сделать:</strong></p>
+                <ol>
+                    <li>Перейти на <a href="https://sms.su">sms.su</a></li>
+                    <li>Войти в личный кабинет</li>
+                    <li>Пополнить баланс минимум на 100 рублей</li>
+                </ol>
+                
+                <div style="text-align: center;">
+                    <a href="https://sms.su" class="button">Пополнить баланс →</a>
+                </div>
+                
+                <div class="footer">
+                    <p>Это автоматическое уведомление от foto-mix.ru</p>
+                    <p>Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_body = f"""
+        НИЗКИЙ БАЛАНС SMS
+        
+        Баланс SMS.SU: {balance:.2f} ₽
+        
+        На балансе SMS.SU осталось менее 50 рублей. Пользователи не смогут получать SMS-уведомления.
+        
+        Пополните баланс на https://sms.su
+        
+        —
+        Автоматическое уведомление от foto-mix.ru
+        {datetime.now().strftime('%d.%m.%Y %H:%M')}
+        """
+        
+        response = ses.send_email(
+            FromEmailAddress='noreply@foto-mix.ru',
+            Destination={'ToAddresses': [ADMIN_EMAIL]},
+            Content={
+                'Simple': {
+                    'Subject': {'Data': f'⚠️ Низкий баланс SMS: {balance:.2f} ₽', 'Charset': 'UTF-8'},
+                    'Body': {
+                        'Text': {'Data': text_body, 'Charset': 'UTF-8'},
+                        'Html': {'Data': html_body, 'Charset': 'UTF-8'}
+                    }
+                }
+            }
+        )
+        print(f'[LOW_BALANCE] Email sent to {ADMIN_EMAIL}, MessageId: {response.get("MessageId")}')
+        return True
+    except Exception as e:
+        print(f'[LOW_BALANCE] Failed to send email: {str(e)}')
+        return False
+
+def send_admin_notification(conn, balance: float):
+    """Отправить уведомление в админ-панель"""
+    try:
+        cursor = conn.cursor()
+        message = f"⚠️ Низкий баланс SMS.SU: {balance:.2f} ₽. Пополните баланс на https://sms.su"
+        
+        cursor.execute("""
+            INSERT INTO t_p28211681_photo_secure_web.admin_messages 
+            (message_type, message_text, priority, created_at)
+            VALUES (%s, %s, %s, %s)
+        """, ('warning', message, 'high', datetime.now()))
+        conn.commit()
+        print(f'[LOW_BALANCE] Admin notification created')
+        return True
+    except Exception as e:
+        print(f'[LOW_BALANCE] Failed to create admin notification: {str(e)}')
+        return False
+
+def check_and_notify_low_balance(conn, balance: float):
+    """Проверить баланс и отправить уведомления если нужно"""
+    if balance >= LOW_BALANCE_THRESHOLD:
+        return
+    
+    try:
+        cursor = conn.cursor()
+        # Проверить когда последний раз отправлялось уведомление
+        cursor.execute("""
+            SELECT last_notification_at 
+            FROM t_p28211681_photo_secure_web.sms_balance_alerts 
+            WHERE id = 1
+        """)
+        row = cursor.fetchone()
+        
+        should_notify = True
+        if row and row[0]:
+            last_notification = row[0]
+            # Отправлять уведомление не чаще чем раз в 24 часа
+            if datetime.now() - last_notification < timedelta(hours=24):
+                should_notify = False
+                print(f'[LOW_BALANCE] Already notified within 24h, skipping')
+        
+        if should_notify:
+            print(f'[LOW_BALANCE] Balance {balance:.2f} is below threshold {LOW_BALANCE_THRESHOLD}, sending notifications')
+            
+            # Отправить email
+            send_low_balance_email(balance)
+            
+            # Отправить уведомление в админку
+            send_admin_notification(conn, balance)
+            
+            # Обновить время последнего уведомления
+            cursor.execute("""
+                INSERT INTO t_p28211681_photo_secure_web.sms_balance_alerts (id, last_notification_at, balance)
+                VALUES (1, %s, %s)
+                ON CONFLICT (id) 
+                DO UPDATE SET last_notification_at = %s, balance = %s
+            """, (datetime.now(), balance, datetime.now(), balance))
+            conn.commit()
+    except Exception as e:
+        print(f'[LOW_BALANCE] Error in check_and_notify_low_balance: {str(e)}')
 
 def get_balance() -> Dict[str, Any]:
     api_key_raw = os.environ.get('API_KEY', '').strip()
@@ -184,7 +345,55 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if method == 'GET':
         # Check if user settings are requested
         query_params = event.get('queryStringParameters') or {}
+        action = query_params.get('action')
         user_id = query_params.get('userId')
+        
+        # Get admin messages
+        if action == 'get-admin-messages':
+            try:
+                cursor.execute("""
+                    SELECT id, message_type, message_text, priority, is_read, created_at
+                    FROM t_p28211681_photo_secure_web.admin_messages
+                    ORDER BY created_at DESC
+                    LIMIT 50
+                """)
+                rows = cursor.fetchall()
+                
+                messages = []
+                for row in rows:
+                    messages.append({
+                        'id': row[0],
+                        'message_type': row[1],
+                        'message_text': row[2],
+                        'priority': row[3],
+                        'is_read': row[4],
+                        'created_at': row[5].isoformat() if row[5] else None
+                    })
+                
+                cursor.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': True, 'messages': messages}),
+                    'isBase64Encoded': False
+                }
+            except Exception as e:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 500,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': str(e)}),
+                    'isBase64Encoded': False
+                }
         
         if user_id:
             # Get user settings - check both users and vk_users tables
@@ -351,6 +560,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             result = get_balance()
             
+            # Проверить и отправить уведомления если баланс низкий
+            if result.get('ok') and 'balance' in result:
+                check_and_notify_low_balance(conn, result['balance'])
+            
             cursor.close()
             conn.close()
             
@@ -363,6 +576,56 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps(result),
                 'isBase64Encoded': False
             }
+        
+        # Mark admin message as read
+        if action == 'mark-message-read':
+            message_id = body_data.get('messageId')
+            
+            if not message_id:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Missing messageId'}),
+                    'isBase64Encoded': False
+                }
+            
+            try:
+                cursor.execute("""
+                    UPDATE t_p28211681_photo_secure_web.admin_messages
+                    SET is_read = TRUE, read_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (message_id,))
+                conn.commit()
+                
+                cursor.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': True}),
+                    'isBase64Encoded': False
+                }
+            except Exception as e:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 500,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': str(e)}),
+                    'isBase64Encoded': False
+                }
         
         # Get API key preview (first 8 chars for verification)
         if action == 'get-api-key-preview':
@@ -421,6 +684,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             result = send_sms(phone, text, priority)
             print(f'[SEND_SMS] Result: {result}')
+            
+            # Проверить баланс после отправки и отправить уведомления если нужно
+            if result.get('ok') and result.get('credits') is not None:
+                check_and_notify_low_balance(conn, result['credits'])
+            
+            cursor.close()
+            conn.close()
             
             status_code = 200 if result.get('ok') else 400
             return {
