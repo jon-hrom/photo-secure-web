@@ -53,7 +53,7 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
               )}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-xl font-bold">{vkUser.name || 'Пользователь VK'}</h3>
+                  <h3 className="text-xl font-bold">{vkUser.name}</h3>
                   {vkUser.is_verified && (
                     <Icon name="BadgeCheck" size={20} className="text-white" />
                   )}
@@ -68,11 +68,11 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                   <p className="text-xs opacity-75 mt-1">{vkUser.phone}</p>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                <div className="mr-2">
-                  <div className="text-xs opacity-75 mb-1">Роль</div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="text-xs opacity-75">Роль:</div>
                   <Select value={currentRole} onValueChange={(value) => onRoleChange(value as 'admin' | 'client' | 'user_view')}>
-                    <SelectTrigger className="w-[220px] bg-white/20 border-white/30 text-white hover:bg-white/30">
+                    <SelectTrigger className="w-[200px] bg-white/20 border-white/30 text-white hover:bg-white/30 h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -97,45 +97,47 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                     </SelectContent>
                   </Select>
                 </div>
-                <Button
-                  onClick={onToggleHistory}
-                  variant="secondary"
-                  size="sm"
-                  className="bg-white/20 hover:bg-white/30 border-white/30"
-                >
-                  <Icon name="History" size={16} className="mr-2" />
-                  История
-                </Button>
-                {onNotifyUsers && (
+                <div className="flex items-center gap-2">
                   <Button
-                    onClick={onNotifyUsers}
+                    onClick={onToggleHistory}
                     variant="secondary"
                     size="sm"
-                    className="bg-amber-500/80 hover:bg-amber-500 border-white/30"
-                    title="Уведомить всех пользователей о необходимости обновить страницу"
+                    className="bg-white/20 hover:bg-white/30 border-white/30"
                   >
-                    <Icon name="Bell" size={16} className="mr-2" />
-                    Уведомить всех
+                    <Icon name="History" size={16} className="mr-2" />
+                    История
                   </Button>
-                )}
-                <Button
-                  onClick={onSaveSettings}
-                  variant="secondary"
-                  size="sm"
-                  className="bg-white/20 hover:bg-white/30 border-white/30"
-                >
-                  <Icon name="Save" size={16} className="mr-2" />
-                  Сохранить
-                </Button>
-                <Button
-                  onClick={handleLogout}
-                  variant="secondary"
-                  size="sm"
-                  className="bg-white/20 hover:bg-white/30 border-white/30"
-                >
-                  <Icon name="LogOut" size={16} className="mr-2" />
-                  Выход
-                </Button>
+                  {onNotifyUsers && (
+                    <Button
+                      onClick={onNotifyUsers}
+                      variant="secondary"
+                      size="sm"
+                      className="bg-amber-500/80 hover:bg-amber-500 border-white/30"
+                      title="Уведомить всех пользователей о необходимости обновить страницу"
+                    >
+                      <Icon name="Bell" size={16} className="mr-2" />
+                      Уведомить
+                    </Button>
+                  )}
+                  <Button
+                    onClick={onSaveSettings}
+                    variant="secondary"
+                    size="sm"
+                    className="bg-white/20 hover:bg-white/30 border-white/30"
+                  >
+                    <Icon name="Save" size={16} className="mr-2" />
+                    Сохранить
+                  </Button>
+                  <Button
+                    onClick={handleLogout}
+                    variant="secondary"
+                    size="sm"
+                    className="bg-white/20 hover:bg-white/30 border-white/30"
+                  >
+                    <Icon name="LogOut" size={16} className="mr-2" />
+                    Выход
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -152,24 +154,21 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-xl font-bold">
-                    {isAdminUser(emailUser.email, null) ? 'Главный администратор' : 'Пользователь'}
+                    {isAdminUser(emailUser.email, null) ? 'Главный администратор' : emailUser.email}
                   </h3>
                   {isAdminUser(emailUser.email, null) && (
                     <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
                       Администратор
                     </span>
                   )}
-                  <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold border border-white/30">
-                    Email авторизация
-                  </span>
                 </div>
                 <p className="text-sm opacity-90">{emailUser.email}</p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="mr-2">
-                  <div className="text-xs opacity-75 mb-1">Роль</div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="text-xs opacity-75">Роль:</div>
                   <Select value={currentRole} onValueChange={(value) => onRoleChange(value as 'admin' | 'client' | 'user_view')}>
-                    <SelectTrigger className="w-[220px] bg-white/20 border-white/30 text-white hover:bg-white/30">
+                    <SelectTrigger className="w-[200px] bg-white/20 border-white/30 text-white hover:bg-white/30 h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -194,33 +193,47 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                     </SelectContent>
                   </Select>
                 </div>
-                <Button
-                  onClick={onToggleHistory}
-                  variant="secondary"
-                  size="sm"
-                  className="bg-white/20 hover:bg-white/30 border-white/30"
-                >
-                  <Icon name="History" size={16} className="mr-2" />
-                  История
-                </Button>
-                <Button
-                  onClick={onSaveSettings}
-                  variant="secondary"
-                  size="sm"
-                  className="bg-white/20 hover:bg-white/30 border-white/30"
-                >
-                  <Icon name="Save" size={16} className="mr-2" />
-                  Сохранить
-                </Button>
-                <Button
-                  onClick={handleLogout}
-                  variant="secondary"
-                  size="sm"
-                  className="bg-white/20 hover:bg-white/30 border-white/30"
-                >
-                  <Icon name="LogOut" size={16} className="mr-2" />
-                  Выход
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={onToggleHistory}
+                    variant="secondary"
+                    size="sm"
+                    className="bg-white/20 hover:bg-white/30 border-white/30"
+                  >
+                    <Icon name="History" size={16} className="mr-2" />
+                    История
+                  </Button>
+                  {onNotifyUsers && (
+                    <Button
+                      onClick={onNotifyUsers}
+                      variant="secondary"
+                      size="sm"
+                      className="bg-amber-500/80 hover:bg-amber-500 border-white/30"
+                      title="Уведомить всех пользователей о необходимости обновить страницу"
+                    >
+                      <Icon name="Bell" size={16} className="mr-2" />
+                      Уведомить
+                    </Button>
+                  )}
+                  <Button
+                    onClick={onSaveSettings}
+                    variant="secondary"
+                    size="sm"
+                    className="bg-white/20 hover:bg-white/30 border-white/30"
+                  >
+                    <Icon name="Save" size={16} className="mr-2" />
+                    Сохранить
+                  </Button>
+                  <Button
+                    onClick={handleLogout}
+                    variant="secondary"
+                    size="sm"
+                    className="bg-white/20 hover:bg-white/30 border-white/30"
+                  >
+                    <Icon name="LogOut" size={16} className="mr-2" />
+                    Выход
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
