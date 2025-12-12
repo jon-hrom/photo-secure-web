@@ -1,6 +1,6 @@
 import { useToast } from '@/hooks/use-toast';
 
-const ADMIN_API = 'https://functions.poehali.dev/81fe316e-43c6-4e9f-93a2-63032b5c552c';
+const ADMIN_API = 'https://functions.poehali.dev/81fe316e-43c6-4e9f-93e2-63032b5c552c';
 
 export interface Plan {
   plan_id: number;
