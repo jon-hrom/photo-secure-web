@@ -6,6 +6,7 @@ import EnhancedAdminUsers from '@/components/admin/EnhancedAdminUsers';
 import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
 import EmailNotifications from '@/components/admin/EmailNotifications';
 import NotificationSoundSettings from '@/components/admin/NotificationSoundSettings';
+import SmsBalanceManager from '@/components/admin/SmsBalanceManager';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -93,6 +94,13 @@ const AdminPanelTabs = ({
               </div>
             </div>
           </div>
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="sms">
+        <AccordionTrigger className="text-lg font-semibold">SMS уведомления</AccordionTrigger>
+        <AccordionContent>
+          <SmsBalanceManager />
         </AccordionContent>
       </AccordionItem>
 

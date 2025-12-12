@@ -296,6 +296,83 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body_data = json.loads(event.get('body', '{}'))
         action = body_data.get('action')
         
+        # Check SMS balance
+        if action == 'check-sms-balance':
+            api_key_raw = os.environ.get('API_KEY', '').strip()
+            
+            if api_key_raw.startswith('API_KEY='):
+                api_key = api_key_raw[8:]
+            else:
+                api_key = api_key_raw
+            
+            if not api_key:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'API_KEY не настроен'}),
+                    'isBase64Encoded': False
+                }
+            
+            try:
+                # SMS.SU balance check endpoint
+                payload = {
+                    'method': 'balance',
+                    'key': api_key,
+                    'format': 'json'
+                }
+                
+                url = f"{SMS_SU_ENDPOINT}?{urllib.parse.urlencode(payload)}"
+                req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
+                
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    result = json.loads(response.read().decode('utf-8'))
+                    
+                    if 'response' in result and isinstance(result['response'], dict):
+                        data_resp = result['response'].get('data', {})
+                        balance = float(data_resp.get('credits', 0))
+                        
+                        cursor.close()
+                        conn.close()
+                        
+                        return {
+                            'statusCode': 200,
+                            'headers': {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            'body': json.dumps({'ok': True, 'balance': balance}),
+                            'isBase64Encoded': False
+                        }
+                    else:
+                        cursor.close()
+                        conn.close()
+                        return {
+                            'statusCode': 400,
+                            'headers': {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            'body': json.dumps({'ok': False, 'error': 'Неверный формат ответа SMS.SU'}),
+                            'isBase64Encoded': False
+                        }
+            except Exception as e:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 500,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': f'Ошибка проверки баланса: {str(e)}'}),
+                    'isBase64Encoded': False
+                }
+        
         # Handle SMS code generation and sending
         if action == 'send-verification-code':
             phone = body_data.get('phone', '')
