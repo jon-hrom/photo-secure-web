@@ -172,7 +172,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             cursor.execute(
-                "SELECT user_id, phone FROM t_p28211681_photo_secure_web.users WHERE email = %s",
+                "SELECT id as user_id, phone FROM users WHERE email = %s",
                 (email,)
             )
             user = cursor.fetchone()
@@ -208,7 +208,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             cursor.execute(
-                "SELECT user_id FROM t_p28211681_photo_secure_web.users WHERE email = %s",
+                "SELECT id as user_id FROM users WHERE email = %s",
                 (email,)
             )
             user = cursor.fetchone()
@@ -225,24 +225,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             session_token = secrets.token_urlsafe(32)
             expires_at = datetime.now() + timedelta(minutes=10)
             
-            query = f"""
-                INSERT INTO t_p28211681_photo_secure_web.password_reset_codes (user_id, code, session_token, expires_at, method_type)
-                VALUES ({escape_sql(user['user_id'])}, {escape_sql(code)}, {escape_sql(session_token)}, {escape_sql(expires_at)}, {escape_sql(method_type)})
+            cursor.execute(
+                """
+                INSERT INTO password_reset_codes (user_id, code, session_token, expires_at, method_type)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE 
                 SET code = EXCLUDED.code, 
                     session_token = EXCLUDED.session_token,
                     expires_at = EXCLUDED.expires_at,
                     method_type = EXCLUDED.method_type,
                     used = FALSE
-            """
-            cursor.execute(query)
+                """,
+                (user['user_id'], code, session_token, expires_at, method_type)
+            )
             conn.commit()
             
             if method_type == 'email':
                 send_reset_email(email, code)
             elif method_type == 'sms':
                 cursor.execute(
-                    "SELECT phone FROM t_p28211681_photo_secure_web.users WHERE email = %s",
+                    "SELECT phone FROM users WHERE email = %s",
                     (email,)
                 )
                 user_phone = cursor.fetchone()
@@ -279,16 +281,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            query = f"""
-                SELECT prc.* FROM t_p28211681_photo_secure_web.password_reset_codes prc
-                JOIN t_p28211681_photo_secure_web.users u ON u.user_id = prc.user_id
-                WHERE u.email = {escape_sql(email)}
-                AND prc.code = {escape_sql(code)}
-                AND prc.session_token = {escape_sql(session_token)}
+            cursor.execute(
+                """
+                SELECT prc.* FROM password_reset_codes prc
+                JOIN users u ON u.id = prc.user_id
+                WHERE u.email = %s
+                AND prc.code = %s
+                AND prc.session_token = %s
                 AND prc.expires_at > NOW()
                 AND prc.used = FALSE
-            """
-            cursor.execute(query)
+                """,
+                (email, code, session_token)
+            )
             
             reset_code = cursor.fetchone()
             
@@ -320,15 +324,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            query = f"""
-                SELECT prc.user_id FROM t_p28211681_photo_secure_web.password_reset_codes prc
-                JOIN t_p28211681_photo_secure_web.users u ON u.user_id = prc.user_id
-                WHERE u.email = {escape_sql(email)}
-                AND prc.session_token = {escape_sql(session_token)}
+            cursor.execute(
+                """
+                SELECT prc.user_id FROM password_reset_codes prc
+                JOIN users u ON u.id = prc.user_id
+                WHERE u.email = %s
+                AND prc.session_token = %s
                 AND prc.expires_at > NOW()
                 AND prc.used = FALSE
-            """
-            cursor.execute(query)
+                """,
+                (email, session_token)
+            )
             
             reset_code = cursor.fetchone()
             
@@ -342,11 +348,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             hashed = hash_password(new_password)
             
-            query = f"UPDATE t_p28211681_photo_secure_web.users SET password = {escape_sql(hashed)} WHERE email = {escape_sql(email)}"
-            cursor.execute(query)
+            cursor.execute(
+                "UPDATE users SET password_hash = %s WHERE email = %s",
+                (hashed, email)
+            )
             
-            query = f"UPDATE t_p28211681_photo_secure_web.password_reset_codes SET used = TRUE WHERE user_id = {escape_sql(reset_code['user_id'])}"
-            cursor.execute(query)
+            cursor.execute(
+                "UPDATE password_reset_codes SET used = TRUE WHERE user_id = %s",
+                (reset_code['user_id'],)
+            )
             
             conn.commit()
             
