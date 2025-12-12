@@ -24,6 +24,55 @@ def normalize_phone(phone: str) -> str:
         digits = '7' + digits
     return digits
 
+def get_balance() -> Dict[str, Any]:
+    api_key_raw = os.environ.get('API_KEY', '').strip()
+    
+    if api_key_raw.startswith('API_KEY='):
+        api_key = api_key_raw[8:]
+    else:
+        api_key = api_key_raw
+    
+    if not api_key:
+        return {'ok': False, 'error': 'API_KEY не настроен', 'err_code': 699}
+    
+    payload = {
+        'method': 'get_profile',
+        'key': api_key,
+        'format': 'json',
+    }
+    
+    try:
+        url = f"{SMS_SU_ENDPOINT}?{urllib.parse.urlencode(payload)}"
+        print(f'[SMS_SU] Getting balance from SMS.SU')
+        
+        req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
+        
+        with urllib.request.urlopen(req, timeout=20) as response:
+            raw = response.read().decode('utf-8')
+            print(f'[SMS_SU] Balance response: {raw}')
+            result = json.loads(raw)
+            
+            if not isinstance(result, dict) or 'response' not in result:
+                return {'ok': False, 'error': 'Неверный формат ответа SMS.SU'}
+            
+            msg = result['response'].get('msg', {})
+            data_resp = result['response'].get('data')
+            err_code = int(msg.get('err_code', 99))
+            
+            if err_code != 0:
+                error_text = msg.get('text', 'Ошибка получения баланса')
+                return {'ok': False, 'error': error_text, 'err_code': err_code}
+            
+            if data_resp and 'credits' in data_resp:
+                balance = float(data_resp['credits'])
+                print(f'[SMS_SU] Balance: {balance} руб.')
+                return {'ok': True, 'balance': balance}
+            
+            return {'ok': False, 'error': 'Баланс не найден в ответе'}
+    except Exception as e:
+        print(f'[SMS_SU] Balance check error: {str(e)}')
+        return {'ok': False, 'error': f'Ошибка связи: {str(e)}', 'err_code': 699}
+
 def send_sms(phone: str, text: str, priority: int = DEFAULT_PRIORITY) -> Dict[str, Any]:
     api_key_raw = os.environ.get('API_KEY', '').strip()
     
@@ -296,85 +345,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body_data = json.loads(event.get('body', '{}'))
         action = body_data.get('action')
         
-        # Check SMS balance via cost check (SMS.SU doesn't have balance API)
+        # Check SMS balance via get_profile method
         if action == 'check-sms-balance':
-            print('[SMS_BALANCE] Checking SMS.SU balance via cost check...')
-            api_key_raw = os.environ.get('API_KEY', '').strip()
+            print('[SMS_BALANCE] Checking SMS.SU balance via get_profile...')
             
-            if api_key_raw.startswith('API_KEY='):
-                api_key = api_key_raw[8:]
-            else:
-                api_key = api_key_raw
+            result = get_balance()
             
-            if not api_key:
-                print('[SMS_BALANCE] Error: API_KEY not configured')
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'body': json.dumps({'ok': False, 'error': 'API_KEY не настроен'}),
-                    'isBase64Encoded': False
-                }
+            cursor.close()
+            conn.close()
             
-            try:
-                # SMS.SU doesn't have separate balance API, use cost check
-                payload = {
-                    'method': 'get_cost',
-                    'key': api_key,
-                    'text': 'test',
-                    'phone': '79000000000',
-                    'format': 'json'
-                }
-                
-                url = f"{SMS_SU_ENDPOINT}?{urllib.parse.urlencode(payload)}"
-                print(f'[SMS_BALANCE] Request URL: {url.replace(api_key, "***KEY***")}')
-                
-                req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
-                
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    raw = response.read().decode('utf-8')
-                    print(f'[SMS_BALANCE] Response: {raw}')
-                    result = json.loads(raw)
-                    
-                    if 'response' in result and isinstance(result['response'], dict):
-                        data_resp = result['response'].get('data', {})
-                        balance = float(data_resp.get('credits', 0))
-                        
-                        print(f'[SMS_BALANCE] Balance: {balance} руб.')
-                        
-                        return {
-                            'statusCode': 200,
-                            'headers': {
-                                'Content-Type': 'application/json',
-                                'Access-Control-Allow-Origin': '*'
-                            },
-                            'body': json.dumps({'ok': True, 'balance': balance}),
-                            'isBase64Encoded': False
-                        }
-                    else:
-                        print(f'[SMS_BALANCE] Error: Invalid response format')
-                        return {
-                            'statusCode': 400,
-                            'headers': {
-                                'Content-Type': 'application/json',
-                                'Access-Control-Allow-Origin': '*'
-                            },
-                            'body': json.dumps({'ok': False, 'error': 'Неверный формат ответа SMS.SU', 'raw': raw}),
-                            'isBase64Encoded': False
-                        }
-            except Exception as e:
-                print(f'[SMS_BALANCE] Exception: {str(e)}')
-                return {
-                    'statusCode': 500,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'body': json.dumps({'ok': False, 'error': f'SMS.SU API не поддерживает прямую проверку баланса. Используйте тестовую отправку SMS для проверки баланса.'}),
-                    'isBase64Encoded': False
-                }
+            return {
+                'statusCode': 200 if result['ok'] else 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps(result),
+                'isBase64Encoded': False
+            }
         
         # Get API key preview (first 8 chars for verification)
         if action == 'get-api-key-preview':

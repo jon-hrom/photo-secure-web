@@ -32,10 +32,7 @@ const SmsBalanceManager = () => {
         setBalance(data.balance);
         toast.success(`Баланс: ${data.balance.toFixed(2)} руб.`);
       } else {
-        // SMS.SU API doesn't support direct balance check
-        toast.info('SMS.SU не поддерживает прямую проверку баланса. Используйте тестовую отправку для проверки баланса.', {
-          duration: 5000
-        });
+        toast.error(data.error || 'Ошибка получения баланса');
       }
     } catch (error) {
       toast.error('Ошибка подключения к серверу');
