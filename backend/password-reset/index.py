@@ -171,8 +171,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            query = f"SELECT user_id, phone FROM t_p28211681_photo_secure_web.users WHERE email = {escape_sql(email)}"
-            cursor.execute(query)
+            cursor.execute(
+                "SELECT user_id, phone FROM t_p28211681_photo_secure_web.users WHERE email = %s",
+                (email,)
+            )
             user = cursor.fetchone()
             
             if not user:
@@ -205,8 +207,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            query = f"SELECT user_id FROM t_p28211681_photo_secure_web.users WHERE email = {escape_sql(email)}"
-            cursor.execute(query)
+            cursor.execute(
+                "SELECT user_id FROM t_p28211681_photo_secure_web.users WHERE email = %s",
+                (email,)
+            )
             user = cursor.fetchone()
             
             if not user:
@@ -237,8 +241,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if method_type == 'email':
                 send_reset_email(email, code)
             elif method_type == 'sms':
-                query_phone = f"SELECT phone FROM t_p28211681_photo_secure_web.users WHERE email = {escape_sql(email)}"
-                cursor.execute(query_phone)
+                cursor.execute(
+                    "SELECT phone FROM t_p28211681_photo_secure_web.users WHERE email = %s",
+                    (email,)
+                )
                 user_phone = cursor.fetchone()
                 if user_phone and user_phone['phone']:
                     send_sms_code(user_phone['phone'], code)
