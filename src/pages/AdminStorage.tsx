@@ -5,6 +5,7 @@ import { PlansTab } from '@/components/admin/PlansTab';
 import { UsersTab } from '@/components/admin/UsersTab';
 import { StatsTab } from '@/components/admin/StatsTab';
 import { FinancialTab } from '@/components/admin/FinancialTab';
+import { PromoCodesTab } from '@/components/admin/PromoCodesTab';
 import { AdminStorageAuth } from '@/components/admin/AdminStorageAuth';
 import { AdminStorageStats } from '@/components/admin/AdminStorageStats';
 import MobileNavigation from '@/components/layout/MobileNavigation';
@@ -16,6 +17,7 @@ import {
   type RevenueStat,
   type FinancialStat,
   type FinancialSummary,
+  type PromoCode,
 } from '@/components/admin/AdminStorageAPI';
 
 interface CachedData {
@@ -42,6 +44,7 @@ const AdminStorage = () => {
   const [loading, setLoading] = useState(false);
   const [adminKey, setAdminKey] = useState('');
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
 
   const api = useAdminStorageAPI(adminKey);
 
@@ -116,6 +119,7 @@ const AdminStorage = () => {
   const refetchPlans = () => api.fetchPlans(setPlans);
   const refetchUsers = () => api.fetchUsers(setUsers);
   const refetchStats = () => api.fetchStats(setUsageStats, setRevenueStats, setLoading);
+  const refetchPromoCodes = () => api.fetchPromoCodes(setPromoCodes);
 
   useEffect(() => {
     if (adminKey) {
@@ -141,6 +145,8 @@ const AdminStorage = () => {
         console.log('[ADMIN_STORAGE] No valid cache, fetching fresh data...');
         fetchAllData();
       }
+      // Загружаем промокоды отдельно (они не кэшируются)
+      refetchPromoCodes();
     }
   }, [adminKey]);
 
@@ -203,7 +209,7 @@ const AdminStorage = () => {
         />
 
         <Tabs defaultValue="plans" className="space-y-4">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full">
             <TabsTrigger value="plans" className="text-xs sm:text-sm">
               <Icon name="Package" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Тарифы</span>
@@ -213,6 +219,11 @@ const AdminStorage = () => {
               <Icon name="Users" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Пользователи</span>
               <span className="sm:hidden">Люди</span>
+            </TabsTrigger>
+            <TabsTrigger value="promo" className="text-xs sm:text-sm">
+              <Icon name="Tag" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Промокоды</span>
+              <span className="sm:hidden">Промо</span>
             </TabsTrigger>
             <TabsTrigger value="stats" className="text-xs sm:text-sm">
               <Icon name="BarChart" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -240,6 +251,15 @@ const AdminStorage = () => {
               users={users}
               plans={plans}
               onUpdateUser={(user) => api.handleUpdateUser(user, refetchUsers)}
+            />
+          </TabsContent>
+
+          <TabsContent value="promo" className="space-y-4">
+            <PromoCodesTab
+              promoCodes={promoCodes}
+              onCreatePromoCode={(promo) => api.handleCreatePromoCode(promo, refetchPromoCodes)}
+              onTogglePromoCode={(id, isActive) => api.handleTogglePromoCode(id, isActive, refetchPromoCodes)}
+              onDeletePromoCode={(id) => api.handleDeletePromoCode(id, refetchPromoCodes)}
             />
           </TabsContent>
 

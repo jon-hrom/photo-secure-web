@@ -88,6 +88,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'revenue-stats': revenue_stats,
         'financial-stats': financial_stats,
         'subscribe-user': subscribe_user,
+        'list-promo-codes': list_promo_codes,
+        'create-promo-code': create_promo_code,
+        'update-promo-code': update_promo_code,
+        'delete-promo-code': delete_promo_code,
     }
     
     handler_func = handlers.get(action)
@@ -822,6 +826,225 @@ def financial_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             'statusCode': 500,
             'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to get financial stats: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+def list_promo_codes(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Получение списка всех промокодов"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            query = f'''
+                SELECT 
+                    id,
+                    code,
+                    discount_type,
+                    discount_value,
+                    duration_months,
+                    max_uses,
+                    used_count,
+                    is_active,
+                    valid_from,
+                    valid_until,
+                    created_at,
+                    description
+                FROM {SCHEMA}.promo_codes
+                ORDER BY created_at DESC
+            '''
+            
+            print('[LIST_PROMO_CODES] Fetching promo codes...')
+            cur.execute(query)
+            codes = cur.fetchall()
+            print(f'[LIST_PROMO_CODES] Found {len(codes)} promo codes')
+            
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'promo_codes': [dict(c) for c in codes]}, default=str),
+                'isBase64Encoded': False
+            }
+    except Exception as e:
+        print(f'[ERROR] list_promo_codes failed: {e}')
+        import traceback
+        print(f'[ERROR] Traceback: {traceback.format_exc()}')
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Failed to list promo codes: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+def create_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Создание нового промокода"""
+    body = json.loads(event.get('body', '{}'))
+    code = body.get('code', '').strip().upper()
+    discount_type = body.get('discount_type', 'percent')
+    discount_value = body.get('discount_value')
+    duration_months = body.get('duration_months')
+    max_uses = body.get('max_uses')
+    valid_until = body.get('valid_until')
+    description = body.get('description', '')
+    
+    if not code or discount_value is None:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Missing code or discount_value'}),
+            'isBase64Encoded': False
+        }
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            duration_val = duration_months if duration_months else 'NULL'
+            max_uses_val = max_uses if max_uses else 'NULL'
+            valid_until_val = f"'{valid_until}'" if valid_until else 'NULL'
+            
+            query = f'''
+                INSERT INTO {SCHEMA}.promo_codes (
+                    code, discount_type, discount_value, duration_months, 
+                    max_uses, valid_until, description
+                )
+                VALUES (
+                    {escape_sql_string(code)},
+                    {escape_sql_string(discount_type)},
+                    {discount_value},
+                    {duration_val},
+                    {max_uses_val},
+                    {valid_until_val},
+                    {escape_sql_string(description)}
+                )
+                RETURNING id, code, discount_type, discount_value, duration_months, 
+                          max_uses, is_active, valid_from, valid_until, created_at, description
+            '''
+            
+            print(f'[CREATE_PROMO_CODE] Creating promo code: {code}')
+            cur.execute(query)
+            promo_code = cur.fetchone()
+            conn.commit()
+            print(f'[CREATE_PROMO_CODE] Successfully created promo_code id={promo_code["id"]}')
+            
+            return {
+                'statusCode': 201,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'promo_code': dict(promo_code)}, default=str),
+                'isBase64Encoded': False
+            }
+    except Exception as e:
+        print(f'[ERROR] create_promo_code failed: {e}')
+        conn.rollback()
+        import traceback
+        print(f'[ERROR] Traceback: {traceback.format_exc()}')
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Failed to create promo code: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+def update_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Обновление промокода"""
+    body = json.loads(event.get('body', '{}'))
+    promo_id = body.get('id')
+    is_active = body.get('is_active')
+    
+    if not promo_id:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Missing id'}),
+            'isBase64Encoded': False
+        }
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            updates = []
+            if is_active is not None:
+                updates.append(f'is_active = {is_active}')
+            
+            if not updates:
+                return {
+                    'statusCode': 400,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'No fields to update'}),
+                    'isBase64Encoded': False
+                }
+            
+            query = f'''
+                UPDATE {SCHEMA}.promo_codes
+                SET {', '.join(updates)}
+                WHERE id = {promo_id}
+                RETURNING id, code, discount_type, discount_value, is_active
+            '''
+            
+            print(f'[UPDATE_PROMO_CODE] Updating promo_code id={promo_id}')
+            cur.execute(query)
+            promo_code = cur.fetchone()
+            conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'promo_code': dict(promo_code)}, default=str),
+                'isBase64Encoded': False
+            }
+    except Exception as e:
+        print(f'[ERROR] update_promo_code failed: {e}')
+        conn.rollback()
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Failed to update promo code: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+def delete_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Деактивация промокода"""
+    params = event.get('queryStringParameters', {}) or {}
+    promo_id = params.get('id')
+    
+    if not promo_id:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Missing id'}),
+            'isBase64Encoded': False
+        }
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            query = f'''
+                UPDATE {SCHEMA}.promo_codes
+                SET is_active = FALSE
+                WHERE id = {promo_id}
+            '''
+            print(f'[DELETE_PROMO_CODE] Deactivating promo_code id={promo_id}')
+            cur.execute(query)
+            conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'success': True}),
+                'isBase64Encoded': False
+            }
+    except Exception as e:
+        print(f'[ERROR] delete_promo_code failed: {e}')
+        conn.rollback()
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Failed to delete promo code: {str(e)}'}),
             'isBase64Encoded': False
         }
     finally:
