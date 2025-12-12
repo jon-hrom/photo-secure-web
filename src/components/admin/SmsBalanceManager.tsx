@@ -11,7 +11,7 @@ const SmsBalanceManager = () => {
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [testPhone, setTestPhone] = useState('');
-  const [testMessage, setTestMessage] = useState('Код для восстановления пароля foto-mix.ru: 123456. Действителен 10 минут.');
+  const [testMessage, setTestMessage] = useState('Код подтверждения: 123456');
   const [apiKeyPreview, setApiKeyPreview] = useState<string | null>(null);
 
   const checkBalance = async () => {
@@ -280,7 +280,7 @@ const SmsBalanceManager = () => {
             <Input
               id="test-message"
               type="text"
-              placeholder="Код для восстановления пароля foto-mix.ru: 123456. Действителен 10 минут."
+              placeholder="Код подтверждения: 123456"
               value={testMessage}
               onChange={(e) => setTestMessage(e.target.value)}
               maxLength={100}

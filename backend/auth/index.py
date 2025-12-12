@@ -15,6 +15,10 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
 from botocore.config import Config
+import urllib.request
+import urllib.parse
+import urllib.error
+import re
 
 def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
@@ -82,11 +86,75 @@ def record_login_attempt(conn, ip_address: str, email: str, is_successful: bool,
     )
     conn.commit()
 
+def normalize_phone(phone: str) -> str:
+    """Normalize phone to 7XXXXXXXXXX format"""
+    digits = re.sub(r'\D+', '', phone or '')
+    if len(digits) == 11 and digits[0] in ('8', '7'):
+        digits = '7' + digits[1:]
+    elif len(digits) == 10:
+        digits = '7' + digits
+    return digits
+
 def generate_2fa_code(code_type: str) -> str:
     if code_type == 'sms':
         return ''.join([str(secrets.randbelow(10)) for _ in range(6)])
     else:
         return ''.join([str(secrets.randbelow(10)) for _ in range(5)])
+
+def send_2fa_sms(phone: str, code: str) -> bool:
+    """Send SMS via SMS.SU service"""
+    api_key_raw = os.environ.get('API_KEY', '').strip()
+    
+    if api_key_raw.startswith('API_KEY='):
+        api_key = api_key_raw[8:]
+    else:
+        api_key = api_key_raw
+    
+    if not api_key:
+        raise Exception('API_KEY not configured')
+    
+    phone = normalize_phone(phone)
+    
+    if not re.match(r'^7\d{10}$', phone):
+        raise Exception('Неверный формат телефона')
+    
+    message = f'Код подтверждения: {code}'
+    
+    payload = {
+        'method': 'push_msg',
+        'key': api_key,
+        'text': message,
+        'phone': phone,
+        'sender_name': 'foto-mix',
+        'priority': 2,
+        'format': 'json',
+    }
+    
+    url = f"https://ssl.bs00.ru/?{urllib.parse.urlencode(payload)}"
+    
+    try:
+        print(f'[SMS_SU] Sending SMS to {phone}')
+        req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
+        with urllib.request.urlopen(req, timeout=20) as response:
+            raw_response = response.read().decode('utf-8')
+            result = json.loads(raw_response)
+            
+            if 'response' in result and isinstance(result['response'], dict):
+                msg = result['response'].get('msg', {})
+                err_code = msg.get('err_code', '999')
+                if err_code == '0':
+                    print(f'[SMS_SU] SMS sent successfully')
+                    return True
+                else:
+                    error_msg = msg.get('text', 'Unknown error')
+                    print(f'[SMS_SU] Error: {error_msg} (code: {err_code})')
+                    raise Exception(f"SMS.SU error: {error_msg}")
+            else:
+                print(f'[SMS_SU] Unexpected response format')
+                raise Exception(f"SMS.SU unexpected response format")
+    except Exception as e:
+        print(f'[SMS_SU] Error: {str(e)}')
+        raise
 
 def send_2fa_email(to: str, code: str):
     subject = 'Код двухфакторной аутентификации — foto-mix.ru'
@@ -208,11 +276,13 @@ def send_2fa_code(conn, user_id: int, code: str, code_type: str):
     )
     conn.commit()
     
-    if code_type == 'email':
-        cursor.execute("SELECT email FROM users WHERE id = %s", (user_id,))
-        user = cursor.fetchone()
-        if user and user['email']:
-            send_2fa_email(user['email'], code)
+    cursor.execute("SELECT email, phone FROM users WHERE id = %s", (user_id,))
+    user = cursor.fetchone()
+    
+    if code_type == 'email' and user and user['email']:
+        send_2fa_email(user['email'], code)
+    elif code_type == 'sms' and user and user['phone']:
+        send_2fa_sms(user['phone'], code)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
