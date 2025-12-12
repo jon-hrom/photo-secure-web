@@ -22,6 +22,8 @@ import BookingDetailsDialog from '@/components/BookingDetailsDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { isAdminUser } from '@/utils/adminCheck';
+import { settingsSync } from '@/utils/settingsSync';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
@@ -63,6 +65,24 @@ const Index = () => {
     lastActivityRef,
     onLogout: handleLogout
   });
+
+  useEffect(() => {
+    // Listen for settings updates from admin
+    settingsSync.onUpdate(() => {
+      toast.info('Доступны обновления настроек', {
+        description: 'Перезагрузите страницу, чтобы применить изменения',
+        action: {
+          label: 'Обновить',
+          onClick: () => window.location.reload()
+        },
+        duration: 30000, // Show for 30 seconds
+      });
+    });
+
+    return () => {
+      settingsSync.destroy();
+    };
+  }, []);
 
   useEffect(() => {
     console.log('🔍 [Index] Block state:', { isBlocked, blockReason, blockData });

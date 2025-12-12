@@ -19,9 +19,10 @@ interface AdminPanelHeaderProps {
   onSaveSettings: () => void;
   currentRole: 'admin' | 'client' | 'user_view';
   onRoleChange: (role: 'admin' | 'client' | 'user_view') => void;
+  onNotifyUsers?: () => void;
 }
 
-const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onSaveSettings, currentRole, onRoleChange }: AdminPanelHeaderProps) => {
+const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onSaveSettings, currentRole, onRoleChange, onNotifyUsers }: AdminPanelHeaderProps) => {
   const navigate = useNavigate();
   
   const handleLogout = () => {
@@ -105,6 +106,18 @@ const AdminPanelHeader = ({ vkUser, emailUser, showHistory, onToggleHistory, onS
                   <Icon name="History" size={16} className="mr-2" />
                   История
                 </Button>
+                {onNotifyUsers && (
+                  <Button
+                    onClick={onNotifyUsers}
+                    variant="secondary"
+                    size="sm"
+                    className="bg-amber-500/80 hover:bg-amber-500 border-white/30"
+                    title="Уведомить всех пользователей о необходимости обновить страницу"
+                  >
+                    <Icon name="Bell" size={16} className="mr-2" />
+                    Уведомить всех
+                  </Button>
+                )}
                 <Button
                   onClick={onSaveSettings}
                   variant="secondary"

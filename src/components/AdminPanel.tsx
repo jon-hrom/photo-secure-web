@@ -27,6 +27,7 @@ const AdminPanel = () => {
     handleSaveColors,
     moveWidget,
     toggleWidget,
+    notifyAllUsersToUpdate,
   } = useAdminPanelSettings();
   
   console.log('[ADMIN_PANEL] Hook returned, loading state:', loading);
@@ -96,6 +97,7 @@ const AdminPanel = () => {
         onSaveSettings={saveSettings}
         currentRole={currentRole}
         onRoleChange={handleRoleChange}
+        onNotifyUsers={notifyAllUsersToUpdate}
       />
 
       {currentRole === 'admin' && (

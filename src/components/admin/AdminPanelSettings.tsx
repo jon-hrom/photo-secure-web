@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { settingsSync } from '@/utils/settingsSync';
 
 export const useAdminPanelSettings = () => {
   console.log('[ADMIN_SETTINGS_HOOK] Hook called');
@@ -179,7 +180,10 @@ export const useAdminPanelSettings = () => {
         localStorage.removeItem('settings_cache');
         console.log('🔄 Settings cache cleared after', key, 'change');
         
-        toast.success('Настройка обновлена');
+        // Notify all users about settings update
+        settingsSync.notifyAllUsers();
+        
+        toast.success('Настройка обновлена. Пользователи получат уведомление.');
       } catch (error) {
         console.error('Ошибка сохранения настройки:', error);
         toast.error('Не удалось сохранить настройку');
@@ -261,6 +265,11 @@ export const useAdminPanelSettings = () => {
     setTimeout(saveSettings, 500);
   };
 
+  const notifyAllUsersToUpdate = () => {
+    settingsSync.notifyAllUsers();
+    toast.success('Уведомление отправлено всем пользователям');
+  };
+
   useEffect(() => {
     console.log('[ADMIN_SETTINGS_HOOK] useEffect triggered, calling loadSettings');
     loadSettings();
@@ -281,5 +290,6 @@ export const useAdminPanelSettings = () => {
     handleSaveColors,
     moveWidget,
     toggleWidget,
+    notifyAllUsersToUpdate,
   };
 };
