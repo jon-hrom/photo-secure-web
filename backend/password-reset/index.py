@@ -15,6 +15,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
 from botocore.config import Config
+import urllib.request
+import urllib.parse
 
 def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
@@ -55,6 +57,29 @@ def escape_sql(value):
 
 def generate_code() -> str:
     return ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+
+def send_sms_code(phone: str, code: str) -> bool:
+    api_key = os.environ.get('SMSRU_API_KEY')
+    if not api_key:
+        raise Exception('SMSRU_API_KEY not configured')
+    
+    message = f'Код для восстановления пароля foto-mix.ru: {code}. Действителен 10 минут.'
+    
+    params = urllib.parse.urlencode({
+        'api_id': api_key,
+        'to': phone,
+        'msg': message,
+        'json': 1
+    })
+    
+    url = f'https://sms.ru/sms/send?{params}'
+    
+    try:
+        with urllib.request.urlopen(url, timeout=10) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            return result.get('status') == 'OK'
+    except Exception as e:
+        raise Exception(f'SMS sending failed: {str(e)}')
 
 def send_reset_email(to: str, code: str):
     subject = 'Восстановление пароля — foto-mix.ru'
@@ -211,6 +236,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if method_type == 'email':
                 send_reset_email(email, code)
+            elif method_type == 'sms':
+                query_phone = f"SELECT phone FROM t_p28211681_photo_secure_web.users WHERE email = {escape_sql(email)}"
+                cursor.execute(query_phone)
+                user_phone = cursor.fetchone()
+                if user_phone and user_phone['phone']:
+                    send_sms_code(user_phone['phone'], code)
+                else:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Телефон не найден'}),
+                        'isBase64Encoded': False
+                    }
             
             return {
                 'statusCode': 200,
