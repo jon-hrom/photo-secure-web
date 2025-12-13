@@ -34,6 +34,7 @@ const Index = () => {
   const [hasEmail, setHasEmail] = useState(true);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
+  const [hasVerifiedPhone, setHasVerifiedPhone] = useState(false);
   
   const {
     currentPage,
@@ -98,6 +99,28 @@ const Index = () => {
       setSelectedClientName(undefined);
     }
   }, [currentPage, selectedClientName]);
+
+  useEffect(() => {
+    const checkPhoneVerification = async () => {
+      if (!isAuthenticated || !userId) {
+        setHasVerifiedPhone(false);
+        return;
+      }
+      
+      try {
+        const res = await fetch(`https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?userId=${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          // Считаем телефон подтверждённым если поле phone не пустое
+          setHasVerifiedPhone(!!(data.phone && data.phone.trim()));
+        }
+      } catch (err) {
+        console.error('Failed to check phone verification:', err);
+      }
+    };
+    
+    checkPhoneVerification();
+  }, [isAuthenticated, userId]);
 
   useEffect(() => {
     const checkEmailVerification = async () => {
@@ -331,13 +354,37 @@ const Index = () => {
 
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
 
-      {userId ? (
+      {userId && isAuthenticated && (
         <>
           {isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
-          <WhatsAppMessenger userId={userId} />
+          {hasVerifiedPhone ? (
+            <WhatsAppMessenger userId={userId} />
+          ) : (
+            <Button
+              onClick={() => {
+                toast.info('Для использования WhatsApp подтвердите телефон', {
+                  description: 'Перейдите в Настройки → Укажите и подтвердите телефон',
+                  action: {
+                    label: 'Настройки',
+                    onClick: () => setCurrentPage('settings')
+                  },
+                  duration: 6000
+                });
+              }}
+              className="fixed bottom-6 right-6 rounded-full shadow-2xl z-50 h-14 w-14 p-0"
+              size="lg"
+              variant="secondary"
+              title="Подтвердите телефон для доступа к WhatsApp"
+            >
+              <div className="relative">
+                <Icon name="MessageCircle" size={24} className="opacity-50" />
+                <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full w-4 h-4 flex items-center justify-center">
+                  <Icon name="Lock" size={12} className="text-white" />
+                </div>
+              </div>
+            </Button>
+          )}
         </>
-      ) : (
-        console.log('🔍 WhatsApp button hidden - userId is null:', { userId, isAuthenticated })
       )}
 
       {selectedBookingId && (
