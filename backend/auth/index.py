@@ -13,33 +13,58 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import boto3
-from botocore.config import Config
 import urllib.request
 import urllib.parse
 import urllib.error
 import re
+import boto3
+from botocore.exceptions import ClientError
+
+def send_email(to_email: str, subject: str, html_body: str, from_name: str = 'FotoMix') -> bool:
+    """Отправить email через Yandex Cloud Postbox"""
+    try:
+        access_key_id = os.environ.get('POSTBOX_ACCESS_KEY_ID')
+        secret_access_key = os.environ.get('POSTBOX_SECRET_ACCESS_KEY')
+        
+        if not access_key_id or not secret_access_key:
+            print("Error: POSTBOX credentials not set")
+            return False
+        
+        client = boto3.client(
+            'sesv2',
+            region_name='ru-central1',
+            endpoint_url='https://postbox.cloud.yandex.net',
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key
+        )
+        
+        from_email = f'{from_name} <jon-hrom2012@gmail.com>'
+        
+        response = client.send_email(
+            FromEmailAddress=from_email,
+            Destination={'ToAddresses': [to_email]},
+            Content={
+                'Simple': {
+                    'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                    'Body': {'Html': {'Data': html_body, 'Charset': 'UTF-8'}}
+                }
+            }
+        )
+        
+        print(f"Email sent to {to_email}. MessageId: {response.get('MessageId')}")
+        return True
+    except ClientError as e:
+        print(f"ClientError: {e.response['Error']['Code']} - {e.response['Error']['Message']}")
+        return False
+    except Exception as e:
+        print(f"Email error: {str(e)}")
+        return False
 
 def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
         raise Exception('DATABASE_URL not configured')
     return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
-
-def get_ses_client():
-    access_key = os.environ.get('POSTBOX_ACCESS_KEY_ID')
-    secret_key = os.environ.get('POSTBOX_SECRET_ACCESS_KEY')
-    if not access_key or not secret_key:
-        raise Exception('Postbox credentials not configured')
-    
-    return boto3.client(
-        'sesv2',
-        region_name='ru-central1',
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        endpoint_url='https://postbox.cloud.yandex.net',
-        config=Config(signature_version='v4')
-    )
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
@@ -252,20 +277,7 @@ def send_2fa_email(to: str, code: str):
 </body>
 </html>'''
     
-    ses = get_ses_client()
-    ses.send_email(
-        FromEmailAddress='info@foto-mix.ru',
-        Destination={'ToAddresses': [to]},
-        Content={
-            'Simple': {
-                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
-                'Body': {
-                    'Text': {'Data': text, 'Charset': 'UTF-8'},
-                    'Html': {'Data': html, 'Charset': 'UTF-8'}
-                }
-            }
-        }
-    )
+    return send_email(to, subject, html, 'FotoMix')
 
 def send_2fa_code(conn, user_id: int, code: str, code_type: str):
     cursor = conn.cursor()
