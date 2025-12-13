@@ -12,21 +12,20 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import boto3
-from botocore.config import Config
 import urllib.request
 import urllib.parse
 import re
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-POSTBOX_ENDPOINT = 'https://postbox.cloud.yandex.net'
-POSTBOX_REGION = 'ru-central1'
-EMAIL_FROM = 'info@foto-mix.ru'
 TTL_MIN = 10
 RESEND_COOLDOWN_SEC = 60
 MAX_SENDS_PER_HOUR = 5
 MAX_VERIFY_PER_HOUR = 10
 LOCK_AFTER_FAILS = 5
 LOCK_MIN = 15
+SCHEMA = 't_p28211681_photo_secure_web'
 
 def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
@@ -34,20 +33,54 @@ def get_db_connection():
         raise Exception('DATABASE_URL not configured')
     return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
 
-def get_ses_client():
-    access_key = os.environ.get('POSTBOX_ACCESS_KEY_ID')
-    secret_key = os.environ.get('POSTBOX_SECRET_ACCESS_KEY')
-    if not access_key or not secret_key:
-        raise Exception('Postbox credentials not configured')
-    
-    return boto3.client(
-        'sesv2',
-        region_name=POSTBOX_REGION,
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        endpoint_url=POSTBOX_ENDPOINT,
-        config=Config(signature_version='v4')
-    )
+def get_smtp_settings() -> Optional[Dict[str, str]]:
+    db_url = os.environ.get('DATABASE_URL')
+    if not db_url:
+        return None
+    conn = psycopg2.connect(db_url)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                SELECT setting_key, setting_value FROM {SCHEMA}.site_settings
+                WHERE setting_key IN ('smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'email_notifications_enabled')
+            ''')
+            rows = cur.fetchall()
+            settings = {row['setting_key']: row['setting_value'] for row in rows}
+            if not all(k in settings for k in ['smtp_host', 'smtp_user', 'smtp_password']):
+                return None
+            if settings.get('email_notifications_enabled') != 'true':
+                return None
+            return settings
+    finally:
+        conn.close()
+
+def send_email(to_email: str, subject: str, html_body: str, from_name: str = 'FotoMix') -> bool:
+    smtp_settings = get_smtp_settings()
+    if not smtp_settings:
+        print('Email notifications disabled or SMTP not configured')
+        return False
+    msg = MIMEMultipart('alternative')
+    msg['From'] = f'{from_name} <{smtp_settings["smtp_user"]}>'
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    html_part = MIMEText(html_body, 'html', 'utf-8')
+    msg.attach(html_part)
+    try:
+        smtp_host = smtp_settings['smtp_host']
+        smtp_port = int(smtp_settings.get('smtp_port', '587'))
+        smtp_user = smtp_settings['smtp_user']
+        smtp_password = smtp_settings['smtp_password']
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+        print(f'Email sent successfully to {to_email}')
+        return True
+    except Exception as e:
+        print(f'Email send error: {e}')
+        return False
+
+
 
 def gen_code(length: int = 6) -> str:
     if length == 5:
@@ -117,9 +150,8 @@ def hash_code(code: str, email: str) -> str:
     salt = os.environ.get('EMAIL_CODE_SALT', 'default-salt-change-me')
     return hashlib.sha256(f'{code}:{email}:{salt}'.encode()).hexdigest()
 
-def send_email_code(to: str, code: str):
+def send_email_code(to: str, code: str) -> bool:
     subject = 'Подтвердите почту для foto-mix.ru'
-    text = f'Ваш код подтверждения: {code}\nСрок действия: {TTL_MIN} минут.'
     html = f'''<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -224,20 +256,7 @@ def send_email_code(to: str, code: str):
 </body>
 </html>'''
     
-    ses = get_ses_client()
-    ses.send_email(
-        FromEmailAddress=EMAIL_FROM,
-        Destination={'ToAddresses': [to]},
-        Content={
-            'Simple': {
-                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
-                'Body': {
-                    'Text': {'Data': text, 'Charset': 'UTF-8'},
-                    'Html': {'Data': html, 'Charset': 'UTF-8'}
-                }
-            }
-        }
-    )
+    return send_email(to, subject, html, 'FotoMix')
 
 def log_event(conn, user_id: int, event: str, ip: Optional[str], user_agent: Optional[str]):
     cursor = conn.cursor()
