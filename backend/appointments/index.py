@@ -33,7 +33,7 @@ def send_email(to_email: str, subject: str, html_body: str, from_name: str = 'Fo
             aws_secret_access_key=secret_access_key
         )
         
-        from_email = f'{from_name} <jon-hrom2012@gmail.com>'
+        from_email = f'{from_name} <info@foto-mix.ru>'
         
         response = client.send_email(
             FromEmailAddress=from_email,
