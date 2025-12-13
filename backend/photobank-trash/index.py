@@ -64,6 +64,67 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute('''
+                SELECT pb.id, pb.s3_key, pf.s3_prefix, pb.folder_id
+                FROM photo_bank pb
+                LEFT JOIN photo_folders pf ON pb.folder_id = pf.id
+                WHERE pb.is_trashed = TRUE 
+                  AND pb.trashed_at < NOW() - INTERVAL '30 days'
+            ''')
+            expired_photos = cur.fetchall()
+            
+            for photo in expired_photos:
+                if photo['s3_key']:
+                    trash_key = f'trash/{photo["s3_key"]}'
+                    try:
+                        s3_client.delete_object(Bucket=bucket, Key=trash_key)
+                    except Exception as e:
+                        print(f'Failed to delete {trash_key} from S3: {e}')
+            
+            if expired_photos:
+                expired_ids = [p['id'] for p in expired_photos]
+                cur.execute(f'''
+                    DELETE FROM photo_bank 
+                    WHERE id IN ({','.join(map(str, expired_ids))})
+                ''')
+                conn.commit()
+                print(f'Auto-deleted {len(expired_photos)} expired photos from trash')
+            
+            cur.execute('''
+                SELECT id, s3_prefix
+                FROM photo_folders
+                WHERE is_trashed = TRUE 
+                  AND trashed_at < NOW() - INTERVAL '30 days'
+            ''')
+            expired_folders = cur.fetchall()
+            
+            for folder in expired_folders:
+                if folder['s3_prefix']:
+                    trash_prefix = f'trash/{folder["s3_prefix"]}'
+                    paginator = s3_client.get_paginator('list_objects_v2')
+                    pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
+                    
+                    for page in pages:
+                        for obj in page.get('Contents', []):
+                            try:
+                                s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
+                            except Exception as e:
+                                print(f'Failed to delete {obj["Key"]} from S3: {e}')
+            
+            if expired_folders:
+                expired_folder_ids = [f['id'] for f in expired_folders]
+                cur.execute(f'''
+                    DELETE FROM photo_bank 
+                    WHERE folder_id IN ({','.join(map(str, expired_folder_ids))})
+                ''')
+                cur.execute(f'''
+                    DELETE FROM photo_folders 
+                    WHERE id IN ({','.join(map(str, expired_folder_ids))})
+                ''')
+                conn.commit()
+                print(f'Auto-deleted {len(expired_folders)} expired folders from trash')
+        
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')
             
