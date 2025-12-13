@@ -367,7 +367,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     return {
                         'statusCode': 500,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'Не удалось отправить email. Проверьте настройки SMTP в админ-панели'}),
+                        'body': json.dumps({'error': 'Не удалось отправить email. Попробуйте позже'}),
                         'isBase64Encoded': False
                     }
             elif method_type == 'sms':
