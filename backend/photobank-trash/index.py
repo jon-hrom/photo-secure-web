@@ -70,7 +70,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 FROM photo_bank pb
                 LEFT JOIN photo_folders pf ON pb.folder_id = pf.id
                 WHERE pb.is_trashed = TRUE 
-                  AND pb.trashed_at < NOW() - INTERVAL '30 days'
+                  AND pb.trashed_at < NOW() - INTERVAL '7 days'
             ''')
             expired_photos = cur.fetchall()
             
@@ -95,7 +95,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 SELECT id, s3_prefix
                 FROM photo_folders
                 WHERE is_trashed = TRUE 
-                  AND trashed_at < NOW() - INTERVAL '30 days'
+                  AND trashed_at < NOW() - INTERVAL '7 days'
             ''')
             expired_folders = cur.fetchall()
             
