@@ -331,11 +331,13 @@ const Index = () => {
 
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
 
-      {userId && (
+      {userId ? (
         <>
           {isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
           <WhatsAppMessenger userId={userId} />
         </>
+      ) : (
+        console.log('🔍 WhatsApp button hidden - userId is null:', { userId, isAuthenticated })
       )}
 
       {selectedBookingId && (
