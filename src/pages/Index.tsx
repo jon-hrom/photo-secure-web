@@ -111,8 +111,8 @@ const Index = () => {
         const res = await fetch(`https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?userId=${userId}`);
         if (res.ok) {
           const data = await res.json();
-          // Считаем телефон подтверждённым если поле phone не пустое
-          setHasVerifiedPhone(!!(data.phone && data.phone.trim()));
+          // Телефон подтверждён если есть и phone и phone_verified_at
+          setHasVerifiedPhone(!!(data.phone && data.phone.trim() && data.phone_verified_at));
         }
       } catch (err) {
         console.error('Failed to check phone verification:', err);

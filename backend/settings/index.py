@@ -428,20 +428,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # First check users table
                 cursor.execute("""
-                    SELECT email, phone, two_factor_email, email_verified_at, source
+                    SELECT email, phone, two_factor_email, email_verified_at, source, phone_verified_at
                     FROM t_p28211681_photo_secure_web.users
                     WHERE id = %s
                 """, (int(user_id),))
                 row = cursor.fetchone()
                 
                 if row:
-                    print(f"[SETTINGS] Found in users table: email={row[0]}, source={row[4]}")
+                    print(f"[SETTINGS] Found in users table: email={row[0]}, source={row[4]}, phone_verified={row[5]}")
                     user_settings = {
                         'email': row[0] or '',
                         'phone': row[1] or '',
                         'two_factor_email': row[2] or False,
                         'email_verified_at': row[3].isoformat() if row[3] else None,
-                        'source': row[4] or 'email'
+                        'source': row[4] or 'email',
+                        'phone_verified_at': row[5].isoformat() if row[5] else None
                     }
                 else:
                     # Check vk_users table
@@ -481,7 +482,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'phone': vk_row[1] or '',
                         'two_factor_email': fa_row[0] if fa_row else False,
                         'email_verified_at': None,
-                        'source': 'vk'
+                        'source': 'vk',
+                        'phone_verified_at': None
                     }
                 
                 cursor.close()
