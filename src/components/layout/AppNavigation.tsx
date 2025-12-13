@@ -16,6 +16,8 @@ interface AppNavigationProps {
   userEmail: string;
   userAvatar: string;
   isVerified: boolean;
+  hasVerifiedPhone?: boolean;
+  onOpenWhatsApp?: () => void;
   onLogout: () => void;
 }
 
@@ -26,6 +28,8 @@ const AppNavigation = ({
   userEmail,
   userAvatar,
   isVerified,
+  hasVerifiedPhone = false,
+  onOpenWhatsApp,
   onLogout
 }: AppNavigationProps) => {
   const navigate = useNavigate();
@@ -93,6 +97,18 @@ const AppNavigation = ({
             >
               <Icon name="HelpCircle" size={20} />
             </Button>
+            
+            {hasVerifiedPhone && onOpenWhatsApp && (
+              <Button
+                variant="outline"
+                onClick={onOpenWhatsApp}
+                className="hidden md:flex rounded-full border-2 border-green-500/50 hover:border-green-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-green-100 transition-all duration-300 hover:scale-105 hover:shadow-lg text-green-700"
+                title="WhatsApp мессенджер"
+              >
+                <Icon name="MessageCircle" size={18} className="mr-2" />
+                WhatsApp
+              </Button>
+            )}
             
             <Button
               variant="outline"

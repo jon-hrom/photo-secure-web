@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
@@ -29,9 +30,11 @@ interface WhatsAppMessage {
 
 interface WhatsAppMessengerProps {
   userId: number;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-const WhatsAppMessenger = ({ userId }: WhatsAppMessengerProps) => {
+const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessengerProps) => {
   // Получаем session token из localStorage
   const getSessionToken = () => {
     const authSession = localStorage.getItem('authSession');
@@ -47,11 +50,20 @@ const WhatsAppMessenger = ({ userId }: WhatsAppMessengerProps) => {
   const [chats, setChats] = useState<WhatsAppChat[]>([]);
   const [selectedChat, setSelectedChat] = useState<WhatsAppChat | null>(null);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
-  const [showDialog, setShowDialog] = useState(false);
+  const [showDialog, setShowDialog] = useState(isOpen);
+  
+  // Синхронизируем внешнее состояние с внутренним
+  useEffect(() => {
+    setShowDialog(isOpen);
+  }, [isOpen]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showNewChatDialog, setShowNewChatDialog] = useState(false);
+  const [newChatPhone, setNewChatPhone] = useState('');
+  const [newChatName, setNewChatName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
@@ -305,27 +317,62 @@ const WhatsAppMessenger = ({ userId }: WhatsAppMessengerProps) => {
         </div>
       </Button>
 
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showDialog} onOpenChange={(open) => {
+        setShowDialog(open);
+        if (!open && onClose) onClose();
+      }}>
         <DialogContent className="max-w-5xl max-h-[85vh] p-0">
           <div className="flex h-[80vh]">
             {/* Список чатов */}
             <div className="w-1/3 border-r flex flex-col">
               <DialogHeader className="p-4 border-b">
-                <DialogTitle className="flex items-center gap-2">
-                  <Icon name="MessageCircle" size={24} className="text-green-600" />
-                  WhatsApp
-                </DialogTitle>
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="flex items-center gap-2">
+                    <Icon name="MessageCircle" size={24} className="text-green-600" />
+                    WhatsApp
+                  </DialogTitle>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowNewChatDialog(true)}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Icon name="Plus" size={16} className="mr-1" />
+                    Новый чат
+                  </Button>
+                </div>
               </DialogHeader>
+              
+              {/* Поиск по чатам */}
+              <div className="p-3 border-b">
+                <div className="relative">
+                  <Icon name="Search" size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Поиск по чатам..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9"
+                  />
+                </div>
+              </div>
               
               <ScrollArea className="flex-1">
                 <div className="p-2">
-                  {chats.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Icon name="MessageSquare" size={48} className="mx-auto mb-2 opacity-50" />
-                      <p>Нет диалогов</p>
-                    </div>
-                  ) : (
-                    chats.map((chat) => (
+                  {(() => {
+                    const filteredChats = chats.filter(chat => 
+                      (chat.contact_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                      (chat.phone_number?.toLowerCase().includes(searchQuery.toLowerCase()))
+                    );
+                    
+                    if (filteredChats.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Icon name="MessageSquare" size={48} className="mx-auto mb-2 opacity-50" />
+                          <p>{searchQuery ? 'Чаты не найдены' : 'Нет диалогов'}</p>
+                        </div>
+                      );
+                    }
+                    
+                    return filteredChats.map((chat) => (
                       <div
                         key={chat.id}
                         onClick={() => handleChatSelect(chat)}
@@ -364,8 +411,8 @@ const WhatsAppMessenger = ({ userId }: WhatsAppMessengerProps) => {
                           </p>
                         )}
                       </div>
-                    ))
-                  )}
+                    ));
+                  })()}
                 </div>
               </ScrollArea>
             </div>
@@ -489,6 +536,99 @@ const WhatsAppMessenger = ({ userId }: WhatsAppMessengerProps) => {
                 </div>
               )}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог создания нового чата */}
+      <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Новый чат WhatsApp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Номер телефона</Label>
+              <Input
+                id="phone"
+                placeholder="+7 (XXX) XXX-XX-XX"
+                value={newChatPhone}
+                onChange={(e) => setNewChatPhone(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Имя контакта (необязательно)</Label>
+              <Input
+                id="name"
+                placeholder="Иван Иванов"
+                value={newChatName}
+                onChange={(e) => setNewChatName(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNewChatDialog(false)}>
+              Отмена
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={async () => {
+                if (!newChatPhone.trim()) {
+                  toast.error('Введите номер телефона');
+                  return;
+                }
+                
+                // Создаём новый чат отправкой первого сообщения
+                const welcomeMessage = `Здравствуйте${newChatName ? ', ' + newChatName : ''}! 👋`;
+                
+                setSending(true);
+                try {
+                  const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-User-Id': String(userId),
+                      'X-Session-Token': sessionToken,
+                    },
+                    body: JSON.stringify({
+                      action: 'send_message',
+                      phone: newChatPhone.trim(),
+                      message: welcomeMessage,
+                    }),
+                  });
+
+                  const data = await response.json();
+
+                  if (response.ok && data.success) {
+                    toast.success('Чат создан');
+                    setShowNewChatDialog(false);
+                    setNewChatPhone('');
+                    setNewChatName('');
+                    await fetchChats();
+                  } else {
+                    toast.error(data.error || 'Ошибка создания чата');
+                  }
+                } catch (error) {
+                  console.error('Error creating chat:', error);
+                  toast.error('Ошибка сети');
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending || !newChatPhone.trim()}
+            >
+              {sending ? (
+                <>
+                  <Icon name="Loader" size={16} className="mr-2 animate-spin" />
+                  Создание...
+                </>
+              ) : (
+                <>
+                  <Icon name="MessageCircle" size={16} className="mr-2" />
+                  Создать чат
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

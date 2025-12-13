@@ -35,6 +35,7 @@ const Index = () => {
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [hasVerifiedPhone, setHasVerifiedPhone] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
   
   const {
     currentPage,
@@ -335,6 +336,8 @@ const Index = () => {
         userEmail={userEmail}
         userAvatar={userAvatar}
         isVerified={isVerified}
+        hasVerifiedPhone={hasVerifiedPhone}
+        onOpenWhatsApp={() => setShowWhatsApp(true)}
         onLogout={handleLogout}
       />
 
@@ -358,7 +361,7 @@ const Index = () => {
         <>
           {isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
           {hasVerifiedPhone ? (
-            <WhatsAppMessenger userId={userId} />
+            <WhatsAppMessenger userId={userId} isOpen={showWhatsApp} onClose={() => setShowWhatsApp(false)} />
           ) : (
             <Button
               onClick={() => {
