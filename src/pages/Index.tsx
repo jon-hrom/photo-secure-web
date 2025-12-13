@@ -17,6 +17,7 @@ import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import OnboardingTour from '@/components/OnboardingTour';
 import FloatingAppealsButton from '@/components/FloatingAppealsButton';
+import WhatsAppMessenger from '@/components/WhatsAppMessenger';
 import BlockedUserDialog from '@/components/BlockedUserDialog';
 import BookingDetailsDialog from '@/components/BookingDetailsDialog';
 import { useAuth } from '@/hooks/useAuth';
@@ -330,8 +331,11 @@ const Index = () => {
 
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
 
-      {isAdmin && userId && (
-        <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />
+      {userId && (
+        <>
+          {isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
+          <WhatsAppMessenger userId={userId} />
+        </>
       )}
 
       {selectedBookingId && (

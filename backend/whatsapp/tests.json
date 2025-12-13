@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS для CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Запрос без авторизации",
+      "method": "GET",
+      "path": "/?action=chats",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
