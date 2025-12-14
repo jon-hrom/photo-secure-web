@@ -116,6 +116,19 @@ export const useClientsHandlers = ({
       
       // Обновить список клиентов
       await loadClients();
+      
+      // Открыть карточку нового клиента
+      if (result?.id && setIsDetailDialogOpen) {
+        // Найти созданного клиента по ID через небольшую задержку
+        setTimeout(async () => {
+          await loadClients();
+          const addedClient = clients.find(c => c.id === result.id);
+          if (addedClient) {
+            setSelectedClient(addedClient);
+            setIsDetailDialogOpen(true);
+          }
+        }, 500);
+      }
     } catch (error) {
       console.error('Failed to add client:', error);
       toast.error('Не удалось добавить клиента');
