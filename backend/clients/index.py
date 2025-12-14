@@ -14,11 +14,13 @@ S3_ENDPOINT = 'https://bucket.poehali.dev'
 
 def get_s3_client():
     '''Возвращает S3 клиент'''
+    from botocore.client import Config
     return boto3.client(
         's3',
         endpoint_url=S3_ENDPOINT,
         aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+        config=Config(signature_version='s3v4', s3={'addressing_style': 'path'})
     )
 
 def upload_to_s3(file_content: bytes, filename: str) -> str:

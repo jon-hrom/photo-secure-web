@@ -49,7 +49,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         endpoint_url='https://bucket.poehali.dev',
         aws_access_key_id=s3_key_id,
         aws_secret_access_key=s3_secret,
-        config=Config(signature_version='s3v4')
+        config=Config(signature_version='s3v4', s3={'addressing_style': 'path'})
     )
     
     try:
