@@ -4,11 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
-import WhatsAppChatList from '@/components/whatsapp/WhatsAppChatList';
-import WhatsAppMessageView from '@/components/whatsapp/WhatsAppMessageView';
-import WhatsAppNewChatDialog from '@/components/whatsapp/WhatsAppNewChatDialog';
+import MAXChatList from '@/components/max/MAXChatList';
+import MAXMessageView from '@/components/max/MAXMessageView';
+import MAXNewChatDialog from '@/components/max/MAXNewChatDialog';
 
-interface WhatsAppChat {
+interface MAXChat {
   id: number;
   phone_number: string;
   contact_name: string | null;
@@ -18,7 +18,7 @@ interface WhatsAppChat {
   is_admin_chat: boolean;
 }
 
-interface WhatsAppMessage {
+interface MAXMessage {
   id: number;
   message_text: string;
   is_from_me: boolean;
@@ -27,13 +27,13 @@ interface WhatsAppMessage {
   is_read: boolean;
 }
 
-interface WhatsAppMessengerProps {
+interface MAXMessengerProps {
   userId: number;
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessengerProps) => {
+const MAXMessenger = ({ userId, isOpen = false, onClose }: MAXMessengerProps) => {
   const getSessionToken = () => {
     const authSession = localStorage.getItem('authSession');
     if (authSession) {
@@ -45,9 +45,9 @@ const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessenge
   };
   
   const [sessionToken] = useState(getSessionToken());
-  const [chats, setChats] = useState<WhatsAppChat[]>([]);
-  const [selectedChat, setSelectedChat] = useState<WhatsAppChat | null>(null);
-  const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const [chats, setChats] = useState<MAXChat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<MAXChat | null>(null);
+  const [messages, setMessages] = useState<MAXMessage[]>([]);
   const [showDialog, setShowDialog] = useState(isOpen);
   
   useEffect(() => {
@@ -269,7 +269,7 @@ const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessenge
     scrollToBottom();
   }, [messages]);
 
-  const handleChatSelect = (chat: WhatsAppChat) => {
+  const handleChatSelect = (chat: MAXChat) => {
     setSelectedChat(chat);
     fetchMessages(chat.id);
   };
@@ -363,7 +363,7 @@ const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessenge
       }}>
         <DialogContent className="max-w-5xl max-h-[85vh] p-0">
           <div className="flex h-[80vh]">
-            <WhatsAppChatList
+            <MAXChatList
               chats={chats}
               selectedChat={selectedChat}
               searchQuery={searchQuery}
@@ -374,7 +374,7 @@ const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessenge
             />
 
             <div className="flex-1 flex flex-col">
-              <WhatsAppMessageView
+              <MAXMessageView
                 selectedChat={selectedChat}
                 messages={messages}
                 loading={loading}
@@ -391,7 +391,7 @@ const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessenge
         </DialogContent>
       </Dialog>
 
-      <WhatsAppNewChatDialog
+      <MAXNewChatDialog
         open={showNewChatDialog}
         newChatPhone={newChatPhone}
         newChatName={newChatName}
@@ -405,4 +405,4 @@ const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessenge
   );
 };
 
-export default WhatsAppMessenger;
+export default MAXMessenger;

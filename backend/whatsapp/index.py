@@ -8,8 +8,9 @@ from datetime import datetime
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Управление WhatsApp сообщениями через Green-API
+    Управление MAX сообщениями через Green-API
     Функционал: отправка сообщений, получение истории, список чатов, счётчик непрочитанных
+    Пользователь использует свой подтверждённый номер телефона из Настроек для доступа к MAX
     '''
     method = event.get('httpMethod', 'GET')
     

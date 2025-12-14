@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 
-interface WhatsAppChat {
+interface MAXChat {
   id: number;
   phone_number: string;
   contact_name: string | null;
@@ -13,7 +13,7 @@ interface WhatsAppChat {
   is_admin_chat: boolean;
 }
 
-interface WhatsAppMessage {
+interface MAXMessage {
   id: number;
   message_text: string;
   is_from_me: boolean;
@@ -22,9 +22,9 @@ interface WhatsAppMessage {
   is_read: boolean;
 }
 
-interface WhatsAppMessageViewProps {
-  selectedChat: WhatsAppChat | null;
-  messages: WhatsAppMessage[];
+interface MAXMessageViewProps {
+  selectedChat: MAXChat | null;
+  messages: MAXMessage[];
   loading: boolean;
   messageText: string;
   sending: boolean;
@@ -35,7 +35,7 @@ interface WhatsAppMessageViewProps {
   formatDate: (dateString: string) => string;
 }
 
-const WhatsAppMessageView = ({
+const MAXMessageView = ({
   selectedChat,
   messages,
   loading,
@@ -46,7 +46,7 @@ const WhatsAppMessageView = ({
   onSendMessage,
   formatTime,
   formatDate,
-}: WhatsAppMessageViewProps) => {
+}: MAXMessageViewProps) => {
   if (!selectedChat) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -166,4 +166,4 @@ const WhatsAppMessageView = ({
   );
 };
 
-export default WhatsAppMessageView;
+export default MAXMessageView;

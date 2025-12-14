@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 
-interface WhatsAppNewChatDialogProps {
+interface MAXNewChatDialogProps {
   open: boolean;
   newChatPhone: string;
   newChatName: string;
@@ -15,7 +15,7 @@ interface WhatsAppNewChatDialogProps {
   onCreateChat: () => void;
 }
 
-const WhatsAppNewChatDialog = ({
+const MAXNewChatDialog = ({
   open,
   newChatPhone,
   newChatName,
@@ -24,12 +24,12 @@ const WhatsAppNewChatDialog = ({
   onPhoneChange,
   onNameChange,
   onCreateChat,
-}: WhatsAppNewChatDialogProps) => {
+}: MAXNewChatDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Новый чат WhatsApp</DialogTitle>
+          <DialogTitle>Новый чат MAX</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -78,4 +78,4 @@ const WhatsAppNewChatDialog = ({
   );
 };
 
-export default WhatsAppNewChatDialog;
+export default MAXNewChatDialog;

@@ -271,7 +271,13 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm md:text-base">Телефон</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="phone" className="text-sm md:text-base">Телефон</Label>
+                <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
+                  <Icon name="MessageCircle" size={12} />
+                  <span className="font-medium">для MAX</span>
+                </div>
+              </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   id="phone"
@@ -346,6 +352,10 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   </Button>
                 </div>
               ) : null}
+              <div className="flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
+                <Icon name="Info" size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                <p>Ваш подтвержденный номер телефона используется для доступа к мессенджеру MAX</p>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -17,7 +17,7 @@ import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import OnboardingTour from '@/components/OnboardingTour';
 import FloatingAppealsButton from '@/components/FloatingAppealsButton';
-import WhatsAppMessenger from '@/components/WhatsAppMessenger';
+import MAXMessenger from '@/components/MAXMessenger';
 import BlockedUserDialog from '@/components/BlockedUserDialog';
 import BookingDetailsDialog from '@/components/BookingDetailsDialog';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,7 +36,7 @@ const Index = () => {
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [hasVerifiedPhone, setHasVerifiedPhone] = useState(false);
-  const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [showMAX, setShowMAX] = useState(false);
   
   const {
     currentPage,
@@ -337,7 +337,7 @@ const Index = () => {
         userAvatar={userAvatar}
         isVerified={isVerified}
         hasVerifiedPhone={hasVerifiedPhone}
-        onOpenWhatsApp={() => setShowWhatsApp(true)}
+        onOpenMAX={() => setShowMAX(true)}
         onLogout={handleLogout}
       />
 
@@ -361,11 +361,11 @@ const Index = () => {
         <>
           {isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
           {hasVerifiedPhone ? (
-            <WhatsAppMessenger userId={userId} isOpen={showWhatsApp} onClose={() => setShowWhatsApp(false)} />
+            <MAXMessenger userId={userId} isOpen={showMAX} onClose={() => setShowMAX(false)} />
           ) : (
             <Button
               onClick={() => {
-                toast.info('Для использования WhatsApp подтвердите телефон', {
+                toast.info('Для использования MAX подтвердите телефон', {
                   description: 'Перейдите в Настройки → Укажите и подтвердите телефон',
                   action: {
                     label: 'Настройки',
@@ -377,7 +377,7 @@ const Index = () => {
               className="fixed bottom-6 right-6 rounded-full shadow-2xl z-50 h-14 w-14 p-0"
               size="lg"
               variant="secondary"
-              title="Подтвердите телефон для доступа к WhatsApp"
+              title="Подтвердите телефон для доступа к MAX"
             >
               <div className="relative">
                 <Icon name="MessageCircle" size={24} className="opacity-50" />

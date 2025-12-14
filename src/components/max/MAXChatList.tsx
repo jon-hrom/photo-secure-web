@@ -5,7 +5,7 @@ import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 
-interface WhatsAppChat {
+interface MAXChat {
   id: number;
   phone_number: string;
   contact_name: string | null;
@@ -15,17 +15,17 @@ interface WhatsAppChat {
   is_admin_chat: boolean;
 }
 
-interface WhatsAppChatListProps {
-  chats: WhatsAppChat[];
-  selectedChat: WhatsAppChat | null;
+interface MAXChatListProps {
+  chats: MAXChat[];
+  selectedChat: MAXChat | null;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onChatSelect: (chat: WhatsAppChat) => void;
+  onChatSelect: (chat: MAXChat) => void;
   onNewChatClick: () => void;
   formatTime: (dateString: string) => string;
 }
 
-const WhatsAppChatList = ({
+const MAXChatList = ({
   chats,
   selectedChat,
   searchQuery,
@@ -33,7 +33,7 @@ const WhatsAppChatList = ({
   onChatSelect,
   onNewChatClick,
   formatTime,
-}: WhatsAppChatListProps) => {
+}: MAXChatListProps) => {
   const filteredChats = chats.filter(chat => 
     (chat.contact_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (chat.phone_number?.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -45,7 +45,7 @@ const WhatsAppChatList = ({
         <div className="flex items-center justify-between">
           <DialogTitle className="flex items-center gap-2">
             <Icon name="MessageCircle" size={24} className="text-green-600" />
-            WhatsApp
+            MAX
           </DialogTitle>
           <Button
             size="sm"
@@ -125,4 +125,4 @@ const WhatsAppChatList = ({
   );
 };
 
-export default WhatsAppChatList;
+export default MAXChatList;
