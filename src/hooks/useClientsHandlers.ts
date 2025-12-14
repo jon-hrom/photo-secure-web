@@ -234,9 +234,12 @@ export const useClientsHandlers = ({
       
       if (!res.ok) throw new Error('Failed to update client');
       
-      await loadClients();
       setIsEditDialogOpen(false);
       setEditingClient(null);
+      
+      // Обновляем список в фоне
+      loadClients().catch(console.error);
+      
       toast.success('Данные клиента обновлены');
     } catch (error) {
       console.error('Failed to update client:', error);
@@ -253,8 +256,11 @@ export const useClientsHandlers = ({
       
       if (!res.ok) throw new Error('Failed to delete client');
       
-      await loadClients();
       setSelectedClient(null);
+      
+      // Обновляем список в фоне
+      loadClients().catch(console.error);
+      
       toast.success('Клиент удалён');
     } catch (error) {
       console.error('Failed to delete client:', error);
@@ -294,10 +300,35 @@ export const useClientsHandlers = ({
       
       if (!res.ok) throw new Error('Failed to add booking');
       
-      await loadClients();
+      const result = await res.json();
+      
+      // Локально добавляем бронирование к клиенту - не перезагружаем всех клиентов
+      if (selectedClient && result.id) {
+        const newBookingObj = {
+          id: result.id,
+          date: new Date(dateString),
+          booking_date: dateString,
+          time: newBooking.time,
+          booking_time: newBooking.time,
+          title: '',
+          description: newBooking.description,
+          notificationEnabled: newBooking.notificationEnabled,
+          notificationTime: newBooking.notificationTime,
+          clientId: selectedClient.id
+        };
+        
+        setSelectedClient({
+          ...selectedClient,
+          bookings: [...(selectedClient.bookings || []), newBookingObj]
+        });
+      }
+      
       setNewBooking({ time: '', description: '', notificationEnabled: true, notificationTime: 24 });
       setSelectedDate(undefined);
       setIsBookingDialogOpen(false);
+      
+      // Обновляем список в фоне
+      loadClients().catch(console.error);
       
       if (newBooking.notificationEnabled) {
         const timeText = newBooking.notificationTime >= 24 
@@ -322,9 +353,20 @@ export const useClientsHandlers = ({
       
       if (!res.ok) throw new Error('Failed to delete booking');
       
-      await loadClients();
+      // Локально удаляем бронирование - не перезагружаем всех клиентов
+      if (selectedClient) {
+        setSelectedClient({
+          ...selectedClient,
+          bookings: selectedClient.bookings.filter(b => b.id !== bookingId)
+        });
+      }
+      
       setIsBookingDetailsOpen(false);
       setSelectedBooking(null);
+      
+      // Обновляем список в фоне
+      loadClients().catch(console.error);
+      
       toast.success('Бронирование удалено');
     } catch (error) {
       console.error('Failed to delete booking:', error);
@@ -402,10 +444,6 @@ export const useClientsHandlers = ({
   };
 
   const handleUpdateClient = async (updatedClient: Client) => {
-    console.log('[useClientsHandlers] handleUpdateClient called with:', updatedClient);
-    console.log('[useClientsHandlers] Payments in updated client:', updatedClient.payments);
-    console.log('[useClientsHandlers] Projects in updated client:', updatedClient.projects);
-    
     try {
       const res = await fetch(CLIENTS_API, {
         method: 'PUT',
@@ -416,36 +454,19 @@ export const useClientsHandlers = ({
         body: JSON.stringify(updatedClient)
       });
       
-      console.log('[useClientsHandlers] Update response status:', res.status);
-      
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error('[useClientsHandlers] Update failed:', errorText);
         throw new Error('Failed to update client');
       }
       
-      // Перезагружаем всех клиентов из БД
-      await loadClients();
+      // Локально обновляем данные клиента - не делаем лишний запрос
+      setSelectedClient(updatedClient);
       
-      // Загружаем свежие данные конкретного клиента с сервера
-      const freshClientRes = await fetch(`${CLIENTS_API}?userId=${userId}`, {
-        headers: { 'X-User-Id': userId! }
-      });
-      
-      if (freshClientRes.ok) {
-        const allClients = await freshClientRes.json();
-        const refreshedClient = allClients.find((c: Client) => c.id === updatedClient.id);
-        if (refreshedClient) {
-          console.log('[useClientsHandlers] Refreshed client from server:', refreshedClient);
-          console.log('[useClientsHandlers] Refreshed payments:', refreshedClient.payments);
-          console.log('[useClientsHandlers] Refreshed projects:', refreshedClient.projects);
-          setSelectedClient(refreshedClient);
-        }
-      }
+      // Обновляем общий список клиентов в фоне (без ожидания)
+      loadClients().catch(console.error);
       
       toast.success('Данные клиента обновлены');
     } catch (error) {
-      console.error('[useClientsHandlers] Failed to update client:', error);
+      console.error('Failed to update client:', error);
       toast.error('Не удалось обновить данные');
     }
   };
@@ -461,7 +482,7 @@ export const useClientsHandlers = ({
     }
 
     try {
-      // Удаляем клиентов по одному
+      // Удаляем клиентов параллельно
       const deletePromises = clientIds.map(clientId =>
         fetch(CLIENTS_API, {
           method: 'POST',
@@ -486,8 +507,10 @@ export const useClientsHandlers = ({
         toast.success(`Успешно удалено ${clientIds.length} клиент(ов)`);
       }
 
-      await loadClients();
       setSelectedClient(null);
+      
+      // Обновляем список в фоне
+      loadClients().catch(console.error);
     } catch (error) {
       console.error('Delete multiple clients error:', error);
       toast.error('Ошибка при удалении клиентов');

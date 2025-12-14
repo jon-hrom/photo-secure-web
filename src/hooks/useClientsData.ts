@@ -12,23 +12,18 @@ export const useClientsData = (userId: string | null) => {
   
   const loadClients = async () => {
     if (!userId) {
-      console.log('[CLIENTS] No userId, skipping load');
       setLoading(false);
       return;
     }
     
     try {
-      console.log('[CLIENTS] Loading clients for userId:', userId);
       const res = await fetch(CLIENTS_API, {
         headers: { 'X-User-Id': userId }
       });
       
-      console.log('[CLIENTS] Response status:', res.status);
-      
       if (!res.ok) throw new Error('Failed to load clients');
       
       const data = await res.json();
-      console.log('[CLIENTS] Raw data sample:', data[0]);
       
       const parsed = data.map((client: any) => ({
         id: client.id,
@@ -90,17 +85,11 @@ export const useClientsData = (userId: string | null) => {
         }))
       }));
       
-      console.log('[CLIENTS] Parsed data sample:', parsed[0]);
-      console.log('[CLIENTS] Sample payments:', parsed[0]?.payments);
-      console.log('[CLIENTS] Sample projects:', parsed[0]?.projects);
-      
       setClients(parsed);
-      console.log('[CLIENTS] Loaded', parsed.length, 'clients successfully');
     } catch (error) {
-      console.error('[CLIENTS] Failed to load clients:', error);
+      console.error('Failed to load clients:', error);
       toast.error('Не удалось загрузить клиентов');
     } finally {
-      console.log('[CLIENTS] Setting loading to false');
       setLoading(false);
     }
   };
@@ -132,7 +121,6 @@ export const useClientsData = (userId: string | null) => {
       }
       
       if (isAdminUser(userEmail, vkUserData)) {
-        console.log('[CLIENTS] Main admin detected - email verification skipped');
         setEmailVerified(true);
         return;
       }

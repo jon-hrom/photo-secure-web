@@ -35,11 +35,6 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   // Хук для управления диалогами и состоянием
   const dialogsState = useClientsDialogs();
   
-  // Логирование состояния счётчика
-  useEffect(() => {
-    console.log('[ClientsPage] isCountdownOpen changed:', dialogsState.isCountdownOpen);
-  }, [dialogsState.isCountdownOpen]);
-  
   // Открываем диалог добавления клиента при autoOpenAddDialog
   useEffect(() => {
     if (autoOpenAddDialog) {
@@ -349,10 +344,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
       <LoadingProgressBar
         open={dialogsState.isCountdownOpen}
         maxTime={30000}
-        onComplete={() => {
-          console.log('[ClientsPage] Loading completed, closing progress dialog');
-          dialogsState.setIsCountdownOpen(false);
-        }}
+        onComplete={() => dialogsState.setIsCountdownOpen(false)}
       />
     </div>
   );
