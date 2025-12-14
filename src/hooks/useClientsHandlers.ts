@@ -110,6 +110,9 @@ export const useClientsHandlers = ({
       }
       
       const result = await res.json();
+      console.log('[CLIENT_ADD] Created client result:', result);
+      console.log('[CLIENT_ADD] setIsDetailDialogOpen exists?', !!setIsDetailDialogOpen);
+      
       setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
       setIsAddDialogOpen(false);
       toast.success('Клиент успешно добавлен');
@@ -119,16 +122,22 @@ export const useClientsHandlers = ({
       
       // Открыть карточку нового клиента
       if (result?.id && setIsDetailDialogOpen) {
+        console.log('[CLIENT_ADD] Opening detail dialog for client ID:', result.id);
         // Получаем свежий список клиентов напрямую из API
         setTimeout(async () => {
+          console.log('[CLIENT_ADD] Fetching fresh client data...');
           try {
             const freshRes = await fetch(CLIENTS_API, {
               headers: { 'X-User-Id': userId! }
             });
+            console.log('[CLIENT_ADD] Fresh data response status:', freshRes.status);
             if (freshRes.ok) {
               const freshData = await freshRes.json();
+              console.log('[CLIENT_ADD] Fresh data length:', freshData.length);
               const addedClient = freshData.find((c: any) => c.id === result.id);
+              console.log('[CLIENT_ADD] Found added client?', !!addedClient);
               if (addedClient) {
+                console.log('[CLIENT_ADD] Parsing and opening client detail...');
                 // Парсим данные клиента в нужный формат
                 const parsedClient: Client = {
                   id: addedClient.id,
@@ -175,14 +184,22 @@ export const useClientsHandlers = ({
                   comments: [],
                   messages: []
                 };
+                console.log('[CLIENT_ADD] Setting selected client and opening dialog...');
                 setSelectedClient(parsedClient);
                 setIsDetailDialogOpen(true);
+                console.log('[CLIENT_ADD] Dialog should be open now');
+              } else {
+                console.log('[CLIENT_ADD] Client not found in fresh data');
               }
+            } else {
+              console.log('[CLIENT_ADD] Fresh data fetch failed');
             }
           } catch (err) {
-            console.error('Failed to open client detail:', err);
+            console.error('[CLIENT_ADD] Failed to open client detail:', err);
           }
         }, 500);
+      } else {
+        console.log('[CLIENT_ADD] Not opening detail - result.id:', result?.id, 'setIsDetailDialogOpen:', !!setIsDetailDialogOpen);
       }
     } catch (error) {
       console.error('Failed to add client:', error);
