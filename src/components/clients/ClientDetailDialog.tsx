@@ -458,6 +458,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             <ClientDetailDocumentsHistory
               documents={documents}
               messages={messages}
+              bookings={localClient.bookings}
               formatDate={formatDate}
               formatDateTime={formatDateTime}
               tab="history"
