@@ -5,9 +5,10 @@ import Icon from '@/components/ui/icon';
 interface CountdownLoaderProps {
   open: boolean;
   seconds?: number;
+  onComplete?: () => void;
 }
 
-const CountdownLoader = ({ open, seconds = 3 }: CountdownLoaderProps) => {
+const CountdownLoader = ({ open, seconds = 3, onComplete }: CountdownLoaderProps) => {
   const [count, setCount] = useState(seconds);
 
   useEffect(() => {
@@ -15,15 +16,20 @@ const CountdownLoader = ({ open, seconds = 3 }: CountdownLoaderProps) => {
     if (open) {
       console.log('[COUNTDOWN] Starting countdown from', seconds);
       setCount(seconds);
+      let currentCount = seconds;
+      
       const interval = setInterval(() => {
-        setCount((prev) => {
-          console.log('[COUNTDOWN] Count:', prev);
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
+        currentCount--;
+        console.log('[COUNTDOWN] Count:', currentCount);
+        setCount(currentCount);
+        
+        if (currentCount <= 0) {
+          clearInterval(interval);
+          console.log('[COUNTDOWN] Countdown finished! Calling onComplete');
+          if (onComplete) {
+            onComplete();
           }
-          return prev - 1;
-        });
+        }
       }, 1000);
 
       return () => {
@@ -31,7 +37,7 @@ const CountdownLoader = ({ open, seconds = 3 }: CountdownLoaderProps) => {
         clearInterval(interval);
       };
     }
-  }, [open, seconds]);
+  }, [open, seconds, onComplete]);
 
   return (
     <Dialog open={open}>

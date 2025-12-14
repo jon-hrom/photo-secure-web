@@ -200,20 +200,24 @@ export const useClientsHandlers = ({
               messages: []
             };
             
-            console.log('[CLIENT_ADD] Opening client detail dialog');
+            console.log('[CLIENT_ADD] Setting selected client and opening dialog');
             
-            // Через 3 секунды (когда закончится счётчик) открываем окно
+            // Устанавливаем клиента сразу, а CountdownLoader сам закроется через 3 секунды
+            setSelectedClient(parsedClient);
+            
+            // Ждём 3 секунды (пока идёт countdown), затем открываем диалог
             setTimeout(() => {
-              setIsCountdownOpen(false);
-              setSelectedClient(parsedClient);
+              console.log('[CLIENT_ADD] Opening detail dialog after countdown');
               setIsDetailDialogOpen(true);
-            }, 3000);
+            }, 3100); // 3.1 секунды, чтобы дать CountdownLoader время закрыться
           } else {
             // Если клиент не найден - закрываем счётчик сразу
+            console.log('[CLIENT_ADD] Client not found, closing countdown');
             setIsCountdownOpen(false);
           }
         } else {
           // Если запрос не удался - закрываем счётчик
+          console.log('[CLIENT_ADD] Request failed, closing countdown');
           setIsCountdownOpen(false);
         }
         
