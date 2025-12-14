@@ -8,6 +8,7 @@ import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
 import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import SecurityCard from '@/components/settings/SecurityCard';
 import HintsCard from '@/components/settings/HintsCard';
+import { MAXConnectionCard } from '@/components/settings/MAXConnectionCard';
 import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
 
 interface UserSettings {
@@ -225,6 +226,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
           settings={settings}
           handleToggle2FA={handleToggle2FA}
         />
+
+        <MAXConnectionCard />
 
         <HintsCard />
 
