@@ -71,18 +71,12 @@ export const useClientsHandlers = ({
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
-    console.log('[CLIENT_ADD] Function called');
-    console.log('[CLIENT_ADD] newClient:', newClient);
-    console.log('[CLIENT_ADD] userId:', userId);
-    
     if (!newClient.name || !newClient.phone) {
-      console.log('[CLIENT_ADD] Validation failed - missing name or phone');
       toast.error('Заполните обязательные поля');
       return;
     }
     
     if (!userId) {
-      console.log('[CLIENT_ADD] No userId - aborting');
       toast.error('Не удалось определить пользователя');
       return;
     }
@@ -96,15 +90,12 @@ export const useClientsHandlers = ({
     setIsAddDialogOpen(false);
     
     if (setIsDetailDialogOpen && setIsCountdownOpen) {
-      console.log('[CLIENT_ADD] Starting countdown immediately!');
       setIsCountdownOpen(true);
     }
     
     // ВСЁ ОСТАЛЬНОЕ в фоне (не блокирует UI)
     (async () => {
       try {
-        console.log('[CLIENT_ADD] Sending request:', { action: 'create', ...newClient });
-        
         const res = await fetch(CLIENTS_API, {
           method: 'POST',
           headers: {
@@ -121,11 +112,7 @@ export const useClientsHandlers = ({
           })
         });
         
-        console.log('[CLIENT_ADD] Response status:', res.status);
-        
         if (!res.ok) {
-          const errorText = await res.text();
-          console.error('[CLIENT_ADD] Error response:', errorText);
           throw new Error('Failed to add client');
         }
         
@@ -133,10 +120,9 @@ export const useClientsHandlers = ({
         
         try {
           const result = await res.json();
-          console.log('[CLIENT_ADD] Created client result:', result);
           createdClientId = result?.id || null;
         } catch (err) {
-          console.log('[CLIENT_ADD] No JSON response, will find client by name');
+          console.error('[CLIENT_ADD] No JSON response');
         }
         
         toast.success('Клиент успешно добавлен');
@@ -144,76 +130,26 @@ export const useClientsHandlers = ({
         // Обновить список клиентов и сразу открыть окно
         if (setIsDetailDialogOpen && setIsCountdownOpen) {
         
-        // ПАРАЛЛЕЛЬНО загружаем данные (пока идёт счётчик)
-        console.log('[CLIENT_ADD] Fetching fresh client data in parallel...');
+        // ПАРАЛЛЕЛЬНО формируем данные клиента (пока идёт счётчик)
         const dataPromise = (async () => {
-          const freshRes = await fetch(CLIENTS_API, {
-            headers: { 'X-User-Id': userId! }
-          });
+          // Используем данные из ответа сервера напрямую - не делаем лишние запросы
           
-          if (!freshRes.ok) {
-            throw new Error('Failed to fetch client data');
+          if (!createdClientId) {
+            throw new Error('Client ID not returned from server');
           }
           
-          const freshData = await freshRes.json();
-          console.log('[CLIENT_ADD] Fresh data length:', freshData.length);
-          
-          // Ищем по ID или по сохранённым имени + телефону (последний добавленный)
-          const addedClient = createdClientId 
-            ? freshData.find((c: any) => c.id === createdClientId)
-            : freshData
-                .filter((c: any) => c.name === clientNameForSearch && c.phone === clientPhoneForSearch)
-                .sort((a: any, b: any) => b.id - a.id)[0];
-          
-          console.log('[CLIENT_ADD] Found added client:', !!addedClient);
-          
-          if (!addedClient) {
-            throw new Error('Client not found');
-          }
-          
-          // Парсим данные клиента в нужный формат
+          // Формируем объект клиента из уже имеющихся данных
           return {
-            id: addedClient.id,
-            name: addedClient.name,
-            phone: addedClient.phone,
-            email: addedClient.email || '',
-            address: addedClient.address || '',
-            vkProfile: addedClient.vk_profile || '',
-            bookings: (addedClient.bookings || []).map((b: any) => ({
-              id: b.id,
-              date: new Date(b.booking_date),
-              booking_date: b.booking_date,
-              time: b.booking_time,
-              booking_time: b.booking_time,
-              title: b.title || '',
-              description: b.description || '',
-              notificationEnabled: b.notification_enabled,
-              notificationTime: b.notification_time || 24,
-              clientId: b.client_id
-            })),
-            projects: (addedClient.projects || []).map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              status: p.status,
-              budget: parseFloat(p.budget) || 0,
-              startDate: p.start_date,
-              description: p.description || ''
-            })),
-            payments: (addedClient.payments || []).map((pay: any) => ({
-              id: pay.id,
-              amount: parseFloat(pay.amount) || 0,
-              date: pay.payment_date,
-              status: pay.status,
-              method: pay.method,
-              description: pay.description || '',
-              projectId: pay.project_id
-            })),
-            documents: (addedClient.documents || []).map((d: any) => ({
-              id: d.id,
-              name: d.name,
-              fileUrl: d.file_url,
-              uploadDate: d.upload_date
-            })),
+            id: createdClientId,
+            name: clientNameForSearch,
+            phone: clientPhoneForSearch,
+            email: newClient.email || '',
+            address: newClient.address || '',
+            vkProfile: newClient.vkProfile || '',
+            bookings: [],
+            projects: [],
+            payments: [],
+            documents: [],
             comments: [],
             messages: []
           } as Client;
@@ -224,43 +160,35 @@ export const useClientsHandlers = ({
         const maxWaitTime = 30000; // 30 секунд
         
         try {
-          // Загружаем данные в фоне
+          // Формируем данные клиента
           const parsedClient = await dataPromise;
-          console.log('[CLIENT_ADD] Data loaded, setting selected client');
           setSelectedClient(parsedClient);
           
           // Считаем сколько времени прошло
           const elapsedTime = Date.now() - startTime;
-          console.log('[CLIENT_ADD] Data loaded in', elapsedTime, 'ms');
           
-          // Если данные загрузились раньше 15 секунд - открываем сразу
-          // Но показываем прогресс минимум 500мс для плавности
+          // Показываем прогресс минимум 500мс для плавности
           const minDisplayTime = 500;
+          if (elapsedTime < minDisplayTime) {
+            await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsedTime));
+          }
+          
+          // Если данные готовы раньше 30 секунд - открываем сразу
           if (elapsedTime < maxWaitTime) {
-            console.log('[CLIENT_ADD] Data ready early! Opening dialog immediately');
-            
-            // Ждём минимум 500мс для отображения прогресса
-            if (elapsedTime < minDisplayTime) {
-              await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsedTime));
-            }
-            
             setIsCountdownOpen(false);
-            // Даём немного времени для закрытия прогресс-бара
             setTimeout(() => {
               setIsDetailDialogOpen(true);
             }, 100);
           } else {
-            // Если загрузка заняла больше 15 секунд - ждём окончания countdown
+            // Если что-то пошло не так - ждём окончания countdown
             const remainingTime = maxWaitTime - elapsedTime;
             if (remainingTime > 0) {
               await new Promise(resolve => setTimeout(resolve, remainingTime));
             }
-            console.log('[CLIENT_ADD] Opening detail dialog after countdown');
             setIsDetailDialogOpen(true);
           }
         } catch (error) {
-          console.error('[CLIENT_ADD] Error loading client:', error);
-          // При ошибке ждём полных 15 секунд
+          console.error('[CLIENT_ADD] Error:', error);
           const elapsedTime = Date.now() - startTime;
           const remainingTime = maxWaitTime - elapsedTime;
           if (remainingTime > 0) {
@@ -270,11 +198,11 @@ export const useClientsHandlers = ({
           toast.error('Не удалось загрузить данные клиента');
         }
         
-        // Обновляем список клиентов в фоне
-        loadClients().catch(console.error);
+        // Обновляем список клиентов ОДИН РАЗ в конце
+        await loadClients();
       } else {
         // Если нет setIsDetailDialogOpen - просто обновляем список
-        loadClients().catch(console.error);
+        await loadClients();
       }
     } catch (error) {
       console.error('Failed to add client:', error);

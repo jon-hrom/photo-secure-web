@@ -245,10 +245,15 @@ const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessenge
   };
 
   useEffect(() => {
+    // Запускаем polling только если диалог открыт
+    if (!showDialog) return;
+    
     fetchChats();
     fetchUnreadCount();
     
     const interval = setInterval(() => {
+      if (!showDialog) return; // Проверяем перед каждым запросом
+      
       fetchUnreadCount();
       fetchChats();
       
@@ -258,7 +263,7 @@ const WhatsAppMessenger = ({ userId, isOpen = false, onClose }: WhatsAppMessenge
     }, 10000);
     
     return () => clearInterval(interval);
-  }, [userId, sessionToken, selectedChat]);
+  }, [userId, sessionToken, selectedChat, showDialog]);
 
   useEffect(() => {
     scrollToBottom();
