@@ -9,8 +9,8 @@ from psycopg2.extras import RealDictCursor
 import boto3
 
 # S3 configuration
-S3_BUCKET = 'files'
-S3_ENDPOINT = 'https://bucket.poehali.dev'
+S3_BUCKET = 'foto-mix'
+S3_ENDPOINT = 'https://storage.yandexcloud.net'
 
 def get_s3_client():
     '''Возвращает S3 клиент'''
@@ -18,9 +18,10 @@ def get_s3_client():
     return boto3.client(
         's3',
         endpoint_url=S3_ENDPOINT,
-        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
-        config=Config(signature_version='s3v4', s3={'addressing_style': 'path'})
+        region_name='ru-central1',
+        aws_access_key_id=os.environ['YC_S3_KEY_ID'],
+        aws_secret_access_key=os.environ['YC_S3_SECRET'],
+        config=Config(signature_version='s3v4')
     )
 
 def upload_to_s3(file_content: bytes, filename: str) -> str:

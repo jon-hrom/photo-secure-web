@@ -44,16 +44,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     db_url = os.environ.get('DATABASE_URL')
-    s3_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
-    s3_secret = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    bucket = 'files'
+    s3_key_id = os.environ.get('YC_S3_KEY_ID')
+    s3_secret = os.environ.get('YC_S3_SECRET')
+    bucket = 'foto-mix'
     
     s3_client = boto3.client(
         's3',
-        endpoint_url='https://bucket.poehali.dev',
+        endpoint_url='https://storage.yandexcloud.net',
+        region_name='ru-central1',
         aws_access_key_id=s3_key_id,
         aws_secret_access_key=s3_secret,
-        config=Config(signature_version='s3v4', s3={'addressing_style': 'path'})
+        config=Config(signature_version='s3v4')
     )
     
     try:

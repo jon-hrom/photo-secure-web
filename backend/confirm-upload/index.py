@@ -46,14 +46,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     s3_client = boto3.client(
         's3',
-        endpoint_url='https://bucket.poehali.dev',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
-        config=Config(signature_version='s3v4', s3={'addressing_style': 'path'})
+        endpoint_url='https://storage.yandexcloud.net',
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4')
     )
     
     try:
-        head_response = s3_client.head_object(Bucket='files', Key=s3_key)
+        head_response = s3_client.head_object(Bucket='foto-mix', Key=s3_key)
         size_bytes = head_response['ContentLength']
         content_type = head_response.get('ContentType', 'application/octet-stream')
         checksum = head_response.get('ETag', '').strip('"')
