@@ -297,10 +297,13 @@ def verify_green_api_credentials(instance_id: str, token: str) -> Dict[str, Any]
     """Проверка credentials через GREEN-API getSettings"""
     try:
         url = f"https://api.green-api.com/waInstance{instance_id}/getSettings/{token}"
-        print(f"[MAX Credentials] Calling GREEN-API: {url[:80]}...")
+        print(f"[MAX Credentials] Full URL: {url}")
+        print(f"[MAX Credentials] Instance ID: {instance_id}")
+        print(f"[MAX Credentials] Token length: {len(token)}")
         
         response = requests.get(url, timeout=10)
         print(f"[MAX Credentials] GREEN-API response: status={response.status_code}")
+        print(f"[MAX Credentials] Response headers: {dict(response.headers)}")
         
         if response.status_code == 200:
             data = response.json()
@@ -318,12 +321,18 @@ def verify_green_api_credentials(instance_id: str, token: str) -> Dict[str, Any]
                 'valid': False,
                 'error': 'Неверный instance_id или token'
             }
+        elif response.status_code == 404:
+            print(f"[MAX Credentials] GREEN-API 404: Not Found - Instance не существует или не активирован")
+            return {
+                'valid': False,
+                'error': f'Instance {instance_id} не найден. Проверьте что инстанс существует и активирован в личном кабинете GREEN-API'
+            }
         else:
             error_text = response.text[:200]
             print(f"[MAX Credentials] GREEN-API error: {response.status_code}, body={error_text}")
             return {
                 'valid': False,
-                'error': f'Ошибка GREEN-API: {response.status_code} - {error_text}'
+                'error': f'Ошибка GREEN-API ({response.status_code}): Проверьте правильность Instance ID и Token'
             }
     
     except requests.exceptions.Timeout:
