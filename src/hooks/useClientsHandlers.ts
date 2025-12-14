@@ -131,15 +131,21 @@ export const useClientsHandlers = ({
       
       // Обновить список клиентов и сразу открыть окно
       if (setIsDetailDialogOpen && setIsCountdownOpen) {
-        // Показываем счётчик обратного отсчёта
+        // Показываем счётчик обратного отсчёта СРАЗУ
+        console.log('[CLIENT_ADD] Starting countdown (7 seconds)');
         setIsCountdownOpen(true);
         
-        console.log('[CLIENT_ADD] Fetching fresh client data...');
-        const freshRes = await fetch(CLIENTS_API, {
-          headers: { 'X-User-Id': userId! }
-        });
-        
-        if (freshRes.ok) {
+        // ПАРАЛЛЕЛЬНО загружаем данные (пока идёт счётчик)
+        console.log('[CLIENT_ADD] Fetching fresh client data in parallel...');
+        const dataPromise = (async () => {
+          const freshRes = await fetch(CLIENTS_API, {
+            headers: { 'X-User-Id': userId! }
+          });
+          
+          if (!freshRes.ok) {
+            throw new Error('Failed to fetch client data');
+          }
+          
           const freshData = await freshRes.json();
           console.log('[CLIENT_ADD] Fresh data length:', freshData.length);
           
@@ -152,73 +158,77 @@ export const useClientsHandlers = ({
           
           console.log('[CLIENT_ADD] Found added client:', !!addedClient);
           
-          if (addedClient) {
-            // Парсим данные клиента в нужный формат
-            const parsedClient: Client = {
-              id: addedClient.id,
-              name: addedClient.name,
-              phone: addedClient.phone,
-              email: addedClient.email || '',
-              address: addedClient.address || '',
-              vkProfile: addedClient.vk_profile || '',
-              bookings: (addedClient.bookings || []).map((b: any) => ({
-                id: b.id,
-                date: new Date(b.booking_date),
-                booking_date: b.booking_date,
-                time: b.booking_time,
-                booking_time: b.booking_time,
-                title: b.title || '',
-                description: b.description || '',
-                notificationEnabled: b.notification_enabled,
-                notificationTime: b.notification_time || 24,
-                clientId: b.client_id
-              })),
-              projects: (addedClient.projects || []).map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                status: p.status,
-                budget: parseFloat(p.budget) || 0,
-                startDate: p.start_date,
-                description: p.description || ''
-              })),
-              payments: (addedClient.payments || []).map((pay: any) => ({
-                id: pay.id,
-                amount: parseFloat(pay.amount) || 0,
-                date: pay.payment_date,
-                status: pay.status,
-                method: pay.method,
-                description: pay.description || '',
-                projectId: pay.project_id
-              })),
-              documents: (addedClient.documents || []).map((d: any) => ({
-                id: d.id,
-                name: d.name,
-                fileUrl: d.file_url,
-                uploadDate: d.upload_date
-              })),
-              comments: [],
-              messages: []
-            };
-            
-            console.log('[CLIENT_ADD] Setting selected client and opening dialog');
-            
-            // Устанавливаем клиента сразу, а CountdownLoader сам закроется через 3 секунды
-            setSelectedClient(parsedClient);
-            
-            // Ждём 3 секунды (пока идёт countdown), затем открываем диалог
-            setTimeout(() => {
-              console.log('[CLIENT_ADD] Opening detail dialog after countdown');
-              setIsDetailDialogOpen(true);
-            }, 3100); // 3.1 секунды, чтобы дать CountdownLoader время закрыться
-          } else {
-            // Если клиент не найден - закрываем счётчик сразу
-            console.log('[CLIENT_ADD] Client not found, closing countdown');
-            setIsCountdownOpen(false);
+          if (!addedClient) {
+            throw new Error('Client not found');
           }
-        } else {
-          // Если запрос не удался - закрываем счётчик
-          console.log('[CLIENT_ADD] Request failed, closing countdown');
+          
+          // Парсим данные клиента в нужный формат
+          return {
+            id: addedClient.id,
+            name: addedClient.name,
+            phone: addedClient.phone,
+            email: addedClient.email || '',
+            address: addedClient.address || '',
+            vkProfile: addedClient.vk_profile || '',
+            bookings: (addedClient.bookings || []).map((b: any) => ({
+              id: b.id,
+              date: new Date(b.booking_date),
+              booking_date: b.booking_date,
+              time: b.booking_time,
+              booking_time: b.booking_time,
+              title: b.title || '',
+              description: b.description || '',
+              notificationEnabled: b.notification_enabled,
+              notificationTime: b.notification_time || 24,
+              clientId: b.client_id
+            })),
+            projects: (addedClient.projects || []).map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              status: p.status,
+              budget: parseFloat(p.budget) || 0,
+              startDate: p.start_date,
+              description: p.description || ''
+            })),
+            payments: (addedClient.payments || []).map((pay: any) => ({
+              id: pay.id,
+              amount: parseFloat(pay.amount) || 0,
+              date: pay.payment_date,
+              status: pay.status,
+              method: pay.method,
+              description: pay.description || '',
+              projectId: pay.project_id
+            })),
+            documents: (addedClient.documents || []).map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              fileUrl: d.file_url,
+              uploadDate: d.upload_date
+            })),
+            comments: [],
+            messages: []
+          } as Client;
+        })();
+        
+        // Ждём минимум 7 секунд (время счётчика) ИЛИ пока данные не загрузятся
+        try {
+          const parsedClient = await Promise.race([
+            dataPromise,
+            new Promise<Client>((resolve) => setTimeout(() => resolve(dataPromise), 7000))
+          ]);
+          
+          console.log('[CLIENT_ADD] Data loaded, setting selected client');
+          setSelectedClient(parsedClient);
+          
+          // Ждём окончания countdown (если данные загрузились быстрее)
+          await new Promise(resolve => setTimeout(resolve, 7000));
+          
+          console.log('[CLIENT_ADD] Opening detail dialog after countdown');
+          setIsDetailDialogOpen(true);
+        } catch (error) {
+          console.error('[CLIENT_ADD] Error loading client:', error);
           setIsCountdownOpen(false);
+          toast.error('Не удалось загрузить данные клиента');
         }
         
         // Обновляем список клиентов в фоне
