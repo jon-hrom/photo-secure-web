@@ -522,10 +522,56 @@ export const useClientsHandlers = ({
     }
   };
 
+  const handleDeleteMultipleClients = async (clientIds: number[]) => {
+    if (!userId) {
+      toast.error('Не удалось определить пользователя');
+      throw new Error('No userId');
+    }
+
+    if (clientIds.length === 0) {
+      return;
+    }
+
+    try {
+      // Удаляем клиентов по одному
+      const deletePromises = clientIds.map(clientId =>
+        fetch(CLIENTS_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId
+          },
+          body: JSON.stringify({
+            action: 'delete',
+            clientId
+          })
+        })
+      );
+
+      const results = await Promise.all(deletePromises);
+      
+      const failedCount = results.filter(res => !res.ok).length;
+      
+      if (failedCount > 0) {
+        toast.error(`Не удалось удалить ${failedCount} из ${clientIds.length} клиентов`);
+      } else {
+        toast.success(`Успешно удалено ${clientIds.length} клиент(ов)`);
+      }
+
+      await loadClients();
+      setSelectedClient(null);
+    } catch (error) {
+      console.error('Delete multiple clients error:', error);
+      toast.error('Ошибка при удалении клиентов');
+      throw error;
+    }
+  };
+
   return {
     handleAddClient,
     handleUpdateClientFromEdit,
     handleDeleteClient,
+    handleDeleteMultipleClients,
     handleAddBooking,
     handleDeleteBooking,
     handleDateClick,

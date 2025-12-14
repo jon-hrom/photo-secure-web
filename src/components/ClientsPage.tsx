@@ -261,6 +261,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         <ClientsTableView
           clients={clients}
           onSelectClient={dialogsState.openDetailDialog}
+          onDeleteClients={handlers.handleDeleteMultipleClients}
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(240px,280px)_1fr] xl:grid-cols-[minmax(240px,280px)_minmax(400px,1fr)_minmax(300px,380px)] gap-4 lg:gap-6">

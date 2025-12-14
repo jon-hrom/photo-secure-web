@@ -2,23 +2,28 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { useTableSort, SortableColumn } from '@/hooks/useTableSort';
 import { useViewPresets } from '@/hooks/useViewPresets';
 import ViewPresetsDropdown from '@/components/clients/ViewPresetsDropdown';
+import { toast } from 'sonner';
 
 interface ClientsTableViewProps {
   clients: Client[];
   onSelectClient: (client: Client) => void;
+  onDeleteClients?: (clientIds: number[]) => Promise<void>;
   externalSearchQuery?: string;
   externalStatusFilter?: 'all' | 'active' | 'inactive';
 }
 
-const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', externalStatusFilter = 'all' }: ClientsTableViewProps) => {
+const ClientsTableView = ({ clients, onSelectClient, onDeleteClients, externalSearchQuery = '', externalStatusFilter = 'all' }: ClientsTableViewProps) => {
   const [searchQuery, setSearchQuery] = useState(externalSearchQuery);
   const [statusFilter, setStatusFilter] = useState(externalStatusFilter);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedClientIds, setSelectedClientIds] = useState<number[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
   const itemsPerPage = 10;
   
   const { sortConfigs, handleSort, clearSort, getSortDirection, getSortPriority, sortData, hasSorting, setSortConfigs } = useTableSort<Client>();
@@ -143,6 +148,50 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedClientIds(paginatedClients.map(c => c.id));
+    } else {
+      setSelectedClientIds([]);
+    }
+  };
+
+  const handleSelectClient = (clientId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedClientIds(prev => [...prev, clientId]);
+    } else {
+      setSelectedClientIds(prev => prev.filter(id => id !== clientId));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedClientIds.length === 0) return;
+    
+    if (!confirm(`Вы уверены, что хотите удалить ${selectedClientIds.length} клиент(ов)?`)) {
+      return;
+    }
+
+    if (!onDeleteClients) {
+      toast.error('Функция удаления недоступна');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await onDeleteClients(selectedClientIds);
+      toast.success(`Удалено ${selectedClientIds.length} клиент(ов)`);
+      setSelectedClientIds([]);
+    } catch (error) {
+      console.error('Error deleting clients:', error);
+      toast.error('Ошибка при удалении клиентов');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const isAllSelected = paginatedClients.length > 0 && selectedClientIds.length === paginatedClients.length;
+  const isSomeSelected = selectedClientIds.length > 0 && selectedClientIds.length < paginatedClients.length;
+
   const handleColumnSort = (columnKey: string, event: React.MouseEvent) => {
     handleSort(columnKey, event.shiftKey);
     setCurrentPage(1);
@@ -209,6 +258,27 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
               >
                 <Icon name="X" size={14} />
                 Сбросить
+              </Button>
+            )}
+            {selectedClientIds.length > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+                className="h-7 text-xs gap-1"
+              >
+                {isDeleting ? (
+                  <>
+                    <Icon name="Loader" size={14} className="animate-spin" />
+                    Удаление...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Trash2" size={14} />
+                    Удалить ({selectedClientIds.length})
+                  </>
+                )}
               </Button>
             )}
           </div>
@@ -299,6 +369,14 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
           <table className="w-full">
             <thead>
               <tr className="border-b bg-muted/50">
+                <th className="p-4 w-12">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Выбрать всех клиентов"
+                    className={isSomeSelected ? 'data-[state=checked]:bg-gray-400' : ''}
+                  />
+                </th>
                 {columns.map((column, index) => (
                   <th
                     key={column.key}
@@ -323,7 +401,7 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
             <tbody>
               {paginatedClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center">
+                  <td colSpan={7} className="p-12 text-center">
                     <Icon name="Search" size={48} className="mx-auto text-muted-foreground mb-3" />
                     <p className="text-muted-foreground">Клиенты не найдены</p>
                   </td>
@@ -339,6 +417,13 @@ const ClientsTableView = ({ clients, onSelectClient, externalSearchQuery = '', e
                       className="border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 cursor-pointer group"
                       onClick={() => onSelectClient(client)}
                     >
+                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedClientIds.includes(client.id)}
+                          onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
+                          aria-label={`Выбрать клиента ${client.name}`}
+                        />
+                      </td>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
