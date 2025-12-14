@@ -109,97 +109,99 @@ export const useClientsHandlers = ({
         throw new Error('Failed to add client');
       }
       
-      const result = await res.json();
-      console.log('[CLIENT_ADD] Created client result:', result);
-      console.log('[CLIENT_ADD] setIsDetailDialogOpen exists?', !!setIsDetailDialogOpen);
+      let createdClientId: number | null = null;
+      
+      try {
+        const result = await res.json();
+        console.log('[CLIENT_ADD] Created client result:', result);
+        createdClientId = result?.id || null;
+      } catch (err) {
+        console.log('[CLIENT_ADD] No JSON response, will find client by name');
+      }
       
       setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
       setIsAddDialogOpen(false);
       toast.success('Клиент успешно добавлен');
       
-      // Обновить список клиентов
-      await loadClients();
-      
-      // Открыть карточку нового клиента
-      if (result?.id && setIsDetailDialogOpen) {
-        console.log('[CLIENT_ADD] Opening detail dialog for client ID:', result.id);
-        // Получаем свежий список клиентов напрямую из API
-        setTimeout(async () => {
-          console.log('[CLIENT_ADD] Fetching fresh client data...');
-          try {
-            const freshRes = await fetch(CLIENTS_API, {
-              headers: { 'X-User-Id': userId! }
-            });
-            console.log('[CLIENT_ADD] Fresh data response status:', freshRes.status);
-            if (freshRes.ok) {
-              const freshData = await freshRes.json();
-              console.log('[CLIENT_ADD] Fresh data length:', freshData.length);
-              const addedClient = freshData.find((c: any) => c.id === result.id);
-              console.log('[CLIENT_ADD] Found added client?', !!addedClient);
-              if (addedClient) {
-                console.log('[CLIENT_ADD] Parsing and opening client detail...');
-                // Парсим данные клиента в нужный формат
-                const parsedClient: Client = {
-                  id: addedClient.id,
-                  name: addedClient.name,
-                  phone: addedClient.phone,
-                  email: addedClient.email || '',
-                  address: addedClient.address || '',
-                  vkProfile: addedClient.vk_profile || '',
-                  bookings: (addedClient.bookings || []).map((b: any) => ({
-                    id: b.id,
-                    date: new Date(b.booking_date),
-                    booking_date: b.booking_date,
-                    time: b.booking_time,
-                    booking_time: b.booking_time,
-                    title: b.title || '',
-                    description: b.description || '',
-                    notificationEnabled: b.notification_enabled,
-                    notificationTime: b.notification_time || 24,
-                    clientId: b.client_id
-                  })),
-                  projects: (addedClient.projects || []).map((p: any) => ({
-                    id: p.id,
-                    name: p.name,
-                    status: p.status,
-                    budget: parseFloat(p.budget) || 0,
-                    startDate: p.start_date,
-                    description: p.description || ''
-                  })),
-                  payments: (addedClient.payments || []).map((pay: any) => ({
-                    id: pay.id,
-                    amount: parseFloat(pay.amount) || 0,
-                    date: pay.payment_date,
-                    status: pay.status,
-                    method: pay.method,
-                    description: pay.description || '',
-                    projectId: pay.project_id
-                  })),
-                  documents: (addedClient.documents || []).map((d: any) => ({
-                    id: d.id,
-                    name: d.name,
-                    fileUrl: d.file_url,
-                    uploadDate: d.upload_date
-                  })),
-                  comments: [],
-                  messages: []
-                };
-                console.log('[CLIENT_ADD] Setting selected client and opening dialog...');
-                setSelectedClient(parsedClient);
-                setIsDetailDialogOpen(true);
-                console.log('[CLIENT_ADD] Dialog should be open now');
-              } else {
-                console.log('[CLIENT_ADD] Client not found in fresh data');
-              }
-            } else {
-              console.log('[CLIENT_ADD] Fresh data fetch failed');
-            }
-          } catch (err) {
-            console.error('[CLIENT_ADD] Failed to open client detail:', err);
+      // Обновить список клиентов и сразу открыть окно
+      if (setIsDetailDialogOpen) {
+        console.log('[CLIENT_ADD] Fetching fresh client data...');
+        const freshRes = await fetch(CLIENTS_API, {
+          headers: { 'X-User-Id': userId! }
+        });
+        
+        if (freshRes.ok) {
+          const freshData = await freshRes.json();
+          console.log('[CLIENT_ADD] Fresh data length:', freshData.length);
+          
+          // Ищем по ID или по имени + телефону (последний добавленный)
+          const addedClient = createdClientId 
+            ? freshData.find((c: any) => c.id === createdClientId)
+            : freshData
+                .filter((c: any) => c.name === newClient.name && c.phone === newClient.phone)
+                .sort((a: any, b: any) => b.id - a.id)[0];
+          
+          console.log('[CLIENT_ADD] Found added client:', !!addedClient);
+          
+          if (addedClient) {
+            // Парсим данные клиента в нужный формат
+            const parsedClient: Client = {
+              id: addedClient.id,
+              name: addedClient.name,
+              phone: addedClient.phone,
+              email: addedClient.email || '',
+              address: addedClient.address || '',
+              vkProfile: addedClient.vk_profile || '',
+              bookings: (addedClient.bookings || []).map((b: any) => ({
+                id: b.id,
+                date: new Date(b.booking_date),
+                booking_date: b.booking_date,
+                time: b.booking_time,
+                booking_time: b.booking_time,
+                title: b.title || '',
+                description: b.description || '',
+                notificationEnabled: b.notification_enabled,
+                notificationTime: b.notification_time || 24,
+                clientId: b.client_id
+              })),
+              projects: (addedClient.projects || []).map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                status: p.status,
+                budget: parseFloat(p.budget) || 0,
+                startDate: p.start_date,
+                description: p.description || ''
+              })),
+              payments: (addedClient.payments || []).map((pay: any) => ({
+                id: pay.id,
+                amount: parseFloat(pay.amount) || 0,
+                date: pay.payment_date,
+                status: pay.status,
+                method: pay.method,
+                description: pay.description || '',
+                projectId: pay.project_id
+              })),
+              documents: (addedClient.documents || []).map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                fileUrl: d.file_url,
+                uploadDate: d.upload_date
+              })),
+              comments: [],
+              messages: []
+            };
+            
+            console.log('[CLIENT_ADD] Opening client detail dialog');
+            setSelectedClient(parsedClient);
+            setIsDetailDialogOpen(true);
           }
-        }, 500);
+        }
+        
+        // Обновляем список клиентов в фоне
+        await loadClients();
       } else {
-        console.log('[CLIENT_ADD] Not opening detail - result.id:', result?.id, 'setIsDetailDialogOpen:', !!setIsDetailDialogOpen);
+        // Если нет setIsDetailDialogOpen - просто обновляем список
+        await loadClients();
       }
     } catch (error) {
       console.error('Failed to add client:', error);
