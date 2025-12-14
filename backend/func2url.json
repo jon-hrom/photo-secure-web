@@ -1,4 +1,5 @@
 {
+  "max-credentials": "https://functions.poehali.dev/a24d49e3-71e5-42a1-8eb7-ef651778ea7e",
   "whatsapp-webhook": "https://functions.poehali.dev/338396de-0f89-469d-9dce-a7fccfb78181",
   "whatsapp": "https://functions.poehali.dev/0a053c97-18f2-42c4-95e3-8f02894ee0c1",
   "password-reset": "https://functions.poehali.dev/9c80d4b8-f659-41f4-a792-64cdff4bba7d",

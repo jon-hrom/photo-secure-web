@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { MAXConnectionCard } from '@/components/settings/MAXConnectionCard';
 
 const Settings = () => {
   return (
@@ -29,6 +30,8 @@ const Settings = () => {
               </div>
             </div>
           </section>
+
+          <MAXConnectionCard />
 
           <section>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Уведомления</h2>

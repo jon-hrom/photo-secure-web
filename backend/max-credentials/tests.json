@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "GET credentials for photographer",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "is_admin": "boolean",
+        "user": "object"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST connect MAX with valid credentials",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "body": {
+        "instance_id": "1234567890",
+        "token": "test_token_example"
+      },
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
