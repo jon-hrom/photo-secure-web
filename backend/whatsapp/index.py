@@ -30,6 +30,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     headers = event.get('headers', {})
     user_id = headers.get('x-user-id') or headers.get('X-User-Id')
     
+    print(f"[MAX] Request: method={method}, user_id={user_id}")
+    
     if not user_id:
         return {
             'statusCode': 401,
@@ -38,7 +40,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
-    conn = get_db_connection()
+    try:
+        conn = get_db_connection()
+    except Exception as e:
+        print(f"[MAX] DB connection error: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Ошибка подключения к БД: {str(e)}'}),
+            'isBase64Encoded': False
+        }
     
     # Проверяем что пользователь существует
     if not verify_user(conn, user_id):
@@ -76,6 +87,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             body = json.loads(event.get('body', '{}'))
             action = body.get('action')
             
+            print(f"[MAX] POST action: {action}, body: {body}")
+            
             if action == 'send_message':
                 result = send_message(conn, user_id, body)
             elif action == 'mark_as_read':
@@ -111,7 +124,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"[MAX] Error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         conn.close()
         return {
             'statusCode': 500,
@@ -124,20 +139,18 @@ def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
         raise Exception('DATABASE_URL не настроен')
+    print(f"[MAX] Connecting to DB...")
     return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
 
 def verify_user(conn, user_id: str) -> bool:
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT id FROM users WHERE id = %s",
-            (user_id,)
-        )
+        cur.execute(f"SELECT id FROM users WHERE id = {user_id}")
         return cur.fetchone() is not None
 
 def get_chats(conn, user_id: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
         # Проверяем является ли пользователь админом
-        cur.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+        cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
         user = cur.fetchone()
         is_admin = user and user['role'] == 'admin'
         
@@ -154,41 +167,42 @@ def get_chats(conn, user_id: str) -> Dict[str, Any]:
             """)
         else:
             # Обычный пользователь видит только свои чаты
-            cur.execute("""
+            cur.execute(f"""
                 SELECT * FROM whatsapp_chats
-                WHERE user_id = %s
+                WHERE user_id = {user_id}
                 ORDER BY updated_at DESC
-            """, (user_id,))
+            """)
         
         chats = cur.fetchall()
+        print(f"[MAX] Found {len(chats)} chats for user {user_id}")
         return {'chats': chats}
 
 def get_messages(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
         # Проверяем доступ к чату
-        cur.execute("""
+        cur.execute(f"""
             SELECT c.*, u.role FROM whatsapp_chats c
             JOIN users u ON c.user_id = u.id
-            WHERE c.id = %s AND (c.user_id = %s OR u.role = 'admin')
-        """, (chat_id, user_id))
+            WHERE c.id = {chat_id} AND (c.user_id = {user_id} OR u.role = 'admin')
+        """)
         
         chat = cur.fetchone()
         if not chat:
             return {'error': 'Чат не найден или нет доступа'}
         
         # Получаем сообщения
-        cur.execute("""
+        cur.execute(f"""
             SELECT * FROM whatsapp_messages
-            WHERE chat_id = %s
+            WHERE chat_id = {chat_id}
             ORDER BY timestamp ASC
-        """, (chat_id,))
+        """)
         
         messages = cur.fetchall()
         return {'messages': messages, 'chat': chat}
 
 def get_unread_count(conn, user_id: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
-        cur.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+        cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
         user = cur.fetchone()
         is_admin = user and user['role'] == 'admin'
         
@@ -199,11 +213,11 @@ def get_unread_count(conn, user_id: str) -> Dict[str, Any]:
                 WHERE is_admin_chat = TRUE
             """)
         else:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT COALESCE(SUM(unread_count), 0) as total
                 FROM whatsapp_chats
-                WHERE user_id = %s
-            """, (user_id,))
+                WHERE user_id = {user_id}
+            """)
         
         result = cur.fetchone()
         return {'unread_count': int(result['total']) if result else 0}
@@ -212,20 +226,32 @@ def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     phone = data.get('phone')
     message = data.get('message')
     
+    print(f"[MAX] send_message: phone={phone}, message_len={len(message) if message else 0}")
+    
     if not phone or not message:
         return {'error': 'Необходимо указать phone и message'}
     
-    # Отправка через Green-API
+    # Проверяем наличие секретов
     instance_id = os.environ.get('GREEN_API_INSTANCE')
     token = os.environ.get('GREEN_API_TOKEN')
     
+    print(f"[MAX] Env check: instance_id={'SET' if instance_id else 'MISSING'}, token={'SET' if token else 'MISSING'}")
+    
     if not instance_id or not token:
-        return {'error': 'Green-API не настроен'}
+        error_msg = 'Green-API не настроен: '
+        if not instance_id:
+            error_msg += 'GREEN_API_INSTANCE отсутствует '
+        if not token:
+            error_msg += 'GREEN_API_TOKEN отсутствует'
+        print(f"[MAX] {error_msg}")
+        return {'error': error_msg}
     
     # Форматируем номер для WhatsApp
-    phone_formatted = phone.replace('+', '').replace(' ', '').replace('-', '')
+    phone_formatted = phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
     if not phone_formatted.endswith('@c.us'):
         phone_formatted = f"{phone_formatted}@c.us"
+    
+    print(f"[MAX] Formatted phone: {phone_formatted}")
     
     url = f"https://3100.api.green-api.com/v3/waInstance{instance_id}/sendMessage/{token}"
     
@@ -234,93 +260,116 @@ def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         "message": message
     }
     
+    print(f"[MAX] Sending to Green-API: url={url[:80]}..., payload={payload}")
+    
     try:
         response = requests.post(url, json=payload, timeout=10)
-        response.raise_for_status()
+        print(f"[MAX] Green-API response: status={response.status_code}")
+        
+        if response.status_code != 200:
+            error_text = response.text
+            print(f"[MAX] Green-API error response: {error_text}")
+            return {'error': f'Green-API error: {response.status_code}', 'details': error_text}
+            
         result = response.json()
+        print(f"[MAX] Green-API success: {result}")
         
         # Сохраняем в БД
         with conn.cursor() as cur:
             # Проверяем роль пользователя
-            cur.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+            cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
             user = cur.fetchone()
             is_admin = user and user['role'] == 'admin'
             
-            # Создаём или получаем чат
-            cur.execute("""
-                INSERT INTO whatsapp_chats (user_id, phone_number, last_message_text, last_message_time, is_admin_chat, updated_at)
-                VALUES (%s, %s, %s, NOW(), %s, NOW())
-                ON CONFLICT (user_id, phone_number) 
-                DO UPDATE SET 
-                    last_message_text = EXCLUDED.last_message_text,
-                    last_message_time = EXCLUDED.last_message_time,
-                    updated_at = NOW()
-                RETURNING id
-            """, (user_id, phone, message, is_admin))
+            # Создаём или получаем чат - используем простые SQL запросы
+            cur.execute(f"""
+                SELECT id FROM whatsapp_chats 
+                WHERE user_id = {user_id} AND phone_number = '{phone}'
+            """)
+            existing_chat = cur.fetchone()
             
-            chat = cur.fetchone()
-            chat_id = chat['id']
+            if existing_chat:
+                chat_id = existing_chat['id']
+                cur.execute(f"""
+                    UPDATE whatsapp_chats 
+                    SET last_message_text = '{message.replace("'", "''")}',
+                        last_message_time = NOW(),
+                        updated_at = NOW()
+                    WHERE id = {chat_id}
+                """)
+            else:
+                cur.execute(f"""
+                    INSERT INTO whatsapp_chats (user_id, phone_number, last_message_text, last_message_time, is_admin_chat, updated_at)
+                    VALUES ({user_id}, '{phone}', '{message.replace("'", "''")}', NOW(), {is_admin}, NOW())
+                    RETURNING id
+                """)
+                chat_id = cur.fetchone()['id']
+            
+            print(f"[MAX] Chat saved: chat_id={chat_id}")
             
             # Сохраняем сообщение
-            cur.execute("""
-                INSERT INTO whatsapp_messages 
-                (chat_id, message_id, sender_phone, receiver_phone, message_text, is_from_me, status)
-                VALUES (%s, %s, %s, %s, %s, TRUE, 'sent')
-                RETURNING id
-            """, (chat_id, result.get('idMessage', ''), phone, phone, message))
+            cur.execute(f"""
+                INSERT INTO whatsapp_messages (chat_id, message_text, is_from_me, timestamp, status, is_read)
+                VALUES ({chat_id}, '{message.replace("'", "''")}', TRUE, NOW(), 'sent', TRUE)
+            """)
             
             conn.commit()
+            print(f"[MAX] Message saved to DB")
         
-        return {'success': True, 'message_id': result.get('idMessage')}
-    
+        return {'success': True, 'idMessage': result.get('idMessage')}
+        
+    except requests.exceptions.RequestException as e:
+        error_msg = f'Green-API request error: {str(e)}'
+        print(f"[MAX] {error_msg}")
+        return {'error': error_msg}
     except Exception as e:
-        print(f"Green-API error: {str(e)}")
-        return {'error': f'Ошибка отправки: {str(e)}'}
+        error_msg = f'Error saving to DB: {str(e)}'
+        print(f"[MAX] {error_msg}")
+        import traceback
+        print(traceback.format_exc())
+        return {'error': error_msg}
 
 def mark_as_read(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
         # Проверяем доступ
-        cur.execute("""
-            SELECT c.* FROM whatsapp_chats c
+        cur.execute(f"""
+            SELECT c.id FROM whatsapp_chats c
             JOIN users u ON c.user_id = u.id
-            WHERE c.id = %s AND (c.user_id = %s OR u.role = 'admin')
-        """, (chat_id, user_id))
+            WHERE c.id = {chat_id} AND (c.user_id = {user_id} OR u.role = 'admin')
+        """)
         
         if not cur.fetchone():
-            return {'error': 'Чат не найден'}
+            return {'error': 'Чат не найден или нет доступа'}
         
-        # Обновляем статус
-        cur.execute("""
-            UPDATE whatsapp_messages
-            SET is_read = TRUE
-            WHERE chat_id = %s AND is_from_me = FALSE
-        """, (chat_id,))
+        # Обнуляем счётчик непрочитанных
+        cur.execute(f"""
+            UPDATE whatsapp_chats 
+            SET unread_count = 0 
+            WHERE id = {chat_id}
+        """)
         
-        cur.execute("""
-            UPDATE whatsapp_chats
-            SET unread_count = 0
-            WHERE id = %s
-        """, (chat_id,))
+        # Помечаем сообщения как прочитанные
+        cur.execute(f"""
+            UPDATE whatsapp_messages 
+            SET is_read = TRUE 
+            WHERE chat_id = {chat_id} AND is_from_me = FALSE
+        """)
         
         conn.commit()
         return {'success': True}
 
-def update_notification_settings(conn, user_id: str, settings: Dict[str, Any]) -> Dict[str, Any]:
+def update_notification_settings(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    enabled = data.get('enabled', True)
+    
     with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO whatsapp_notification_settings (user_id, sound_enabled, sound_url, desktop_notifications)
-            VALUES (%s, %s, %s, %s)
+        cur.execute(f"""
+            INSERT INTO whatsapp_notification_settings (user_id, enabled, updated_at)
+            VALUES ({user_id}, {enabled}, NOW())
             ON CONFLICT (user_id) 
             DO UPDATE SET 
-                sound_enabled = EXCLUDED.sound_enabled,
-                sound_url = EXCLUDED.sound_url,
-                desktop_notifications = EXCLUDED.desktop_notifications,
+                enabled = {enabled},
                 updated_at = NOW()
-        """, (
-            user_id,
-            settings.get('sound_enabled', True),
-            settings.get('sound_url', '/sounds/notification.mp3'),
-            settings.get('desktop_notifications', True)
-        ))
+        """)
         conn.commit()
-        return {'success': True}
+        
+    return {'success': True}
