@@ -192,6 +192,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         
                         if photo['s3_key']:
                             try:
+                                # Пытаемся сгенерировать URL для нового bucket 'files'
                                 download_url = s3_client.generate_presigned_url(
                                     'get_object',
                                     Params={'Bucket': bucket, 'Key': photo['s3_key']},
@@ -199,8 +200,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 )
                                 photo['s3_url'] = download_url
                             except Exception as e:
-                                print(f'Failed to generate presigned URL for {photo["s3_key"]}: {e}')
-                                photo['s3_url'] = None
+                                print(f'[FALLBACK] Trying old bucket for {photo["s3_key"]}')
+                                # Fallback: пытаемся старый bucket 'foto-mix' на Yandex Cloud
+                                try:
+                                    old_s3_client = boto3.client(
+                                        's3',
+                                        endpoint_url='https://storage.yandexcloud.net',
+                                        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+                                        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+                                        region_name='ru-central1',
+                                        config=Config(signature_version='s3v4')
+                                    )
+                                    download_url = old_s3_client.generate_presigned_url(
+                                        'get_object',
+                                        Params={'Bucket': 'foto-mix', 'Key': photo['s3_key']},
+                                        ExpiresIn=600
+                                    )
+                                    photo['s3_url'] = download_url
+                                    print(f'[FALLBACK] Success with old bucket')
+                                except Exception as e2:
+                                    print(f'[FALLBACK] Failed for {photo["s3_key"]}: {e2}')
+                                    photo['s3_url'] = None
                         
                         result_photos.append(photo)
                 
