@@ -1,17 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Tabs } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import Icon from '@/components/ui/icon';
 import { Client, Project, Payment, Comment, Message } from '@/components/clients/ClientsTypes';
-import ClientDetailOverview from '@/components/clients/detail/ClientDetailOverview';
-import ClientDetailProjects from '@/components/clients/detail/ClientDetailProjects';
-import ClientDetailPayments from '@/components/clients/detail/ClientDetailPayments';
-import ClientDetailDocumentsHistory from '@/components/clients/detail/ClientDetailDocumentsHistory';
-import ClientDetailMessages from '@/components/clients/detail/ClientDetailMessages';
-import SwipeContainer from '@/components/layout/SwipeContainer';
-import { formatPhoneNumber } from '@/utils/phoneFormat';
+import ClientDialogHeader from '@/components/clients/dialog/ClientDialogHeader';
+import ClientDialogTabs from '@/components/clients/dialog/ClientDialogTabs';
+import ClientDialogContent from '@/components/clients/dialog/ClientDialogContent';
 
 interface ClientDetailDialogProps {
   open: boolean;
@@ -46,7 +41,6 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   });
   const [localClient, setLocalClient] = useState(client);
 
-  // Обновляем локального клиента при изменении пропса
   useEffect(() => {
     if (client) {
       console.log('[ClientDetailDialog] Client updated:', client);
@@ -56,7 +50,6 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     }
   }, [client]);
 
-  // Показываем подсказку при первом открытии
   useEffect(() => {
     if (open) {
       const hasSeenHint = localStorage.getItem('clientDetailSwipeHintSeen');
@@ -125,7 +118,6 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     let newPayments: Payment[] = [];
 
     if (newPayment.splitAcrossProjects && projects.length > 0) {
-      // Распределяем оплату на все проекты с недостающей суммой
       const projectsNeedingPayment = projects.map(project => {
         const projectPayments = payments.filter(p => p.projectId === project.id);
         const totalPaid = projectPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -140,11 +132,10 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
       const totalRemaining = projectsNeedingPayment.reduce((sum, p) => sum + p.remaining, 0);
       
-      // Распределяем пропорционально недостающим суммам
       projectsNeedingPayment.forEach((item, index) => {
         const proportion = item.remaining / totalRemaining;
         const paymentAmount = index === projectsNeedingPayment.length - 1 
-          ? totalAmount - newPayments.reduce((sum, p) => sum + p.amount, 0) // Последний платеж - остаток
+          ? totalAmount - newPayments.reduce((sum, p) => sum + p.amount, 0)
           : Math.round(totalAmount * proportion * 100) / 100;
 
         newPayments.push({
@@ -160,7 +151,6 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
       console.log('[ClientDetailDialog] Split payments across projects:', newPayments);
     } else {
-      // Обычный платеж для одного проекта
       newPayments = [{
         id: Date.now(),
         amount: totalAmount,
@@ -354,176 +344,49 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     return `${day}.${month}.${year} ${hours}:${minutes}`;
   };
 
-
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 sm:gap-3 text-xl sm:text-2xl">
-            <Icon name="User" size={24} className="text-primary sm:w-7 sm:h-7" />
-            <span className="truncate">{localClient.name}</span>
-          </DialogTitle>
-          <div className="flex flex-wrap gap-2 mt-2 text-xs sm:text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Icon name="Phone" size={14} />
-              <span className="truncate">{formatPhoneNumber(localClient.phone)}</span>
-            </div>
-            {localClient.email && (
-              <div className="flex items-center gap-1">
-                <Icon name="Mail" size={14} />
-                <span className="truncate">{localClient.email}</span>
-              </div>
-            )}
-            {localClient.vkProfile && (
-              <div className="flex items-center gap-1">
-                <Icon name="MessageCircle" size={14} />
-                <span className="truncate">@{localClient.vkProfile}</span>
-              </div>
-            )}
-          </div>
-        </DialogHeader>
+        <ClientDialogHeader client={localClient} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid grid-cols-6 w-full h-auto">
-            <TabsTrigger value="overview" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
-              <Icon name="LayoutDashboard" size={16} className="sm:mr-2" />
-              <span className="hidden sm:inline">Обзор</span>
-            </TabsTrigger>
-            <TabsTrigger value="projects" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
-              <Icon name="Briefcase" size={16} className="sm:mr-2" />
-              <span className="hidden sm:inline">Проекты</span>
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
-              <Icon name="FileText" size={16} className="sm:mr-2" />
-              <span className="hidden sm:inline">Документы</span>
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
-              <Icon name="DollarSign" size={16} className="sm:mr-2" />
-              <span className="hidden sm:inline">Оплаты</span>
-            </TabsTrigger>
-            <TabsTrigger value="messages" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
-              <Icon name="MessageSquare" size={16} className="sm:mr-2" />
-              <span className="hidden sm:inline">Переписка</span>
-            </TabsTrigger>
-            <TabsTrigger value="history" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
-              <Icon name="History" size={16} className="sm:mr-2" />
-              <span className="hidden sm:inline">История</span>
-            </TabsTrigger>
-          </TabsList>
+          <ClientDialogTabs activeTab={activeTab} />
 
-          <div className="relative overflow-hidden">
-            {showSwipeHint && (
-              <>
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-left-4 fade-in duration-700 lg:hidden">
-                  <div className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full shadow-lg">
-                    <Icon name="ChevronLeft" size={20} />
-                    <span className="text-sm font-medium">Свайпните</span>
-                  </div>
-                </div>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 z-50 animate-in slide-in-from-right-4 fade-in duration-700 lg:hidden">
-                  <div className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2 rounded-full shadow-lg">
-                    <span className="text-sm font-medium">для навигации</span>
-                    <Icon name="ChevronRight" size={20} />
-                  </div>
-                </div>
-              </>
-            )}
-            <SwipeContainer
-              onSwipeLeft={() => {
-                const currentIndex = tabs.indexOf(activeTab as any);
-                if (currentIndex < tabs.length - 1) {
-                  setActiveTab(tabs[currentIndex + 1]);
-                }
-              }}
-              onSwipeRight={() => {
-                const currentIndex = tabs.indexOf(activeTab as any);
-                if (currentIndex > 0) {
-                  setActiveTab(tabs[currentIndex - 1]);
-                }
-              }}
-            >
-
-          <TabsContent value="overview" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
-            <ClientDetailOverview
-              projects={projects}
-              payments={payments}
-              comments={comments}
-              newComment={newComment}
-              setNewComment={setNewComment}
-              handleAddComment={handleAddComment}
-              handleDeleteComment={handleDeleteComment}
-              formatDateTime={formatDateTime}
-            />
-          </TabsContent>
-
-          <TabsContent value="projects" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
-            <ClientDetailProjects
-              projects={projects}
-              payments={payments}
-              newProject={newProject}
-              setNewProject={setNewProject}
-              handleAddProject={handleAddProject}
-              handleDeleteProject={handleDeleteProject}
-              updateProjectStatus={updateProjectStatus}
-              getStatusBadge={getStatusBadge}
-              formatDate={formatDate}
-            />
-          </TabsContent>
-
-          <TabsContent value="documents" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
-            <ClientDetailDocumentsHistory
-              documents={documents}
-              messages={messages}
-              formatDate={formatDate}
-              formatDateTime={formatDateTime}
-              tab="documents"
-              clientId={localClient.id}
-              onDocumentUploaded={handleDocumentUploaded}
-              onDocumentDeleted={handleDocumentDeleted}
-            />
-          </TabsContent>
-
-          <TabsContent value="payments" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
-            <ClientDetailPayments
-              payments={payments}
-              projects={projects}
-              newPayment={newPayment}
-              setNewPayment={setNewPayment}
-              handleAddPayment={handleAddPayment}
-              handleDeletePayment={handleDeletePayment}
-              getPaymentStatusBadge={getPaymentStatusBadge}
-              formatDate={formatDate}
-            />
-          </TabsContent>
-
-          <TabsContent value="messages" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
-            <ClientDetailMessages
-              messages={messages}
-              newMessage={newMessage}
-              onMessageChange={(field, value) => setNewMessage(prev => ({ ...prev, [field]: value }))}
-              onAddMessage={handleAddMessage}
-              onDeleteMessage={handleDeleteMessage}
-            />
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
-            <ClientDetailDocumentsHistory
-              documents={documents}
-              messages={messages}
-              bookings={localClient.bookings}
-              projects={projects}
-              formatDate={formatDate}
-              formatDateTime={formatDateTime}
-              tab="history"
-              clientId={localClient.id}
-              onDocumentUploaded={handleDocumentUploaded}
-              onDocumentDeleted={handleDocumentDeleted}
-            />
-          </TabsContent>
-
-          </SwipeContainer>
-          </div>
+          <ClientDialogContent
+            localClient={localClient}
+            projects={projects}
+            documents={documents}
+            payments={payments}
+            messages={messages}
+            comments={comments}
+            newProject={newProject}
+            setNewProject={setNewProject}
+            handleAddProject={handleAddProject}
+            handleDeleteProject={handleDeleteProject}
+            updateProjectStatus={updateProjectStatus}
+            getStatusBadge={getStatusBadge}
+            formatDate={formatDate}
+            newPayment={newPayment}
+            setNewPayment={setNewPayment}
+            handleAddPayment={handleAddPayment}
+            handleDeletePayment={handleDeletePayment}
+            getPaymentStatusBadge={getPaymentStatusBadge}
+            newComment={newComment}
+            setNewComment={setNewComment}
+            handleAddComment={handleAddComment}
+            handleDeleteComment={handleDeleteComment}
+            formatDateTime={formatDateTime}
+            handleDocumentUploaded={handleDocumentUploaded}
+            handleDocumentDeleted={handleDocumentDeleted}
+            newMessage={newMessage}
+            setNewMessage={setNewMessage}
+            handleAddMessage={handleAddMessage}
+            handleDeleteMessage={handleDeleteMessage}
+            showSwipeHint={showSwipeHint}
+            tabs={tabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
         </Tabs>
       </DialogContent>
     </Dialog>
