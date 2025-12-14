@@ -16,6 +16,8 @@ interface MAXCredentials {
 }
 
 export function MAXConnectionCard() {
+  console.log('[MAX] MAXConnectionCard component mounted');
+  
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -27,14 +29,21 @@ export function MAXConnectionCard() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
+    console.log('[MAX] useEffect triggered - calling checkConnection');
     checkConnection();
   }, []);
 
   const checkConnection = async () => {
+    console.log('[MAX] checkConnection started');
     setChecking(true);
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch('https://functions.poehali.dev/a24d49e3-71e5-42a1-8eb7-ef651778ea7e', {
+      console.log('[MAX] userId from localStorage:', userId);
+      
+      const url = 'https://functions.poehali.dev/a24d49e3-71e5-42a1-8eb7-ef651778ea7e';
+      console.log('[MAX] Fetching from:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -42,11 +51,15 @@ export function MAXConnectionCard() {
         }
       });
 
+      console.log('[MAX] checkConnection response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('[MAX] checkConnection data:', data);
         const user = data.user || {};
         
         setIsConnected(user.max_connected || false);
+        console.log('[MAX] isConnected set to:', user.max_connected || false);
         
         if (user.max_connected) {
           setCredentials({
@@ -57,16 +70,22 @@ export function MAXConnectionCard() {
             max_connected_at: user.max_connected_at
           });
         }
+      } else {
+        console.error('[MAX] checkConnection failed:', response.status);
       }
     } catch (error) {
-      console.error('Error checking MAX connection:', error);
+      console.error('[MAX] checkConnection error:', error);
     } finally {
       setChecking(false);
+      console.log('[MAX] checkConnection finished');
     }
   };
 
   const handleConnect = async () => {
+    console.log('[MAX] handleConnect called', credentials);
+    
     if (!credentials.instance_id || !credentials.token) {
+      console.log('[MAX] Validation failed - missing fields');
       toast({
         title: 'Ошибка',
         description: 'Заполните все поля',
@@ -75,24 +94,36 @@ export function MAXConnectionCard() {
       return;
     }
 
+    console.log('[MAX] Starting connection...');
     setLoading(true);
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch('https://functions.poehali.dev/a24d49e3-71e5-42a1-8eb7-ef651778ea7e', {
+      console.log('[MAX] userId from localStorage:', userId);
+      
+      const url = 'https://functions.poehali.dev/a24d49e3-71e5-42a1-8eb7-ef651778ea7e';
+      const payload = {
+        instance_id: credentials.instance_id,
+        token: credentials.token
+      };
+      
+      console.log('[MAX] Sending request to:', url);
+      console.log('[MAX] Payload:', { instance_id: credentials.instance_id, token: '***' });
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': userId || ''
         },
-        body: JSON.stringify({
-          instance_id: credentials.instance_id,
-          token: credentials.token
-        })
+        body: JSON.stringify(payload)
       });
 
+      console.log('[MAX] Response status:', response.status);
       const data = await response.json();
+      console.log('[MAX] Response data:', data);
 
       if (response.ok && data.success) {
+        console.log('[MAX] Connection successful!');
         toast({
           title: 'Успешно!',
           description: 'MAX мессенджер подключён',
@@ -101,6 +132,7 @@ export function MAXConnectionCard() {
         setShowForm(false);
         checkConnection();
       } else {
+        console.log('[MAX] Connection failed:', data);
         toast({
           title: 'Ошибка подключения',
           description: data.error || data.details || 'Проверьте правильность данных',
@@ -108,6 +140,7 @@ export function MAXConnectionCard() {
         });
       }
     } catch (error) {
+      console.error('[MAX] Exception:', error);
       toast({
         title: 'Ошибка',
         description: 'Не удалось подключиться к серверу',
@@ -115,6 +148,7 @@ export function MAXConnectionCard() {
       });
     } finally {
       setLoading(false);
+      console.log('[MAX] handleConnect finished');
     }
   };
 
