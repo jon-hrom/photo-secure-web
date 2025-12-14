@@ -149,13 +149,13 @@ def dict_from_row(cursor, row):
 
 def verify_user(conn, user_id: str) -> bool:
     with conn.cursor() as cur:
-        cur.execute(f"SELECT id FROM users WHERE id = {user_id}")
+        cur.execute(f"SELECT id FROM users WHERE id = '{user_id}'")
         return cur.fetchone() is not None
 
 def get_chats(conn, user_id: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
         # Проверяем является ли пользователь админом
-        cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
+        cur.execute(f"SELECT role FROM users WHERE id = '{user_id}'")
         row = cur.fetchone()
         user = dict_from_row(cur, row) if row else None
         is_admin = user and user.get('role') == 'admin'
@@ -175,7 +175,7 @@ def get_chats(conn, user_id: str) -> Dict[str, Any]:
             # Обычный пользователь видит только свои чаты
             cur.execute(f"""
                 SELECT * FROM whatsapp_chats
-                WHERE user_id = {user_id}
+                WHERE user_id = '{user_id}'
                 ORDER BY updated_at DESC
             """)
         
@@ -190,7 +190,7 @@ def get_messages(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
         cur.execute(f"""
             SELECT c.*, u.role FROM whatsapp_chats c
             JOIN users u ON c.user_id = u.id
-            WHERE c.id = {chat_id} AND (c.user_id = {user_id} OR u.role = 'admin')
+            WHERE c.id = '{chat_id}' AND (c.user_id = '{user_id}' OR u.role = 'admin')
         """)
         
         row = cur.fetchone()
@@ -202,7 +202,7 @@ def get_messages(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
         # Получаем сообщения
         cur.execute(f"""
             SELECT * FROM whatsapp_messages
-            WHERE chat_id = {chat_id}
+            WHERE chat_id = '{chat_id}'
             ORDER BY timestamp ASC
         """)
         
@@ -212,7 +212,7 @@ def get_messages(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
 
 def get_unread_count(conn, user_id: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
-        cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
+        cur.execute(f"SELECT role FROM users WHERE id = '{user_id}'")
         row = cur.fetchone()
         user = dict_from_row(cur, row) if row else None
         is_admin = user and user.get('role') == 'admin'
@@ -227,7 +227,7 @@ def get_unread_count(conn, user_id: str) -> Dict[str, Any]:
             cur.execute(f"""
                 SELECT COALESCE(SUM(unread_count), 0) as total
                 FROM whatsapp_chats
-                WHERE user_id = {user_id}
+                WHERE user_id = '{user_id}'
             """)
         
         row = cur.fetchone()
@@ -289,7 +289,7 @@ def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         # Сохраняем в БД
         with conn.cursor() as cur:
             # Проверяем роль пользователя
-            cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
+            cur.execute(f"SELECT role FROM users WHERE id = '{user_id}'")
             row = cur.fetchone()
             user = dict_from_row(cur, row) if row else None
             is_admin = user and user.get('role') == 'admin'
@@ -300,7 +300,7 @@ def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
             # Создаём или получаем чат - используем простые SQL запросы
             cur.execute(f"""
                 SELECT id FROM whatsapp_chats 
-                WHERE user_id = {user_id} AND phone_number = '{phone}'
+                WHERE user_id = '{user_id}' AND phone_number = '{phone}'
             """)
             row = cur.fetchone()
             existing_chat = dict_from_row(cur, row) if row else None
@@ -312,12 +312,12 @@ def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
                     SET last_message_text = '{message_escaped}',
                         last_message_time = NOW(),
                         updated_at = NOW()
-                    WHERE id = {chat_id}
+                    WHERE id = '{chat_id}'
                 """)
             else:
                 cur.execute(f"""
                     INSERT INTO whatsapp_chats (user_id, phone_number, last_message_text, last_message_time, is_admin_chat, updated_at)
-                    VALUES ({user_id}, '{phone}', '{message_escaped}', NOW(), {is_admin}, NOW())
+                    VALUES ('{user_id}', '{phone}', '{message_escaped}', NOW(), {is_admin}, NOW())
                     RETURNING id
                 """)
                 row = cur.fetchone()
@@ -328,7 +328,7 @@ def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
             # Сохраняем сообщение
             cur.execute(f"""
                 INSERT INTO whatsapp_messages (chat_id, message_text, is_from_me, timestamp, status, is_read)
-                VALUES ({chat_id}, '{message_escaped}', TRUE, NOW(), 'sent', TRUE)
+                VALUES ('{chat_id}', '{message_escaped}', TRUE, NOW(), 'sent', TRUE)
             """)
             
             conn.commit()
@@ -353,7 +353,7 @@ def mark_as_read(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
         cur.execute(f"""
             SELECT c.id FROM whatsapp_chats c
             JOIN users u ON c.user_id = u.id
-            WHERE c.id = {chat_id} AND (c.user_id = {user_id} OR u.role = 'admin')
+            WHERE c.id = '{chat_id}' AND (c.user_id = '{user_id}' OR u.role = 'admin')
         """)
         
         if not cur.fetchone():
@@ -363,14 +363,14 @@ def mark_as_read(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
         cur.execute(f"""
             UPDATE whatsapp_chats 
             SET unread_count = 0 
-            WHERE id = {chat_id}
+            WHERE id = '{chat_id}'
         """)
         
         # Помечаем сообщения как прочитанные
         cur.execute(f"""
             UPDATE whatsapp_messages 
             SET is_read = TRUE 
-            WHERE chat_id = {chat_id} AND is_from_me = FALSE
+            WHERE chat_id = '{chat_id}' AND is_from_me = FALSE
         """)
         
         conn.commit()
@@ -382,7 +382,7 @@ def update_notification_settings(conn, user_id: str, data: Dict[str, Any]) -> Di
     with conn.cursor() as cur:
         cur.execute(f"""
             INSERT INTO whatsapp_notification_settings (user_id, enabled, updated_at)
-            VALUES ({user_id}, {enabled}, NOW())
+            VALUES ('{user_id}', {enabled}, NOW())
             ON CONFLICT (user_id) 
             DO UPDATE SET 
                 enabled = {enabled},
