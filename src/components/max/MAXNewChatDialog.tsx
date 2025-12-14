@@ -31,9 +31,20 @@ const MAXNewChatDialog = ({
         <DialogHeader>
           <DialogTitle>Новый чат MAX</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <div className="flex items-start gap-2">
+            <Icon name="Info" size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-900">
+              <p className="font-medium mb-1">Укажите данные вашего клиента</p>
+              <p className="text-xs text-blue-700">Сообщения будут отправлены от вашего имени (с вашего подтверждённого номера из Настроек)</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="phone">Номер телефона</Label>
+            <Label htmlFor="phone">Номер телефона клиента</Label>
             <Input
               id="phone"
               placeholder="+7 (XXX) XXX-XX-XX"
@@ -42,10 +53,10 @@ const MAXNewChatDialog = ({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="name">Имя контакта (необязательно)</Label>
+            <Label htmlFor="name">Имя клиента (необязательно)</Label>
             <Input
               id="name"
-              placeholder="Иван Иванов"
+              placeholder="Анна Смирнова"
               value={newChatName}
               onChange={(e) => onNameChange(e.target.value)}
             />
