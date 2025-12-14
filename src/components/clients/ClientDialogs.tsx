@@ -53,7 +53,7 @@ const ClientDialogs = ({
         <DialogTrigger asChild>
           <Button className="rounded-full shadow-lg hover-scale" data-tour="add-client">
             <Icon name="UserPlus" size={20} className="mr-2" />
-            Добавить клиента
+            Добавить карточку клиента
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm" data-tour="client-form">
@@ -114,7 +114,7 @@ const ClientDialogs = ({
             </div>
             <Button onClick={handleAddClientWithCheck} className="w-full" disabled={!emailVerified}>
               <Icon name="UserPlus" size={18} className="mr-2" />
-              Добавить клиента
+              Добавить карточку клиента
             </Button>
           </div>
         </DialogContent>

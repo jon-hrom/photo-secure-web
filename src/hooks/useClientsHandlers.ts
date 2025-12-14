@@ -37,6 +37,7 @@ interface UseClientsHandlersProps {
   setEmailSubject: (subject: string) => void;
   emailBody: string;
   setEmailBody: (body: string) => void;
+  setIsDetailDialogOpen?: (open: boolean) => void;
 }
 
 export const useClientsHandlers = ({
@@ -64,6 +65,7 @@ export const useClientsHandlers = ({
   setEmailSubject,
   emailBody,
   setEmailBody,
+  setIsDetailDialogOpen,
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
@@ -107,10 +109,37 @@ export const useClientsHandlers = ({
         throw new Error('Failed to add client');
       }
       
-      await loadClients();
+      const result = await res.json();
       setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
       setIsAddDialogOpen(false);
       toast.success('Клиент успешно добавлен');
+      
+      // Обновить список клиентов и открыть карточку нового клиента
+      await loadClients();
+      
+      if (result?.id && setIsDetailDialogOpen) {
+        // Небольшая задержка, чтобы список клиентов успел обновиться
+        setTimeout(() => {
+          const newlyAddedClient = clients.find(c => c.id === result.id);
+          if (newlyAddedClient) {
+            setSelectedClient(newlyAddedClient);
+            setIsDetailDialogOpen(true);
+          }
+        }, 300);
+      }
+      
+      // Открыть карточку нового клиента
+      if (result?.id && setIsDetailDialogOpen) {
+        // Найти созданного клиента по ID через небольшую задержку
+        setTimeout(async () => {
+          await loadClients();
+          const newClient = clients.find(c => c.id === result.id);
+          if (newClient) {
+            setSelectedClient(newClient);
+            setIsDetailDialogOpen(true);
+          }
+        }, 500);
+      }
     } catch (error) {
       console.error('Failed to add client:', error);
       toast.error('Не удалось добавить клиента');

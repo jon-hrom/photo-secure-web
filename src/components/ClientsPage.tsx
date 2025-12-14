@@ -61,6 +61,7 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
     setEmailSubject: dialogsState.setEmailSubject,
     emailBody: dialogsState.emailBody,
     setEmailBody: dialogsState.setEmailBody,
+    setIsDetailDialogOpen: dialogsState.setIsDetailDialogOpen,
   });
 
   // Фильтрация клиентов по поиску
