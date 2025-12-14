@@ -133,56 +133,7 @@ const ClientsHeader = ({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Поиск по имени, телефону или email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            onClick={() => setStatusFilter('all')}
-            className={`text-xs sm:text-sm rounded-full transition-all hover:scale-105 active:scale-95 ${
-              statusFilter === 'all'
-                ? 'bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 text-purple-700 border-purple-200/50 hover:from-purple-200 hover:via-pink-100 hover:to-rose-200'
-                : 'hover:bg-purple-50 hover:border-purple-200'
-            }`}
-          >
-            Все ({totalClients})
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setStatusFilter('active')}
-            className={`text-xs sm:text-sm rounded-full transition-all hover:scale-105 active:scale-95 ${
-              statusFilter === 'active'
-                ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-gray-900 font-semibold border-emerald-200/50 hover:from-emerald-200 hover:to-green-200'
-                : 'hover:bg-emerald-50 hover:border-emerald-200'
-            }`}
-          >
-            <Icon name="CheckCircle" size={16} className="mr-1 sm:mr-2" />
-            <span className="hidden xs:inline">Активные</span>
-            <span className="xs:hidden">Акт.</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setStatusFilter('inactive')}
-            className={`text-xs sm:text-sm rounded-full transition-all hover:scale-105 active:scale-95 ${
-              statusFilter === 'inactive'
-                ? 'bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 border-orange-200/50 hover:from-orange-200 hover:to-amber-200'
-                : 'hover:bg-orange-50 hover:border-orange-200'
-            }`}
-          >
-            <Icon name="XCircle" size={16} className="mr-1 sm:mr-2" />
-            <span className="hidden xs:inline">Неактивные</span>
-            <span className="xs:hidden">Неакт.</span>
-          </Button>
-        </div>
-      </div>
+
     </div>
   );
 };
