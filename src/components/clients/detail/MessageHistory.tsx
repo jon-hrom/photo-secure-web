@@ -1,14 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-import { Message, Booking } from '@/components/clients/ClientsTypes';
+import { Message, Booking, Project } from '@/components/clients/ClientsTypes';
 
 interface MessageHistoryProps {
   messages: Message[];
   bookings: Booking[];
+  projects?: Project[];
   formatDateTime: (dateString: string) => string;
 }
 
-const MessageHistory = ({ messages, bookings, formatDateTime }: MessageHistoryProps) => {
+const MessageHistory = ({ messages, bookings, projects = [], formatDateTime }: MessageHistoryProps) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -36,30 +38,55 @@ const MessageHistory = ({ messages, bookings, formatDateTime }: MessageHistoryPr
               Прошедшие встречи
             </h3>
             <div className="space-y-3">
-              {pastBookings.map((booking) => {
+              {pastBookings.map((booking, index) => {
                 const bookingDate = new Date(booking.booking_date || booking.date);
+                const relatedProject = projects.find(p => p.name === booking.title);
+                
                 return (
-                  <div key={booking.id} className="border rounded-lg p-3 bg-gray-50/50">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <Icon name="CalendarCheck" size={16} className="text-blue-600" />
-                        <span className="text-sm font-medium">{booking.title || 'Встреча'}</span>
+                  <div key={booking.id} className="border rounded-lg p-4 bg-gradient-to-r from-gray-50 to-white hover:shadow-md transition-shadow">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                          {pastBookings.length - index}
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {bookingDate.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        {' • '}
-                        {booking.booking_time || booking.time}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Icon name="CalendarCheck" size={16} className="text-blue-600 flex-shrink-0" />
+                              <span className="text-sm font-semibold text-gray-900">
+                                {relatedProject ? relatedProject.name : (booking.title || 'Встреча')}
+                              </span>
+                              {relatedProject && (
+                                <Badge variant="outline" className="text-xs">
+                                  Проект
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                              <Icon name="Clock" size={12} />
+                              {bookingDate.toLocaleDateString('ru-RU', { 
+                                day: '2-digit', 
+                                month: 'long', 
+                                year: 'numeric' 
+                              })}
+                              {' в '}
+                              {booking.booking_time || booking.time}
+                            </div>
+                          </div>
+                        </div>
+                        {booking.description && (
+                          <p className="text-sm text-muted-foreground mt-2">{booking.description}</p>
+                        )}
+                        {booking.location && (
+                          <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                            <Icon name="MapPin" size={12} />
+                            {booking.location}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    {booking.description && (
-                      <p className="text-sm text-muted-foreground">{booking.description}</p>
-                    )}
-                    {booking.location && (
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <Icon name="MapPin" size={12} />
-                        {booking.location}
-                      </div>
-                    )}
                   </div>
                 );
               })}
