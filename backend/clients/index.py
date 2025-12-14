@@ -282,16 +282,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         WHERE client_id = %s
                         ORDER BY message_date DESC
                     ''', (client['id'],))
-                    messages = cur.fetchall()
+                    raw_messages = cur.fetchall()
+                    messages = [{
+                        'id': m['id'],
+                        'type': m['type'],
+                        'author': m['author'],
+                        'content': m['content'],
+                        'date': str(m['message_date'])
+                    } for m in raw_messages]
                     
                     result.append({
                         **dict(client),
                         'bookings': [dict(b) for b in bookings],
-                        'projects': projects,  # Уже сконвертированы в dict с float
-                        'payments': payments,  # Уже сконвертированы в dict с float
+                        'projects': projects,
+                        'payments': payments,
                         'documents': [dict(d) for d in documents],
                         'comments': [dict(c) for c in comments],
-                        'messages': [dict(m) for m in messages]
+                        'messages': messages
                     })
                 
                 return {

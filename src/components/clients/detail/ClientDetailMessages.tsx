@@ -46,6 +46,7 @@ const ClientDetailMessages = ({
   };
 
   useEffect(() => {
+    console.log('[ClientDetailMessages] Messages updated:', messages.length);
     scrollToBottom();
   }, [messages]);
 

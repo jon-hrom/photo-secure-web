@@ -445,6 +445,9 @@ export const useClientsHandlers = ({
 
   const handleUpdateClient = async (updatedClient: Client) => {
     try {
+      console.log('[handleUpdateClient] Updating client:', updatedClient);
+      console.log('[handleUpdateClient] Messages count:', updatedClient.messages?.length);
+      
       const res = await fetch(CLIENTS_API, {
         method: 'PUT',
         headers: {
@@ -455,18 +458,27 @@ export const useClientsHandlers = ({
       });
       
       if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('[handleUpdateClient] Server error:', errorData);
         throw new Error('Failed to update client');
       }
       
-      // Локально обновляем данные клиента - не делаем лишний запрос
+      const responseData = await res.json();
+      console.log('[handleUpdateClient] Server response:', responseData);
+      
+      // Сначала обновляем локально для мгновенной реакции UI
       setSelectedClient(updatedClient);
       
-      // Обновляем общий список клиентов в фоне (без ожидания)
-      loadClients().catch(console.error);
+      // Затем перезагружаем список клиентов из сервера
+      try {
+        await loadClients();
+      } catch (err) {
+        console.error('[handleUpdateClient] Failed to reload clients:', err);
+      }
       
       toast.success('Данные клиента обновлены');
     } catch (error) {
-      console.error('Failed to update client:', error);
+      console.error('[handleUpdateClient] Error:', error);
       toast.error('Не удалось обновить данные');
     }
   };

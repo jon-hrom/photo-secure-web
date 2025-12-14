@@ -44,8 +44,9 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   useEffect(() => {
     if (client) {
       console.log('[ClientDetailDialog] Client updated:', client);
-      console.log('[ClientDetailDialog] Payments in updated client:', client.payments);
-      console.log('[ClientDetailDialog] Projects in updated client:', client.projects);
+      console.log('[ClientDetailDialog] Payments:', client.payments?.length);
+      console.log('[ClientDetailDialog] Projects:', client.projects?.length);
+      console.log('[ClientDetailDialog] Messages:', client.messages?.length);
       setLocalClient(client);
     }
   }, [client]);
@@ -244,6 +245,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       return;
     }
 
+    console.log('[handleAddMessage] Adding message:', newMessage);
+
     const message: Message = {
       id: Date.now(),
       date: new Date().toISOString(),
@@ -257,9 +260,17 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       messages: [...messages, message],
     };
 
+    console.log('[handleAddMessage] Updated client messages:', updatedClient.messages.length);
+
+    // Сначала обновляем локальное состояние для мгновенной реакции
+    setLocalClient(updatedClient);
+    
+    // Затем сохраняем на сервере
     onUpdate(updatedClient);
+    
+    // Очищаем форму
     setNewMessage({ content: '', type: 'email', author: 'Администратор' });
-    toast.success('Сообщение добавлено');
+    toast.success('Сообщение отправлено');
   };
 
   const handleDeleteMessage = (messageId: number) => {
