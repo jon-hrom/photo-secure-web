@@ -56,7 +56,7 @@ const MAXNewChatDialog = ({
             Отмена
           </Button>
           <Button
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 border-0"
             onClick={onCreateChat}
             disabled={sending || !newChatPhone.trim()}
           >

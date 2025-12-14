@@ -343,11 +343,11 @@ const MAXMessenger = ({ userId, isOpen = false, onClose }: MAXMessengerProps) =>
     <>
       <Button
         onClick={() => setShowDialog(true)}
-        className="fixed bottom-6 right-6 rounded-full shadow-2xl z-50 h-14 w-14 p-0 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border-0 transition-all duration-300 hover:scale-110 animate-in fade-in slide-in-from-bottom-4"
+        className="fixed bottom-6 right-6 rounded-full shadow-2xl z-50 h-14 w-14 p-0 bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 border-0 transition-all duration-300 hover:scale-110 animate-in fade-in slide-in-from-bottom-4"
         size="lg"
       >
         <div className="relative flex items-center justify-center">
-          <span className="text-white font-bold text-lg tracking-tight">MAX</span>
+          <span className="text-white font-bold text-lg tracking-tight">M</span>
           {unreadCount > 0 && (
             <Badge className="absolute -top-2 -right-2 bg-red-500 text-white h-5 w-5 flex items-center justify-center p-0 text-xs animate-pulse">
               {unreadCount > 99 ? '99+' : unreadCount}

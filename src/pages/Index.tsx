@@ -379,7 +379,7 @@ const Index = () => {
               title="Подтвердите телефон для доступа к MAX"
             >
               <div className="relative flex items-center justify-center">
-                <span className="text-white font-bold text-lg tracking-tight opacity-60">MAX</span>
+                <span className="text-white font-bold text-lg tracking-tight opacity-60">M</span>
                 <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full w-4 h-4 flex items-center justify-center">
                   <Icon name="Lock" size={10} className="text-white" />
                 </div>

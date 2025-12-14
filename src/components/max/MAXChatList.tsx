@@ -44,15 +44,15 @@ const MAXChatList = ({
       <DialogHeader className="p-4 border-b">
         <div className="flex items-center justify-between">
           <DialogTitle className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md">
               <span className="text-white font-bold text-sm">M</span>
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">MAX</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-700 bg-clip-text text-transparent">MAX</span>
           </DialogTitle>
           <Button
             size="sm"
             onClick={onNewChatClick}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 border-0"
           >
             <Icon name="Plus" size={16} className="mr-1" />
             Новый чат
@@ -85,13 +85,13 @@ const MAXChatList = ({
                 key={chat.id}
                 onClick={() => onChatSelect(chat)}
                 className={`p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors mb-1 ${
-                  selectedChat?.id === chat.id ? 'bg-green-50 border-2 border-green-200' : ''
+                  selectedChat?.id === chat.id ? 'bg-blue-50 border-2 border-blue-200' : ''
                 }`}
               >
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                      <Icon name="User" size={20} className="text-green-600" />
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Icon name="User" size={20} className="text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-sm truncate">
@@ -103,7 +103,7 @@ const MAXChatList = ({
                     </div>
                   </div>
                   {chat.unread_count > 0 && (
-                    <Badge className="bg-green-600 text-white text-xs">
+                    <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs border-0">
                       {chat.unread_count}
                     </Badge>
                   )}

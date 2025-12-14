@@ -101,7 +101,7 @@ const AppNavigation = ({
             {hasVerifiedPhone && onOpenMAX && (
               <Button
                 onClick={onOpenMAX}
-                className="hidden md:flex rounded-full bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border-0 transition-all duration-300 hover:scale-105 hover:shadow-lg text-white font-semibold"
+                className="hidden md:flex rounded-full bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 border-0 transition-all duration-300 hover:scale-105 hover:shadow-lg text-white font-semibold"
                 title="MAX мессенджер"
               >
                 <div className="flex items-center gap-2">

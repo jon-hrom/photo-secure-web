@@ -62,8 +62,8 @@ const MAXMessageView = ({
     <>
       <div className="p-4 border-b bg-gray-50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-            <Icon name="User" size={20} className="text-green-600" />
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+            <Icon name="User" size={20} className="text-blue-600" />
           </div>
           <div>
             <h3 className="font-semibold">
@@ -107,7 +107,7 @@ const MAXMessageView = ({
                     <div
                       className={`max-w-[70%] rounded-lg px-4 py-2 ${
                         msg.is_from_me
-                          ? 'bg-green-100 text-gray-900'
+                          ? 'bg-gradient-to-br from-blue-100 to-purple-100 text-gray-900'
                           : 'bg-gray-100 text-gray-900'
                       }`}
                     >
@@ -151,7 +151,7 @@ const MAXMessageView = ({
           <Button
             onClick={onSendMessage}
             disabled={!messageText.trim() || sending}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 border-0"
             size="lg"
           >
             {sending ? (
