@@ -59,7 +59,7 @@ const ClientDetailMessages = ({
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-24rem)] max-h-[600px]">
+    <div className="flex flex-col h-[500px]">
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-t-2xl">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">

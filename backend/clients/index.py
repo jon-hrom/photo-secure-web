@@ -683,23 +683,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Вставляем или обновляем сообщения
                 for message in body.get('messages', []):
                     msg_id = message.get('id')
-                    # Если ID > 1000000000000, это timestamp - значит новое сообщение
+                    msg_type = message.get('type') or 'email'
+                    msg_author = message.get('author') or 'Клиент'
+                    msg_content = message.get('content', '')
+                    msg_date = message.get('date') or datetime.utcnow().isoformat()
+                    
                     is_new = msg_id and msg_id >= 1000000000000
                     
                     if is_new:
-                        # Новое сообщение - вставляем без ID (автогенерация)
                         cur.execute('''
                             INSERT INTO client_messages (client_id, type, author, content, message_date)
                             VALUES (%s, %s, %s, %s, %s)
-                        ''', (
-                            client_id,
-                            message.get('type'),
-                            message.get('author'),
-                            message.get('content'),
-                            message.get('date')
-                        ))
+                        ''', (client_id, msg_type, msg_author, msg_content, msg_date))
                     else:
-                        # Существующее сообщение - обновляем
                         cur.execute('''
                             INSERT INTO client_messages (id, client_id, type, author, content, message_date)
                             VALUES (%s, %s, %s, %s, %s, %s)
@@ -708,14 +704,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 author = EXCLUDED.author,
                                 content = EXCLUDED.content,
                                 message_date = EXCLUDED.message_date
-                        ''', (
-                            msg_id,
-                            client_id,
-                            message.get('type'),
-                            message.get('author'),
-                            message.get('content'),
-                            message.get('date')
-                        ))
+                        ''', (msg_id, client_id, msg_type, msg_author, msg_content, msg_date))
             
             conn.commit()
             
