@@ -49,7 +49,7 @@ const ClientDetailOverview = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Общий бюджет</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-2">Общий бюджет</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold text-red-600">
