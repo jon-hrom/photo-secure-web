@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import Icon from '@/components/ui/icon';
-import VKAuthButton from '@/components/VKAuthButton';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 import ForgotPasswordDialog from '@/components/ForgotPasswordDialog';
+import LoginBackground from '@/components/login/LoginBackground';
+import LoginCard from '@/components/login/LoginCard';
+import LoginFormFields from '@/components/login/LoginFormFields';
+import OAuthProviders from '@/components/login/OAuthProviders';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string) => void;
@@ -258,6 +256,21 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     toast.info('Вход отменён');
   };
 
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (isRegistering && value.length > 0 && value.length < 8) {
+      setPasswordError('Минимум 8 символов');
+    } else {
+      setPasswordError('');
+    }
+  };
+
+  const handleToggleMode = () => {
+    setIsRegistering(!isRegistering);
+    setPassword('');
+    setPasswordError('');
+  };
+
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 relative"
@@ -269,202 +282,40 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         backgroundColor: backgroundImage ? undefined : '#f8f9fa',
       }}
     >
-      {backgroundImage && (
-        <div 
-          className="absolute inset-0 backdrop-blur-sm" 
-          style={{
-            backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity / 100})`
-          }}
+      <LoginBackground 
+        backgroundImage={backgroundImage} 
+        backgroundOpacity={backgroundOpacity} 
+      />
+
+      <LoginCard isRegistering={isRegistering}>
+        <LoginFormFields
+          email={email}
+          password={password}
+          showPassword={showPassword}
+          isRegistering={isRegistering}
+          phone={phone}
+          isBlocked={isBlocked}
+          remainingAttempts={remainingAttempts}
+          blockTimeRemaining={blockTimeRemaining}
+          passwordError={passwordError}
+          loginAttemptFailed={loginAttemptFailed}
+          onEmailChange={setEmail}
+          onPasswordChange={handlePasswordChange}
+          onPhoneChange={setPhone}
+          onShowPasswordToggle={() => setShowPassword(!showPassword)}
+          onSubmit={isRegistering ? handleRegister : handleLogin}
+          onToggleMode={handleToggleMode}
+          onForgotPassword={() => setShowForgotPassword(true)}
+          formatTime={formatTime}
         />
-      )}
-      <Card 
-        className="w-full max-w-md shadow-2xl relative z-10 overflow-hidden"
-        style={{
-          backgroundImage: `url(https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-0" />
-        <div className="relative z-10">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-            <Icon name="Lock" size={32} className="text-primary" />
-          </div>
-          <CardTitle className="text-2xl">Foto-Mix</CardTitle>
-          <CardDescription className="text-base">Умная платформа для фотографов</CardDescription>
-          <div className="mt-3 text-sm text-muted-foreground">
-            {isRegistering ? 'Создайте новый аккаунт' : 'Вход в систему'}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {isBlocked && (
-            <div className="p-4 bg-destructive/10 border-2 border-destructive rounded-xl text-center">
-              <Icon name="ShieldAlert" size={32} className="text-destructive mx-auto mb-2" />
-              <p className="font-bold text-destructive">Доступ временно заблокирован</p>
-              <p className="text-2xl font-mono font-bold mt-2">{formatTime(blockTimeRemaining)}</p>
-            </div>
-          )}
 
-          {!isBlocked && remainingAttempts < 5 && (
-            <div className="p-3 bg-orange-50 border-2 border-orange-300 rounded-xl">
-              <p className="text-sm text-orange-700 flex items-center gap-2">
-                <Icon name="AlertTriangle" size={16} />
-                Осталось попыток: <strong>{remainingAttempts}</strong>
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="example@mail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isBlocked}
-                className="rounded-xl"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (isRegistering && e.target.value.length > 0 && e.target.value.length < 8) {
-                      setPasswordError('Минимум 8 символов');
-                    } else {
-                      setPasswordError('');
-                    }
-                  }}
-                  disabled={isBlocked}
-                  className="rounded-xl pr-10"
-                  onKeyDown={(e) => e.key === 'Enter' && !isRegistering && handleLogin()}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isBlocked}
-                >
-                  <Icon name={showPassword ? "EyeOff" : "Eye"} size={18} className="text-muted-foreground" />
-                </Button>
-              </div>
-              {isRegistering && passwordError && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <Icon name="AlertCircle" size={14} />
-                  {passwordError}
-                </p>
-              )}
-            </div>
-
-            {isRegistering && (
-              <div className="space-y-2">
-                <Label htmlFor="phone">Телефон *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+7 (___) ___-__-__"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="rounded-xl"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  <Icon name="Info" size={12} className="inline mr-1" />
-                  Обязательное поле для регистрации
-                </p>
-              </div>
-            )}
-
-            <Button
-              onClick={isRegistering ? handleRegister : handleLogin}
-              disabled={isBlocked}
-              className="w-full rounded-xl"
-            >
-              {isRegistering ? 'Зарегистрироваться' : 'Войти'}
-            </Button>
-
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setIsRegistering(!isRegistering);
-                setPassword('');
-              }}
-              className="w-full rounded-xl"
-            >
-              {isRegistering ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
-            </Button>
-
-            {loginAttemptFailed && !isBlocked && !isRegistering && (
-              <button
-                onClick={() => setShowForgotPassword(true)}
-                className="w-full text-sm text-primary hover:underline flex items-center gap-2 justify-center"
-              >
-                <Icon name="KeyRound" size={16} />
-                Забыли пароль? Восстановить
-              </button>
-            )}
-          </div>
-
-          {(authProviders.yandex || authProviders.vk || authProviders.google) && (
-            <>
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Или войти через</span>
-                </div>
-              </div>
-
-              {authProviders.vk && (
-                <div className="flex justify-center">
-                  <VKAuthButton onSuccess={onLoginSuccess} disabled={isBlocked} />
-                </div>
-              )}
-
-              {(authProviders.yandex || authProviders.google) && (
-                <div className="flex justify-center gap-3">
-                  {authProviders.yandex && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleOAuthLogin('yandex')}
-                      disabled={isBlocked}
-                      className="rounded-xl flex-1"
-                      title="Войти через Яндекс"
-                    >
-                      <Icon name="Circle" size={20} className="text-red-500" />
-                    </Button>
-                  )}
-                  {authProviders.google && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleOAuthLogin('google')}
-                      disabled={isBlocked}
-                      className="rounded-xl flex-1"
-                      title="Войти через Google"
-                    >
-                      <Icon name="Mail" size={20} className="text-red-600" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-        </div>
-      </Card>
+        <OAuthProviders
+          authProviders={authProviders}
+          isBlocked={isBlocked}
+          onLoginSuccess={onLoginSuccess}
+          onOAuthLogin={handleOAuthLogin}
+        />
+      </LoginCard>
 
       {is2FADialogOpen && pendingUserId && (
         <TwoFactorDialog
