@@ -43,6 +43,7 @@ export const useClientsData = (userId: string | null) => {
           booking_date: b.booking_date,
           time: b.booking_time,
           booking_time: b.booking_time,
+          title: b.title || '',
           description: b.description || '',
           notificationEnabled: b.notification_enabled,
           notification_enabled: b.notification_enabled,
