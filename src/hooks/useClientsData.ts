@@ -5,7 +5,7 @@ import { isAdminUser } from '@/utils/adminCheck';
 
 export const useClientsData = (userId: string | null) => {
   const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [emailVerified, setEmailVerified] = useState(true);
   
   const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
@@ -144,8 +144,15 @@ export const useClientsData = (userId: string | null) => {
   };
   
   useEffect(() => {
-    loadClients();
+    // Загружаем только проверку email (быстрая операция)
     checkEmailVerification();
+    
+    // Загрузку клиентов откладываем на 100ms - даём UI отрисоваться
+    const timer = setTimeout(() => {
+      loadClients();
+    }, 100);
+    
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
   
