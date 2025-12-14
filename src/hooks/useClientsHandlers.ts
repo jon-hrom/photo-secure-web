@@ -114,32 +114,8 @@ export const useClientsHandlers = ({
       setIsAddDialogOpen(false);
       toast.success('Клиент успешно добавлен');
       
-      // Обновить список клиентов и открыть карточку нового клиента
+      // Обновить список клиентов
       await loadClients();
-      
-      if (result?.id && setIsDetailDialogOpen) {
-        // Небольшая задержка, чтобы список клиентов успел обновиться
-        setTimeout(() => {
-          const newlyAddedClient = clients.find(c => c.id === result.id);
-          if (newlyAddedClient) {
-            setSelectedClient(newlyAddedClient);
-            setIsDetailDialogOpen(true);
-          }
-        }, 300);
-      }
-      
-      // Открыть карточку нового клиента
-      if (result?.id && setIsDetailDialogOpen) {
-        // Найти созданного клиента по ID через небольшую задержку
-        setTimeout(async () => {
-          await loadClients();
-          const newClient = clients.find(c => c.id === result.id);
-          if (newClient) {
-            setSelectedClient(newClient);
-            setIsDetailDialogOpen(true);
-          }
-        }, 500);
-      }
     } catch (error) {
       console.error('Failed to add client:', error);
       toast.error('Не удалось добавить клиента');
