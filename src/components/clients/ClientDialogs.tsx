@@ -56,7 +56,7 @@ const ClientDialogs = ({
             Добавить карточку клиента
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm" data-tour="client-form">
+        <DialogContent className="max-w-md" data-tour="client-form">
           <DialogHeader>
             <DialogTitle>Новый клиент</DialogTitle>
           </DialogHeader>
@@ -121,7 +121,7 @@ const ClientDialogs = ({
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Редактирование клиента</DialogTitle>
           </DialogHeader>
