@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
+import ContactInfoCard from '@/components/settings/ContactInfoCard';
+import SecurityCard from '@/components/settings/SecurityCard';
+import HintsCard from '@/components/settings/HintsCard';
 import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
 
 interface UserSettings {
@@ -137,9 +137,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
         if (field === 'phone') {
           setEditedPhone(finalValue);
           toast.success('Телефон сохранен. Теперь подтвердите его.');
-          // Показываем диалог подтверждения телефона
           setShowPhoneVerification(true);
-          return; // Не показываем общее сообщение
+          return;
         } else if (field === 'email') {
           setEditedEmail(finalValue);
         }
@@ -202,285 +201,32 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
           />
         )}
 
-        <Card className="shadow-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-              <Icon name="User" size={20} className="md:w-6 md:h-6" />
-              Контактная информация
-            </CardTitle>
-            <CardDescription className="text-xs md:text-sm">Управление вашими контактными данными</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 md:space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm md:text-base">Email</Label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  id="email"
-                  type="email"
-                  value={isEditingEmail ? editedEmail : settings.email}
-                  onChange={(e) => {
-                    setEditedEmail(e.target.value);
-                    setIsEditingEmail(true);
-                  }}
-                  placeholder={settings.source !== 'email' ? 'Введите ваш email' : ''}
-                  className="rounded-xl text-sm md:text-base"
-                  readOnly={settings.source === 'email' && !!settings.email}
-                />
-                {(isEditingEmail || (settings.source === 'vk' && !settings.email)) && (
-                  <Button
-                    onClick={async () => {
-                      await handleUpdateContact('email', editedEmail);
-                      setIsEditingEmail(false);
-                      await loadSettings();
-                    }}
-                    className="rounded-xl w-full sm:w-auto"
-                    disabled={!editedEmail.trim() || !editedEmail.includes('@') || isSavingEmail}
-                  >
-                    {isSavingEmail ? (
-                      <Icon name="Loader2" size={18} className="animate-spin" />
-                    ) : (
-                      <Icon name="Save" size={18} />
-                    )}
-                  </Button>
-                )}
-              </div>
-              {settings.email_verified_at ? (
-                <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
-                  <Icon name="CheckCircle2" size={14} className="md:w-4 md:h-4" />
-                  <span className="font-medium">Почта подтверждена</span>
-                </div>
-              ) : settings.email && settings.email.trim() ? (
-                <div className="flex items-center gap-2 text-xs md:text-sm text-amber-700 bg-amber-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Icon name="AlertCircle" size={14} className="md:w-4 md:h-4" />
-                  <span className="font-medium">Email не подтверждён</span>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setShowEmailVerification(true)}
-                    className="p-0 h-auto font-semibold underline text-amber-700 hover:text-amber-900 ml-auto"
-                  >
-                    Подтвердить
-                  </Button>
-                </div>
-              ) : settings.source === 'vk' && editedEmail && editedEmail.trim() && editedEmail.includes('@') ? (
-                <div className="flex items-center gap-2 text-xs md:text-sm text-blue-700 bg-blue-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-blue-200 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Icon name="Info" size={14} className="md:w-4 md:h-4" />
-                  <span className="font-medium text-xs md:text-sm">Сначала сохраните email</span>
-                </div>
-              ) : null}
-            </div>
+        <ContactInfoCard
+          settings={settings}
+          editedEmail={editedEmail}
+          isEditingEmail={isEditingEmail}
+          setEditedEmail={setEditedEmail}
+          setIsEditingEmail={setIsEditingEmail}
+          isSavingEmail={isSavingEmail}
+          editedPhone={editedPhone}
+          isEditingPhone={isEditingPhone}
+          setEditedPhone={setEditedPhone}
+          setIsEditingPhone={setIsEditingPhone}
+          setPhoneVerified={setPhoneVerified}
+          isSavingPhone={isSavingPhone}
+          phoneVerified={phoneVerified}
+          handleUpdateContact={handleUpdateContact}
+          loadSettings={loadSettings}
+          setShowEmailVerification={setShowEmailVerification}
+          setShowPhoneVerification={setShowPhoneVerification}
+        />
 
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="phone" className="text-sm md:text-base">Телефон</Label>
-                <div className="flex items-center gap-1.5 text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white px-2 py-1 rounded-full shadow-sm">
-                  <div className="w-3 h-3 rounded-sm bg-white/20 flex items-center justify-center">
-                    <span className="text-white font-bold text-[8px]">M</span>
-                  </div>
-                  <span className="font-semibold">для MAX</span>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+7 (999) 123-45-67"
-                  value={isEditingPhone ? editedPhone : (settings.phone ? formatPhone(settings.phone) : '')}
-                  onChange={(e) => {
-                    const formatted = formatPhone(e.target.value);
-                    setEditedPhone(formatted);
-                    setIsEditingPhone(true);
-                    setPhoneVerified(false);
-                  }}
-                  className="rounded-xl text-sm md:text-base"
-                  maxLength={18}
-                  readOnly={!isEditingPhone && !!settings.phone}
-                />
-                {isEditingPhone ? (
-                  <Button
-                    onClick={async () => {
-                      await handleUpdateContact('phone', editedPhone);
-                      setIsEditingPhone(false);
-                    }}
-                    className="rounded-xl w-full sm:w-auto"
-                    disabled={!editedPhone.trim() || isSavingPhone}
-                  >
-                    {isSavingPhone ? (
-                      <Icon name="Loader2" size={18} className="animate-spin" />
-                    ) : (
-                      <Icon name="Save" size={18} />
-                    )}
-                  </Button>
-                ) : settings.phone ? (
-                  <Button
-                    onClick={() => setIsEditingPhone(true)}
-                    variant="outline"
-                    className="rounded-xl w-full sm:w-auto"
-                  >
-                    <Icon name="Pencil" size={18} />
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={async () => {
-                      await handleUpdateContact('phone', editedPhone);
-                      setIsEditingPhone(false);
-                    }}
-                    className="rounded-xl w-full sm:w-auto"
-                    disabled={!editedPhone.trim()}
-                  >
-                    <Icon name="Save" size={18} />
-                  </Button>
-                )}
-              </div>
-              {phoneVerified ? (
-                <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
-                  <Icon name="CheckCircle2" size={14} className="md:w-4 md:h-4" />
-                  <span className="font-medium">Телефон подтвержден</span>
-                </div>
-              ) : settings.phone && !isEditingPhone ? (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs md:text-sm text-amber-600 bg-amber-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-amber-200">
-                  <div className="flex items-center gap-2">
-                    <Icon name="AlertCircle" size={14} className="md:w-4 md:h-4" />
-                    <span className="font-medium">Телефон не подтвержден</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPhoneVerification(true)}
-                    className="h-7 text-amber-700 hover:text-amber-800 hover:bg-amber-100"
-                  >
-                    <Icon name="Check" size={14} className="mr-1" />
-                    Подтвердить
-                  </Button>
-                </div>
-              ) : null}
-              <div className="flex items-start gap-2 text-xs bg-gradient-to-br from-blue-50 to-purple-50 px-3 py-2 rounded-lg border border-blue-200">
-                <div className="w-5 h-5 mt-0.5 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="text-white font-bold text-[10px]">M</span>
-                </div>
-                <p className="text-blue-800"><span className="font-semibold">MAX мессенджер:</span> Ваш подтвержденный номер телефона используется для доступа</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <SecurityCard
+          settings={settings}
+          handleToggle2FA={handleToggle2FA}
+        />
 
-        <Card className="shadow-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-              <Icon name="Shield" size={20} className="md:w-6 md:h-6" />
-              Безопасность
-            </CardTitle>
-            <CardDescription className="text-xs md:text-sm">Двухфакторная аутентификация</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 md:space-y-6">
-            <div className="flex items-center justify-between p-3 md:p-4 bg-muted/30 rounded-xl">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon name="Mail" size={18} className="text-primary md:w-5 md:h-5" />
-                  <Label className="font-semibold text-sm md:text-base">Email-аутентификация</Label>
-                </div>
-                <p className="text-xs md:text-sm text-muted-foreground">
-                  Код из 5 цифр будет отправлен на вашу почту
-                </p>
-              </div>
-              <Switch
-                checked={settings.two_factor_email}
-                onCheckedChange={(checked) => handleToggle2FA('email', checked)}
-                disabled={!settings.email}
-              />
-            </div>
-
-            <div className="p-3 md:p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
-              <div className="flex items-start gap-2 md:gap-3">
-                <Icon name="Info" className="text-blue-600 mt-0.5 md:mt-1 flex-shrink-0" size={16} />
-                <div className="text-xs md:text-sm">
-                  <p className="font-semibold text-blue-900 mb-1">Рекомендация</p>
-                  <p className="text-blue-700">
-                    Включите двухфакторную аутентификацию для повышения безопасности вашего аккаунта
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-xl" data-tour="hints-settings">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-              <Icon name="HelpCircle" size={20} className="md:w-6 md:h-6" />
-              Подсказки интерфейса
-            </CardTitle>
-            <CardDescription className="text-xs md:text-sm">Управление всплывающими подсказками</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-3 md:p-4 bg-muted/30 rounded-xl">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon name="Lightbulb" size={18} className="text-primary md:w-5 md:h-5" />
-                    <Label className="font-semibold text-sm md:text-base">Интерактивное обучение</Label>
-                  </div>
-                  <p className="text-xs md:text-sm text-muted-foreground">
-                    Пошаговое знакомство со всеми возможностями сервиса
-                  </p>
-                </div>
-                <Button
-                  onClick={() => {
-                    localStorage.removeItem('onboardingTourCompleted');
-                    localStorage.removeItem('onboardingTourDisabled');
-                    toast.success('Обучение сброшено! Перезагрузите страницу для начала тура');
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl flex-shrink-0"
-                >
-                  <Icon name="Play" size={16} className="mr-2" />
-                  <span className="hidden sm:inline">Пройти снова</span>
-                  <span className="sm:hidden">Начать</span>
-                </Button>
-              </div>
-            </div>
-
-            <div className="p-3 md:p-4 bg-muted/30 rounded-xl">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon name="GripHorizontal" size={18} className="text-primary md:w-5 md:h-5" />
-                    <Label className="font-semibold text-sm md:text-base">Подсказки свайпов</Label>
-                  </div>
-                  <p className="text-xs md:text-sm text-muted-foreground">
-                    Показывать стрелки при открытии карточки клиента
-                  </p>
-                </div>
-                <Button
-                  onClick={() => {
-                    localStorage.removeItem('clientDetailSwipeHintSeen');
-                    toast.success('Подсказки сброшены! Откройте карточку клиента чтобы увидеть их снова');
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl flex-shrink-0"
-                >
-                  <Icon name="RotateCcw" size={16} className="mr-2" />
-                  <span className="hidden sm:inline">Показать снова</span>
-                  <span className="sm:hidden">Сброс</span>
-                </Button>
-              </div>
-            </div>
-
-            <div className="p-3 md:p-4 bg-purple-50 rounded-xl border-2 border-purple-200">
-              <div className="flex items-start gap-2 md:gap-3">
-                <Icon name="Info" className="text-purple-600 mt-0.5 md:mt-1 flex-shrink-0" size={16} />
-                <div className="text-xs md:text-sm">
-                  <p className="font-semibold text-purple-900 mb-1">Совет</p>
-                  <p className="text-purple-700">
-                    Подсказки появляются автоматически при первом использовании новых функций
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <HintsCard />
 
         <Card className="shadow-xl bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
           <CardContent className="pt-6">
