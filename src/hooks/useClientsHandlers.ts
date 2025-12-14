@@ -221,7 +221,7 @@ export const useClientsHandlers = ({
         
         // Запускаем таймер и загрузку данных параллельно
         const startTime = Date.now();
-        const maxWaitTime = 15000; // 15 секунд
+        const maxWaitTime = 30000; // 30 секунд
         
         try {
           // Загружаем данные в фоне

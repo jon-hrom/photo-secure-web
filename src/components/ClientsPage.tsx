@@ -347,7 +347,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
       <LoadingProgressBar
         open={dialogsState.isCountdownOpen}
-        maxTime={15000}
+        maxTime={30000}
         onComplete={() => {
           console.log('[ClientsPage] Loading completed, closing progress dialog');
           dialogsState.setIsCountdownOpen(false);
