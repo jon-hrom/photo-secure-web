@@ -46,10 +46,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     s3_client = boto3.client(
         's3',
-        endpoint_url='https://storage.yandexcloud.net',
-        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
-        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
-        region_name='ru-central1',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
         config=Config(signature_version='s3v4')
     )
     
@@ -117,7 +116,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             presigned_url = s3_client.generate_presigned_url(
                 'upload_part',
                 Params={
-                    'Bucket': 'foto-mix',
+                    'Bucket': 'files',
                     'Key': s3_key,
                     'UploadId': upload_id,
                     'PartNumber': part_number
@@ -156,7 +155,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
         s3_client.complete_multipart_upload(
-            Bucket='foto-mix',
+            Bucket='files',
             Key=s3_key,
             UploadId=upload_id,
             MultipartUpload=multipart_upload
@@ -181,7 +180,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         s3_client.abort_multipart_upload(
-            Bucket='foto-mix',
+            Bucket='files',
             Key=s3_key,
             UploadId=upload_id
         )
