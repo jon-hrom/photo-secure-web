@@ -4,11 +4,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
-import { Client, Project, Payment, Comment } from '@/components/clients/ClientsTypes';
+import { Client, Project, Payment, Comment, Message } from '@/components/clients/ClientsTypes';
 import ClientDetailOverview from '@/components/clients/detail/ClientDetailOverview';
 import ClientDetailProjects from '@/components/clients/detail/ClientDetailProjects';
 import ClientDetailPayments from '@/components/clients/detail/ClientDetailPayments';
 import ClientDetailDocumentsHistory from '@/components/clients/detail/ClientDetailDocumentsHistory';
+import ClientDetailMessages from '@/components/clients/detail/ClientDetailMessages';
 import SwipeContainer from '@/components/layout/SwipeContainer';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
 
@@ -20,7 +21,7 @@ interface ClientDetailDialogProps {
 }
 
 const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDetailDialogProps) => {
-  const tabs = ['overview', 'projects', 'documents', 'payments', 'history'] as const;
+  const tabs = ['overview', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
   const [activeTab, setActiveTab] = useState('overview');
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [newProject, setNewProject] = useState({ 
@@ -38,6 +39,11 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     splitAcrossProjects: false
   });
   const [newComment, setNewComment] = useState('');
+  const [newMessage, setNewMessage] = useState({ 
+    content: '', 
+    type: 'email', 
+    author: 'Администратор' 
+  });
   const [localClient, setLocalClient] = useState(client);
 
   // Обновляем локального клиента при изменении пропса
@@ -242,6 +248,39 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     toast.success('Комментарий удалён');
   };
 
+  const handleAddMessage = () => {
+    if (!newMessage.content.trim()) {
+      toast.error('Введите текст сообщения');
+      return;
+    }
+
+    const message: Message = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      type: newMessage.type as 'email' | 'vk' | 'phone' | 'meeting',
+      author: newMessage.author,
+      content: newMessage.content,
+    };
+
+    const updatedClient = {
+      ...localClient,
+      messages: [...messages, message],
+    };
+
+    onUpdate(updatedClient);
+    setNewMessage({ content: '', type: 'email', author: 'Администратор' });
+    toast.success('Сообщение добавлено');
+  };
+
+  const handleDeleteMessage = (messageId: number) => {
+    const updatedClient = {
+      ...localClient,
+      messages: messages.filter(m => m.id !== messageId),
+    };
+    onUpdate(updatedClient);
+    toast.success('Сообщение удалено');
+  };
+
   const handleDocumentUploaded = (document: any) => {
     console.log('[ClientDetailDialog] Document uploaded:', document);
     console.log('[ClientDetailDialog] Current documents:', documents);
@@ -346,7 +385,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid grid-cols-5 w-full h-auto">
+          <TabsList className="grid grid-cols-6 w-full h-auto">
             <TabsTrigger value="overview" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
               <Icon name="LayoutDashboard" size={16} className="sm:mr-2" />
               <span className="hidden sm:inline">Обзор</span>
@@ -362,6 +401,10 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             <TabsTrigger value="payments" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
               <Icon name="DollarSign" size={16} className="sm:mr-2" />
               <span className="hidden sm:inline">Оплаты</span>
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
+              <Icon name="MessageSquare" size={16} className="sm:mr-2" />
+              <span className="hidden sm:inline">Переписка</span>
             </TabsTrigger>
             <TabsTrigger value="history" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
               <Icon name="History" size={16} className="sm:mr-2" />
@@ -451,6 +494,16 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
               handleDeletePayment={handleDeletePayment}
               getPaymentStatusBadge={getPaymentStatusBadge}
               formatDate={formatDate}
+            />
+          </TabsContent>
+
+          <TabsContent value="messages" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
+            <ClientDetailMessages
+              messages={messages}
+              newMessage={newMessage}
+              onMessageChange={(field, value) => setNewMessage(prev => ({ ...prev, [field]: value }))}
+              onAddMessage={handleAddMessage}
+              onDeleteMessage={handleDeleteMessage}
             />
           </TabsContent>
 
