@@ -1,7 +1,6 @@
 import json
 import os
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from typing import Dict, Any, List
 import requests
 from datetime import datetime
@@ -140,7 +139,13 @@ def get_db_connection():
     if not database_url:
         raise Exception('DATABASE_URL не настроен')
     print(f"[MAX] Connecting to DB...")
-    return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+    return psycopg2.connect(database_url)
+
+def dict_from_row(cursor, row):
+    """Преобразует строку результата в словарь"""
+    if not row:
+        return None
+    return dict(zip([desc[0] for desc in cursor.description], row))
 
 def verify_user(conn, user_id: str) -> bool:
     with conn.cursor() as cur:
@@ -151,8 +156,9 @@ def get_chats(conn, user_id: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
         # Проверяем является ли пользователь админом
         cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
-        user = cur.fetchone()
-        is_admin = user and user['role'] == 'admin'
+        row = cur.fetchone()
+        user = dict_from_row(cur, row) if row else None
+        is_admin = user and user.get('role') == 'admin'
         
         if is_admin:
             # Админ видит все чаты (включая чаты с клиентами)
@@ -173,7 +179,8 @@ def get_chats(conn, user_id: str) -> Dict[str, Any]:
                 ORDER BY updated_at DESC
             """)
         
-        chats = cur.fetchall()
+        rows = cur.fetchall()
+        chats = [dict_from_row(cur, row) for row in rows]
         print(f"[MAX] Found {len(chats)} chats for user {user_id}")
         return {'chats': chats}
 
@@ -186,7 +193,9 @@ def get_messages(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
             WHERE c.id = {chat_id} AND (c.user_id = {user_id} OR u.role = 'admin')
         """)
         
-        chat = cur.fetchone()
+        row = cur.fetchone()
+        chat = dict_from_row(cur, row) if row else None
+        
         if not chat:
             return {'error': 'Чат не найден или нет доступа'}
         
@@ -197,14 +206,16 @@ def get_messages(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
             ORDER BY timestamp ASC
         """)
         
-        messages = cur.fetchall()
+        rows = cur.fetchall()
+        messages = [dict_from_row(cur, row) for row in rows]
         return {'messages': messages, 'chat': chat}
 
 def get_unread_count(conn, user_id: str) -> Dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
-        user = cur.fetchone()
-        is_admin = user and user['role'] == 'admin'
+        row = cur.fetchone()
+        user = dict_from_row(cur, row) if row else None
+        is_admin = user and user.get('role') == 'admin'
         
         if is_admin:
             cur.execute("""
@@ -219,7 +230,8 @@ def get_unread_count(conn, user_id: str) -> Dict[str, Any]:
                 WHERE user_id = {user_id}
             """)
         
-        result = cur.fetchone()
+        row = cur.fetchone()
+        result = dict_from_row(cur, row) if row else None
         return {'unread_count': int(result['total']) if result else 0}
 
 def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -278,21 +290,26 @@ def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         with conn.cursor() as cur:
             # Проверяем роль пользователя
             cur.execute(f"SELECT role FROM users WHERE id = {user_id}")
-            user = cur.fetchone()
-            is_admin = user and user['role'] == 'admin'
+            row = cur.fetchone()
+            user = dict_from_row(cur, row) if row else None
+            is_admin = user and user.get('role') == 'admin'
+            
+            # Экранируем спецсимволы в сообщении
+            message_escaped = message.replace("'", "''")
             
             # Создаём или получаем чат - используем простые SQL запросы
             cur.execute(f"""
                 SELECT id FROM whatsapp_chats 
                 WHERE user_id = {user_id} AND phone_number = '{phone}'
             """)
-            existing_chat = cur.fetchone()
+            row = cur.fetchone()
+            existing_chat = dict_from_row(cur, row) if row else None
             
             if existing_chat:
                 chat_id = existing_chat['id']
                 cur.execute(f"""
                     UPDATE whatsapp_chats 
-                    SET last_message_text = '{message.replace("'", "''")}',
+                    SET last_message_text = '{message_escaped}',
                         last_message_time = NOW(),
                         updated_at = NOW()
                     WHERE id = {chat_id}
@@ -300,17 +317,18 @@ def send_message(conn, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
             else:
                 cur.execute(f"""
                     INSERT INTO whatsapp_chats (user_id, phone_number, last_message_text, last_message_time, is_admin_chat, updated_at)
-                    VALUES ({user_id}, '{phone}', '{message.replace("'", "''")}', NOW(), {is_admin}, NOW())
+                    VALUES ({user_id}, '{phone}', '{message_escaped}', NOW(), {is_admin}, NOW())
                     RETURNING id
                 """)
-                chat_id = cur.fetchone()['id']
+                row = cur.fetchone()
+                chat_id = row[0] if row else None
             
             print(f"[MAX] Chat saved: chat_id={chat_id}")
             
             # Сохраняем сообщение
             cur.execute(f"""
                 INSERT INTO whatsapp_messages (chat_id, message_text, is_from_me, timestamp, status, is_read)
-                VALUES ({chat_id}, '{message.replace("'", "''")}', TRUE, NOW(), 'sent', TRUE)
+                VALUES ({chat_id}, '{message_escaped}', TRUE, NOW(), 'sent', TRUE)
             """)
             
             conn.commit()
