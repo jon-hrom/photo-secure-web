@@ -234,10 +234,18 @@ export const useClientsHandlers = ({
           console.log('[CLIENT_ADD] Data loaded in', elapsedTime, 'ms');
           
           // Если данные загрузились раньше 15 секунд - открываем сразу
+          // Но показываем прогресс минимум 500мс для плавности
+          const minDisplayTime = 500;
           if (elapsedTime < maxWaitTime) {
             console.log('[CLIENT_ADD] Data ready early! Opening dialog immediately');
+            
+            // Ждём минимум 500мс для отображения прогресса
+            if (elapsedTime < minDisplayTime) {
+              await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsedTime));
+            }
+            
             setIsCountdownOpen(false);
-            // Даём немного времени для закрытия счётчика
+            // Даём немного времени для закрытия прогресс-бара
             setTimeout(() => {
               setIsDetailDialogOpen(true);
             }, 100);

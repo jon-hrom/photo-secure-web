@@ -11,7 +11,7 @@ import BookingDialogs from '@/components/clients/BookingDialogs';
 import MessageDialog from '@/components/clients/MessageDialog';
 import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
 import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
-import CountdownLoader from '@/components/clients/CountdownLoader';
+import LoadingProgressBar from '@/components/clients/LoadingProgressBar';
 import { useClientsData } from '@/hooks/useClientsData';
 import { useClientsDialogs } from '@/hooks/useClientsDialogs';
 import { useClientsHandlers } from '@/hooks/useClientsHandlers';
@@ -345,11 +345,11 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         filteredClients={filteredClients}
       />
 
-      <CountdownLoader
+      <LoadingProgressBar
         open={dialogsState.isCountdownOpen}
-        seconds={15}
+        maxTime={15000}
         onComplete={() => {
-          console.log('[ClientsPage] Countdown completed, closing countdown dialog');
+          console.log('[ClientsPage] Loading completed, closing progress dialog');
           dialogsState.setIsCountdownOpen(false);
         }}
       />
