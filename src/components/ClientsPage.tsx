@@ -347,7 +347,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
       <CountdownLoader
         open={dialogsState.isCountdownOpen}
-        seconds={7}
+        seconds={10}
         onComplete={() => {
           console.log('[ClientsPage] Countdown completed, closing countdown dialog');
           dialogsState.setIsCountdownOpen(false);

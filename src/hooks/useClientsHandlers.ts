@@ -220,7 +220,7 @@ export const useClientsHandlers = ({
         })();
         
         // Запускаем таймер и загрузку данных параллельно
-        const countdownPromise = new Promise(resolve => setTimeout(resolve, 7000));
+        const countdownPromise = new Promise(resolve => setTimeout(resolve, 10000));
         
         try {
           // Загружаем данные в фоне
