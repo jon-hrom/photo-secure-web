@@ -156,24 +156,37 @@ def get_credentials(conn, user_id: str) -> Dict[str, Any]:
 
 def connect_max(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
     """Подключить MAX через GREEN-API"""
+    print(f"[MAX Credentials] connect_max called for user_id={user_id}, body={body}")
+    
     instance_id = body.get('instance_id', '').strip()
     token = body.get('token', '').strip()
     
+    print(f"[MAX Credentials] Extracted: instance_id={instance_id[:5]}..., token_len={len(token)}")
+    
     if not instance_id or not token:
+        print(f"[MAX Credentials] Missing credentials")
         return {'error': 'Требуется instance_id и token'}
     
     # Проверяем credentials через GREEN-API
     try:
+        print(f"[MAX Credentials] Verifying credentials via GREEN-API...")
         validation = verify_green_api_credentials(instance_id, token)
+        print(f"[MAX Credentials] Validation result: {validation}")
+        
         if not validation['valid']:
+            print(f"[MAX Credentials] Validation failed: {validation.get('error')}")
             return {
                 'error': 'Не удалось подключиться к GREEN-API',
                 'details': validation.get('error', 'Неверные credentials')
             }
         
         max_phone = validation.get('phone', '')
+        print(f"[MAX Credentials] Validation success! phone={max_phone}")
         
     except Exception as e:
+        print(f"[MAX Credentials] Exception during verification: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return {
             'error': 'Ошибка проверки GREEN-API',
             'details': str(e)
@@ -181,6 +194,7 @@ def connect_max(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
     
     # Сохраняем в БД
     with conn.cursor() as cur:
+        print(f"[MAX Credentials] Saving to DB...")
         cur.execute(f"""
             UPDATE users 
             SET 
@@ -195,8 +209,10 @@ def connect_max(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
         
         row = cur.fetchone()
         result = dict_from_row(cur, row) if row else None
+        print(f"[MAX Credentials] DB update result: {result}")
         
         conn.commit()
+        print(f"[MAX Credentials] Committed successfully!")
         
         return {
             'success': True,
@@ -281,10 +297,14 @@ def verify_green_api_credentials(instance_id: str, token: str) -> Dict[str, Any]
     """Проверка credentials через GREEN-API getSettings"""
     try:
         url = f"https://api.green-api.com/waInstance{instance_id}/getSettings/{token}"
+        print(f"[MAX Credentials] Calling GREEN-API: {url[:80]}...")
+        
         response = requests.get(url, timeout=10)
+        print(f"[MAX Credentials] GREEN-API response: status={response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
+            print(f"[MAX Credentials] GREEN-API data: {data}")
             # Успешный ответ - credentials валидны
             phone_number = data.get('wid', '').replace('@c.us', '')
             return {
@@ -293,22 +313,29 @@ def verify_green_api_credentials(instance_id: str, token: str) -> Dict[str, Any]
                 'state': data.get('stateInstance', 'unknown')
             }
         elif response.status_code == 401:
+            print(f"[MAX Credentials] GREEN-API 401: Unauthorized")
             return {
                 'valid': False,
                 'error': 'Неверный instance_id или token'
             }
         else:
+            error_text = response.text[:200]
+            print(f"[MAX Credentials] GREEN-API error: {response.status_code}, body={error_text}")
             return {
                 'valid': False,
-                'error': f'Ошибка GREEN-API: {response.status_code}'
+                'error': f'Ошибка GREEN-API: {response.status_code} - {error_text}'
             }
     
     except requests.exceptions.Timeout:
+        print(f"[MAX Credentials] GREEN-API timeout")
         return {
             'valid': False,
             'error': 'Превышено время ожидания ответа от GREEN-API'
         }
     except Exception as e:
+        print(f"[MAX Credentials] GREEN-API exception: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return {
             'valid': False,
             'error': f'Ошибка проверки: {str(e)}'
