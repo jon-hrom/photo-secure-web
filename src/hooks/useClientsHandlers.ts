@@ -38,6 +38,7 @@ interface UseClientsHandlersProps {
   emailBody: string;
   setEmailBody: (body: string) => void;
   setIsDetailDialogOpen?: (open: boolean) => void;
+  setIsCountdownOpen?: (open: boolean) => void;
 }
 
 export const useClientsHandlers = ({
@@ -66,6 +67,7 @@ export const useClientsHandlers = ({
   emailBody,
   setEmailBody,
   setIsDetailDialogOpen,
+  setIsCountdownOpen,
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
@@ -124,7 +126,10 @@ export const useClientsHandlers = ({
       toast.success('Клиент успешно добавлен');
       
       // Обновить список клиентов и сразу открыть окно
-      if (setIsDetailDialogOpen) {
+      if (setIsDetailDialogOpen && setIsCountdownOpen) {
+        // Показываем счётчик обратного отсчёта
+        setIsCountdownOpen(true);
+        
         console.log('[CLIENT_ADD] Fetching fresh client data...');
         const freshRes = await fetch(CLIENTS_API, {
           headers: { 'X-User-Id': userId! }
@@ -192,9 +197,20 @@ export const useClientsHandlers = ({
             };
             
             console.log('[CLIENT_ADD] Opening client detail dialog');
-            setSelectedClient(parsedClient);
-            setIsDetailDialogOpen(true);
+            
+            // Через 3 секунды (когда закончится счётчик) открываем окно
+            setTimeout(() => {
+              setIsCountdownOpen(false);
+              setSelectedClient(parsedClient);
+              setIsDetailDialogOpen(true);
+            }, 3000);
+          } else {
+            // Если клиент не найден - закрываем счётчик сразу
+            setIsCountdownOpen(false);
           }
+        } else {
+          // Если запрос не удался - закрываем счётчик
+          setIsCountdownOpen(false);
         }
         
         // Обновляем список клиентов в фоне

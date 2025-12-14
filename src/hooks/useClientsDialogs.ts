@@ -9,6 +9,7 @@ export const useClientsDialogs = () => {
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isCountdownOpen, setIsCountdownOpen] = useState(false);
   
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -111,5 +112,7 @@ export const useClientsDialogs = () => {
     openDetailDialog,
     isExportDialogOpen,
     setIsExportDialogOpen,
+    isCountdownOpen,
+    setIsCountdownOpen,
   };
 };

@@ -11,6 +11,7 @@ import BookingDialogs from '@/components/clients/BookingDialogs';
 import MessageDialog from '@/components/clients/MessageDialog';
 import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
 import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
+import CountdownLoader from '@/components/clients/CountdownLoader';
 import { useClientsData } from '@/hooks/useClientsData';
 import { useClientsDialogs } from '@/hooks/useClientsDialogs';
 import { useClientsHandlers } from '@/hooks/useClientsHandlers';
@@ -74,6 +75,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     emailBody: dialogsState.emailBody,
     setEmailBody: dialogsState.setEmailBody,
     setIsDetailDialogOpen: dialogsState.setIsDetailDialogOpen,
+    setIsCountdownOpen: dialogsState.setIsCountdownOpen,
   });
 
   // Фильтрация клиентов по поиску
@@ -336,6 +338,11 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onOpenChange={dialogsState.setIsExportDialogOpen}
         clients={clients}
         filteredClients={filteredClients}
+      />
+
+      <CountdownLoader
+        open={dialogsState.isCountdownOpen}
+        seconds={3}
       />
     </div>
   );

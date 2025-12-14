@@ -141,6 +141,20 @@
     @apply transition-transform duration-200 hover:scale-105;
   }
 
+  @keyframes animate-scale-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+  }
+
+  .animate-scale-pulse {
+    animation: animate-scale-pulse 1s ease-in-out infinite;
+  }
+
   @keyframes scale-in {
     from {
       opacity: 0;
