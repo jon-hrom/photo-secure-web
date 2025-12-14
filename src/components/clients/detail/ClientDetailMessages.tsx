@@ -1,11 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { Message } from '@/components/clients/ClientsTypes';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ClientDetailMessagesProps {
   messages: Message[];
@@ -38,7 +35,6 @@ const ClientDetailMessages = ({
   onDeleteMessage,
   clientName = 'Клиент'
 }: ClientDetailMessagesProps) => {
-  const [showForm, setShowForm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -52,7 +48,6 @@ const ClientDetailMessages = ({
 
   const handleAdd = () => {
     onAddMessage();
-    setShowForm(false);
   };
 
   const sortedMessages = [...messages].sort((a, b) => 
@@ -154,114 +149,27 @@ const ClientDetailMessages = ({
       </div>
 
       <div className="p-4 bg-white border-t-2 border-gray-200 rounded-b-2xl shadow-lg">
-        {showForm ? (
-          <Card className="p-4 space-y-3 border-2 border-primary/20">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-semibold text-sm">Новое сообщение</h4>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowForm(false)}
-                className="h-8 w-8 p-0"
-              >
-                <Icon name="X" size={16} />
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Тип</label>
-                <Select 
-                  value={newMessage.type} 
-                  onValueChange={(value) => onMessageChange('type', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите тип" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="email">
-                      <div className="flex items-center gap-2">
-                        <Icon name="Mail" size={16} />
-                        Email
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="vk">
-                      <div className="flex items-center gap-2">
-                        <Icon name="MessageCircle" size={16} />
-                        ВКонтакте
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="phone">
-                      <div className="flex items-center gap-2">
-                        <Icon name="Phone" size={16} />
-                        Телефон
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="meeting">
-                      <div className="flex items-center gap-2">
-                        <Icon name="Calendar" size={16} />
-                        Встреча
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Автор</label>
-                <Input
-                  value={newMessage.author}
-                  onChange={(e) => onMessageChange('author', e.target.value)}
-                  placeholder="Ваше имя или 'Клиент'"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-1 block">Сообщение</label>
-              <Textarea
-                value={newMessage.content}
-                onChange={(e) => onMessageChange('content', e.target.value)}
-                placeholder="Текст сообщения..."
-                rows={4}
-              />
-            </div>
-            
-            <Button onClick={handleAdd} className="w-full">
-              <Icon name="Send" size={16} />
-              Отправить
-            </Button>
-          </Card>
-        ) : (
-          <div className="flex gap-2">
-            <Input
-              placeholder="Напишите сообщение..."
-              value={newMessage.content}
-              onChange={(e) => onMessageChange('content', e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && newMessage.content.trim()) {
-                  e.preventDefault();
-                  handleAdd();
-                }
-              }}
-              className="flex-1 rounded-full border-2 border-gray-300 focus:border-primary"
-            />
-            <Button 
-              onClick={() => setShowForm(true)}
-              variant="outline"
-              size="icon"
-              className="rounded-full flex-shrink-0"
-            >
-              <Icon name="Plus" size={20} />
-            </Button>
-            <Button 
-              onClick={handleAdd}
-              disabled={!newMessage.content.trim()}
-              className="rounded-full px-6"
-            >
-              <Icon name="Send" size={18} />
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Напишите сообщение..."
+            value={newMessage.content}
+            onChange={(e) => onMessageChange('content', e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && newMessage.content.trim()) {
+                e.preventDefault();
+                handleAdd();
+              }
+            }}
+            className="flex-1 rounded-full border-2 border-gray-300 focus:border-primary"
+          />
+          <Button 
+            onClick={handleAdd}
+            disabled={!newMessage.content.trim()}
+            className="rounded-full px-6"
+          >
+            <Icon name="Send" size={18} />
+          </Button>
+        </div>
       </div>
     </div>
   );

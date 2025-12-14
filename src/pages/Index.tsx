@@ -336,8 +336,6 @@ const Index = () => {
         userEmail={userEmail}
         userAvatar={userAvatar}
         isVerified={isVerified}
-        hasVerifiedPhone={hasVerifiedPhone}
-        onOpenMAX={() => setShowMAX(true)}
         onLogout={handleLogout}
       />
 
@@ -360,31 +358,8 @@ const Index = () => {
       {userId && isAuthenticated && (
         <>
           {isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
-          {hasVerifiedPhone ? (
+          {hasVerifiedPhone && (
             <MAXMessenger userId={userId} isOpen={showMAX} onClose={() => setShowMAX(false)} />
-          ) : (
-            <Button
-              onClick={() => {
-                toast.info('Для использования MAX подтвердите телефон', {
-                  description: 'Перейдите в Настройки → Укажите и подтвердите телефон',
-                  action: {
-                    label: 'Настройки',
-                    onClick: () => setCurrentPage('settings')
-                  },
-                  duration: 6000
-                });
-              }}
-              className="fixed bottom-6 right-6 rounded-full shadow-2xl z-50 h-14 w-14 p-0 bg-gradient-to-br from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 border-0"
-              size="lg"
-              title="Подтвердите телефон для доступа к MAX"
-            >
-              <div className="relative flex items-center justify-center">
-                <span className="text-white font-bold text-lg tracking-tight opacity-60">M</span>
-                <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full w-4 h-4 flex items-center justify-center">
-                  <Icon name="Lock" size={10} className="text-white" />
-                </div>
-              </div>
-            </Button>
           )}
         </>
       )}

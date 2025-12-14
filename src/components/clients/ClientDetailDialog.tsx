@@ -19,6 +19,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   const tabs = ['overview', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
   const [activeTab, setActiveTab] = useState('overview');
   const [showSwipeHint, setShowSwipeHint] = useState(false);
+  const [photographerPhone, setPhotographerPhone] = useState('');
   const [newProject, setNewProject] = useState({ 
     name: '', 
     budget: '', 
@@ -36,10 +37,32 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   const [newComment, setNewComment] = useState('');
   const [newMessage, setNewMessage] = useState({ 
     content: '', 
-    type: 'email', 
-    author: 'Администратор' 
+    type: 'phone', 
+    author: '' 
   });
   const [localClient, setLocalClient] = useState(client);
+
+  useEffect(() => {
+    const fetchPhotographerPhone = async () => {
+      try {
+        const userId = localStorage.getItem('userId');
+        if (!userId) return;
+        
+        const SETTINGS_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
+        const response = await fetch(`${SETTINGS_API}?userId=${userId}`);
+        const data = await response.json();
+        
+        if (response.ok && data.phone) {
+          setPhotographerPhone(data.phone);
+          setNewMessage(prev => ({ ...prev, author: data.phone }));
+        }
+      } catch (error) {
+        console.error('[ClientDetailDialog] Failed to fetch photographer phone:', error);
+      }
+    };
+    
+    fetchPhotographerPhone();
+  }, []);
 
   useEffect(() => {
     if (client) {
@@ -250,8 +273,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     const message: Message = {
       id: Date.now(),
       date: new Date().toISOString(),
-      type: newMessage.type as 'email' | 'vk' | 'phone' | 'meeting',
-      author: newMessage.author,
+      type: 'phone',
+      author: photographerPhone || 'Фотограф',
       content: newMessage.content,
     };
 
@@ -269,7 +292,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     onUpdate(updatedClient);
     
     // Очищаем форму
-    setNewMessage({ content: '', type: 'email', author: 'Администратор' });
+    setNewMessage({ content: '', type: 'phone', author: photographerPhone });
     toast.success('Сообщение отправлено');
   };
 

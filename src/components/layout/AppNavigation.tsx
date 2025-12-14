@@ -17,7 +17,6 @@ interface AppNavigationProps {
   userAvatar: string;
   isVerified: boolean;
   hasVerifiedPhone?: boolean;
-  onOpenMAX?: () => void;
   onLogout: () => void;
 }
 
@@ -28,8 +27,6 @@ const AppNavigation = ({
   userEmail,
   userAvatar,
   isVerified,
-  hasVerifiedPhone = false,
-  onOpenMAX,
   onLogout
 }: AppNavigationProps) => {
   const navigate = useNavigate();
@@ -97,21 +94,6 @@ const AppNavigation = ({
             >
               <Icon name="HelpCircle" size={20} />
             </Button>
-            
-            {hasVerifiedPhone && onOpenMAX && (
-              <Button
-                onClick={onOpenMAX}
-                className="hidden md:flex rounded-full bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 border-0 transition-all duration-300 hover:scale-105 hover:shadow-lg text-white font-semibold"
-                title="MAX мессенджер"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded bg-white/20 flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">M</span>
-                  </div>
-                  MAX
-                </div>
-              </Button>
-            )}
             
             <Button
               variant="outline"

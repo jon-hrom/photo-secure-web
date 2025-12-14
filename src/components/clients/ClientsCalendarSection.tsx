@@ -243,6 +243,58 @@ const ClientsCalendarSection = ({
               </div>
             </div>
 
+            {selectedClient.messages && selectedClient.messages.length > 0 && (
+              <div className="space-y-2 pt-3 border-t border-gray-200">
+                <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Icon name="MessageSquare" size={16} className="text-emerald-500" />
+                  История переписки
+                </p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedClient.messages
+                    .slice()
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .slice(0, 5)
+                    .map((message, index) => {
+                      const isFromClient = message.author.toLowerCase() === 'клиент' || 
+                                          message.author.toLowerCase() === selectedClient.name.toLowerCase();
+                      return (
+                        <div 
+                          key={message.id} 
+                          className="p-3 rounded-xl bg-gradient-to-r from-emerald-50/50 to-cyan-50/50 shadow-sm transition-all duration-300 animate-in fade-in slide-in-from-right-4"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <div className="flex items-start gap-2">
+                            <Icon 
+                              name={isFromClient ? "User" : "UserCheck"} 
+                              size={14} 
+                              className={isFromClient ? "text-blue-500 mt-0.5" : "text-emerald-500 mt-0.5"} 
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-xs font-semibold ${isFromClient ? 'text-blue-700' : 'text-emerald-700'}`}>
+                                  {isFromClient ? selectedClient.name : message.author}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(message.date).toLocaleString('ru-RU', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600 line-clamp-2">
+                                {message.content}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
             {selectedClient.bookings.length > 0 && (
               <div className="space-y-2 pt-3 border-t border-gray-200">
                 <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
