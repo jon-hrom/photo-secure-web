@@ -33,7 +33,7 @@ export function MAXConnectionCard() {
   const checkConnection = async () => {
     setChecking(true);
     try {
-      const userId = localStorage.getItem('user_id');
+      const userId = localStorage.getItem('userId');
       const response = await fetch('https://functions.poehali.dev/a24d49e3-71e5-42a1-8eb7-ef651778ea7e', {
         method: 'GET',
         headers: {
