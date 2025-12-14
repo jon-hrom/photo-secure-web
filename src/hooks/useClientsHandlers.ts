@@ -220,7 +220,8 @@ export const useClientsHandlers = ({
         })();
         
         // Запускаем таймер и загрузку данных параллельно
-        const countdownPromise = new Promise(resolve => setTimeout(resolve, 10000));
+        const startTime = Date.now();
+        const maxWaitTime = 15000; // 15 секунд
         
         try {
           // Загружаем данные в фоне
@@ -228,15 +229,35 @@ export const useClientsHandlers = ({
           console.log('[CLIENT_ADD] Data loaded, setting selected client');
           setSelectedClient(parsedClient);
           
-          // Ждём окончания countdown (если данные загрузились быстрее 7 сек)
-          await countdownPromise;
+          // Считаем сколько времени прошло
+          const elapsedTime = Date.now() - startTime;
+          console.log('[CLIENT_ADD] Data loaded in', elapsedTime, 'ms');
           
-          console.log('[CLIENT_ADD] Opening detail dialog after countdown');
-          setIsDetailDialogOpen(true);
+          // Если данные загрузились раньше 15 секунд - открываем сразу
+          if (elapsedTime < maxWaitTime) {
+            console.log('[CLIENT_ADD] Data ready early! Opening dialog immediately');
+            setIsCountdownOpen(false);
+            // Даём немного времени для закрытия счётчика
+            setTimeout(() => {
+              setIsDetailDialogOpen(true);
+            }, 100);
+          } else {
+            // Если загрузка заняла больше 15 секунд - ждём окончания countdown
+            const remainingTime = maxWaitTime - elapsedTime;
+            if (remainingTime > 0) {
+              await new Promise(resolve => setTimeout(resolve, remainingTime));
+            }
+            console.log('[CLIENT_ADD] Opening detail dialog after countdown');
+            setIsDetailDialogOpen(true);
+          }
         } catch (error) {
           console.error('[CLIENT_ADD] Error loading client:', error);
-          // Ждём countdown даже при ошибке
-          await countdownPromise;
+          // При ошибке ждём полных 15 секунд
+          const elapsedTime = Date.now() - startTime;
+          const remainingTime = maxWaitTime - elapsedTime;
+          if (remainingTime > 0) {
+            await new Promise(resolve => setTimeout(resolve, remainingTime));
+          }
           setIsCountdownOpen(false);
           toast.error('Не удалось загрузить данные клиента');
         }
