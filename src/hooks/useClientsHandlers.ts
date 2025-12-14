@@ -91,49 +91,58 @@ export const useClientsHandlers = ({
     const clientNameForSearch = newClient.name;
     const clientPhoneForSearch = newClient.phone;
     
-    try {
-      console.log('[CLIENT_ADD] Sending request:', { action: 'create', ...newClient });
-      console.log('[CLIENT_ADD] User ID:', userId);
-      
-      const res = await fetch(CLIENTS_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId
-        },
-        body: JSON.stringify({
-          action: 'create',
-          ...newClient
-        })
-      });
-      
-      console.log('[CLIENT_ADD] Response status:', res.status);
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('[CLIENT_ADD] Error response:', errorText);
-        throw new Error('Failed to add client');
-      }
-      
-      let createdClientId: number | null = null;
-      
+    // Закрываем форму и показываем счётчик СРАЗУ (не ждём сервер!)
+    setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
+    setIsAddDialogOpen(false);
+    
+    if (setIsDetailDialogOpen && setIsCountdownOpen) {
+      console.log('[CLIENT_ADD] Starting countdown immediately!');
+      setIsCountdownOpen(true);
+    }
+    
+    // ВСЁ ОСТАЛЬНОЕ в фоне (не блокирует UI)
+    (async () => {
       try {
-        const result = await res.json();
-        console.log('[CLIENT_ADD] Created client result:', result);
-        createdClientId = result?.id || null;
-      } catch (err) {
-        console.log('[CLIENT_ADD] No JSON response, will find client by name');
-      }
-      
-      setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
-      setIsAddDialogOpen(false);
-      toast.success('Клиент успешно добавлен');
-      
-      // Обновить список клиентов и сразу открыть окно
-      if (setIsDetailDialogOpen && setIsCountdownOpen) {
-        // Показываем счётчик обратного отсчёта СРАЗУ
-        console.log('[CLIENT_ADD] Starting countdown (7 seconds)');
-        setIsCountdownOpen(true);
+        console.log('[CLIENT_ADD] Sending request:', { action: 'create', ...newClient });
+        
+        const res = await fetch(CLIENTS_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId
+          },
+          body: JSON.stringify({
+            action: 'create',
+            name: clientNameForSearch,
+            phone: clientPhoneForSearch,
+            email: newClient.email,
+            address: newClient.address,
+            vkProfile: newClient.vkProfile
+          })
+        });
+        
+        console.log('[CLIENT_ADD] Response status:', res.status);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('[CLIENT_ADD] Error response:', errorText);
+          throw new Error('Failed to add client');
+        }
+        
+        let createdClientId: number | null = null;
+        
+        try {
+          const result = await res.json();
+          console.log('[CLIENT_ADD] Created client result:', result);
+          createdClientId = result?.id || null;
+        } catch (err) {
+          console.log('[CLIENT_ADD] No JSON response, will find client by name');
+        }
+        
+        toast.success('Клиент успешно добавлен');
+        
+        // Обновить список клиентов и сразу открыть окно
+        if (setIsDetailDialogOpen && setIsCountdownOpen) {
         
         // ПАРАЛЛЕЛЬНО загружаем данные (пока идёт счётчик)
         console.log('[CLIENT_ADD] Fetching fresh client data in parallel...');
@@ -210,37 +219,42 @@ export const useClientsHandlers = ({
           } as Client;
         })();
         
-        // Ждём минимум 7 секунд (время счётчика) ИЛИ пока данные не загрузятся
+        // Запускаем таймер и загрузку данных параллельно
+        const countdownPromise = new Promise(resolve => setTimeout(resolve, 7000));
+        
         try {
-          const parsedClient = await Promise.race([
-            dataPromise,
-            new Promise<Client>((resolve) => setTimeout(() => resolve(dataPromise), 7000))
-          ]);
-          
+          // Загружаем данные в фоне
+          const parsedClient = await dataPromise;
           console.log('[CLIENT_ADD] Data loaded, setting selected client');
           setSelectedClient(parsedClient);
           
-          // Ждём окончания countdown (если данные загрузились быстрее)
-          await new Promise(resolve => setTimeout(resolve, 7000));
+          // Ждём окончания countdown (если данные загрузились быстрее 7 сек)
+          await countdownPromise;
           
           console.log('[CLIENT_ADD] Opening detail dialog after countdown');
           setIsDetailDialogOpen(true);
         } catch (error) {
           console.error('[CLIENT_ADD] Error loading client:', error);
+          // Ждём countdown даже при ошибке
+          await countdownPromise;
           setIsCountdownOpen(false);
           toast.error('Не удалось загрузить данные клиента');
         }
         
         // Обновляем список клиентов в фоне
-        await loadClients();
+        loadClients().catch(console.error);
       } else {
         // Если нет setIsDetailDialogOpen - просто обновляем список
-        await loadClients();
+        loadClients().catch(console.error);
       }
     } catch (error) {
       console.error('Failed to add client:', error);
+      if (setIsCountdownOpen) {
+        setIsCountdownOpen(false);
+      }
       toast.error('Не удалось добавить клиента');
     }
+    })();
   };
 
   const handleUpdateClientFromEdit = async () => {
