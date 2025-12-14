@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 
@@ -18,6 +20,31 @@ const ClientsListSection = ({
   onDeleteClient,
   onAddBooking,
 }: ClientsListSectionProps) => {
+  const [selectedClients, setSelectedClients] = useState<number[]>([]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedClients(filteredClients.map(c => c.id));
+    } else {
+      setSelectedClients([]);
+    }
+  };
+
+  const handleSelectClient = (clientId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedClients(prev => [...prev, clientId]);
+    } else {
+      setSelectedClients(prev => prev.filter(id => id !== clientId));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedClients.length === 0) return;
+    if (confirm(`Удалить ${selectedClients.length} клиент(ов)?`)) {
+      selectedClients.forEach(id => onDeleteClient(id));
+      setSelectedClients([]);
+    }
+  };
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -60,6 +87,29 @@ const ClientsListSection = ({
 
   return (
     <div className="lg:col-span-2">
+      {selectedClients.length > 0 && (
+        <div className="mb-4 flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+          <span className="text-sm font-medium">
+            Выбрано: {selectedClients.length}
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteSelected}
+          >
+            <Icon name="Trash2" size={16} className="mr-2" />
+            Удалить выбранные
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSelectedClients([])}
+          >
+            Отменить
+          </Button>
+        </div>
+      )}
+      
       {filteredClients.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -77,7 +127,13 @@ const ClientsListSection = ({
               <table className="w-full min-w-max">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap sticky left-0 bg-muted/50 z-20 px-[104px]">Клиент</th>
+                    <th className="text-center p-2 md:p-3 w-12 sticky left-0 bg-muted/50 z-20">
+                      <Checkbox
+                        checked={selectedClients.length === filteredClients.length && filteredClients.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap sticky left-12 bg-muted/50 z-20 px-[104px]">Клиент</th>
                     <th className="text-left p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell my-[9px] py-2 mx-2.5 px-[70px]">Контакты</th>
                     <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell px-1 mx-[11px] my-3.5">Записи</th>
                     <th className="text-center p-2 md:p-3 text-xs md:text-sm font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell px-0.5">Проекты</th>
@@ -96,10 +152,17 @@ const ClientsListSection = ({
                     return (
                       <tr
                         key={client.id}
-                        className="border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 cursor-pointer group"
-                        onClick={() => onSelectClient(client)}
+                        className="border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 group"
                       >
-                        <td className="p-2 md:p-3 sticky left-0 bg-white group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)] relative transition-all duration-200">
+                        <td className="p-2 md:p-3 text-center sticky left-0 bg-white group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 w-12"
+                          onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedClients.includes(client.id)}
+                            onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
+                          />
+                        </td>
+                        <td className="p-2 md:p-3 sticky left-12 bg-white group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)] relative transition-all duration-200 cursor-pointer"
+                          onClick={() => onSelectClient(client)}>
                           {hasAnyProjects(client) && (
                             <div className="absolute left-0 top-0 bottom-0 w-1 flex flex-col">
                               {(client.projects || []).map((project, idx) => (
