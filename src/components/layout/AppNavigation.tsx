@@ -100,13 +100,16 @@ const AppNavigation = ({
             
             {hasVerifiedPhone && onOpenMAX && (
               <Button
-                variant="outline"
                 onClick={onOpenMAX}
-                className="hidden md:flex rounded-full border-2 border-green-500/50 hover:border-green-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-green-100 transition-all duration-300 hover:scale-105 hover:shadow-lg text-green-700"
+                className="hidden md:flex rounded-full bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border-0 transition-all duration-300 hover:scale-105 hover:shadow-lg text-white font-semibold"
                 title="MAX мессенджер"
               >
-                <Icon name="MessageCircle" size={18} className="mr-2" />
-                MAX
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-white/20 flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">M</span>
+                  </div>
+                  MAX
+                </div>
               </Button>
             )}
             

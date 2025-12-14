@@ -273,9 +273,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label htmlFor="phone" className="text-sm md:text-base">Телефон</Label>
-                <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-                  <Icon name="MessageCircle" size={12} />
-                  <span className="font-medium">для MAX</span>
+                <div className="flex items-center gap-1.5 text-xs bg-gradient-to-br from-green-500 to-green-600 text-white px-2 py-1 rounded-full shadow-sm">
+                  <div className="w-3 h-3 rounded-sm bg-white/20 flex items-center justify-center">
+                    <span className="text-white font-bold text-[8px]">M</span>
+                  </div>
+                  <span className="font-semibold">для MAX</span>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -352,9 +354,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                   </Button>
                 </div>
               ) : null}
-              <div className="flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
-                <Icon name="Info" size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                <p>Ваш подтвержденный номер телефона используется для доступа к мессенджеру MAX</p>
+              <div className="flex items-start gap-2 text-xs bg-gradient-to-br from-green-50 to-emerald-50 px-3 py-2 rounded-lg border border-green-200">
+                <div className="w-5 h-5 mt-0.5 rounded bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <span className="text-white font-bold text-[10px]">M</span>
+                </div>
+                <p className="text-green-800"><span className="font-semibold">MAX мессенджер:</span> Ваш подтвержденный номер телефона используется для доступа</p>
               </div>
             </div>
           </CardContent>

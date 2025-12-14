@@ -374,15 +374,14 @@ const Index = () => {
                   duration: 6000
                 });
               }}
-              className="fixed bottom-6 right-6 rounded-full shadow-2xl z-50 h-14 w-14 p-0"
+              className="fixed bottom-6 right-6 rounded-full shadow-2xl z-50 h-14 w-14 p-0 bg-gradient-to-br from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 border-0"
               size="lg"
-              variant="secondary"
               title="Подтвердите телефон для доступа к MAX"
             >
-              <div className="relative">
-                <Icon name="MessageCircle" size={24} className="opacity-50" />
+              <div className="relative flex items-center justify-center">
+                <span className="text-white font-bold text-lg tracking-tight opacity-60">MAX</span>
                 <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full w-4 h-4 flex items-center justify-center">
-                  <Icon name="Lock" size={12} className="text-white" />
+                  <Icon name="Lock" size={10} className="text-white" />
                 </div>
               </div>
             </Button>

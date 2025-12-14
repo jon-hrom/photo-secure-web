@@ -43,9 +43,11 @@ const MAXChatList = ({
     <div className="w-1/3 border-r flex flex-col">
       <DialogHeader className="p-4 border-b">
         <div className="flex items-center justify-between">
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="MessageCircle" size={24} className="text-green-600" />
-            MAX
+          <DialogTitle className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
+              <span className="text-white font-bold text-sm">M</span>
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">MAX</span>
           </DialogTitle>
           <Button
             size="sm"
