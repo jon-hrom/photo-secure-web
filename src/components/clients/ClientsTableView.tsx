@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { useTableSort, SortableColumn } from '@/hooks/useTableSort';
 import { useViewPresets } from '@/hooks/useViewPresets';
-import ViewPresetsDropdown from '@/components/clients/ViewPresetsDropdown';
+import TableHeader from '@/components/clients/table/TableHeader';
+import TableColumns from '@/components/clients/table/TableColumns';
+import TableRow from '@/components/clients/table/TableRow';
+import TablePagination from '@/components/clients/table/TablePagination';
 import { toast } from 'sonner';
 
 interface ClientsTableViewProps {
@@ -216,188 +216,63 @@ const ClientsTableView = ({ clients, onSelectClient, onDeleteClients, externalSe
     presets.deletePreset(presetId);
   };
 
-  const renderSortIndicator = (columnKey: string) => {
-    const direction = getSortDirection(columnKey);
-    const priority = getSortPriority(columnKey);
-    
-    if (direction === null) {
-      return (
-        <Icon name="ChevronsUpDown" size={14} className="ml-1 opacity-0 group-hover:opacity-40 transition-opacity" />
-      );
-    }
-    
-    return (
-      <div className="ml-1 flex items-center gap-1">
-        <Icon 
-          name={direction === 'asc' ? 'ChevronUp' : 'ChevronDown'} 
-          size={14} 
-          className="text-primary"
-        />
-        {sortConfigs.length > 1 && priority !== null && (
-          <span className="text-xs text-primary font-semibold">{priority + 1}</span>
-        )}
-      </div>
-    );
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+    presets.clearActivePreset();
+  };
+
+  const handleStatusFilterChange = (filter: 'all' | 'active' | 'inactive') => {
+    setStatusFilter(filter);
+    presets.clearActivePreset();
+  };
+
+  const handleClearSort = () => {
+    clearSort();
+    presets.clearActivePreset();
   };
 
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 border border-purple-100/50">
-      <CardHeader className="border-b space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold">Все клиенты ({sortedClients.length})</h3>
-            {hasSorting && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  clearSort();
-                  presets.clearActivePreset();
-                }}
-                className="h-7 text-xs gap-1 hover:bg-destructive/10 hover:text-destructive transition-colors"
-              >
-                <Icon name="X" size={14} />
-                Сбросить
-              </Button>
-            )}
-            {selectedClientIds.length > 0 && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDeleteSelected}
-                disabled={isDeleting}
-                className="h-7 text-xs gap-1"
-              >
-                {isDeleting ? (
-                  <>
-                    <Icon name="Loader" size={14} className="animate-spin" />
-                    Удаление...
-                  </>
-                ) : (
-                  <>
-                    <Icon name="Trash2" size={14} />
-                    Удалить ({selectedClientIds.length})
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-          <div className="relative w-full max-w-sm">
-            <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Поиск клиента..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-                presets.clearActivePreset();
-              }}
-              className="pl-10"
-            />
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-between gap-3">
-          <ViewPresetsDropdown
-            allPresets={presets.allPresets}
-            defaultPresets={presets.defaultPresets}
-            customPresets={presets.customPresets}
-            activePresetId={presets.activePresetId}
-            onApplyPreset={handleApplyPreset}
-            onSavePreset={handleSavePreset}
-            onDeletePreset={handleDeletePreset}
-            currentState={{
-              searchQuery,
-              statusFilter,
-              sortConfigs,
-            }}
-          />
-          
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setStatusFilter('all');
-                presets.clearActivePreset();
-              }}
-              className={`rounded-full transition-all hover:scale-105 active:scale-95 ${
-                statusFilter === 'all'
-                  ? 'bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 text-purple-700 border-purple-200/50 hover:from-purple-200 hover:via-pink-100 hover:to-rose-200'
-                  : 'hover:bg-purple-50 hover:border-purple-200'
-              }`}
-            >
-              Все
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setStatusFilter('active');
-                presets.clearActivePreset();
-              }}
-              className={`gap-1 rounded-full transition-all hover:scale-105 active:scale-95 ${
-                statusFilter === 'active'
-                  ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border-emerald-200/50 hover:from-emerald-200 hover:to-green-200'
-                  : 'hover:bg-emerald-50 hover:border-emerald-200'
-              }`}
-            >
-              <Icon name="CheckCircle" size={14} />
-              Активные
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setStatusFilter('inactive');
-                presets.clearActivePreset();
-              }}
-              className={`gap-1 rounded-full transition-all hover:scale-105 active:scale-95 ${
-                statusFilter === 'inactive'
-                  ? 'bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 border-orange-200/50 hover:from-orange-200 hover:to-amber-200'
-                  : 'hover:bg-orange-50 hover:border-orange-200'
-              }`}
-            >
-              <Icon name="XCircle" size={14} />
-              Неактивные
-            </Button>
-          </div>
-        </div>
+      <CardHeader>
+        <TableHeader
+          clientsCount={sortedClients.length}
+          hasSorting={hasSorting}
+          selectedCount={selectedClientIds.length}
+          isDeleting={isDeleting}
+          searchQuery={searchQuery}
+          statusFilter={statusFilter}
+          onClearSort={handleClearSort}
+          onDeleteSelected={handleDeleteSelected}
+          onSearchChange={handleSearchChange}
+          onStatusFilterChange={handleStatusFilterChange}
+          allPresets={presets.allPresets}
+          defaultPresets={presets.defaultPresets}
+          customPresets={presets.customPresets}
+          activePresetId={presets.activePresetId}
+          onApplyPreset={handleApplyPreset}
+          onSavePreset={handleSavePreset}
+          onDeletePreset={handleDeletePreset}
+          currentState={{
+            searchQuery,
+            statusFilter,
+            sortConfigs,
+          }}
+        />
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="p-4 w-12">
-                  <Checkbox
-                    checked={isAllSelected}
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Выбрать всех клиентов"
-                    className={isSomeSelected ? 'data-[state=checked]:bg-gray-400' : ''}
-                  />
-                </th>
-                {columns.map((column, index) => (
-                  <th
-                    key={column.key}
-                    className={`p-4 text-sm font-medium text-muted-foreground whitespace-nowrap ${
-                      index < 3 ? 'text-left' : 'text-center'
-                    } ${
-                      column.sortable ? 'cursor-pointer select-none group hover:bg-accent/50 transition-colors' : ''
-                    }`}
-                    onClick={(e) => column.sortable && handleColumnSort(column.key, e)}
-                    aria-sort={getSortDirection(column.key) || 'none'}
-                    title={column.sortable ? 'Кликните для сортировки, Shift+клик для мультисортировки' : undefined}
-                  >
-                    <div className="flex items-center justify-start gap-1">
-                      <span>{column.label}</span>
-                      {column.sortable && renderSortIndicator(column.key)}
-                    </div>
-                  </th>
-                ))}
-                <th className="text-right p-4 text-sm font-medium text-muted-foreground whitespace-nowrap">Действия</th>
-              </tr>
-            </thead>
+            <TableColumns
+              columns={columns}
+              isAllSelected={isAllSelected}
+              isSomeSelected={isSomeSelected}
+              onSelectAll={handleSelectAll}
+              onColumnSort={handleColumnSort}
+              getSortDirection={getSortDirection}
+              getSortPriority={getSortPriority}
+              sortConfigs={sortConfigs}
+            />
             <tbody>
               {paginatedClients.length === 0 ? (
                 <tr>
@@ -412,78 +287,16 @@ const ClientsTableView = ({ clients, onSelectClient, onDeleteClients, externalSe
                   const activeBookings = getActiveBookingsCount(client);
 
                   return (
-                    <tr
+                    <TableRow
                       key={client.id}
-                      className="border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 cursor-pointer group"
-                      onClick={() => onSelectClient(client)}
-                    >
-                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={selectedClientIds.includes(client.id)}
-                          onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
-                          aria-label={`Выбрать клиента ${client.name}`}
-                        />
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
-                            {getClientInitials(client.name)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium truncate">{client.name}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <Icon name="Phone" size={14} className="text-muted-foreground flex-shrink-0" />
-                          <span className="text-sm">{client.phone}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        {client.email ? (
-                          <div className="flex items-center gap-2">
-                            <Icon name="Mail" size={14} className="text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm truncate max-w-[200px]">{client.email}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        {activeProjects > 0 ? (
-                          <div className="inline-flex items-center gap-1 text-purple-600 font-medium">
-                            <Icon name="Briefcase" size={16} />
-                            <span>{activeProjects}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        {activeBookings > 0 ? (
-                          <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
-                            <Icon name="Calendar" size={16} />
-                            <span>{activeBookings}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectClient(client);
-                          }}
-                        >
-                          <Icon name="Eye" size={16} className="mr-2" />
-                          Открыть
-                        </Button>
-                      </td>
-                    </tr>
+                      client={client}
+                      isSelected={selectedClientIds.includes(client.id)}
+                      activeProjects={activeProjects}
+                      activeBookings={activeBookings}
+                      onSelectClient={onSelectClient}
+                      onSelectCheckbox={handleSelectClient}
+                      getClientInitials={getClientInitials}
+                    />
                   );
                 })
               )}
@@ -491,53 +304,14 @@ const ClientsTableView = ({ clients, onSelectClient, onDeleteClients, externalSe
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="border-t p-4 flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Показано {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filteredClients.length)} из {filteredClients.length}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                <Icon name="ChevronLeft" size={16} />
-              </Button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={currentPage === pageNum ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => handlePageChange(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                <Icon name="ChevronRight" size={16} />
-              </Button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          startIndex={startIndex}
+          itemsPerPage={itemsPerPage}
+          totalItems={filteredClients.length}
+          onPageChange={handlePageChange}
+        />
       </CardContent>
     </Card>
   );
