@@ -172,6 +172,7 @@ const ClientDialogContent = ({
             onMessageChange={(field, value) => setNewMessage(prev => ({ ...prev, [field]: value }))}
             onAddMessage={handleAddMessage}
             onDeleteMessage={handleDeleteMessage}
+            clientName={localClient.name}
           />
         </TabsContent>
 
