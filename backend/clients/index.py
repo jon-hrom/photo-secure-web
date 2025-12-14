@@ -402,6 +402,65 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            elif action == 'delete':
+                client_id = body.get('clientId')
+                
+                if not client_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'clientId required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Проверяем, что клиент принадлежит пользователю
+                cur.execute('SELECT id, name, phone FROM clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                client_info = cur.fetchone()
+                
+                if not client_info:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Client not found'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Получаем все документы клиента для удаления из S3
+                cur.execute('SELECT s3_key FROM client_documents WHERE client_id = %s', (client_id,))
+                documents = cur.fetchall()
+                
+                # Удаляем файлы из S3
+                for doc in documents:
+                    if doc['s3_key']:
+                        delete_from_s3(doc['s3_key'])
+                
+                # Удаляем в правильном порядке (сначала зависимости, потом родителей)
+                cur.execute('DELETE FROM bookings WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM client_payments WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM client_documents WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM client_comments WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM client_messages WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM clients WHERE id = %s', (client_id,))
+                
+                # Удаляем все встречи этого клиента из таблицы meetings
+                cur.execute('''
+                    DELETE FROM meetings 
+                    WHERE creator_id = %s 
+                    AND client_name = %s 
+                    AND client_phone = %s
+                ''', (user_id, client_info['name'], client_info['phone']))
+                
+                conn.commit()
+                print(f'[DELETE_CLIENT] Successfully deleted client {client_id} and all related data')
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            
             elif action == 'upload_document':
                 client_id = body.get('clientId')
                 filename = body.get('filename')
