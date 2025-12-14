@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 
 const Index = () => {
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
+  const [shouldOpenAddClient, setShouldOpenAddClient] = useState(false);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [userSource, setUserSource] = useState<'email' | 'vk' | 'google' | 'yandex'>('email');
@@ -320,7 +321,6 @@ const Index = () => {
             onLogout={handleLogout}
             onNavigateToClients={() => setCurrentPage('auth')}
             onNavigateToPhotobook={() => setCurrentPage('auth')}
-            onOpenAddClient={() => setCurrentPage('auth')}
           />
         </main>
       </div>
@@ -451,11 +451,21 @@ const Index = () => {
             onOpenTariffs={() => setCurrentPage('tariffs')}
             onNavigateToClients={() => setCurrentPage('clients')}
             onNavigateToPhotobook={() => setCurrentPage('photobook')}
-            onOpenAddClient={() => setCurrentPage('clients')}
+            onOpenAddClient={() => {
+              setShouldOpenAddClient(true);
+              setCurrentPage('clients');
+            }}
             isAdmin={isAdmin}
           />
         )}
-        {currentPage === 'clients' && <ClientsPage autoOpenClient={selectedClientName} userId={userId?.toString() || null} />}
+        {currentPage === 'clients' && (
+          <ClientsPage 
+            autoOpenClient={selectedClientName} 
+            autoOpenAddDialog={shouldOpenAddClient}
+            onAddDialogClose={() => setShouldOpenAddClient(false)}
+            userId={userId?.toString() || null} 
+          />
+        )}
         {currentPage === 'photobook' && <PhotobookPage />}
         {currentPage === 'features' && <FeaturesPage />}
         {currentPage === 'tariffs' && <TariffsPage userId={userId} />}

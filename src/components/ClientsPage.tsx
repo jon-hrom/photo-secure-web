@@ -19,10 +19,12 @@ import { Client } from '@/components/clients/ClientsTypes';
 
 interface ClientsPageProps {
   autoOpenClient?: string;
+  autoOpenAddDialog?: boolean;
+  onAddDialogClose?: () => void;
   userId?: string | null;
 }
 
-const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) => {
+const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId }: ClientsPageProps) => {
   const userId = propUserId || localStorage.getItem('userId');
   const [activeFilter, setActiveFilter] = useState<FilterType>('active-projects');
   
@@ -31,6 +33,16 @@ const ClientsPage = ({ autoOpenClient, userId: propUserId }: ClientsPageProps) =
   
   // Хук для управления диалогами и состоянием
   const dialogsState = useClientsDialogs();
+  
+  // Открываем диалог добавления клиента при autoOpenAddDialog
+  useEffect(() => {
+    if (autoOpenAddDialog) {
+      dialogsState.setIsAddDialogOpen(true);
+      if (onAddDialogClose) {
+        onAddDialogClose();
+      }
+    }
+  }, [autoOpenAddDialog, onAddDialogClose]);
   
   // Хук для навигации
   const navigation = useNavigationHistory();
