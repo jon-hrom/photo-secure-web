@@ -87,6 +87,10 @@ export const useClientsHandlers = ({
       return;
     }
     
+    // Сохраняем данные клиента до очистки формы
+    const clientNameForSearch = newClient.name;
+    const clientPhoneForSearch = newClient.phone;
+    
     try {
       console.log('[CLIENT_ADD] Sending request:', { action: 'create', ...newClient });
       console.log('[CLIENT_ADD] User ID:', userId);
@@ -139,11 +143,11 @@ export const useClientsHandlers = ({
           const freshData = await freshRes.json();
           console.log('[CLIENT_ADD] Fresh data length:', freshData.length);
           
-          // Ищем по ID или по имени + телефону (последний добавленный)
+          // Ищем по ID или по сохранённым имени + телефону (последний добавленный)
           const addedClient = createdClientId 
             ? freshData.find((c: any) => c.id === createdClientId)
             : freshData
-                .filter((c: any) => c.name === newClient.name && c.phone === newClient.phone)
+                .filter((c: any) => c.name === clientNameForSearch && c.phone === clientPhoneForSearch)
                 .sort((a: any, b: any) => b.id - a.id)[0];
           
           console.log('[CLIENT_ADD] Found added client:', !!addedClient);

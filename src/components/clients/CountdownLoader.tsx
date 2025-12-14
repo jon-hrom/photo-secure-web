@@ -11,10 +11,13 @@ const CountdownLoader = ({ open, seconds = 3 }: CountdownLoaderProps) => {
   const [count, setCount] = useState(seconds);
 
   useEffect(() => {
+    console.log('[COUNTDOWN] Open state changed:', open);
     if (open) {
+      console.log('[COUNTDOWN] Starting countdown from', seconds);
       setCount(seconds);
       const interval = setInterval(() => {
         setCount((prev) => {
+          console.log('[COUNTDOWN] Count:', prev);
           if (prev <= 1) {
             clearInterval(interval);
             return 0;
@@ -23,7 +26,10 @@ const CountdownLoader = ({ open, seconds = 3 }: CountdownLoaderProps) => {
         });
       }, 1000);
 
-      return () => clearInterval(interval);
+      return () => {
+        console.log('[COUNTDOWN] Cleanup');
+        clearInterval(interval);
+      };
     }
   }, [open, seconds]);
 
