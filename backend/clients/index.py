@@ -673,7 +673,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Получаем текущие ID сообщений
                 cur.execute('SELECT id FROM client_messages WHERE client_id = %s', (client_id,))
                 existing_ids = {row['id'] for row in cur.fetchall()}
-                incoming_ids = {m.get('id') for m in body.get('messages', []) if m.get('id')}
+                incoming_ids = {m.get('id') for m in body.get('messages', []) if m.get('id') and m.get('id') < 1000000000000}
                 
                 # Удаляем сообщения, которых нет в новом списке
                 ids_to_delete = existing_ids - incoming_ids
@@ -682,22 +682,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Вставляем или обновляем сообщения
                 for message in body.get('messages', []):
-                    cur.execute('''
-                        INSERT INTO client_messages (id, client_id, type, author, content, message_date)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (id) DO UPDATE SET
-                            type = EXCLUDED.type,
-                            author = EXCLUDED.author,
-                            content = EXCLUDED.content,
-                            message_date = EXCLUDED.message_date
-                    ''', (
-                        message.get('id'),
-                        client_id,
-                        message.get('type'),
-                        message.get('author'),
-                        message.get('content'),
-                        message.get('date')
-                    ))
+                    msg_id = message.get('id')
+                    # Если ID > 1000000000000, это timestamp - значит новое сообщение
+                    is_new = msg_id and msg_id >= 1000000000000
+                    
+                    if is_new:
+                        # Новое сообщение - вставляем без ID (автогенерация)
+                        cur.execute('''
+                            INSERT INTO client_messages (client_id, type, author, content, message_date)
+                            VALUES (%s, %s, %s, %s, %s)
+                        ''', (
+                            client_id,
+                            message.get('type'),
+                            message.get('author'),
+                            message.get('content'),
+                            message.get('date')
+                        ))
+                    else:
+                        # Существующее сообщение - обновляем
+                        cur.execute('''
+                            INSERT INTO client_messages (id, client_id, type, author, content, message_date)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (id) DO UPDATE SET
+                                type = EXCLUDED.type,
+                                author = EXCLUDED.author,
+                                content = EXCLUDED.content,
+                                message_date = EXCLUDED.message_date
+                        ''', (
+                            msg_id,
+                            client_id,
+                            message.get('type'),
+                            message.get('author'),
+                            message.get('content'),
+                            message.get('date')
+                        ))
             
             conn.commit()
             
