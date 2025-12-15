@@ -24,6 +24,8 @@ export interface Project {
   endDate?: string;
   description: string;
   dateHistory?: { oldDate: string; newDate: string; changedAt: string }[];
+  photoDownloadUrl?: string;
+  photoDownloadedAt?: string;
 }
 
 export interface Document {

@@ -131,9 +131,23 @@ export const useClientDetailHandlers = (
       }];
     }
 
+    const allPayments = [...payments, ...newPayments];
+    
+    const updatedProjects = projects.map(project => {
+      const projectPayments = allPayments.filter(p => p.projectId === project.id);
+      const totalPaid = projectPayments.reduce((sum, p) => sum + p.amount, 0);
+      
+      if (totalPaid >= project.budget && project.status === 'new') {
+        return { ...project, status: 'in_progress' as const };
+      }
+      
+      return project;
+    });
+
     const updatedClient = {
       ...localClient,
-      payments: [...payments, ...newPayments],
+      payments: allPayments,
+      projects: updatedProjects,
     };
 
     onUpdate(updatedClient);
@@ -146,10 +160,18 @@ export const useClientDetailHandlers = (
       splitAcrossProjects: false
     });
     
+    const projectsMovedToProgress = updatedProjects.filter((p, idx) => 
+      p.status === 'in_progress' && projects[idx]?.status === 'new'
+    );
+    
     if (newPayments.length > 1) {
       toast.success(`Создано ${newPayments.length} платежей на общую сумму ${totalAmount.toLocaleString('ru-RU')} ₽`);
     } else {
       toast.success('Платёж добавлен');
+    }
+    
+    if (projectsMovedToProgress.length > 0) {
+      toast.success(`${projectsMovedToProgress.length} проект(а) переведены в работу`);
     }
   };
 
@@ -307,6 +329,27 @@ export const useClientDetailHandlers = (
     onUpdate(updatedClient);
   };
 
+  const markProjectAsCompleted = (projectId: number) => {
+    const updatedProjects = projects.map(p =>
+      p.id === projectId 
+        ? { 
+            ...p, 
+            status: 'completed' as const,
+            photoDownloadedAt: new Date().toISOString(),
+            endDate: new Date().toISOString()
+          } 
+        : p
+    );
+
+    const updatedClient = {
+      ...localClient,
+      projects: updatedProjects,
+    };
+
+    onUpdate(updatedClient);
+    toast.success('Проект завершён и перемещён в неактивные');
+  };
+
   const getStatusBadge = (status: Project['status']) => {
     const statusConfig = {
       new: { label: 'Новый', variant: 'default' as const },
@@ -359,6 +402,7 @@ export const useClientDetailHandlers = (
     updateProjectDate,
     handleDocumentUploaded,
     handleDocumentDeleted,
+    markProjectAsCompleted,
     getStatusBadge,
     getPaymentStatusBadge,
     formatDate,
