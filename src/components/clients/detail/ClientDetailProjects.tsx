@@ -140,11 +140,15 @@ const ClientDetailProjects = ({
                       <Input
                         type="date"
                         value={(() => {
+                          if (!project.startDate) return '';
+                          // Если уже в формате YYYY-MM-DD
+                          if (typeof project.startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(project.startDate)) {
+                            return project.startDate;
+                          }
+                          // Иначе пробуем преобразовать
                           try {
-                            if (!project.startDate) return '';
                             const date = new Date(project.startDate);
-                            if (isNaN(date.getTime())) return '';
-                            return date.toISOString().split('T')[0];
+                            return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
                           } catch {
                             return '';
                           }
