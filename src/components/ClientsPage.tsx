@@ -110,9 +110,12 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
     // Проверка фильтра по стилю съёмки
     if (typeof activeFilter === 'object' && activeFilter.type === 'shooting-style') {
-      return clientsList.filter(c =>
+      console.log('🔍 Фильтр по стилю:', activeFilter.styleId);
+      const filtered = clientsList.filter(c =>
         (c.projects || []).some(p => p.shootingStyleId === activeFilter.styleId)
       );
+      console.log('📊 Результат фильтрации:', filtered.length, 'из', clientsList.length);
+      return filtered;
     }
 
     switch (activeFilter) {
