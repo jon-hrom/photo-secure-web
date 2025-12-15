@@ -53,7 +53,8 @@ export const useClientsData = (userId: string | null) => {
           status: p.status,
           budget: parseFloat(p.budget) || 0,
           startDate: p.start_date || p.startDate,
-          description: p.description || ''
+          description: p.description || '',
+          shootingStyleId: p.shooting_style_id || p.shootingStyleId || undefined
         })),
         payments: (client.payments || []).map((pay: any) => ({
           id: pay.id,

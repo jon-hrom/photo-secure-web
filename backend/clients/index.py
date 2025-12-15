@@ -218,7 +218,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     bookings = cur.fetchall()
                     
                     cur.execute('''
-                        SELECT id, name, status, budget, start_date, description
+                        SELECT id, name, status, budget, start_date, description, shooting_style_id
                         FROM t_p28211681_photo_secure_web.client_projects 
                         WHERE client_id = %s
                         ORDER BY created_at DESC
@@ -231,7 +231,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'status': p['status'],
                         'budget': float(p['budget']),
                         'startDate': str(p['start_date']),
-                        'description': p['description']
+                        'description': p['description'],
+                        'shooting_style_id': p.get('shooting_style_id')
                     } for p in raw_projects]
                     
                     cur.execute('''
@@ -583,14 +584,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         start_date = None
                     
                     cur.execute('''
-                        INSERT INTO t_p28211681_photo_secure_web.client_projects (id, client_id, name, status, budget, start_date, description)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO t_p28211681_photo_secure_web.client_projects (id, client_id, name, status, budget, start_date, description, shooting_style_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
                             status = EXCLUDED.status,
                             budget = EXCLUDED.budget,
                             start_date = EXCLUDED.start_date,
-                            description = EXCLUDED.description
+                            description = EXCLUDED.description,
+                            shooting_style_id = EXCLUDED.shooting_style_id
                     ''', (
                         project.get('id'),
                         client_id,
@@ -598,7 +600,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         project.get('status'),
                         project.get('budget'),
                         start_date,
-                        project.get('description')
+                        project.get('description'),
+                        project.get('shootingStyleId')
                     ))
             
             # Обновляем платежи (upsert)
