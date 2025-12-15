@@ -259,7 +259,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onGoForward={handleGoForward}
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
-        clients={searchFilteredClients}
+        clients={clients}
       />
 
       {dialogsState.viewMode === 'table' ? (
