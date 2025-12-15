@@ -446,7 +446,7 @@ export const useClientsHandlers = ({
   const handleUpdateClient = async (updatedClient: Client) => {
     try {
       console.log('[handleUpdateClient] Updating client:', updatedClient);
-      console.log('[handleUpdateClient] Messages count:', updatedClient.messages?.length);
+      console.log('[handleUpdateClient] Projects:', updatedClient.projects);
       
       const res = await fetch(CLIENTS_API, {
         method: 'PUT',
@@ -465,6 +465,7 @@ export const useClientsHandlers = ({
       
       const responseData = await res.json();
       console.log('[handleUpdateClient] Server response:', responseData);
+      console.log('[handleUpdateClient] Response projects:', responseData.projects);
       
       // Сначала обновляем локально для мгновенной реакции UI
       setSelectedClient(updatedClient);
@@ -472,6 +473,7 @@ export const useClientsHandlers = ({
       // Затем перезагружаем список клиентов из сервера
       try {
         await loadClients();
+        console.log('[handleUpdateClient] Clients reloaded successfully');
       } catch (err) {
         console.error('[handleUpdateClient] Failed to reload clients:', err);
       }
