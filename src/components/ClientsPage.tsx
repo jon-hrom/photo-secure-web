@@ -108,6 +108,13 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+    // Проверка фильтра по стилю съёмки
+    if (typeof activeFilter === 'object' && activeFilter.type === 'shooting-style') {
+      return clientsList.filter(c =>
+        (c.projects || []).some(p => p.shootingStyleId === activeFilter.styleId)
+      );
+    }
+
     switch (activeFilter) {
       case 'all':
         return clientsList;

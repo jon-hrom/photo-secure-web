@@ -3,6 +3,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import { getShootingStyles } from '@/data/shootingStyles';
+import { Badge } from '@/components/ui/badge';
 
 export type FilterType = 
   | 'all' 
@@ -10,7 +12,8 @@ export type FilterType =
   | 'upcoming-meetings' 
   | 'new-clients' 
   | 'alphabetical' 
-  | 'most-projects';
+  | 'most-projects'
+  | { type: 'shooting-style', styleId: string };
 
 interface ClientsFilterSidebarProps {
   activeFilter: FilterType;
@@ -20,8 +23,10 @@ interface ClientsFilterSidebarProps {
 
 const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: ClientsFilterSidebarProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showShootingStyles, setShowShootingStyles] = useState(false);
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const shootingStyles = getShootingStyles();
 
   const getFilterCounts = () => {
     const activeProjects = clients.filter(c => 
@@ -45,6 +50,18 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
   };
 
   const counts = getFilterCounts();
+
+  const getShootingStyleCount = (styleId: string) => {
+    return clients.filter(c => 
+      (c.projects || []).some(p => p.shootingStyleId === styleId)
+    ).length;
+  };
+
+  const isShootingStyleActive = (styleId: string) => {
+    return typeof activeFilter === 'object' && 
+           activeFilter.type === 'shooting-style' && 
+           activeFilter.styleId === styleId;
+  };
 
   const filters = [
     {
@@ -107,10 +124,11 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
         </div>
 
         {isExpanded && (
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-muted-foreground px-3 py-2">Стандартные</p>
-          
-          {filters.map((filter) => (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground px-3 py-2">Стандартные</p>
+            
+            {filters.map((filter) => (
             <button
               key={filter.id}
               onClick={() => onFilterChange(filter.id)}
@@ -136,6 +154,60 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
               </div>
             </button>
           ))}
+            </div>
+
+            <div className="space-y-1 border-t pt-3">
+              <div className="flex items-center justify-between px-3 py-2">
+                <p className="text-xs font-semibold text-muted-foreground">По стилю съёмки</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowShootingStyles(!showShootingStyles)}
+                  className="h-6 w-6 p-0"
+                >
+                  <Icon name={showShootingStyles ? 'ChevronUp' : 'ChevronDown'} size={16} />
+                </Button>
+              </div>
+
+              {showShootingStyles && (
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {shootingStyles.map((style) => {
+                    const count = getShootingStyleCount(style.id);
+                    const isActive = isShootingStyleActive(style.id);
+                    
+                    if (count === 0) return null;
+                    
+                    return (
+                      <button
+                        key={style.id}
+                        onClick={() => onFilterChange({ type: 'shooting-style', styleId: style.id } as any)}
+                        className={`w-full flex items-start gap-3 p-2 pl-6 rounded-lg transition-all hover:bg-accent group ${
+                          isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100' : ''
+                        }`}
+                      >
+                        <Icon 
+                          name="Camera" 
+                          size={16} 
+                          className={isActive ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
+                        />
+                        <div className="flex-1 text-left">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-xs ${
+                              isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'
+                            }`}>
+                              {style.name}
+                            </p>
+                            <Badge variant="secondary" className="text-xs h-5">
+                              {count}
+                            </Badge>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
