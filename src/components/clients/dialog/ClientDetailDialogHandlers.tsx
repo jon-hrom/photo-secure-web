@@ -31,6 +31,7 @@ export const useClientDetailHandlers = (
       budget: parseFloat(newProject.budget),
       startDate: new Date(newProject.startDate).toISOString(),
       description: newProject.description,
+      shootingStyleId: newProject.shootingStyleId,
     };
 
     const updatedBookings = [...localClient.bookings];
@@ -65,7 +66,8 @@ export const useClientDetailHandlers = (
       name: '', 
       budget: '', 
       description: '',
-      startDate: new Date().toISOString().split('T')[0]
+      startDate: new Date().toISOString().split('T')[0],
+      shootingStyleId: ''
     });
     toast.success('Услуга добавлена' + (newProject.startDate ? ' и создана запись' : ''));
   };
