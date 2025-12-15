@@ -139,7 +139,16 @@ const ClientDetailProjects = ({
                       <Label className="text-xs text-muted-foreground">Дата бронирования:</Label>
                       <Input
                         type="date"
-                        value={project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : ''}
+                        value={(() => {
+                          try {
+                            if (!project.startDate) return '';
+                            const date = new Date(project.startDate);
+                            if (isNaN(date.getTime())) return '';
+                            return date.toISOString().split('T')[0];
+                          } catch {
+                            return '';
+                          }
+                        })()}
                         onChange={(e) => updateProjectDate(project.id, e.target.value)}
                         className="text-xs h-7 w-40"
                       />
