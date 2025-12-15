@@ -38,6 +38,7 @@ const ClientDetailProjects = ({
   formatDate,
 }: ClientDetailProjectsProps) => {
   const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
+  const [selectorKeys, setSelectorKeys] = useState<Record<number, number>>({});
   
   // Используем ref чтобы всегда иметь актуальную функцию
   const updateProjectShootingStyleRef = useRef(updateProjectShootingStyle);
@@ -49,6 +50,8 @@ const ClientDetailProjects = ({
   const handleShootingStyleChange = useCallback((projectId: number, styleId: string) => {
     console.log('[ClientDetailProjects] handleShootingStyleChange called:', { projectId, styleId });
     updateProjectShootingStyleRef.current(projectId, styleId);
+    // Принудительно перемонтируем ShootingStyleSelector для этого проекта
+    setSelectorKeys(prev => ({ ...prev, [projectId]: (prev[projectId] || 0) + 1 }));
   }, []);
 
   const getProjectPayments = (projectId: number) => {
@@ -117,6 +120,7 @@ const ClientDetailProjects = ({
           <div className="space-y-2">
             <Label className="text-sm">Стиль съёмки</Label>
             <ShootingStyleSelector
+              key="new-project-style"
               value={newProject.shootingStyleId}
               onChange={(styleId) => setNewProject({ ...newProject, shootingStyleId: styleId })}
             />
@@ -205,7 +209,7 @@ const ClientDetailProjects = ({
                 <div className="space-y-2">
                   <Label className="text-xs">Стиль съёмки</Label>
                   <ShootingStyleSelector
-                    key={`shooting-style-${project.id}`}
+                    key={`existing-project-${project.id}-${selectorKeys[project.id] || 0}`}
                     value={project.shootingStyleId}
                     onChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
                   />
