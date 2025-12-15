@@ -103,14 +103,14 @@ const ClientDialogContent = ({
       <SwipeContainer
         onSwipeLeft={() => {
           const currentIndex = tabs.indexOf(activeTab as any);
-          if (currentIndex < tabs.length - 1) {
-            setActiveTab(tabs[currentIndex + 1]);
+          if (currentIndex > 0) {
+            setActiveTab(tabs[currentIndex - 1]);
           }
         }}
         onSwipeRight={() => {
           const currentIndex = tabs.indexOf(activeTab as any);
-          if (currentIndex > 0) {
-            setActiveTab(tabs[currentIndex - 1]);
+          if (currentIndex < tabs.length - 1) {
+            setActiveTab(tabs[currentIndex + 1]);
           }
         }}
       >
