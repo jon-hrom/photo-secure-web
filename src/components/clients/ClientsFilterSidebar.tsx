@@ -194,43 +194,48 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
                 </DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 max-h-[60vh] overflow-y-auto pr-2">
-                {shootingStyles.map((style) => {
-                  const count = getShootingStyleCount(style.id);
-                  const isActive = isShootingStyleActive(style.id);
-                  
-                  if (count === 0) return null;
-                  
-                  return (
-                    <button
-                      key={style.id}
-                      onClick={() => {
-                        onFilterChange({ type: 'shooting-style', styleId: style.id } as any);
-                        setIsStyleDialogOpen(false);
-                      }}
-                      className={`flex items-start gap-3 p-3 rounded-lg transition-all hover:bg-accent group text-left ${
-                        isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-300' : 'border-2 border-transparent'
-                      }`}
-                    >
-                      <Icon 
-                        name="Camera" 
-                        size={18} 
-                        className={isActive ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className={`text-sm ${
-                            isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'
-                          }`}>
-                            {style.name}
-                          </p>
-                          <Badge variant={isActive ? 'default' : 'secondary'} className="text-xs h-5 shrink-0">
-                            {count}
-                          </Badge>
+                {shootingStyles.length === 0 ? (
+                  <div className="col-span-2 text-center py-8 text-muted-foreground">
+                    <p>Стили съёмок не загружены</p>
+                  </div>
+                ) : (
+                  shootingStyles.map((style) => {
+                    const count = getShootingStyleCount(style.id);
+                    const isActive = isShootingStyleActive(style.id);
+                    
+                    return (
+                      <button
+                        key={style.id}
+                        onClick={() => {
+                          onFilterChange({ type: 'shooting-style', styleId: style.id } as any);
+                          setIsStyleDialogOpen(false);
+                        }}
+                        className={`flex items-start gap-3 p-3 rounded-lg transition-all hover:bg-accent group text-left ${
+                          isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-300' : 'border-2 border-transparent'
+                        } ${count === 0 ? 'opacity-50' : ''}`}
+                        disabled={count === 0}
+                      >
+                        <Icon 
+                          name="Camera" 
+                          size={18} 
+                          className={isActive ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-sm ${
+                              isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'
+                            }`}>
+                              {style.name}
+                            </p>
+                            <Badge variant={count > 0 ? (isActive ? 'default' : 'secondary') : 'outline'} className="text-xs h-5 shrink-0">
+                              {count}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })
+                )}
               </div>
               {typeof activeFilter === 'object' && activeFilter.type === 'shooting-style' && (
                 <div className="mt-4 pt-4 border-t">
