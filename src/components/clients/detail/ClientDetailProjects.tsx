@@ -193,8 +193,12 @@ const ClientDetailProjects = ({
                 <div className="space-y-2">
                   <Label className="text-xs">Стиль съёмки</Label>
                   <ShootingStyleSelector
+                    key={`shooting-style-${project.id}`}
                     value={project.shootingStyleId}
-                    onChange={(styleId) => updateProjectShootingStyle(project.id, styleId)}
+                    onChange={(styleId) => {
+                      console.log('[ClientDetailProjects] onChange called for project:', project.id, 'styleId:', styleId);
+                      updateProjectShootingStyle(project.id, styleId);
+                    }}
                   />
                 </div>
                 <div className="flex gap-2">
