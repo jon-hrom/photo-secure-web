@@ -16,6 +16,7 @@ interface ClientDetailProjectsProps {
   handleAddProject: () => void;
   handleDeleteProject: (projectId: number) => void;
   updateProjectStatus: (projectId: number, status: Project['status']) => void;
+  updateProjectDate: (projectId: number, newDate: string) => void;
   getStatusBadge: (status: Project['status']) => JSX.Element;
   formatDate: (dateString: string) => string;
 }
@@ -28,6 +29,7 @@ const ClientDetailProjects = ({
   handleAddProject,
   handleDeleteProject,
   updateProjectStatus,
+  updateProjectDate,
   getStatusBadge,
   formatDate,
 }: ClientDetailProjectsProps) => {
@@ -133,8 +135,14 @@ const ClientDetailProjects = ({
                       <span className="text-muted-foreground">Оплачено: <span key={`paid-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-green-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectPaid(project.id).toLocaleString('ru-RU')} ₽</span></span>
                       <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-orange-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Начало: {formatDate(project.startDate)}
+                    <div className="flex items-center gap-2 mt-1">
+                      <Label className="text-xs text-muted-foreground">Дата бронирования:</Label>
+                      <Input
+                        type="date"
+                        value={new Date(project.startDate).toISOString().split('T')[0]}
+                        onChange={(e) => updateProjectDate(project.id, e.target.value)}
+                        className="text-xs h-7 w-40"
+                      />
                     </div>
                   </div>
                   <Button

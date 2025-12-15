@@ -358,6 +358,45 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     toast.success('Статус проекта обновлён');
   };
 
+  const updateProjectDate = (projectId: number, newDate: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const oldDate = new Date(project.startDate).toISOString().split('T')[0];
+    
+    // Обновляем дату проекта
+    const updatedProjects = projects.map(p => 
+      p.id === projectId ? { ...p, startDate: new Date(newDate).toISOString() } : p
+    );
+
+    // Создаём новую запись с новой датой
+    const newBooking: Booking = {
+      id: Date.now(),
+      date: new Date(newDate),
+      booking_date: newDate,
+      booking_time: '10:00',
+      time: '10:00',
+      title: project.name,
+      description: `Перенесено с ${new Date(oldDate).toLocaleDateString('ru-RU')}. ${project.description || ''}`,
+      notificationEnabled: false,
+      notification_enabled: false,
+      notificationTime: 60,
+      notification_time: 60,
+      clientId: localClient.id,
+      client_id: localClient.id,
+    };
+
+    // Старая запись автоматически уйдёт в историю (дата в прошлом)
+    const updatedClient = {
+      ...localClient,
+      projects: updatedProjects,
+      bookings: [...localClient.bookings, newBooking],
+    };
+
+    onUpdate(updatedClient);
+    toast.success(`Дата изменена. Старая запись сохранена в истории`);
+  };
+
   const getStatusBadge = (status: Project['status']) => {
     const variants = {
       new: { label: 'Новый', color: 'bg-green-100 text-green-800' },
@@ -421,6 +460,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             handleAddProject={handleAddProject}
             handleDeleteProject={handleDeleteProject}
             updateProjectStatus={updateProjectStatus}
+            updateProjectDate={updateProjectDate}
             getStatusBadge={getStatusBadge}
             formatDate={formatDate}
             newPayment={newPayment}

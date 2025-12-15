@@ -21,6 +21,7 @@ interface ClientDialogContentProps {
   handleAddProject: () => void;
   handleDeleteProject: (projectId: number) => void;
   updateProjectStatus: (projectId: number, status: Project['status']) => void;
+  updateProjectDate: (projectId: number, newDate: string) => void;
   getStatusBadge: (status: Project['status']) => JSX.Element;
   formatDate: (dateString: string) => string;
   newPayment: any;
@@ -57,6 +58,7 @@ const ClientDialogContent = ({
   handleAddProject,
   handleDeleteProject,
   updateProjectStatus,
+  updateProjectDate,
   getStatusBadge,
   formatDate,
   newPayment,
@@ -134,6 +136,7 @@ const ClientDialogContent = ({
             handleAddProject={handleAddProject}
             handleDeleteProject={handleDeleteProject}
             updateProjectStatus={updateProjectStatus}
+            updateProjectDate={updateProjectDate}
             getStatusBadge={getStatusBadge}
             formatDate={formatDate}
           />
