@@ -5,6 +5,14 @@ import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { getShootingStyles } from '@/data/shootingStyles';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 export type FilterType = 
   | 'all' 
@@ -23,7 +31,7 @@ interface ClientsFilterSidebarProps {
 
 const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: ClientsFilterSidebarProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showShootingStyles, setShowShootingStyles] = useState(false);
+  const [isStyleDialogOpen, setIsStyleDialogOpen] = useState(false);
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const shootingStyles = getShootingStyles();
@@ -159,56 +167,88 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
 
       <Card className="border-purple-200/50 shadow-lg">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-bold">По стилю съёмки</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowShootingStyles(!showShootingStyles)}
-              className="h-8 w-8 p-0"
-            >
-              <Icon name={showShootingStyles ? 'ChevronUp' : 'ChevronDown'} size={20} />
-            </Button>
-          </div>
-
-          {showShootingStyles && (
-            <div className="space-y-1 max-h-96 overflow-y-auto">
-              {shootingStyles.map((style) => {
-                const count = getShootingStyleCount(style.id);
-                const isActive = isShootingStyleActive(style.id);
-                
-                if (count === 0) return null;
-                
-                return (
-                  <button
-                    key={style.id}
-                    onClick={() => onFilterChange({ type: 'shooting-style', styleId: style.id } as any)}
-                    className={`w-full flex items-start gap-3 p-2.5 rounded-lg transition-all hover:bg-accent group ${
-                      isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100' : ''
-                    }`}
-                  >
-                    <Icon 
-                      name="Camera" 
-                      size={18} 
-                      className={isActive ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
-                    />
-                    <div className="flex-1 text-left">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-sm ${
-                          isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'
-                        }`}>
-                          {style.name}
-                        </p>
-                        <Badge variant="secondary" className="text-xs h-5 shrink-0">
-                          {count}
-                        </Badge>
+          <Dialog open={isStyleDialogOpen} onOpenChange={setIsStyleDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between h-auto py-3"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon name="Camera" size={20} className="text-purple-600" />
+                  <div className="text-left">
+                    <p className="text-sm font-semibold">По стилю съёмки</p>
+                    <p className="text-xs text-muted-foreground">Фильтр клиентов по типу съёмки</p>
+                  </div>
+                </div>
+                <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Icon name="Camera" size={24} className="text-purple-600" />
+                  Выберите стиль съёмки
+                </DialogTitle>
+                <DialogDescription>
+                  Показать клиентов с проектами выбранного стиля
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+                {shootingStyles.map((style) => {
+                  const count = getShootingStyleCount(style.id);
+                  const isActive = isShootingStyleActive(style.id);
+                  
+                  if (count === 0) return null;
+                  
+                  return (
+                    <button
+                      key={style.id}
+                      onClick={() => {
+                        onFilterChange({ type: 'shooting-style', styleId: style.id } as any);
+                        setIsStyleDialogOpen(false);
+                      }}
+                      className={`flex items-start gap-3 p-3 rounded-lg transition-all hover:bg-accent group text-left ${
+                        isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-300' : 'border-2 border-transparent'
+                      }`}
+                    >
+                      <Icon 
+                        name="Camera" 
+                        size={18} 
+                        className={isActive ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-sm ${
+                            isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'
+                          }`}>
+                            {style.name}
+                          </p>
+                          <Badge variant={isActive ? 'default' : 'secondary'} className="text-xs h-5 shrink-0">
+                            {count}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    </button>
+                  );
+                })}
+              </div>
+              {typeof activeFilter === 'object' && activeFilter.type === 'shooting-style' && (
+                <div className="mt-4 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      onFilterChange('all');
+                      setIsStyleDialogOpen(false);
+                    }}
+                    className="w-full"
+                  >
+                    <Icon name="X" size={16} className="mr-2" />
+                    Сбросить фильтр
+                  </Button>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     </div>
