@@ -264,7 +264,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
       {dialogsState.viewMode === 'table' ? (
         <ClientsTableView
-          clients={clients}
+          clients={filteredClients}
           onSelectClient={dialogsState.openDetailDialog}
           onDeleteClients={handlers.handleDeleteMultipleClients}
         />
