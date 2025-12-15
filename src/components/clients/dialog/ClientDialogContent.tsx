@@ -131,6 +131,7 @@ const ClientDialogContent = ({
 
         <TabsContent value="projects" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
           <ClientDetailProjects
+            key={`projects-${localClient.id}-${JSON.stringify(projects.map(p => p.shootingStyleId))}`}
             projects={projects}
             payments={payments}
             newProject={newProject}
