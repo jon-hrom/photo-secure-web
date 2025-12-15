@@ -87,28 +87,37 @@ const ClientsListSection = ({
 
   return (
     <div className="lg:col-span-2">
-      {selectedClients.length > 0 && (
-        <div className="mb-4 flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-          <span className="text-sm font-medium">
-            Выбрано: {selectedClients.length}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon name="Users" size={20} className="text-purple-600" />
+          <span className="text-sm font-medium text-gray-700">
+            Найдено клиентов: <span className="text-purple-600 font-bold">{filteredClients.length}</span>
           </span>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleDeleteSelected}
-          >
-            <Icon name="Trash2" size={16} className="mr-2" />
-            Удалить выбранные
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSelectedClients([])}
-          >
-            Отменить
-          </Button>
         </div>
-      )}
+        
+        {selectedClients.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-purple-600">
+              Выбрано: {selectedClients.length}
+            </span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteSelected}
+            >
+              <Icon name="Trash2" size={16} className="mr-2" />
+              Удалить
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedClients([])}
+            >
+              Отменить
+            </Button>
+          </div>
+        )}
+      </div>
       
       {filteredClients.length === 0 ? (
         <Card>
