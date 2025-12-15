@@ -353,9 +353,11 @@ export const useClientDetailHandlers = (
   };
 
   const updateProjectShootingStyle = (projectId: number, shootingStyleId: string) => {
+    console.log('[updateProjectShootingStyle] Called with:', { projectId, shootingStyleId });
     const updatedProjects = projects.map(p =>
       p.id === projectId ? { ...p, shootingStyleId } : p
     );
+    console.log('[updateProjectShootingStyle] Updated projects:', updatedProjects);
     const updatedClient = {
       ...localClient,
       projects: updatedProjects,
