@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Tabs } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Client, Project, Payment, Comment, Message } from '@/components/clients/ClientsTypes';
+import { Client, Project, Payment, Comment, Message, Booking } from '@/components/clients/ClientsTypes';
 import ClientDialogHeader from '@/components/clients/dialog/ClientDialogHeader';
 import ClientDialogTabs from '@/components/clients/dialog/ClientDialogTabs';
 import ClientDialogContent from '@/components/clients/dialog/ClientDialogContent';
@@ -110,9 +110,32 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       description: newProject.description,
     };
 
+    // Если указана дата бронирования, создаём/обновляем запись
+    const updatedBookings = [...localClient.bookings];
+    if (newProject.startDate) {
+      const bookingDate = new Date(newProject.startDate);
+      const booking: Booking = {
+        id: Date.now() + 1,
+        date: bookingDate,
+        booking_date: newProject.startDate,
+        booking_time: '10:00',
+        time: '10:00',
+        title: newProject.name,
+        description: newProject.description || `Бронирование для проекта: ${newProject.name}`,
+        notificationEnabled: false,
+        notification_enabled: false,
+        notificationTime: 60,
+        notification_time: 60,
+        clientId: localClient.id,
+        client_id: localClient.id,
+      };
+      updatedBookings.push(booking);
+    }
+
     const updatedClient = {
       ...localClient,
       projects: [...projects, project],
+      bookings: updatedBookings,
     };
 
     onUpdate(updatedClient);
@@ -122,7 +145,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       description: '',
       startDate: new Date().toISOString().split('T')[0]
     });
-    toast.success('Услуга добавлена');
+    toast.success('Услуга добавлена' + (newProject.startDate ? ' и создана запись' : ''));
   };
 
   const handleAddPayment = () => {
