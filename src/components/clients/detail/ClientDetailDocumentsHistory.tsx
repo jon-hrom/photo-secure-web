@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import { Document, Message, Booking, Project } from '@/components/clients/ClientsTypes';
+import { Document, Message, Booking, Project, Payment, Client } from '@/components/clients/ClientsTypes';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import funcUrls from '../../../../backend/func2url.json';
@@ -14,6 +14,8 @@ interface ClientDetailDocumentsHistoryProps {
   messages: Message[];
   bookings?: Booking[];
   projects?: Project[];
+  payments?: Payment[];
+  client: Client;
   formatDate: (dateString: string) => string;
   formatDateTime: (dateString: string) => string;
   tab: 'documents' | 'history';
@@ -27,6 +29,8 @@ const ClientDetailDocumentsHistory = ({
   messages,
   bookings = [],
   projects = [],
+  payments = [],
+  client,
   formatDate,
   formatDateTime,
   tab,
@@ -311,7 +315,7 @@ const ClientDetailDocumentsHistory = ({
     );
   }
 
-  return <MessageHistory messages={messages} bookings={bookings} projects={projects} formatDateTime={formatDateTime} />;
+  return <MessageHistory messages={messages} bookings={bookings} projects={projects} payments={payments} client={client} formatDateTime={formatDateTime} />;
 };
 
 export default ClientDetailDocumentsHistory;

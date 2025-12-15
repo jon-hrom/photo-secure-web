@@ -146,6 +146,8 @@ const ClientDialogContent = ({
           <ClientDetailDocumentsHistory
             documents={documents}
             messages={messages}
+            payments={payments}
+            client={localClient}
             formatDate={formatDate}
             formatDateTime={formatDateTime}
             tab="documents"
@@ -185,6 +187,8 @@ const ClientDialogContent = ({
             messages={messages}
             bookings={localClient.bookings}
             projects={projects}
+            payments={payments}
+            client={localClient}
             formatDate={formatDate}
             formatDateTime={formatDateTime}
             tab="history"

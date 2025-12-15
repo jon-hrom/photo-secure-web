@@ -1,16 +1,22 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-import { Message, Booking, Project } from '@/components/clients/ClientsTypes';
+import { Message, Booking, Project, Payment, Client } from '@/components/clients/ClientsTypes';
+import ProjectArchiveDialog from '@/components/clients/ProjectArchiveDialog';
 
 interface MessageHistoryProps {
   messages: Message[];
   bookings: Booking[];
   projects?: Project[];
+  payments?: Payment[];
+  client: Client;
   formatDateTime: (dateString: string) => string;
 }
 
-const MessageHistory = ({ messages, bookings, projects = [], formatDateTime }: MessageHistoryProps) => {
+const MessageHistory = ({ messages, bookings, projects = [], payments = [], client, formatDateTime }: MessageHistoryProps) => {
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -25,117 +31,149 @@ const MessageHistory = ({ messages, bookings, projects = [], formatDateTime }: M
       const dateB = new Date(b.booking_date || b.date);
       return dateB.getTime() - dateA.getTime();
     });
+
+  const completedOrCancelledProjects = projects.filter(
+    p => p.status === 'completed' || p.status === 'cancelled'
+  );
+
+  const allHistoryItems = [
+    ...completedOrCancelledProjects.map(p => ({
+      type: 'project' as const,
+      date: p.startDate,
+      data: p,
+    })),
+    ...pastBookings.map(b => ({
+      type: 'booking' as const,
+      date: b.booking_date || b.date.toISOString(),
+      data: b,
+    })),
+    ...messages.map(m => ({
+      type: 'message' as const,
+      date: m.date,
+      data: m,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const handleProjectClick = (project: Project) => {
+    setSelectedProject(project);
+    setArchiveDialogOpen(true);
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>История взаимодействий</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {pastBookings.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-              <Icon name="Calendar" size={16} />
-              Прошедшие встречи
-            </h3>
-            <div className="space-y-3">
-              {pastBookings.map((booking, index) => {
-                const bookingDate = new Date(booking.booking_date || booking.date);
-                const relatedProject = projects.find(p => p.name === booking.title);
-                
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>История взаимодействий</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {allHistoryItems.length === 0 ? (
+            <div className="text-center py-8">
+              <Icon name="History" size={48} className="mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">История пуста</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Здесь будет отображаться история проектов, встреч и общения с клиентом
+              </p>
+            </div>
+          ) : (
+            allHistoryItems.map((item, index) => {
+              if (item.type === 'project') {
+                const project = item.data as Project;
+                const projectPayments = payments.filter(p => p.projectId === project.id && p.status === 'completed');
+                const totalPaid = projectPayments.reduce((sum, p) => sum + p.amount, 0);
+                const hasDateChanges = project.dateHistory && project.dateHistory.length > 0;
+
                 return (
-                  <div key={booking.id} className="border rounded-lg p-4 bg-gradient-to-r from-gray-50 to-white hover:shadow-md transition-shadow">
+                  <div
+                    key={`project-${project.id}`}
+                    onClick={() => handleProjectClick(project)}
+                    className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-white hover:shadow-lg transition-all cursor-pointer"
+                  >
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
-                          {pastBookings.length - index}
+                        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white">
+                          <Icon name="Briefcase" size={20} />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Icon name="CalendarCheck" size={16} className="text-blue-600 flex-shrink-0" />
-                              <span className="text-sm font-semibold text-gray-900">
-                                {relatedProject ? relatedProject.name : (booking.title || 'Встреча')}
-                              </span>
-                              {relatedProject && (
-                                <Badge variant="outline" className="text-xs">
-                                  Проект
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{project.name}</h4>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <Badge variant={project.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
+                                {project.status === 'completed' ? 'Завершён' : 'Отменён'}
+                              </Badge>
+                              {hasDateChanges && (
+                                <Badge variant="outline" className="text-xs bg-orange-50 border-orange-200 text-orange-700">
+                                  <Icon name="CalendarClock" size={12} className="mr-1" />
+                                  Дата переносилась
                                 </Badge>
                               )}
                             </div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-2">
-                              <Icon name="Clock" size={12} />
-                              {bookingDate.toLocaleDateString('ru-RU', { 
-                                day: '2-digit', 
-                                month: 'long', 
-                                year: 'numeric' 
-                              })}
-                              {' в '}
-                              {booking.booking_time || booking.time}
-                            </div>
+                          </div>
+                          <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Дата:</span>
+                            <span className="ml-1 font-medium">
+                              {new Date(project.startDate).toLocaleDateString('ru-RU')}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Бюджет:</span>
+                            <span className="ml-1 font-medium">{project.budget.toLocaleString('ru-RU')} ₽</span>
                           </div>
                         </div>
-                        {booking.description && (
-                          <p className="text-sm text-muted-foreground mt-2">{booking.description}</p>
-                        )}
-                        {booking.location && (
-                          <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                            <Icon name="MapPin" size={12} />
-                            {booking.location}
+                        {totalPaid > 0 && (
+                          <div className="text-sm mt-2">
+                            <span className="text-muted-foreground">Оплачено:</span>
+                            <span className="ml-1 font-medium text-green-600">{totalPaid.toLocaleString('ru-RU')} ₽</span>
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          </div>
-        )}
+              }
 
-        {messages.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-              <Icon name="MessageSquare" size={16} />
-              Сообщения
-            </h3>
-            <div className="space-y-3">
-              {messages.map((msg) => (
-                <div key={msg.id} className="border rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Icon
-                      name={
-                        msg.type === 'email' ? 'Mail' :
-                        msg.type === 'vk' ? 'MessageCircle' :
-                        msg.type === 'phone' ? 'Phone' : 'Users'
-                      }
-                      size={16}
-                      className="text-primary"
-                    />
-                    <span className="text-sm font-medium">{msg.author}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDateTime(msg.date)}
-                    </span>
+              if (item.type === 'message') {
+                const msg = item.data as Message;
+                return (
+                  <div key={`message-${msg.id}`} className="border rounded-lg p-3 bg-white">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon
+                        name={
+                          msg.type === 'email' ? 'Mail' :
+                          msg.type === 'vk' ? 'MessageCircle' :
+                          msg.type === 'phone' ? 'Phone' : 'Users'
+                        }
+                        size={16}
+                        className="text-primary"
+                      />
+                      <span className="text-sm font-medium">{msg.author}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {formatDateTime(msg.date)}
+                      </span>
+                    </div>
+                    <p className="text-sm">{msg.content}</p>
                   </div>
-                  <p className="text-sm">{msg.content}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                );
+              }
 
-        {messages.length === 0 && pastBookings.length === 0 ? (
-          <div className="text-center py-8">
-            <Icon name="History" size={48} className="mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">История пуста</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Здесь будет отображаться история встреч и общения с клиентом
-            </p>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+              return null;
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      <ProjectArchiveDialog
+        open={archiveDialogOpen}
+        onOpenChange={setArchiveDialogOpen}
+        project={selectedProject}
+        client={client}
+        payments={payments}
+      />
+    </>
   );
 };
 

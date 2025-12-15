@@ -23,6 +23,7 @@ export interface Project {
   startDate: string;
   endDate?: string;
   description: string;
+  dateHistory?: { oldDate: string; newDate: string; changedAt: string }[];
 }
 
 export interface Document {

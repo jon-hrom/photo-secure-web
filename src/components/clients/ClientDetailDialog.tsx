@@ -364,9 +364,21 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
     const oldDate = new Date(project.startDate).toISOString().split('T')[0];
     
-    // Обновляем дату проекта
+    // Добавляем запись в историю изменений дат
+    const dateHistory = project.dateHistory || [];
+    dateHistory.push({
+      oldDate: oldDate,
+      newDate: newDate,
+      changedAt: new Date().toISOString(),
+    });
+    
+    // Обновляем дату проекта и историю
     const updatedProjects = projects.map(p => 
-      p.id === projectId ? { ...p, startDate: new Date(newDate).toISOString() } : p
+      p.id === projectId ? { 
+        ...p, 
+        startDate: new Date(newDate).toISOString(),
+        dateHistory 
+      } : p
     );
 
     // Создаём новую запись с новой датой
