@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Client, Project, Payment, Comment, Message, Booking } from '@/components/clients/ClientsTypes';
+import { useCallback } from 'react';
 
 export const useClientDetailHandlers = (
   localClient: Client,
@@ -352,7 +353,7 @@ export const useClientDetailHandlers = (
     toast.success('Проект завершён и перемещён в неактивные');
   };
 
-  const updateProjectShootingStyle = (projectId: number, shootingStyleId: string) => {
+  const updateProjectShootingStyle = useCallback((projectId: number, shootingStyleId: string) => {
     console.log('[updateProjectShootingStyle] Called with:', { projectId, shootingStyleId });
     const updatedProjects = projects.map(p =>
       p.id === projectId ? { ...p, shootingStyleId } : p
@@ -364,7 +365,7 @@ export const useClientDetailHandlers = (
     };
     onUpdate(updatedClient);
     toast.success('Стиль съёмки обновлён');
-  };
+  }, [projects, localClient, onUpdate]);
 
   const getStatusBadge = (status: Project['status']) => {
     const statusConfig = {
