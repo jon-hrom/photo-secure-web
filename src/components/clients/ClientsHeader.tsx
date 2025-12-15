@@ -133,7 +133,7 @@ const ClientsHeader = ({
             </Button>
           )}
 
-          {activeFilter && onFilterChange && (
+          {activeFilter !== undefined && onFilterChange && (
             <ShootingStyleFilterButton
               activeFilter={activeFilter}
               onFilterChange={onFilterChange}
