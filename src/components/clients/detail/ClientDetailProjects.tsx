@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { Project, Payment } from '@/components/clients/ClientsTypes';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { ShootingStyleSelector } from '@/components/clients/dialog/ShootingStyleSelector';
 import { getShootingStyles } from '@/data/shootingStyles';
 
@@ -38,6 +38,18 @@ const ClientDetailProjects = ({
   formatDate,
 }: ClientDetailProjectsProps) => {
   const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
+  
+  // Используем ref чтобы всегда иметь актуальную функцию
+  const updateProjectShootingStyleRef = useRef(updateProjectShootingStyle);
+  useEffect(() => {
+    updateProjectShootingStyleRef.current = updateProjectShootingStyle;
+  }, [updateProjectShootingStyle]);
+  
+  // Стабильная функция-обёртка которая не меняется между рендерами
+  const handleShootingStyleChange = useCallback((projectId: number, styleId: string) => {
+    console.log('[ClientDetailProjects] handleShootingStyleChange called:', { projectId, styleId });
+    updateProjectShootingStyleRef.current(projectId, styleId);
+  }, []);
 
   const getProjectPayments = (projectId: number) => {
     const projectPayments = payments.filter(p => p.projectId === projectId && p.status === 'completed');
@@ -195,10 +207,7 @@ const ClientDetailProjects = ({
                   <ShootingStyleSelector
                     key={`shooting-style-${project.id}`}
                     value={project.shootingStyleId}
-                    onChange={(styleId) => {
-                      console.log('[ClientDetailProjects] onChange called for project:', project.id, 'styleId:', styleId);
-                      updateProjectShootingStyle(project.id, styleId);
-                    }}
+                    onChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
                   />
                 </div>
                 <div className="flex gap-2">
