@@ -160,7 +160,6 @@ export function ShootingStyleSelector({ value, onChange }: ShootingStyleSelector
   const handleSelectStyle = (styleId: string) => {
     onChange(styleId);
     setIsDialogOpen(false);
-    toast.success('Стиль выбран');
   };
 
   const selectedStyle = styles.find(s => s.id === value);
