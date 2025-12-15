@@ -87,7 +87,7 @@ const ClientDetailProjects = ({
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm">Дата начала</Label>
+              <Label className="text-sm">Дата бронирования</Label>
               <Input
                 type="date"
                 value={newProject.startDate}
