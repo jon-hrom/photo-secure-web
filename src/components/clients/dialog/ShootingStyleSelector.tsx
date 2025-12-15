@@ -158,7 +158,10 @@ export function ShootingStyleSelector({ value, onChange }: ShootingStyleSelector
   };
 
   const handleSelectStyle = (styleId: string) => {
+    console.log('[ShootingStyleSelector] handleSelectStyle called with styleId:', styleId);
+    console.log('[ShootingStyleSelector] onChange function:', onChange);
     onChange(styleId);
+    console.log('[ShootingStyleSelector] onChange called successfully');
     setIsDialogOpen(false);
   };
 
