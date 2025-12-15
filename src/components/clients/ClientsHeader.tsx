@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import ClientDialogs from '@/components/clients/ClientDialogs';
 import { Client } from '@/components/clients/ClientsTypes';
+import ShootingStyleFilterButton from '@/components/clients/ShootingStyleFilterButton';
+import { FilterType } from '@/components/clients/ClientsFilterSidebar';
 
 interface ClientsHeaderProps {
   searchQuery: string;
@@ -34,6 +36,9 @@ interface ClientsHeaderProps {
   canGoForward?: boolean;
   onGoBack?: () => void;
   onGoForward?: () => void;
+  activeFilter?: FilterType;
+  onFilterChange?: (filter: FilterType) => void;
+  clients?: Client[];
 }
 
 const ClientsHeader = ({
@@ -60,6 +65,9 @@ const ClientsHeader = ({
   canGoForward = false,
   onGoBack,
   onGoForward,
+  activeFilter,
+  onFilterChange,
+  clients = [],
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
@@ -111,14 +119,24 @@ const ClientsHeader = ({
           />
           
           {setViewMode && (
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'outline'}
-              onClick={() => setViewMode('table')}
-              className="rounded-full transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 hover:from-purple-200 hover:via-pink-100 hover:to-rose-200 text-purple-700 hover:text-purple-800 border border-purple-200/50"
-            >
-              <Icon name="Users" size={20} className="mr-2" />
-              Мои клиенты
-            </Button>
+            <>
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                onClick={() => setViewMode('table')}
+                className="rounded-full transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 hover:from-purple-200 hover:via-pink-100 hover:to-rose-200 text-purple-700 hover:text-purple-800 border border-purple-200/50"
+              >
+                <Icon name="Users" size={20} className="mr-2" />
+                Мои клиенты
+              </Button>
+              
+              {activeFilter && onFilterChange && (
+                <ShootingStyleFilterButton
+                  activeFilter={activeFilter}
+                  onFilterChange={onFilterChange}
+                  clients={clients}
+                />
+              )}
+            </>
           )}
 
           {onExportClick && (

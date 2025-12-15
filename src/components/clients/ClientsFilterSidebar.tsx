@@ -176,7 +176,7 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
                 <div className="flex items-center gap-2">
                   <Icon name="Camera" size={20} className="text-purple-600" />
                   <div className="text-left">
-                    <p className="text-sm font-semibold">По стилю съёмки</p>
+                    <p className="text-sm font-semibold">Стиль съёмки (фильтр)</p>
                     <p className="text-xs text-muted-foreground">Фильтр клиентов по типу съёмки</p>
                   </div>
                 </div>
