@@ -215,7 +215,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     bookings = cur.fetchall()
                     
                     cur.execute('''
-                        SELECT id, name, status, budget, start_date, description
+                        SELECT id, name, status, budget, start_date, description, shooting_style_id
                         FROM client_projects 
                         WHERE client_id = %s
                         ORDER BY created_at DESC
@@ -228,7 +228,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'status': p['status'],
                         'budget': float(p['budget']),
                         'startDate': str(p['start_date']),
-                        'description': p['description']
+                        'description': p['description'],
+                        'shootingStyleId': p['shooting_style_id']
                     } for p in raw_projects]
                     
                     cur.execute('''
