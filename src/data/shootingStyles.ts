@@ -68,16 +68,17 @@ export const addShootingStyle = (name: string): ShootingStyle => {
   return newStyle;
 };
 
-export const reorderShootingStyle = (styleId: string, direction: 'up' | 'down'): void => {
+export const reorderShootingStyle = (styleId: string, direction: 'up' | 'down'): ShootingStyle[] => {
   const styles = getShootingStyles();
   const index = styles.findIndex(s => s.id === styleId);
-  if (index === -1) return;
+  if (index === -1) return styles;
 
   const targetIndex = direction === 'up' ? index - 1 : index + 1;
-  if (targetIndex < 0 || targetIndex >= styles.length) return;
+  if (targetIndex < 0 || targetIndex >= styles.length) return styles;
 
   [styles[index].order, styles[targetIndex].order] = [styles[targetIndex].order, styles[index].order];
   
   styles.sort((a, b) => a.order - b.order);
   saveShootingStyles(styles);
+  return styles;
 };

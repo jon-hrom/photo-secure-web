@@ -24,6 +24,14 @@ const ShootingStyleFilterButton = ({ activeFilter, onFilterChange, clients }: Sh
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [styles, setStyles] = useState(getShootingStyles());
 
+  // Обновляем стили при открытии диалога
+  const handleDialogOpenChange = (open: boolean) => {
+    if (open) {
+      setStyles(getShootingStyles());
+    }
+    setIsDialogOpen(open);
+  };
+
   const getShootingStyleCount = (styleId: string) => {
     return clients.filter(c => 
       (c.projects || []).some(p => p.shootingStyleId === styleId)
@@ -37,8 +45,8 @@ const ShootingStyleFilterButton = ({ activeFilter, onFilterChange, clients }: Sh
   };
 
   const handleReorder = (styleId: string, direction: 'up' | 'down') => {
-    reorderShootingStyle(styleId, direction);
-    setStyles(getShootingStyles());
+    const updated = reorderShootingStyle(styleId, direction);
+    setStyles(updated);
   };
 
   const hasActiveStyleFilter = typeof activeFilter === 'object' && activeFilter.type === 'shooting-style';
@@ -47,7 +55,7 @@ const ShootingStyleFilterButton = ({ activeFilter, onFilterChange, clients }: Sh
     : null;
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
       <DialogTrigger asChild>
         <Button
           variant={hasActiveStyleFilter ? 'default' : 'outline'}
