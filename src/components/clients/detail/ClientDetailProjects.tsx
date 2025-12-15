@@ -7,16 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Icon from '@/components/ui/icon';
 import { Project, Payment } from '@/components/clients/ClientsTypes';
 import { useEffect, useState } from 'react';
+import { ShootingStyleSelector } from '@/components/clients/dialog/ShootingStyleSelector';
+import { getShootingStyles } from '@/data/shootingStyles';
 
 interface ClientDetailProjectsProps {
   projects: Project[];
   payments: Payment[];
-  newProject: { name: string; budget: string; description: string; startDate: string };
+  newProject: { name: string; budget: string; description: string; startDate: string; shootingStyleId?: string };
   setNewProject: (project: any) => void;
   handleAddProject: () => void;
   handleDeleteProject: (projectId: number) => void;
   updateProjectStatus: (projectId: number, status: Project['status']) => void;
   updateProjectDate: (projectId: number, newDate: string) => void;
+  updateProjectShootingStyle: (projectId: number, styleId: string) => void;
   getStatusBadge: (status: Project['status']) => JSX.Element;
   formatDate: (dateString: string) => string;
 }
@@ -30,6 +33,7 @@ const ClientDetailProjects = ({
   handleDeleteProject,
   updateProjectStatus,
   updateProjectDate,
+  updateProjectShootingStyle,
   getStatusBadge,
   formatDate,
 }: ClientDetailProjectsProps) => {
@@ -99,6 +103,13 @@ const ClientDetailProjects = ({
             </div>
           </div>
           <div className="space-y-2">
+            <Label className="text-sm">Стиль съёмки</Label>
+            <ShootingStyleSelector
+              value={newProject.shootingStyleId}
+              onChange={(styleId) => setNewProject({ ...newProject, shootingStyleId: styleId })}
+            />
+          </div>
+          <div className="space-y-2">
             <Label className="text-sm">Описание</Label>
             <Textarea
               value={newProject.description}
@@ -157,6 +168,13 @@ const ClientDetailProjects = ({
                         className="text-xs h-7 w-40"
                       />
                     </div>
+                    {project.shootingStyleId && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Стиль: <span className="font-medium text-foreground">
+                          {getShootingStyles().find(s => s.id === project.shootingStyleId)?.name}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
@@ -172,6 +190,13 @@ const ClientDetailProjects = ({
                 {project.description && (
                   <p className="text-sm text-muted-foreground">{project.description}</p>
                 )}
+                <div className="space-y-2">
+                  <Label className="text-xs">Стиль съёмки</Label>
+                  <ShootingStyleSelector
+                    value={project.shootingStyleId}
+                    onChange={(styleId) => updateProjectShootingStyle(project.id, styleId)}
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Select
                     value={project.status}

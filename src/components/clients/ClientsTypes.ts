@@ -15,6 +15,12 @@ export interface Booking {
   location?: string;
 }
 
+export interface ShootingStyle {
+  id: string;
+  name: string;
+  order: number;
+}
+
 export interface Project {
   id: number;
   name: string;
@@ -26,6 +32,7 @@ export interface Project {
   dateHistory?: { oldDate: string; newDate: string; changedAt: string }[];
   photoDownloadUrl?: string;
   photoDownloadedAt?: string;
+  shootingStyleId?: string;
 }
 
 export interface Document {

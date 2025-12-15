@@ -350,6 +350,18 @@ export const useClientDetailHandlers = (
     toast.success('Проект завершён и перемещён в неактивные');
   };
 
+  const updateProjectShootingStyle = (projectId: number, shootingStyleId: string) => {
+    const updatedProjects = projects.map(p =>
+      p.id === projectId ? { ...p, shootingStyleId } : p
+    );
+    const updatedClient = {
+      ...localClient,
+      projects: updatedProjects,
+    };
+    onUpdate(updatedClient);
+    toast.success('Стиль съёмки обновлён');
+  };
+
   const getStatusBadge = (status: Project['status']) => {
     const statusConfig = {
       new: { label: 'Новый', variant: 'default' as const },
@@ -400,6 +412,7 @@ export const useClientDetailHandlers = (
     handleDeleteMessage,
     updateProjectStatus,
     updateProjectDate,
+    updateProjectShootingStyle,
     handleDocumentUploaded,
     handleDocumentDeleted,
     markProjectAsCompleted,

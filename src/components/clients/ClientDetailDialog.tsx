@@ -52,6 +52,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     handleDeleteMessage,
     updateProjectStatus,
     updateProjectDate,
+    updateProjectShootingStyle,
     handleDocumentUploaded,
     handleDocumentDeleted,
     getStatusBadge,
@@ -98,6 +99,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             handleDeleteProject={handleDeleteProject}
             updateProjectStatus={updateProjectStatus}
             updateProjectDate={updateProjectDate}
+            updateProjectShootingStyle={updateProjectShootingStyle}
             getStatusBadge={getStatusBadge}
             formatDate={formatDate}
             newPayment={newPayment}

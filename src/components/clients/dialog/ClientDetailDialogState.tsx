@@ -10,7 +10,8 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     name: '', 
     budget: '', 
     description: '',
-    startDate: new Date().toISOString().split('T')[0]
+    startDate: new Date().toISOString().split('T')[0],
+    shootingStyleId: ''
   });
   const [newPayment, setNewPayment] = useState({ 
     amount: '', 
