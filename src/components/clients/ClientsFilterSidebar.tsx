@@ -109,109 +109,109 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
   ];
 
   return (
-    <Card className="border-purple-200/50 shadow-lg sticky top-6">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold">Фильтры и сортировка</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="h-8 w-8 p-0"
-          >
-            <Icon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} size={20} />
-          </Button>
-        </div>
-
-        {isExpanded && (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground px-3 py-2">Стандартные</p>
-            
-            {filters.map((filter) => (
-            <button
-              key={filter.id}
-              onClick={() => onFilterChange(filter.id)}
-              className={`w-full flex items-start gap-3 p-3 rounded-lg transition-all hover:bg-accent group ${
-                activeFilter === filter.id ? 'bg-gradient-to-r from-purple-100 to-pink-100' : ''
-              }`}
+    <div className="space-y-4">
+      <Card className="border-purple-200/50 shadow-lg">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold">Фильтры и сортировка</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="h-8 w-8 p-0"
             >
-              <Icon 
-                name={filter.icon as any} 
-                size={20} 
-                className={activeFilter === filter.id ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
-              />
-              <div className="flex-1 text-left">
-                <div className="flex items-center justify-between">
-                  <p className={`text-sm font-medium ${activeFilter === filter.id ? 'text-gray-900 font-semibold' : ''}`}>
-                    {filter.label}
-                  </p>
-                  {filter.count !== null && (
-                    <span className="text-xs text-muted-foreground">{filter.count}</span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{filter.description}</p>
-              </div>
-            </button>
-          ))}
-            </div>
-
-            <div className="space-y-1 border-t pt-3">
-              <div className="flex items-center justify-between px-3 py-2">
-                <p className="text-xs font-semibold text-muted-foreground">По стилю съёмки</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowShootingStyles(!showShootingStyles)}
-                  className="h-6 w-6 p-0"
-                >
-                  <Icon name={showShootingStyles ? 'ChevronUp' : 'ChevronDown'} size={16} />
-                </Button>
-              </div>
-
-              {showShootingStyles && (
-                <div className="space-y-1 max-h-64 overflow-y-auto">
-                  {shootingStyles.map((style) => {
-                    const count = getShootingStyleCount(style.id);
-                    const isActive = isShootingStyleActive(style.id);
-                    
-                    if (count === 0) return null;
-                    
-                    return (
-                      <button
-                        key={style.id}
-                        onClick={() => onFilterChange({ type: 'shooting-style', styleId: style.id } as any)}
-                        className={`w-full flex items-start gap-3 p-2 pl-6 rounded-lg transition-all hover:bg-accent group ${
-                          isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100' : ''
-                        }`}
-                      >
-                        <Icon 
-                          name="Camera" 
-                          size={16} 
-                          className={isActive ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
-                        />
-                        <div className="flex-1 text-left">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className={`text-xs ${
-                              isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'
-                            }`}>
-                              {style.name}
-                            </p>
-                            <Badge variant="secondary" className="text-xs h-5">
-                              {count}
-                            </Badge>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+              <Icon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} size={20} />
+            </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {isExpanded && (
+            <div className="space-y-1">
+              {filters.map((filter) => (
+                <button
+                  key={filter.id}
+                  onClick={() => onFilterChange(filter.id)}
+                  className={`w-full flex items-start gap-3 p-3 rounded-lg transition-all hover:bg-accent group ${
+                    activeFilter === filter.id ? 'bg-gradient-to-r from-purple-100 to-pink-100' : ''
+                  }`}
+                >
+                  <Icon 
+                    name={filter.icon as any} 
+                    size={20} 
+                    className={activeFilter === filter.id ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
+                  />
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center justify-between">
+                      <p className={`text-sm font-medium ${activeFilter === filter.id ? 'text-gray-900 font-semibold' : ''}`}>
+                        {filter.label}
+                      </p>
+                      {filter.count !== null && (
+                        <span className="text-xs text-muted-foreground">{filter.count}</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{filter.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-purple-200/50 shadow-lg">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-base font-bold">По стилю съёмки</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowShootingStyles(!showShootingStyles)}
+              className="h-8 w-8 p-0"
+            >
+              <Icon name={showShootingStyles ? 'ChevronUp' : 'ChevronDown'} size={20} />
+            </Button>
+          </div>
+
+          {showShootingStyles && (
+            <div className="space-y-1 max-h-96 overflow-y-auto">
+              {shootingStyles.map((style) => {
+                const count = getShootingStyleCount(style.id);
+                const isActive = isShootingStyleActive(style.id);
+                
+                if (count === 0) return null;
+                
+                return (
+                  <button
+                    key={style.id}
+                    onClick={() => onFilterChange({ type: 'shooting-style', styleId: style.id } as any)}
+                    className={`w-full flex items-start gap-3 p-2.5 rounded-lg transition-all hover:bg-accent group ${
+                      isActive ? 'bg-gradient-to-r from-purple-100 to-pink-100' : ''
+                    }`}
+                  >
+                    <Icon 
+                      name="Camera" 
+                      size={18} 
+                      className={isActive ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
+                    />
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-sm ${
+                          isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'
+                        }`}>
+                          {style.name}
+                        </p>
+                        <Badge variant="secondary" className="text-xs h-5 shrink-0">
+                          {count}
+                        </Badge>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
