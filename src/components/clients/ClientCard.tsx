@@ -24,13 +24,13 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: Client
 
   return (
     <Card className="hover-scale cursor-pointer" onClick={onSelect} data-tour="client-card">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon name="User" className="text-primary" />
-            {client.name}
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Icon name="User" className="text-primary flex-shrink-0" />
+            <span className="truncate">{client.name}</span>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -56,26 +56,26 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: Client
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <Icon name="Phone" size={16} className="text-muted-foreground" />
-            <span>{formatPhoneNumber(client.phone)}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <Icon name="Phone" size={16} className="text-muted-foreground flex-shrink-0" />
+            <span className="truncate">{formatPhoneNumber(client.phone)}</span>
           </div>
           {client.email && (
-            <div className="flex items-center gap-2">
-              <Icon name="Mail" size={16} className="text-muted-foreground" />
-              <span>{client.email}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <Icon name="Mail" size={16} className="text-muted-foreground flex-shrink-0" />
+              <span className="truncate">{client.email}</span>
             </div>
           )}
           {client.address && (
-            <div className="flex items-center gap-2">
-              <Icon name="MapPin" size={16} className="text-muted-foreground" />
-              <span>{client.address}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <Icon name="MapPin" size={16} className="text-muted-foreground flex-shrink-0" />
+              <span className="truncate">{client.address}</span>
             </div>
           )}
           {client.vkProfile && (
-            <div className="flex items-center gap-2">
-              <Icon name="MessageCircle" size={16} className="text-muted-foreground" />
-              <span>@{client.vkProfile}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <Icon name="MessageCircle" size={16} className="text-muted-foreground flex-shrink-0" />
+              <span className="truncate">@{client.vkProfile}</span>
             </div>
           )}
         </div>
@@ -95,7 +95,7 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: Client
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t">
           <div className="flex gap-2 flex-wrap">
             {activeBookings.length > 0 && (
               <Badge variant="default">
@@ -112,6 +112,7 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: Client
           </div>
           <Button
             size="sm"
+            className="w-full sm:w-auto"
             onClick={(e) => {
               e.stopPropagation();
               onAddBooking();
