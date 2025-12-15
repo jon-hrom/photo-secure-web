@@ -4,10 +4,13 @@ import { formatPhoneNumber } from '@/utils/phoneFormat';
 import { Client } from '@/components/clients/ClientsTypes';
 
 interface ClientDialogHeaderProps {
-  client: Client;
+  localClient: Client;
+  onUpdate: (client: Client) => void;
+  setLocalClient: (client: Client) => void;
 }
 
-const ClientDialogHeader = ({ client }: ClientDialogHeaderProps) => {
+const ClientDialogHeader = ({ localClient }: ClientDialogHeaderProps) => {
+  const client = localClient;
   return (
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2 sm:gap-3 text-xl sm:text-2xl">
