@@ -12,6 +12,9 @@ import boto3
 S3_BUCKET = 'foto-mix'
 S3_ENDPOINT = 'https://storage.yandexcloud.net'
 
+# Database schema
+DB_SCHEMA = 't_p28211681_photo_secure_web'
+
 def get_s3_client():
     '''Возвращает S3 клиент'''
     from botocore.client import Config
@@ -171,7 +174,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 cur.execute('''
                     SELECT id, name, s3_key, upload_date
-                    FROM client_documents
+                    FROM t_p28211681_photo_secure_web.client_documents
                     WHERE client_id = %s
                     ORDER BY upload_date DESC
                 ''', (client_id,))
@@ -198,7 +201,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if action == 'list':
                 cur.execute('''
                     SELECT id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
-                    FROM clients 
+                    FROM t_p28211681_photo_secure_web.clients 
                     WHERE user_id = %s
                     ORDER BY created_at DESC
                 ''', (user_id,))
@@ -208,15 +211,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 for client in clients:
                     cur.execute('''
                         SELECT id, booking_date, booking_time, description, notification_enabled, notification_time
-                        FROM bookings 
+                        FROM t_p28211681_photo_secure_web.bookings 
                         WHERE client_id = %s
                         ORDER BY booking_date DESC
                     ''', (client['id'],))
                     bookings = cur.fetchall()
                     
                     cur.execute('''
-                        SELECT id, name, status, budget, start_date, description, shooting_style_id
-                        FROM client_projects 
+                        SELECT id, name, status, budget, start_date, description
+                        FROM t_p28211681_photo_secure_web.client_projects 
                         WHERE client_id = %s
                         ORDER BY created_at DESC
                     ''', (client['id'],))
@@ -228,13 +231,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'status': p['status'],
                         'budget': float(p['budget']),
                         'startDate': str(p['start_date']),
-                        'description': p['description'],
-                        'shootingStyleId': p['shooting_style_id']
+                        'description': p['description']
                     } for p in raw_projects]
                     
                     cur.execute('''
                         SELECT id, amount, payment_date, status, method, description, project_id
-                        FROM client_payments 
+                        FROM t_p28211681_photo_secure_web.client_payments 
                         WHERE client_id = %s
                         ORDER BY payment_date DESC
                     ''', (client['id'],))
@@ -252,7 +254,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     cur.execute('''
                         SELECT id, name, s3_key, upload_date
-                        FROM client_documents 
+                        FROM t_p28211681_photo_secure_web.client_documents 
                         WHERE client_id = %s
                         ORDER BY upload_date DESC
                     ''', (client['id'],))
@@ -271,7 +273,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     cur.execute('''
                         SELECT id, author, text, comment_date
-                        FROM client_comments 
+                        FROM t_p28211681_photo_secure_web.client_comments 
                         WHERE client_id = %s
                         ORDER BY comment_date DESC
                     ''', (client['id'],))
@@ -279,7 +281,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     cur.execute('''
                         SELECT id, type, author, content, message_date
-                        FROM client_messages 
+                        FROM t_p28211681_photo_secure_web.client_messages 
                         WHERE client_id = %s
                         ORDER BY message_date DESC
                     ''', (client['id'],))
@@ -315,7 +317,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if action == 'create':
                 cur.execute('''
-                    INSERT INTO clients (user_id, name, phone, email, address, vk_profile)
+                    INSERT INTO t_p28211681_photo_secure_web.clients (user_id, name, phone, email, address, vk_profile)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
                 ''', (
@@ -353,7 +355,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 notification_time = body.get('notificationTime', 24)
                 
                 # Получаем информацию о клиенте
-                cur.execute('SELECT name, phone, email FROM clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                cur.execute('SELECT name, phone, email FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND user_id = %s', (client_id, user_id))
                 client = cur.fetchone()
                 
                 if not client:
@@ -366,7 +368,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Создаём запись в таблице bookings
                 cur.execute('''
-                    INSERT INTO bookings (client_id, booking_date, booking_time, description, notification_enabled, notification_time)
+                    INSERT INTO t_p28211681_photo_secure_web.bookings (client_id, booking_date, booking_time, description, notification_enabled, notification_time)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING id, client_id, booking_date, booking_time, description, notification_enabled, notification_time
                 ''', (
@@ -385,7 +387,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Создаём встречу в таблице meetings для отображения в Dashboard
                 if meeting_datetime:
                     cur.execute('''
-                        INSERT INTO meetings 
+                        INSERT INTO t_p28211681_photo_secure_web.meetings 
                         (creator_id, title, description, meeting_date, client_name, client_phone, client_email, notification_enabled, status)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ''', (
@@ -423,7 +425,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 # Проверяем, что клиент принадлежит пользователю
-                cur.execute('SELECT id, name, phone FROM clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                cur.execute('SELECT id, name, phone FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND user_id = %s', (client_id, user_id))
                 client_info = cur.fetchone()
                 
                 if not client_info:
@@ -435,7 +437,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 # Получаем все документы клиента для удаления из S3
-                cur.execute('SELECT s3_key FROM client_documents WHERE client_id = %s', (client_id,))
+                cur.execute('SELECT s3_key FROM t_p28211681_photo_secure_web.client_documents WHERE client_id = %s', (client_id,))
                 documents = cur.fetchall()
                 
                 # Удаляем файлы из S3
@@ -444,17 +446,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         delete_from_s3(doc['s3_key'])
                 
                 # Удаляем в правильном порядке (сначала зависимости, потом родителей)
-                cur.execute('DELETE FROM bookings WHERE client_id = %s', (client_id,))
-                cur.execute('DELETE FROM client_payments WHERE client_id = %s', (client_id,))
-                cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))
-                cur.execute('DELETE FROM client_documents WHERE client_id = %s', (client_id,))
-                cur.execute('DELETE FROM client_comments WHERE client_id = %s', (client_id,))
-                cur.execute('DELETE FROM client_messages WHERE client_id = %s', (client_id,))
-                cur.execute('DELETE FROM clients WHERE id = %s', (client_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.bookings WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_documents WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_comments WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_messages WHERE client_id = %s', (client_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
                 
                 # Удаляем все встречи этого клиента из таблицы meetings
                 cur.execute('''
-                    DELETE FROM meetings 
+                    DELETE FROM t_p28211681_photo_secure_web.meetings 
                     WHERE creator_id = %s 
                     AND client_name = %s 
                     AND client_phone = %s
@@ -484,7 +486,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 # Проверяем, что клиент принадлежит пользователю
-                cur.execute('SELECT id FROM clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND user_id = %s', (client_id, user_id))
                 if not cur.fetchone():
                     return {
                         'statusCode': 403,
@@ -499,7 +501,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Сохраняем в БД с S3 key
                 cur.execute('''
-                    INSERT INTO client_documents (client_id, name, s3_key, upload_date)
+                    INSERT INTO t_p28211681_photo_secure_web.client_documents (client_id, name, s3_key, upload_date)
                     VALUES (%s, %s, %s, %s)
                     RETURNING id, client_id, name, s3_key, upload_date
                 ''', (client_id, filename, s3_key, datetime.utcnow()))
@@ -527,7 +529,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             client_id = body.get('id')
             
             cur.execute('''
-                UPDATE clients 
+                UPDATE t_p28211681_photo_secure_web.clients 
                 SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s AND user_id = %s
                 RETURNING id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
@@ -553,7 +555,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Обновляем проекты (upsert - вставляем новые или обновляем существующие)
             if 'projects' in body:
                 # Получаем текущие ID проектов
-                cur.execute('SELECT id FROM client_projects WHERE client_id = %s', (client_id,))
+                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s', (client_id,))
                 existing_ids = {row['id'] for row in cur.fetchall()}
                 incoming_ids = {p.get('id') for p in body.get('projects', []) if p.get('id')}
                 
@@ -561,9 +563,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 ids_to_delete = existing_ids - incoming_ids
                 if ids_to_delete:
                     # Сначала удаляем все платежи этих проектов
-                    cur.execute('DELETE FROM client_payments WHERE project_id = ANY(%s)', (list(ids_to_delete),))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE project_id = ANY(%s)', (list(ids_to_delete),))
                     # Потом удаляем сами проекты
-                    cur.execute('DELETE FROM client_projects WHERE id = ANY(%s)', (list(ids_to_delete),))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_projects WHERE id = ANY(%s)', (list(ids_to_delete),))
                 
                 # Вставляем или обновляем проекты
                 for project in body.get('projects', []):
@@ -581,7 +583,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         start_date = None
                     
                     cur.execute('''
-                        INSERT INTO client_projects (id, client_id, name, status, budget, start_date, description)
+                        INSERT INTO t_p28211681_photo_secure_web.client_projects (id, client_id, name, status, budget, start_date, description)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
@@ -602,14 +604,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Обновляем платежи (upsert)
             if 'payments' in body:
                 # Получаем текущие ID платежей
-                cur.execute('SELECT id FROM client_payments WHERE client_id = %s', (client_id,))
+                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.client_payments WHERE client_id = %s', (client_id,))
                 existing_ids = {row['id'] for row in cur.fetchall()}
                 incoming_ids = {p.get('id') for p in body.get('payments', []) if p.get('id')}
                 
                 # Удаляем платежи, которых нет в новом списке
                 ids_to_delete = existing_ids - incoming_ids
                 if ids_to_delete:
-                    cur.execute('DELETE FROM client_payments WHERE id = ANY(%s)', (list(ids_to_delete),))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE id = ANY(%s)', (list(ids_to_delete),))
                 
                 # Вставляем или обновляем платежи
                 for payment in body.get('payments', []):
@@ -627,7 +629,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         payment_date = datetime.now()
                     
                     cur.execute('''
-                        INSERT INTO client_payments (id, client_id, amount, payment_date, status, method, description, project_id)
+                        INSERT INTO t_p28211681_photo_secure_web.client_payments (id, client_id, amount, payment_date, status, method, description, project_id)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             amount = EXCLUDED.amount,
@@ -650,19 +652,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Обновляем комментарии (upsert)
             if 'comments' in body:
                 # Получаем текущие ID комментариев
-                cur.execute('SELECT id FROM client_comments WHERE client_id = %s', (client_id,))
+                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.client_comments WHERE client_id = %s', (client_id,))
                 existing_ids = {row['id'] for row in cur.fetchall()}
                 incoming_ids = {c.get('id') for c in body.get('comments', []) if c.get('id')}
                 
                 # Удаляем комментарии, которых нет в новом списке
                 ids_to_delete = existing_ids - incoming_ids
                 if ids_to_delete:
-                    cur.execute('DELETE FROM client_comments WHERE id = ANY(%s)', (list(ids_to_delete),))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_comments WHERE id = ANY(%s)', (list(ids_to_delete),))
                 
                 # Вставляем или обновляем комментарии
                 for comment in body.get('comments', []):
                     cur.execute('''
-                        INSERT INTO client_comments (id, client_id, author, text, comment_date)
+                        INSERT INTO t_p28211681_photo_secure_web.client_comments (id, client_id, author, text, comment_date)
                         VALUES (%s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             author = EXCLUDED.author,
@@ -679,14 +681,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Обновляем сообщения (upsert)
             if 'messages' in body:
                 # Получаем текущие ID сообщений
-                cur.execute('SELECT id FROM client_messages WHERE client_id = %s', (client_id,))
+                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.client_messages WHERE client_id = %s', (client_id,))
                 existing_ids = {row['id'] for row in cur.fetchall()}
                 incoming_ids = {m.get('id') for m in body.get('messages', []) if m.get('id') and m.get('id') < 1000000000000}
                 
                 # Удаляем сообщения, которых нет в новом списке
                 ids_to_delete = existing_ids - incoming_ids
                 if ids_to_delete:
-                    cur.execute('DELETE FROM client_messages WHERE id = ANY(%s)', (list(ids_to_delete),))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_messages WHERE id = ANY(%s)', (list(ids_to_delete),))
                 
                 # Вставляем или обновляем сообщения
                 for message in body.get('messages', []):
@@ -700,12 +702,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     if is_new:
                         cur.execute('''
-                            INSERT INTO client_messages (client_id, type, author, content, message_date)
+                            INSERT INTO t_p28211681_photo_secure_web.client_messages (client_id, type, author, content, message_date)
                             VALUES (%s, %s, %s, %s, %s)
                         ''', (client_id, msg_type, msg_author, msg_content, msg_date))
                     else:
                         cur.execute('''
-                            INSERT INTO client_messages (id, client_id, type, author, content, message_date)
+                            INSERT INTO t_p28211681_photo_secure_web.client_messages (id, client_id, type, author, content, message_date)
                             VALUES (%s, %s, %s, %s, %s, %s)
                             ON CONFLICT (id) DO UPDATE SET
                                 type = EXCLUDED.type,
@@ -733,15 +735,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Получаем информацию о бронировании перед удалением
                 cur.execute('''
                     SELECT b.booking_date, b.booking_time, c.name, c.phone
-                    FROM bookings b
-                    JOIN clients c ON b.client_id = c.id
+                    FROM t_p28211681_photo_secure_web.bookings b
+                    JOIN t_p28211681_photo_secure_web.clients c ON b.client_id = c.id
                     WHERE b.id = %s
                 ''', (booking_id,))
                 
                 booking_info = cur.fetchone()
                 
                 # Удаляем бронирование
-                cur.execute('DELETE FROM bookings WHERE id = %s', (booking_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.bookings WHERE id = %s', (booking_id,))
                 
                 # Если нашли бронирование, удаляем соответствующую встречу из meetings
                 if booking_info:
@@ -750,7 +752,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     # Удаляем встречу по параметрам (дата, имя клиента, телефон)
                     if meeting_datetime:
                         cur.execute('''
-                            DELETE FROM meetings 
+                            DELETE FROM t_p28211681_photo_secure_web.meetings 
                             WHERE creator_id = %s 
                             AND meeting_date = %s 
                             AND client_name = %s
@@ -782,8 +784,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Получаем S3 key и проверяем владельца
                 cur.execute('''
                     SELECT cd.s3_key 
-                    FROM client_documents cd
-                    JOIN clients c ON cd.client_id = c.id
+                    FROM t_p28211681_photo_secure_web.client_documents cd
+                    JOIN t_p28211681_photo_secure_web.clients c ON cd.client_id = c.id
                     WHERE cd.id = %s AND c.user_id = %s
                 ''', (document_id, user_id))
                 
@@ -803,7 +805,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     delete_from_s3(doc['s3_key'])
                 
                 # Удаляем из БД
-                cur.execute('DELETE FROM client_documents WHERE id = %s', (document_id,))
+                cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_documents WHERE id = %s', (document_id,))
                 conn.commit()
                 
                 return {
@@ -816,7 +818,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             client_id = params.get('clientId')
             
             cur.execute('''
-                SELECT id FROM clients WHERE id = %s AND user_id = %s
+                SELECT id FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND user_id = %s
             ''', (client_id, user_id))
             
             if not cur.fetchone():
@@ -828,7 +830,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Получаем все документы клиента для удаления из S3
-            cur.execute('SELECT s3_key FROM client_documents WHERE client_id = %s', (client_id,))
+            cur.execute('SELECT s3_key FROM t_p28211681_photo_secure_web.client_documents WHERE client_id = %s', (client_id,))
             documents = cur.fetchall()
             
             # Удаляем файлы из S3
@@ -837,22 +839,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     delete_from_s3(doc['s3_key'])
             
             # Получаем информацию о клиенте для удаления встреч
-            cur.execute('SELECT name, phone FROM clients WHERE id = %s', (client_id,))
+            cur.execute('SELECT name, phone FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
             client_info = cur.fetchone()
             
             # Удаляем в правильном порядке (сначала зависимости, потом родителей)
-            cur.execute('DELETE FROM bookings WHERE client_id = %s', (client_id,))
-            cur.execute('DELETE FROM client_payments WHERE client_id = %s', (client_id,))  # Сначала платежи
-            cur.execute('DELETE FROM client_projects WHERE client_id = %s', (client_id,))  # Потом проекты
-            cur.execute('DELETE FROM client_documents WHERE client_id = %s', (client_id,))
-            cur.execute('DELETE FROM client_comments WHERE client_id = %s', (client_id,))
-            cur.execute('DELETE FROM client_messages WHERE client_id = %s', (client_id,))
-            cur.execute('DELETE FROM clients WHERE id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.bookings WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE client_id = %s', (client_id,))  # Сначала платежи
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s', (client_id,))  # Потом проекты
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_documents WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_comments WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_messages WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
             
             # Удаляем все встречи этого клиента из таблицы meetings
             if client_info:
                 cur.execute('''
-                    DELETE FROM meetings 
+                    DELETE FROM t_p28211681_photo_secure_web.meetings 
                     WHERE creator_id = %s 
                     AND client_name = %s 
                     AND client_phone = %s
