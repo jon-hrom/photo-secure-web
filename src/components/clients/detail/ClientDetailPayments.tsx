@@ -37,9 +37,9 @@ const ClientDetailPayments = ({
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Добавить платёж</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-start sm:items-center space-x-2 p-3 bg-muted/50 rounded-lg">
               <Checkbox
                 id="splitPayment"
                 checked={newPayment.splitAcrossProjects}
@@ -48,15 +48,16 @@ const ClientDetailPayments = ({
                   splitAcrossProjects: checked as boolean,
                   projectId: checked ? '' : newPayment.projectId 
                 })}
+                className="mt-0.5 sm:mt-0 flex-shrink-0"
               />
-              <Label htmlFor="splitPayment" className="text-sm font-normal cursor-pointer">
+              <Label htmlFor="splitPayment" className="text-xs sm:text-sm font-normal cursor-pointer leading-tight">
                 Оплата за все услуги (распределить сумму пропорционально недостающим оплатам)
               </Label>
             </div>
             {newPayment.splitAcrossProjects && (
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
                 <Icon name="Info" size={14} className="mt-0.5 shrink-0" />
-                <p>
+                <p className="leading-tight">
                   Сумма будет автоматически распределена между всеми услугами пропорционально недостающим оплатам. 
                   Полностью оплаченные услуги будут пропущены.
                 </p>
@@ -64,15 +65,15 @@ const ClientDetailPayments = ({
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="text-sm">Проект *</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">Проект *</Label>
               <Select
                 value={newPayment.projectId}
                 onValueChange={(value) => setNewPayment({ ...newPayment, projectId: value })}
                 disabled={newPayment.splitAcrossProjects}
               >
-                <SelectTrigger className="text-sm">
+                <SelectTrigger className="text-xs sm:text-sm h-9">
                   <SelectValue placeholder={newPayment.splitAcrossProjects ? "Все проекты" : "Выберите проект"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -84,34 +85,34 @@ const ClientDetailPayments = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Сумма (₽) *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">Сумма (₽) *</Label>
               <Input
                 type="number"
                 value={newPayment.amount}
                 onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
                 placeholder="10000"
-                className="text-sm"
+                className="text-xs sm:text-sm h-9"
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label className="text-sm">Дата платежа</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">Дата платежа</Label>
               <Input
                 type="date"
                 value={newPayment.date}
                 onChange={(e) => setNewPayment({ ...newPayment, date: e.target.value })}
-                className="text-sm"
+                className="text-xs sm:text-sm h-9"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Способ оплаты</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">Способ оплаты</Label>
               <Select
                 value={newPayment.method}
                 onValueChange={(value) => setNewPayment({ ...newPayment, method: value })}
               >
-                <SelectTrigger className="text-sm">
+                <SelectTrigger className="text-xs sm:text-sm h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -121,17 +122,17 @@ const ClientDetailPayments = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Описание</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">Описание</Label>
               <Input
                 value={newPayment.description}
                 onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })}
                 placeholder="Предоплата 50%"
-                className="text-sm"
+                className="text-xs sm:text-sm h-9"
               />
             </div>
           </div>
-          <Button onClick={handleAddPayment} className="w-full sm:w-auto">
+          <Button onClick={handleAddPayment} className="w-full sm:w-auto h-9 text-xs sm:text-sm">
             <Icon name="Plus" size={16} className="mr-2" />
             Добавить платёж
           </Button>
