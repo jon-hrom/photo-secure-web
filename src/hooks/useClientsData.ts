@@ -16,9 +16,7 @@ export const useClientsData = (
   
   // Синхронизируем с propClients когда они меняются
   useEffect(() => {
-    console.log('[useClientsData] propClients changed:', propClients?.length, 'clients');
     if (propClients) {
-      console.log('[useClientsData] Setting clients from props');
       setClientsState(propClients);
     }
   }, [propClients]);
@@ -26,10 +24,8 @@ export const useClientsData = (
   // Обёртка для setClients, которая вызывает onClientsUpdate
   const setClients = (newClients: Client[] | ((prev: Client[]) => Client[])) => {
     const updated = typeof newClients === 'function' ? newClients(clients) : newClients;
-    console.log('[useClientsData] setClients called, updating to:', updated.length, 'clients');
     setClientsState(updated);
     if (onClientsUpdate) {
-      console.log('[useClientsData] Calling onClientsUpdate callback');
       onClientsUpdate(updated);
     }
   };

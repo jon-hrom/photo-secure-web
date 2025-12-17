@@ -46,8 +46,6 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
   }, []);
 
   useEffect(() => {
-    console.log('[Dashboard] propClients received:', propClients.length, 'clients');
-    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -71,7 +69,6 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 7);
 
-    console.log('[Dashboard] Upcoming bookings calculated:', bookings.length);
     setUpcomingBookings(bookings);
   }, [propClients]);
 

@@ -20,24 +20,79 @@ export const useClientsSync = ({ isAuthenticated, userId }: UseClientsSyncProps)
 
       setClientsLoading(true);
       try {
-        const CLIENTS_API = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
-        console.log('[useClientsSync] Fetching clients for userId:', userId);
-        const res = await fetch(`${CLIENTS_API}?userId=${userId}`);
+        const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
+        const res = await fetch(CLIENTS_API, {
+          headers: { 'X-User-Id': userId.toString() }
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
         const data = await res.json();
-        console.log('[useClientsSync] Received data:', data.length, 'clients');
         
         const clientsWithDates = data.map((client: any) => ({
-          ...client,
+          id: client.id,
+          name: client.name,
+          phone: client.phone,
+          email: client.email || '',
+          address: client.address || '',
+          vkProfile: client.vk_profile || '',
+          created_at: client.created_at,
           bookings: (client.bookings || []).map((b: any) => ({
-            ...b,
-            date: new Date(b.booking_date || b.date),
-            time: b.booking_time || b.time,
-            booking_date: b.booking_date || b.date,
-            booking_time: b.booking_time || b.time
+            id: b.id,
+            date: new Date(b.booking_date),
+            booking_date: b.booking_date,
+            time: b.booking_time,
+            booking_time: b.booking_time,
+            title: b.title || '',
+            description: b.description || '',
+            notificationEnabled: b.notification_enabled,
+            notification_enabled: b.notification_enabled,
+            notificationTime: b.notification_time || 24,
+            notification_time: b.notification_time || 24,
+            clientId: b.client_id,
+            client_id: b.client_id
+          })),
+          projects: (client.projects || []).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            status: p.status,
+            budget: parseFloat(p.budget) || 0,
+            startDate: p.start_date || p.startDate,
+            description: p.description || '',
+            shootingStyleId: p.shooting_style_id || p.shootingStyleId || undefined
+          })),
+          payments: (client.payments || []).map((pay: any) => ({
+            id: pay.id,
+            amount: parseFloat(pay.amount) || 0,
+            date: pay.payment_date || pay.date,
+            status: pay.status,
+            method: pay.method,
+            description: pay.description || '',
+            projectId: pay.project_id || pay.projectId
+          })),
+          documents: (client.documents || []).map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            fileUrl: d.file_url,
+            uploadDate: d.upload_date
+          })),
+          comments: (client.comments || []).map((c: any) => ({
+            id: c.id,
+            author: c.author,
+            text: c.text,
+            date: c.comment_date || c.date
+          })),
+          messages: (client.messages || []).map((m: any) => ({
+            id: m.id,
+            type: m.type,
+            author: m.author,
+            content: m.content,
+            date: m.message_date || m.date
           }))
         }));
         
-        console.log('[useClientsSync] Setting clients:', clientsWithDates.length, 'clients');
         setClients(clientsWithDates);
         setLastSyncTime(new Date());
       } catch (error) {

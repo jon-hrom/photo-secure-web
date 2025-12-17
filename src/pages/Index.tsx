@@ -40,10 +40,6 @@ const Index = () => {
     userId,
   });
 
-  useEffect(() => {
-    console.log('[Index] Clients updated:', clients.length, 'clients');
-  }, [clients]);
-
   const {
     showEmailVerification,
     setShowEmailVerification,
@@ -89,10 +85,6 @@ const Index = () => {
   useEffect(() => {
     console.log('🔍 [Index] Admin state:', { isAdmin, userId, isAuthenticated });
   }, [isAdmin, userId, isAuthenticated]);
-
-  useEffect(() => {
-    console.log('🔍 [Index] currentPage changed:', currentPage);
-  }, [currentPage]);
 
   if (loading) {
     return (
