@@ -148,7 +148,7 @@ const ClientDetailProjects = ({
         </Card>
       ) : (
         <div className="space-y-3">
-          {projects.map((project) => (
+          {[...projects].reverse().map((project) => (
             <Card key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}>
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
