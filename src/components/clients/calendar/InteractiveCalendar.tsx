@@ -22,6 +22,7 @@ const InteractiveCalendar = ({
   const [pressedDate, setPressedDate] = useState<Date | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const longPressTriggered = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -32,10 +33,12 @@ const InteractiveCalendar = ({
   }, []);
 
   const handleMouseDown = (date: Date) => {
+    longPressTriggered.current = false;
     setIsLongPressing(true);
     setPressedDate(date);
     
     longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
       setIsLongPressing(false);
       setPressedDate(null);
       onDateLongPress(date);
@@ -48,21 +51,21 @@ const InteractiveCalendar = ({
       longPressTimer.current = null;
     }
     
-    if (isLongPressing && pressedDate) {
-      onDateClick(pressedDate);
-    }
+    // Не вызываем onDateClick здесь, так как onSelect сработает автоматически
     
     setIsLongPressing(false);
     setPressedDate(null);
   };
 
   const handleTouchStart = (date: Date, e: React.TouchEvent) => {
+    longPressTriggered.current = false;
     const touch = e.touches[0];
     touchStartPos.current = { x: touch.clientX, y: touch.clientY };
     setIsLongPressing(true);
     setPressedDate(date);
     
     longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
       setIsLongPressing(false);
       setPressedDate(null);
       
@@ -97,9 +100,7 @@ const InteractiveCalendar = ({
       longPressTimer.current = null;
     }
     
-    if (isLongPressing && pressedDate) {
-      onDateClick(pressedDate);
-    }
+    // Не вызываем onDateClick здесь, так как onSelect сработает автоматически
     
     setIsLongPressing(false);
     setPressedDate(null);
@@ -121,46 +122,34 @@ const InteractiveCalendar = ({
       </div>
       <CardContent className="p-6">
         <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 shadow-inner">
-          <div
-            onMouseDown={(e) => {
-              const target = e.target as HTMLElement;
-              const button = target.closest('button[name^="day-"]');
-              if (button) {
-                const dayAttr = button.getAttribute('name');
-                if (dayAttr) {
-                  const dateStr = dayAttr.replace('day-', '');
-                  const date = new Date(dateStr);
-                  if (!isNaN(date.getTime())) {
-                    handleMouseDown(date);
-                  }
-                }
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => {
+              // Не вызываем onDateClick если было долгое нажатие
+              if (!longPressTriggered.current) {
+                onDateClick(date);
               }
+              // Сбрасываем флаг после обработки
+              longPressTriggered.current = false;
             }}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={(e) => {
-              const target = e.target as HTMLElement;
-              const button = target.closest('button[name^="day-"]');
-              if (button) {
-                const dayAttr = button.getAttribute('name');
-                if (dayAttr) {
-                  const dateStr = dayAttr.replace('day-', '');
-                  const date = new Date(dateStr);
-                  if (!isNaN(date.getTime())) {
-                    handleTouchStart(date, e);
-                  }
-                }
-              }
+            onDayMouseDown={(date, modifiers, e) => {
+              e.preventDefault();
+              handleMouseDown(date);
             }}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            className={isLongPressing && pressedDate ? 'animate-pulse-strong' : ''}
-          >
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={() => {}}
-              modifiers={{
+            onDayMouseUp={() => {
+              handleMouseUp();
+            }}
+            onDayTouchStart={(date, modifiers, e) => {
+              handleTouchStart(date, e);
+            }}
+            onDayTouchMove={(date, modifiers, e) => {
+              handleTouchMove(e);
+            }}
+            onDayTouchEnd={() => {
+              handleTouchEnd();
+            }}
+            modifiers={{
                 booked: (date) => {
                   const checkDate = new Date(date);
                   checkDate.setHours(0, 0, 0, 0);
