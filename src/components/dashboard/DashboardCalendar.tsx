@@ -162,37 +162,6 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
 
   return (
     <div className="space-y-4">
-      {/* Компактная статистика */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-200/40 rounded-lg">
-                <Icon name="Calendar" size={20} className="text-purple-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-purple-700">{upcomingProjects.length}</div>
-                <div className="text-xs text-purple-600/70">Ближайших</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200/50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-200/40 rounded-lg">
-                <Icon name="Camera" size={20} className="text-blue-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-blue-700">{projects.length}</div>
-                <div className="text-xs text-blue-600/70">Всего съёмок</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Компактный календарь */}
       <Card className="border-purple-200/50">
         <CardContent className="p-4">

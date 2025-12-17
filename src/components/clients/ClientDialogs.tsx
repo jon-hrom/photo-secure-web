@@ -56,10 +56,13 @@ const ClientDialogs = ({
             Добавить карточку клиента
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-md" data-tour="client-form">
+        <DialogContent className="max-w-md" data-tour="client-form" aria-describedby="add-client-description">
           <DialogHeader>
             <DialogTitle>Новый клиент</DialogTitle>
           </DialogHeader>
+          <div id="add-client-description" className="sr-only">
+            Форма для добавления нового клиента в базу
+          </div>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label htmlFor="name">ФИО *</Label>
@@ -121,10 +124,13 @@ const ClientDialogs = ({
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby="edit-client-description">
           <DialogHeader>
             <DialogTitle>Редактирование клиента</DialogTitle>
           </DialogHeader>
+          <div id="edit-client-description" className="sr-only">
+            Форма для редактирования данных клиента
+          </div>
           {editingClient && (
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
