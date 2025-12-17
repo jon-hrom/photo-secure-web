@@ -6,6 +6,7 @@ export const useClientsDialogs = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
+  const [isDateBookingsOpen, setIsDateBookingsOpen] = useState(false);
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -15,6 +16,7 @@ export const useClientsDialogs = () => {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [dateBookings, setDateBookings] = useState<any[]>([]);
   const [messageTab, setMessageTab] = useState<'vk' | 'email'>('vk');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
@@ -75,6 +77,10 @@ export const useClientsDialogs = () => {
     setIsBookingDialogOpen,
     isBookingDetailsOpen,
     setIsBookingDetailsOpen,
+    isDateBookingsOpen,
+    setIsDateBookingsOpen,
+    dateBookings,
+    setDateBookings,
     isMessageDialogOpen,
     setIsMessageDialogOpen,
     isDetailDialogOpen,

@@ -32,6 +32,8 @@ interface UseClientsHandlersProps {
   setSelectedDate: (date: Date | undefined) => void;
   setIsBookingDialogOpen: (open: boolean) => void;
   setIsBookingDetailsOpen: (open: boolean) => void;
+  setIsDateBookingsOpen?: (open: boolean) => void;
+  setDateBookings?: (bookings: any[]) => void;
   setSelectedBooking: (booking: any) => void;
   setVkMessage: (message: string) => void;
   emailSubject: string;
@@ -62,6 +64,8 @@ export const useClientsHandlers = ({
   setSelectedDate,
   setIsBookingDialogOpen,
   setIsBookingDetailsOpen,
+  setIsDateBookingsOpen,
+  setDateBookings,
   setSelectedBooking,
   setVkMessage,
   emailSubject,
@@ -398,15 +402,13 @@ export const useClientsHandlers = ({
     console.log('[DATE_CLICK] Found bookings:', bookingsOnDate);
 
     if (bookingsOnDate.length > 0) {
-      // Если есть бронирования на эту дату - открываем КАРТОЧКУ клиента (не редактирование!)
-      const bookingWithClient = bookingsOnDate[0];
-      const client = clients.find(c => c.id === bookingWithClient.clientId);
+      // Если есть бронирования на эту дату - открываем СПИСОК всех бронирований
+      console.log('[DATE_CLICK] Opening bookings list dialog for date');
       
-      console.log('[DATE_CLICK] Opening client card for:', client?.name);
-      
-      if (client && setIsDetailDialogOpen) {
-        setSelectedClient(client);
-        setIsDetailDialogOpen(true); // Открываем карточку клиента, не BookingDetails
+      if (setIsDateBookingsOpen && setDateBookings) {
+        setSelectedDate(date);
+        setDateBookings(bookingsOnDate);
+        setIsDateBookingsOpen(true);
       }
     } else {
       // Если нет бронирований - просто выбираем дату для нового бронирования
