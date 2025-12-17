@@ -112,9 +112,9 @@ const DashboardCalendar = ({ userId: propUserId, onBookingClick }: DashboardCale
                   return bookedDates.some(bookedDate => {
                     const d1 = new Date(date);
                     const d2 = new Date(bookedDate);
-                    d1.setHours(0, 0, 0, 0);
-                    d2.setHours(0, 0, 0, 0);
-                    return d1.getTime() === d2.getTime();
+                    return d1.getDate() === d2.getDate() &&
+                           d1.getMonth() === d2.getMonth() &&
+                           d1.getFullYear() === d2.getFullYear();
                   });
                 },
               }}
