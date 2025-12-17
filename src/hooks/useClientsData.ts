@@ -3,15 +3,41 @@ import { toast } from 'sonner';
 import { Client } from '@/components/clients/ClientsTypes';
 import { isAdminUser } from '@/utils/adminCheck';
 
-export const useClientsData = (userId: string | null) => {
-  const [clients, setClients] = useState<Client[]>([]);
+export const useClientsData = (
+  userId: string | null, 
+  propClients?: Client[], 
+  onClientsUpdate?: (clients: Client[]) => void
+) => {
+  const [clients, setClientsState] = useState<Client[]>(propClients || []);
   const [loading, setLoading] = useState(false);
   const [emailVerified, setEmailVerified] = useState(true);
   
   const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
   
+  // Синхронизируем с propClients когда они меняются
+  useEffect(() => {
+    if (propClients) {
+      setClientsState(propClients);
+    }
+  }, [propClients]);
+  
+  // Обёртка для setClients, которая вызывает onClientsUpdate
+  const setClients = (newClients: Client[] | ((prev: Client[]) => Client[])) => {
+    const updated = typeof newClients === 'function' ? newClients(clients) : newClients;
+    setClientsState(updated);
+    if (onClientsUpdate) {
+      onClientsUpdate(updated);
+    }
+  };
+  
   const loadClients = async () => {
     if (!userId) {
+      setLoading(false);
+      return;
+    }
+    
+    // Если данные передаются извне, не загружаем
+    if (propClients && propClients.length > 0) {
       setLoading(false);
       return;
     }

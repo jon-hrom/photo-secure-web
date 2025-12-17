@@ -23,14 +23,16 @@ interface ClientsPageProps {
   autoOpenAddDialog?: boolean;
   onAddDialogClose?: () => void;
   userId?: string | null;
+  clients?: Client[];
+  onClientsUpdate?: (clients: Client[]) => void;
 }
 
-const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId }: ClientsPageProps) => {
+const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId, clients: propClients, onClientsUpdate }: ClientsPageProps) => {
   const userId = propUserId || localStorage.getItem('userId');
   const [activeFilter, setActiveFilter] = useState<FilterType>('active-projects');
   
   // Хук для работы с данными
-  const { clients, setClients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId);
+  const { clients, setClients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId, propClients, onClientsUpdate);
   
   // Хук для управления диалогами и состоянием
   const dialogsState = useClientsDialogs();

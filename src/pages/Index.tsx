@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { Client } from '@/components/clients/ClientsTypes';
 import Dashboard from '@/components/Dashboard';
 import ClientsPage from '@/components/ClientsPage';
 import PhotobookPage from '@/components/PhotobookPage';
@@ -37,6 +38,8 @@ const Index = () => {
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [hasVerifiedPhone, setHasVerifiedPhone] = useState(false);
   const [showMAX, setShowMAX] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
   
   const {
     currentPage,
@@ -95,6 +98,47 @@ const Index = () => {
   useEffect(() => {
     console.log('🔍 [Index] Admin state:', { isAdmin, userId, isAuthenticated });
   }, [isAdmin, userId, isAuthenticated]);
+
+  // Загрузка клиентов один раз для всего приложения
+  useEffect(() => {
+    const fetchClients = async () => {
+      if (!isAuthenticated || !userId) {
+        setClients([]);
+        return;
+      }
+
+      setClientsLoading(true);
+      try {
+        const CLIENTS_API = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
+        const res = await fetch(`${CLIENTS_API}?userId=${userId}`);
+        const data = await res.json();
+        
+        const clientsWithDates = data.map((client: any) => ({
+          ...client,
+          bookings: (client.bookings || []).map((b: any) => ({
+            ...b,
+            date: new Date(b.booking_date || b.date),
+            time: b.booking_time || b.time,
+            booking_date: b.booking_date || b.date,
+            booking_time: b.booking_time || b.time
+          }))
+        }));
+        
+        setClients(clientsWithDates);
+      } catch (error) {
+        console.error('Failed to load clients:', error);
+        setClients([]);
+      } finally {
+        setClientsLoading(false);
+      }
+    };
+
+    fetchClients();
+    
+    // Автообновление каждые 30 секунд
+    const interval = setInterval(fetchClients, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, userId]);
 
   useEffect(() => {
     if (currentPage !== 'clients' && selectedClientName !== undefined) {
@@ -412,6 +456,7 @@ const Index = () => {
           <Dashboard 
             userRole="user"
             userId={userId?.toString() || null}
+            clients={clients}
             onOpenClientBooking={(clientName) => {
               setSelectedClientName(clientName);
               setCurrentPage('clients');
@@ -437,7 +482,9 @@ const Index = () => {
             autoOpenClient={selectedClientName} 
             autoOpenAddDialog={shouldOpenAddClient}
             onAddDialogClose={() => setShouldOpenAddClient(false)}
-            userId={userId?.toString() || null} 
+            userId={userId?.toString() || null}
+            clients={clients}
+            onClientsUpdate={setClients}
           />
         )}
         {currentPage === 'photobook' && <PhotobookPage />}
