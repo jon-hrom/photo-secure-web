@@ -171,7 +171,7 @@ const ClientDetailProjects = ({
                           <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-orange-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <Label className="text-xs text-muted-foreground">Дата бронирования:</Label>
+                          <Label className="text-xs text-muted-foreground">Дата съёмки:</Label>
                           <Input
                             type="date"
                             value={(() => {
@@ -281,7 +281,7 @@ const ClientDetailProjects = ({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Дата бронирования</Label>
+              <Label className="text-xs">Дата съёмки</Label>
               <Input
                 type="date"
                 value={newProject.startDate}
