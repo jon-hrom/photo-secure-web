@@ -7,6 +7,7 @@ import StorageWarning from '@/components/StorageWarning';
 import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
 import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
 import DashboardBookingDetailsDialog from '@/components/dashboard/DashboardBookingDetailsDialog';
+import DashboardProjectDetailsDialog from '@/components/dashboard/DashboardProjectDetailsDialog';
 import DashboardUpcomingBookings from '@/components/dashboard/DashboardUpcomingBookings';
 import { Client } from '@/components/clients/ClientsTypes';
 import { isAdminUser } from '@/utils/adminCheck';
@@ -36,6 +37,8 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [isProjectDetailsOpen, setIsProjectDetailsOpen] = useState(false);
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
 
   useEffect(() => {
@@ -303,6 +306,11 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
             setSelectedBooking(booking);
             setIsBookingDetailsOpen(true);
           }}
+          onProjectClick={(client, project) => {
+            setSelectedClient(client);
+            setSelectedProject(project);
+            setIsProjectDetailsOpen(true);
+          }}
         />
         
         <DashboardUpcomingBookings
@@ -320,6 +328,13 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
         onOpenChange={setIsBookingDetailsOpen}
         client={selectedClient}
         booking={selectedBooking}
+      />
+
+      <DashboardProjectDetailsDialog
+        open={isProjectDetailsOpen}
+        onOpenChange={setIsProjectDetailsOpen}
+        client={selectedClient}
+        project={selectedProject}
       />
 
     </div>

@@ -625,6 +625,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     else:
                         start_date = None
                     
+                    # Применяем дефолты для обязательных полей
+                    project_name = project.get('name') or 'Услуга'
+                    project_status = project.get('status') or 'new'
+                    project_budget = project.get('budget') or 0
+                    project_description = project.get('description') or ''
+                    
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.client_projects (id, client_id, name, status, budget, start_date, description, shooting_style_id)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -638,11 +644,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ''', (
                         project.get('id'),
                         client_id,
-                        project.get('name'),
-                        project.get('status'),
-                        project.get('budget'),
+                        project_name,
+                        project_status,
+                        project_budget,
                         start_date,
-                        project.get('description'),
+                        project_description,
                         project.get('shootingStyleId')
                     ))
             

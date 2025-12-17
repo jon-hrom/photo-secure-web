@@ -2,27 +2,42 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
-import { Client, Booking } from '@/components/clients/ClientsTypes';
+import { Client, Booking, Project } from '@/components/clients/ClientsTypes';
 
 interface DashboardCalendarProps {
   clients: Client[];
   onBookingClick?: (client: Client, booking: Booking) => void;
+  onProjectClick?: (client: Client, project: Project) => void;
 }
 
-const DashboardCalendar = ({ clients, onBookingClick }: DashboardCalendarProps) => {
+const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: DashboardCalendarProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Все забронированные даты
+  // Все забронированные даты (бронирования)
   const bookedDates = clients.flatMap(c => 
     (c.bookings || []).filter(b => {
       const bookingDate = new Date(b.booking_date || b.date);
       bookingDate.setHours(0, 0, 0, 0);
-      return bookingDate >= today; // Только будущие бронирования
+      return bookingDate >= today;
     }).map(b => {
       const date = new Date(b.booking_date || b.date);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    })
+  );
+
+  // Даты съёмок из проектов
+  const projectDates = clients.flatMap(c => 
+    (c.projects || []).filter(p => {
+      if (!p.startDate) return false;
+      const projectDate = new Date(p.startDate);
+      projectDate.setHours(0, 0, 0, 0);
+      return projectDate >= today;
+    }).map(p => {
+      const date = new Date(p.startDate);
       date.setHours(0, 0, 0, 0);
       return date;
     })
@@ -48,10 +63,28 @@ const DashboardCalendar = ({ clients, onBookingClick }: DashboardCalendarProps) 
         .map(b => ({ client: c, booking: b }))
     );
 
-    // Если одно бронирование - сразу открываем диалог
-    if (bookingsOnDate.length === 1 && onBookingClick) {
+    // Находим все проекты на эту дату
+    const projectsOnDate = clients.flatMap(c => 
+      (c.projects || [])
+        .filter(p => {
+          if (!p.startDate) return false;
+          const projectDate = new Date(p.startDate);
+          projectDate.setHours(0, 0, 0, 0);
+          return projectDate.getTime() === clickedDate.getTime();
+        })
+        .map(p => ({ client: c, project: p }))
+    );
+
+    // Если одно бронирование - открываем его
+    if (bookingsOnDate.length === 1 && projectsOnDate.length === 0 && onBookingClick) {
       onBookingClick(bookingsOnDate[0].client, bookingsOnDate[0].booking);
-    } else if (bookingsOnDate.length > 0) {
+    } 
+    // Если один проект - открываем его
+    else if (projectsOnDate.length === 1 && bookingsOnDate.length === 0 && onProjectClick) {
+      onProjectClick(projectsOnDate[0].client, projectsOnDate[0].project);
+    } 
+    // Если несколько - показываем выбор
+    else if (bookingsOnDate.length > 0 || projectsOnDate.length > 0) {
       setSelectedDate(date);
     }
   };
@@ -93,6 +126,22 @@ const DashboardCalendar = ({ clients, onBookingClick }: DashboardCalendarProps) 
                            d1.getFullYear() === d2.getFullYear();
                   });
                 },
+                project: (date) => {
+                  const checkDate = new Date(date);
+                  checkDate.setHours(0, 0, 0, 0);
+                  
+                  if (checkDate < today) {
+                    return false;
+                  }
+                  
+                  return projectDates.some(projectDate => {
+                    const d1 = new Date(date);
+                    const d2 = new Date(projectDate);
+                    return d1.getDate() === d2.getDate() &&
+                           d1.getMonth() === d2.getMonth() &&
+                           d1.getFullYear() === d2.getFullYear();
+                  });
+                },
               }}
               modifiersStyles={{
                 booked: {
@@ -100,6 +149,14 @@ const DashboardCalendar = ({ clients, onBookingClick }: DashboardCalendarProps) 
                   color: 'rgb(107 33 168)',
                   fontWeight: 'bold',
                   boxShadow: '0 8px 15px -3px rgba(216, 180, 254, 0.3)',
+                  transform: 'scale(1.05)',
+                  transition: 'all 0.3s ease',
+                },
+                project: {
+                  background: 'linear-gradient(135deg, rgb(134 239 172) 0%, rgb(187 247 208) 100%)',
+                  color: 'rgb(22 101 52)',
+                  fontWeight: 'bold',
+                  boxShadow: '0 8px 15px -3px rgba(134, 239, 172, 0.3)',
                   transform: 'scale(1.05)',
                   transition: 'all 0.3s ease',
                 },
@@ -111,11 +168,15 @@ const DashboardCalendar = ({ clients, onBookingClick }: DashboardCalendarProps) 
           <div className="mt-5 space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
-              <p className="text-sm text-gray-700 font-medium">Даты с бронированиями</p>
+              <p className="text-sm text-gray-700 font-medium">Бронирования</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-300 to-green-200 shadow-md flex-shrink-0"></div>
+              <p className="text-sm text-gray-700 font-medium">Даты съёмок (проекты)</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
-              <p className="text-sm text-gray-700 font-medium">Дата сегодня</p>
+              <p className="text-sm text-gray-700 font-medium">Сегодня</p>
             </div>
           </div>
         </CardContent>
