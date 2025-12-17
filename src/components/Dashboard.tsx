@@ -7,6 +7,7 @@ import StorageWarning from '@/components/StorageWarning';
 import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
 import DashboardMeetings from '@/components/dashboard/DashboardMeetings';
 import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
+import DashboardBookingDetailsDialog from '@/components/dashboard/DashboardBookingDetailsDialog';
 import { isAdminUser } from '@/utils/adminCheck';
 
 interface DashboardProps {
@@ -36,6 +37,9 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
     type: string;
   }>>([]);
   const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0, plan_name: 'Старт', plan_id: 1 });
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -352,13 +356,27 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DashboardCalendar userId={propUserId} />
+        <DashboardCalendar 
+          userId={propUserId}
+          onBookingClick={(client, booking) => {
+            setSelectedClient(client);
+            setSelectedBooking(booking);
+            setIsBookingDetailsOpen(true);
+          }}
+        />
         
         <DashboardMeetings 
           upcomingMeetings={upcomingMeetings}
           onMeetingClick={handleMeetingClick}
         />
       </div>
+
+      <DashboardBookingDetailsDialog
+        open={isBookingDetailsOpen}
+        onOpenChange={setIsBookingDetailsOpen}
+        client={selectedClient}
+        booking={selectedBooking}
+      />
 
     </div>
   );

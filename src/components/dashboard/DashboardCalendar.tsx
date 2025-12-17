@@ -1,164 +1,84 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import ProjectEditDialog from './ProjectEditDialog';
-
-interface Project {
-  id: number;
-  name: string;
-  startDate: string;
-  budget?: number;
-  clientName?: string;
-}
+import { Client, Booking } from '@/components/clients/ClientsTypes';
 
 interface DashboardCalendarProps {
   userId?: string | null;
+  onBookingClick?: (client: Client, booking: Booking) => void;
 }
 
-const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
+const DashboardCalendar = ({ userId: propUserId, onBookingClick }: DashboardCalendarProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedDateProjects, setSelectedDateProjects] = useState<Project[]>([]);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const [longPressTriggered, setLongPressTriggered] = useState(false);
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const [isPulsing, setIsPulsing] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
 
-  const fetchProjects = async () => {
+  const fetchClients = async () => {
     const userId = propUserId || localStorage.getItem('userId');
     if (!userId) return;
 
     try {
-      const res = await fetch(`https://functions.poehali.dev/f95119e0-3c8c-49db-9c1f-de7411b59001?userId=${userId}`);
+      const CLIENTS_API = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
+      const res = await fetch(`${CLIENTS_API}?userId=${userId}`);
       const data = await res.json();
       
-      const projectsWithDates = data
-        .filter((p: any) => p.startDate)
-        .map((p: any) => ({
-          ...p,
-          startDate: p.startDate.split(' ')[0]
-        }));
+      const clientsWithDates = data.map((client: any) => ({
+        ...client,
+        bookings: (client.bookings || []).map((b: any) => ({
+          ...b,
+          date: new Date(b.booking_date || b.date)
+        }))
+      }));
 
-      setProjects(projectsWithDates);
+      setClients(clientsWithDates);
     } catch (error) {
-      console.error('Failed to load projects:', error);
+      console.error('Failed to load clients:', error);
     }
   };
 
   useEffect(() => {
-    fetchProjects();
+    fetchClients();
   }, [propUserId]);
-
-  useEffect(() => {
-    if (!selectedDate) {
-      setSelectedDateProjects([]);
-      return;
-    }
-
-    const filtered = projects.filter(p => {
-      const projectDate = new Date(p.startDate);
-      return projectDate.toDateString() === selectedDate.toDateString();
-    });
-
-    setSelectedDateProjects(filtered);
-  }, [selectedDate, projects]);
-
-  const bookedDates = projects
-    .map(p => new Date(p.startDate))
-    .filter(date => !isNaN(date.getTime()));
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const upcomingProjects = projects
-    .filter(p => new Date(p.startDate) >= today)
-    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-    .slice(0, 3);
+  // Все забронированные даты
+  const bookedDates = clients.flatMap(c => 
+    (c.bookings || []).map(b => {
+      const date = new Date(b.booking_date || b.date);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    })
+  );
 
-  // Обработка долгого нажатия для редактирования
-  const startLongPress = useCallback(() => {
-    setLongPressTriggered(false);
-    setIsPulsing(true);
-    
-    longPressTimer.current = setTimeout(() => {
-      setLongPressTriggered(true);
-      setIsPulsing(false);
-      
-      // Находим выбранную дату через Calendar component
-      if (selectedDate) {
-        const dateProjects = projects.filter(p => {
-          const projectDate = new Date(p.startDate);
-          return projectDate.toDateString() === selectedDate.toDateString();
-        });
-        if (dateProjects.length > 0) {
-          setEditingProject(dateProjects[0]);
-          // Вибрация для обратной связи (если доступно)
-          if (navigator.vibrate) {
-            navigator.vibrate(50);
-          }
-        }
-      }
-    }, 600); // 600ms для долгого нажатия
-  }, [projects, selectedDate]);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    startLongPress();
-  }, [startLongPress]);
-
-  const handleMouseDown = useCallback(() => {
-    startLongPress();
-  }, [startLongPress]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    // Отменяем долгое нажатие если палец двигается
-    if (touchStartPos.current && longPressTimer.current) {
-      const touch = e.touches[0];
-      const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
-      const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
-      
-      if (deltaX > 10 || deltaY > 10) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-      }
+  const handleDateClick = (date: Date | undefined) => {
+    if (!date) {
+      setSelectedDate(date);
+      return;
     }
-  }, []);
 
-  const handleTouchEnd = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    touchStartPos.current = null;
-    setIsPulsing(false);
+    const clickedDate = new Date(date);
+    clickedDate.setHours(0, 0, 0, 0);
     
-    // Сброс флага через небольшую задержку
-    setTimeout(() => setLongPressTriggered(false), 100);
-  }, []);
+    // Находим все бронирования на эту дату
+    const bookingsOnDate = clients.flatMap(c => 
+      (c.bookings || [])
+        .filter(b => {
+          const bookingDate = new Date(b.booking_date || b.date);
+          bookingDate.setHours(0, 0, 0, 0);
+          return bookingDate.getTime() === clickedDate.getTime();
+        })
+        .map(b => ({ client: c, booking: b }))
+    );
 
-  const handleMouseUp = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+    // Если одно бронирование - сразу открываем диалог
+    if (bookingsOnDate.length === 1 && onBookingClick) {
+      onBookingClick(bookingsOnDate[0].client, bookingsOnDate[0].booking);
+    } else if (bookingsOnDate.length > 0) {
+      setSelectedDate(date);
     }
-    setIsPulsing(false);
-    
-    // Сброс флага через небольшую задержку
-    setTimeout(() => setLongPressTriggered(false), 100);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-      }
-    };
-  }, []);
+  };
 
   return (
     <div className="space-y-4">
@@ -168,57 +88,33 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
           <div className="mb-3">
             <div className="flex items-center gap-2 mb-2">
               <Icon name="Calendar" size={18} className="text-purple-600" />
-              <h3 className="font-semibold text-sm">Занятые даты</h3>
+              <h3 className="font-semibold text-sm">Календарь бронирований</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              👆 Клик — просмотр • 🖊️ Зажать — редактирование
+              👆 Нажмите на дату для просмотра бронирований
             </p>
           </div>
           
-          <div 
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            className={isPulsing ? 'animate-pulse-strong' : ''}
-          >
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 shadow-inner">
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={(date) => {
-                // Если было долгое нажатие, не обрабатываем клик
-                if (longPressTriggered) {
-                  return;
-                }
-                
-                setSelectedDate(date);
-                // Автоматическое открытие проекта при клике на дату
-                if (date) {
-                  const dateProjects = projects.filter(p => {
-                    const projectDate = new Date(p.startDate);
-                    return projectDate.toDateString() === date.toDateString();
-                  });
-                  if (dateProjects.length === 1) {
-                    setEditingProject(dateProjects[0]);
-                  }
-                }
-              }}
+              onSelect={handleDateClick}
               modifiers={{
                 booked: (date) => {
                   const checkDate = new Date(date);
                   checkDate.setHours(0, 0, 0, 0);
                   
-                  if (checkDate < today) return false;
+                  if (checkDate < today) {
+                    return false;
+                  }
                   
                   return bookedDates.some(bookedDate => {
                     const d1 = new Date(date);
                     const d2 = new Date(bookedDate);
-                    return d1.getDate() === d2.getDate() &&
-                           d1.getMonth() === d2.getMonth() &&
-                           d1.getFullYear() === d2.getFullYear();
+                    d1.setHours(0, 0, 0, 0);
+                    d2.setHours(0, 0, 0, 0);
+                    return d1.getTime() === d2.getTime();
                   });
                 },
               }}
@@ -227,27 +123,27 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
                   background: 'linear-gradient(135deg, rgb(216 180 254) 0%, rgb(251 207 232) 100%)',
                   color: 'rgb(107 33 168)',
                   fontWeight: 'bold',
-                  boxShadow: '0 4px 8px -2px rgba(216, 180, 254, 0.3)',
+                  boxShadow: '0 8px 15px -3px rgba(216, 180, 254, 0.3)',
+                  transform: 'scale(1.05)',
+                  transition: 'all 0.3s ease',
                 },
               }}
-              className="rounded-lg w-full"
+              className="rounded-xl border-0 w-full"
             />
           </div>
-
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="w-4 h-4 rounded bg-gradient-to-br from-purple-300 to-pink-300"></div>
-            <span>Занятые даты</span>
+          
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
+              <p className="text-sm text-gray-700 font-medium">Даты с бронированиями</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
+              <p className="text-sm text-gray-700 font-medium">Дата сегодня</p>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      <ProjectEditDialog
-        project={editingProject}
-        open={!!editingProject}
-        onClose={() => setEditingProject(null)}
-        userId={propUserId}
-        onUpdate={fetchProjects}
-      />
     </div>
   );
 };
