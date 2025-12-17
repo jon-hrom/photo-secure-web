@@ -30,7 +30,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   const [activeFilter, setActiveFilter] = useState<FilterType>('active-projects');
   
   // Хук для работы с данными
-  const { clients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId);
+  const { clients, setClients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId);
   
   // Хук для управления диалогами и состоянием
   const dialogsState = useClientsDialogs();
@@ -54,6 +54,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     CLIENTS_API,
     loadClients,
     clients,
+    setClients,
     selectedClient: dialogsState.selectedClient,
     setSelectedClient: dialogsState.setSelectedClient,
     selectedDate: dialogsState.selectedDate,

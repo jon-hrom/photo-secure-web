@@ -7,6 +7,7 @@ interface UseClientsHandlersProps {
   CLIENTS_API: string;
   loadClients: () => Promise<void>;
   clients: Client[];
+  setClients: (clients: Client[]) => void;
   selectedClient: Client | null;
   setSelectedClient: (client: Client | null) => void;
   selectedDate: Date | undefined;
@@ -46,6 +47,7 @@ export const useClientsHandlers = ({
   CLIENTS_API,
   loadClients,
   clients,
+  setClients,
   selectedClient,
   setSelectedClient,
   selectedDate,
@@ -500,6 +502,12 @@ export const useClientsHandlers = ({
       const results = await Promise.all(deletePromises);
       
       const failedCount = results.filter(res => !res.ok).length;
+      const successfulIds = clientIds.filter((_, index) => results[index].ok);
+      
+      // Мгновенно удаляем из UI
+      if (successfulIds.length > 0) {
+        setClients(clients.filter(c => !successfulIds.includes(c.id)));
+      }
       
       if (failedCount > 0) {
         toast.error(`Не удалось удалить ${failedCount} из ${clientIds.length} клиентов`);
@@ -509,7 +517,7 @@ export const useClientsHandlers = ({
 
       setSelectedClient(null);
       
-      // Обновляем список в фоне
+      // Обновляем список в фоне (на случай изменений с других устройств)
       loadClients().catch(console.error);
     } catch (error) {
       console.error('Delete multiple clients error:', error);
