@@ -39,6 +39,7 @@ const ClientDetailProjects = ({
 }: ClientDetailProjectsProps) => {
   const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
   const [selectorKeys, setSelectorKeys] = useState<Record<number, number>>({});
+  const [expandedProjects, setExpandedProjects] = useState<Record<number, boolean>>({});
   
   // Используем ref чтобы всегда иметь актуальную функцию
   const updateProjectShootingStyleRef = useRef(updateProjectShootingStyle);
@@ -88,94 +89,112 @@ const ClientDetailProjects = ({
         </Card>
       ) : (
         <div className="space-y-3">
-          {[...projects].reverse().map((project) => (
+          {[...projects].reverse().map((project) => {
+            const isExpanded = expandedProjects[project.id] || false;
+            return (
             <Card 
               key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}
               className="animate-in slide-in-from-top-4 fade-in duration-500"
             >
-              <CardHeader>
+              <CardHeader 
+                className="cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => setExpandedProjects(prev => ({ ...prev, [project.id]: !prev[project.id] }))}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <CardTitle className="flex items-center gap-2 flex-wrap text-base sm:text-lg">
+                      <Icon name={isExpanded ? "ChevronDown" : "ChevronRight"} size={20} className="shrink-0" />
                       <span className="truncate">{project.name}</span>
                       {getStatusBadge(project.status)}
                     </CardTitle>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm">
-                      <span className="text-muted-foreground">Бюджет: <span className="font-medium text-foreground">{project.budget.toLocaleString('ru-RU')} ₽</span></span>
-                      <span className="text-muted-foreground">Оплачено: <span key={`paid-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-green-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectPaid(project.id).toLocaleString('ru-RU')} ₽</span></span>
-                      <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-orange-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Label className="text-xs text-muted-foreground">Дата бронирования:</Label>
-                      <Input
-                        type="date"
-                        value={(() => {
-                          if (!project.startDate) return '';
-                          // Если уже в формате YYYY-MM-DD
-                          if (typeof project.startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(project.startDate)) {
-                            return project.startDate;
-                          }
-                          // Иначе пробуем преобразовать
-                          try {
-                            const date = new Date(project.startDate);
-                            return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
-                          } catch {
-                            return '';
-                          }
-                        })()}
-                        onChange={(e) => updateProjectDate(project.id, e.target.value)}
-                        className="text-xs h-7 w-40"
-                      />
-                    </div>
-                    {project.shootingStyleId && (
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Стиль: <span className="font-medium text-foreground">
-                          {getShootingStyles().find(s => s.id === project.shootingStyleId)?.name}
-                        </span>
-                      </div>
+                    {isExpanded && (
+                      <>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm">
+                          <span className="text-muted-foreground">Бюджет: <span className="font-medium text-foreground">{project.budget.toLocaleString('ru-RU')} ₽</span></span>
+                          <span className="text-muted-foreground">Оплачено: <span key={`paid-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-green-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectPaid(project.id).toLocaleString('ru-RU')} ₽</span></span>
+                          <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-orange-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Label className="text-xs text-muted-foreground">Дата бронирования:</Label>
+                          <Input
+                            type="date"
+                            value={(() => {
+                              if (!project.startDate) return '';
+                              if (typeof project.startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(project.startDate)) {
+                                return project.startDate;
+                              }
+                              try {
+                                const date = new Date(project.startDate);
+                                return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
+                              } catch {
+                                return '';
+                              }
+                            })()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              updateProjectDate(project.id, e.target.value);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-xs h-7 w-40"
+                          />
+                        </div>
+                        {project.shootingStyleId && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Стиль: <span className="font-medium text-foreground">
+                              {getShootingStyles().find(s => s.id === project.shootingStyleId)?.name}
+                            </span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDeleteProject(project.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteProject(project.id);
+                    }}
                     className="shrink-0"
                   >
                     <Icon name="Trash2" size={16} />
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {project.description && (
-                  <p className="text-sm text-muted-foreground">{project.description}</p>
-                )}
-                <div className="space-y-2">
-                  <Label className="text-xs">Стиль съёмки</Label>
-                  <ShootingStyleSelector
-                    key={`existing-project-${project.id}-${selectorKeys[project.id] || 0}`}
-                    value={project.shootingStyleId}
-                    onChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Select
-                    value={project.status}
-                    onValueChange={(value) => updateProjectStatus(project.id, value as Project['status'])}
-                  >
-                    <SelectTrigger className="w-full sm:w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">Новый</SelectItem>
-                      <SelectItem value="in_progress">В работе</SelectItem>
-                      <SelectItem value="completed">Завершён</SelectItem>
-                      <SelectItem value="cancelled">Отменён</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
+              {isExpanded && (
+                <CardContent className="space-y-3 max-h-[60vh] overflow-y-auto">
+                  {project.description && (
+                    <p className="text-sm text-muted-foreground">{project.description}</p>
+                  )}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Стиль съёмки</Label>
+                    <ShootingStyleSelector
+                      key={`existing-project-${project.id}-${selectorKeys[project.id] || 0}`}
+                      value={project.shootingStyleId}
+                      onChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Select
+                      value={project.status}
+                      onValueChange={(value) => updateProjectStatus(project.id, value as Project['status'])}
+                    >
+                      <SelectTrigger className="w-full sm:w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">Новый</SelectItem>
+                        <SelectItem value="in_progress">В работе</SelectItem>
+                        <SelectItem value="completed">Завершён</SelectItem>
+                        <SelectItem value="cancelled">Отменён</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              )}
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
