@@ -40,6 +40,7 @@ const ClientDetailProjects = ({
   const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
   const [selectorKeys, setSelectorKeys] = useState<Record<number, number>>({});
   const [expandedProjects, setExpandedProjects] = useState<Record<number, boolean>>({});
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number; projectId: number } | null>(null);
   
   // Используем ref чтобы всегда иметь актуальную функцию
   const updateProjectShootingStyleRef = useRef(updateProjectShootingStyle);
@@ -81,8 +82,60 @@ const ClientDetailProjects = ({
     });
     setAnimateKeys(newKeys);
   }, [payments]);
+
+  const toggleAllProjects = () => {
+    const allExpanded = projects.every(p => expandedProjects[p.id]);
+    const newState: Record<number, boolean> = {};
+    projects.forEach(p => {
+      newState[p.id] = !allExpanded;
+    });
+    setExpandedProjects(newState);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, projectId: number) => {
+    setTouchStart({
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      projectId
+    });
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent, projectId: number) => {
+    if (!touchStart || touchStart.projectId !== projectId) return;
+    
+    const deltaX = e.changedTouches[0].clientX - touchStart.x;
+    const deltaY = e.changedTouches[0].clientY - touchStart.y;
+    
+    // Свайп должен быть горизонтальным (больше по X чем по Y)
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX < 0 && expandedProjects[projectId]) {
+        // Свайп влево - сворачиваем
+        setExpandedProjects(prev => ({ ...prev, [projectId]: false }));
+      }
+    }
+    
+    setTouchStart(null);
+  };
   return (
     <>
+      {projects.length > 0 && (
+        <div className="flex justify-end mb-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleAllProjects}
+            className="text-xs"
+          >
+            <Icon 
+              name={projects.every(p => expandedProjects[p.id]) ? "ChevronsUp" : "ChevronsDown"} 
+              size={16} 
+              className="mr-2" 
+            />
+            {projects.every(p => expandedProjects[p.id]) ? "Свернуть все" : "Развернуть все"}
+          </Button>
+        </div>
+      )}
+      
       {projects.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">Список слуг пока нет</CardContent>
@@ -95,6 +148,8 @@ const ClientDetailProjects = ({
             <Card 
               key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}
               className="animate-in slide-in-from-top-4 fade-in duration-500"
+              onTouchStart={(e) => handleTouchStart(e, project.id)}
+              onTouchEnd={(e) => handleTouchEnd(e, project.id)}
             >
               <CardHeader 
                 className="cursor-pointer hover:bg-accent/50 transition-colors"
