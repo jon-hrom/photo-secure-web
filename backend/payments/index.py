@@ -45,12 +45,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(f'''
-                    SELECT pay.id, pay.amount, pay.date, pay.method, pay.project_id as "projectId"
+                    SELECT pay.id, pay.amount, pay.payment_date as date, pay.method, pay.project_id as "projectId"
                     FROM {DB_SCHEMA}.client_payments pay
                     JOIN {DB_SCHEMA}.client_projects p ON pay.project_id = p.id
                     JOIN {DB_SCHEMA}.clients c ON p.client_id = c.id
                     WHERE c.user_id = %s AND pay.project_id = %s
-                    ORDER BY pay.date DESC
+                    ORDER BY pay.payment_date DESC
                 ''', (user_id, project_id))
                 
                 payments = cur.fetchall()
@@ -98,10 +98,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cur.execute(f'''
-                    INSERT INTO {DB_SCHEMA}.client_payments (project_id, amount, method, date)
-                    VALUES (%s, %s, %s, %s)
+                    SELECT c.id as client_id
+                    FROM {DB_SCHEMA}.client_projects p
+                    JOIN {DB_SCHEMA}.clients c ON p.client_id = c.id
+                    WHERE p.id = %s
+                ''', (project_id,))
+                
+                client_row = cur.fetchone()
+                if not client_row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Project not found'}),
+                        'isBase64Encoded': False
+                    }
+                
+                client_id = client_row[0]
+                
+                cur.execute(f'''
+                    INSERT INTO {DB_SCHEMA}.client_payments (project_id, client_id, amount, method, payment_date)
+                    VALUES (%s, %s, %s, %s, %s)
                     RETURNING id
-                ''', (project_id, amount, method_type, date))
+                ''', (project_id, client_id, amount, method_type, date))
                 
                 payment_id = cur.fetchone()[0]
                 conn.commit()

@@ -36,7 +36,7 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
         .filter((p: any) => p.startDate)
         .map((p: any) => ({
           ...p,
-          startDate: p.startDate
+          startDate: p.startDate.split(' ')[0]
         }));
 
       setProjects(projectsWithDates);

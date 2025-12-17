@@ -44,7 +44,11 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
 
   useEffect(() => {
     if (project) {
-      setEditedProject({ ...project });
+      const normalizedProject = {
+        ...project,
+        startDate: project.startDate ? project.startDate.split(' ')[0] : ''
+      };
+      setEditedProject(normalizedProject);
       fetchPayments();
     }
   }, [project]);
@@ -56,10 +60,16 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
 
     try {
       const res = await fetch(`https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f?userId=${userId}&projectId=${project.id}`);
+      if (!res.ok) {
+        console.error('Failed to fetch payments:', res.status);
+        setPayments([]);
+        return;
+      }
       const data = await res.json();
-      setPayments(data);
+      setPayments(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load payments:', error);
+      setPayments([]);
     }
   };
 
