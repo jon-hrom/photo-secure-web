@@ -141,7 +141,7 @@ const ClientDetailProjects = ({
           <CardContent className="py-8 text-center text-muted-foreground">Список слуг пока нет</CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
           {[...projects].reverse().map((project) => {
             const isExpanded = expandedProjects[project.id] || false;
             return (
@@ -253,60 +253,60 @@ const ClientDetailProjects = ({
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">Добавить новую услугу</CardTitle>
+      <Card className="mt-4">
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm sm:text-base">Добавить новую услугу</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label className="text-sm">Название проекта *</Label>
+        <CardContent className="space-y-2 py-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Название проекта *</Label>
               <Input
                 value={newProject.name}
                 onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                 placeholder="Свадебная фотосессия"
-                className="text-sm"
+                className="text-xs h-9"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Бюджет (₽) *</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Бюджет (₽) *</Label>
               <Input
                 type="number"
                 value={newProject.budget}
                 onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })}
                 placeholder="50000"
-                className="text-sm"
+                className="text-xs h-9"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Дата бронирования</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Дата бронирования</Label>
               <Input
                 type="date"
                 value={newProject.startDate}
                 onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
-                className="text-sm"
+                className="text-xs h-9"
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-sm">Стиль съёмки</Label>
+          <div className="space-y-1">
+            <Label className="text-xs">Стиль съёмки</Label>
             <ShootingStyleSelector
               key="new-project-style"
               value={newProject.shootingStyleId}
               onChange={(styleId) => setNewProject({ ...newProject, shootingStyleId: styleId })}
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-sm">Описание</Label>
+          <div className="space-y-1">
+            <Label className="text-xs">Описание</Label>
             <Textarea
               value={newProject.description}
               onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
               placeholder="Детали проекта..."
               rows={2}
-              className="text-sm"
+              className="text-xs"
             />
           </div>
-          <Button onClick={handleAddProject} className="w-full sm:w-auto">
+          <Button onClick={handleAddProject} className="w-full sm:w-auto h-9 text-xs">
             <Icon name="Plus" size={16} className="mr-2" />
             Создать услугу
           </Button>
