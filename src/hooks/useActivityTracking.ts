@@ -24,20 +24,30 @@ export const useActivityTracking = ({
         
         if (vkUser) {
           const userData = JSON.parse(vkUser);
-          await fetch('https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c', {
+          const res = await fetch('https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'update-activity', vk_id: userData.vk_id || userData.user_id })
           });
+          
+          // Если эндпоинт падает - просто игнорируем (не критично)
+          if (!res.ok) {
+            console.warn(`[ACTIVITY] VK activity tracking failed (${res.status}), continuing...`);
+          }
         } else if (userEmail) {
-          await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+          const res = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'update-activity', email: userEmail })
           });
+          
+          if (!res.ok) {
+            console.warn(`[ACTIVITY] Email activity tracking failed (${res.status}), continuing...`);
+          }
         }
       } catch (error) {
-        console.error('Ошибка обновления активности на сервере:', error);
+        // Ошибки трекинга активности не должны ломать приложение
+        console.warn('[ACTIVITY] Activity tracking error (non-critical):', error);
       }
     };
 

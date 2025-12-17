@@ -110,6 +110,12 @@ export const useAuth = () => {
               });
             }
             
+            // Если эндпоинт падает (500) - логируем и продолжаем
+            if (res.status === 500) {
+              console.warn('[VK_AUTH] VK auth endpoint returned 500, cannot restore session');
+              throw { serverError: true };
+            }
+            
             return res.json();
           })
           .then(data => {
@@ -211,6 +217,11 @@ export const useAuth = () => {
               setLoading(false);
               window.history.replaceState({}, '', '/');
               return;
+            }
+            
+            // Если 500 ошибка - просто не восстанавливаем сессию (не критично)
+            if (error.serverError) {
+              console.warn('[VK_AUTH] Cannot restore VK session due to server error');
             }
             
             setLoading(false);
