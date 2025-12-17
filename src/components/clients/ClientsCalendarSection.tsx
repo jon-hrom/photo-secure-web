@@ -1,7 +1,5 @@
 import { Client } from '@/components/clients/ClientsTypes';
-import CalendarStatsCards from './calendar/CalendarStatsCards';
 import InteractiveCalendar from './calendar/InteractiveCalendar';
-import TodayBookingsList from './calendar/TodayBookingsList';
 import UpcomingBookingsList from './calendar/UpcomingBookingsList';
 import { useRef } from 'react';
 
@@ -47,32 +45,8 @@ const ClientsCalendarSection = ({
     upcomingBookings = upcomingBookings.slice(0, 8);
   }
 
-  const todayBookings = clients
-    .flatMap(c => c.bookings.map(b => ({ ...b, client: c })))
-    .filter(b => {
-      const bookingDate = new Date(b.date);
-      bookingDate.setHours(0, 0, 0, 0);
-      return bookingDate.getTime() === today.getTime();
-    })
-    .sort((a, b) => a.time.localeCompare(b.time));
-
-  const getBookingStats = () => {
-    const total = upcomingBookings.length;
-    const thisWeek = upcomingBookings.filter(b => {
-      const bookingDate = new Date(b.date);
-      const weekFromNow = new Date();
-      weekFromNow.setDate(weekFromNow.getDate() + 7);
-      return bookingDate <= weekFromNow;
-    }).length;
-    return { total, thisWeek };
-  };
-
-  const stats = getBookingStats();
-
   return (
     <div className="space-y-6">
-      <CalendarStatsCards thisWeek={stats.thisWeek} total={stats.total} />
-      
       <InteractiveCalendar
         selectedDate={selectedDate}
         allBookedDates={allBookedDates}
@@ -82,11 +56,9 @@ const ClientsCalendarSection = ({
             return;
           }
 
-          // Нормализуем дату
           const clickedDate = new Date(date);
           clickedDate.setHours(0, 0, 0, 0);
           
-          // Ищем бронирования на эту дату
           const bookingsOnDate = clients.flatMap(c => 
             (c.bookings || [])
               .filter(b => {
@@ -97,25 +69,17 @@ const ClientsCalendarSection = ({
               .map(b => ({ ...b, client: c }))
           );
 
-          // Если одно бронирование - сразу открываем детали
           if (bookingsOnDate.length === 1) {
-            const booking = bookingsOnDate[0];
-            onBookingClick(booking.client, booking);
+            onBookingClick(bookingsOnDate[0].client, bookingsOnDate[0]);
           } else if (bookingsOnDate.length > 1) {
-            // Если несколько - показываем список
             onDateClick(date);
             setTimeout(() => {
               upcomingListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
-          } else {
-            // Если нет - просто выбираем дату
-            onDateClick(date);
           }
         }}
         today={today}
       />
-
-      <TodayBookingsList todayBookings={todayBookings} />
 
       <div ref={upcomingListRef}>
         <UpcomingBookingsList
