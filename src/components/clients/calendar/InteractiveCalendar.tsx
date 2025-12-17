@@ -1,0 +1,215 @@
+import { useState, useRef, useEffect } from 'react';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { Calendar } from '@/components/ui/calendar';
+import Icon from '@/components/ui/icon';
+
+interface InteractiveCalendarProps {
+  selectedDate: Date | undefined;
+  allBookedDates: Date[];
+  onDateClick: (date: Date | undefined) => void;
+  onDateLongPress: (date: Date | undefined) => void;
+  today: Date;
+}
+
+const InteractiveCalendar = ({
+  selectedDate,
+  allBookedDates,
+  onDateClick,
+  onDateLongPress,
+  today,
+}: InteractiveCalendarProps) => {
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const [pressedDate, setPressedDate] = useState<Date | null>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+    };
+  }, []);
+
+  const handleMouseDown = (date: Date) => {
+    setIsLongPressing(true);
+    setPressedDate(date);
+    
+    longPressTimer.current = setTimeout(() => {
+      setIsLongPressing(false);
+      setPressedDate(null);
+      onDateLongPress(date);
+    }, 600);
+  };
+
+  const handleMouseUp = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    
+    if (isLongPressing && pressedDate) {
+      onDateClick(pressedDate);
+    }
+    
+    setIsLongPressing(false);
+    setPressedDate(null);
+  };
+
+  const handleTouchStart = (date: Date, e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    setIsLongPressing(true);
+    setPressedDate(date);
+    
+    longPressTimer.current = setTimeout(() => {
+      setIsLongPressing(false);
+      setPressedDate(null);
+      
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      
+      onDateLongPress(date);
+    }, 600);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current) return;
+    
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
+    
+    if (deltaX > 10 || deltaY > 10) {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+      setIsLongPressing(false);
+      setPressedDate(null);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    
+    if (isLongPressing && pressedDate) {
+      onDateClick(pressedDate);
+    }
+    
+    setIsLongPressing(false);
+    setPressedDate(null);
+    touchStartPos.current = null;
+  };
+
+  return (
+    <Card className="overflow-hidden border border-purple-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
+      <div className="bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 p-6">
+        <CardTitle className="flex items-center gap-3 text-purple-700">
+          <div className="p-2 bg-purple-200/40 backdrop-blur-sm rounded-lg">
+            <Icon name="Calendar" size={24} className="text-purple-600" />
+          </div>
+          <div>
+            <div className="text-xl font-bold">Календарь бронирований</div>
+            <div className="text-purple-600/70 text-sm font-normal">Выберите дату для просмотра записей</div>
+          </div>
+        </CardTitle>
+      </div>
+      <CardContent className="p-6">
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 shadow-inner">
+          <div
+            onMouseDown={(e) => {
+              const target = e.target as HTMLElement;
+              const button = target.closest('button[name^="day-"]');
+              if (button) {
+                const dayAttr = button.getAttribute('name');
+                if (dayAttr) {
+                  const dateStr = dayAttr.replace('day-', '');
+                  const date = new Date(dateStr);
+                  if (!isNaN(date.getTime())) {
+                    handleMouseDown(date);
+                  }
+                }
+              }
+            }}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={(e) => {
+              const target = e.target as HTMLElement;
+              const button = target.closest('button[name^="day-"]');
+              if (button) {
+                const dayAttr = button.getAttribute('name');
+                if (dayAttr) {
+                  const dateStr = dayAttr.replace('day-', '');
+                  const date = new Date(dateStr);
+                  if (!isNaN(date.getTime())) {
+                    handleTouchStart(date, e);
+                  }
+                }
+              }
+            }}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className={isLongPressing && pressedDate ? 'animate-pulse-strong' : ''}
+          >
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={() => {}}
+              modifiers={{
+                booked: (date) => {
+                  const checkDate = new Date(date);
+                  checkDate.setHours(0, 0, 0, 0);
+                  
+                  if (checkDate < today) {
+                    return false;
+                  }
+                  
+                  return allBookedDates.some(bookedDate => {
+                    const d1 = new Date(date);
+                    const d2 = new Date(bookedDate);
+                    return d1.getDate() === d2.getDate() &&
+                           d1.getMonth() === d2.getMonth() &&
+                           d1.getFullYear() === d2.getFullYear();
+                  });
+                },
+              }}
+              modifiersStyles={{
+                booked: {
+                  background: 'linear-gradient(135deg, rgb(216 180 254) 0%, rgb(251 207 232) 100%)',
+                  color: 'rgb(107 33 168)',
+                  fontWeight: 'bold',
+                  boxShadow: '0 8px 15px -3px rgba(216, 180, 254, 0.3)',
+                  transform: 'scale(1.05)',
+                  transition: 'all 0.3s ease',
+                },
+              }}
+              className="rounded-xl border-0 w-full"
+            />
+          </div>
+        </div>
+        <div className="mt-5 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
+            <p className="text-sm text-gray-700 font-medium">Даты с бронированиями</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
+            <p className="text-sm text-gray-700 font-medium">Дата сегодня</p>
+          </div>
+          <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl">
+            <p className="text-xs text-purple-700 font-medium text-center">
+              👆 Клик — просмотр • 🖊️ Зажать — редактирование
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default InteractiveCalendar;
