@@ -1,0 +1,240 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Calendar } from '@/components/ui/calendar';
+import { Badge } from '@/components/ui/badge';
+import Icon from '@/components/ui/icon';
+
+interface Project {
+  id: number;
+  name: string;
+  startDate: string;
+  budget?: number;
+  clientName?: string;
+}
+
+interface DashboardCalendarProps {
+  userId?: string | null;
+}
+
+const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedDateProjects, setSelectedDateProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const userId = propUserId || localStorage.getItem('userId');
+      if (!userId) return;
+
+      try {
+        const res = await fetch(`https://functions.poehali.dev/9c8c4a01-9b1d-43ea-9d3b-7a8f3db1ac36?userId=${userId}`);
+        const data = await res.json();
+        
+        const projectsWithDates = data
+          .filter((p: any) => p.startDate)
+          .map((p: any) => ({
+            ...p,
+            startDate: p.startDate
+          }));
+
+        setProjects(projectsWithDates);
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+      }
+    };
+
+    fetchProjects();
+  }, [propUserId]);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      setSelectedDateProjects([]);
+      return;
+    }
+
+    const filtered = projects.filter(p => {
+      const projectDate = new Date(p.startDate);
+      return projectDate.toDateString() === selectedDate.toDateString();
+    });
+
+    setSelectedDateProjects(filtered);
+  }, [selectedDate, projects]);
+
+  const bookedDates = projects
+    .map(p => new Date(p.startDate))
+    .filter(date => !isNaN(date.getTime()));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingProjects = projects
+    .filter(p => new Date(p.startDate) >= today)
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+    .slice(0, 3);
+
+  return (
+    <div className="space-y-4">
+      {/* Компактная статистика */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-200/40 rounded-lg">
+                <Icon name="Calendar" size={20} className="text-purple-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-purple-700">{upcomingProjects.length}</div>
+                <div className="text-xs text-purple-600/70">Ближайших</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-200/40 rounded-lg">
+                <Icon name="Camera" size={20} className="text-blue-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-700">{projects.length}</div>
+                <div className="text-xs text-blue-600/70">Всего съёмок</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Компактный календарь */}
+      <Card className="border-purple-200/50">
+        <CardContent className="p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Icon name="Calendar" size={18} className="text-purple-600" />
+            <h3 className="font-semibold text-sm">Занятые даты</h3>
+          </div>
+          
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            modifiers={{
+              booked: (date) => {
+                const checkDate = new Date(date);
+                checkDate.setHours(0, 0, 0, 0);
+                
+                if (checkDate < today) return false;
+                
+                return bookedDates.some(bookedDate => {
+                  const d1 = new Date(date);
+                  const d2 = new Date(bookedDate);
+                  return d1.getDate() === d2.getDate() &&
+                         d1.getMonth() === d2.getMonth() &&
+                         d1.getFullYear() === d2.getFullYear();
+                });
+              },
+            }}
+            modifiersStyles={{
+              booked: {
+                background: 'linear-gradient(135deg, rgb(216 180 254) 0%, rgb(251 207 232) 100%)',
+                color: 'rgb(107 33 168)',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 8px -2px rgba(216, 180, 254, 0.3)',
+              },
+            }}
+            className="rounded-lg w-full"
+          />
+
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="w-4 h-4 rounded bg-gradient-to-br from-purple-300 to-pink-300"></div>
+            <span>Занятые даты</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Информация о выбранной дате */}
+      {selectedDate && selectedDateProjects.length > 0 && (
+        <Card className="border-orange-200/50 bg-gradient-to-br from-orange-50 to-rose-50">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2 text-orange-700">
+              <Icon name="Info" size={16} />
+              <span className="font-semibold text-sm">
+                {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+              </span>
+            </div>
+            
+            {selectedDateProjects.map(project => (
+              <div 
+                key={project.id}
+                className="bg-white/60 backdrop-blur-sm rounded-lg p-3 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm">{project.name}</span>
+                  {project.budget && (
+                    <Badge variant="secondary" className="text-xs">
+                      {project.budget.toLocaleString('ru-RU')} ₽
+                    </Badge>
+                  )}
+                </div>
+                {project.clientName && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Icon name="User" size={12} />
+                    <span>{project.clientName}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ближайшие съёмки */}
+      {upcomingProjects.length > 0 && (
+        <Card className="border-blue-200/50">
+          <CardContent className="p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Icon name="Clock" size={16} className="text-blue-600" />
+              <h3 className="font-semibold text-sm">Ближайшие съёмки</h3>
+            </div>
+            
+            <div className="space-y-2">
+              {upcomingProjects.map(project => (
+                <div 
+                  key={project.id}
+                  className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-sm">{project.name}</span>
+                    {project.budget && (
+                      <Badge variant="secondary" className="text-xs">
+                        {project.budget.toLocaleString('ru-RU')} ₽
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Icon name="Calendar" size={12} />
+                      <span>
+                        {new Date(project.startDate).toLocaleDateString('ru-RU', { 
+                          day: 'numeric', 
+                          month: 'short' 
+                        })}
+                      </span>
+                    </div>
+                    {project.clientName && (
+                      <div className="flex items-center gap-1">
+                        <Icon name="User" size={12} />
+                        <span>{project.clientName}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+export default DashboardCalendar;

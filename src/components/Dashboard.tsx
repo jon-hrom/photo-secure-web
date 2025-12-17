@@ -6,6 +6,7 @@ import Icon from '@/components/ui/icon';
 import StorageWarning from '@/components/StorageWarning';
 import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
 import DashboardMeetings from '@/components/dashboard/DashboardMeetings';
+import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
 import { isAdminUser } from '@/utils/adminCheck';
 
 interface DashboardProps {
@@ -350,10 +351,14 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
         </Card>
       )}
 
-      <DashboardMeetings 
-        upcomingMeetings={upcomingMeetings}
-        onMeetingClick={handleMeetingClick}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <DashboardCalendar userId={propUserId} />
+        
+        <DashboardMeetings 
+          upcomingMeetings={upcomingMeetings}
+          onMeetingClick={handleMeetingClick}
+        />
+      </div>
 
     </div>
   );
