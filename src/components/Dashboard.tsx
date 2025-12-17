@@ -7,6 +7,8 @@ import StorageWarning from '@/components/StorageWarning';
 import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
 import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
 import DashboardBookingDetailsDialog from '@/components/dashboard/DashboardBookingDetailsDialog';
+import DashboardUpcomingBookings from '@/components/dashboard/DashboardUpcomingBookings';
+import { Client } from '@/components/clients/ClientsTypes';
 import { isAdminUser } from '@/utils/adminCheck';
 
 interface DashboardProps {
@@ -33,6 +35,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
+  const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -40,6 +43,41 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      const userId = propUserId || localStorage.getItem('userId');
+      if (!userId) return;
+
+      try {
+        const CLIENTS_API = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
+        const res = await fetch(`${CLIENTS_API}?userId=${userId}`);
+        const data = await res.json();
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const bookings = data
+          .flatMap((client: Client) => 
+            (client.bookings || []).map(b => ({
+              ...b,
+              date: new Date(b.booking_date || b.date),
+              time: b.booking_time || b.time,
+              client
+            }))
+          )
+          .filter((b: any) => b.date >= today)
+          .sort((a: any, b: any) => a.date.getTime() - b.date.getTime())
+          .slice(0, 5);
+
+        setUpcomingBookings(bookings);
+      } catch (error) {
+        console.error('Failed to load clients:', error);
+      }
+    };
+
+    fetchClients();
+  }, [propUserId]);
 
 
 
@@ -264,14 +302,25 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
       
       <StorageWarning />
 
-      <DashboardCalendar 
-        userId={propUserId}
-        onBookingClick={(client, booking) => {
-          setSelectedClient(client);
-          setSelectedBooking(booking);
-          setIsBookingDetailsOpen(true);
-        }}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <DashboardCalendar 
+          userId={propUserId}
+          onBookingClick={(client, booking) => {
+            setSelectedClient(client);
+            setSelectedBooking(booking);
+            setIsBookingDetailsOpen(true);
+          }}
+        />
+        
+        <DashboardUpcomingBookings
+          bookings={upcomingBookings}
+          onBookingClick={(client, booking) => {
+            setSelectedClient(client);
+            setSelectedBooking(booking);
+            setIsBookingDetailsOpen(true);
+          }}
+        />
+      </div>
 
       <DashboardBookingDetailsDialog
         open={isBookingDetailsOpen}
