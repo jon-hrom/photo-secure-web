@@ -55,7 +55,7 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
     if (!userId) return;
 
     try {
-      const res = await fetch(`https://functions.poehali.dev/92e0bb86-9d91-4e88-a41b-45eefe3fa48e?userId=${userId}&projectId=${project.id}`);
+      const res = await fetch(`https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f?userId=${userId}&projectId=${project.id}`);
       const data = await res.json();
       setPayments(data);
     } catch (error) {
@@ -70,7 +70,7 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
 
     setLoading(true);
     try {
-      const res = await fetch('https://functions.poehali.dev/7e5dfbdc-2f62-4bb5-8e4a-a9f61e8a10d2', {
+      const res = await fetch('https://functions.poehali.dev/f95119e0-3c8c-49db-9c1f-de7411b59001', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -103,7 +103,7 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
     if (!userId) return;
 
     try {
-      const res = await fetch('https://functions.poehali.dev/f9b6f5c9-bb58-4097-b3f0-5c5b7a5e9d8e', {
+      const res = await fetch('https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -130,7 +130,8 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
     if (!userId) return;
 
     try {
-      const res = await fetch('https://functions.poehali.dev/2b3a8f4e-9c7d-4a1e-8b5f-6e4d3c2a1b0c', {
+      const res = await fetch('https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f', {
+        method: 'DELETE',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, paymentId })

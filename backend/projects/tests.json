@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Get projects list",
+      "method": "GET",
+      "path": "/?userId=test-user-123",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Update project",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "userId": "test-user-123",
+        "projectId": 1,
+        "updates": {
+          "name": "Updated Project",
+          "budget": 50000
+        }
+      },
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

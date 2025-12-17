@@ -29,7 +29,7 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
     if (!userId) return;
 
     try {
-      const res = await fetch(`https://functions.poehali.dev/9c8c4a01-9b1d-43ea-9d3b-7a8f3db1ac36?userId=${userId}`);
+      const res = await fetch(`https://functions.poehali.dev/f95119e0-3c8c-49db-9c1f-de7411b59001?userId=${userId}`);
       const data = await res.json();
       
       const projectsWithDates = data

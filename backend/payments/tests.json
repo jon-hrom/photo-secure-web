@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Get payments",
+      "method": "GET",
+      "path": "/?userId=test-user-123&projectId=1",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Add payment",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "userId": "test-user-123",
+        "projectId": 1,
+        "amount": 10000,
+        "method": "cash",
+        "date": "2024-01-01"
+      },
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
