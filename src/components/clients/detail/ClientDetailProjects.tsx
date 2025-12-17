@@ -82,66 +82,6 @@ const ClientDetailProjects = ({
   }, [payments]);
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">Добавить новую услугу</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label className="text-sm">Название проекта *</Label>
-              <Input
-                value={newProject.name}
-                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                placeholder="Свадебная фотосессия"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Бюджет (₽) *</Label>
-              <Input
-                type="number"
-                value={newProject.budget}
-                onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })}
-                placeholder="50000"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Дата бронирования</Label>
-              <Input
-                type="date"
-                value={newProject.startDate}
-                onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
-                className="text-sm"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm">Стиль съёмки</Label>
-            <ShootingStyleSelector
-              key="new-project-style"
-              value={newProject.shootingStyleId}
-              onChange={(styleId) => setNewProject({ ...newProject, shootingStyleId: styleId })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm">Описание</Label>
-            <Textarea
-              value={newProject.description}
-              onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-              placeholder="Детали проекта..."
-              rows={2}
-              className="text-sm"
-            />
-          </div>
-          <Button onClick={handleAddProject} className="w-full sm:w-auto">
-            <Icon name="Plus" size={16} className="mr-2" />
-            Создать услугу
-          </Button>
-        </CardContent>
-      </Card>
-
       {projects.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">Список слуг пока нет</CardContent>
@@ -238,6 +178,66 @@ const ClientDetailProjects = ({
           ))}
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base sm:text-lg">Добавить новую услугу</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <Label className="text-sm">Название проекта *</Label>
+              <Input
+                value={newProject.name}
+                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                placeholder="Свадебная фотосессия"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Бюджет (₽) *</Label>
+              <Input
+                type="number"
+                value={newProject.budget}
+                onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })}
+                placeholder="50000"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Дата бронирования</Label>
+              <Input
+                type="date"
+                value={newProject.startDate}
+                onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Стиль съёмки</Label>
+            <ShootingStyleSelector
+              key="new-project-style"
+              value={newProject.shootingStyleId}
+              onChange={(styleId) => setNewProject({ ...newProject, shootingStyleId: styleId })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Описание</Label>
+            <Textarea
+              value={newProject.description}
+              onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+              placeholder="Детали проекта..."
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+          <Button onClick={handleAddProject} className="w-full sm:w-auto">
+            <Icon name="Plus" size={16} className="mr-2" />
+            Создать услугу
+          </Button>
+        </CardContent>
+      </Card>
     </>
   );
 };
