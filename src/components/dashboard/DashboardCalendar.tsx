@@ -17,7 +17,11 @@ const DashboardCalendar = ({ clients, onBookingClick }: DashboardCalendarProps) 
 
   // Все забронированные даты
   const bookedDates = clients.flatMap(c => 
-    (c.bookings || []).map(b => {
+    (c.bookings || []).filter(b => {
+      const bookingDate = new Date(b.booking_date || b.date);
+      bookingDate.setHours(0, 0, 0, 0);
+      return bookingDate >= today; // Только будущие бронирования
+    }).map(b => {
       const date = new Date(b.booking_date || b.date);
       date.setHours(0, 0, 0, 0);
       return date;

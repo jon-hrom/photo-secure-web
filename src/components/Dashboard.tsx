@@ -51,14 +51,23 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
     
     const bookings = propClients
       .flatMap((client: Client) => 
-        (client.bookings || []).map(b => ({
-          ...b,
-          client
-        }))
+        (client.bookings || []).map(b => {
+          const bookingDate = new Date(b.booking_date || b.date);
+          return {
+            ...b,
+            date: bookingDate,
+            time: b.booking_time || b.time,
+            client
+          };
+        })
       )
-      .filter((b: any) => b.date >= today)
-      .sort((a: any, b: any) => a.date.getTime() - b.date.getTime())
-      .slice(0, 5);
+      .filter((b: any) => {
+        const bookingDate = new Date(b.date);
+        bookingDate.setHours(0, 0, 0, 0);
+        return bookingDate >= today;
+      })
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 7); // Показываем до 7 встреч
 
     setUpcomingBookings(bookings);
   }, [propClients]);
