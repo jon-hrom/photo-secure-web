@@ -8,7 +8,20 @@ const CLEANUP_URL = 'https://functions.poehali.dev/6d40325d-1316-4608-9a07-73ce5
 
 export default function AdminCleanup() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; deleted?: number; message?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{ 
+    success: boolean; 
+    deleted?: number; 
+    message?: string; 
+    error?: string;
+    details?: {
+      bookings: number;
+      payments: number;
+      projects: number;
+      documents: number;
+      comments: number;
+      messages: number;
+    }
+  } | null>(null);
 
   const handleCleanup = async () => {
     if (!confirm('Вы уверены? Это удалит все тестовые записи "Тестовый Клиент" и "Иванов Иван Иванович" из базы данных.')) {
@@ -53,8 +66,8 @@ export default function AdminCleanup() {
             <Alert>
               <Icon name="AlertCircle" size={16} />
               <AlertDescription>
-                Эта операция удалит все записи с именами "Тестовый Клиент" и "Иванов Иван Иванович" 
-                из базы данных вместе со всеми связанными данными (проекты, платежи, документы).
+                Эта операция удалит все тестовые записи (включая имена с "Тест", "test") 
+                из базы данных вместе со всеми связанными данными (записи, проекты, платежи, документы).
               </AlertDescription>
             </Alert>
 
@@ -83,9 +96,20 @@ export default function AdminCleanup() {
                 <AlertDescription>
                   {result.success ? (
                     <>
-                      <strong>Успешно!</strong> Удалено клиентов: {result.deleted}
-                      <br />
-                      {result.message}
+                      <strong>Успешно!</strong> {result.message}
+                      {result.details && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          <div>Детали удаления:</div>
+                          <ul className="list-disc list-inside mt-1">
+                            {result.details.bookings > 0 && <li>Записей: {result.details.bookings}</li>}
+                            {result.details.projects > 0 && <li>Проектов: {result.details.projects}</li>}
+                            {result.details.payments > 0 && <li>Платежей: {result.details.payments}</li>}
+                            {result.details.documents > 0 && <li>Документов: {result.details.documents}</li>}
+                            {result.details.comments > 0 && <li>Комментариев: {result.details.comments}</li>}
+                            {result.details.messages > 0 && <li>Сообщений: {result.details.messages}</li>}
+                          </ul>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <>
