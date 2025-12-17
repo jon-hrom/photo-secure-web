@@ -180,7 +180,7 @@ const InteractiveCalendar = ({
               className="rounded-xl border-0 w-full"
             />
           </div>
-        </div>
+        
         <div className="mt-5 space-y-3">
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
