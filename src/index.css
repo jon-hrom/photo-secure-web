@@ -162,6 +162,22 @@
     animation: animate-scale-pulse 1s ease-in-out infinite;
   }
 
+  @keyframes pulse-strong {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(0.95);
+    }
+  }
+
+  .animate-pulse-strong {
+    animation: pulse-strong 0.6s ease-in-out infinite;
+  }
+
   @keyframes scale-in {
     from {
       opacity: 0;

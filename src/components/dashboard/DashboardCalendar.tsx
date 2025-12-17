@@ -26,6 +26,7 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [longPressTriggered, setLongPressTriggered] = useState(false);
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const [isPulsing, setIsPulsing] = useState(false);
 
   const fetchProjects = async () => {
     const userId = propUserId || localStorage.getItem('userId');
@@ -79,13 +80,13 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
     .slice(0, 3);
 
   // Обработка долгого нажатия для редактирования
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+  const startLongPress = useCallback(() => {
     setLongPressTriggered(false);
+    setIsPulsing(true);
     
     longPressTimer.current = setTimeout(() => {
       setLongPressTriggered(true);
+      setIsPulsing(false);
       
       // Находим выбранную дату через Calendar component
       if (selectedDate) {
@@ -103,6 +104,16 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
       }
     }, 600); // 600ms для долгого нажатия
   }, [projects, selectedDate]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    startLongPress();
+  }, [startLongPress]);
+
+  const handleMouseDown = useCallback(() => {
+    startLongPress();
+  }, [startLongPress]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     // Отменяем долгое нажатие если палец двигается
@@ -124,6 +135,18 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
       longPressTimer.current = null;
     }
     touchStartPos.current = null;
+    setIsPulsing(false);
+    
+    // Сброс флага через небольшую задержку
+    setTimeout(() => setLongPressTriggered(false), 100);
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    setIsPulsing(false);
     
     // Сброс флага через небольшую задержку
     setTimeout(() => setLongPressTriggered(false), 100);
@@ -188,6 +211,10 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            className={isPulsing ? 'animate-pulse-strong' : ''}
           >
             <Calendar
               mode="single"
