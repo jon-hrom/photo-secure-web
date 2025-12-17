@@ -149,7 +149,10 @@ const ClientDetailProjects = ({
       ) : (
         <div className="space-y-3">
           {[...projects].reverse().map((project) => (
-            <Card key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}>
+            <Card 
+              key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}
+              className="animate-in slide-in-from-top-4 fade-in duration-500"
+            >
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
