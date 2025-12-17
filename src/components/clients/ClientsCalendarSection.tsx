@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ interface ClientsCalendarSectionProps {
   selectedDate: Date | undefined;
   allBookedDates: Date[];
   onDateClick: (date: Date | undefined) => void;
+  onDateLongPress: (date: Date | undefined) => void;
   selectedClient: Client | null;
   onMessageClient: (client: Client) => void;
   clients: Client[];
@@ -18,12 +20,114 @@ const ClientsCalendarSection = ({
   selectedDate,
   allBookedDates,
   onDateClick,
+  onDateLongPress,
   selectedClient,
   onMessageClient,
   clients,
 }: ClientsCalendarSectionProps) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // Состояние для долгого нажатия
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const [pressedDate, setPressedDate] = useState<Date | null>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  // Очистка таймера при размонтировании
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+    };
+  }, []);
+
+  // Обработчик начала нажатия (мышь)
+  const handleMouseDown = (date: Date) => {
+    setIsLongPressing(true);
+    setPressedDate(date);
+    
+    longPressTimer.current = setTimeout(() => {
+      // Долгое нажатие сработало
+      setIsLongPressing(false);
+      setPressedDate(null);
+      onDateLongPress(date);
+    }, 600);
+  };
+
+  // Обработчик отпускания (мышь)
+  const handleMouseUp = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    
+    // Если это был быстрый клик (не долгое нажатие)
+    if (isLongPressing && pressedDate) {
+      onDateClick(pressedDate);
+    }
+    
+    setIsLongPressing(false);
+    setPressedDate(null);
+  };
+
+  // Обработчик начала касания (тач)
+  const handleTouchStart = (date: Date, e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    setIsLongPressing(true);
+    setPressedDate(date);
+    
+    longPressTimer.current = setTimeout(() => {
+      // Долгое нажатие сработало
+      setIsLongPressing(false);
+      setPressedDate(null);
+      
+      // Вибрация для тактильной обратной связи
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      
+      onDateLongPress(date);
+    }, 600);
+  };
+
+  // Обработчик движения пальца (отменяем долгое нажатие при скролле)
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current) return;
+    
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
+    
+    // Если палец сдвинулся больше чем на 10px - отменяем долгое нажатие
+    if (deltaX > 10 || deltaY > 10) {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+      setIsLongPressing(false);
+      setPressedDate(null);
+    }
+  };
+
+  // Обработчик окончания касания (тач)
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    
+    // Если это было быстрое касание (не долгое нажатие)
+    if (isLongPressing && pressedDate) {
+      onDateClick(pressedDate);
+    }
+    
+    setIsLongPressing(false);
+    setPressedDate(null);
+    touchStartPos.current = null;
+  };
 
   const upcomingBookings = clients
     .flatMap(c => c.bookings.map(b => ({ ...b, client: c })))
@@ -113,50 +217,89 @@ const ClientsCalendarSection = ({
         </div>
         <CardContent className="p-6">
           <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 shadow-inner">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={onDateClick}
-              modifiers={{
-                booked: (date) => {
-                  const checkDate = new Date(date);
-                  checkDate.setHours(0, 0, 0, 0);
-                  
-                  if (checkDate < today) {
-                    return false;
+            <div
+              onMouseDown={(e) => {
+                const target = e.target as HTMLElement;
+                const button = target.closest('button[name^="day-"]');
+                if (button) {
+                  const dayAttr = button.getAttribute('name');
+                  if (dayAttr) {
+                    const dateStr = dayAttr.replace('day-', '');
+                    const date = new Date(dateStr);
+                    if (!isNaN(date.getTime())) {
+                      handleMouseDown(date);
+                    }
                   }
-                  
-                  return allBookedDates.some(bookedDate => {
-                    const d1 = new Date(date);
-                    const d2 = new Date(bookedDate);
-                    return d1.getDate() === d2.getDate() &&
-                           d1.getMonth() === d2.getMonth() &&
-                           d1.getFullYear() === d2.getFullYear();
-                  });
-                },
+                }
               }}
-              modifiersStyles={{
-                booked: {
-                  background: 'linear-gradient(135deg, rgb(216 180 254) 0%, rgb(251 207 232) 100%)',
-                  color: 'rgb(107 33 168)',
-                  fontWeight: 'bold',
-                  boxShadow: '0 8px 15px -3px rgba(216, 180, 254, 0.3)',
-                  transform: 'scale(1.05)',
-                  transition: 'all 0.3s ease',
-                },
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={(e) => {
+                const target = e.target as HTMLElement;
+                const button = target.closest('button[name^="day-"]');
+                if (button) {
+                  const dayAttr = button.getAttribute('name');
+                  if (dayAttr) {
+                    const dateStr = dayAttr.replace('day-', '');
+                    const date = new Date(dateStr);
+                    if (!isNaN(date.getTime())) {
+                      handleTouchStart(date, e);
+                    }
+                  }
+                }
               }}
-              className="rounded-xl border-0 w-full"
-            />
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={isLongPressing && pressedDate ? 'animate-pulse-strong' : ''}
+            >
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={() => {}} // Отключаем стандартный обработчик, используем свои
+                modifiers={{
+                  booked: (date) => {
+                    const checkDate = new Date(date);
+                    checkDate.setHours(0, 0, 0, 0);
+                    
+                    if (checkDate < today) {
+                      return false;
+                    }
+                    
+                    return allBookedDates.some(bookedDate => {
+                      const d1 = new Date(date);
+                      const d2 = new Date(bookedDate);
+                      return d1.getDate() === d2.getDate() &&
+                             d1.getMonth() === d2.getMonth() &&
+                             d1.getFullYear() === d2.getFullYear();
+                    });
+                  },
+                }}
+                modifiersStyles={{
+                  booked: {
+                    background: 'linear-gradient(135deg, rgb(216 180 254) 0%, rgb(251 207 232) 100%)',
+                    color: 'rgb(107 33 168)',
+                    fontWeight: 'bold',
+                    boxShadow: '0 8px 15px -3px rgba(216, 180, 254, 0.3)',
+                    transform: 'scale(1.05)',
+                    transition: 'all 0.3s ease',
+                  },
+                }}
+                className="rounded-xl border-0 w-full"
+              />
+            </div>
           </div>
           <div className="mt-5 space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
-              <p className="text-sm text-gray-700 font-medium">Даты с бронированиями </p>
+              <p className="text-sm text-gray-700 font-medium">Даты с бронированиями</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
-              <p className="text-sm text-gray-700 font-medium">
-                Дата сегодня
+              <p className="text-sm text-gray-700 font-medium">Дата сегодня</p>
+            </div>
+            <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl">
+              <p className="text-xs text-purple-700 font-medium text-center">
+                👆 Клик — просмотр • 🖊️ Зажать — редактирование
               </p>
             </div>
           </div>

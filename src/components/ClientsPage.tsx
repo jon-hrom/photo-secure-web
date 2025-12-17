@@ -301,6 +301,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
               selectedDate={dialogsState.selectedDate}
               allBookedDates={allBookedDates}
               onDateClick={handlers.handleDateClick}
+              onDateLongPress={handlers.handleDateLongPress}
               selectedClient={dialogsState.selectedClient}
               onMessageClient={dialogsState.openMessageDialog}
               clients={clients}
