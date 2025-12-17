@@ -15,6 +15,8 @@ const DashboardCalendar = ({ clients, onBookingClick }: DashboardCalendarProps) 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  console.log('[DashboardCalendar] Rendering with clients:', clients.length);
+
   // Все забронированные даты
   const bookedDates = clients.flatMap(c => 
     (c.bookings || []).filter(b => {

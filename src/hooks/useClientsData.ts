@@ -16,7 +16,9 @@ export const useClientsData = (
   
   // Синхронизируем с propClients когда они меняются
   useEffect(() => {
+    console.log('[useClientsData] propClients changed:', propClients?.length, 'clients');
     if (propClients) {
+      console.log('[useClientsData] Setting clients from props');
       setClientsState(propClients);
     }
   }, [propClients]);
@@ -24,8 +26,10 @@ export const useClientsData = (
   // Обёртка для setClients, которая вызывает onClientsUpdate
   const setClients = (newClients: Client[] | ((prev: Client[]) => Client[])) => {
     const updated = typeof newClients === 'function' ? newClients(clients) : newClients;
+    console.log('[useClientsData] setClients called, updating to:', updated.length, 'clients');
     setClientsState(updated);
     if (onClientsUpdate) {
+      console.log('[useClientsData] Calling onClientsUpdate callback');
       onClientsUpdate(updated);
     }
   };
@@ -36,8 +40,8 @@ export const useClientsData = (
       return;
     }
     
-    // Если данные передаются извне, не загружаем
-    if (propClients && propClients.length > 0) {
+    // Если данные передаются извне (даже пустые), не загружаем
+    if (propClients !== undefined) {
       setLoading(false);
       return;
     }
@@ -163,13 +167,16 @@ export const useClientsData = (
     checkEmailVerification();
     
     // Загрузку клиентов откладываем на 100ms - даём UI отрисоваться
-    const timer = setTimeout(() => {
-      loadClients();
-    }, 100);
-    
-    return () => clearTimeout(timer);
+    // Но только если propClients не переданы
+    if (propClients === undefined) {
+      const timer = setTimeout(() => {
+        loadClients();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, propClients]);
   
   return {
     clients,

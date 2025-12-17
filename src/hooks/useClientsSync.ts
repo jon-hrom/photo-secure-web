@@ -21,8 +21,10 @@ export const useClientsSync = ({ isAuthenticated, userId }: UseClientsSyncProps)
       setClientsLoading(true);
       try {
         const CLIENTS_API = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
+        console.log('[useClientsSync] Fetching clients for userId:', userId);
         const res = await fetch(`${CLIENTS_API}?userId=${userId}`);
         const data = await res.json();
+        console.log('[useClientsSync] Received data:', data.length, 'clients');
         
         const clientsWithDates = data.map((client: any) => ({
           ...client,
@@ -35,6 +37,7 @@ export const useClientsSync = ({ isAuthenticated, userId }: UseClientsSyncProps)
           }))
         }));
         
+        console.log('[useClientsSync] Setting clients:', clientsWithDates.length, 'clients');
         setClients(clientsWithDates);
         setLastSyncTime(new Date());
       } catch (error) {
