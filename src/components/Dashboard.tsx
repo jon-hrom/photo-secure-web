@@ -36,6 +36,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -54,15 +55,26 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
         const res = await fetch(`${CLIENTS_API}?userId=${userId}`);
         const data = await res.json();
         
+        const clientsWithDates = data.map((client: any) => ({
+          ...client,
+          bookings: (client.bookings || []).map((b: any) => ({
+            ...b,
+            date: new Date(b.booking_date || b.date),
+            time: b.booking_time || b.time,
+            booking_date: b.booking_date || b.date,
+            booking_time: b.booking_time || b.time
+          }))
+        }));
+        
+        setClients(clientsWithDates);
+        
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        const bookings = data
+        const bookings = clientsWithDates
           .flatMap((client: Client) => 
             (client.bookings || []).map(b => ({
               ...b,
-              date: new Date(b.booking_date || b.date),
-              time: b.booking_time || b.time,
               client
             }))
           )
@@ -304,7 +316,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <DashboardCalendar 
-          userId={propUserId}
+          clients={clients}
           onBookingClick={(client, booking) => {
             setSelectedClient(client);
             setSelectedBooking(booking);

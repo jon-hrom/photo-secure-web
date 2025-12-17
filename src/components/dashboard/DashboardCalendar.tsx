@@ -5,40 +5,12 @@ import Icon from '@/components/ui/icon';
 import { Client, Booking } from '@/components/clients/ClientsTypes';
 
 interface DashboardCalendarProps {
-  userId?: string | null;
+  clients: Client[];
   onBookingClick?: (client: Client, booking: Booking) => void;
 }
 
-const DashboardCalendar = ({ userId: propUserId, onBookingClick }: DashboardCalendarProps) => {
+const DashboardCalendar = ({ clients, onBookingClick }: DashboardCalendarProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [clients, setClients] = useState<Client[]>([]);
-
-  const fetchClients = async () => {
-    const userId = propUserId || localStorage.getItem('userId');
-    if (!userId) return;
-
-    try {
-      const CLIENTS_API = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
-      const res = await fetch(`${CLIENTS_API}?userId=${userId}`);
-      const data = await res.json();
-      
-      const clientsWithDates = data.map((client: any) => ({
-        ...client,
-        bookings: (client.bookings || []).map((b: any) => ({
-          ...b,
-          date: new Date(b.booking_date || b.date)
-        }))
-      }));
-
-      setClients(clientsWithDates);
-    } catch (error) {
-      console.error('Failed to load clients:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchClients();
-  }, [propUserId]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
