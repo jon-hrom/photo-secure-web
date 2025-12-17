@@ -33,25 +33,27 @@ const InteractiveCalendar = ({
   }, []);
 
   const handleMouseDown = (date: Date) => {
+    console.log('[CALENDAR] Mouse down on date:', date);
     longPressTriggered.current = false;
     setIsLongPressing(true);
     setPressedDate(date);
     
     longPressTimer.current = setTimeout(() => {
+      console.log('[CALENDAR] Long press triggered');
       longPressTriggered.current = true;
       setIsLongPressing(false);
       setPressedDate(null);
       onDateLongPress(date);
-    }, 600);
+    }, 800);
   };
 
   const handleMouseUp = () => {
+    console.log('[CALENDAR] Mouse up, longPressTriggered:', longPressTriggered.current);
+    
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-    
-    // Не вызываем onDateClick здесь, так как onSelect сработает автоматически
     
     setIsLongPressing(false);
     setPressedDate(null);
@@ -95,16 +97,19 @@ const InteractiveCalendar = ({
   };
 
   const handleTouchEnd = () => {
+    const wasLongPress = longPressTriggered.current;
+    
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
     
-    // Не вызываем onDateClick здесь, так как onSelect сработает автоматически
-    
     setIsLongPressing(false);
     setPressedDate(null);
     touchStartPos.current = null;
+    
+    // Если это НЕ был long press - onSelect вызовет onDateClick
+    // Если это БЫЛ long press - onSelect пропустит onDateClick благодаря флагу
   };
 
   return (
@@ -126,9 +131,13 @@ const InteractiveCalendar = ({
             mode="single"
             selected={selectedDate}
             onSelect={(date) => {
+              console.log('[CALENDAR] onSelect fired, longPressTriggered:', longPressTriggered.current);
               // Не вызываем onDateClick если было долгое нажатие
               if (!longPressTriggered.current) {
+                console.log('[CALENDAR] Calling onDateClick');
                 onDateClick(date);
+              } else {
+                console.log('[CALENDAR] Skipping onDateClick (long press)');
               }
               // Сбрасываем флаг после обработки
               longPressTriggered.current = false;
