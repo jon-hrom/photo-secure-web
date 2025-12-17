@@ -21,6 +21,7 @@ import FloatingAppealsButton from '@/components/FloatingAppealsButton';
 import MAXMessenger from '@/components/MAXMessenger';
 import BlockedUserDialog from '@/components/BlockedUserDialog';
 import BookingDetailsDialog from '@/components/BookingDetailsDialog';
+import SyncIndicator from '@/components/SyncIndicator';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { isAdminUser } from '@/utils/adminCheck';
@@ -40,6 +41,7 @@ const Index = () => {
   const [showMAX, setShowMAX] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | undefined>(undefined);
   
   const {
     currentPage,
@@ -125,6 +127,7 @@ const Index = () => {
         }));
         
         setClients(clientsWithDates);
+        setLastSyncTime(new Date());
       } catch (error) {
         console.error('Failed to load clients:', error);
         setClients([]);
@@ -414,6 +417,13 @@ const Index = () => {
           onOpenChange={setIsBookingDetailsOpen}
           bookingId={selectedBookingId}
           userId={userId?.toString() || null}
+        />
+      )}
+
+      {(currentPage === 'dashboard' || currentPage === 'clients') && (
+        <SyncIndicator 
+          isLoading={clientsLoading} 
+          lastSyncTime={lastSyncTime}
         />
       )}
 
