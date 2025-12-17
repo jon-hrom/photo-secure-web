@@ -54,10 +54,13 @@ const BookingDialogs = ({
   return (
     <>
       <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm flex flex-col p-0">
+        <DialogContent className="max-w-3xl max-h-[90vh] bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm flex flex-col p-0" aria-describedby="create-booking-description">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Создать бронирование для {selectedClient?.name}</DialogTitle>
           </DialogHeader>
+          <div id="create-booking-description" className="sr-only">
+            Форма создания нового бронирования для клиента
+          </div>
           <div className="flex-1 overflow-y-auto px-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
@@ -174,12 +177,15 @@ const BookingDialogs = ({
       </Dialog>
 
       <Dialog open={isBookingDetailsOpen} onOpenChange={setIsBookingDetailsOpen}>
-        <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm border-2 border-purple-200/50 shadow-2xl">
+        <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm border-2 border-purple-200/50 shadow-2xl" aria-describedby="booking-details-description">
           <DialogHeader className="border-b border-purple-200/30 pb-4">
             <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               Детали бронирования
             </DialogTitle>
           </DialogHeader>
+          <div id="booking-details-description" className="sr-only">
+            Просмотр информации о бронировании клиента
+          </div>
           {selectedBooking && (
             <div className="space-y-6 pt-6">
               <div className="space-y-4">
