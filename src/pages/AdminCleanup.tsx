@@ -24,7 +24,7 @@ export default function AdminCleanup() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.dumps({}),
+        body: JSON.stringify({}),
       });
 
       const data = await response.json();
