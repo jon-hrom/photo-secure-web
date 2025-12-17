@@ -93,18 +93,18 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
     <div className="space-y-4">
       {/* Компактный календарь */}
       <Card className="border-purple-200/50">
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <div className="mb-3">
             <div className="flex items-center gap-2 mb-2">
-              <Icon name="Calendar" size={18} className="text-purple-600" />
-              <h3 className="font-semibold text-sm">Календарь бронирований</h3>
+              <Icon name="Calendar" size={16} className="text-purple-600 sm:w-[18px] sm:h-[18px]" />
+              <h3 className="font-semibold text-xs sm:text-sm">Календарь бронирований</h3>
             </div>
-            <p className="text-xs text-muted-foreground">
-              👆 Нажмите на дату для просмотра бронирований
+            <p className="text-[10px] sm:text-xs text-muted-foreground">
+              👆 Нажмите на дату
             </p>
           </div>
           
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 shadow-inner">
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-inner">
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -161,22 +161,22 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
                   transition: 'all 0.3s ease',
                 },
               }}
-              className="rounded-xl border-0 w-full"
+              className="rounded-xl border-0 w-full text-sm sm:text-base [&_.rdp-button]:text-xs [&_.rdp-button]:sm:text-sm [&_.rdp-button]:h-8 [&_.rdp-button]:w-8 [&_.rdp-button]:sm:h-10 [&_.rdp-button]:sm:w-10"
             />
           </div>
           
-          <div className="mt-5 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
-              <p className="text-sm text-gray-700 font-medium">Бронирования</p>
+          <div className="mt-3 sm:mt-5 space-y-2 sm:space-y-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
+              <p className="text-xs sm:text-sm text-gray-700 font-medium">Бронирования</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-300 to-green-200 shadow-md flex-shrink-0"></div>
-              <p className="text-sm text-gray-700 font-medium">Даты съёмок (проекты)</p>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-green-300 to-green-200 shadow-md flex-shrink-0"></div>
+              <p className="text-xs sm:text-sm text-gray-700 font-medium">Даты съёмок</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
-              <p className="text-sm text-gray-700 font-medium">Сегодня</p>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
+              <p className="text-xs sm:text-sm text-gray-700 font-medium">Сегодня</p>
             </div>
           </div>
         </CardContent>

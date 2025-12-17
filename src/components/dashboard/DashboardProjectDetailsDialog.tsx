@@ -43,51 +43,51 @@ const DashboardProjectDetailsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="Briefcase" size={20} className="text-green-600" />
-            Проект: {project.name}
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <Icon name="Briefcase" size={18} className="text-green-600 sm:w-5 sm:h-5" />
+            <span className="line-clamp-2">Проект: {project.name}</span>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {/* Клиент */}
-          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
-            <Icon name="User" size={20} className="text-purple-600" />
-            <div>
-              <p className="text-sm text-muted-foreground">Клиент</p>
-              <p className="font-semibold">{client.name}</p>
+          <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+            <Icon name="User" size={18} className="text-purple-600 sm:w-5 sm:h-5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">Клиент</p>
+              <p className="font-semibold text-sm sm:text-base truncate">{client.name}</p>
             </div>
           </div>
 
           {/* Статус */}
-          <div className="flex items-center gap-3">
-            <Icon name="Activity" size={20} className="text-gray-600" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Icon name="Activity" size={18} className="text-gray-600 sm:w-5 sm:h-5 flex-shrink-0" />
             <div className="flex-1">
-              <p className="text-sm text-muted-foreground">Статус</p>
-              <Badge className={`${statusColors[project.status]} text-white mt-1`}>
+              <p className="text-xs sm:text-sm text-muted-foreground">Статус</p>
+              <Badge className={`${statusColors[project.status]} text-white mt-1 text-xs`}>
                 {statusLabels[project.status]}
               </Badge>
             </div>
           </div>
 
           {/* Дата съёмки */}
-          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
-            <Icon name="Calendar" size={20} className="text-green-600" />
+          <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+            <Icon name="Calendar" size={18} className="text-green-600 sm:w-5 sm:h-5 flex-shrink-0" />
             <div>
-              <p className="text-sm text-muted-foreground">Дата съёмки</p>
-              <p className="font-semibold">{formatDate(project.startDate)}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Дата съёмки</p>
+              <p className="font-semibold text-sm sm:text-base">{formatDate(project.startDate)}</p>
             </div>
           </div>
 
           {/* Бюджет */}
           {project.budget > 0 && (
-            <div className="flex items-center gap-3">
-              <Icon name="DollarSign" size={20} className="text-gray-600" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Icon name="DollarSign" size={18} className="text-gray-600 sm:w-5 sm:h-5 flex-shrink-0" />
               <div>
-                <p className="text-sm text-muted-foreground">Бюджет</p>
-                <p className="font-semibold">{project.budget.toLocaleString('ru-RU')} ₽</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Бюджет</p>
+                <p className="font-semibold text-sm sm:text-base">{project.budget.toLocaleString('ru-RU')} ₽</p>
               </div>
             </div>
           )}
@@ -96,31 +96,31 @@ const DashboardProjectDetailsDialog = ({
           {project.description && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Icon name="FileText" size={18} className="text-gray-600" />
-                <p className="text-sm font-medium">Описание</p>
+                <Icon name="FileText" size={16} className="text-gray-600 sm:w-[18px] sm:h-[18px] flex-shrink-0" />
+                <p className="text-xs sm:text-sm font-medium">Описание</p>
               </div>
-              <p className="text-sm text-muted-foreground pl-7 whitespace-pre-wrap">
+              <p className="text-xs sm:text-sm text-muted-foreground pl-6 sm:pl-7 whitespace-pre-wrap">
                 {project.description}
               </p>
             </div>
           )}
 
           {/* Контакты клиента */}
-          <div className="border-t pt-4 space-y-2">
-            <p className="text-sm font-medium mb-3">Контакты клиента:</p>
+          <div className="border-t pt-3 sm:pt-4 space-y-2">
+            <p className="text-xs sm:text-sm font-medium mb-2 sm:mb-3">Контакты клиента:</p>
             <div className="space-y-2">
               {client.phone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Icon name="Phone" size={16} className="text-gray-600" />
-                  <a href={`tel:${client.phone}`} className="text-blue-600 hover:underline">
+                <div className="flex items-center gap-2 text-xs sm:text-sm">
+                  <Icon name="Phone" size={14} className="text-gray-600 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <a href={`tel:${client.phone}`} className="text-blue-600 hover:underline truncate">
                     {client.phone}
                   </a>
                 </div>
               )}
               {client.email && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Icon name="Mail" size={16} className="text-gray-600" />
-                  <a href={`mailto:${client.email}`} className="text-blue-600 hover:underline">
+                <div className="flex items-center gap-2 text-xs sm:text-sm">
+                  <Icon name="Mail" size={14} className="text-gray-600 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <a href={`mailto:${client.email}`} className="text-blue-600 hover:underline truncate">
                     {client.email}
                   </a>
                 </div>

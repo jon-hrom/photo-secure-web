@@ -37,42 +37,42 @@ const DashboardBookingDetailsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm border-2 border-purple-200/50 shadow-2xl" aria-describedby="booking-details-description">
-        <DialogHeader className="border-b border-purple-200/30 pb-4">
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+      <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm border-2 border-purple-200/50 shadow-2xl" aria-describedby="booking-details-description">
+        <DialogHeader className="border-b border-purple-200/30 pb-3 sm:pb-4">
+          <DialogTitle className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             Детали бронирования
           </DialogTitle>
         </DialogHeader>
         <div id="booking-details-description" className="sr-only">
           Просмотр информации о бронировании клиента
         </div>
-        <div className="space-y-6 pt-6">
-          <div className="space-y-4">
-            <div className="group flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-purple-100/50 to-pink-100/50 hover:from-purple-100 hover:to-pink-100 transition-all duration-300 shadow-sm hover:shadow-md">
-              <div className="p-3 bg-gradient-to-br from-purple-200 to-pink-200 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300">
-                <Icon name="User" size={20} className="text-purple-700" />
+        <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-6">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="group flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-purple-100/50 to-pink-100/50 hover:from-purple-100 hover:to-pink-100 transition-all duration-300 shadow-sm hover:shadow-md">
+              <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-200 to-pink-200 rounded-lg sm:rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+                <Icon name="User" size={18} className="text-purple-700 sm:w-5 sm:h-5" />
               </div>
-              <div>
-                <p className="text-xs text-purple-600/70 font-medium mb-1">Клиент</p>
-                <p className="font-bold text-lg text-gray-900">{client.name}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-purple-600/70 font-medium mb-0.5 sm:mb-1">Клиент</p>
+                <p className="font-bold text-base sm:text-lg text-gray-900 truncate">{client.name}</p>
               </div>
             </div>
 
             {booking.title && (
-              <div className="group p-4 rounded-2xl bg-gradient-to-br from-green-100/50 to-emerald-100/50 hover:from-green-100 hover:to-emerald-100 transition-all duration-300 shadow-sm hover:shadow-md">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-green-200/50 rounded-lg group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
-                    <Icon name="Camera" size={18} className="text-green-600" />
+              <div className="group p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-green-100/50 to-emerald-100/50 hover:from-green-100 hover:to-emerald-100 transition-all duration-300 shadow-sm hover:shadow-md">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-green-200/50 rounded-lg group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+                    <Icon name="Camera" size={16} className="text-green-600 sm:w-[18px] sm:h-[18px]" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-xs text-green-600/70 font-medium mb-1">Что за съёмка</p>
-                    <p className="font-bold text-base text-gray-900">{booking.title}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] sm:text-xs text-green-600/70 font-medium mb-0.5 sm:mb-1">Что за съёмка</p>
+                    <p className="font-bold text-sm sm:text-base text-gray-900 break-words">{booking.title}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div className="group p-4 rounded-2xl bg-gradient-to-br from-blue-100/50 to-cyan-100/50 hover:from-blue-100 hover:to-cyan-100 transition-all duration-300 shadow-sm hover:shadow-md">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="p-2 bg-blue-200/50 rounded-lg group-hover:scale-110 transition-transform duration-300">

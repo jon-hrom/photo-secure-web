@@ -159,11 +159,11 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
 
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in-up px-3 sm:px-0">
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
         <Card className="bg-gradient-to-br from-primary to-secondary text-white border-0 shadow-xl w-full lg:w-1/2">
-        <CardContent className="p-4 md:p-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 md:gap-4">
-            <div className="flex items-center gap-3 md:gap-4">
+        <CardContent className="p-3 sm:p-4 md:p-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-2 sm:gap-3 md:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
               {(() => {
                 const displayUser = vkUser || emailUser;
                 const displayName = displayUser?.name || displayUser?.userEmail || displayUser?.email || 'Пользователь';
@@ -172,38 +172,38 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                 const displayVerified = displayUser?.is_verified || displayUser?.verified || false;
                 
                 return (
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-2 sm:gap-3">
                     {displayAvatar && (
                       <div className="relative flex-shrink-0">
                         <img 
                           src={displayAvatar} 
                           alt={displayName}
-                          className="w-12 h-12 rounded-full border-3 border-white shadow-lg object-cover"
+                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 sm:border-3 border-white shadow-lg object-cover"
                         />
                         {displayVerified && (
-                          <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1">
-                            <Icon name="BadgeCheck" size={12} className="text-blue-500" />
+                          <div className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 bg-white rounded-full p-0.5 sm:p-1">
+                            <Icon name="BadgeCheck" size={10} className="text-blue-500 sm:w-3 sm:h-3" />
                           </div>
                         )}
                       </div>
                     )}
-                    <div className="flex flex-col">
-                      <div className="flex items-start gap-2 mb-2">
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <h3 className="text-base font-bold truncate">{displayName}</h3>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-start gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1 sm:gap-1.5 mb-0.5">
+                            <h3 className="text-sm sm:text-base font-bold truncate">{displayName}</h3>
                             {displayVerified && (
-                              <Icon name="BadgeCheck" size={14} className="text-white" />
+                              <Icon name="BadgeCheck" size={12} className="text-white sm:w-[14px] sm:h-[14px] flex-shrink-0" />
                             )}
                           </div>
-                          <p className="text-xs opacity-75 truncate">{displayEmail}</p>
+                          <p className="text-[10px] sm:text-xs opacity-75 truncate">{displayEmail}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Icon name="Clock" size={32} className="opacity-30" />
-                        <div>
-                          <h2 className="text-xl md:text-2xl font-bold leading-tight">{formatTime(currentTime)}</h2>
-                          <p className="text-xs opacity-75 capitalize">{formatDate(currentTime)}</p>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Icon name="Clock" size={24} className="opacity-30 sm:w-8 sm:h-8 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <h2 className="text-lg sm:text-xl md:text-2xl font-bold leading-tight">{formatTime(currentTime)}</h2>
+                          <p className="text-[10px] sm:text-xs opacity-75 capitalize">{formatDate(currentTime)}</p>
                         </div>
                       </div>
                     </div>
@@ -212,46 +212,46 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
               })()}
             </div>
             
-            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap w-full lg:w-auto justify-end">
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-wrap w-full lg:w-auto justify-end">
               {finalIsAdmin && onOpenAdminPanel && (
                 <button
                   onClick={onOpenAdminPanel}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
                   title="Админ-панель"
                 >
-                  <Icon name="ShieldCheck" size={16} className="text-white" />
-                  <span className="text-xs font-medium">Админка</span>
+                  <Icon name="ShieldCheck" size={14} className="text-white sm:w-4 sm:h-4" />
+                  <span className="text-[10px] sm:text-xs font-medium">Админка</span>
                 </button>
               )}
               <button 
                 onClick={onOpenAddClient}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="UserPlus" size={16} className="transition-transform duration-300 group-hover:rotate-12" />
-                <span className="text-xs font-medium hidden sm:inline">Добавить клиента</span>
+                <Icon name="UserPlus" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4" />
+                <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Добавить клиента</span>
               </button>
               <button 
                 onClick={onNavigateToPhotobook}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="BookOpen" size={16} className="transition-transform duration-300 group-hover:rotate-12" />
-                <span className="text-xs font-medium hidden sm:inline">Создать фотокнигу</span>
+                <Icon name="BookOpen" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4" />
+                <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Создать фотокнигу</span>
               </button>
               <button 
                 onClick={onNavigateToClients}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
               >
-                <Icon name="FileText" size={16} className="transition-transform duration-300 group-hover:rotate-12" />
-                <span className="text-xs font-medium hidden sm:inline">Отчёты</span>
+                <Icon name="FileText" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4" />
+                <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Отчёты</span>
               </button>
               {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
                   title="Выйти"
                 >
-                  <Icon name="LogOut" size={16} className="text-white" />
-                  <span className="text-xs font-medium hidden sm:inline">Выйти</span>
+                  <Icon name="LogOut" size={14} className="text-white sm:w-4 sm:h-4" />
+                  <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Выйти</span>
                 </button>
               )}
             </div>
@@ -264,32 +264,32 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
           onClick={() => onOpenTariffs?.()}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <CardContent className="pt-4 md:pt-6 relative z-10">
-            <div className="space-y-3 md:space-y-4">
+          <CardContent className="pt-3 sm:pt-4 md:pt-6 relative z-10">
+            <div className="space-y-2 sm:space-y-3 md:space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className="p-1.5 md:p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <Icon name="HardDrive" size={18} className="text-white md:w-5 md:h-5" />
+                <div className="flex items-center gap-2 sm:gap-2 md:gap-3">
+                  <div className="p-1.5 sm:p-1.5 md:p-2 bg-gradient-to-br from-primary to-secondary rounded-lg sm:rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+                    <Icon name="HardDrive" size={16} className="text-white sm:w-[18px] sm:h-[18px] md:w-5 md:h-5" />
                   </div>
-                  <div>
-                    <h3 className="font-bold text-base md:text-lg">Фото банк</h3>
-                    <Badge variant="outline" className="text-xs mt-1 bg-white/50 backdrop-blur-sm">{storageUsage.plan_name}</Badge>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-sm sm:text-base md:text-lg">Фото банк</h3>
+                    <Badge variant="outline" className="text-[10px] sm:text-xs mt-0.5 sm:mt-1 bg-white/50 backdrop-blur-sm">{storageUsage.plan_name}</Badge>
                   </div>
                 </div>
                 <Badge 
                   variant={storageUsage.percent >= 90 ? 'destructive' : storageUsage.percent >= 70 ? 'default' : 'secondary'}
-                  className="text-xs md:text-sm font-bold px-2 md:px-3 py-0.5 md:py-1 shadow-md"
+                  className="text-[10px] sm:text-xs md:text-sm font-bold px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-0.5 md:py-1 shadow-md flex-shrink-0"
                 >
                   {(storageUsage.percent || 0).toFixed(1)}%
                 </Badge>
               </div>
               <Progress 
                 value={storageUsage.percent || 0} 
-                className="h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
+                className="h-2 sm:h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
               />
-              <div className="flex justify-between text-xs md:text-sm font-medium text-muted-foreground">
-                <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ использовано</span>
-                <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ доступно</span>
+              <div className="flex justify-between text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground">
+                <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ</span>
+                <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ</span>
               </div>
             </div>
           </CardContent>
@@ -298,7 +298,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
       
       <StorageWarning />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <DashboardCalendar 
           clients={propClients}
           onBookingClick={(client, booking) => {
