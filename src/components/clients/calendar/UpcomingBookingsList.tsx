@@ -16,12 +16,16 @@ interface UpcomingBookingsListProps {
   upcomingBookings: BookingWithClient[];
   selectedClient: Client | null;
   onMessageClient: (client: Client) => void;
+  selectedDate?: Date;
+  onClearFilter: () => void;
 }
 
 const UpcomingBookingsList = ({ 
   upcomingBookings, 
   selectedClient, 
-  onMessageClient 
+  onMessageClient,
+  selectedDate,
+  onClearFilter
 }: UpcomingBookingsListProps) => {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
@@ -40,11 +44,31 @@ const UpcomingBookingsList = ({
   return (
     <Card className="overflow-hidden border border-blue-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-500">
       <div className="bg-gradient-to-r from-blue-100 via-cyan-50 to-teal-100 p-5">
-        <CardTitle className="flex items-center gap-3 text-blue-700">
-          <div className="p-2 bg-blue-200/40 backdrop-blur-sm rounded-lg">
-            <Icon name="CalendarDays" size={20} className="text-blue-600" />
+        <CardTitle className="flex items-center justify-between text-blue-700">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-200/40 backdrop-blur-sm rounded-lg">
+              <Icon name="CalendarDays" size={20} className="text-blue-600" />
+            </div>
+            <div>
+              <div className="text-lg font-bold">Предстоящие встречи</div>
+              {selectedDate && (
+                <div className="text-xs text-blue-600/70 font-normal mt-0.5">
+                  {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="text-lg font-bold">Предстоящие встречи</div>
+          {selectedDate && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onClearFilter}
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-100/50"
+            >
+              <Icon name="X" size={16} className="mr-1" />
+              Сбросить
+            </Button>
+          )}
         </CardTitle>
       </div>
       <CardContent className="p-5 space-y-3 max-h-96 overflow-y-auto scrollbar-thin">

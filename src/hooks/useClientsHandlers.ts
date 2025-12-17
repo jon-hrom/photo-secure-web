@@ -32,8 +32,6 @@ interface UseClientsHandlersProps {
   setSelectedDate: (date: Date | undefined) => void;
   setIsBookingDialogOpen: (open: boolean) => void;
   setIsBookingDetailsOpen: (open: boolean) => void;
-  setIsDateBookingsOpen?: (open: boolean) => void;
-  setDateBookings?: (bookings: any[]) => void;
   setSelectedBooking: (booking: any) => void;
   setVkMessage: (message: string) => void;
   emailSubject: string;
@@ -64,8 +62,6 @@ export const useClientsHandlers = ({
   setSelectedDate,
   setIsBookingDialogOpen,
   setIsBookingDetailsOpen,
-  setIsDateBookingsOpen,
-  setDateBookings,
   setSelectedBooking,
   setVkMessage,
   emailSubject,
@@ -380,78 +376,7 @@ export const useClientsHandlers = ({
     }
   };
 
-  const handleDateClick = (date: Date | undefined) => {
-    if (!date) return;
-    
-    // Нормализуем дату для корректного сравнения
-    const clickedDate = new Date(date);
-    clickedDate.setHours(0, 0, 0, 0);
-    
-    // Ищем все бронирования на выбранную дату
-    const bookingsOnDate = clients.flatMap(c => 
-      (c.bookings || [])
-        .filter(b => {
-          const bookingDate = new Date(b.booking_date || b.date);
-          bookingDate.setHours(0, 0, 0, 0);
-          return bookingDate.getTime() === clickedDate.getTime();
-        })
-        .map(b => ({ ...b, client: c, clientId: c.id }))
-    );
 
-    console.log('[DATE_CLICK] Clicked date:', clickedDate);
-    console.log('[DATE_CLICK] Found bookings:', bookingsOnDate);
-
-    if (bookingsOnDate.length > 0) {
-      // Если есть бронирования на эту дату - открываем СПИСОК всех бронирований
-      console.log('[DATE_CLICK] Opening bookings list dialog for date');
-      
-      if (setIsDateBookingsOpen && setDateBookings) {
-        setSelectedDate(date);
-        setDateBookings(bookingsOnDate);
-        setIsDateBookingsOpen(true);
-      }
-    } else {
-      // Если нет бронирований - просто выбираем дату для нового бронирования
-      console.log('[DATE_CLICK] No bookings, setting selected date');
-      setSelectedDate(date);
-    }
-  };
-
-  const handleDateLongPress = (date: Date | undefined) => {
-    if (!date) return;
-    
-    // Нормализуем дату
-    const clickedDate = new Date(date);
-    clickedDate.setHours(0, 0, 0, 0);
-    
-    // Ищем бронирования на эту дату
-    const bookingsOnDate = clients.flatMap(c => 
-      (c.bookings || [])
-        .filter(b => {
-          const bookingDate = new Date(b.booking_date || b.date);
-          bookingDate.setHours(0, 0, 0, 0);
-          return bookingDate.getTime() === clickedDate.getTime();
-        })
-        .map(b => ({ ...b, client: c, clientId: c.id }))
-    );
-
-    console.log('[DATE_LONG_PRESS] Long press on date:', clickedDate);
-    console.log('[DATE_LONG_PRESS] Found bookings:', bookingsOnDate);
-
-    if (bookingsOnDate.length > 0) {
-      // При долгом нажатии открываем РЕДАКТИРОВАНИЕ бронирования
-      const bookingWithClient = bookingsOnDate[0];
-      const client = clients.find(c => c.id === bookingWithClient.clientId);
-      
-      console.log('[DATE_LONG_PRESS] Opening booking edit for:', client?.name);
-      
-      if (client) {
-        setSelectedClient(client);
-        setSelectedBooking(bookingWithClient);
-        setIsBookingDetailsOpen(true); // Открываем диалог редактирования
-      }
-    }
-  };
 
   const handleSearchVK = () => {
     if (!selectedClient) return;
@@ -570,8 +495,6 @@ export const useClientsHandlers = ({
     handleDeleteMultipleClients,
     handleAddBooking,
     handleDeleteBooking,
-    handleDateClick,
-    handleDateLongPress,
     handleSearchVK,
     handleSendVKMessage,
     handleSendEmail,

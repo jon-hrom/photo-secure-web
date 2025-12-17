@@ -8,7 +8,6 @@ import ClientsTableView from '@/components/clients/ClientsTableView';
 import ClientsCalendarSection from '@/components/clients/ClientsCalendarSection';
 import ClientsFilterSidebar, { FilterType } from '@/components/clients/ClientsFilterSidebar';
 import BookingDialogs from '@/components/clients/BookingDialogs';
-import DateBookingsDialog from '@/components/clients/DateBookingsDialog';
 import MessageDialog from '@/components/clients/MessageDialog';
 import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
 import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
@@ -70,8 +69,6 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     setSelectedDate: dialogsState.setSelectedDate,
     setIsBookingDialogOpen: dialogsState.setIsBookingDialogOpen,
     setIsBookingDetailsOpen: dialogsState.setIsBookingDetailsOpen,
-    setIsDateBookingsOpen: dialogsState.setIsDateBookingsOpen,
-    setDateBookings: dialogsState.setDateBookings,
     setSelectedBooking: dialogsState.setSelectedBooking,
     setVkMessage: dialogsState.setVkMessage,
     emailSubject: dialogsState.emailSubject,
@@ -303,8 +300,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
             <ClientsCalendarSection
               selectedDate={dialogsState.selectedDate}
               allBookedDates={allBookedDates}
-              onDateClick={handlers.handleDateClick}
-              onDateLongPress={handlers.handleDateLongPress}
+              onDateClick={dialogsState.setSelectedDate}
               selectedClient={dialogsState.selectedClient}
               onMessageClient={dialogsState.openMessageDialog}
               clients={clients}
@@ -361,19 +357,6 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onOpenChange={dialogsState.setIsExportDialogOpen}
         clients={clients}
         filteredClients={filteredClients}
-      />
-
-      <DateBookingsDialog
-        open={dialogsState.isDateBookingsOpen}
-        onOpenChange={dialogsState.setIsDateBookingsOpen}
-        selectedDate={dialogsState.selectedDate || null}
-        bookings={dialogsState.dateBookings}
-        onBookingClick={(booking) => {
-          dialogsState.setSelectedClient(clients.find(c => c.id === booking.clientId) || null);
-          dialogsState.setSelectedBooking(booking);
-          dialogsState.setIsDateBookingsOpen(false);
-          dialogsState.setIsBookingDetailsOpen(true);
-        }}
       />
 
       <LoadingProgressBar

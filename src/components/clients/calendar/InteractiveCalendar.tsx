@@ -1,4 +1,3 @@
-import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
@@ -7,7 +6,6 @@ interface InteractiveCalendarProps {
   selectedDate: Date | undefined;
   allBookedDates: Date[];
   onDateClick: (date: Date | undefined) => void;
-  onDateLongPress: (date: Date | undefined) => void;
   today: Date;
 }
 
@@ -15,103 +13,8 @@ const InteractiveCalendar = ({
   selectedDate,
   allBookedDates,
   onDateClick,
-  onDateLongPress,
   today,
 }: InteractiveCalendarProps) => {
-  const [isLongPressing, setIsLongPressing] = useState(false);
-  const [pressedDate, setPressedDate] = useState<Date | null>(null);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const longPressTriggered = useRef(false);
-
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-      }
-    };
-  }, []);
-
-  const handleMouseDown = (date: Date) => {
-    console.log('[CALENDAR] Mouse down on date:', date);
-    longPressTriggered.current = false;
-    setIsLongPressing(true);
-    setPressedDate(date);
-    
-    longPressTimer.current = setTimeout(() => {
-      console.log('[CALENDAR] Long press triggered');
-      longPressTriggered.current = true;
-      setIsLongPressing(false);
-      setPressedDate(null);
-      onDateLongPress(date);
-    }, 800);
-  };
-
-  const handleMouseUp = () => {
-    console.log('[CALENDAR] Mouse up, longPressTriggered:', longPressTriggered.current);
-    
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    
-    setIsLongPressing(false);
-    setPressedDate(null);
-  };
-
-  const handleTouchStart = (date: Date, e: React.TouchEvent) => {
-    longPressTriggered.current = false;
-    const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    setIsLongPressing(true);
-    setPressedDate(date);
-    
-    longPressTimer.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      setIsLongPressing(false);
-      setPressedDate(null);
-      
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-      
-      onDateLongPress(date);
-    }, 600);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartPos.current) return;
-    
-    const touch = e.touches[0];
-    const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
-    const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
-    
-    if (deltaX > 10 || deltaY > 10) {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-      }
-      setIsLongPressing(false);
-      setPressedDate(null);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    const wasLongPress = longPressTriggered.current;
-    
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    
-    setIsLongPressing(false);
-    setPressedDate(null);
-    touchStartPos.current = null;
-    
-    // Если это НЕ был long press - onSelect вызовет onDateClick
-    // Если это БЫЛ long press - onSelect пропустит onDateClick благодаря флагу
-  };
-
   return (
     <Card className="overflow-hidden border border-purple-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
       <div className="bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 p-6">
@@ -130,65 +33,38 @@ const InteractiveCalendar = ({
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={(date) => {
-              console.log('[CALENDAR] onSelect fired, longPressTriggered:', longPressTriggered.current);
-              // Не вызываем onDateClick если было долгое нажатие
-              if (!longPressTriggered.current) {
-                console.log('[CALENDAR] Calling onDateClick');
-                onDateClick(date);
-              } else {
-                console.log('[CALENDAR] Skipping onDateClick (long press)');
-              }
-              // Сбрасываем флаг после обработки
-              longPressTriggered.current = false;
-            }}
-            onDayMouseDown={(date, modifiers, e) => {
-              e.preventDefault();
-              handleMouseDown(date);
-            }}
-            onDayMouseUp={() => {
-              handleMouseUp();
-            }}
-            onDayTouchStart={(date, modifiers, e) => {
-              handleTouchStart(date, e);
-            }}
-            onDayTouchMove={(date, modifiers, e) => {
-              handleTouchMove(e);
-            }}
-            onDayTouchEnd={() => {
-              handleTouchEnd();
-            }}
+            onSelect={onDateClick}
             modifiers={{
-                booked: (date) => {
-                  const checkDate = new Date(date);
-                  checkDate.setHours(0, 0, 0, 0);
-                  
-                  if (checkDate < today) {
-                    return false;
-                  }
-                  
-                  return allBookedDates.some(bookedDate => {
-                    const d1 = new Date(date);
-                    const d2 = new Date(bookedDate);
-                    return d1.getDate() === d2.getDate() &&
-                           d1.getMonth() === d2.getMonth() &&
-                           d1.getFullYear() === d2.getFullYear();
-                  });
-                },
-              }}
-              modifiersStyles={{
-                booked: {
-                  background: 'linear-gradient(135deg, rgb(216 180 254) 0%, rgb(251 207 232) 100%)',
-                  color: 'rgb(107 33 168)',
-                  fontWeight: 'bold',
-                  boxShadow: '0 8px 15px -3px rgba(216, 180, 254, 0.3)',
-                  transform: 'scale(1.05)',
-                  transition: 'all 0.3s ease',
-                },
-              }}
-              className="rounded-xl border-0 w-full"
-            />
-          </div>
+              booked: (date) => {
+                const checkDate = new Date(date);
+                checkDate.setHours(0, 0, 0, 0);
+                
+                if (checkDate < today) {
+                  return false;
+                }
+                
+                return allBookedDates.some(bookedDate => {
+                  const d1 = new Date(date);
+                  const d2 = new Date(bookedDate);
+                  return d1.getDate() === d2.getDate() &&
+                         d1.getMonth() === d2.getMonth() &&
+                         d1.getFullYear() === d2.getFullYear();
+                });
+              },
+            }}
+            modifiersStyles={{
+              booked: {
+                background: 'linear-gradient(135deg, rgb(216 180 254) 0%, rgb(251 207 232) 100%)',
+                color: 'rgb(107 33 168)',
+                fontWeight: 'bold',
+                boxShadow: '0 8px 15px -3px rgba(216, 180, 254, 0.3)',
+                transform: 'scale(1.05)',
+                transition: 'all 0.3s ease',
+              },
+            }}
+            className="rounded-xl border-0 w-full"
+          />
+        </div>
         
         <div className="mt-5 space-y-3">
           <div className="flex items-center gap-3">
@@ -201,7 +77,7 @@ const InteractiveCalendar = ({
           </div>
           <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl">
             <p className="text-xs text-purple-700 font-medium text-center">
-              👆 Клик — просмотр • 🖊️ Зажать — редактирование
+              👆 Нажмите на дату для просмотра бронирований
             </p>
           </div>
         </div>
