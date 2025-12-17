@@ -5,7 +5,6 @@ import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import StorageWarning from '@/components/StorageWarning';
 import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
-import DashboardMeetings from '@/components/dashboard/DashboardMeetings';
 import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
 import DashboardBookingDetailsDialog from '@/components/dashboard/DashboardBookingDetailsDialog';
 import { isAdminUser } from '@/utils/adminCheck';
@@ -29,13 +28,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
   const [balance] = useState(0);
-  const [upcomingMeetings, setUpcomingMeetings] = useState<Array<{
-    id: number;
-    name: string;
-    date: string;
-    time: string;
-    type: string;
-  }>>([]);
+
   const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0, plan_name: 'Старт', plan_id: 1 });
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -48,57 +41,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const fetchMeetings = async () => {
-      const userId = propUserId || localStorage.getItem('userId');
-      if (!userId) {
-        console.log('[MEETINGS] No userId available');
-        return;
-      }
-      
-      try {
-        const res = await fetch(`https://functions.poehali.dev/c9c95946-cd1a-45f3-ad47-9390b5e1b47b?userId=${userId}`);
-        const appointments = await res.json();
-        
-        const formatted = appointments
-          .filter((apt: any) => new Date(apt.date) >= new Date())
-          .slice(0, 6)
-          .map((apt: any) => {
-            const meetingDate = new Date(apt.date);
-            return {
-              id: apt.id,
-              name: apt.clientName || 'Без имени',
-              date: meetingDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
-              time: meetingDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-              type: apt.title || apt.description || 'Встреча'
-            };
-          });
-        
-        setUpcomingMeetings(formatted);
-      } catch (error) {
-        console.error('Failed to load meetings:', error);
-      }
-    };
-    
-    fetchMeetings();
-    
-    // Автообновление встреч каждые 30 секунд
-    const intervalId = setInterval(fetchMeetings, 30000);
-    
-    // Обновление при возврате на страницу (например, из раздела "Клиенты")
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchMeetings();
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [propUserId]);
+
 
   useEffect(() => {
     const fetchStorageUsage = async () => {
@@ -164,11 +107,7 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
 
   const isTrialPeriod = trialDaysLeft > 0 && subscriptionDaysLeft === 0;
 
-  const handleMeetingClick = (meetingId: number) => {
-    if (onMeetingClick) {
-      onMeetingClick(meetingId);
-    }
-  };
+
 
   // Мемоизируем данные пользователя чтобы избежать лишних парсингов при каждом рендере
   const { vkUser, emailUser, userEmail, finalIsAdmin } = useMemo(() => {
@@ -325,51 +264,14 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
       
       <StorageWarning />
 
-      {upcomingMeetings.length > 0 && upcomingMeetings[0] && (
-        <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-secondary/5 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardContent className="p-3 md:p-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
-              <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-                <div className="bg-primary/10 p-2 md:p-3 rounded-full animate-pulse">
-                  <Icon name="Bell" size={20} className="text-primary md:w-6 md:h-6" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm md:text-base text-primary">Ближайшая встреча</p>
-                  <p className="text-xs md:text-sm text-muted-foreground truncate">{upcomingMeetings[0].name}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
-                <div className="flex flex-col sm:items-end flex-1 sm:flex-none">
-                  <p className="text-xs md:text-sm font-medium">{upcomingMeetings[0].date}</p>
-                  <p className="text-xs md:text-sm text-muted-foreground">{upcomingMeetings[0].time}</p>
-                </div>
-                <button
-                  onClick={() => handleMeetingClick(upcomingMeetings[0].id)}
-                  className="px-3 py-1.5 md:px-4 md:py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-xs md:text-sm font-medium whitespace-nowrap"
-                >
-                  Открыть
-                </button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DashboardCalendar 
-          userId={propUserId}
-          onBookingClick={(client, booking) => {
-            setSelectedClient(client);
-            setSelectedBooking(booking);
-            setIsBookingDetailsOpen(true);
-          }}
-        />
-        
-        <DashboardMeetings 
-          upcomingMeetings={upcomingMeetings}
-          onMeetingClick={handleMeetingClick}
-        />
-      </div>
+      <DashboardCalendar 
+        userId={propUserId}
+        onBookingClick={(client, booking) => {
+          setSelectedClient(client);
+          setSelectedBooking(booking);
+          setIsBookingDetailsOpen(true);
+        }}
+      />
 
       <DashboardBookingDetailsDialog
         open={isBookingDetailsOpen}
