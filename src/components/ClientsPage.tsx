@@ -303,6 +303,11 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
               onDateClick={dialogsState.setSelectedDate}
               selectedClient={dialogsState.selectedClient}
               onMessageClient={dialogsState.openMessageDialog}
+              onBookingClick={(client, booking) => {
+                dialogsState.setSelectedClient(client);
+                dialogsState.setSelectedBooking(booking);
+                dialogsState.setIsBookingDetailsOpen(true);
+              }}
               clients={clients}
             />
           </div>

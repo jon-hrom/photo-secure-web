@@ -11,6 +11,7 @@ interface ClientsCalendarSectionProps {
   onDateClick: (date: Date | undefined) => void;
   selectedClient: Client | null;
   onMessageClient: (client: Client) => void;
+  onBookingClick: (client: Client, booking: any) => void;
   clients: Client[];
 }
 
@@ -20,6 +21,7 @@ const ClientsCalendarSection = ({
   onDateClick,
   selectedClient,
   onMessageClient,
+  onBookingClick,
   clients,
 }: ClientsCalendarSectionProps) => {
   const upcomingListRef = useRef<HTMLDivElement>(null);
@@ -75,11 +77,40 @@ const ClientsCalendarSection = ({
         selectedDate={selectedDate}
         allBookedDates={allBookedDates}
         onDateClick={(date) => {
-          onDateClick(date);
-          // Скроллим к списку бронирований
-          setTimeout(() => {
-            upcomingListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 100);
+          if (!date) {
+            onDateClick(date);
+            return;
+          }
+
+          // Нормализуем дату
+          const clickedDate = new Date(date);
+          clickedDate.setHours(0, 0, 0, 0);
+          
+          // Ищем бронирования на эту дату
+          const bookingsOnDate = clients.flatMap(c => 
+            (c.bookings || [])
+              .filter(b => {
+                const bookingDate = new Date(b.booking_date || b.date);
+                bookingDate.setHours(0, 0, 0, 0);
+                return bookingDate.getTime() === clickedDate.getTime();
+              })
+              .map(b => ({ ...b, client: c }))
+          );
+
+          // Если одно бронирование - сразу открываем детали
+          if (bookingsOnDate.length === 1) {
+            const booking = bookingsOnDate[0];
+            onBookingClick(booking.client, booking);
+          } else if (bookingsOnDate.length > 1) {
+            // Если несколько - показываем список
+            onDateClick(date);
+            setTimeout(() => {
+              upcomingListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          } else {
+            // Если нет - просто выбираем дату
+            onDateClick(date);
+          }
         }}
         today={today}
       />
@@ -93,6 +124,7 @@ const ClientsCalendarSection = ({
           onMessageClient={onMessageClient}
           selectedDate={selectedDate}
           onClearFilter={() => onDateClick(undefined)}
+          onBookingClick={(booking) => onBookingClick(booking.client, booking)}
         />
       </div>
     </div>
