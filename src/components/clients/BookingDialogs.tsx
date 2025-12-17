@@ -29,7 +29,6 @@ interface BookingDialogsProps {
   setNewBooking: (booking: any) => void;
   timeSlots: string[];
   allBookedDates: Date[];
-  handleDateClick: (date: Date | undefined) => void;
   handleAddBooking: () => void;
   handleDeleteBooking: (bookingId: number) => void;
   clients: Client[];
@@ -48,7 +47,6 @@ const BookingDialogs = ({
   setNewBooking,
   timeSlots,
   allBookedDates,
-  handleDateClick,
   handleAddBooking,
   handleDeleteBooking,
   clients,

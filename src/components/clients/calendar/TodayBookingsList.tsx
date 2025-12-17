@@ -34,7 +34,7 @@ const TodayBookingsList = ({ todayBookings }: TodayBookingsListProps) => {
         {todayBookings.map((booking, index) => (
           <div 
             key={booking.id}
-            className="group relative overflow-hidden bg-gradient-to-br from-white to-orange-50/30 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-300 border border-orange-200/40 hover:border-orange-300 cursor-pointer animate-in fade-in slide-in-from-left-6 duration-500"
+            className="group relative overflow-hidden bg-gradient-to-br from-white to-orange-50/30 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-300 border border-orange-200/40 hover:border-orange-300 animate-in fade-in slide-in-from-left-6 duration-500"
             style={{ animationDelay: `${index * 100}ms` }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-orange-200/0 via-orange-200/10 to-orange-200/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />

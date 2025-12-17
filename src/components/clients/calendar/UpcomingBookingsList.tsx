@@ -85,7 +85,7 @@ const UpcomingBookingsList = ({
             return (
               <div 
                 key={booking.id}
-                className={`group relative overflow-hidden rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-300 border cursor-pointer animate-in fade-in slide-in-from-left-6 duration-500 ${
+                className={`group relative overflow-hidden rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-300 border animate-in fade-in slide-in-from-left-6 duration-500 ${
                   isUrgent 
                     ? 'bg-gradient-to-br from-white to-orange-50/30 border-orange-200/40 hover:border-orange-300' 
                     : 'bg-gradient-to-br from-white to-blue-50/30 border-blue-200/40 hover:border-blue-300'

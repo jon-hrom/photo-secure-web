@@ -322,7 +322,6 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         setNewBooking={dialogsState.setNewBooking}
         timeSlots={dialogsState.timeSlots}
         allBookedDates={allBookedDates}
-        handleDateClick={handlers.handleDateClick}
         handleAddBooking={handlers.handleAddBooking}
         handleDeleteBooking={handlers.handleDeleteBooking}
         clients={clients}
