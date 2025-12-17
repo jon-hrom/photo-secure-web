@@ -5,7 +5,6 @@ import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import StorageWarning from '@/components/StorageWarning';
 import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
-import DashboardStatistics from '@/components/dashboard/DashboardStatistics';
 import DashboardMeetings from '@/components/dashboard/DashboardMeetings';
 import { isAdminUser } from '@/utils/adminCheck';
 
@@ -354,12 +353,6 @@ const Dashboard = ({ userRole, userId: propUserId, onOpenClientBooking, onMeetin
       <DashboardMeetings 
         upcomingMeetings={upcomingMeetings}
         onMeetingClick={handleMeetingClick}
-      />
-
-      <DashboardStatistics 
-        trialDaysLeft={trialDaysLeft}
-        subscriptionDaysLeft={subscriptionDaysLeft}
-        isTrialPeriod={isTrialPeriod}
       />
 
     </div>
