@@ -19,6 +19,7 @@ import Help from "./pages/webapp/Help";
 import Settings from "./pages/webapp/Settings";
 import Tariffs from "./pages/webapp/Tariffs";
 import Clients from "./pages/webapp/Clients";
+import AdminCleanup from "./pages/AdminCleanup";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/photo-bank/trash" element={<PhotoBankTrash />} />
           <Route path="/my-files" element={<MyFiles />} />
           <Route path="/admin/storage" element={<AdminStorage />} />
+          <Route path="/admin/cleanup" element={<AdminCleanup />} />
           <Route path="/face-blur" element={<FaceBlurEditor />} />
           <Route path="/vk-callback" element={<VKCallbackDirect />} />
           <Route path="/auth/callback/vkid" element={<VKCallback />} />

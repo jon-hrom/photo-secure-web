@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "name": "Cleanup test clients",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "deleted": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

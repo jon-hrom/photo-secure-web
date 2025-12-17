@@ -414,6 +414,48 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            elif action == 'cleanup_test_clients':
+                # Удаляем все тестовые клиенты из базы
+                cur.execute('''
+                    SELECT id FROM t_p28211681_photo_secure_web.clients 
+                    WHERE name = 'Тестовый Клиент' OR name = 'Иванов Иван Иванович'
+                ''')
+                test_clients = cur.fetchall()
+                
+                deleted_count = 0
+                for client in test_clients:
+                    client_id = client['id']
+                    
+                    # Получаем все документы клиента для удаления из S3
+                    cur.execute('SELECT s3_key FROM t_p28211681_photo_secure_web.client_documents WHERE client_id = %s', (client_id,))
+                    documents = cur.fetchall()
+                    
+                    # Удаляем файлы из S3
+                    for doc in documents:
+                        if doc['s3_key']:
+                            delete_from_s3(doc['s3_key'])
+                    
+                    # Удаляем в правильном порядке (сначала зависимости, потом родителей)
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.bookings WHERE client_id = %s', (client_id,))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE client_id = %s', (client_id,))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s', (client_id,))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_documents WHERE client_id = %s', (client_id,))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_comments WHERE client_id = %s', (client_id,))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_messages WHERE client_id = %s', (client_id,))
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
+                    
+                    deleted_count += 1
+                
+                conn.commit()
+                print(f'[CLEANUP] Successfully deleted {deleted_count} test clients')
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True, 'deleted': deleted_count}),
+                    'isBase64Encoded': False
+                }
+            
             elif action == 'delete':
                 client_id = body.get('clientId')
                 
