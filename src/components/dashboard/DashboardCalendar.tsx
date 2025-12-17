@@ -119,7 +119,19 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={setSelectedDate}
+            onSelect={(date) => {
+              setSelectedDate(date);
+              // Автоматическое открытие проекта при клике на дату
+              if (date) {
+                const dateProjects = projects.filter(p => {
+                  const projectDate = new Date(p.startDate);
+                  return projectDate.toDateString() === date.toDateString();
+                });
+                if (dateProjects.length === 1) {
+                  setEditingProject(dateProjects[0]);
+                }
+              }
+            }}
             modifiers={{
               booked: (date) => {
                 const checkDate = new Date(date);

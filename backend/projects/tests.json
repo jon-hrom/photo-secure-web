@@ -9,18 +9,21 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Update project",
+      "name": "Update project (no real project)",
       "method": "POST",
       "path": "/",
       "body": {
         "userId": "test-user-123",
-        "projectId": 1,
+        "projectId": 999999,
         "updates": {
           "name": "Updated Project",
           "budget": 50000
         }
       },
-      "expectedStatus": 200,
+      "expectedStatus": 403,
+      "expectedBody": {
+        "error": "Access denied"
+      },
       "bodyMatcher": "partial"
     }
   ]

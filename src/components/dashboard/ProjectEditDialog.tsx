@@ -142,7 +142,6 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
     try {
       const res = await fetch('https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f', {
         method: 'DELETE',
-        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, paymentId })
       });
@@ -181,13 +180,16 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="project-edit-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="Edit" size={20} />
             Редактирование съёмки
           </DialogTitle>
         </DialogHeader>
+        <div id="project-edit-description" className="sr-only">
+          Редактирование информации о съёмке и управление платежами
+        </div>
 
         <div className="space-y-6">
           {/* Основная информация */}
@@ -214,9 +216,13 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
               <div>
                 <Label>Бюджет (₽)</Label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={editedProject.budget || ''}
-                  onChange={(e) => setEditedProject({ ...editedProject, budget: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    setEditedProject({ ...editedProject, budget: value ? parseInt(value) : 0 });
+                  }}
                   placeholder="50000"
                 />
               </div>
@@ -299,10 +305,14 @@ const ProjectEditDialog = ({ project, open, onClose, userId: propUserId, onUpdat
               <Label className="text-sm font-medium">Добавить платёж</Label>
               <div className="grid grid-cols-2 gap-3">
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="Сумма"
                   value={newPayment.amount}
-                  onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    setNewPayment({ ...newPayment, amount: value });
+                  }}
                 />
                 <Select
                   value={newPayment.method}

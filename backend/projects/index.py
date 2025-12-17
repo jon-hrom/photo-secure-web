@@ -88,7 +88,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             with conn.cursor() as cur:
                 cur.execute(f'''
-                    SELECT 1 FROM {DB_SCHEMA}.projects p
+                    SELECT 1 FROM {DB_SCHEMA}.client_projects p
                     JOIN {DB_SCHEMA}.clients c ON p.client_id = c.id
                     WHERE p.id = %s AND c.user_id = %s
                 ''', (project_id, user_id))
