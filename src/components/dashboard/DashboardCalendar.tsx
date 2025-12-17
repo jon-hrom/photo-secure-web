@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import ProjectEditDialog from './ProjectEditDialog';
 
 interface Project {
   id: number;
@@ -20,29 +22,30 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedDateProjects, setSelectedDateProjects] = useState<Project[]>([]);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  const fetchProjects = async () => {
+    const userId = propUserId || localStorage.getItem('userId');
+    if (!userId) return;
+
+    try {
+      const res = await fetch(`https://functions.poehali.dev/9c8c4a01-9b1d-43ea-9d3b-7a8f3db1ac36?userId=${userId}`);
+      const data = await res.json();
+      
+      const projectsWithDates = data
+        .filter((p: any) => p.startDate)
+        .map((p: any) => ({
+          ...p,
+          startDate: p.startDate
+        }));
+
+      setProjects(projectsWithDates);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+    }
+  };
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      const userId = propUserId || localStorage.getItem('userId');
-      if (!userId) return;
-
-      try {
-        const res = await fetch(`https://functions.poehali.dev/9c8c4a01-9b1d-43ea-9d3b-7a8f3db1ac36?userId=${userId}`);
-        const data = await res.json();
-        
-        const projectsWithDates = data
-          .filter((p: any) => p.startDate)
-          .map((p: any) => ({
-            ...p,
-            startDate: p.startDate
-          }));
-
-        setProjects(projectsWithDates);
-      } catch (error) {
-        console.error('Failed to load projects:', error);
-      }
-    };
-
     fetchProjects();
   }, [propUserId]);
 
@@ -165,15 +168,19 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
             {selectedDateProjects.map(project => (
               <div 
                 key={project.id}
-                className="bg-white/60 backdrop-blur-sm rounded-lg p-3 space-y-2"
+                className="bg-white/60 backdrop-blur-sm rounded-lg p-3 space-y-2 hover:bg-white/80 transition-colors cursor-pointer group"
+                onClick={() => setEditingProject(project)}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-sm">{project.name}</span>
-                  {project.budget && (
-                    <Badge variant="secondary" className="text-xs">
-                      {project.budget.toLocaleString('ru-RU')} ₽
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {project.budget && (
+                      <Badge variant="secondary" className="text-xs">
+                        {project.budget.toLocaleString('ru-RU')} ₽
+                      </Badge>
+                    )}
+                    <Icon name="Edit" size={14} className="text-gray-400 group-hover:text-primary transition-colors" />
+                  </div>
                 </div>
                 {project.clientName && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -200,15 +207,19 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
               {upcomingProjects.map(project => (
                 <div 
                   key={project.id}
-                  className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 hover:shadow-md transition-shadow"
+                  className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 hover:shadow-md transition-all cursor-pointer group"
+                  onClick={() => setEditingProject(project)}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-medium text-sm">{project.name}</span>
-                    {project.budget && (
-                      <Badge variant="secondary" className="text-xs">
-                        {project.budget.toLocaleString('ru-RU')} ₽
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {project.budget && (
+                        <Badge variant="secondary" className="text-xs">
+                          {project.budget.toLocaleString('ru-RU')} ₽
+                        </Badge>
+                      )}
+                      <Icon name="Edit" size={14} className="text-gray-400 group-hover:text-primary transition-colors" />
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
@@ -233,6 +244,14 @@ const DashboardCalendar = ({ userId: propUserId }: DashboardCalendarProps) => {
           </CardContent>
         </Card>
       )}
+
+      <ProjectEditDialog
+        project={editingProject}
+        open={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        userId={propUserId}
+        onUpdate={fetchProjects}
+      />
     </div>
   );
 };
