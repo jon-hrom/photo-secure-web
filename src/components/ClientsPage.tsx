@@ -155,8 +155,15 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
   const filteredClients = applyAdvancedFilter(searchFilteredClients);
 
-  // Все забронированные даты
-  const allBookedDates = clients.flatMap(c => c.bookings.map(b => b.date));
+  // Все забронированные даты (бронирования + даты начала проектов)
+  const allBookedDates = [
+    ...clients.flatMap(c => c.bookings.map(b => b.date)),
+    ...clients.flatMap(c => 
+      (c.projects || [])
+        .filter(p => p.startDate && p.status !== 'cancelled')
+        .map(p => new Date(p.startDate))
+    )
+  ];
 
   // Автооткрытие клиента при передаче autoOpenClient
   useEffect(() => {

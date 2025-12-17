@@ -136,12 +136,13 @@ const ClientDetailProjects = ({
         </div>
       )}
       
+      <div className="max-h-[calc(100vh-420px)] overflow-y-auto pr-2 scrollbar-thin">
       {projects.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">Список слуг пока нет</CardContent>
         </Card>
       ) : (
-        <div className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+        <div className="space-y-3">
           {[...projects].reverse().map((project) => {
             const isExpanded = expandedProjects[project.id] || false;
             return (
@@ -252,6 +253,7 @@ const ClientDetailProjects = ({
           })}
         </div>
       )}
+      </div>
 
       <Card className="mt-4">
         <CardHeader className="py-3">
