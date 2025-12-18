@@ -94,13 +94,13 @@ const ViewPresetsDropdown = ({
             className="gap-2 transition-all hover:scale-105"
           >
             <Icon name={activePreset?.icon || 'Filter'} size={16} />
-            {activePreset?.name || 'Представления'}
+            {activePreset?.name || 'Фильтры'}
             <Icon name="ChevronDown" size={14} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-80">
           <DropdownMenuLabel className="flex items-center justify-between">
-            <span>Быстрые представления</span>
+            <span>Быстрые фильтры</span>
             <Button
               variant="ghost"
               size="sm"
@@ -152,7 +152,7 @@ const ViewPresetsDropdown = ({
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuLabel className="text-xs text-muted-foreground">
-                  Мои представления
+                  Мои фильтры
                 </DropdownMenuLabel>
                 {customPresets.map(preset => (
                   <DropdownMenuItem
@@ -206,7 +206,7 @@ const ViewPresetsDropdown = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Icon name="Save" size={20} />
-              Сохранить текущее представление
+              Сохранить текущий фильтр
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -214,7 +214,7 @@ const ViewPresetsDropdown = ({
               <Label htmlFor="preset-name">Название *</Label>
               <Input
                 id="preset-name"
-                placeholder="Например: Активные клиенты за месяц"
+                placeholder="Например: Активные клиенты"
                 value={newPresetName}
                 onChange={(e) => setNewPresetName(e.target.value)}
               />
@@ -223,7 +223,7 @@ const ViewPresetsDropdown = ({
               <Label htmlFor="preset-description">Описание</Label>
               <Textarea
                 id="preset-description"
-                placeholder="Краткое описание представления..."
+                placeholder="Краткое описание фильтра..."
                 value={newPresetDescription}
                 onChange={(e) => setNewPresetDescription(e.target.value)}
                 rows={2}
