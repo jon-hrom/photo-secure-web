@@ -199,6 +199,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             if action == 'list':
+                # Оптимизированный запрос: сначала получаем всех клиентов
                 cur.execute('''
                     SELECT id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
                     FROM t_p28211681_photo_secure_web.clients 
@@ -207,24 +208,70 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 ''', (user_id,))
                 clients = cur.fetchall()
                 
+                if not clients:
+                    return {
+                        'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps([]),
+                        'isBase64Encoded': False
+                    }
+                
+                # Получаем ID всех клиентов для массовых запросов
+                client_ids = tuple(c['id'] for c in clients)
+                
+                # Массовый запрос всех bookings
+                cur.execute('''
+                    SELECT client_id, id, booking_date, booking_time, description, notification_enabled, notification_time
+                    FROM t_p28211681_photo_secure_web.bookings 
+                    WHERE client_id = ANY(%s)
+                    ORDER BY booking_date DESC
+                ''', (list(client_ids),))
+                all_bookings = cur.fetchall()
+                bookings_by_client = {}
+                for b in all_bookings:
+                    cid = b['client_id']
+                    if cid not in bookings_by_client:
+                        bookings_by_client[cid] = []
+                    bookings_by_client[cid].append(b)
+                
+                # Массовый запрос всех projects
+                cur.execute('''
+                    SELECT client_id, id, name, status, budget, start_date, description, shooting_style_id
+                    FROM t_p28211681_photo_secure_web.client_projects 
+                    WHERE client_id = ANY(%s)
+                    ORDER BY created_at DESC
+                ''', (list(client_ids),))
+                all_projects = cur.fetchall()
+                projects_by_client = {}
+                for p in all_projects:
+                    cid = p['client_id']
+                    if cid not in projects_by_client:
+                        projects_by_client[cid] = []
+                    projects_by_client[cid].append(p)
+                
+                # Массовый запрос всех payments
+                cur.execute('''
+                    SELECT client_id, id, amount, payment_date, status, method, description, project_id
+                    FROM t_p28211681_photo_secure_web.client_payments 
+                    WHERE client_id = ANY(%s)
+                    ORDER BY payment_date DESC
+                ''', (list(client_ids),))
+                all_payments = cur.fetchall()
+                payments_by_client = {}
+                for p in all_payments:
+                    cid = p['client_id']
+                    if cid not in payments_by_client:
+                        payments_by_client[cid] = []
+                    payments_by_client[cid].append(p)
+                
+                # Собираем результат
                 result = []
                 for client in clients:
-                    cur.execute('''
-                        SELECT id, booking_date, booking_time, description, notification_enabled, notification_time
-                        FROM t_p28211681_photo_secure_web.bookings 
-                        WHERE client_id = %s
-                        ORDER BY booking_date DESC
-                    ''', (client['id'],))
-                    bookings = cur.fetchall()
-                    
-                    cur.execute('''
-                        SELECT id, name, status, budget, start_date, description, shooting_style_id
-                        FROM t_p28211681_photo_secure_web.client_projects 
-                        WHERE client_id = %s
-                        ORDER BY created_at DESC
-                    ''', (client['id'],))
-                    raw_projects = cur.fetchall()
-                    # Конвертируем budget из Decimal/string в float и переименовываем поля для фронтенда
+                    cid = client['id']
+                    bookings = bookings_by_client.get(cid, [])
+                    raw_projects = projects_by_client.get(cid, [])
+                    raw_payments = payments_by_client.get(cid, [])
+                    # Конвертируем projects
                     projects = [{
                         'id': p['id'],
                         'name': p['name'],
@@ -235,14 +282,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'shooting_style_id': p.get('shooting_style_id')
                     } for p in raw_projects]
                     
-                    cur.execute('''
-                        SELECT id, amount, payment_date, status, method, description, project_id
-                        FROM t_p28211681_photo_secure_web.client_payments 
-                        WHERE client_id = %s
-                        ORDER BY payment_date DESC
-                    ''', (client['id'],))
-                    raw_payments = cur.fetchall()
-                    # Конвертируем amount из Decimal/string в float и переименовываем поля для фронтенда
+                    # Конвертируем payments
                     payments = [{
                         'id': p['id'],
                         'amount': float(p['amount']),
@@ -253,56 +293,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'projectId': p['project_id']
                     } for p in raw_payments]
                     
-                    cur.execute('''
-                        SELECT id, name, s3_key, upload_date
-                        FROM t_p28211681_photo_secure_web.client_documents 
-                        WHERE client_id = %s
-                        ORDER BY upload_date DESC
-                    ''', (client['id'],))
-                    raw_documents = cur.fetchall()
-                    
-                    # Генерируем presigned URLs для документов
-                    documents = []
-                    for doc in raw_documents:
-                        presigned_url = generate_presigned_url(doc['s3_key'])
-                        documents.append({
-                            'id': doc['id'],
-                            'name': doc['name'],
-                            'file_url': presigned_url,
-                            'upload_date': doc['upload_date']
-                        })
-                    
-                    cur.execute('''
-                        SELECT id, author, text, comment_date
-                        FROM t_p28211681_photo_secure_web.client_comments 
-                        WHERE client_id = %s
-                        ORDER BY comment_date DESC
-                    ''', (client['id'],))
-                    comments = cur.fetchall()
-                    
-                    cur.execute('''
-                        SELECT id, type, author, content, message_date
-                        FROM t_p28211681_photo_secure_web.client_messages 
-                        WHERE client_id = %s
-                        ORDER BY message_date DESC
-                    ''', (client['id'],))
-                    raw_messages = cur.fetchall()
-                    messages = [{
-                        'id': m['id'],
-                        'type': m['type'],
-                        'author': m['author'],
-                        'content': m['content'],
-                        'date': str(m['message_date'])
-                    } for m in raw_messages]
-                    
                     result.append({
                         **dict(client),
-                        'bookings': [dict(b) for b in bookings],
+                        'vkProfile': client['vk_profile'],
+                        'created_at': str(client['created_at']) if client['created_at'] else None,
+                        'updated_at': str(client['updated_at']) if client['updated_at'] else None,
+                        'bookings': [
+                            {
+                                'id': b['id'],
+                                'date': str(b['booking_date']),
+                                'booking_date': str(b['booking_date']),
+                                'time': b['booking_time'],
+                                'description': b['description'],
+                                'notificationEnabled': b['notification_enabled'],
+                                'notificationTime': b['notification_time']
+                            } for b in bookings
+                        ],
                         'projects': projects,
-                        'payments': payments,
-                        'documents': [dict(d) for d in documents],
-                        'comments': [dict(c) for c in comments],
-                        'messages': messages
+                        'payments': payments
                     })
                 
                 return {
