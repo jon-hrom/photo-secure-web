@@ -7,6 +7,7 @@ import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
 import EmailNotifications from '@/components/admin/EmailNotifications';
 import NotificationSoundSettings from '@/components/admin/NotificationSoundSettings';
 import SmsBalanceManager from '@/components/admin/SmsBalanceManager';
+import MaxTemplates from '@/components/admin/MaxTemplates';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -94,6 +95,13 @@ const AdminPanelTabs = ({
               </div>
             </div>
           </div>
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="max-templates">
+        <AccordionTrigger className="text-lg font-semibold">Шаблоны MAX сообщений</AccordionTrigger>
+        <AccordionContent>
+          <MaxTemplates />
         </AccordionContent>
       </AccordionItem>
 

@@ -47,6 +47,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 result = send_service_message(conn, user_id, body)
             elif action == 'get_templates':
                 result = get_templates(conn)
+            elif action == 'save_template':
+                result = save_template(conn, user_id, body)
+            elif action == 'toggle_template':
+                result = toggle_template(conn, user_id, body)
             else:
                 result = {'error': 'Неизвестный action'}
             
@@ -212,4 +216,81 @@ def send_service_message(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, 
         return {
             'error': 'Ошибка отправки',
             'details': str(e)
+        }
+
+def is_admin(conn, user_id: str) -> bool:
+    """Проверить является ли пользователь админом"""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT role FROM t_p28211681_photo_secure_web.users WHERE id = {user_id}
+        """)
+        row = cur.fetchone()
+        return row and row[0] == 'admin'
+
+def save_template(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Сохранить или обновить шаблон (только для админа)"""
+    if not is_admin(conn, user_id):
+        return {'error': 'Доступ запрещён'}
+    
+    template_id = body.get('id')
+    template_type = body.get('template_type')
+    template_text = body.get('template_text')
+    is_active = body.get('is_active', True)
+    
+    if not template_type or not template_text:
+        return {'error': 'Требуется template_type и template_text'}
+    
+    import re
+    variables = list(set(re.findall(r'\{([^}]+)\}', template_text)))
+    
+    with conn.cursor() as cur:
+        if template_id:
+            cur.execute(f"""
+                UPDATE t_p28211681_photo_secure_web.max_service_templates
+                SET template_text = %s,
+                    variables = %s::jsonb,
+                    is_active = {is_active},
+                    updated_at = NOW()
+                WHERE id = {template_id}
+                RETURNING id
+            """, (template_text, json.dumps(variables)))
+        else:
+            cur.execute(f"""
+                INSERT INTO t_p28211681_photo_secure_web.max_service_templates
+                (template_type, template_text, variables, is_active)
+                VALUES (%s, %s, %s::jsonb, {is_active})
+                RETURNING id
+            """, (template_type, template_text, json.dumps(variables)))
+        
+        result_id = cur.fetchone()[0]
+        conn.commit()
+        
+        return {
+            'success': True,
+            'id': result_id,
+            'message': 'Шаблон сохранён'
+        }
+
+def toggle_template(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Включить/выключить шаблон (только для админа)"""
+    if not is_admin(conn, user_id):
+        return {'error': 'Доступ запрещён'}
+    
+    template_id = body.get('id')
+    is_active = body.get('is_active')
+    
+    if template_id is None:
+        return {'error': 'Требуется id'}
+    
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            UPDATE t_p28211681_photo_secure_web.max_service_templates
+            SET is_active = {is_active}, updated_at = NOW()
+            WHERE id = {template_id}
+        """)
+        conn.commit()
+        
+        return {
+            'success': True,
+            'message': 'Статус обновлён'
         }
