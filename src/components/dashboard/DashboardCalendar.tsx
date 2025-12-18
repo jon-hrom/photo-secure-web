@@ -167,16 +167,12 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
           
           <div className="mt-3 sm:mt-5 space-y-2 sm:space-y-3">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-300 to-pink-300 shadow-md flex-shrink-0"></div>
-              <p className="text-xs sm:text-sm text-gray-700 font-medium">Бронирования</p>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-green-300 to-green-200 shadow-md flex-shrink-0"></div>
-              <p className="text-xs sm:text-sm text-gray-700 font-medium">Даты съёмок</p>
+              <p className="text-xs sm:text-sm text-gray-700 font-medium">Даты со съёмками</p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
-              <p className="text-xs sm:text-sm text-gray-700 font-medium">Сегодня</p>
+              <p className="text-xs sm:text-sm text-gray-700 font-medium">Дата сегодня</p>
             </div>
           </div>
         </CardContent>
