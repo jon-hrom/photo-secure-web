@@ -69,16 +69,22 @@ const ClientsCalendarSection = ({
               .map(b => ({ ...b, client: c }))
           );
 
+          // Если только одна съёмка - сразу открываем детали
           if (bookingsOnDate.length === 1) {
             onBookingClick(bookingsOnDate[0].client, bookingsOnDate[0]);
-          } else if (bookingsOnDate.length > 1) {
+          } 
+          // Если несколько съёмок - показываем список и прокручиваем к нему
+          else if (bookingsOnDate.length > 1) {
             onDateClick(date);
             setTimeout(() => {
               upcomingListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
           }
+          // Если съёмок нет - ничего не делаем
         }}
         today={today}
+        clients={clients}
+        onBookingClick={onBookingClick}
       />
 
       <div ref={upcomingListRef}>

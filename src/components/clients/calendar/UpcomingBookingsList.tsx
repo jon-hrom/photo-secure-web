@@ -45,16 +45,16 @@ const UpcomingBookingsList = ({
 
   return (
     <Card className="overflow-hidden border border-blue-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-500">
-      <div className="bg-gradient-to-r from-blue-100 via-cyan-50 to-teal-100 p-5">
+      <div className="bg-gradient-to-r from-blue-100 via-cyan-50 to-teal-100 p-3 sm:p-5">
         <CardTitle className="flex items-center justify-between text-blue-700">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-200/40 backdrop-blur-sm rounded-lg">
-              <Icon name="CalendarDays" size={20} className="text-blue-600" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 bg-blue-200/40 backdrop-blur-sm rounded-lg flex-shrink-0">
+              <Icon name="CalendarDays" size={18} className="text-blue-600 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="text-lg font-bold">Предстоящие встречи</div>
+            <div className="min-w-0">
+              <div className="text-base sm:text-lg font-bold">Предстоящие встречи</div>
               {selectedDate && (
-                <div className="text-xs text-blue-600/70 font-normal mt-0.5">
+                <div className="text-[10px] sm:text-xs text-blue-600/70 font-normal mt-0.5">
                   {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
               )}
@@ -73,7 +73,7 @@ const UpcomingBookingsList = ({
           )}
         </CardTitle>
       </div>
-      <CardContent className="p-5 space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
+      <CardContent className="p-3 sm:p-5 space-y-2 sm:space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
         {upcomingBookings.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <Icon name="CalendarX" size={48} className="mx-auto mb-3 text-gray-300" />
@@ -88,7 +88,7 @@ const UpcomingBookingsList = ({
               <div 
                 key={booking.id}
                 onClick={() => onBookingClick?.(booking)}
-                className={`group relative overflow-hidden rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-300 border cursor-pointer animate-in fade-in slide-in-from-left-6 duration-500 ${
+                className={`group relative overflow-hidden rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-lg transition-all duration-300 border cursor-pointer animate-in fade-in slide-in-from-left-6 duration-500 ${
                   isUrgent 
                     ? 'bg-gradient-to-br from-white to-orange-50/30 border-orange-200/40 hover:border-orange-300' 
                     : 'bg-gradient-to-br from-white to-blue-50/30 border-blue-200/40 hover:border-blue-300'

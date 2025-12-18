@@ -56,10 +56,10 @@ const BookingDialogs = ({
       <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm flex flex-col p-0" aria-describedby="create-booking-description">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle>Создать бронирование для {selectedClient?.name}</DialogTitle>
+            <DialogTitle>Записать съёмку для {selectedClient?.name}</DialogTitle>
           </DialogHeader>
           <div id="create-booking-description" className="sr-only">
-            Форма создания нового бронирования для клиента
+            Форма создания новой съёмки для клиента
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -86,7 +86,7 @@ const BookingDialogs = ({
                 <div className="space-y-2 px-1">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <div className="w-4 h-4 rounded-full bg-primary flex-shrink-0"></div>
-                    <span>Даты с бронированиями выделены цветом</span>
+                    <span>Даты со съёмками выделены цветом</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <div className="w-4 h-4 rounded-full bg-purple-400 flex-shrink-0"></div>
@@ -170,7 +170,7 @@ const BookingDialogs = ({
           <div className="px-6 py-4 border-t bg-white/50 backdrop-blur-sm sticky bottom-0">
             <Button onClick={handleAddBooking} className="w-full">
               <Icon name="CalendarCheck" size={18} className="mr-2" />
-              Создать бронирование
+              Записать съёмку
             </Button>
           </div>
         </DialogContent>
@@ -180,11 +180,11 @@ const BookingDialogs = ({
         <DialogContent className="max-w-md bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm border-2 border-purple-200/50 shadow-2xl" aria-describedby="booking-details-description">
           <DialogHeader className="border-b border-purple-200/30 pb-4">
             <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Детали бронирования
+              Детали съёмки
             </DialogTitle>
           </DialogHeader>
           <div id="booking-details-description" className="sr-only">
-            Просмотр информации о бронировании клиента
+            Просмотр информации о съёмке клиента
           </div>
           {selectedBooking && (
             <div className="space-y-6 pt-6">
@@ -281,7 +281,7 @@ const BookingDialogs = ({
                 className="w-full rounded-xl h-12 bg-gradient-to-r from-red-100 to-rose-100 hover:from-red-200 hover:to-rose-200 text-red-700 hover:text-red-800 border-red-200/50 shadow-md hover:shadow-lg transition-all duration-300 font-semibold group"
               >
                 <Icon name="Trash2" size={18} className="mr-2 group-hover:scale-110 transition-transform" />
-                Удалить бронирование
+                Удалить съёмку
               </Button>
             </div>
           )}
