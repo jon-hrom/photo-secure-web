@@ -1,0 +1,215 @@
+import json
+import os
+import psycopg2
+from typing import Dict, Any
+import requests
+from datetime import datetime, timedelta
+
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    '''
+    Отправка сервисных сообщений через MAX мессенджер
+    Используется для уведомлений клиентам: восстановление пароля, брони, статусы проектов
+    '''
+    method = event.get('httpMethod', 'GET')
+    
+    if method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
+                'Access-Control-Max-Age': '86400'
+            },
+            'body': '',
+            'isBase64Encoded': False
+        }
+    
+    headers = event.get('headers', {})
+    user_id = headers.get('x-user-id') or headers.get('X-User-Id')
+    
+    if not user_id:
+        return {
+            'statusCode': 401,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Требуется авторизация'}),
+            'isBase64Encoded': False
+        }
+    
+    conn = get_db_connection()
+    
+    try:
+        if method == 'POST':
+            body = json.loads(event.get('body', '{}'))
+            action = body.get('action')
+            
+            if action == 'send_service_message':
+                result = send_service_message(conn, user_id, body)
+            elif action == 'get_templates':
+                result = get_templates(conn)
+            else:
+                result = {'error': 'Неизвестный action'}
+            
+            conn.close()
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(result, default=str),
+                'isBase64Encoded': False
+            }
+        
+        conn.close()
+        return {
+            'statusCode': 405,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Метод не поддерживается'}),
+            'isBase64Encoded': False
+        }
+        
+    except Exception as e:
+        print(f"[MAX Service] Error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        conn.close()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': str(e)}),
+            'isBase64Encoded': False
+        }
+
+def get_db_connection():
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        raise Exception('DATABASE_URL не настроен')
+    return psycopg2.connect(database_url)
+
+def dict_from_row(cursor, row):
+    if not row:
+        return None
+    return dict(zip([desc[0] for desc in cursor.description], row))
+
+def get_user_credentials(conn, user_id: str) -> Dict[str, Any]:
+    """Получить GREEN-API credentials пользователя"""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT 
+                green_api_instance_id,
+                green_api_token,
+                max_connected,
+                max_phone
+            FROM t_p28211681_photo_secure_web.users
+            WHERE id = {user_id}
+        """)
+        row = cur.fetchone()
+        return dict_from_row(cur, row) if row else {}
+
+def check_rate_limit(conn, user_id: str, client_phone: str) -> bool:
+    """Проверить антиспам (не более 5 сообщений в час одному клиенту)"""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT COUNT(*) as count
+            FROM t_p28211681_photo_secure_web.max_service_logs
+            WHERE user_id = {user_id} 
+                AND client_phone = '{client_phone}'
+                AND sent_at > NOW() - INTERVAL '1 hour'
+        """)
+        row = cur.fetchone()
+        count = row[0] if row else 0
+        return count < 5
+
+def log_message(conn, user_id: str, client_phone: str, template_type: str, success: bool, error: str = None):
+    """Логировать отправленное сообщение"""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            INSERT INTO t_p28211681_photo_secure_web.max_service_logs 
+            (user_id, client_phone, template_type, success, error_message, sent_at)
+            VALUES ({user_id}, '{client_phone}', '{template_type}', {success}, %s, NOW())
+        """, (error,))
+        conn.commit()
+
+def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -> Dict[str, Any]:
+    """Отправить сообщение через GREEN-API"""
+    url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{token}"
+    
+    clean_phone = ''.join(filter(str.isdigit, phone))
+    if not clean_phone.startswith('7'):
+        clean_phone = '7' + clean_phone.lstrip('8')
+    
+    payload = {
+        "chatId": f"{clean_phone}@c.us",
+        "message": message
+    }
+    
+    response = requests.post(url, json=payload, timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+def get_templates(conn) -> Dict[str, Any]:
+    """Получить список шаблонов сообщений"""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT template_type, template_text, variables
+            FROM t_p28211681_photo_secure_web.max_service_templates
+            WHERE is_active = TRUE
+            ORDER BY template_type
+        """)
+        rows = cur.fetchall()
+        templates = [dict_from_row(cur, row) for row in rows]
+        return {'templates': templates}
+
+def send_service_message(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Отправить сервисное сообщение клиенту"""
+    client_phone = body.get('client_phone')
+    template_type = body.get('template_type')
+    variables = body.get('variables', {})
+    
+    if not client_phone or not template_type:
+        return {'error': 'Требуется client_phone и template_type'}
+    
+    if not check_rate_limit(conn, user_id, client_phone):
+        return {'error': 'Превышен лимит отправки (5 сообщений в час)'}
+    
+    creds = get_user_credentials(conn, user_id)
+    if not creds.get('max_connected'):
+        return {'error': 'MAX не подключён'}
+    
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT template_text, variables as required_vars
+            FROM t_p28211681_photo_secure_web.max_service_templates
+            WHERE template_type = '{template_type}' AND is_active = TRUE
+        """)
+        row = cur.fetchone()
+        
+        if not row:
+            return {'error': f'Шаблон {template_type} не найден'}
+        
+        template = dict_from_row(cur, row)
+        message = template['template_text']
+        
+        for key, value in variables.items():
+            message = message.replace(f'{{{key}}}', str(value))
+    
+    try:
+        result = send_via_green_api(
+            creds['green_api_instance_id'],
+            creds['green_api_token'],
+            client_phone,
+            message
+        )
+        
+        log_message(conn, user_id, client_phone, template_type, True)
+        
+        return {
+            'success': True,
+            'message_id': result.get('idMessage'),
+            'sent_at': datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        log_message(conn, user_id, client_phone, template_type, False, str(e))
+        return {
+            'error': 'Ошибка отправки',
+            'details': str(e)
+        }

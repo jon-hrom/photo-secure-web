@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "Get templates list",
+      "method": "POST",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "body": {
+        "action": "get_templates"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "templates": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
