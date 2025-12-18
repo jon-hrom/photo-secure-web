@@ -239,10 +239,10 @@ const ClientDetailProjects = ({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="new">Новый</SelectItem>
-                        <SelectItem value="in_progress">В работе</SelectItem>
-                        <SelectItem value="completed">Завершён</SelectItem>
-                        <SelectItem value="cancelled">Отменён</SelectItem>
+                        <SelectItem value="new" className="text-green-600 font-medium focus:text-green-700 focus:bg-green-50">Новый</SelectItem>
+                        <SelectItem value="in_progress" className="text-orange-600 font-medium focus:text-orange-700 focus:bg-orange-50">В работе</SelectItem>
+                        <SelectItem value="completed" className="text-red-600 font-medium focus:text-red-700 focus:bg-red-50">Завершён</SelectItem>
+                        <SelectItem value="cancelled" className="text-gray-900 font-medium focus:text-gray-950 focus:bg-gray-100">Отменён</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
