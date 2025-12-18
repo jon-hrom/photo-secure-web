@@ -59,6 +59,33 @@ def get_db_connection():
     dsn = os.environ.get('DATABASE_URL')
     return psycopg2.connect(dsn)
 
+def send_max_message(user_id: int, client_phone: str, template_type: str, variables: Dict[str, str]) -> bool:
+    """Отправить MAX сообщение через внутренний API"""
+    try:
+        import requests
+        max_url = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d'
+        
+        response = requests.post(max_url, json={
+            'action': 'send_service_message',
+            'client_phone': client_phone,
+            'template_type': template_type,
+            'variables': variables
+        }, headers={
+            'Content-Type': 'application/json',
+            'X-User-Id': str(user_id)
+        }, timeout=10)
+        
+        result = response.json()
+        if result.get('success'):
+            print(f"MAX message sent: {template_type} to {client_phone}")
+            return True
+        else:
+            print(f"MAX error: {result.get('error')}")
+            return False
+    except Exception as e:
+        print(f"MAX send error: {str(e)}")
+        return False
+
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -180,10 +207,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             conn.commit()
             
+            # Получаем имя фотографа для уведомления
+            cur.execute("SELECT full_name FROM t_p28211681_photo_secure_web.users WHERE id = %s", (user_id,))
+            photographer_row = cur.fetchone()
+            photographer_name = photographer_row[0] if photographer_row else 'Фотограф'
+            
+            meeting_datetime = datetime.fromisoformat(meeting_date.replace('Z', '+00:00')) if isinstance(meeting_date, str) else meeting_date
+            formatted_date = meeting_datetime.strftime('%d.%m.%Y')
+            formatted_time = meeting_datetime.strftime('%H:%M')
+            
+            # Отправка MAX уведомления (если есть номер телефона)
+            if notification_enabled and client_phone:
+                send_max_message(
+                    user_id=int(user_id),
+                    client_phone=client_phone,
+                    template_type='new_booking',
+                    variables={
+                        'date': formatted_date,
+                        'time': formatted_time,
+                        'description': description or title,
+                        'photographer_name': photographer_name
+                    }
+                )
+            
+            # Отправка email (если есть)
             if notification_enabled and client_email:
-                meeting_datetime = datetime.fromisoformat(meeting_date.replace('Z', '+00:00')) if isinstance(meeting_date, str) else meeting_date
-                formatted_date = meeting_datetime.strftime('%d.%m.%Y в %H:%M')
-                
+                full_formatted_date = f"{formatted_date} в {formatted_time}"
                 html_body = f'''
                 <!DOCTYPE html>
                 <html><head><meta charset="utf-8"></head>
@@ -196,7 +245,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         <p>Вы записаны на встречу:</p>
                         <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
                             <p><strong>Тема:</strong> {title}</p>
-                            <p><strong>Дата и время:</strong> {formatted_date}</p>
+                            <p><strong>Дата и время:</strong> {full_formatted_date}</p>
                             {f'<p><strong>Место:</strong> {location}</p>' if location else ''}
                             {f'<p><strong>Описание:</strong> {description}</p>' if description else ''}
                         </div>

@@ -68,6 +68,33 @@ def get_db_connection():
         raise Exception('DATABASE_URL not configured')
     return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
 
+def send_max_message(user_id: int, client_phone: str, template_type: str, variables: Dict[str, str]) -> bool:
+    """Отправить MAX сообщение через внутренний API"""
+    try:
+        import requests
+        max_url = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d'
+        
+        response = requests.post(max_url, json={
+            'action': 'send_service_message',
+            'client_phone': client_phone,
+            'template_type': template_type,
+            'variables': variables
+        }, headers={
+            'Content-Type': 'application/json',
+            'X-User-Id': str(user_id)
+        }, timeout=10)
+        
+        result = response.json()
+        if result.get('success'):
+            print(f"MAX message sent: {template_type} to {client_phone}")
+            return True
+        else:
+            print(f"MAX error: {result.get('error')}")
+            return False
+    except Exception as e:
+        print(f"MAX send error: {str(e)}")
+        return False
+
 
 
 
@@ -379,6 +406,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 send_sms_code(user['phone'], code)
+            elif method_type == 'max':
+                if not user.get('phone'):
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Телефон не найден у пользователя'}),
+                        'isBase64Encoded': False
+                    }
+                send_max_message(
+                    user_id=user['user_id'],
+                    client_phone=user['phone'],
+                    template_type='password_reset',
+                    variables={'code': code}
+                )
             
             return {
                 'statusCode': 200,

@@ -6,6 +6,33 @@ from psycopg2.extras import RealDictCursor
 
 DB_SCHEMA = 't_p28211681_photo_secure_web'
 
+def send_max_message(user_id: int, client_phone: str, template_type: str, variables: Dict[str, str]) -> bool:
+    """Отправить MAX сообщение через внутренний API"""
+    try:
+        import requests
+        max_url = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d'
+        
+        response = requests.post(max_url, json={
+            'action': 'send_service_message',
+            'client_phone': client_phone,
+            'template_type': template_type,
+            'variables': variables
+        }, headers={
+            'Content-Type': 'application/json',
+            'X-User-Id': str(user_id)
+        }, timeout=10)
+        
+        result = response.json()
+        if result.get('success'):
+            print(f"MAX message sent: {template_type} to {client_phone}")
+            return True
+        else:
+            print(f"MAX error: {result.get('error')}")
+            return False
+    except Exception as e:
+        print(f"MAX send error: {str(e)}")
+        return False
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
     Управление проектами: получение списка, обновление данных проекта
@@ -119,6 +146,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if 'status' in updates:
                     update_fields.append('status = %s')
                     values.append(updates['status'])
+                    old_status = updates.get('_oldStatus')
                 
                 if 'description' in updates:
                     update_fields.append('description = %s')
@@ -129,6 +157,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     query = f"UPDATE {DB_SCHEMA}.client_projects SET {', '.join(update_fields)} WHERE id = %s"
                     cur.execute(query, values)
                     conn.commit()
+                    
+                    # Если статус изменился на "completed" - отправить уведомление
+                    if 'status' in updates and updates['status'] == 'completed' and old_status != 'completed':
+                        cur.execute(f'''
+                            SELECT 
+                                c.phone, 
+                                p.name as project_name,
+                                u.full_name as photographer_name
+                            FROM {DB_SCHEMA}.client_projects p
+                            JOIN {DB_SCHEMA}.clients c ON p.client_id = c.id
+                            JOIN {DB_SCHEMA}.users u ON c.user_id = u.id
+                            WHERE p.id = %s
+                        ''', (project_id,))
+                        
+                        row = cur.fetchone()
+                        if row and row[0]:
+                            client_phone, project_name, photographer_name = row
+                            send_max_message(
+                                user_id=int(user_id),
+                                client_phone=client_phone,
+                                template_type='project_ready',
+                                variables={
+                                    'project_name': project_name or 'Ваш проект',
+                                    'project_url': 'https://foto-mix.ru/projects',
+                                    'photographer_name': photographer_name or 'Ваш фотограф'
+                                }
+                            )
             
             return {
                 'statusCode': 200,
