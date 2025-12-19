@@ -947,22 +947,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             try:
                 print(f"[SETTINGS] Updating {field} for user {user_id}")
                 
-                # Update both users and vk_users tables
+                # Update users table
                 cursor.execute(f"""
                     UPDATE t_p28211681_photo_secure_web.users
                     SET {field} = %s, updated_at = CURRENT_TIMESTAMP
                     WHERE id = %s
                 """, (value, int(user_id)))
                 
-                # Also update vk_users if exists
-                vk_field = 'phone_number' if field == 'phone' else field
-                cursor.execute(f"""
-                    UPDATE t_p28211681_photo_secure_web.vk_users
-                    SET {vk_field} = %s
-                    WHERE user_id = %s
-                """, (value, int(user_id)))
-                
-                print(f"[SETTINGS] Updated {cursor.rowcount} rows in vk_users")
+                # Also update vk_users if exists (only for email and phone)
+                if field in ('email', 'phone'):
+                    vk_field = 'phone_number' if field == 'phone' else field
+                    cursor.execute(f"""
+                        UPDATE t_p28211681_photo_secure_web.vk_users
+                        SET {vk_field} = %s
+                        WHERE user_id = %s
+                    """, (value, int(user_id)))
+                    print(f"[SETTINGS] Updated {cursor.rowcount} rows in vk_users")
                 
                 conn.commit()
                 cursor.close()

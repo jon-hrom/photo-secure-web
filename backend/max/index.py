@@ -149,7 +149,8 @@ def log_message(conn, user_id: str, client_phone: str, template_type: str, succe
 
 def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -> Dict[str, Any]:
     """Отправить сообщение через GREEN-API"""
-    url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{token}"
+    media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
+    url = f"https://{media_server}.api.green-api.com/waInstance{instance_id}/sendMessage/{token}"
     
     clean_phone = ''.join(filter(str.isdigit, phone))
     if not clean_phone.startswith('7'):
@@ -159,6 +160,8 @@ def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -
         "chatId": f"{clean_phone}@c.us",
         "message": message
     }
+    
+    print(f'[MAX] Sending to {url} with chatId={clean_phone}@c.us')
     
     response = requests.post(url, json=payload, timeout=10)
     response.raise_for_status()
