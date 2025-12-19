@@ -162,8 +162,12 @@ def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -
     }
     
     print(f'[MAX] Sending to {url} with chatId={clean_phone}@c.us')
+    print(f'[MAX] Payload: {payload}')
     
     response = requests.post(url, json=payload, timeout=10)
+    print(f'[MAX] Response status: {response.status_code}')
+    print(f'[MAX] Response body: {response.text}')
+    
     response.raise_for_status()
     return response.json()
 
