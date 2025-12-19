@@ -162,7 +162,8 @@ export const createAddCommentHandler = (
     const comment: Comment = {
       id: Date.now(),
       text: newComment,
-      date: new Date(),
+      date: new Date().toISOString(),
+      author: 'Фотограф',
     };
 
     const updatedClient = {
@@ -191,9 +192,10 @@ export const createAddMessageHandler = (
 
     const message: Message = {
       id: Date.now(),
-      text: newMessage.text,
-      date: new Date(),
-      type: newMessage.type || 'outgoing',
+      content: newMessage.text,
+      date: new Date().toISOString(),
+      type: newMessage.type || 'email',
+      author: 'Фотограф',
     };
 
     const updatedClient = {
@@ -202,7 +204,7 @@ export const createAddMessageHandler = (
     };
 
     onUpdate(updatedClient);
-    setNewMessage({ text: '', type: 'outgoing' });
+    setNewMessage({ text: '', type: 'email' });
     toast.success('Сообщение добавлено');
   };
 };

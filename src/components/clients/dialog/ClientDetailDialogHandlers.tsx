@@ -18,7 +18,7 @@ import {
   createDocumentDeletedHandler,
   createFormatDate,
   createFormatDateTime,
-} from './ClientHandlers';
+} from './ClientHandlers.tsx';
 
 export const useClientDetailHandlers = (
   localClient: Client,
