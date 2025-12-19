@@ -10,6 +10,14 @@ import {
   createDeleteCommentHandler,
   createDeleteMessageHandler,
   createStatusBadgeGetter,
+  createPaymentStatusBadgeGetter,
+  createUpdateProjectStatusHandler,
+  createUpdateProjectDateHandler,
+  createUpdateProjectShootingStyleHandler,
+  createDocumentUploadedHandler,
+  createDocumentDeletedHandler,
+  createFormatDate,
+  createFormatDateTime,
 } from './ClientHandlers';
 
 export const useClientDetailHandlers = (
@@ -95,6 +103,14 @@ export const useClientDetailHandlers = (
   );
 
   const getStatusBadge = createStatusBadgeGetter();
+  const getPaymentStatusBadge = createPaymentStatusBadgeGetter();
+  const updateProjectStatus = createUpdateProjectStatusHandler(localClient, projects, onUpdate);
+  const updateProjectDate = createUpdateProjectDateHandler(localClient, projects, onUpdate);
+  const updateProjectShootingStyle = createUpdateProjectShootingStyleHandler(localClient, projects, onUpdate);
+  const handleDocumentUploaded = createDocumentUploadedHandler(localClient, onUpdate);
+  const handleDocumentDeleted = createDocumentDeletedHandler(localClient, onUpdate);
+  const formatDate = createFormatDate();
+  const formatDateTime = createFormatDateTime();
 
   return {
     handleAddProject,
@@ -107,5 +123,13 @@ export const useClientDetailHandlers = (
     handleDeleteComment,
     handleDeleteMessage,
     getStatusBadge,
+    getPaymentStatusBadge,
+    updateProjectStatus,
+    updateProjectDate,
+    updateProjectShootingStyle,
+    handleDocumentUploaded,
+    handleDocumentDeleted,
+    formatDate,
+    formatDateTime,
   };
 };
