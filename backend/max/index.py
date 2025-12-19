@@ -99,16 +99,14 @@ def dict_from_row(cursor, row):
         return None
     return dict(zip([desc[0] for desc in cursor.description], row))
 
-def get_admin_credentials(conn) -> Dict[str, Any]:
-    """Получить GREEN-API credentials из админ-настроек"""
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT instance_id, token
-            FROM t_p28211681_photo_secure_web.max_admin_settings
-            WHERE id = 1
-        """)
-        row = cur.fetchone()
-        return dict_from_row(cur, row) if row else {}
+def get_admin_credentials() -> Dict[str, Any]:
+    """Получить GREEN-API credentials из секретов"""
+    instance_id = os.environ.get('MAX_INSTANCE_ID', '')
+    token = os.environ.get('MAX_TOKEN', '')
+    return {
+        'instance_id': instance_id,
+        'token': token
+    }
 
 def get_user_credentials(conn, user_id: str) -> Dict[str, Any]:
     """Получить GREEN-API credentials пользователя"""
@@ -191,10 +189,10 @@ def send_service_message(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, 
     if not check_rate_limit(conn, user_id, client_phone):
         return {'error': 'Превышен лимит отправки (5 сообщений в час)'}
     
-    # Используем админские credentials вместо пользовательских
-    creds = get_admin_credentials(conn)
+    # Используем админские credentials из секретов
+    creds = get_admin_credentials()
     if not creds.get('instance_id') or not creds.get('token'):
-        return {'error': 'MAX не настроен в админ-панели'}
+        return {'error': 'MAX не настроен (отсутствуют секреты)'}
     
     with conn.cursor() as cur:
         cur.execute(f"""
@@ -347,10 +345,10 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
             return {'error': 'У клиента не указан телефон'}
         client_phone = row[0]
     
-    # Получить админские credentials
-    creds = get_admin_credentials(conn)
+    # Получить админские credentials из секретов
+    creds = get_admin_credentials()
     if not creds.get('instance_id') or not creds.get('token'):
-        return {'error': 'MAX не настроен в админ-панели'}
+        return {'error': 'MAX не настроен (отсутствуют секреты)'}
     
     # Проверить rate limit
     if not check_rate_limit(conn, user_id, client_phone):
@@ -392,53 +390,34 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
         }
 
 def get_admin_settings(conn, user_id: str) -> Dict[str, Any]:
-    """Получить настройки MAX из админ-панели"""
+    """Получить статус настроек MAX (credentials теперь в секретах)"""
     if not is_admin(conn, user_id):
         return {'error': 'Доступ запрещён'}
     
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT instance_id, 
-                   CASE 
-                       WHEN token IS NOT NULL AND token != '' 
-                       THEN CONCAT(LEFT(token, 4), '***', RIGHT(token, 4))
-                       ELSE ''
-                   END as token_masked,
-                   CASE 
-                       WHEN token IS NOT NULL AND token != '' 
-                       THEN TRUE
-                       ELSE FALSE
-                   END as configured
-            FROM t_p28211681_photo_secure_web.max_admin_settings
-            WHERE id = 1
-        """)
-        row = cur.fetchone()
-        if row:
-            return dict_from_row(cur, row)
+    creds = get_admin_credentials()
+    instance_id = creds.get('instance_id', '')
+    token = creds.get('token', '')
+    
+    configured = bool(instance_id and token)
+    token_masked = ''
+    
+    if token:
+        if len(token) > 8:
+            token_masked = f"{token[:4]}***{token[-4:]}"
         else:
-            return {'instance_id': '', 'token_masked': '', 'configured': False}
-
-def save_admin_settings(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
-    """Сохранить настройки MAX в админ-панели"""
-    if not is_admin(conn, user_id):
-        return {'error': 'Доступ запрещён'}
-    
-    instance_id = body.get('instance_id')
-    token = body.get('token')
-    
-    if not instance_id or not token:
-        return {'error': 'Требуется instance_id и token'}
-    
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO t_p28211681_photo_secure_web.max_admin_settings (id, instance_id, token, updated_at)
-            VALUES (1, %s, %s, NOW())
-            ON CONFLICT (id) DO UPDATE
-            SET instance_id = %s, token = %s, updated_at = NOW()
-        """, (instance_id, token, instance_id, token))
-        conn.commit()
+            token_masked = '***'
     
     return {
-        'success': True,
-        'message': 'Настройки MAX сохранены'
+        'instance_id': instance_id,
+        'token_masked': token_masked,
+        'configured': configured
+    }
+
+def save_admin_settings(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Deprecated: Настройки теперь хранятся в секретах платформы"""
+    if not is_admin(conn, user_id):
+        return {'error': 'Доступ запрещён'}
+    
+    return {
+        'error': 'Настройки MAX теперь хранятся в секретах платформы. Используйте панель секретов для обновления MAX_INSTANCE_ID и MAX_TOKEN.'
     }
