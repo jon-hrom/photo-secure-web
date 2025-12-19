@@ -159,11 +159,19 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
   // Все забронированные даты (бронирования + даты начала проектов)
   const allBookedDates = [
-    ...clients.flatMap(c => c.bookings.map(b => b.date)),
+    ...clients.flatMap(c => c.bookings.map(b => {
+      const date = new Date(b.booking_date || b.date);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    })),
     ...clients.flatMap(c => 
       (c.projects || [])
         .filter(p => p.startDate && p.status !== 'cancelled')
-        .map(p => new Date(p.startDate))
+        .map(p => {
+          const date = new Date(p.startDate);
+          date.setHours(0, 0, 0, 0);
+          return date;
+        })
     )
   ];
 

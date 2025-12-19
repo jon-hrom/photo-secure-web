@@ -10,6 +10,7 @@ interface BookingWithClient {
   time: string;
   description?: string;
   client: Client;
+  normalizedDate?: Date;
 }
 
 interface UpcomingBookingsListProps {
@@ -29,14 +30,15 @@ const UpcomingBookingsList = ({
   onClearFilter,
   onBookingClick
 }: UpcomingBookingsListProps) => {
-  const formatDate = (date: Date) => {
+  const formatDate = (booking: BookingWithClient) => {
+    const date = booking.normalizedDate || new Date(booking.date);
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
   };
 
-  const getDaysUntil = (date: Date) => {
+  const getDaysUntil = (booking: BookingWithClient) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const bookingDate = new Date(date);
+    const bookingDate = booking.normalizedDate || new Date(booking.date);
     bookingDate.setHours(0, 0, 0, 0);
     const diffTime = bookingDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -81,7 +83,7 @@ const UpcomingBookingsList = ({
           </div>
         ) : (
           upcomingBookings.map((booking, index) => {
-            const daysUntil = getDaysUntil(booking.date);
+            const daysUntil = getDaysUntil(booking);
             const isUrgent = daysUntil <= 3;
             
             return (
@@ -129,7 +131,7 @@ const UpcomingBookingsList = ({
                   
                   <div className="flex items-center gap-2 text-xs text-gray-600">
                     <Icon name="Calendar" size={12} className={`flex-shrink-0 ${isUrgent ? 'text-orange-500' : 'text-blue-500'}`} />
-                    <span className="font-medium">{formatDate(booking.date)}</span>
+                    <span className="font-medium">{formatDate(booking)}</span>
                     <span className="text-gray-400">•</span>
                     <Icon name="Clock" size={12} className={`flex-shrink-0 ${isUrgent ? 'text-orange-500' : 'text-blue-500'}`} />
                     <span className="font-medium">{booking.time}</span>

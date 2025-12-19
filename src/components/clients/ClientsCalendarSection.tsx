@@ -27,20 +27,22 @@ const ClientsCalendarSection = ({
   today.setHours(0, 0, 0, 0);
 
   let upcomingBookings = clients
-    .flatMap(c => c.bookings.map(b => ({ ...b, client: c })))
-    .filter(b => b.date >= today)
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+    .flatMap(c => c.bookings.map(b => {
+      const bookingDate = new Date(b.booking_date || b.date);
+      bookingDate.setHours(0, 0, 0, 0);
+      return { ...b, client: c, normalizedDate: bookingDate };
+    }))
+    .filter(b => b.normalizedDate >= today)
+    .sort((a, b) => a.normalizedDate.getTime() - b.normalizedDate.getTime());
 
   // Если выбрана дата - фильтруем только бронирования на эту дату
   if (selectedDate) {
     const selectedDateNormalized = new Date(selectedDate);
     selectedDateNormalized.setHours(0, 0, 0, 0);
     
-    upcomingBookings = upcomingBookings.filter(b => {
-      const bookingDate = new Date(b.date);
-      bookingDate.setHours(0, 0, 0, 0);
-      return bookingDate.getTime() === selectedDateNormalized.getTime();
-    });
+    upcomingBookings = upcomingBookings.filter(b => 
+      b.normalizedDate.getTime() === selectedDateNormalized.getTime()
+    );
   } else {
     upcomingBookings = upcomingBookings.slice(0, 8);
   }
