@@ -583,6 +583,41 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body_data = json.loads(event.get('body', '{}'))
         action = body_data.get('action')
         
+        # Send booking notification email
+        if action == 'send-booking-notification':
+            to_email = body_data.get('to_email')
+            subject = body_data.get('subject')
+            html_body = body_data.get('html_body')
+            client_name = body_data.get('client_name', 'Клиент')
+            
+            if not to_email or not html_body:
+                cursor.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'ok': False, 'error': 'Missing to_email or html_body'}),
+                    'isBase64Encoded': False
+                }
+            
+            success = send_email(to_email, subject, html_body, 'FotoMix')
+            
+            cursor.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200 if success else 500,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({'ok': success}),
+                'isBase64Encoded': False
+            }
+        
         # Check SMS balance via get_profile method
         if action == 'check-sms-balance':
             print('[SMS_BALANCE] Checking SMS.SU balance via get_profile...')

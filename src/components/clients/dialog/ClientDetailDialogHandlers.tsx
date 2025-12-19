@@ -19,7 +19,7 @@ export const useClientDetailHandlers = (
   onUpdate: (client: Client) => void,
   photographerName: string
 ) => {
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (!newProject.name || !newProject.budget) {
       toast.error('Заполните название и бюджет проекта');
       return;
@@ -71,6 +71,146 @@ export const useClientDetailHandlers = (
       shootingStyleId: ''
     });
     toast.success('Услуга добавлена' + (newProject.startDate ? ' и создана запись' : ''));
+
+    // Отправить уведомление клиенту о новом проекте
+    await sendProjectNotification(localClient, project, photographerName);
+  };
+
+  const sendProjectNotification = async (client: Client, project: Project, photographerName: string) => {
+    try {
+      // Получить название стиля съёмки
+      const { getShootingStyles } = await import('@/data/shootingStyles');
+      const styles = getShootingStyles();
+      const style = styles.find(s => s.id === project.shootingStyleId);
+      const styleName = style ? style.name : '';
+
+      // Форматировать дату
+      const projectDate = new Date(project.startDate);
+      const formattedDate = projectDate.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+
+      // Создать сообщение для WhatsApp
+      const whatsappMessage = `📸 Новая бронь на фотосессию
+
+Фотограф: ${photographerName || 'foto-mix'}
+Дата съёмки: ${formattedDate}
+Услуга: ${project.name}
+${styleName ? `Стиль съёмки: ${styleName}` : ''}
+${project.description ? `Описание: ${project.description}` : ''}
+Стоимость: ${project.budget} ₽
+
+До встречи на съёмке! 📷
+
+—
+Сообщение сформировано автоматически системой учёта клиентов для фотографов foto-mix.ru. На него отвечать не нужно.`;
+
+      // Отправить через MAX
+      const userId = localStorage.getItem('userId');
+      if (userId && client.phone) {
+        const MAX_API = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
+        await fetch(MAX_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId
+          },
+          body: JSON.stringify({
+            action: 'send_message_to_client',
+            client_id: client.id,
+            message: whatsappMessage
+          })
+        });
+      }
+
+      // Отправить на email если есть
+      if (client.email) {
+        const EMAIL_API = 'https://functions.poehali.dev/c51bee83-5e77-4ac3-9883-a24f00e5f30a';
+        
+        const htmlMessage = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #4CAF50; }
+    .header h1 { color: #4CAF50; margin: 0; font-size: 28px; }
+    .icon { font-size: 48px; margin-bottom: 10px; }
+    .content { color: #333; line-height: 1.6; }
+    .info-block { background: #f9f9f9; border-left: 4px solid #4CAF50; padding: 15px; margin: 15px 0; border-radius: 4px; }
+    .info-label { font-weight: bold; color: #555; margin-bottom: 5px; }
+    .info-value { color: #333; font-size: 16px; }
+    .price { font-size: 24px; font-weight: bold; color: #4CAF50; margin: 20px 0; text-align: center; }
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #999; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">📸</div>
+      <h1>Новая бронь на фотосессию</h1>
+    </div>
+    
+    <div class="content">
+      <p>Здравствуйте!</p>
+      <p>Вы забронировали фотосессию. Подробности ниже:</p>
+      
+      <div class="info-block">
+        <div class="info-label">👤 Фотограф</div>
+        <div class="info-value">${photographerName || 'foto-mix'}</div>
+      </div>
+      
+      <div class="info-block">
+        <div class="info-label">📅 Дата съёмки</div>
+        <div class="info-value">${formattedDate}</div>
+      </div>
+      
+      <div class="info-block">
+        <div class="info-label">📋 Услуга</div>
+        <div class="info-value">${project.name}</div>
+      </div>
+      
+      ${styleName ? `<div class="info-block">
+        <div class="info-label">🎨 Стиль съёмки</div>
+        <div class="info-value">${styleName}</div>
+      </div>` : ''}
+      
+      ${project.description ? `<div class="info-block">
+        <div class="info-label">📝 Описание</div>
+        <div class="info-value">${project.description}</div>
+      </div>` : ''}
+      
+      <div class="price">💰 ${project.budget} ₽</div>
+      
+      <p style="text-align: center; margin-top: 30px; font-size: 18px;">До встречи на съёмке! 📷</p>
+    </div>
+    
+    <div class="footer">
+      Сообщение сформировано автоматически системой учёта клиентов для фотографов <a href="https://foto-mix.ru" style="color: #4CAF50;">foto-mix.ru</a>. На него отвечать не нужно.
+    </div>
+  </div>
+</body>
+</html>`;
+
+        await fetch(EMAIL_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send-booking-notification',
+            to_email: client.email,
+            client_name: client.name,
+            html_body: htmlMessage,
+            subject: `📸 Новая бронь на фотосессию ${formattedDate}`
+          })
+        });
+      }
+    } catch (error) {
+      console.error('[Project Notification] Error:', error);
+    }
   };
 
   const handleAddPayment = () => {
