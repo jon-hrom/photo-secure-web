@@ -135,17 +135,23 @@ ${project.description ? `Описание: ${project.description}` : ''}
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
-    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #4CAF50; }
-    .header h1 { color: #4CAF50; margin: 0; font-size: 28px; }
-    .icon { font-size: 48px; margin-bottom: 10px; }
-    .content { color: #333; line-height: 1.6; }
-    .info-block { background: #f9f9f9; border-left: 4px solid #4CAF50; padding: 15px; margin: 15px 0; border-radius: 4px; }
-    .info-label { font-weight: bold; color: #555; margin-bottom: 5px; }
-    .info-value { color: #333; font-size: 16px; }
-    .price { font-size: 24px; font-weight: bold; color: #4CAF50; margin: 20px 0; text-align: center; }
-    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #999; font-size: 11px; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #1a1a1a; }
+    .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px 20px; }
+    .header { text-align: center; margin-bottom: 30px; color: #ffffff; }
+    .header h1 { margin: 0; font-size: 28px; font-weight: 600; }
+    .icon { font-size: 48px; margin-bottom: 15px; }
+    .info-block { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px 25px; margin: 12px 0; }
+    .info-block.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .info-block.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .info-block.orange { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .info-block.red { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .info-block.purple { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .info-label { font-weight: 600; color: #ffffff; margin-bottom: 8px; font-size: 14px; opacity: 0.95; }
+    .info-value { color: #ffffff; font-size: 18px; font-weight: 500; line-height: 1.4; }
+    .price-block { background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%); border-radius: 12px; padding: 25px; margin: 12px 0; text-align: center; }
+    .price { font-size: 32px; font-weight: bold; color: #ffffff; margin: 0; }
+    .footer { margin-top: 40px; text-align: center; color: #888; font-size: 12px; line-height: 1.6; }
+    .footer a { color: #667eea; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -155,42 +161,39 @@ ${project.description ? `Описание: ${project.description}` : ''}
       <h1>Новая бронь на фотосессию</h1>
     </div>
     
-    <div class="content">
-      <p>Здравствуйте!</p>
-      <p>Вы забронировали фотосессию. Подробности ниже:</p>
-      
-      <div class="info-block">
-        <div class="info-label">👤 Фотограф</div>
-        <div class="info-value">${photographerName || 'foto-mix'}</div>
-      </div>
-      
-      <div class="info-block">
-        <div class="info-label">📅 Дата съёмки</div>
-        <div class="info-value">${formattedDate}</div>
-      </div>
-      
-      <div class="info-block">
-        <div class="info-label">📋 Услуга</div>
-        <div class="info-value">${project.name}</div>
-      </div>
-      
-      ${styleName ? `<div class="info-block">
-        <div class="info-label">🎨 Стиль съёмки</div>
-        <div class="info-value">${styleName}</div>
-      </div>` : ''}
-      
-      ${project.description ? `<div class="info-block">
-        <div class="info-label">📝 Описание</div>
-        <div class="info-value">${project.description}</div>
-      </div>` : ''}
-      
+    <div class="info-block green">
+      <div class="info-label">👤 Фотограф</div>
+      <div class="info-value">${photographerName || 'foto-mix'}</div>
+    </div>
+    
+    <div class="info-block blue">
+      <div class="info-label">📅 Дата съёмки</div>
+      <div class="info-value">${formattedDate}</div>
+    </div>
+    
+    <div class="info-block purple">
+      <div class="info-label">📋 Услуга</div>
+      <div class="info-value">${project.name}</div>
+    </div>
+    
+    ${styleName ? `<div class="info-block orange">
+      <div class="info-label">🎨 Стиль съёмки</div>
+      <div class="info-value">${styleName}</div>
+    </div>` : ''}
+    
+    ${project.description ? `<div class="info-block red">
+      <div class="info-label">📝 Описание</div>
+      <div class="info-value">${project.description}</div>
+    </div>` : ''}
+    
+    <div class="price-block">
       <div class="price">💰 ${project.budget} ₽</div>
-      
-      <p style="text-align: center; margin-top: 30px; font-size: 18px;">До встречи на съёмке! 📷</p>
     </div>
     
     <div class="footer">
-      Сообщение сформировано автоматически системой учёта клиентов для фотографов <a href="https://foto-mix.ru" style="color: #4CAF50;">foto-mix.ru</a>. На него отвечать не нужно.
+      До встречи на съёмке! 📷<br><br>
+      Сообщение сформировано автоматически системой учёта клиентов<br>
+      <a href="https://foto-mix.ru">foto-mix.ru</a>
     </div>
   </div>
 </body>
