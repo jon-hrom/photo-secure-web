@@ -127,7 +127,7 @@ ${project.description ? `Описание: ${project.description}` : ''}
 
       // Отправить на email если есть
       if (client.email) {
-        const EMAIL_API = 'https://functions.poehali.dev/c51bee83-5e77-4ac3-9883-a24f00e5f30a';
+        const EMAIL_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
         
         const htmlMessage = `
 <!DOCTYPE html>
