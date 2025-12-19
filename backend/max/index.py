@@ -124,18 +124,8 @@ def get_user_credentials(conn, user_id: str) -> Dict[str, Any]:
         return dict_from_row(cur, row) if row else {}
 
 def check_rate_limit(conn, user_id: str, client_phone: str) -> bool:
-    """Проверить антиспам (не более 5 сообщений в час одному клиенту)"""
-    with conn.cursor() as cur:
-        cur.execute(f"""
-            SELECT COUNT(*) as count
-            FROM t_p28211681_photo_secure_web.max_service_logs
-            WHERE user_id = {user_id} 
-                AND client_phone = '{client_phone}'
-                AND sent_at > NOW() - INTERVAL '1 hour'
-        """)
-        row = cur.fetchone()
-        count = row[0] if row else 0
-        return count < 5
+    """Проверить антиспам (отключен)"""
+    return True
 
 def log_message(conn, user_id: str, client_phone: str, template_type: str, success: bool, error: str = None):
     """Логировать отправленное сообщение"""
