@@ -16,7 +16,8 @@ export const useClientDetailHandlers = (
   setNewComment: (comment: string) => void,
   newMessage: any,
   setNewMessage: (message: any) => void,
-  onUpdate: (client: Client) => void
+  onUpdate: (client: Client) => void,
+  photographerName: string
 ) => {
   const handleAddProject = () => {
     if (!newProject.name || !newProject.budget) {
@@ -211,7 +212,7 @@ export const useClientDetailHandlers = (
       date: new Date().toISOString(),
       content: newMessage.content,
       type: newMessage.type as 'phone' | 'whatsapp' | 'telegram' | 'viber',
-      author: newMessage.author || 'Фотограф',
+      author: photographerName || newMessage.author || 'Фотограф',
     };
 
     const updatedClient = {

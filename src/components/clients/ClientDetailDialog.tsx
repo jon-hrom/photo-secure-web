@@ -21,6 +21,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     setActiveTab,
     showSwipeHint,
     photographerPhone,
+    photographerName,
     newProject,
     setNewProject,
     newPayment,
@@ -73,7 +74,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     setNewComment,
     newMessage,
     setNewMessage,
-    onUpdate
+    onUpdate,
+    photographerName
   );
 
   return (
@@ -118,6 +120,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             setNewMessage={setNewMessage}
             handleAddMessage={handleAddMessage}
             handleDeleteMessage={handleDeleteMessage}
+            photographerName={photographerName}
             showSwipeHint={showSwipeHint}
             tabs={tabs}
             activeTab={activeTab}

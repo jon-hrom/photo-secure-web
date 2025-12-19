@@ -6,6 +6,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [photographerPhone, setPhotographerPhone] = useState('');
+  const [photographerName, setPhotographerName] = useState('');
   const [newProject, setNewProject] = useState({ 
     name: '', 
     budget: '', 
@@ -30,7 +31,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
   const [localClient, setLocalClient] = useState(client);
 
   useEffect(() => {
-    const fetchPhotographerPhone = async () => {
+    const fetchPhotographerData = async () => {
       try {
         const userId = localStorage.getItem('userId');
         if (!userId) return;
@@ -39,16 +40,21 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
         const response = await fetch(`${SETTINGS_API}?userId=${userId}`);
         const data = await response.json();
         
-        if (response.ok && data.phone) {
-          setPhotographerPhone(data.phone);
-          setNewMessage(prev => ({ ...prev, author: data.phone }));
+        if (response.ok) {
+          if (data.phone) {
+            setPhotographerPhone(data.phone);
+            setNewMessage(prev => ({ ...prev, author: data.phone }));
+          }
+          if (data.display_name) {
+            setPhotographerName(data.display_name);
+          }
         }
       } catch (error) {
-        console.error('[ClientDetailDialog] Failed to fetch photographer phone:', error);
+        console.error('[ClientDetailDialog] Failed to fetch photographer data:', error);
       }
     };
     
-    fetchPhotographerPhone();
+    fetchPhotographerData();
   }, []);
 
   useEffect(() => {
@@ -80,6 +86,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     setActiveTab,
     showSwipeHint,
     photographerPhone,
+    photographerName,
     newProject,
     setNewProject,
     newPayment,
