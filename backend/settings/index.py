@@ -428,7 +428,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # First check users table
                 cursor.execute("""
-                    SELECT email, phone, two_factor_email, email_verified_at, source, phone_verified_at
+                    SELECT email, phone, two_factor_email, email_verified_at, source, phone_verified_at, display_name
                     FROM t_p28211681_photo_secure_web.users
                     WHERE id = %s
                 """, (int(user_id),))
@@ -442,7 +442,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'two_factor_email': row[2] or False,
                         'email_verified_at': row[3].isoformat() if row[3] else None,
                         'source': row[4] or 'email',
-                        'phone_verified_at': row[5].isoformat() if row[5] else None
+                        'phone_verified_at': row[5].isoformat() if row[5] else None,
+                        'display_name': row[6] or ''
                     }
                 else:
                     # Check vk_users table
@@ -929,7 +930,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             print(f"[SETTINGS] update-contact: userId={user_id}, field={field}, value={value}")
             
-            if not user_id or not field or field not in ('email', 'phone'):
+            if not user_id or not field or field not in ('email', 'phone', 'display_name'):
                 print(f"[SETTINGS] Validation error: userId={user_id}, field={field}")
                 cursor.close()
                 conn.close()
