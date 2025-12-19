@@ -11,6 +11,7 @@ interface UserSettings {
   two_factor_email: boolean;
   email_verified_at: string | null;
   source?: 'email' | 'vk' | 'google' | 'yandex';
+  display_name?: string;
 }
 
 interface ContactInfoCardProps {
@@ -27,10 +28,15 @@ interface ContactInfoCardProps {
   setPhoneVerified: (value: boolean) => void;
   isSavingPhone: boolean;
   phoneVerified: boolean;
-  handleUpdateContact: (field: 'email' | 'phone', value: string) => Promise<void>;
+  handleUpdateContact: (field: 'email' | 'phone' | 'display_name', value: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   setShowEmailVerification: (value: boolean) => void;
   setShowPhoneVerification: (value: boolean) => void;
+  editedDisplayName: string;
+  isEditingDisplayName: boolean;
+  setEditedDisplayName: (value: string) => void;
+  setIsEditingDisplayName: (value: boolean) => void;
+  isSavingDisplayName: boolean;
 }
 
 const ContactInfoCard = ({
@@ -51,6 +57,11 @@ const ContactInfoCard = ({
   loadSettings,
   setShowEmailVerification,
   setShowPhoneVerification,
+  editedDisplayName,
+  isEditingDisplayName,
+  setEditedDisplayName,
+  setIsEditingDisplayName,
+  isSavingDisplayName,
 }: ContactInfoCardProps) => {
   return (
     <Card className="shadow-xl">
@@ -62,6 +73,45 @@ const ContactInfoCard = ({
         <CardDescription className="text-xs md:text-sm">Управление вашими контактными данными</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 md:space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="displayName" className="text-sm md:text-base">ФИО или Ник (отображается в переписке)</Label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              id="displayName"
+              type="text"
+              value={isEditingDisplayName ? editedDisplayName : settings.display_name || ''}
+              onChange={(e) => {
+                setEditedDisplayName(e.target.value);
+                setIsEditingDisplayName(true);
+              }}
+              placeholder="Введите ваше имя"
+              className="rounded-xl text-sm md:text-base"
+            />
+            {isEditingDisplayName && (
+              <Button
+                onClick={async () => {
+                  await handleUpdateContact('display_name', editedDisplayName);
+                  setIsEditingDisplayName(false);
+                  await loadSettings();
+                }}
+                className="rounded-xl w-full sm:w-auto"
+                disabled={!editedDisplayName.trim() || isSavingDisplayName}
+              >
+                {isSavingDisplayName ? (
+                  <Icon name="Loader2" size={18} className="animate-spin" />
+                ) : (
+                  <Icon name="Save" size={18} />
+                )}
+              </Button>
+            )}
+          </div>
+          {settings.display_name && (
+            <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200">
+              <Icon name="CheckCircle2" size={14} className="md:w-4 md:h-4" />
+              <span className="font-medium">Имя сохранено: {settings.display_name}</span>
+            </div>
+          )}
+        </div>
         <div className="space-y-2">
           <Label htmlFor="email" className="text-sm md:text-base">Email</Label>
           <div className="flex flex-col sm:flex-row gap-2">

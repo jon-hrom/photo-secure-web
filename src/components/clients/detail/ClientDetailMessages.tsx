@@ -1,8 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { Message } from '@/components/clients/ClientsTypes';
+import { toast } from 'sonner';
+
+const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
 
 interface ClientDetailMessagesProps {
   messages: Message[];
@@ -11,6 +14,8 @@ interface ClientDetailMessagesProps {
   onAddMessage: () => void;
   onDeleteMessage?: (messageId: number) => void;
   clientName?: string;
+  clientId?: number;
+  photographerName?: string;
 }
 
 const messageTypeLabels: Record<string, string> = {
@@ -33,9 +38,12 @@ const ClientDetailMessages = ({
   onMessageChange, 
   onAddMessage,
   onDeleteMessage,
-  clientName = 'Клиент'
+  clientName = 'Клиент',
+  clientId,
+  photographerName = 'Фотограф'
 }: ClientDetailMessagesProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sendingViaMax, setSendingViaMax] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -48,6 +56,46 @@ const ClientDetailMessages = ({
 
   const handleAdd = () => {
     onAddMessage();
+  };
+
+  const handleSendViaMax = async () => {
+    if (!clientId || !newMessage.content.trim()) {
+      toast.error('Не указан клиент или сообщение пусто');
+      return;
+    }
+
+    setSendingViaMax(true);
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(MAX_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId || '1'
+        },
+        body: JSON.stringify({
+          action: 'send_message_to_client',
+          client_id: clientId,
+          message: newMessage.content
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Сообщение отправлено через MAX');
+        onMessageChange('content', '');
+        // Перезагрузим сообщения
+        window.location.reload();
+      } else {
+        toast.error(data.error || 'Ошибка отправки');
+      }
+    } catch (error) {
+      console.error('Ошибка:', error);
+      toast.error('Не удалось отправить сообщение');
+    } finally {
+      setSendingViaMax(false);
+    }
   };
 
   const sortedMessages = [...messages].sort((a, b) => 
@@ -85,7 +133,7 @@ const ClientDetailMessages = ({
                 <div className={`flex flex-col max-w-[70%] ${isClient ? 'items-start' : 'items-end'}`}>
                   <div className="flex items-center gap-2 mb-1 px-1">
                     <span className="text-xs font-semibold text-gray-700">
-                      {isClient ? clientName : message.author}
+                      {isClient ? clientName : (message.author || photographerName)}
                     </span>
                     <span className="text-xs text-gray-500">
                       {new Date(message.date).toLocaleString('ru-RU', {
@@ -138,7 +186,7 @@ const ClientDetailMessages = ({
 
                 {!isClient && (
                   <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold shadow-lg">
-                    {message.author.charAt(0).toUpperCase()}
+                    {(message.author || photographerName).charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>
@@ -149,26 +197,48 @@ const ClientDetailMessages = ({
       </div>
 
       <div className="p-4 bg-white border-t-2 border-gray-200 rounded-b-2xl shadow-lg">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Напишите сообщение..."
-            value={newMessage.content}
-            onChange={(e) => onMessageChange('content', e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && newMessage.content.trim()) {
-                e.preventDefault();
-                handleAdd();
-              }
-            }}
-            className="flex-1 rounded-full border-2 border-gray-300 focus:border-primary"
-          />
-          <Button 
-            onClick={handleAdd}
-            disabled={!newMessage.content.trim()}
-            className="rounded-full px-6"
-          >
-            <Icon name="Send" size={18} />
-          </Button>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Напишите сообщение..."
+              value={newMessage.content}
+              onChange={(e) => onMessageChange('content', e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && newMessage.content.trim()) {
+                  e.preventDefault();
+                  handleAdd();
+                }
+              }}
+              className="flex-1 rounded-full border-2 border-gray-300 focus:border-primary"
+            />
+            <Button 
+              onClick={handleAdd}
+              disabled={!newMessage.content.trim()}
+              className="rounded-full px-6"
+              variant="outline"
+            >
+              <Icon name="Save" size={18} />
+            </Button>
+          </div>
+          
+          {clientId && (
+            <Button
+              onClick={handleSendViaMax}
+              disabled={!newMessage.content.trim() || sendingViaMax}
+              className="w-full rounded-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+            >
+              {sendingViaMax ? (
+                <Icon name="Loader2" size={18} className="mr-2 animate-spin" />
+              ) : (
+                <>
+                  <div className="w-4 h-4 rounded-sm bg-white/20 flex items-center justify-center mr-2">
+                    <span className="text-white font-bold text-[10px]">M</span>
+                  </div>
+                  <span>Отправить через MAX</span>
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

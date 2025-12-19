@@ -8,6 +8,7 @@ import EmailNotifications from '@/components/admin/EmailNotifications';
 import NotificationSoundSettings from '@/components/admin/NotificationSoundSettings';
 import SmsBalanceManager from '@/components/admin/SmsBalanceManager';
 import MaxTemplates from '@/components/admin/MaxTemplates';
+import MaxSettings from '@/components/admin/MaxSettings';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -179,6 +180,18 @@ const AdminPanelTabs = ({
             onUnblock={onUnblockUser}
             onRefresh={onRefreshUsers}
           />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="max-settings">
+        <AccordionTrigger className="text-lg font-semibold">
+          <div className="flex items-center gap-2">
+            <Icon name="Settings" size={20} />
+            Настройки MAX (Единая система)
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          <MaxSettings />
         </AccordionContent>
       </AccordionItem>
     </Accordion>

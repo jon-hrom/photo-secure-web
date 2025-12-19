@@ -17,6 +17,7 @@ interface UserSettings {
   two_factor_email: boolean;
   email_verified_at: string | null;
   source?: 'email' | 'vk' | 'google' | 'yandex';
+  display_name?: string;
 }
 
 interface SettingsPageProps {
@@ -43,6 +44,9 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [editedDisplayName, setEditedDisplayName] = useState('');
+  const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
+  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -60,6 +64,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
         setSettings(data);
         setEditedEmail(data.email || '');
         setEditedPhone(data.phone || '');
+        setEditedDisplayName(data.display_name || '');
         setPhoneVerified(!!data.phone);
       } else {
         console.error('[SETTINGS] Load error:', { status: response.status, data });
@@ -104,12 +109,14 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
 
 
 
-  const handleUpdateContact = async (field: 'email' | 'phone', value: string) => {
+  const handleUpdateContact = async (field: 'email' | 'phone' | 'display_name', value: string) => {
     console.log('[SETTINGS] Updating contact:', { field, value, userId });
     if (field === 'email') {
       setIsSavingEmail(true);
-    } else {
+    } else if (field === 'phone') {
       setIsSavingPhone(true);
+    } else if (field === 'display_name') {
+      setIsSavingDisplayName(true);
     }
     
     if (field === 'phone' && !validatePhone(value)) {
@@ -154,8 +161,10 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     } finally {
       if (field === 'email') {
         setIsSavingEmail(false);
-      } else {
+      } else if (field === 'phone') {
         setIsSavingPhone(false);
+      } else if (field === 'display_name') {
+        setIsSavingDisplayName(false);
       }
     }
   };
@@ -220,6 +229,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
           loadSettings={loadSettings}
           setShowEmailVerification={setShowEmailVerification}
           setShowPhoneVerification={setShowPhoneVerification}
+          editedDisplayName={editedDisplayName}
+          isEditingDisplayName={isEditingDisplayName}
+          setEditedDisplayName={setEditedDisplayName}
+          setIsEditingDisplayName={setIsEditingDisplayName}
+          isSavingDisplayName={isSavingDisplayName}
         />
 
         <SecurityCard

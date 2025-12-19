@@ -45,12 +45,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if action == 'send_service_message':
                 result = send_service_message(conn, user_id, body)
+            elif action == 'send_message_to_client':
+                result = send_message_to_client(conn, user_id, body)
             elif action == 'get_templates':
                 result = get_templates(conn)
             elif action == 'save_template':
                 result = save_template(conn, user_id, body)
             elif action == 'toggle_template':
                 result = toggle_template(conn, user_id, body)
+            elif action == 'get_admin_settings':
+                result = get_admin_settings(conn, user_id)
+            elif action == 'save_admin_settings':
+                result = save_admin_settings(conn, user_id, body)
             else:
                 result = {'error': 'Неизвестный action'}
             
@@ -92,6 +98,17 @@ def dict_from_row(cursor, row):
     if not row:
         return None
     return dict(zip([desc[0] for desc in cursor.description], row))
+
+def get_admin_credentials(conn) -> Dict[str, Any]:
+    """Получить GREEN-API credentials из админ-настроек"""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT instance_id, token
+            FROM t_p28211681_photo_secure_web.max_admin_settings
+            WHERE id = 1
+        """)
+        row = cur.fetchone()
+        return dict_from_row(cur, row) if row else {}
 
 def get_user_credentials(conn, user_id: str) -> Dict[str, Any]:
     """Получить GREEN-API credentials пользователя"""
@@ -174,9 +191,10 @@ def send_service_message(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, 
     if not check_rate_limit(conn, user_id, client_phone):
         return {'error': 'Превышен лимит отправки (5 сообщений в час)'}
     
-    creds = get_user_credentials(conn, user_id)
-    if not creds.get('max_connected'):
-        return {'error': 'MAX не подключён'}
+    # Используем админские credentials вместо пользовательских
+    creds = get_admin_credentials(conn)
+    if not creds.get('instance_id') or not creds.get('token'):
+        return {'error': 'MAX не настроен в админ-панели'}
     
     with conn.cursor() as cur:
         cur.execute(f"""
@@ -197,8 +215,8 @@ def send_service_message(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, 
     
     try:
         result = send_via_green_api(
-            creds['green_api_instance_id'],
-            creds['green_api_token'],
+            creds['instance_id'],
+            creds['token'],
             client_phone,
             message
         )
@@ -294,3 +312,133 @@ def toggle_template(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
             'success': True,
             'message': 'Статус обновлён'
         }
+
+def check_client_belongs_to_photographer(conn, photographer_id: str, client_id: str) -> bool:
+    """Проверить что клиент принадлежит фотографу"""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT COUNT(*) as count
+            FROM t_p28211681_photo_secure_web.clients
+            WHERE id = {client_id} AND user_id = {photographer_id}
+        """)
+        row = cur.fetchone()
+        return row and row[0] > 0
+
+def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Отправить сообщение клиенту от фотографа через MAX"""
+    client_id = body.get('client_id')
+    message = body.get('message')
+    
+    if not client_id or not message:
+        return {'error': 'Требуется client_id и message'}
+    
+    # Проверить что клиент принадлежит фотографу
+    if not check_client_belongs_to_photographer(conn, user_id, client_id):
+        return {'error': 'Доступ запрещён: клиент не принадлежит вам'}
+    
+    # Получить телефон клиента
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT phone FROM t_p28211681_photo_secure_web.clients
+            WHERE id = {client_id}
+        """)
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return {'error': 'У клиента не указан телефон'}
+        client_phone = row[0]
+    
+    # Получить админские credentials
+    creds = get_admin_credentials(conn)
+    if not creds.get('instance_id') or not creds.get('token'):
+        return {'error': 'MAX не настроен в админ-панели'}
+    
+    # Проверить rate limit
+    if not check_rate_limit(conn, user_id, client_phone):
+        return {'error': 'Превышен лимит отправки (5 сообщений в час)'}
+    
+    try:
+        result = send_via_green_api(
+            creds['instance_id'],
+            creds['token'],
+            client_phone,
+            message
+        )
+        
+        # Сохранить сообщение в БД
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO t_p28211681_photo_secure_web.client_messages
+                (client_id, content, type, author, date, sent_via_max)
+                VALUES ({client_id}, %s, 'phone', 'Фотограф', NOW(), TRUE)
+                RETURNING id
+            """, (message,))
+            message_id = cur.fetchone()[0]
+            conn.commit()
+        
+        log_message(conn, user_id, client_phone, 'direct_message', True)
+        
+        return {
+            'success': True,
+            'message_id': result.get('idMessage'),
+            'db_message_id': message_id,
+            'sent_at': datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        log_message(conn, user_id, client_phone, 'direct_message', False, str(e))
+        return {
+            'error': 'Ошибка отправки',
+            'details': str(e)
+        }
+
+def get_admin_settings(conn, user_id: str) -> Dict[str, Any]:
+    """Получить настройки MAX из админ-панели"""
+    if not is_admin(conn, user_id):
+        return {'error': 'Доступ запрещён'}
+    
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT instance_id, 
+                   CASE 
+                       WHEN token IS NOT NULL AND token != '' 
+                       THEN CONCAT(LEFT(token, 4), '***', RIGHT(token, 4))
+                       ELSE ''
+                   END as token_masked,
+                   CASE 
+                       WHEN token IS NOT NULL AND token != '' 
+                       THEN TRUE
+                       ELSE FALSE
+                   END as configured
+            FROM t_p28211681_photo_secure_web.max_admin_settings
+            WHERE id = 1
+        """)
+        row = cur.fetchone()
+        if row:
+            return dict_from_row(cur, row)
+        else:
+            return {'instance_id': '', 'token_masked': '', 'configured': False}
+
+def save_admin_settings(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Сохранить настройки MAX в админ-панели"""
+    if not is_admin(conn, user_id):
+        return {'error': 'Доступ запрещён'}
+    
+    instance_id = body.get('instance_id')
+    token = body.get('token')
+    
+    if not instance_id or not token:
+        return {'error': 'Требуется instance_id и token'}
+    
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO t_p28211681_photo_secure_web.max_admin_settings (id, instance_id, token, updated_at)
+            VALUES (1, %s, %s, NOW())
+            ON CONFLICT (id) DO UPDATE
+            SET instance_id = %s, token = %s, updated_at = NOW()
+        """, (instance_id, token, instance_id, token))
+        conn.commit()
+    
+    return {
+        'success': True,
+        'message': 'Настройки MAX сохранены'
+    }

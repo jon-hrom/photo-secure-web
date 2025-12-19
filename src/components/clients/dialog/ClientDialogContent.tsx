@@ -182,6 +182,7 @@ const ClientDialogContent = ({
             onAddMessage={handleAddMessage}
             onDeleteMessage={handleDeleteMessage}
             clientName={localClient.name}
+            clientId={localClient.id}
           />
         </TabsContent>
 
