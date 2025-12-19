@@ -314,11 +314,11 @@ def toggle_template(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
 def check_client_belongs_to_photographer(conn, photographer_id: str, client_id: str) -> bool:
     """Проверить что клиент принадлежит фотографу"""
     with conn.cursor() as cur:
-        cur.execute(f"""
+        cur.execute("""
             SELECT COUNT(*) as count
             FROM t_p28211681_photo_secure_web.clients
-            WHERE id = {client_id} AND user_id = {photographer_id}
-        """)
+            WHERE id = %s AND user_id = %s
+        """, (client_id, photographer_id))
         row = cur.fetchone()
         return row and row[0] > 0
 
@@ -336,10 +336,10 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
     
     # Получить телефон клиента
     with conn.cursor() as cur:
-        cur.execute(f"""
+        cur.execute("""
             SELECT phone FROM t_p28211681_photo_secure_web.clients
-            WHERE id = {client_id}
-        """)
+            WHERE id = %s
+        """, (client_id,))
         row = cur.fetchone()
         if not row or not row[0]:
             return {'error': 'У клиента не указан телефон'}
@@ -364,12 +364,12 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
         
         # Сохранить сообщение в БД
         with conn.cursor() as cur:
-            cur.execute(f"""
+            cur.execute("""
                 INSERT INTO t_p28211681_photo_secure_web.client_messages
                 (client_id, content, type, author, date, sent_via_max)
-                VALUES ({client_id}, %s, 'phone', 'Фотограф', NOW(), TRUE)
+                VALUES (%s, %s, 'phone', 'Фотограф', NOW(), TRUE)
                 RETURNING id
-            """, (message,))
+            """, (client_id, message))
             message_id = cur.fetchone()[0]
             conn.commit()
         
