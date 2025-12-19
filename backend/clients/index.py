@@ -264,6 +264,51 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         payments_by_client[cid] = []
                     payments_by_client[cid].append(p)
                 
+                # Массовый запрос всех messages
+                cur.execute('''
+                    SELECT client_id, id, type, author, content, message_date
+                    FROM t_p28211681_photo_secure_web.client_messages 
+                    WHERE client_id = ANY(%s)
+                    ORDER BY message_date ASC
+                ''', (list(client_ids),))
+                all_messages = cur.fetchall()
+                messages_by_client = {}
+                for m in all_messages:
+                    cid = m['client_id']
+                    if cid not in messages_by_client:
+                        messages_by_client[cid] = []
+                    messages_by_client[cid].append(m)
+                
+                # Массовый запрос всех comments
+                cur.execute('''
+                    SELECT client_id, id, author, text, comment_date
+                    FROM t_p28211681_photo_secure_web.client_comments 
+                    WHERE client_id = ANY(%s)
+                    ORDER BY comment_date DESC
+                ''', (list(client_ids),))
+                all_comments = cur.fetchall()
+                comments_by_client = {}
+                for c in all_comments:
+                    cid = c['client_id']
+                    if cid not in comments_by_client:
+                        comments_by_client[cid] = []
+                    comments_by_client[cid].append(c)
+                
+                # Массовый запрос всех documents
+                cur.execute('''
+                    SELECT client_id, id, name, s3_key, upload_date
+                    FROM t_p28211681_photo_secure_web.client_documents 
+                    WHERE client_id = ANY(%s)
+                    ORDER BY upload_date DESC
+                ''', (list(client_ids),))
+                all_documents = cur.fetchall()
+                documents_by_client = {}
+                for d in all_documents:
+                    cid = d['client_id']
+                    if cid not in documents_by_client:
+                        documents_by_client[cid] = []
+                    documents_by_client[cid].append(d)
+                
                 # Собираем результат
                 result = []
                 for client in clients:
@@ -271,6 +316,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     bookings = bookings_by_client.get(cid, [])
                     raw_projects = projects_by_client.get(cid, [])
                     raw_payments = payments_by_client.get(cid, [])
+                    raw_messages = messages_by_client.get(cid, [])
+                    raw_comments = comments_by_client.get(cid, [])
+                    raw_documents = documents_by_client.get(cid, [])
+                    
                     # Конвертируем projects
                     projects = [{
                         'id': p['id'],
@@ -293,6 +342,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'projectId': p['project_id']
                     } for p in raw_payments]
                     
+                    # Конвертируем messages
+                    messages = [{
+                        'id': m['id'],
+                        'type': m['type'],
+                        'author': m['author'],
+                        'content': m['content'],
+                        'date': str(m['message_date']) if m['message_date'] else None
+                    } for m in raw_messages]
+                    
+                    # Конвертируем comments
+                    comments = [{
+                        'id': c['id'],
+                        'author': c['author'],
+                        'text': c['text'],
+                        'date': str(c['comment_date']) if c['comment_date'] else None
+                    } for c in raw_comments]
+                    
+                    # Конвертируем documents (с presigned URLs)
+                    documents = []
+                    for d in raw_documents:
+                        presigned_url = generate_presigned_url(d['s3_key']) if d['s3_key'] else ''
+                        documents.append({
+                            'id': d['id'],
+                            'name': d['name'],
+                            'file_url': presigned_url,
+                            'upload_date': str(d['upload_date']) if d['upload_date'] else None
+                        })
+                    
                     result.append({
                         **dict(client),
                         'vkProfile': client['vk_profile'],
@@ -310,7 +387,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             } for b in bookings
                         ],
                         'projects': projects,
-                        'payments': payments
+                        'payments': payments,
+                        'messages': messages,
+                        'comments': comments,
+                        'documents': documents
                     })
                 
                 return {
