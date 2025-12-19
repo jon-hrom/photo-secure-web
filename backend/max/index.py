@@ -363,8 +363,8 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO t_p28211681_photo_secure_web.client_messages
-                (client_id, content, type, author, date, sent_via_max)
-                VALUES (%s, %s, 'phone', 'Фотограф', NOW(), TRUE)
+                (client_id, content, type, author, message_date)
+                VALUES (%s, %s, 'whatsapp', 'Фотограф', NOW())
                 RETURNING id
             """, (client_id, message))
             message_id = cur.fetchone()[0]
