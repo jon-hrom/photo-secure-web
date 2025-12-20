@@ -36,12 +36,6 @@ export const useClientsData = (
       return;
     }
     
-    // Если данные передаются извне (даже пустые), не загружаем
-    if (propClients !== undefined) {
-      setLoading(false);
-      return;
-    }
-    
     try {
       const res = await fetch(CLIENTS_API, {
         headers: { 'X-User-Id': userId }
