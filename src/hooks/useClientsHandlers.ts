@@ -73,19 +73,16 @@ export const useClientsHandlers = ({
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
-    if (!newClient.name || !newClient.phone) {
-      toast.error('Заполните обязательные поля');
-      return;
-    }
-    
     if (!userId) {
       toast.error('Не удалось определить пользователя');
       return;
     }
     
     // Сохраняем данные клиента до очистки формы
-    const clientNameForSearch = newClient.name;
-    const clientPhoneForSearch = newClient.phone;
+    // Если имя не указано - используем "Новый клиент"
+    // Если телефон не указан - используем пустую строку (БД требует значение)
+    const clientNameForSearch = newClient.name || 'Новый клиент';
+    const clientPhoneForSearch = newClient.phone || '-';
     
     // Закрываем форму и показываем счётчик СРАЗУ (не ждём сервер!)
     setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
