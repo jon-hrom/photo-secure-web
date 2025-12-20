@@ -316,4 +316,11 @@
   .animate-pulse-active {
     animation: pulse-active 2s ease-in-out infinite;
   }
+
+  /* Hide MAX Messenger block on Settings page */
+  [data-max-connection-card],
+  .max-connection-card,
+  div[class*="MAXConnection"] {
+    display: none !important;
+  }
 }
