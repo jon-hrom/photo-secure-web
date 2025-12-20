@@ -135,7 +135,7 @@ const PhotoBankHeader = ({
         </Button>
         <Button 
           variant="outline"
-          onClick={() => navigate('/photo-bank/trash', { replace: true })}
+          onClick={() => navigate('/photo-bank/trash')}
         >
           <Icon name="Trash2" className="mr-2" size={18} />
           Корзина

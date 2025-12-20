@@ -68,7 +68,7 @@ export const AdminStorageAuth = ({ onAuthSuccess }: AdminStorageAuthProps) => {
         description: 'У вас нет прав администратора. Войдите через VK как Евгений Пономарёв или через email jonhrom2012@gmail.com', 
         variant: 'destructive' 
       });
-      setTimeout(() => navigate('/', { replace: true }), 3000);
+      setTimeout(() => navigate('/'), 3000);
       return;
     }
     

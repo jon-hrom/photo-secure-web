@@ -18,7 +18,7 @@ const TrashHeader = ({ hasFolders, hasPhotos, loading, onEmptyTrash }: TrashHead
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => navigate('/photo-bank', { replace: true })}
+          onClick={() => navigate('/photo-bank')}
         >
           <Icon name="ArrowLeft" size={24} />
         </Button>

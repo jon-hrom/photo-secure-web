@@ -47,7 +47,7 @@ const PhotoBank = () => {
       const vkUser = localStorage.getItem('vk_user');
       
       if (!authSession && !vkUser) {
-        navigate('/', { replace: true });
+        navigate('/');
         return;
       }
       
@@ -55,11 +55,11 @@ const PhotoBank = () => {
         try {
           const session = JSON.parse(authSession);
           if (!session.isAuthenticated || !session.userId) {
-            navigate('/', { replace: true });
+            navigate('/');
             return;
           }
         } catch {
-          navigate('/', { replace: true });
+          navigate('/');
           return;
         }
       }
@@ -68,11 +68,11 @@ const PhotoBank = () => {
         try {
           const userData = JSON.parse(vkUser);
           if (!userData.user_id && !userData.vk_id) {
-            navigate('/', { replace: true });
+            navigate('/');
             return;
           }
         } catch {
-          navigate('/', { replace: true });
+          navigate('/');
           return;
         }
       }
