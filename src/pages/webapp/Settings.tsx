@@ -1,7 +1,34 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { useEffect } from 'react';
 
 const Settings = () => {
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const maxBlocks = document.querySelectorAll('[data-max-connection-card], .max-connection-card, section:has(h2:contains("MAX"))');
+      maxBlocks.forEach(block => {
+        if (block && (block.textContent?.includes('MAX') || block.textContent?.includes('Мессенджер'))) {
+          (block as HTMLElement).style.display = 'none';
+        }
+      });
+      
+      const allSections = document.querySelectorAll('section');
+      allSections.forEach(section => {
+        const heading = section.querySelector('h2');
+        if (heading?.textContent?.includes('MAX')) {
+          (section as HTMLElement).style.display = 'none';
+        }
+      });
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-4xl mx-auto">
