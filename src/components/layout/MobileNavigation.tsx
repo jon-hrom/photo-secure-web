@@ -80,7 +80,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     setIsExpanded(false);
     
     if (item.path.startsWith('/')) {
-      navigate(item.path);
+      navigate(item.path, { replace: true });
     } else if (onNavigate) {
       onNavigate(item.path);
     }
