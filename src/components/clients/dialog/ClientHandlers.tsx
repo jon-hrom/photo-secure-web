@@ -100,7 +100,17 @@ export const createAddPaymentHandler = (
         return { project, remainingAmount };
       }).filter(p => p.remainingAmount > 0);
 
+      if (projectsNeedingPayment.length === 0) {
+        toast.error('Все услуги полностью оплачены');
+        return;
+      }
+
       const totalRemaining = projectsNeedingPayment.reduce((sum, p) => sum + p.remainingAmount, 0);
+
+      if (totalAmount > totalRemaining) {
+        toast.error(`Сумма платежа (${totalAmount.toLocaleString('ru-RU')} ₽) превышает остаток по всем услугам (${totalRemaining.toLocaleString('ru-RU')} ₽)`);
+        return;
+      }
 
       projectsNeedingPayment.forEach(({ project }) => {
         const projectShare = (project.budget / totalRemaining) * totalAmount;
@@ -117,6 +127,22 @@ export const createAddPaymentHandler = (
         newPayments.push(payment);
       });
     } else {
+      const selectedProject = projects.find(p => p.id === parseInt(newPayment.projectId));
+      
+      if (!selectedProject) {
+        toast.error('Выбранная услуга не найдена');
+        return;
+      }
+
+      const projectPayments = payments.filter(p => p.projectId === selectedProject.id);
+      const paidAmount = projectPayments.reduce((sum, p) => sum + p.amount, 0);
+      const remainingAmount = selectedProject.budget - paidAmount;
+
+      if (totalAmount > remainingAmount) {
+        toast.error(`Сумма платежа (${totalAmount.toLocaleString('ru-RU')} ₽) превышает остаток по услуге (${remainingAmount.toLocaleString('ru-RU')} ₽)`);
+        return;
+      }
+
       const payment: Payment = {
         id: Date.now(),
         projectId: newPayment.projectId,
