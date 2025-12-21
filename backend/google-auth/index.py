@@ -9,6 +9,8 @@ import os
 import hashlib
 import secrets
 import base64
+import urllib.request
+import urllib.error
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from urllib.parse import urlencode
@@ -311,7 +313,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     # Обмен code на токен
     try:
-        import urllib.request
+        print(f"[GOOGLE_AUTH] Processing callback with state={state[:10]}...")
+        
         token_data = {
             'code': code,
             'client_id': GOOGLE_CLIENT_ID,
@@ -320,27 +323,42 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'grant_type': 'authorization_code'
         }
         
+        print(f"[GOOGLE_AUTH] Exchanging code for token...")
         token_request = urllib.request.Request(
             GOOGLE_TOKEN_URL,
             data=urlencode(token_data).encode(),
             headers={'Content-Type': 'application/x-www-form-urlencoded'}
         )
         
-        with urllib.request.urlopen(token_request) as response:
-            token_response = json.loads(response.read().decode())
+        try:
+            with urllib.request.urlopen(token_request) as response:
+                token_response = json.loads(response.read().decode())
+        except urllib.error.HTTPError as http_err:
+            error_body = http_err.read().decode() if http_err.fp else 'No error body'
+            print(f"[GOOGLE_AUTH] Token exchange failed: {http_err.code} - {error_body}")
+            raise Exception(f'Google token error: {error_body}')
         
         access_token = token_response.get('access_token')
         if not access_token:
+            print(f"[GOOGLE_AUTH] No access_token in response: {token_response}")
             raise Exception('Не получен access_token от Google')
         
         # Получение информации о пользователе
+        print(f"[GOOGLE_AUTH] Fetching user info...")
         userinfo_request = urllib.request.Request(
             GOOGLE_USERINFO_URL,
             headers={'Authorization': f'Bearer {access_token}'}
         )
         
-        with urllib.request.urlopen(userinfo_request) as response:
-            user_info = json.loads(response.read().decode())
+        try:
+            with urllib.request.urlopen(userinfo_request) as response:
+                user_info = json.loads(response.read().decode())
+        except urllib.error.HTTPError as http_err:
+            error_body = http_err.read().decode() if http_err.fp else 'No error body'
+            print(f"[GOOGLE_AUTH] User info fetch failed: {http_err.code} - {error_body}")
+            raise Exception(f'Google userinfo error: {error_body}')
+        
+        print(f"[GOOGLE_AUTH] User info: email={user_info.get('email')}, id={user_info.get('id')}")
         
         # Извлечение IP и User-Agent
         request_context = event.get('requestContext', {})
@@ -349,6 +367,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_agent = identity.get('userAgent', 'unknown')
         
         # Создание/обновление пользователя
+        print(f"[GOOGLE_AUTH] Upserting user...")
         user_id = upsert_google_user(
             google_sub=user_info['id'],
             email=user_info.get('email', ''),
@@ -358,6 +377,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             ip_address=ip_address,
             user_agent=user_agent
         )
+        print(f"[GOOGLE_AUTH] User created/updated: user_id={user_id}")
         
         # Удаление использованной сессии
         delete_session(state)
@@ -384,7 +404,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
     except Exception as e:
+        import traceback
         error_msg = str(e)
+        error_trace = traceback.format_exc()
+        
+        print(f"[GOOGLE_AUTH] ERROR: {error_msg}")
+        print(f"[GOOGLE_AUTH] TRACEBACK: {error_trace}")
         
         # Обработка блокировки пользователя
         if error_msg.startswith('USER_BLOCKED:'):
