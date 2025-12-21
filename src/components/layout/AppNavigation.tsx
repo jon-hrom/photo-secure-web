@@ -32,7 +32,7 @@ const AppNavigation = ({
   const navigate = useNavigate();
   
   return (
-    <nav className="bg-white/90 backdrop-blur-xl border-b border-border/50 sticky top-0 z-50 shadow-lg animate-fade-in">
+    <nav className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-border/50 dark:border-gray-700/50 sticky top-0 z-50 shadow-lg animate-fade-in">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">

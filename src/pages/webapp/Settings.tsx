@@ -35,6 +35,7 @@ const Settings = () => {
   const [interests, setInterests] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [smsNotifications, setSmsNotifications] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -64,6 +65,12 @@ const Settings = () => {
 
   useEffect(() => {
     loadSettings();
+    // Загрузка темы из localStorage
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      applyTheme(savedTheme);
+    }
   }, []);
 
   const getUserId = (): number | null => {
@@ -134,6 +141,12 @@ const Settings = () => {
         setInterests(s.interests || '');
         setEmailNotifications(s.two_factor_email || false);
         setSmsNotifications(s.two_factor_sms || false);
+        
+        // Загрузка темы
+        const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+        if (savedTheme) {
+          setTheme(savedTheme);
+        }
       } else {
         toast.error(data.error || 'Ошибка загрузки настроек');
       }
@@ -143,6 +156,22 @@ const Settings = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyTheme = (newTheme: 'light' | 'dark') => {
+    const root = document.documentElement;
+    if (newTheme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  };
+
+  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    applyTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    toast.success(`Тема изменена на ${newTheme === 'dark' ? 'тёмную' : 'светлую'}`);
   };
 
   const handleSave = async () => {
@@ -196,7 +225,7 @@ const Settings = () => {
   if (loading) {
     return (
       <>
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6 flex items-center justify-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
         </div>
         <MobileNavigation />
@@ -206,32 +235,32 @@ const Settings = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 pb-32 md:pb-6">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6 pb-32 md:pb-6">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Настройки</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Настройки</h1>
           
-          <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 space-y-6">
             <section>
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Профиль</h2>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Профиль</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
                   <input 
                     type="email" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-gray-100"
                     value={settings?.email || ''}
                     disabled
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {settings?.email_verified_at ? '✓ Подтверждён' : 'Не подтверждён'}
                   </p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Отображаемое имя</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Отображаемое имя</label>
                   <input 
                     type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                     placeholder="Как вас называть?"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
@@ -239,10 +268,10 @@ const Settings = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Полное имя</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Полное имя</label>
                   <input 
                     type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                     placeholder="Имя Фамилия"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -250,23 +279,23 @@ const Settings = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Телефон</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Телефон</label>
                   <input 
                     type="tel" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                     placeholder="+7 (___) ___-__-__"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />
                   {settings?.phone_verified_at && (
-                    <p className="text-xs text-green-600 mt-1">✓ Подтверждён</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Подтверждён</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">О себе</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">О себе</label>
                   <textarea 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                     rows={3}
                     placeholder="Расскажите о себе..."
                     value={bio}
@@ -275,10 +304,10 @@ const Settings = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Местоположение</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Местоположение</label>
                   <input 
                     type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                     placeholder="Город, страна"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
@@ -286,10 +315,10 @@ const Settings = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Интересы</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Интересы</label>
                   <input 
                     type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                     placeholder="Фотография, путешествия, дизайн..."
                     value={interests}
                     onChange={(e) => setInterests(e.target.value)}
@@ -299,7 +328,43 @@ const Settings = () => {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Уведомления</h2>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Оформление</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Тема интерфейса</label>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleThemeChange('light')}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                        theme === 'light'
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <Icon name="Sun" size={20} />
+                      <span className="font-medium">Светлая</span>
+                    </button>
+                    <button
+                      onClick={() => handleThemeChange('dark')}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                        theme === 'dark'
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <Icon name="Moon" size={20} />
+                      <span className="font-medium">Тёмная</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Изменения применяются мгновенно
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Уведомления</h2>
               <div className="space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input 
@@ -308,7 +373,7 @@ const Settings = () => {
                     checked={emailNotifications}
                     onChange={(e) => setEmailNotifications(e.target.checked)}
                   />
-                  <span className="text-gray-700">Уведомления по email</span>
+                  <span className="text-gray-700 dark:text-gray-300">Уведомления по email</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input 
@@ -317,7 +382,7 @@ const Settings = () => {
                     checked={smsNotifications}
                     onChange={(e) => setSmsNotifications(e.target.checked)}
                   />
-                  <span className="text-gray-700">SMS уведомления</span>
+                  <span className="text-gray-700 dark:text-gray-300">SMS уведомления</span>
                 </label>
               </div>
             </section>

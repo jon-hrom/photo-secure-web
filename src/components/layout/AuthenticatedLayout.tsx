@@ -67,7 +67,7 @@ const AuthenticatedLayout = ({
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30 dark:via-purple-900/10 dark:to-blue-900/10">
       <AppNavigation
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
