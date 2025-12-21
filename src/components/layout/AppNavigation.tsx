@@ -81,6 +81,10 @@ const AppNavigation = ({
                   <Icon name="Zap" size={18} className="mr-2" />
                   Тарифы
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrentPage('settings')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
+                  <Icon name="Settings" size={18} className="mr-2" />
+                  Настройки
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
