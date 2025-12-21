@@ -25,6 +25,30 @@ const OAuthProviders = ({
   const googleButtonRef = useRef<HTMLButtonElement>(null);
   const yandexButtonRef = useRef<HTMLButtonElement>(null);
 
+  const playSuccessSound = () => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.4);
+  };
+
+  const handleOAuthClick = (provider: 'yandex' | 'vk' | 'google') => {
+    playSuccessSound();
+    onOAuthLogin(provider);
+  };
+
   useEffect(() => {
     const checkButtonWidths = () => {
       if (googleButtonRef.current) {
@@ -91,7 +115,7 @@ const OAuthProviders = ({
             <Button
               ref={yandexButtonRef}
               variant="outline"
-              onClick={() => onOAuthLogin('yandex')}
+              onClick={() => handleOAuthClick('yandex')}
               disabled={isBlocked}
               className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#FF0000] hover:bg-[#FF0000]/5 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
               title="Войти через Яндекс"
@@ -121,7 +145,7 @@ const OAuthProviders = ({
             <Button
               ref={googleButtonRef}
               variant="outline"
-              onClick={() => onOAuthLogin('google')}
+              onClick={() => handleOAuthClick('google')}
               disabled={isBlocked}
               className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#4285F4] hover:bg-[#4285F4]/5 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
               title="Войти через Google"
