@@ -93,10 +93,10 @@ const OAuthProviders = ({
               variant="outline"
               onClick={() => onOAuthLogin('yandex')}
               disabled={isBlocked}
-              className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#FF0000] transition-all"
+              className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#FF0000] hover:bg-[#FF0000]/5 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
               title="Войти через Яндекс"
             >
-              <svg viewBox="0 0 32 32" className="w-5 h-5 flex-shrink-0">
+              <svg viewBox="0 0 32 32" className="w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
                 <circle cx="16" cy="16" r="16" fill="#FF0000"/>
                 <path d="M13.5 9h2.8c2.4 0 4 1.5 4 3.7 0 1.7-1 3-2.6 3.4l2.8 7.4h-2.9l-2.5-7H15v7h-2.5V9h1zm2.5 5.5c1.5 0 2.3-.9 2.3-2.1 0-1.2-.8-2-2.3-2H15v4.1h1z" fill="#FFFFFF"/>
               </svg>
@@ -123,10 +123,10 @@ const OAuthProviders = ({
               variant="outline"
               onClick={() => onOAuthLogin('google')}
               disabled={isBlocked}
-              className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#4285F4] transition-all"
+              className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#4285F4] hover:bg-[#4285F4]/5 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
               title="Войти через Google"
             >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
