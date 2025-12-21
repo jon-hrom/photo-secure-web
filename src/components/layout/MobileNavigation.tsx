@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -19,10 +19,8 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
   const navigate = useNavigate();
   const location = useLocation();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [dragPosition, setDragPosition] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartY = useRef(0);
-  const dragStartTime = useRef(0);
+  const [bottomOffset, setBottomOffset] = useState(16);
+  const navRef = useRef<HTMLDivElement>(null);
 
   const navItems: NavItem[] = [
     { icon: 'LayoutDashboard', label: 'МЕНЮ', path: '/' },
@@ -46,35 +44,26 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     }
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    dragStartY.current = e.touches[0].clientY;
-    dragStartTime.current = Date.now();
-    setIsDragging(false);
+  const handleMenuClick = () => {
+    vibrate(isExpanded ? 30 : [20, 10, 20]);
+    setIsExpanded(!isExpanded);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const currentY = e.touches[0].clientY;
-    const deltaY = dragStartY.current - currentY;
-    
-    if (Math.abs(deltaY) > 5) {
-      setIsDragging(true);
-      const maxDrag = window.innerHeight * 0.5;
-      const clampedDelta = Math.max(-maxDrag, Math.min(maxDrag, deltaY));
-      setDragPosition(clampedDelta);
+  useEffect(() => {
+    if (isExpanded && navRef.current) {
+      const navHeight = navRef.current.offsetHeight;
+      const windowHeight = window.innerHeight;
+      const requiredSpace = navHeight + 16;
+      
+      if (requiredSpace > windowHeight) {
+        setBottomOffset(Math.max(0, windowHeight - navHeight - 16));
+      } else {
+        setBottomOffset(16);
+      }
+    } else {
+      setBottomOffset(16);
     }
-  };
-
-  const handleTouchEnd = () => {
-    const touchDuration = Date.now() - dragStartTime.current;
-    
-    if (!isDragging && touchDuration < 200) {
-      vibrate(isExpanded ? 30 : [20, 10, 20]);
-      setIsExpanded(!isExpanded);
-    }
-    
-    setDragPosition(0);
-    setIsDragging(false);
-  };
+  }, [isExpanded]);
 
   const handleNavClick = (item: NavItem) => {
     vibrate(15);
@@ -101,10 +90,10 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
       )}
       
       <nav 
-        className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
+        ref={navRef}
+        className="fixed left-0 right-0 z-50 md:hidden transition-all duration-300"
         style={{
-          transform: `translateY(${-dragPosition}px)`,
-          transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          bottom: `${bottomOffset}px`
         }}
       >
         <div className="flex flex-col items-start justify-end pb-4 px-4 gap-2">
@@ -151,15 +140,13 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
           <Button
             variant="ghost"
             className={cn(
-              'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl touch-none',
+              'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl',
               isExpanded 
                 ? 'bg-white/90 border-border/50' 
                 : 'bg-white/20 border-white/20 hover:bg-white/30',
               isActive('dashboard') && 'border-primary/50'
             )}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            onClick={handleMenuClick}
           >
             {isActive('dashboard') && (
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
