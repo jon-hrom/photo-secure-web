@@ -15,7 +15,6 @@ import MobileNavigation from '@/components/layout/MobileNavigation';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import OnboardingTour from '@/components/OnboardingTour';
 import FloatingAppealsButton from '@/components/FloatingAppealsButton';
-import MAXMessenger from '@/components/MAXMessenger';
 import BookingDetailsDialog from '@/components/BookingDetailsDialog';
 import SyncIndicator from '@/components/SyncIndicator';
 
@@ -66,7 +65,6 @@ const AuthenticatedLayout = ({
   const [shouldOpenAddClient, setShouldOpenAddClient] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
-  const [showMAX, setShowMAX] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30">
@@ -96,14 +94,7 @@ const AuthenticatedLayout = ({
 
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
 
-      {userId && (
-        <>
-          {isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
-          {hasVerifiedPhone && (
-            <MAXMessenger userId={userId} isOpen={showMAX} onClose={() => setShowMAX(false)} />
-          )}
-        </>
-      )}
+      {userId && isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
 
       {selectedBookingId && (
         <BookingDetailsDialog

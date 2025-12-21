@@ -11,7 +11,7 @@ import VKCallback from "./pages/VKCallback";
 import GoogleCallback from "./pages/GoogleCallback";
 import VKCallbackDirect from "./pages/VKCallbackDirect";
 import ClientPhotobook from "./pages/ClientPhotobook";
-import BackButton from "./components/BackButton";
+
 import FaceBlurEditor from "./components/FaceBlurEditor";
 import MyFiles from "./pages/MyFiles";
 import AdminStorage from "./pages/AdminStorage";
@@ -33,7 +33,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <BackButton />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/help" element={<Help />} />
