@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useEffect } from 'react';
+import MobileNavigation from '@/components/layout/MobileNavigation';
 
 const Settings = () => {
   useEffect(() => {
@@ -30,8 +31,9 @@ const Settings = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+        <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Настройки</h1>
         
         <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
@@ -85,6 +87,8 @@ const Settings = () => {
         </div>
       </div>
     </div>
+    <MobileNavigation />
+    </>
   );
 };
 

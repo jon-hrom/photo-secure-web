@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import MobileNavigation from '@/components/layout/MobileNavigation';
 
 const Tariffs = () => {
   const plans = [
@@ -46,8 +47,9 @@ const Tariffs = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-6xl mx-auto">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+        <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Тарифные планы</h1>
           <p className="text-gray-600">Выберите подходящий план для вашего бизнеса</p>
@@ -107,6 +109,8 @@ const Tariffs = () => {
         </div>
       </div>
     </div>
+    <MobileNavigation />
+    </>
   );
 };
 

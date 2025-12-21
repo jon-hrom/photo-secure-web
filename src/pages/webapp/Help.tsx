@@ -1,8 +1,11 @@
+import MobileNavigation from '@/components/layout/MobileNavigation';
+
 const Help = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Справка</h1>
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Справка</h1>
         
         <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
           <section>
@@ -35,6 +38,8 @@ const Help = () => {
         </div>
       </div>
     </div>
+    <MobileNavigation />
+    </>
   );
 };
 
