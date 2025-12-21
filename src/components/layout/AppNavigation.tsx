@@ -133,6 +133,10 @@ const AppNavigation = ({
                     {userEmail && <p className="text-xs text-gray-500">{userEmail}</p>}
                   </div>
                 )}
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="md:hidden">
+                  <Icon name="Settings" size={18} className="mr-2" />
+                  Настройки
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={onLogout}>
                   <Icon name="LogOut" size={18} className="mr-2" />
                   Выйти
