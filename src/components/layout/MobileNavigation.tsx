@@ -94,10 +94,16 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     if (isExpanded && navRef.current) {
       const navHeight = navRef.current.offsetHeight;
       const windowHeight = window.innerHeight;
-      const requiredSpace = navHeight;
+      const headerHeight = 72;
+      const minTopSpace = headerHeight + 16;
       
-      if (userBottomPosition + requiredSpace > windowHeight) {
-        setBottomOffset(Math.max(16, windowHeight - requiredSpace - 16));
+      const maxAllowedBottom = windowHeight - navHeight - 16;
+      const minAllowedBottom = windowHeight - navHeight - minTopSpace;
+      
+      if (userBottomPosition > maxAllowedBottom) {
+        setBottomOffset(maxAllowedBottom);
+      } else if (windowHeight - userBottomPosition - navHeight < minTopSpace) {
+        setBottomOffset(Math.max(16, minAllowedBottom));
       } else {
         setBottomOffset(userBottomPosition);
       }
