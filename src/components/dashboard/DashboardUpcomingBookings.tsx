@@ -49,7 +49,7 @@ const DashboardUpcomingBookings = ({
       </div>
       <CardContent className="p-3 sm:p-5 space-y-2 sm:space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
         {bookings.length === 0 ? (
-          <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-600">
+          <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-400">
             <Icon name="CalendarX" size={40} className="mx-auto mb-2 sm:mb-3 text-gray-300 dark:text-gray-400 sm:w-12 sm:h-12" />
             <p className="text-xs sm:text-sm">Нет предстоящих встреч</p>
           </div>
@@ -82,9 +82,9 @@ const DashboardUpcomingBookings = ({
                         <Icon name="User" size={14} className={`${isUrgent ? 'text-orange-600' : 'text-blue-600'} sm:w-4 sm:h-4`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-900 truncate">{booking.client.name}</p>
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white truncate">{booking.client.name}</p>
                         {booking.client.phone && (
-                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-700 truncate">{booking.client.phone}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-300 truncate">{booking.client.phone}</p>
                         )}
                       </div>
                     </div>
@@ -100,7 +100,7 @@ const DashboardUpcomingBookings = ({
                     </Badge>
                   </div>
                   
-                  <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-600 dark:text-gray-700 flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-600 dark:text-gray-200 flex-wrap">
                     <div className="flex items-center gap-1">
                       <Icon name="Calendar" size={10} className={`flex-shrink-0 sm:w-3 sm:h-3 ${isUrgent ? 'text-orange-500' : 'text-blue-500'}`} />
                       <span className="font-medium">{formatDate(booking.date)}</span>

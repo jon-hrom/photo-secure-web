@@ -66,15 +66,15 @@ const ContactInfoCard = ({
   return (
     <Card className="shadow-xl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg md:text-xl text-gray-900 dark:text-gray-900">
+        <CardTitle className="flex items-center gap-2 text-lg md:text-xl text-gray-900 dark:text-white">
           <Icon name="User" size={20} className="md:w-6 md:h-6" />
           Контактная информация
         </CardTitle>
-        <CardDescription className="text-xs md:text-sm text-muted-foreground dark:text-gray-600">Управление вашими контактными данными</CardDescription>
+        <CardDescription className="text-xs md:text-sm text-muted-foreground dark:text-gray-300">Управление вашими контактными данными</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 md:space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="displayName" className="text-sm md:text-base text-gray-900 dark:text-gray-900">ФИО или Ник (отображается в переписке)</Label>
+          <Label htmlFor="displayName" className="text-sm md:text-base text-gray-900 dark:text-gray-100">ФИО или Ник (отображается в переписке)</Label>
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               id="displayName"
@@ -113,7 +113,7 @@ const ContactInfoCard = ({
           )}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm md:text-base text-gray-900 dark:text-gray-900">Email</Label>
+          <Label htmlFor="email" className="text-sm md:text-base text-gray-900 dark:text-gray-100">Email</Label>
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               id="email"
@@ -173,7 +173,7 @@ const ContactInfoCard = ({
 
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Label htmlFor="phone" className="text-sm md:text-base text-gray-900 dark:text-gray-900">Телефон</Label>
+            <Label htmlFor="phone" className="text-sm md:text-base text-gray-900 dark:text-gray-100">Телефон</Label>
             <div className="flex items-center gap-1.5 text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white px-2 py-1 rounded-full shadow-sm">
               <div className="w-3 h-3 rounded-sm bg-white/20 flex items-center justify-center">
                 <span className="text-white font-bold text-[8px]">M</span>

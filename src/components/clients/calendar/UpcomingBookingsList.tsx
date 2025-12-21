@@ -77,8 +77,8 @@ const UpcomingBookingsList = ({
       </div>
       <CardContent className="p-3 sm:p-5 space-y-2 sm:space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
         {upcomingBookings.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-600">
-            <Icon name="CalendarX" size={48} className="mx-auto mb-3 text-gray-300" />
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <Icon name="CalendarX" size={48} className="mx-auto mb-3 text-gray-300 dark:text-gray-500" />
             <p>Нет предстоящих встреч</p>
           </div>
         ) : (
@@ -111,9 +111,9 @@ const UpcomingBookingsList = ({
                         <Icon name="User" size={16} className={isUrgent ? 'text-orange-600' : 'text-blue-600'} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-900 truncate">{booking.client.name}</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{booking.client.name}</p>
                         {booking.client.phone && (
-                          <p className="text-xs text-gray-500 dark:text-gray-600">{booking.client.phone}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-300">{booking.client.phone}</p>
                         )}
                       </div>
                     </div>
@@ -129,7 +129,7 @@ const UpcomingBookingsList = ({
                     </Badge>
                   </div>
                   
-                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-700">
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-200">
                     <Icon name="Calendar" size={12} className={`flex-shrink-0 ${isUrgent ? 'text-orange-500' : 'text-blue-500'}`} />
                     <span className="font-medium">{formatDate(booking)}</span>
                     <span className="text-gray-400">•</span>

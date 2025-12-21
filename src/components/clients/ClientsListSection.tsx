@@ -90,7 +90,7 @@ const ClientsListSection = ({
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Icon name="Users" size={20} className="text-purple-600" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-700">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
             Найдено клиентов: <span className="text-purple-600 font-bold">{filteredClients.length}</span>
           </span>
         </div>
@@ -123,8 +123,8 @@ const ClientsListSection = ({
         <Card>
           <CardContent className="py-12 text-center">
             <Icon name="Search" size={48} className="mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground dark:text-gray-600">Клиенты не найдены</p>
-            <p className="text-sm text-muted-foreground dark:text-gray-600 mt-1">
+            <p className="text-muted-foreground dark:text-gray-300">Клиенты не найдены</p>
+            <p className="text-sm text-muted-foreground dark:text-gray-300 mt-1">
               Попробуйте изменить параметры поиска
             </p>
           </CardContent>
