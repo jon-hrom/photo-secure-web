@@ -61,52 +61,10 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
-def ensure_tables_exist(conn) -> None:
-    """Создание таблиц если они не существуют"""
-    with conn.cursor() as cur:
-        # Таблица для OAuth сессий
-        cur.execute(f"""
-            CREATE TABLE IF NOT EXISTS {SCHEMA}.oauth_sessions (
-                state TEXT PRIMARY KEY,
-                nonce TEXT NOT NULL,
-                code_verifier TEXT NOT NULL,
-                provider TEXT NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP NOT NULL
-            )
-        """)
-        
-        # Таблица для Google пользователей
-        cur.execute(f"""
-            CREATE TABLE IF NOT EXISTS {SCHEMA}.google_users (
-                user_id SERIAL PRIMARY KEY,
-                google_sub VARCHAR(255) UNIQUE NOT NULL,
-                email VARCHAR(255),
-                full_name VARCHAR(255),
-                avatar_url TEXT,
-                is_verified BOOLEAN DEFAULT FALSE,
-                raw_profile TEXT,
-                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                is_blocked BOOLEAN DEFAULT false,
-                blocked_at TIMESTAMP,
-                blocked_by VARCHAR(255),
-                block_reason TEXT,
-                ip_address VARCHAR(45),
-                user_agent TEXT,
-                is_active BOOLEAN DEFAULT true
-            )
-        """)
-        
-        cur.execute(f"CREATE INDEX IF NOT EXISTS idx_google_users_sub ON {SCHEMA}.google_users(google_sub)")
-        conn.commit()
-
-
 def save_session(state: str, code_verifier: str) -> None:
     """Сохранение OAuth сессии в БД"""
     conn = get_db_connection()
     try:
-        ensure_tables_exist(conn)
         expires_at = datetime.now() + timedelta(minutes=10)
         with conn.cursor() as cur:
             cur.execute(f"""
@@ -122,7 +80,6 @@ def get_session(state: str) -> Optional[Dict[str, Any]]:
     """Получение OAuth сессии из БД"""
     conn = get_db_connection()
     try:
-        ensure_tables_exist(conn)
         with conn.cursor() as cur:
             # Удаляем истекшие сессии
             cur.execute(f"DELETE FROM {SCHEMA}.oauth_sessions WHERE expires_at < CURRENT_TIMESTAMP")
@@ -160,7 +117,6 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
     """Создание или обновление Google пользователя"""
     conn = get_db_connection()
     try:
-        ensure_tables_exist(conn)
         with conn.cursor() as cur:
             # Проверяем существование в google_users
             cur.execute(f"""
