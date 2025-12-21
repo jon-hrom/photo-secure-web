@@ -70,6 +70,7 @@ export const useAuth = () => {
     setCurrentPage('auth');
     localStorage.removeItem('authSession');
     localStorage.removeItem('vk_user');
+    localStorage.removeItem('google_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('vk_user_id');
     localStorage.removeItem('vk_access_token');
@@ -231,19 +232,23 @@ export const useAuth = () => {
       }
       
       const vkUser = localStorage.getItem('vk_user');
+      const googleUser = localStorage.getItem('google_user');
       const vkAuthCompleted = localStorage.getItem('vk_auth_completed');
       
       console.log('📦 LocalStorage check:', { 
-        hasVkUser: !!vkUser, 
+        hasVkUser: !!vkUser,
+        hasGoogleUser: !!googleUser,
         vkAuthCompleted,
         vkSessionId: !!vkSessionId,
-        vkUserData: vkUser ? JSON.parse(vkUser) : null 
+        vkUserData: vkUser ? JSON.parse(vkUser) : null,
+        googleUserData: googleUser ? JSON.parse(googleUser) : null
       });
       
-      if (vkUser) {
+      if (vkUser || googleUser) {
         try {
-          const userData = JSON.parse(vkUser);
-          const uid = userData.user_id || userData.vk_id;
+          const userData = JSON.parse(vkUser || googleUser!);
+          const authMethod = vkUser ? 'vk' : 'google';
+          const uid = userData.user_id;
           
           // CRITICAL: Check if user is still not blocked before restoring session
           console.log('🔍 Checking if user is blocked before restoring session...');
@@ -260,6 +265,7 @@ export const useAuth = () => {
                 
                 // Clear session data without resetting block state
                 localStorage.removeItem('vk_user');
+                localStorage.removeItem('google_user');
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('authSession');
                 localStorage.removeItem('vk_user_id');
@@ -270,7 +276,7 @@ export const useAuth = () => {
                 setBlockData({
                   userId: blockData.user_id || uid,
                   userEmail: blockData.user_email || userData.email,
-                  authMethod: blockData.auth_method || 'vk'
+                  authMethod: blockData.auth_method || authMethod
                 });
                 setIsAuthenticated(false);
                 setUserId(null);
@@ -313,9 +319,9 @@ export const useAuth = () => {
             
             setIsAuthenticated(true);
             setUserId(uid);
-            setUserName(userData.name || 'Пользователь VK');
-            setUserAvatar(userData.avatar || '');
-            setIsVerified(userData.is_verified || userData.verified || false);
+            setUserName(userData.name || (authMethod === 'vk' ? 'Пользователь VK' : 'Пользователь Google'));
+            setUserAvatar(userData.avatar || userData.picture || '');
+            setIsVerified(userData.is_verified || userData.verified || userData.verified_email || false);
             setIsAdmin(isUserAdmin);
             setCurrentPage('dashboard');
             lastActivityRef.current = Date.now();
@@ -323,7 +329,11 @@ export const useAuth = () => {
             if (dbData.email) {
               setUserEmail(dbData.email);
               const updatedUserData = { ...userData, email: dbData.email };
-              localStorage.setItem('vk_user', JSON.stringify(updatedUserData));
+              if (authMethod === 'vk') {
+                localStorage.setItem('vk_user', JSON.stringify(updatedUserData));
+              } else {
+                localStorage.setItem('google_user', JSON.stringify(updatedUserData));
+              }
               console.log('✅ Email loaded from database:', dbData.email);
             } else {
               setUserEmail(userData.email || '');
@@ -333,13 +343,14 @@ export const useAuth = () => {
               localStorage.removeItem('vk_auth_completed');
             }
             
-            console.log('✅ VK session restored, redirecting to dashboard');
+            console.log(`✅ ${authMethod.toUpperCase()} session restored, redirecting to dashboard`);
           };
           
           return;
         } catch (error) {
-          console.error('❌ Error restoring VK session:', error);
+          console.error('❌ Error restoring OAuth session:', error);
           localStorage.removeItem('vk_user');
+          localStorage.removeItem('google_user');
           localStorage.removeItem('vk_auth_completed');
         }
       }
@@ -415,9 +426,10 @@ export const useAuth = () => {
     
     restoreSession();
     
-    // OPTIMIZATION: Only check settings if user has session or VK callback
+    // OPTIMIZATION: Only check settings if user has session or OAuth callback
     const hasSession = localStorage.getItem('authSession') || 
-                      localStorage.getItem('vk_user') || 
+                      localStorage.getItem('vk_user') ||
+                      localStorage.getItem('google_user') ||
                       urlParams.get('vk_session');
     
     if (hasSession) {
@@ -429,18 +441,20 @@ export const useAuth = () => {
       setLoading(false);
     }
     
-    // Фикс для пользователей у которых нет userId в localStorage но есть vk_user
+    // Фикс для пользователей у которых нет userId в localStorage но есть vk_user или google_user
     const fixMissingUserId = () => {
       const storedUserId = localStorage.getItem('userId');
       if (!storedUserId) {
         const vkUser = localStorage.getItem('vk_user');
-        if (vkUser) {
+        const googleUser = localStorage.getItem('google_user');
+        const oauthUser = vkUser || googleUser;
+        if (oauthUser) {
           try {
-            const userData = JSON.parse(vkUser);
+            const userData = JSON.parse(oauthUser);
             const uid = userData.user_id || userData.vk_id;
             if (uid) {
               localStorage.setItem('userId', uid.toString());
-              console.log('[FIX] Restored missing userId from vk_user:', uid);
+              console.log('[FIX] Restored missing userId from OAuth user:', uid);
             }
           } catch (e) {
             console.error('[FIX] Failed to restore userId:', e);
