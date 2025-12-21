@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "Инициализация OAuth flow - редирект на Google",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 302,
+      "expectedHeaders": {
+        "Location": "string"
+      }
+    },
+    {
+      "name": "Callback без параметров - ошибка 400",
+      "method": "GET",
+      "path": "/?code=test",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "success": false,
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

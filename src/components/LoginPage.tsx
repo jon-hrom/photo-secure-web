@@ -236,7 +236,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   };
 
   const handleOAuthLogin = (provider: 'yandex' | 'vk' | 'google') => {
-    toast.info(`OAuth через ${provider} будет доступен в следующей версии`);
+    if (provider === 'google') {
+      window.location.href = 'https://functions.poehali.dev/a362a521-0759-4577-adbf-7960bf063100';
+    } else {
+      toast.info(`OAuth через ${provider} будет доступен в следующей версии`);
+    }
   };
 
   const handle2FASuccess = () => {

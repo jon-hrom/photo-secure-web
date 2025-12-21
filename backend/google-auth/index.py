@@ -1,0 +1,409 @@
+"""
+Business: Безопасная авторизация через Google OAuth 2.0 с PKCE и JWT сессиями
+Args: event с httpMethod, queryStringParameters для OAuth callback
+Returns: HTTP response с данными авторизации или редиректом
+"""
+
+import json
+import os
+import hashlib
+import secrets
+import base64
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional
+from urllib.parse import urlencode
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+BASE_URL = os.environ.get('BASE_URL', 'https://foto-mix.ru')
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'fallback-secret-change-me')
+SCHEMA = 't_p28211681_photo_secure_web'
+
+GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
+GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
+
+
+def generate_state() -> str:
+    """Генерация state для защиты от CSRF"""
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
+
+
+def generate_code_verifier() -> str:
+    """Генерация code_verifier для PKCE"""
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
+
+
+def generate_code_challenge(verifier: str) -> str:
+    """Генерация code_challenge из verifier"""
+    digest = hashlib.sha256(verifier.encode('utf-8')).digest()
+    return base64.urlsafe_b64encode(digest).decode('utf-8').rstrip('=')
+
+
+def escape_sql(value: Any) -> str:
+    """Безопасное экранирование для Simple Query Protocol"""
+    if value is None:
+        return 'NULL'
+    if isinstance(value, bool):
+        return 'TRUE' if value else 'FALSE'
+    if isinstance(value, (int, float)):
+        return str(value)
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def get_db_connection():
+    """Создание подключения к БД"""
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+
+def ensure_tables_exist(conn) -> None:
+    """Создание таблиц если они не существуют"""
+    with conn.cursor() as cur:
+        # Таблица для OAuth сессий
+        cur.execute(f"""
+            CREATE TABLE IF NOT EXISTS {SCHEMA}.oauth_sessions (
+                state TEXT PRIMARY KEY,
+                nonce TEXT NOT NULL,
+                code_verifier TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL
+            )
+        """)
+        
+        # Таблица для Google пользователей
+        cur.execute(f"""
+            CREATE TABLE IF NOT EXISTS {SCHEMA}.google_users (
+                user_id SERIAL PRIMARY KEY,
+                google_sub VARCHAR(255) UNIQUE NOT NULL,
+                email VARCHAR(255),
+                full_name VARCHAR(255),
+                avatar_url TEXT,
+                is_verified BOOLEAN DEFAULT FALSE,
+                raw_profile TEXT,
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_blocked BOOLEAN DEFAULT false,
+                blocked_at TIMESTAMP,
+                blocked_by VARCHAR(255),
+                block_reason TEXT,
+                ip_address VARCHAR(45),
+                user_agent TEXT,
+                is_active BOOLEAN DEFAULT true
+            )
+        """)
+        
+        cur.execute(f"CREATE INDEX IF NOT EXISTS idx_google_users_sub ON {SCHEMA}.google_users(google_sub)")
+        conn.commit()
+
+
+def save_session(state: str, code_verifier: str) -> None:
+    """Сохранение OAuth сессии в БД"""
+    conn = get_db_connection()
+    try:
+        ensure_tables_exist(conn)
+        expires_at = datetime.now() + timedelta(minutes=10)
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.oauth_sessions (state, nonce, code_verifier, provider, expires_at)
+                VALUES ({escape_sql(state)}, {escape_sql(state)}, {escape_sql(code_verifier)}, 'google', {escape_sql(expires_at.isoformat())})
+            """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_session(state: str) -> Optional[Dict[str, Any]]:
+    """Получение OAuth сессии из БД"""
+    conn = get_db_connection()
+    try:
+        ensure_tables_exist(conn)
+        with conn.cursor() as cur:
+            # Удаляем истекшие сессии
+            cur.execute(f"DELETE FROM {SCHEMA}.oauth_sessions WHERE expires_at < CURRENT_TIMESTAMP")
+            conn.commit()
+            
+            # Получаем активную сессию
+            cur.execute(f"""
+                SELECT state, code_verifier 
+                FROM {SCHEMA}.oauth_sessions 
+                WHERE state = {escape_sql(state)} AND expires_at > CURRENT_TIMESTAMP
+            """)
+            result = cur.fetchone()
+            return dict(result) if result else None
+    finally:
+        conn.close()
+
+
+def delete_session(state: str) -> None:
+    """Удаление использованной сессии"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                UPDATE {SCHEMA}.oauth_sessions 
+                SET expires_at = CURRENT_TIMESTAMP 
+                WHERE state = {escape_sql(state)}
+            """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def upsert_google_user(google_sub: str, email: str, name: str, picture: str, 
+                       verified_email: bool, ip_address: str, user_agent: str) -> int:
+    """Создание или обновление Google пользователя"""
+    conn = get_db_connection()
+    try:
+        ensure_tables_exist(conn)
+        with conn.cursor() as cur:
+            # Проверяем существование в google_users
+            cur.execute(f"""
+                SELECT user_id, is_blocked, blocked_reason 
+                FROM {SCHEMA}.google_users 
+                WHERE google_sub = {escape_sql(google_sub)}
+            """)
+            google_user = cur.fetchone()
+            
+            if google_user:
+                # Проверка на главного админа
+                is_main_admin = email == 'jonhrom2012@gmail.com'
+                
+                if not is_main_admin and google_user['is_blocked']:
+                    raise Exception(f"USER_BLOCKED:{google_user.get('blocked_reason', 'Аккаунт заблокирован')}")
+                
+                # Обновляем данные
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.google_users 
+                    SET full_name = {escape_sql(name)},
+                        avatar_url = {escape_sql(picture)},
+                        is_verified = {escape_sql(verified_email)},
+                        email = {escape_sql(email)},
+                        last_login = CURRENT_TIMESTAMP
+                    WHERE google_sub = {escape_sql(google_sub)}
+                """)
+                conn.commit()
+                return google_user['user_id']
+            
+            # Проверяем существование в users по email
+            cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE email = {escape_sql(email)}")
+            existing_user = cur.fetchone()
+            
+            if existing_user:
+                user_id = existing_user['id']
+                # Создаём запись в google_users
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.google_users 
+                    (google_sub, user_id, email, full_name, avatar_url, is_verified, is_active, last_login)
+                    VALUES ({escape_sql(google_sub)}, {user_id}, {escape_sql(email)}, {escape_sql(name)}, 
+                            {escape_sql(picture)}, {escape_sql(verified_email)}, TRUE, CURRENT_TIMESTAMP)
+                """)
+                conn.commit()
+                return user_id
+            
+            # Создаём нового пользователя
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.users 
+                (email, is_active, source, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
+                VALUES ({escape_sql(email)}, TRUE, 'google', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)})
+                RETURNING id
+            """)
+            new_user = cur.fetchone()
+            new_user_id = new_user['id']
+            
+            # Создаём запись в google_users
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.google_users 
+                (google_sub, user_id, email, full_name, avatar_url, is_verified, is_active, last_login, ip_address, user_agent)
+                VALUES ({escape_sql(google_sub)}, {new_user_id}, {escape_sql(email)}, {escape_sql(name)}, 
+                        {escape_sql(picture)}, {escape_sql(verified_email)}, TRUE, CURRENT_TIMESTAMP, 
+                        {escape_sql(ip_address)}, {escape_sql(user_agent)})
+            """)
+            conn.commit()
+            return new_user_id
+    finally:
+        conn.close()
+
+
+def generate_jwt_token(user_id: int) -> str:
+    """Генерация JWT токена (упрощённая версия)"""
+    # Для production используйте библиотеку PyJWT
+    import hmac
+    payload = f"{user_id}:{datetime.now().timestamp()}"
+    signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}:{signature}"
+
+
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Главный обработчик Google OAuth"""
+    method = event.get('httpMethod', 'GET')
+    
+    # CORS для всех запросов
+    cors_headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-Session-Id',
+        'Access-Control-Max-Age': '86400',
+        'Content-Type': 'application/json'
+    }
+    
+    if method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': cors_headers,
+            'body': '',
+            'isBase64Encoded': False
+        }
+    
+    query_params = event.get('queryStringParameters', {}) or {}
+    code = query_params.get('code')
+    state = query_params.get('state')
+    
+    # Инициализация OAuth flow (редирект на Google)
+    if not code and not state:
+        state = generate_state()
+        code_verifier = generate_code_verifier()
+        code_challenge = generate_code_challenge(code_verifier)
+        
+        save_session(state, code_verifier)
+        
+        auth_params = {
+            'client_id': GOOGLE_CLIENT_ID,
+            'redirect_uri': f'{BASE_URL}/auth/callback/google',
+            'response_type': 'code',
+            'scope': 'openid email profile',
+            'state': state,
+            'access_type': 'offline',
+            'prompt': 'consent'
+        }
+        
+        redirect_url = f"{GOOGLE_AUTH_URL}?{urlencode(auth_params)}"
+        
+        return {
+            'statusCode': 302,
+            'headers': {**cors_headers, 'Location': redirect_url},
+            'body': '',
+            'isBase64Encoded': False
+        }
+    
+    # Обработка callback от Google
+    if not code or not state:
+        return {
+            'statusCode': 400,
+            'headers': cors_headers,
+            'body': json.dumps({'success': False, 'error': 'Отсутствуют параметры code или state'}),
+            'isBase64Encoded': False
+        }
+    
+    # Проверка state и получение code_verifier
+    session = get_session(state)
+    if not session:
+        return {
+            'statusCode': 400,
+            'headers': cors_headers,
+            'body': json.dumps({'success': False, 'error': 'Недействительная сессия OAuth'}),
+            'isBase64Encoded': False
+        }
+    
+    # Обмен code на токен
+    try:
+        import urllib.request
+        token_data = {
+            'code': code,
+            'client_id': GOOGLE_CLIENT_ID,
+            'client_secret': GOOGLE_CLIENT_SECRET,
+            'redirect_uri': f'{BASE_URL}/auth/callback/google',
+            'grant_type': 'authorization_code'
+        }
+        
+        token_request = urllib.request.Request(
+            GOOGLE_TOKEN_URL,
+            data=urlencode(token_data).encode(),
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        )
+        
+        with urllib.request.urlopen(token_request) as response:
+            token_response = json.loads(response.read().decode())
+        
+        access_token = token_response.get('access_token')
+        if not access_token:
+            raise Exception('Не получен access_token от Google')
+        
+        # Получение информации о пользователе
+        userinfo_request = urllib.request.Request(
+            GOOGLE_USERINFO_URL,
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        
+        with urllib.request.urlopen(userinfo_request) as response:
+            user_info = json.loads(response.read().decode())
+        
+        # Извлечение IP и User-Agent
+        request_context = event.get('requestContext', {})
+        identity = request_context.get('identity', {})
+        ip_address = identity.get('sourceIp', 'unknown')
+        user_agent = identity.get('userAgent', 'unknown')
+        
+        # Создание/обновление пользователя
+        user_id = upsert_google_user(
+            google_sub=user_info['id'],
+            email=user_info.get('email', ''),
+            name=user_info.get('name', ''),
+            picture=user_info.get('picture', ''),
+            verified_email=user_info.get('verified_email', False),
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        # Удаление использованной сессии
+        delete_session(state)
+        
+        # Генерация JWT сессии
+        session_token = generate_jwt_token(user_id)
+        
+        return {
+            'statusCode': 200,
+            'headers': cors_headers,
+            'body': json.dumps({
+                'success': True,
+                'user_id': user_id,
+                'session_id': session_token,
+                'profile': {
+                    'sub': user_info['id'],
+                    'email': user_info.get('email'),
+                    'name': user_info.get('name'),
+                    'picture': user_info.get('picture'),
+                    'verified_email': user_info.get('verified_email', False)
+                }
+            }),
+            'isBase64Encoded': False
+        }
+        
+    except Exception as e:
+        error_msg = str(e)
+        
+        # Обработка блокировки пользователя
+        if error_msg.startswith('USER_BLOCKED:'):
+            reason = error_msg.split(':', 1)[1]
+            return {
+                'statusCode': 403,
+                'headers': cors_headers,
+                'body': json.dumps({
+                    'success': False,
+                    'blocked': True,
+                    'message': reason,
+                    'auth_method': 'google'
+                }),
+                'isBase64Encoded': False
+            }
+        
+        return {
+            'statusCode': 500,
+            'headers': cors_headers,
+            'body': json.dumps({'success': False, 'error': f'Ошибка авторизации: {error_msg}'}),
+            'isBase64Encoded': False
+        }

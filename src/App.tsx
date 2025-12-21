@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import VKCallback from "./pages/VKCallback";
+import GoogleCallback from "./pages/GoogleCallback";
 import VKCallbackDirect from "./pages/VKCallbackDirect";
 import ClientPhotobook from "./pages/ClientPhotobook";
 import BackButton from "./components/BackButton";
@@ -47,6 +48,7 @@ const App = () => (
           <Route path="/face-blur" element={<FaceBlurEditor />} />
           <Route path="/vk-callback" element={<VKCallbackDirect />} />
           <Route path="/auth/callback/vkid" element={<VKCallback />} />
+          <Route path="/auth/callback/google" element={<GoogleCallback />} />
           <Route path="/client/photobook/:id" element={<ClientPhotobook />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
