@@ -68,6 +68,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     const deltaY = dragStartY.current - currentY;
     
     if (Math.abs(deltaY) > 10) {
+      e.preventDefault();
       setIsDragging(true);
       const windowHeight = window.innerHeight;
       const headerHeight = 180;
