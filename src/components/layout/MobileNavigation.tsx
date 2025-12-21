@@ -26,6 +26,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
 
   const navItems: NavItem[] = [
     { icon: 'LayoutDashboard', label: 'МЕНЮ', path: '/' },
+    { icon: 'Home', label: 'Главная', path: '/' },
     { icon: 'BookOpen', label: 'Справка', path: '/help' },
     { icon: 'Settings', label: 'Настройки', path: '/settings' },
     { icon: 'Zap', label: 'Тарифы', path: '/tariffs' },
