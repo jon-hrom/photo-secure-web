@@ -120,7 +120,7 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
         with conn.cursor() as cur:
             # Проверяем существование в google_users
             cur.execute(f"""
-                SELECT user_id, is_blocked, blocked_reason 
+                SELECT user_id, is_blocked, block_reason 
                 FROM {SCHEMA}.google_users 
                 WHERE google_sub = {escape_sql(google_sub)}
             """)
@@ -131,7 +131,7 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                 is_main_admin = email == 'jonhrom2012@gmail.com'
                 
                 if not is_main_admin and google_user['is_blocked']:
-                    raise Exception(f"USER_BLOCKED:{google_user.get('blocked_reason', 'Аккаунт заблокирован')}")
+                    raise Exception(f"USER_BLOCKED:{google_user.get('block_reason', 'Аккаунт заблокирован')}")
                 
                 # Обновляем данные
                 cur.execute(f"""
