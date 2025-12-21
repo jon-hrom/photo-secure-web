@@ -70,7 +70,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     if (Math.abs(deltaY) > 10) {
       setIsDragging(true);
       const windowHeight = window.innerHeight;
-      const headerHeight = 72;
+      const headerHeight = 180;
       const buttonHeight = 80;
       const maxBottom = windowHeight - headerHeight - buttonHeight;
       const newBottom = dragStartBottom.current + deltaY;
@@ -94,7 +94,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     if (isExpanded && navRef.current) {
       const navHeight = navRef.current.offsetHeight;
       const windowHeight = window.innerHeight;
-      const headerHeight = 72;
+      const headerHeight = 180;
       const minTopSpace = headerHeight + 16;
       
       const maxAllowedBottom = windowHeight - navHeight - 16;
