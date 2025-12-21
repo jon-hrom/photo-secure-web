@@ -118,7 +118,27 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const playSuccessSound = () => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.4);
+  };
+
   const handleLogin = async () => {
+    playSuccessSound();
     if (!email || !password) {
       toast.error('Заполните все поля');
       return;
@@ -200,6 +220,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       return;
     }
     setPasswordError('');
+
+    playSuccessSound();
 
     let normalizedPhone = phone.trim();
     if (normalizedPhone.startsWith('8')) {
