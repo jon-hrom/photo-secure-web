@@ -57,18 +57,23 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
     dragStartY.current = e.touches[0].clientY;
     dragStartBottom.current = userBottomPosition;
     dragStartTime.current = Date.now();
     setIsDragging(false);
+    
+    document.body.style.overscrollBehavior = 'none';
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const currentY = e.touches[0].clientY;
     const deltaY = dragStartY.current - currentY;
     
-    if (Math.abs(deltaY) > 10) {
-      e.preventDefault();
+    if (Math.abs(deltaY) > 5) {
       setIsDragging(true);
       const windowHeight = window.innerHeight;
       const headerHeight = 180;
@@ -83,6 +88,8 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
 
   const handleTouchEnd = () => {
     const touchDuration = Date.now() - dragStartTime.current;
+    
+    document.body.style.overscrollBehavior = '';
     
     if (!isDragging && touchDuration < 300) {
       handleMenuClick();
@@ -189,13 +196,14 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
           <Button
             variant="ghost"
             className={cn(
-              'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl select-none cursor-grab active:cursor-grabbing',
+              'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl select-none cursor-grab active:cursor-grabbing touch-none',
               isExpanded 
                 ? 'bg-white/90 border-border/50' 
                 : 'bg-white/20 border-white/20 hover:bg-white/30',
               isActive('dashboard') && 'border-primary/50',
               isDragging && 'cursor-grabbing'
             )}
+            style={{ touchAction: 'none' }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
