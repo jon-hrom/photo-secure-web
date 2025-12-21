@@ -25,7 +25,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
   const dragStartTime = useRef(0);
 
   const navItems: NavItem[] = [
-    { icon: 'LayoutDashboard', label: 'Главная', path: '/' },
+    { icon: 'LayoutDashboard', label: 'МЕНЮ', path: '/' },
     { icon: 'BookOpen', label: 'Справка', path: '/help' },
     { icon: 'Settings', label: 'Настройки', path: '/settings' },
     { icon: 'Zap', label: 'Тарифы', path: '/tariffs' },
