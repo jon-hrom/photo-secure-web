@@ -96,8 +96,9 @@ const OAuthProviders = ({
               className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#FF0000] transition-all"
               title="Войти через Яндекс"
             >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0">
-                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm4.5 18h-2.6l-2.6-7.5H10v7.5H7.5V6h4.8c2.1 0 3.5 1.3 3.5 3.1 0 1.5-.8 2.5-2 2.9l2.7 6z" fill="#FF0000"/>
+              <svg viewBox="0 0 32 32" className="w-5 h-5 flex-shrink-0">
+                <circle cx="16" cy="16" r="16" fill="#FF0000"/>
+                <path d="M13.5 9h2.8c2.4 0 4 1.5 4 3.7 0 1.7-1 3-2.6 3.4l2.8 7.4h-2.9l-2.5-7H15v7h-2.5V9h1zm2.5 5.5c1.5 0 2.3-.9 2.3-2.1 0-1.2-.8-2-2.3-2H15v4.1h1z" fill="#FFFFFF"/>
               </svg>
               {yandexButtonText === 'full' && (
                 <span className="font-medium text-[#FF0000] whitespace-nowrap">
