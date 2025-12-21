@@ -21,10 +21,12 @@ const OAuthProviders = ({
   onOAuthLogin 
 }: OAuthProvidersProps) => {
   const [googleButtonText, setGoogleButtonText] = useState<'full' | 'short' | 'letter'>('full');
+  const [yandexButtonText, setYandexButtonText] = useState<'full' | 'short' | 'letter'>('full');
   const googleButtonRef = useRef<HTMLButtonElement>(null);
+  const yandexButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const checkGoogleButtonWidth = () => {
+    const checkButtonWidths = () => {
       if (googleButtonRef.current) {
         const buttonWidth = googleButtonRef.current.offsetWidth;
         const availableWidth = buttonWidth - 48;
@@ -37,17 +39,30 @@ const OAuthProviders = ({
           setGoogleButtonText('letter');
         }
       }
+
+      if (yandexButtonRef.current) {
+        const buttonWidth = yandexButtonRef.current.offsetWidth;
+        const availableWidth = buttonWidth - 48;
+        
+        if (availableWidth >= 140) {
+          setYandexButtonText('full');
+        } else if (availableWidth >= 60) {
+          setYandexButtonText('short');
+        } else {
+          setYandexButtonText('letter');
+        }
+      }
     };
 
-    checkGoogleButtonWidth();
-    const timer = setTimeout(checkGoogleButtonWidth, 100);
-    window.addEventListener('resize', checkGoogleButtonWidth);
+    checkButtonWidths();
+    const timer = setTimeout(checkButtonWidths, 100);
+    window.addEventListener('resize', checkButtonWidths);
     
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('resize', checkGoogleButtonWidth);
+      window.removeEventListener('resize', checkButtonWidths);
     };
-  }, [authProviders.google]);
+  }, [authProviders.google, authProviders.yandex]);
 
   if (!authProviders.yandex && !authProviders.vk && !authProviders.google) {
     return null;
@@ -74,13 +89,31 @@ const OAuthProviders = ({
         <div className="flex justify-center gap-3">
           {authProviders.yandex && (
             <Button
+              ref={yandexButtonRef}
               variant="outline"
               onClick={() => onOAuthLogin('yandex')}
               disabled={isBlocked}
-              className="rounded-xl flex-1"
+              className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#FF0000] transition-all"
               title="Войти через Яндекс"
             >
-              <Icon name="Circle" size={20} className="text-red-500" />
+              <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm4.5 18h-2.6l-2.6-7.5H10v7.5H7.5V6h4.8c2.1 0 3.5 1.3 3.5 3.1 0 1.5-.8 2.5-2 2.9l2.7 6z" fill="#FF0000"/>
+              </svg>
+              {yandexButtonText === 'full' && (
+                <span className="font-medium text-[#FF0000] whitespace-nowrap">
+                  Вход через Яндекс
+                </span>
+              )}
+              {yandexButtonText === 'short' && (
+                <span className="font-medium text-[#FF0000]">
+                  Яндекс
+                </span>
+              )}
+              {yandexButtonText === 'letter' && (
+                <span className="text-xl font-bold text-[#FF0000]">
+                  Я
+                </span>
+              )}
             </Button>
           )}
           {authProviders.google && (
