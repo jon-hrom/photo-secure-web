@@ -259,7 +259,7 @@ const ClientDetailProjects = ({
         <CardHeader className="py-3">
           <CardTitle className="text-sm sm:text-base">Добавить новую услугу</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 py-3">
+        <CardContent className="space-y-2 py-3 pb-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">Название проекта *</Label>
@@ -308,10 +308,13 @@ const ClientDetailProjects = ({
               className="text-xs"
             />
           </div>
-          <Button onClick={handleAddProject} className="w-full sm:w-auto h-9 text-xs">
-            <Icon name="Plus" size={16} className="mr-2" />
-            Создать услугу
-          </Button>
+          <div className="h-16"></div>
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t md:static md:border-0 md:p-0">
+            <Button onClick={handleAddProject} className="w-full md:w-auto h-11 md:h-9 text-sm md:text-xs shadow-lg md:shadow-none">
+              <Icon name="Plus" size={16} className="mr-2" />
+              Создать услугу
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </>
