@@ -277,7 +277,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onGoForward={handleGoForward}
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
-        clients={clients}
+        clients={searchFilteredClients}
       />
 
       {dialogsState.viewMode === 'table' ? (
@@ -292,7 +292,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
             <ClientsFilterSidebar
               activeFilter={activeFilter}
               onFilterChange={setActiveFilter}
-              clients={clients}
+              clients={searchFilteredClients}
             />
           </div>
 
