@@ -140,13 +140,15 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
           <Button
             variant="ghost"
             className={cn(
-              'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl',
+              'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl touch-none select-none',
               isExpanded 
                 ? 'bg-white/90 border-border/50' 
                 : 'bg-white/20 border-white/20 hover:bg-white/30',
               isActive('dashboard') && 'border-primary/50'
             )}
             onClick={handleMenuClick}
+            onTouchStart={(e) => e.preventDefault()}
+            onTouchMove={(e) => e.preventDefault()}
           >
             {isActive('dashboard') && (
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl" />
