@@ -47,9 +47,15 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   const [editedDisplayName, setEditedDisplayName] = useState('');
   const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
   const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     loadSettings();
+    // Загрузка темы из localStorage
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
   }, [userId]);
 
   const loadSettings = async () => {
@@ -76,6 +82,22 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const applyTheme = (newTheme: 'light' | 'dark') => {
+    const root = document.documentElement;
+    if (newTheme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  };
+
+  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    applyTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    toast.success(`Тема изменена на ${newTheme === 'dark' ? 'тёмную' : 'светлую'}`);
   };
 
   const handleToggle2FA = async (type: 'email', enabled: boolean) => {
@@ -178,11 +200,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-3 sm:p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 dark:from-primary/5 dark:via-background dark:to-secondary/5 p-3 sm:p-4 md:p-6">
       <div className="max-w-2xl mx-auto space-y-4 md:space-y-6">
         <div className="flex items-center gap-2 md:gap-3">
           <Icon name="Settings" size={24} className="text-primary md:w-8 md:h-8" />
-          <h1 className="text-2xl md:text-3xl font-bold">Настройки</h1>
+          <h1 className="text-2xl md:text-3xl font-bold dark:text-gray-100">Настройки</h1>
         </div>
 
         {showEmailVerification && (
@@ -240,6 +262,42 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
           settings={settings}
           handleToggle2FA={handleToggle2FA}
         />
+
+        <Card className="shadow-xl">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-gradient-to-br from-primary to-secondary rounded-lg shadow-sm">
+                <Icon name="Palette" size={24} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg mb-2">Оформление</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Выберите тему интерфейса
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => handleThemeChange('light')}
+                    variant={theme === 'light' ? 'default' : 'outline'}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Icon name="Sun" size={16} className="mr-2" />
+                    Светлая
+                  </Button>
+                  <Button
+                    onClick={() => handleThemeChange('dark')}
+                    variant={theme === 'dark' ? 'default' : 'outline'}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Icon name="Moon" size={16} className="mr-2" />
+                    Тёмная
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <HintsCard />
 

@@ -158,7 +158,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
               key={item.path}
               variant="ghost"
               className={cn(
-                'flex flex-col items-center gap-0.5 h-auto py-2 px-3 relative bg-white/90 backdrop-blur-xl border-2 border-border/50 shadow-2xl hover:shadow-3xl',
+                'flex flex-col items-center gap-0.5 h-auto py-2 px-3 relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border-2 border-border/50 dark:border-gray-700/50 shadow-2xl hover:shadow-3xl',
                 isActive(item.path) && 'border-primary/50',
                 getNavClassName(item.path)
               )}
@@ -173,20 +173,20 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
               )}
               <div className={cn(
                 'p-2 rounded-lg transition-all duration-300 relative',
-                isActive(item.path) ? 'bg-gradient-to-br from-primary to-secondary shadow-lg animate-pulse-active' : 'hover:bg-gray-100'
+                isActive(item.path) ? 'bg-gradient-to-br from-primary to-secondary shadow-lg animate-pulse-active' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
               )}>
                 <Icon 
                   name={item.icon} 
                   size={18} 
                   className={cn(
                     'transition-colors duration-300',
-                    isActive(item.path) ? 'text-white' : 'text-gray-600'
+                    isActive(item.path) ? 'text-white' : 'text-gray-600 dark:text-gray-300'
                   )}
                 />
               </div>
               <span className={cn(
                 'text-[10px] font-medium transition-all duration-300',
-                isActive(item.path) ? 'text-primary font-bold' : 'text-gray-600'
+                isActive(item.path) ? 'text-primary font-bold' : 'text-gray-600 dark:text-gray-300'
               )}>
                 {item.label}
               </span>
@@ -198,8 +198,8 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
             className={cn(
               'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl select-none cursor-grab active:cursor-grabbing touch-none',
               isExpanded 
-                ? 'bg-white/90 border-border/50' 
-                : 'bg-white/20 border-white/20 hover:bg-white/30',
+                ? 'bg-white/90 dark:bg-gray-800/90 border-border/50 dark:border-gray-700/50' 
+                : 'bg-white/20 dark:bg-gray-800/20 border-white/20 dark:border-gray-700/20 hover:bg-white/30 dark:hover:bg-gray-800/30',
               isActive('dashboard') && 'border-primary/50',
               isDragging && 'cursor-grabbing'
             )}
@@ -223,20 +223,20 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
             </div>
             <div className={cn(
               'p-2 rounded-lg transition-all duration-300 relative',
-              isActive('dashboard') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg animate-pulse-active' : 'hover:bg-gray-100/50'
+              isActive('dashboard') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg animate-pulse-active' : 'hover:bg-gray-100/50 dark:hover:bg-gray-700/50'
             )}>
               <Icon 
                 name={navItems[0].icon} 
                 size={18} 
                 className={cn(
                   'transition-colors duration-300',
-                  isActive('dashboard') ? 'text-white' : 'text-gray-600'
+                  isActive('dashboard') ? 'text-white' : 'text-gray-600 dark:text-gray-300'
                 )}
               />
             </div>
             <span className={cn(
               'text-[10px] font-medium transition-all duration-300',
-              isActive('dashboard') ? 'text-primary font-bold' : 'text-gray-600'
+              isActive('dashboard') ? 'text-primary font-bold' : 'text-gray-600 dark:text-gray-300'
             )}>
               {navItems[0].label}
             </span>
