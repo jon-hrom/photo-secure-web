@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "Смена пароля без авторизации - ошибка 401",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "initiate",
+        "old_password": "test123"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "success": false,
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Инициация без старого пароля - ошибка 400",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "body": {
+        "action": "initiate"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "success": false,
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

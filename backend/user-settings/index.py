@@ -41,7 +41,8 @@ def get_user_settings(user_id: int) -> Optional[Dict[str, Any]]:
                     id, email, phone, display_name,
                     two_factor_sms, two_factor_email,
                     email_verified_at, phone_verified_at,
-                    created_at, last_login
+                    created_at, last_login, source,
+                    CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 'true' ELSE 'false' END as has_password
                 FROM {SCHEMA}.users 
                 WHERE id = {escape_sql(user_id)}
             """)

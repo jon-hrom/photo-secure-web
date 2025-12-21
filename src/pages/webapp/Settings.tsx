@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import { toast } from 'sonner';
 import funcUrls from '../../../backend/func2url.json';
+import SecuritySettings from '@/components/settings/SecuritySettings';
 
 interface UserSettings {
   id: number;
@@ -18,6 +19,8 @@ interface UserSettings {
   two_factor_email: boolean;
   email_verified_at: string | null;
   phone_verified_at: string | null;
+  source: string | null;
+  has_password: string;
 }
 
 const Settings = () => {
@@ -318,6 +321,12 @@ const Settings = () => {
                 </label>
               </div>
             </section>
+
+            <SecuritySettings 
+              userId={settings?.id || 0}
+              hasPassword={settings?.has_password === 'true'}
+              userSource={settings?.source}
+            />
 
             <div className="pt-4 border-t">
               <Button 
