@@ -272,7 +272,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                     <Icon name="HardDrive" size={16} className="text-white sm:w-[18px] sm:h-[18px] md:w-5 md:h-5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-bold text-sm sm:text-base md:text-lg">Фото банк</h3>
+                    <h3 className="font-bold text-sm sm:text-base md:text-lg text-gray-900 dark:text-gray-900">Фото банк</h3>
                     <Badge variant="outline" className="text-[10px] sm:text-xs mt-0.5 sm:mt-1 bg-white/50 backdrop-blur-sm">{storageUsage.plan_name}</Badge>
                   </div>
                 </div>
@@ -287,7 +287,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                 value={storageUsage.percent || 0} 
                 className="h-2 sm:h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
               />
-              <div className="flex justify-between text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground">
+              <div className="flex justify-between text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground dark:text-gray-600">
                 <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ</span>
                 <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ</span>
               </div>

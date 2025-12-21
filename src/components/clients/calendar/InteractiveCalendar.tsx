@@ -104,11 +104,11 @@ const InteractiveCalendar = ({
         <div className="mt-4 sm:mt-5 space-y-2 sm:space-y-3">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-green-300 to-emerald-400 shadow-md flex-shrink-0"></div>
-            <p className="text-xs sm:text-sm text-gray-700 font-medium">Даты со съёмками</p>
+            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-700 font-medium">Даты со съёмками</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
-            <p className="text-xs sm:text-sm text-gray-700 font-medium">Дата сегодня</p>
+            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-700 font-medium">Дата сегодня</p>
           </div>
           <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-green-50 border border-green-200 rounded-lg sm:rounded-xl">
             <p className="text-[10px] sm:text-xs text-green-700 font-medium text-center">

@@ -49,13 +49,13 @@ const ClientDetailOverview = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-2">Общий бюджет</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-900 flex items-center gap-2">Общий бюджет</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold text-red-600">
               <span key={`budget-${animateKey}`} className="inline-block animate-in fade-in duration-300">{totalBudget.toLocaleString('ru-RU')} ₽</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground dark:text-gray-600 mt-1">
               Проектов: {projects.length}
             </p>
           </CardContent>
@@ -63,13 +63,13 @@ const ClientDetailOverview = ({
 
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Оплачено с учетом аванса</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-900 flex items-center gap-2">Оплачено с учетом аванса</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold text-black dark:text-white">
               <span key={`paid-${animateKey}`} className="inline-block animate-in fade-in zoom-in-50 duration-500">{totalPaid.toLocaleString('ru-RU')} ₽</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground dark:text-gray-600 mt-1">
               Платежей: {payments.filter(p => p.status === 'completed').length}
             </p>
           </CardContent>
@@ -77,13 +77,13 @@ const ClientDetailOverview = ({
 
         <Card className="sm:col-span-2 lg:col-span-1">
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">Остаток суммы за все услуги</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-900 flex items-center gap-2">Остаток суммы за все услуги</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold text-black dark:text-white">
               <span key={`remaining-${animateKey}`} className="inline-block animate-in fade-in zoom-in-50 duration-500">{totalRemaining.toLocaleString('ru-RU')} ₽</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground dark:text-gray-600 mt-1">
               К оплате от общего бюджета
             </p>
           </CardContent>
@@ -114,7 +114,7 @@ const ClientDetailOverview = ({
           </div>
 
           {comments.length === 0 ? (
-            <p className="text-center text-muted-foreground py-4">
+            <p className="text-center text-muted-foreground dark:text-gray-600 py-4">
               Комментариев пока нет
             </p>
           ) : (
@@ -129,7 +129,7 @@ const ClientDetailOverview = ({
                           {formatDateTime(comment.date)}
                         </span>
                       </div>
-                      <p className="text-sm">{comment.text}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-700">{comment.text}</p>
                     </div>
                     <Button
                       variant="ghost"
