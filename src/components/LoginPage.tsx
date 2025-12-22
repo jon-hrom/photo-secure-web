@@ -49,6 +49,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
   useEffect(() => {
     const selectedBgId = localStorage.getItem('loginPageBackground');
+    let imageLoaded = false;
+    
     if (selectedBgId) {
       const savedImages = localStorage.getItem('backgroundImages');
       if (savedImages) {
@@ -56,8 +58,13 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         const selectedImage = images.find((img: any) => img.id === selectedBgId);
         if (selectedImage) {
           setBackgroundImage(selectedImage.url);
+          imageLoaded = true;
         }
       }
+    }
+    
+    if (!imageLoaded) {
+      setBackgroundImage('https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg');
     }
     
     const savedOpacity = localStorage.getItem('loginPageBackgroundOpacity');
