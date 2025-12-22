@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,10 +21,13 @@ import Settings from "./pages/webapp/Settings";
 import Tariffs from "./pages/webapp/Tariffs";
 import Clients from "./pages/webapp/Clients";
 import AdminCleanup from "./pages/AdminCleanup";
+import NewYearDecorations from "./components/NewYearDecorations";
 
 const queryClient = new QueryClient();
 
 const App = () => {
+  const [newYearMode, setNewYearMode] = useState(false);
+
   useEffect(() => {
     // Применяем сохранённую тему при загрузке приложения
     const savedTheme = localStorage.getItem('theme');
@@ -65,9 +68,25 @@ const App = () => {
     return () => mediaQuery.removeEventListener('change', handleThemeChange);
   }, []);
 
+  useEffect(() => {
+    // Загрузка новогоднего режима
+    const savedNewYearMode = localStorage.getItem('newYearMode') === 'true';
+    setNewYearMode(savedNewYearMode);
+
+    // Слушаем изменения новогоднего режима
+    const handleNewYearModeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<boolean>;
+      setNewYearMode(customEvent.detail);
+    };
+
+    window.addEventListener('newYearModeChange', handleNewYearModeChange);
+    return () => window.removeEventListener('newYearModeChange', handleNewYearModeChange);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        {newYearMode && <NewYearDecorations />}
         <Toaster />
         <Sonner />
         <BrowserRouter>
