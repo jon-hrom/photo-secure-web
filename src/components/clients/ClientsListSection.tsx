@@ -246,7 +246,7 @@ const ClientsListSection = ({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="p-2 md:p-3 sticky right-0 bg-white z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)]">
+                        <td className="p-2 md:p-3 sticky right-0 bg-white dark:bg-gray-900 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.1)] dark:shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.3)]">
                           <div className="flex items-center justify-end gap-0.5 md:gap-1">
                             <Button
                               variant="ghost"
