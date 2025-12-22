@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 
 interface LoginCardProps {
   isRegistering: boolean;
@@ -8,11 +8,22 @@ interface LoginCardProps {
 }
 
 const LoginCard = ({ isRegistering, children }: LoginCardProps) => {
+  const [cardBackgroundImage, setCardBackgroundImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedCardBg = localStorage.getItem('loginCardBackground');
+    if (savedCardBg) {
+      setCardBackgroundImage(savedCardBg);
+    }
+  }, []);
+
   return (
     <Card 
       className="w-full max-w-md shadow-2xl relative z-10 overflow-hidden"
       style={{
-        backgroundImage: `url(https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg)`,
+        backgroundImage: cardBackgroundImage 
+          ? `url(${cardBackgroundImage})` 
+          : `url(https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg)`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}

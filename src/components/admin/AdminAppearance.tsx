@@ -36,6 +36,9 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const [newYearMode, setNewYearMode] = useState(
     localStorage.getItem('newYearMode') === 'true'
   );
+  const [cardBackgroundImage, setCardBackgroundImage] = useState<string | null>(
+    localStorage.getItem('loginCardBackground') || null
+  );
   const { toast } = useToast();
 
   useState(() => {
@@ -197,6 +200,43 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     sonnerToast.success(enabled ? '🎄 Новогодний дизайн включён!' : 'Новогодний дизайн выключен');
   };
 
+  const handleCardBackgroundUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Ошибка',
+        description: 'Выберите изображение',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result as string;
+      setCardBackgroundImage(imageUrl);
+      localStorage.setItem('loginCardBackground', imageUrl);
+      
+      toast({
+        title: 'Фон карточки обновлён',
+        description: 'Изменения применены к странице входа',
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCardBackgroundRemove = () => {
+    setCardBackgroundImage(null);
+    localStorage.removeItem('loginCardBackground');
+    
+    toast({
+      title: 'Фон карточки удалён',
+      description: 'Фон карточки входа удалён',
+    });
+  };
+
   return (
     <Card>
       <CardHeader 
@@ -226,6 +266,9 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
         <BackgroundSettings
           backgroundOpacity={backgroundOpacity}
           onOpacityChange={handleOpacityChange}
+          cardBackgroundImage={cardBackgroundImage}
+          onCardBackgroundUpload={handleCardBackgroundUpload}
+          onCardBackgroundRemove={handleCardBackgroundRemove}
         />
 
         <Separator />
