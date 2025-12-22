@@ -44,7 +44,7 @@ const MessageDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-2xl bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
+      <DialogContent className="max-w-2xl bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 dark:from-purple-950/80 dark:via-pink-950/60 dark:to-rose-950/80 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle>Связь с клиентом: {selectedClient.name}</DialogTitle>
         </DialogHeader>
