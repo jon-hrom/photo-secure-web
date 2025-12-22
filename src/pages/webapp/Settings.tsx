@@ -36,7 +36,6 @@ const Settings = () => {
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [smsNotifications, setSmsNotifications] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [newYearMode, setNewYearMode] = useState(false);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -178,13 +177,6 @@ const Settings = () => {
     applyTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     toast.success(`Тема изменена на ${newTheme === 'dark' ? 'тёмную' : 'светлую'}`);
-  };
-
-  const handleNewYearModeChange = (enabled: boolean) => {
-    setNewYearMode(enabled);
-    localStorage.setItem('newYearMode', enabled.toString());
-    window.dispatchEvent(new CustomEvent('newYearModeChange', { detail: enabled }));
-    toast.success(enabled ? '🎄 Новогодний дизайн включён!' : 'Новогодний дизайн выключен');
   };
 
   const handleSave = async () => {
@@ -372,32 +364,6 @@ const Settings = () => {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Изменения применяются мгновенно
                   </p>
-                </div>
-
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <label className="flex items-center justify-between cursor-pointer group">
-                    <div className="flex items-center gap-3">
-                      <div className="text-2xl">🎄</div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Новогодний дизайн
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Гирлянды, снежинки и праздничное настроение
-                        </div>
-                      </div>
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={newYearMode}
-                        onChange={(e) => handleNewYearModeChange(e.target.checked)}
-                      />
-                      <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-red-500 peer-checked:to-green-500 transition-all"></div>
-                      <div className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-5 shadow-md"></div>
-                    </div>
-                  </label>
                 </div>
               </div>
             </section>

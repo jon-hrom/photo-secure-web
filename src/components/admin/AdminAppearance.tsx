@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { toast as sonnerToast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import ColorPicker from './appearance/ColorPicker';
 import BackgroundSettings from './appearance/BackgroundSettings';
@@ -32,6 +33,9 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<BackgroundImage[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [newYearMode, setNewYearMode] = useState(
+    localStorage.getItem('newYearMode') === 'true'
+  );
   const { toast } = useToast();
 
   useState(() => {
@@ -186,6 +190,13 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     return selectedImage?.url || null;
   };
 
+  const handleNewYearModeChange = (enabled: boolean) => {
+    setNewYearMode(enabled);
+    localStorage.setItem('newYearMode', enabled.toString());
+    window.dispatchEvent(new CustomEvent('newYearModeChange', { detail: enabled }));
+    sonnerToast.success(enabled ? '🎄 Новогодний дизайн включён!' : 'Новогодний дизайн выключен');
+  };
+
   return (
     <Card>
       <CardHeader 
@@ -235,6 +246,35 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
           onAddFromSearch={handleAddFromSearch}
           getSelectedBackgroundUrl={getSelectedBackgroundUrl}
         />
+
+        <Separator />
+
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Новогодний дизайн</h3>
+          <label className="flex items-center justify-between cursor-pointer group p-4 rounded-lg border border-gray-200 hover:border-primary/50 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🎄</div>
+              <div>
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Включить новогодний режим
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Гирлянды, снежинки и праздничное настроение
+                </div>
+              </div>
+            </div>
+            <div className="relative">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={newYearMode}
+                onChange={(e) => handleNewYearModeChange(e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-red-500 peer-checked:to-green-500 transition-all"></div>
+              <div className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-5 shadow-md"></div>
+            </div>
+          </label>
+        </div>
       </CardContent>}
     </Card>
   );
