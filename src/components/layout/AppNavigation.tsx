@@ -60,28 +60,28 @@ const AppNavigation = ({
                   <Icon name="ChevronDown" size={16} className="ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 animate-scale-in backdrop-blur-xl bg-white/95 border-border/50 shadow-xl">
-                <DropdownMenuItem onClick={() => setCurrentPage('dashboard')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
+              <DropdownMenuContent align="start" className="w-56 animate-scale-in backdrop-blur-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-border/50 dark:border-gray-700/50 shadow-xl">
+                <DropdownMenuItem onClick={() => setCurrentPage('dashboard')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
                   <Icon name="LayoutDashboard" size={18} className="mr-2" />
                   Главная
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('clients')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200" data-tour="clients-nav">
+                <DropdownMenuItem onClick={() => setCurrentPage('clients')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200" data-tour="clients-nav">
                   <Icon name="Users" size={18} className="mr-2" />
                   Клиенты
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200" data-tour="photobook-nav">
+                <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200" data-tour="photobook-nav">
                   <Icon name="Book" size={18} className="mr-2" />
                   Фотокниги
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/photo-bank')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
+                <DropdownMenuItem onClick={() => navigate('/photo-bank')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
                   <Icon name="Images" size={18} className="mr-2" />
                   Мой фото банк
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('tariffs')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
+                <DropdownMenuItem onClick={() => setCurrentPage('tariffs')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
                   <Icon name="Zap" size={18} className="mr-2" />
                   Тарифы
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('settings')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200">
+                <DropdownMenuItem onClick={() => setCurrentPage('settings')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
                   <Icon name="Settings" size={18} className="mr-2" />
                   Настройки
                 </DropdownMenuItem>
@@ -125,23 +125,23 @@ const AppNavigation = ({
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-56 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-border/50 dark:border-gray-700/50">
                 {userName && (
-                  <div className="px-2 py-2 border-b">
+                  <div className="px-2 py-2 border-b dark:border-gray-700">
                     <div className="flex items-center gap-1 mb-1">
-                      <p className="text-sm font-medium">{userName}</p>
+                      <p className="text-sm font-medium dark:text-gray-200">{userName}</p>
                       {isVerified && (
                         <Icon name="BadgeCheck" size={16} className="text-blue-500" />
                       )}
                     </div>
-                    {userEmail && <p className="text-xs text-gray-500">{userEmail}</p>}
+                    {userEmail && <p className="text-xs text-gray-500 dark:text-gray-400">{userEmail}</p>}
                   </div>
                 )}
-                <DropdownMenuItem onClick={() => navigate('/settings')} className="md:hidden">
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="md:hidden dark:text-gray-200">
                   <Icon name="Settings" size={18} className="mr-2" />
                   Настройки
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onLogout}>
+                <DropdownMenuItem onClick={onLogout} className="dark:text-gray-200">
                   <Icon name="LogOut" size={18} className="mr-2" />
                   Выйти
                 </DropdownMenuItem>
