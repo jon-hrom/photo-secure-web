@@ -64,7 +64,7 @@ const InteractiveCalendar = ({
         </CardTitle>
       </div>
       <CardContent className="p-4 sm:p-6">
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 shadow-inner">
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-4 shadow-inner">
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -110,8 +110,8 @@ const InteractiveCalendar = ({
             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
             <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Дата сегодня</p>
           </div>
-          <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-green-50 border border-green-200 rounded-lg sm:rounded-xl">
-            <p className="text-[10px] sm:text-xs text-green-700 font-medium text-center">
+          <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg sm:rounded-xl">
+            <p className="text-[10px] sm:text-xs text-green-700 dark:text-green-300 font-medium text-center">
               👆 Нажмите на дату для просмотра съёмок
             </p>
           </div>

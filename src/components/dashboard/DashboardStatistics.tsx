@@ -46,7 +46,7 @@ const DashboardStatistics = ({ trialDaysLeft, subscriptionDaysLeft, isTrialPerio
               {isTrialPeriod ? (
                 <div className="space-y-1.5 md:space-y-2">
                   <Badge className="bg-yellow-500 text-white text-[10px] md:text-xs">Пробный период</Badge>
-                  <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground dark:text-gray-600">
+                  <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground dark:text-gray-300">
                     <span>Осталось:</span>
                     <span className="font-bold text-yellow-700">{trialDaysLeft} дней</span>
                   </div>
@@ -55,7 +55,7 @@ const DashboardStatistics = ({ trialDaysLeft, subscriptionDaysLeft, isTrialPerio
               ) : (
                 <div className="space-y-1.5 md:space-y-2">
                   <Badge className="bg-green-500 text-white text-[10px] md:text-xs">Активная</Badge>
-                  <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground dark:text-gray-600">
+                  <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground dark:text-gray-300">
                     <span>Осталось:</span>
                     <span className="font-bold text-green-700">{subscriptionDaysLeft} дней</span>
                   </div>

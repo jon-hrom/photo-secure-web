@@ -163,14 +163,14 @@ const ClientsListSection = ({
                         key={client.id}
                         className="border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 group"
                       >
-                        <td className="p-2 md:p-3 text-center sticky left-0 bg-white group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 w-12"
+                        <td className="p-2 md:p-3 text-center sticky left-0 bg-white dark:bg-gray-900 group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 w-12"
                           onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedClients.includes(client.id)}
                             onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
                           />
                         </td>
-                        <td className="p-2 md:p-3 sticky left-12 bg-white group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)] relative transition-all duration-200 cursor-pointer"
+                        <td className="p-2 md:p-3 sticky left-12 bg-white dark:bg-gray-900 group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)] relative transition-all duration-200 cursor-pointer"
                           onClick={() => onSelectClient(client)}>
                           {hasAnyProjects(client) && (
                             <div className="absolute left-0 top-0 bottom-0 w-1 flex flex-col">

@@ -68,9 +68,9 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
         <CardContent className="space-y-3">
           {allHistoryItems.length === 0 ? (
             <div className="text-center py-8">
-              <Icon name="History" size={48} className="mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">История пуста</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <Icon name="History" size={48} className="mx-auto text-muted-foreground dark:text-gray-500 mb-3" />
+              <p className="text-muted-foreground dark:text-gray-400">История пуста</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400 mt-1">
                 Здесь будет отображаться история проектов, встреч и общения с клиентом
               </p>
             </div>
@@ -97,7 +97,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div>
-                            <h4 className="font-semibold text-gray-900">{project.name}</h4>
+                            <h4 className="font-semibold text-gray-900 dark:text-white">{project.name}</h4>
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <Badge variant={project.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
                                 {project.status === 'completed' ? 'Завершён' : 'Отменён'}
@@ -110,23 +110,23 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                               )}
                             </div>
                           </div>
-                          <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
+                          <Icon name="ChevronRight" size={20} className="text-muted-foreground dark:text-gray-400" />
                         </div>
                         <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
                           <div>
-                            <span className="text-muted-foreground">Дата:</span>
+                            <span className="text-muted-foreground dark:text-gray-400">Дата:</span>
                             <span className="ml-1 font-medium">
                               {new Date(project.startDate).toLocaleDateString('ru-RU')}
                             </span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">Бюджет:</span>
+                            <span className="text-muted-foreground dark:text-gray-400">Бюджет:</span>
                             <span className="ml-1 font-medium">{project.budget.toLocaleString('ru-RU')} ₽</span>
                           </div>
                         </div>
                         {totalPaid > 0 && (
                           <div className="text-sm mt-2">
-                            <span className="text-muted-foreground">Оплачено:</span>
+                            <span className="text-muted-foreground dark:text-gray-400">Оплачено:</span>
                             <span className="ml-1 font-medium text-green-600">{totalPaid.toLocaleString('ru-RU')} ₽</span>
                           </div>
                         )}
@@ -151,7 +151,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                         className="text-primary"
                       />
                       <span className="text-sm font-medium">{msg.author}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">
+                      <span className="text-xs text-muted-foreground dark:text-gray-400 ml-auto">
                         {formatDateTime(msg.date)}
                       </span>
                     </div>

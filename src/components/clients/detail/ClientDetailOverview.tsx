@@ -125,7 +125,7 @@ const ClientDetailOverview = ({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm">{comment.author}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground dark:text-gray-400">
                           {formatDateTime(comment.date)}
                         </span>
                       </div>

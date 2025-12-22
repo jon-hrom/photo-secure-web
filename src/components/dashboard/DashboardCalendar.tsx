@@ -104,7 +104,7 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
             </p>
           </div>
           
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-inner">
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-inner">
             <Calendar
               mode="single"
               selected={selectedDate}
