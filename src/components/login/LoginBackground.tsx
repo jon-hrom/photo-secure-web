@@ -41,11 +41,14 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       {currentImage && (
         <>
           <div 
-            className={`fixed inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ${
+            className={`fixed inset-0 transition-opacity duration-700 ${
               isLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
               backgroundImage: `url(${currentImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
               zIndex: 0
             }}
           />

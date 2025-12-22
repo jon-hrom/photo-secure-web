@@ -320,13 +320,9 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 relative"
+      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
       style={{
-        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundColor: backgroundImage ? undefined : '#f8f9fa',
+        backgroundColor: '#f8f9fa',
       }}
     >
       <LoginBackground 
