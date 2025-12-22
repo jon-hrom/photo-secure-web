@@ -69,7 +69,7 @@ const LoginFormFields = ({
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email" className="dark:text-gray-200">Email</Label>
           <Input
             id="email"
             type="email"
@@ -77,12 +77,12 @@ const LoginFormFields = ({
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             disabled={isBlocked}
-            className="rounded-xl"
+            className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Пароль</Label>
+          <Label htmlFor="password" className="dark:text-gray-200">Пароль</Label>
           <div className="relative">
             <Input
               id="password"
@@ -91,7 +91,7 @@ const LoginFormFields = ({
               value={password}
               onChange={(e) => handlePasswordChange(e.target.value)}
               disabled={isBlocked}
-              className="rounded-xl pr-10"
+              className="rounded-xl pr-10 dark:bg-gray-800 dark:text-white dark:border-gray-700"
               onKeyDown={(e) => e.key === 'Enter' && !isRegistering && onSubmit()}
             />
             <Button
@@ -115,17 +115,17 @@ const LoginFormFields = ({
 
         {isRegistering && (
           <div className="space-y-2">
-            <Label htmlFor="phone">Телефон *</Label>
+            <Label htmlFor="phone" className="dark:text-gray-200">Телефон *</Label>
             <Input
               id="phone"
               type="tel"
               placeholder="+7 (___) ___-__-__"
               value={phone}
               onChange={(e) => onPhoneChange(e.target.value)}
-              className="rounded-xl"
+              className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700"
               required
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground dark:text-gray-400">
               <Icon name="Info" size={12} className="inline mr-1" />
               Обязательное поле для регистрации
             </p>
