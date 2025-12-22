@@ -2,30 +2,67 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Icon from '@/components/ui/icon';
 import { ReactNode, useState, useEffect } from 'react';
 
+interface BackgroundImage {
+  id: string;
+  url: string;
+  name: string;
+}
+
 interface LoginCardProps {
   isRegistering: boolean;
   children: ReactNode;
 }
 
 const LoginCard = ({ isRegistering, children }: LoginCardProps) => {
-  const [cardBackgroundImage, setCardBackgroundImage] = useState<string | null>(null);
+  const [cardBackgroundImages, setCardBackgroundImages] = useState<BackgroundImage[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [transitionTime, setTransitionTime] = useState(5);
 
   useEffect(() => {
-    const savedCardBg = localStorage.getItem('loginCardBackground');
-    if (savedCardBg) {
-      setCardBackgroundImage(savedCardBg);
+    const savedCardImages = localStorage.getItem('cardBackgroundImages');
+    const savedTransitionTime = localStorage.getItem('cardTransitionTime');
+    
+    if (savedCardImages) {
+      setCardBackgroundImages(JSON.parse(savedCardImages));
     }
+    
+    if (savedTransitionTime) {
+      setTransitionTime(Number(savedTransitionTime));
+    }
+
+    const handleTransitionTimeChange = (e: CustomEvent) => {
+      setTransitionTime(e.detail);
+    };
+
+    window.addEventListener('cardTransitionTimeChange', handleTransitionTimeChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('cardTransitionTimeChange', handleTransitionTimeChange as EventListener);
+    };
   }, []);
+
+  useEffect(() => {
+    if (cardBackgroundImages.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % cardBackgroundImages.length);
+    }, transitionTime * 1000);
+
+    return () => clearInterval(interval);
+  }, [cardBackgroundImages.length, transitionTime]);
+
+  const currentBackground = cardBackgroundImages.length > 0 
+    ? cardBackgroundImages[currentImageIndex].url 
+    : 'https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg';
 
   return (
     <Card 
       className="w-full max-w-md shadow-2xl relative z-10 overflow-hidden"
       style={{
-        backgroundImage: cardBackgroundImage 
-          ? `url(${cardBackgroundImage})` 
-          : `url(https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg)`,
+        backgroundImage: `url(${currentBackground})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        transition: 'background-image 1s ease-in-out',
       }}
     >
       <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-0" />

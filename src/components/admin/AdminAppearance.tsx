@@ -36,10 +36,18 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const [newYearMode, setNewYearMode] = useState(
     localStorage.getItem('newYearMode') === 'true'
   );
-  const [cardBackgroundImage, setCardBackgroundImage] = useState<string | null>(
-    localStorage.getItem('loginCardBackground') || null
+  const [cardBackgroundImages, setCardBackgroundImages] = useState<BackgroundImage[]>([]);
+  const [cardTransitionTime, setCardTransitionTime] = useState<number>(
+    Number(localStorage.getItem('cardTransitionTime')) || 5
   );
   const { toast } = useToast();
+
+  useState(() => {
+    const savedCardImages = localStorage.getItem('cardBackgroundImages');
+    if (savedCardImages) {
+      setCardBackgroundImages(JSON.parse(savedCardImages));
+    }
+  });
 
   useState(() => {
     const savedImages = localStorage.getItem('backgroundImages');
@@ -203,38 +211,52 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const handleCardBackgroundUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const file = files[0];
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Ошибка',
-        description: 'Выберите изображение',
-        variant: 'destructive',
+    const newImages: BackgroundImage[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) continue;
+
+      const reader = new FileReader();
+      await new Promise<void>((resolve) => {
+        reader.onload = (e) => {
+          newImages.push({
+            id: `card-bg-${Date.now()}-${i}`,
+            url: e.target?.result as string,
+            name: file.name,
+          });
+          resolve();
+        };
+        reader.readAsDataURL(file);
       });
-      return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageUrl = e.target?.result as string;
-      setCardBackgroundImage(imageUrl);
-      localStorage.setItem('loginCardBackground', imageUrl);
-      
-      toast({
-        title: 'Фон карточки обновлён',
-        description: 'Изменения применены к странице входа',
-      });
-    };
-    reader.readAsDataURL(file);
+    const updatedImages = [...cardBackgroundImages, ...newImages];
+    setCardBackgroundImages(updatedImages);
+    localStorage.setItem('cardBackgroundImages', JSON.stringify(updatedImages));
+    
+    toast({
+      title: 'Фоны карточки добавлены',
+      description: `Загружено ${newImages.length} изображений`,
+    });
   };
 
-  const handleCardBackgroundRemove = () => {
-    setCardBackgroundImage(null);
-    localStorage.removeItem('loginCardBackground');
+  const handleCardBackgroundRemove = (id: string) => {
+    const updatedImages = cardBackgroundImages.filter(img => img.id !== id);
+    setCardBackgroundImages(updatedImages);
+    localStorage.setItem('cardBackgroundImages', JSON.stringify(updatedImages));
     
     toast({
       title: 'Фон карточки удалён',
-      description: 'Фон карточки входа удалён',
+      description: 'Изображение удалено из галереи',
     });
+  };
+
+  const handleCardTransitionTimeChange = (value: number[]) => {
+    const time = value[0];
+    setCardTransitionTime(time);
+    localStorage.setItem('cardTransitionTime', time.toString());
+    window.dispatchEvent(new CustomEvent('cardTransitionTimeChange', { detail: time }));
   };
 
   return (
@@ -266,9 +288,11 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
         <BackgroundSettings
           backgroundOpacity={backgroundOpacity}
           onOpacityChange={handleOpacityChange}
-          cardBackgroundImage={cardBackgroundImage}
+          cardBackgroundImages={cardBackgroundImages}
+          cardTransitionTime={cardTransitionTime}
           onCardBackgroundUpload={handleCardBackgroundUpload}
           onCardBackgroundRemove={handleCardBackgroundRemove}
+          onCardTransitionTimeChange={handleCardTransitionTimeChange}
         />
 
         <Separator />
