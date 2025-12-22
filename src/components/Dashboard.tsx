@@ -260,7 +260,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
       </Card>
         
         <Card 
-          className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 border-0 shadow-xl cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group w-full lg:w-1/2"
+          className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 border-0 shadow-xl cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group w-full lg:w-1/2"
           onClick={() => onOpenTariffs?.()}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -272,8 +272,8 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                     <Icon name="HardDrive" size={16} className="text-white sm:w-[18px] sm:h-[18px] md:w-5 md:h-5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-bold text-sm sm:text-base md:text-lg text-gray-900 dark:text-gray-900">Фото банк</h3>
-                    <Badge variant="outline" className="text-[10px] sm:text-xs mt-0.5 sm:mt-1 bg-white/50 backdrop-blur-sm">{storageUsage.plan_name}</Badge>
+                    <h3 className="font-bold text-sm sm:text-base md:text-lg text-gray-900 dark:text-white">Фото банк</h3>
+                    <Badge variant="outline" className="text-[10px] sm:text-xs mt-0.5 sm:mt-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm dark:text-gray-200 dark:border-gray-600">{storageUsage.plan_name}</Badge>
                   </div>
                 </div>
                 <Badge 
@@ -287,7 +287,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                 value={storageUsage.percent || 0} 
                 className="h-2 sm:h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
               />
-              <div className="flex justify-between text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground dark:text-gray-600">
+              <div className="flex justify-between text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground dark:text-gray-300">
                 <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ</span>
                 <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ</span>
               </div>
