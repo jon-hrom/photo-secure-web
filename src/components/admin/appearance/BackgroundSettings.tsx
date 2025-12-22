@@ -1,6 +1,7 @@
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import Icon from '@/components/ui/icon';
 import { BackgroundImage } from './BackgroundGallery';
 
@@ -12,6 +13,8 @@ interface BackgroundSettingsProps {
   onCardBackgroundUpload: (files: FileList | null) => void;
   onCardBackgroundRemove: (id: string) => void;
   onCardTransitionTimeChange: (value: number[]) => void;
+  garlandEnabled: boolean;
+  onGarlandToggle: (enabled: boolean) => void;
 }
 
 const BackgroundSettings = ({ 
@@ -21,7 +24,9 @@ const BackgroundSettings = ({
   cardTransitionTime,
   onCardBackgroundUpload,
   onCardBackgroundRemove,
-  onCardTransitionTimeChange
+  onCardTransitionTimeChange,
+  garlandEnabled,
+  onGarlandToggle
 }: BackgroundSettingsProps) => {
   return (
     <div className="space-y-6">
@@ -109,6 +114,21 @@ const BackgroundSettings = ({
         <p className="text-xs text-muted-foreground">
           Загруженные изображения будут плавно сменять друг друга на карточке входа
         </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <Label className="text-sm font-medium">Новогодняя гирлянда</Label>
+            <p className="text-xs text-muted-foreground">
+              Включить декоративную гирлянду на странице входа
+            </p>
+          </div>
+          <Switch
+            checked={garlandEnabled}
+            onCheckedChange={onGarlandToggle}
+          />
+        </div>
       </div>
     </div>
   );

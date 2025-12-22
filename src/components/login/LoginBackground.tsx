@@ -7,12 +7,22 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   return (
     <>
       {backgroundImage && (
-        <div 
-          className="absolute inset-0 backdrop-blur-sm" 
-          style={{
-            backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity / 100})`
-          }}
-        />
+        <>
+          <div 
+            className="fixed inset-0 bg-cover bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url(${backgroundImage})`,
+              zIndex: 0
+            }}
+          />
+          <div 
+            className="fixed inset-0" 
+            style={{
+              backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity / 100})`,
+              zIndex: 1
+            }}
+          />
+        </>
       )}
     </>
   );

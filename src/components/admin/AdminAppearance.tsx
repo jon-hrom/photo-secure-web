@@ -40,6 +40,9 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const [cardTransitionTime, setCardTransitionTime] = useState<number>(
     Number(localStorage.getItem('cardTransitionTime')) || 5
   );
+  const [garlandEnabled, setGarlandEnabled] = useState(
+    localStorage.getItem('garlandEnabled') === 'true'
+  );
   const { toast } = useToast();
 
   useState(() => {
@@ -259,6 +262,13 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     window.dispatchEvent(new CustomEvent('cardTransitionTimeChange', { detail: time }));
   };
 
+  const handleGarlandToggle = (enabled: boolean) => {
+    setGarlandEnabled(enabled);
+    localStorage.setItem('garlandEnabled', enabled.toString());
+    window.dispatchEvent(new CustomEvent('garlandToggle', { detail: enabled }));
+    sonnerToast.success(enabled ? '🎄 Гирлянда включена' : 'Гирлянда выключена');
+  };
+
   return (
     <Card>
       <CardHeader 
@@ -293,6 +303,8 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
           onCardBackgroundUpload={handleCardBackgroundUpload}
           onCardBackgroundRemove={handleCardBackgroundRemove}
           onCardTransitionTimeChange={handleCardTransitionTimeChange}
+          garlandEnabled={garlandEnabled}
+          onGarlandToggle={handleGarlandToggle}
         />
 
         <Separator />

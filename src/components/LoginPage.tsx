@@ -8,6 +8,7 @@ import LoginBackground from '@/components/login/LoginBackground';
 import LoginCard from '@/components/login/LoginCard';
 import LoginFormFields from '@/components/login/LoginFormFields';
 import OAuthProviders from '@/components/login/OAuthProviders';
+import NewYearDecorations from '@/components/NewYearDecorations';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string) => void;
@@ -42,6 +43,9 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   } | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loginAttemptFailed, setLoginAttemptFailed] = useState(false);
+  const [showGarland, setShowGarland] = useState(
+    localStorage.getItem('garlandEnabled') === 'true'
+  );
 
   useEffect(() => {
     const selectedBgId = localStorage.getItem('loginPageBackground');
@@ -60,6 +64,16 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     if (savedOpacity) {
       setBackgroundOpacity(Number(savedOpacity));
     }
+
+    const handleGarlandToggle = (e: CustomEvent) => {
+      setShowGarland(e.detail);
+    };
+
+    window.addEventListener('garlandToggle', handleGarlandToggle as EventListener);
+    
+    return () => {
+      window.removeEventListener('garlandToggle', handleGarlandToggle as EventListener);
+    };
   }, []);
 
   useEffect(() => {
@@ -312,6 +326,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         backgroundImage={backgroundImage} 
         backgroundOpacity={backgroundOpacity} 
       />
+
+      {showGarland && <NewYearDecorations />}
 
       <LoginCard isRegistering={isRegistering}>
         <LoginFormFields
