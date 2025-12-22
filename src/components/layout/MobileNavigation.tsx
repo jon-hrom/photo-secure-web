@@ -158,7 +158,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
               key={item.path}
               variant="ghost"
               className={cn(
-                'flex flex-col items-center gap-0.5 h-auto py-2 px-3 relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border-2 border-border/50 dark:border-gray-700/50 shadow-2xl hover:shadow-3xl',
+                'flex flex-col items-center gap-0.5 h-auto py-2 px-3 relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 backdrop-blur-xl border-2 border-border/50 dark:border-gray-700/50 shadow-2xl hover:shadow-3xl',
                 isActive(item.path) && 'border-primary/50',
                 getNavClassName(item.path)
               )}
@@ -198,7 +198,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
             className={cn(
               'flex flex-col items-center gap-0.5 h-auto py-2 px-3 transition-all duration-300 relative backdrop-blur-sm border-2 shadow-2xl hover:shadow-3xl select-none cursor-grab active:cursor-grabbing touch-none',
               isExpanded 
-                ? 'bg-white/90 dark:bg-gray-800/90 border-border/50 dark:border-gray-700/50' 
+                ? 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-border/50 dark:border-gray-700/50' 
                 : 'bg-white/20 dark:bg-gray-800/20 border-white/20 dark:border-gray-700/20 hover:bg-white/30 dark:hover:bg-gray-800/30',
               isActive('dashboard') && 'border-primary/50',
               isDragging && 'cursor-grabbing'
