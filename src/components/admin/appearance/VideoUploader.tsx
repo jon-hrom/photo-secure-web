@@ -299,8 +299,11 @@ const VideoUploader = ({
             const updatedVideos = [...videos, newVideo];
             onVideosChange(updatedVideos);
             
+            // Автоматически выбираем загруженное видео
+            onSelectVideo(newVideo.id);
+            
             setUploadProgress(100);
-            toast.success('Видео загружено! Доступно через CDN');
+            toast.success('Видео загружено и установлено как фон!');
             
             setTimeout(() => {
               setIsUploading(false);
@@ -428,6 +431,11 @@ const VideoUploader = ({
         <p className="text-xs text-muted-foreground">
           Загрузите видео для анимированного фона. Рекомендуется использовать оптимизированные видео до 10 МБ.
         </p>
+        {videos.length > 0 && !selectedVideoId && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+            💡 Кликните на видео ниже, чтобы установить его как фон
+          </p>
+        )}
       </div>
 
       {videos.length > 0 && (
