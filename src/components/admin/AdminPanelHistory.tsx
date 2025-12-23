@@ -38,11 +38,11 @@ const AdminPanelHistory = ({ history, showHistory, onRollback }: AdminPanelHisto
                 <Icon name="Settings" size={16} />
                 Настройки ({Object.keys(data.settings).length})
               </h4>
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="bg-muted/50 dark:bg-muted/30 rounded-lg p-3 space-y-2">
                 {Object.entries(data.settings).map(([key, value]: [string, any]) => (
                   <div key={key} className="flex justify-between items-start gap-4 text-sm">
-                    <span className="font-medium text-muted-foreground">{key}:</span>
-                    <span className="text-right font-mono">
+                    <span className="font-medium text-muted-foreground dark:text-gray-400">{key}:</span>
+                    <span className="text-right font-mono text-gray-900 dark:text-gray-100">
                       {typeof value === 'boolean' ? (value ? '✓ Включено' : '✗ Выключено') : String(value)}
                     </span>
                   </div>
@@ -57,16 +57,16 @@ const AdminPanelHistory = ({ history, showHistory, onRollback }: AdminPanelHisto
                 <Icon name="Palette" size={16} />
                 Цвета ({Object.keys(data.colors).length})
               </h4>
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="bg-muted/50 dark:bg-muted/30 rounded-lg p-3 space-y-2">
                 {Object.entries(data.colors).map(([key, value]: [string, any]) => (
                   <div key={key} className="flex justify-between items-center gap-4 text-sm">
-                    <span className="font-medium text-muted-foreground">{key}:</span>
+                    <span className="font-medium text-muted-foreground dark:text-gray-400">{key}:</span>
                     <div className="flex items-center gap-2">
                       <div 
-                        className="w-8 h-8 rounded border-2 border-border"
+                        className="w-8 h-8 rounded border-2 border-border dark:border-gray-600"
                         style={{ backgroundColor: value }}
                       />
-                      <span className="font-mono">{value}</span>
+                      <span className="font-mono text-gray-900 dark:text-gray-100">{value}</span>
                     </div>
                   </div>
                 ))}
@@ -80,12 +80,12 @@ const AdminPanelHistory = ({ history, showHistory, onRollback }: AdminPanelHisto
                 <Icon name="Grid3x3" size={16} />
                 Виджеты ({data.widgets.length})
               </h4>
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="bg-muted/50 dark:bg-muted/30 rounded-lg p-3 space-y-2">
                 {data.widgets.map((widget: any, idx: number) => (
                   <div key={idx} className="text-sm">
-                    <span className="font-medium">{widget.widget_name || widget.name}</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{widget.widget_name || widget.name}</span>
                     {' - '}
-                    <span className={widget.enabled ? 'text-green-600' : 'text-muted-foreground'}>
+                    <span className={widget.enabled ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground dark:text-gray-400'}>
                       {widget.enabled ? 'Включен' : 'Выключен'}
                     </span>
                   </div>
@@ -97,8 +97,8 @@ const AdminPanelHistory = ({ history, showHistory, onRollback }: AdminPanelHisto
       );
     } catch (error) {
       return (
-        <div className="bg-muted/50 rounded-lg p-3">
-          <pre className="text-xs overflow-auto">{JSON.stringify(changeData, null, 2)}</pre>
+        <div className="bg-muted/50 dark:bg-muted/30 rounded-lg p-3">
+          <pre className="text-xs overflow-auto text-gray-900 dark:text-gray-100">{JSON.stringify(changeData, null, 2)}</pre>
         </div>
       );
     }
@@ -106,24 +106,24 @@ const AdminPanelHistory = ({ history, showHistory, onRollback }: AdminPanelHisto
 
   return (
     <>
-      <Card>
+      <Card className="bg-white dark:bg-gray-800">
         <CardContent className="pt-6">
-          <h3 className="text-lg font-semibold mb-4">История изменений</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">История изменений</h3>
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {history.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl bg-card gap-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border dark:border-gray-700 rounded-xl bg-card dark:bg-gray-800 gap-3 hover:bg-muted/50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                 onClick={() => setSelectedItem(item)}
               >
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
-                    <Icon name="FileText" size={16} className="text-muted-foreground" />
-                    <p className="text-sm font-medium">
+                    <Icon name="FileText" size={16} className="text-muted-foreground dark:text-gray-400" />
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       Версия #{item.id}
                     </p>
                   </div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground dark:text-gray-400 flex items-center gap-2">
                     <Icon name="Clock" size={12} />
                     {new Date(item.createdAt || item.changed_at).toLocaleString('ru-RU', {
                       day: '2-digit',

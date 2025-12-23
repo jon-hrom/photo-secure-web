@@ -55,15 +55,15 @@ const AdminPanelTabs = ({
   return (
     <Accordion type="multiple" className="space-y-4">
       <AccordionItem value="storage">
-        <AccordionTrigger className="text-lg font-semibold">Хранилище и тарифы</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Хранилище и тарифы</AccordionTrigger>
         <AccordionContent>
-          <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border-2 border-blue-200">
+          <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg border-2 border-blue-200 dark:border-blue-800">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-blue-500 rounded-lg">
+              <div className="p-3 bg-blue-500 dark:bg-blue-600 rounded-lg">
                 <Icon name="Database" className="h-8 w-8 text-white" />
               </div>
               <div className="flex-1">
-                <h3 className="text-xl font-bold mb-2">Управление хранилищем</h3>
+                <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-gray-100">Управление хранилищем</h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   Управление тарифными планами, квотами пользователей, статистикой загрузок и финансовой аналитикой
                 </p>
@@ -100,35 +100,35 @@ const AdminPanelTabs = ({
       </AccordionItem>
 
       <AccordionItem value="max-templates">
-        <AccordionTrigger className="text-lg font-semibold">Шаблоны MAX сообщений</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Шаблоны MAX сообщений</AccordionTrigger>
         <AccordionContent>
           <MaxTemplates />
         </AccordionContent>
       </AccordionItem>
 
       <AccordionItem value="sms">
-        <AccordionTrigger className="text-lg font-semibold">SMS уведомления</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">SMS уведомления</AccordionTrigger>
         <AccordionContent>
           <SmsBalanceManager />
         </AccordionContent>
       </AccordionItem>
 
       <AccordionItem value="emails">
-        <AccordionTrigger className="text-lg font-semibold">Email уведомления</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Email уведомления</AccordionTrigger>
         <AccordionContent>
           <EmailNotifications />
         </AccordionContent>
       </AccordionItem>
 
       <AccordionItem value="notification-sound">
-        <AccordionTrigger className="text-lg font-semibold">Звук уведомлений</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Звук уведомлений</AccordionTrigger>
         <AccordionContent>
           <NotificationSoundSettings />
         </AccordionContent>
       </AccordionItem>
 
       <AccordionItem value="general">
-        <AccordionTrigger className="text-lg font-semibold">Основные настройки</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Основные настройки</AccordionTrigger>
         <AccordionContent>
           <AdminGeneralSettings
             settings={settings}
@@ -139,7 +139,7 @@ const AdminPanelTabs = ({
       </AccordionItem>
 
       <AccordionItem value="auth">
-        <AccordionTrigger className="text-lg font-semibold">Авторизация</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Авторизация</AccordionTrigger>
         <AccordionContent>
           <AdminAuthProviders
             authProviders={authProviders}
@@ -149,7 +149,7 @@ const AdminPanelTabs = ({
       </AccordionItem>
 
       <AccordionItem value="appearance">
-        <AccordionTrigger className="text-lg font-semibold">Внешний вид</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Внешний вид</AccordionTrigger>
         <AccordionContent>
           <AdminAppearance
             colors={colors}
@@ -160,7 +160,7 @@ const AdminPanelTabs = ({
       </AccordionItem>
 
       <AccordionItem value="widgets">
-        <AccordionTrigger className="text-lg font-semibold">Виджеты</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Виджеты</AccordionTrigger>
         <AccordionContent>
           <AdminWidgets
             widgets={widgets}
@@ -171,7 +171,7 @@ const AdminPanelTabs = ({
       </AccordionItem>
 
       <AccordionItem value="users">
-        <AccordionTrigger className="text-lg font-semibold">Пользователи</AccordionTrigger>
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Пользователи</AccordionTrigger>
         <AccordionContent>
           <EnhancedAdminUsers 
             users={users} 
@@ -184,7 +184,7 @@ const AdminPanelTabs = ({
       </AccordionItem>
 
       <AccordionItem value="max-settings">
-        <AccordionTrigger className="text-lg font-semibold">
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           <div className="flex items-center gap-2">
             <Icon name="Settings" size={20} />
             Настройки MAX (Единая система)

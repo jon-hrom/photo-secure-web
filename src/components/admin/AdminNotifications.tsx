@@ -68,9 +68,9 @@ const AdminNotifications = () => {
   if (unreadMessages.length === 0) return null;
 
   return (
-    <Card className="border-orange-200 bg-orange-50">
+    <Card className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/50">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-orange-800">
+        <CardTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-300">
           <Icon name="Bell" className="h-5 w-5" />
           Уведомления ({unreadMessages.length})
         </CardTitle>
@@ -79,17 +79,17 @@ const AdminNotifications = () => {
         {unreadMessages.map((msg) => (
           <div
             key={msg.id}
-            className="flex items-start gap-3 p-3 bg-white rounded-lg border border-orange-200"
+            className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-orange-800"
           >
             <Icon 
               name={msg.priority === 'high' ? 'AlertCircle' : 'Info'} 
               className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
-                msg.priority === 'high' ? 'text-red-600' : 'text-blue-600'
+                msg.priority === 'high' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'
               }`}
             />
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-800 break-words">{msg.message_text}</p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm text-gray-800 dark:text-gray-200 break-words">{msg.message_text}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {new Date(msg.created_at).toLocaleString('ru-RU')}
               </p>
             </div>
