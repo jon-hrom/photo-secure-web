@@ -259,7 +259,7 @@ const ContactInfoCard = ({
             <div className="w-5 h-5 mt-0.5 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-sm">
               <span className="text-white font-bold text-[10px]">M</span>
             </div>
-            <p className="text-blue-800"><span className="font-semibold">MAX мессенджер:</span> Ваш подтвержденный номер телефона используется для доступа</p>
+            <p className="text-blue-800">Ваш подтвержденный номер телефона используется для уведомлений</p>
           </div>
         </div>
       </CardContent>
