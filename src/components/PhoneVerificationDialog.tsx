@@ -17,14 +17,16 @@ interface PhoneVerificationDialogProps {
   open: boolean;
   onClose: () => void;
   onVerified: () => void;
-  phone: string;
+  userId: string;
+  userPhone: string;
 }
 
 const PhoneVerificationDialog = ({
   open,
   onClose,
   onVerified,
-  phone,
+  userId,
+  userPhone,
 }: PhoneVerificationDialogProps) => {
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +50,7 @@ const PhoneVerificationDialog = ({
   const handleSendCode = async () => {
     setIsSendingCode(true);
     try {
-      const result = await sendVerificationCode(phone);
+      const result = await sendVerificationCode(userPhone);
       
       if (result.ok) {
         setCodeSent(true);
@@ -75,7 +77,7 @@ const PhoneVerificationDialog = ({
 
     setIsLoading(true);
     try {
-      const result = await verifyPhoneCode(phone, code);
+      const result = await verifyPhoneCode(userPhone, code);
       
       if (result.ok) {
         toast.success('Телефон успешно подтвержден!');
@@ -108,7 +110,7 @@ const PhoneVerificationDialog = ({
             Подтверждение телефона
           </DialogTitle>
           <DialogDescription className="text-xs md:text-sm">
-            Введите код из SMS, отправленного на номер {phone}
+            Введите код из SMS, отправленного на номер {userPhone}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-4">
