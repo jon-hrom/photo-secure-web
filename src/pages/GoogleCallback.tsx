@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
+import TwoFactorDialog from '@/components/TwoFactorDialog';
 import funcUrls from '../../backend/func2url.json';
 
 const GoogleCallback = () => {
@@ -10,6 +11,13 @@ const GoogleCallback = () => {
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(true);
   const [showAppealDialog, setShowAppealDialog] = useState(false);
+  const [show2FADialog, setShow2FADialog] = useState(false);
+  const [twoFactorData, setTwoFactorData] = useState<{
+    userId: number;
+    userEmail: string;
+    tempToken: string;
+    profile: any;
+  } | null>(null);
   const [blockedUserData, setBlockedUserData] = useState<{
     userId?: number;
     userEmail?: string;
@@ -51,6 +59,20 @@ const GoogleCallback = () => {
           return;
         }
         
+        if (data.requires2FA) {
+          console.log('GoogleCallback: 2FA required');
+          setTwoFactorData({
+            userId: data.user_id,
+            userEmail: data.user_email,
+            tempToken: data.temp_token,
+            profile: data.profile
+          });
+          setShow2FADialog(true);
+          setProcessing(false);
+          toast.info('Требуется двухфакторная аутентификация');
+          return;
+        }
+        
         if (data.success && data.profile) {
           const { profile, user_id } = data;
           
@@ -85,6 +107,25 @@ const GoogleCallback = () => {
     processCallback();
   }, [searchParams, navigate]);
 
+  const handle2FASuccess = () => {
+    if (!twoFactorData) return;
+    
+    const userData = {
+      user_id: twoFactorData.userId,
+      google_sub: twoFactorData.profile.sub,
+      email: twoFactorData.profile.email,
+      name: twoFactorData.profile.name,
+      avatar: twoFactorData.profile.picture,
+      verified_email: twoFactorData.profile.verified_email
+    };
+    
+    localStorage.setItem('google_user', JSON.stringify(userData));
+    localStorage.setItem('auth_token', twoFactorData.tempToken);
+    
+    toast.success(`Добро пожаловать, ${twoFactorData.profile.name || 'пользователь'}!`);
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-100">
       <div className="text-center">
@@ -95,10 +136,26 @@ const GoogleCallback = () => {
           </>
         ) : showAppealDialog ? (
           <p className="text-lg text-gray-700">Ваш аккаунт заблокирован</p>
+        ) : show2FADialog ? (
+          <p className="text-lg text-gray-700">Требуется подтверждение...</p>
         ) : (
           <p className="text-lg text-gray-700">Перенаправление...</p>
         )}
       </div>
+
+      {show2FADialog && twoFactorData && (
+        <TwoFactorDialog
+          open={show2FADialog}
+          userId={twoFactorData.userId}
+          userEmail={twoFactorData.userEmail}
+          type="email"
+          onSuccess={handle2FASuccess}
+          onCancel={() => {
+            setShow2FADialog(false);
+            navigate('/');
+          }}
+        />
+      )}
 
       <Dialog open={showAppealDialog} onOpenChange={(open) => {
         setShowAppealDialog(open);

@@ -5,6 +5,7 @@ import MobileNavigation from '@/components/layout/MobileNavigation';
 import { toast } from 'sonner';
 import funcUrls from '../../../backend/func2url.json';
 import SecuritySettings from '@/components/settings/SecuritySettings';
+import MultiEmailCard from '@/components/settings/MultiEmailCard';
 
 interface UserSettings {
   id: number;
@@ -248,18 +249,6 @@ const Settings = () => {
             <section>
               <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Профиль</h2>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                  <input 
-                    type="email" 
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-gray-100"
-                    value={settings?.email || ''}
-                    disabled
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {settings?.email_verified_at ? '✓ Подтверждён' : 'Не подтверждён'}
-                  </p>
-                </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Отображаемое имя</label>
@@ -391,6 +380,12 @@ const Settings = () => {
                 </label>
               </div>
             </section>
+
+            {settings?.id && (
+              <div className="mt-6">
+                <MultiEmailCard userId={settings.id} />
+              </div>
+            )}
 
             <SecuritySettings 
               userId={settings?.id || 0}

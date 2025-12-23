@@ -30,6 +30,74 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
+def get_user_emails(user_id: int) -> list[Dict[str, Any]]:
+    """Получение всех email-адресов пользователя"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT id, user_id, email, provider, is_primary, is_verified, 
+                       verified_at, added_at, last_used_at
+                FROM {SCHEMA}.user_emails 
+                WHERE user_id = {escape_sql(user_id)}
+                ORDER BY is_primary DESC, added_at DESC
+            """)
+            emails = cur.fetchall()
+            return [dict(email) for email in emails]
+    finally:
+        conn.close()
+
+
+def set_primary_email(user_id: int, email_id: int) -> bool:
+    """Установка основного email"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Проверяем, что email принадлежит пользователю и верифицирован
+            cur.execute(f"""
+                SELECT is_verified FROM {SCHEMA}.user_emails 
+                WHERE id = {escape_sql(email_id)} AND user_id = {escape_sql(user_id)}
+            """)
+            email = cur.fetchone()
+            
+            if not email:
+                return False
+            
+            if not email['is_verified']:
+                raise Exception('Можно установить только верифицированный email')
+            
+            # Снимаем флаг primary со всех email пользователя
+            cur.execute(f"""
+                UPDATE {SCHEMA}.user_emails 
+                SET is_primary = FALSE
+                WHERE user_id = {escape_sql(user_id)}
+            """)
+            
+            # Устанавливаем новый primary
+            cur.execute(f"""
+                UPDATE {SCHEMA}.user_emails 
+                SET is_primary = TRUE
+                WHERE id = {escape_sql(email_id)} AND user_id = {escape_sql(user_id)}
+            """)
+            
+            # Обновляем email в users (для совместимости)
+            cur.execute(f"""
+                UPDATE {SCHEMA}.users 
+                SET email = (SELECT email FROM {SCHEMA}.user_emails WHERE id = {escape_sql(email_id)}),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = {escape_sql(user_id)}
+            """)
+            
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"[USER_SETTINGS] Set primary email error: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
 def get_user_settings(user_id: int) -> Optional[Dict[str, Any]]:
     """Получение настроек пользователя"""
     conn = get_db_connection()
@@ -189,6 +257,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     # GET - получение настроек
     if method == 'GET':
+        query_params = event.get('queryStringParameters', {}) or {}
+        action = query_params.get('action', 'get-settings')
+        
+        # Получение списка email-адресов
+        if action == 'get-emails':
+            emails = get_user_emails(user_id)
+            
+            # Преобразуем datetime в строки для JSON
+            for email in emails:
+                for key, value in email.items():
+                    if hasattr(value, 'isoformat'):
+                        email[key] = value.isoformat()
+            
+            return {
+                'statusCode': 200,
+                'headers': cors_headers,
+                'body': json.dumps({
+                    'success': True,
+                    'emails': emails
+                }),
+                'isBase64Encoded': False
+            }
+        
+        # Получение настроек пользователя (default)
         settings = get_user_settings(user_id)
         
         if not settings:
@@ -226,6 +318,47 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        # Установка основного email
+        action = body_data.get('action')
+        if action == 'set-primary-email':
+            email_id = body_data.get('email_id')
+            if not email_id:
+                return {
+                    'statusCode': 400,
+                    'headers': cors_headers,
+                    'body': json.dumps({'success': False, 'error': 'Требуется email_id'}),
+                    'isBase64Encoded': False
+                }
+            
+            try:
+                success = set_primary_email(user_id, email_id)
+                
+                if success:
+                    return {
+                        'statusCode': 200,
+                        'headers': cors_headers,
+                        'body': json.dumps({
+                            'success': True,
+                            'message': 'Основной email обновлён'
+                        }),
+                        'isBase64Encoded': False
+                    }
+                else:
+                    return {
+                        'statusCode': 400,
+                        'headers': cors_headers,
+                        'body': json.dumps({'success': False, 'error': 'Не удалось установить основной email'}),
+                        'isBase64Encoded': False
+                    }
+            except Exception as e:
+                return {
+                    'statusCode': 400,
+                    'headers': cors_headers,
+                    'body': json.dumps({'success': False, 'error': str(e)}),
+                    'isBase64Encoded': False
+                }
+        
+        # Обновление настроек пользователя (default action)
         success = update_user_settings(user_id, body_data)
         
         if success:
