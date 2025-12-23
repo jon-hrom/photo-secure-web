@@ -26,8 +26,6 @@ export const useSettingsData = () => {
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [interests, setInterests] = useState('');
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [smsNotifications, setSmsNotifications] = useState(false);
 
   const getUserId = (): number | null => {
     const vkUser = localStorage.getItem('vk_user');
@@ -96,8 +94,6 @@ export const useSettingsData = () => {
         setBio(s.bio || '');
         setLocation(s.location || '');
         setInterests(s.interests || '');
-        setEmailNotifications(s.two_factor_email || false);
-        setSmsNotifications(s.two_factor_sms || false);
         
         return s;
       } else {
@@ -132,9 +128,7 @@ export const useSettingsData = () => {
         body: JSON.stringify({
           bio: bio,
           location: location,
-          interests: interests,
-          two_factor_email: emailNotifications,
-          two_factor_sms: smsNotifications
+          interests: interests
         })
       });
 
@@ -167,10 +161,6 @@ export const useSettingsData = () => {
     setLocation,
     interests,
     setInterests,
-    emailNotifications,
-    setEmailNotifications,
-    smsNotifications,
-    setSmsNotifications,
     getUserId,
     loadSettings,
     saveSettings

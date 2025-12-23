@@ -6,7 +6,7 @@ import MultiEmailCard from '@/components/settings/MultiEmailCard';
 import NewYearSettings from '@/components/settings/NewYearSettings';
 import ProfileSection from '@/components/settings/ProfileSection';
 import ThemeSection from '@/components/settings/ThemeSection';
-import NotificationsSection from '@/components/settings/NotificationsSection';
+
 import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
@@ -27,10 +27,7 @@ const Settings = () => {
     setLocation,
     interests,
     setInterests,
-    emailNotifications,
-    setEmailNotifications,
-    smsNotifications,
-    setSmsNotifications,
+
     getUserId,
     loadSettings,
     saveSettings
@@ -202,13 +199,6 @@ const Settings = () => {
             <ThemeSection
               theme={theme}
               onThemeChange={handleThemeChange}
-            />
-
-            <NotificationsSection
-              emailNotifications={emailNotifications}
-              setEmailNotifications={setEmailNotifications}
-              smsNotifications={smsNotifications}
-              setSmsNotifications={setSmsNotifications}
             />
 
             {settings && (
