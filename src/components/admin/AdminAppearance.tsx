@@ -288,14 +288,28 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const handleSelectVideo = (videoId: string | null) => {
     setSelectedVideoId(videoId);
     if (videoId) {
+      const selectedVideo = backgroundVideos.find(v => v.id === videoId);
       localStorage.setItem('loginPageVideo', videoId);
+      
+      if (selectedVideo) {
+        // Сохраняем URL для быстрого доступа
+        localStorage.setItem('loginPageVideoUrl', selectedVideo.url);
+        // Отправляем событие с ID и URL
+        window.dispatchEvent(new CustomEvent('backgroundVideoChange', { 
+          detail: { id: videoId, url: selectedVideo.url } 
+        }));
+      } else {
+        // Fallback: только ID (для старых данных)
+        window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: { id: videoId } }));
+      }
+      
       // Убираем фоновое изображение если выбрано видео
       setSelectedBackgroundId(null);
       localStorage.removeItem('loginPageBackground');
-      window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: videoId }));
       sonnerToast.success('Фоновое видео применено');
     } else {
       localStorage.removeItem('loginPageVideo');
+      localStorage.removeItem('loginPageVideoUrl');
       window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: null }));
       sonnerToast.info('Фоновое видео отключено');
     }
@@ -308,6 +322,7 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     if (selectedVideoId === videoId) {
       setSelectedVideoId(null);
       localStorage.removeItem('loginPageVideo');
+      localStorage.removeItem('loginPageVideoUrl');
       window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: null }));
     }
   };

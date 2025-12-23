@@ -16,8 +16,18 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   useEffect(() => {
     const loadVideo = async () => {
       const selectedVideoId = localStorage.getItem('loginPageVideo');
+      const selectedVideoUrl = localStorage.getItem('loginPageVideoUrl');
       console.log('[LOGIN_BG] Selected video ID:', selectedVideoId);
+      console.log('[LOGIN_BG] Selected video URL:', selectedVideoUrl);
       
+      // Если есть URL в localStorage, используем его напрямую (быстрее)
+      if (selectedVideoUrl) {
+        console.log('[LOGIN_BG] Using cached video URL:', selectedVideoUrl);
+        setBackgroundVideo(selectedVideoUrl);
+        return;
+      }
+      
+      // Иначе загружаем с сервера (для старых данных)
       if (selectedVideoId) {
         try {
           console.log('[LOGIN_BG] Fetching videos from:', API_URL);
@@ -30,6 +40,8 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             console.log('[LOGIN_BG] Found video:', selectedVideo);
             if (selectedVideo) {
               setBackgroundVideo(selectedVideo.url);
+              // Кешируем URL для следующего раза
+              localStorage.setItem('loginPageVideoUrl', selectedVideo.url);
               console.log('[LOGIN_BG] Video URL set:', selectedVideo.url);
             }
           }
@@ -44,30 +56,45 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     // Слушаем изменения видео
     const handleVideoChange = async (e: Event) => {
       const customEvent = e as CustomEvent;
-      const videoId = customEvent.detail;
-      console.log('[LOGIN_BG] Video change event:', videoId);
+      const detail = customEvent.detail;
+      console.log('[LOGIN_BG] Video change event:', detail);
       
-      if (videoId) {
-        try {
-          const response = await fetch(`${API_URL}?type=video`);
-          const data = await response.json();
-          console.log('[LOGIN_BG] Video change - fetched videos:', data);
-          
-          if (data.success && data.files) {
-            const video = data.files.find((v: any) => v.id === videoId);
-            console.log('[LOGIN_BG] Video change - found video:', video);
-            if (video) {
-              setBackgroundVideo(video.url);
-              setCurrentImage(null);
-              console.log('[LOGIN_BG] Video change - URL set:', video.url);
+      // detail может быть объектом {id, url} или просто null
+      if (detail && typeof detail === 'object') {
+        const { id, url } = detail;
+        console.log('[LOGIN_BG] Video change - id:', id, 'url:', url);
+        
+        if (url) {
+          // Используем URL напрямую из события
+          setBackgroundVideo(url);
+          setCurrentImage(null);
+          localStorage.setItem('loginPageVideoUrl', url);
+          console.log('[LOGIN_BG] Video change - URL set from event:', url);
+        } else {
+          // Загружаем с сервера (fallback)
+          try {
+            const response = await fetch(`${API_URL}?type=video`);
+            const data = await response.json();
+            console.log('[LOGIN_BG] Video change - fetched videos:', data);
+            
+            if (data.success && data.files) {
+              const video = data.files.find((v: any) => v.id === id);
+              console.log('[LOGIN_BG] Video change - found video:', video);
+              if (video) {
+                setBackgroundVideo(video.url);
+                setCurrentImage(null);
+                localStorage.setItem('loginPageVideoUrl', video.url);
+                console.log('[LOGIN_BG] Video change - URL set:', video.url);
+              }
             }
+          } catch (error) {
+            console.error('[LOGIN_BG] Video change - failed:', error);
           }
-        } catch (error) {
-          console.error('[LOGIN_BG] Video change - failed:', error);
         }
       } else {
         console.log('[LOGIN_BG] Video change - clearing video');
         setBackgroundVideo(null);
+        localStorage.removeItem('loginPageVideoUrl');
       }
     };
 
