@@ -138,21 +138,33 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     if (!video1 || !video2) return;
 
     let isFirstVideo = true;
+    let transitionInProgress = false;
+
+    // Предзагружаем второе видео сразу
+    video2.load();
+    video2.currentTime = 0;
 
     const handleTimeUpdate = () => {
       const currentVideo = isFirstVideo ? video1 : video2;
       const nextVideo = isFirstVideo ? video2 : video1;
       
-      // За 1 секунду до конца начинаем показывать второе видео
-      if (currentVideo.duration - currentVideo.currentTime < 1) {
-        setShowSecondVideo(!isFirstVideo);
+      // За 1.5 секунды до конца начинаем переход (больше времени для буферизации)
+      if (!transitionInProgress && currentVideo.duration - currentVideo.currentTime < 1.5) {
+        transitionInProgress = true;
         
-        // Перезапускаем следующее видео с начала
+        // Запускаем следующее видео ДО переключения opacity
         nextVideo.currentTime = 0;
-        nextVideo.play().catch(e => console.log('[LOGIN_BG] Play error:', e));
-        
-        // Переключаем активное видео
-        isFirstVideo = !isFirstVideo;
+        nextVideo.play().then(() => {
+          // После старта следующего видео делаем плавное переключение
+          setTimeout(() => {
+            setShowSecondVideo(!isFirstVideo);
+            isFirstVideo = !isFirstVideo;
+            transitionInProgress = false;
+          }, 100);
+        }).catch(e => {
+          console.log('[LOGIN_BG] Play error:', e);
+          transitionInProgress = false;
+        });
       }
     };
 
@@ -182,10 +194,13 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             autoPlay
             muted
             playsInline
-            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            preload="auto"
+            className="fixed inset-0 w-full h-full object-cover"
             style={{ 
               zIndex: 0,
-              opacity: showSecondVideo ? 0 : 1
+              opacity: showSecondVideo ? 0 : 1,
+              transition: 'opacity 0.8s ease-in-out',
+              willChange: 'opacity'
             }}
             onLoadedData={() => console.log('[LOGIN_BG] Video 1 loaded')}
             onError={(e) => console.error('[LOGIN_BG] Video 1 error:', e)}
@@ -199,10 +214,13 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             ref={video2Ref}
             muted
             playsInline
-            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            preload="auto"
+            className="fixed inset-0 w-full h-full object-cover"
             style={{ 
               zIndex: 0,
-              opacity: showSecondVideo ? 1 : 0
+              opacity: showSecondVideo ? 1 : 0,
+              transition: 'opacity 0.8s ease-in-out',
+              willChange: 'opacity'
             }}
             onLoadedData={() => console.log('[LOGIN_BG] Video 2 loaded')}
             onError={(e) => console.error('[LOGIN_BG] Video 2 error:', e)}
