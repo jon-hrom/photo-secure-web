@@ -59,6 +59,51 @@ const VideoUploader = ({
     }
   };
 
+  const createThumbnail = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      
+      video.preload = 'metadata';
+      video.src = URL.createObjectURL(file);
+      
+      video.onloadedmetadata = () => {
+        // Создаем маленький thumbnail
+        const maxWidth = 320;
+        const maxHeight = 180;
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Берем кадр из середины видео
+        video.currentTime = Math.min(1, video.duration / 2);
+        video.onseeked = () => {
+          ctx.drawImage(video, 0, 0, width, height);
+          const thumbnail = canvas.toDataURL('image/jpeg', 0.6);
+          URL.revokeObjectURL(video.src);
+          resolve(thumbnail);
+        };
+      };
+      
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error('Failed to load video'));
+      };
+    });
+  };
+
   const compressVideo = async (file: File): Promise<{ blob: Blob; thumbnail: string }> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
@@ -204,28 +249,31 @@ const VideoUploader = ({
     setCompressionInfo('');
 
     try {
-      const originalSize = file.size;
-      setCompressionInfo(`Оригинал: ${(originalSize / 1024 / 1024).toFixed(1)} MB`);
+      const fileSize = file.size;
+      setCompressionInfo(`Размер: ${(fileSize / 1024 / 1024).toFixed(1)} MB`);
       
-      toast.info('Оптимизация видео...');
-      const { blob, thumbnail } = await compressVideo(file);
-      
-      const optimizedSize = blob.size;
-      const saved = ((1 - optimizedSize / originalSize) * 100).toFixed(0);
-      
-      setCompressionInfo(
-        `Оптимизировано: ${(optimizedSize / 1024 / 1024).toFixed(1)} MB (сжато на ${saved}%)`
-      );
-      
-      setUploadProgress(92);
       toast.info('Загрузка в облако...');
+      setUploadProgress(10);
       
-      // Конвертируем в base64
+      // Создаем thumbnail (быстро, без сжатия всего видео)
+      const thumbnail = await createThumbnail(file);
+      setUploadProgress(30);
+      
+      // Конвертируем файл в base64 напрямую (БЕЗ сжатия)
       const reader = new FileReader();
+      reader.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const progress = 30 + (e.loaded / e.total) * 50;
+          setUploadProgress(progress);
+        }
+      };
+      
       reader.onload = async () => {
         const base64Data = (reader.result as string).split(',')[1];
         
         try {
+          setUploadProgress(85);
+          
           // Загружаем в S3
           const response = await fetch(API_URL, {
             method: 'POST',
@@ -252,12 +300,13 @@ const VideoUploader = ({
             onVideosChange(updatedVideos);
             
             setUploadProgress(100);
-            toast.success('Видео загружено! Теперь оно загружается молниеносно через CDN');
+            toast.success('Видео загружено! Доступно через CDN');
             
             setTimeout(() => {
               setIsUploading(false);
               setUploadProgress(0);
               setCompressionInfo('');
+              handleCancelPreview();
             }, 2000);
           } else {
             throw new Error(data.error || 'Upload failed');
@@ -271,18 +320,22 @@ const VideoUploader = ({
         }
       };
       
-      reader.readAsDataURL(blob);
+      reader.onerror = () => {
+        toast.error('Ошибка чтения файла');
+        setIsUploading(false);
+        setUploadProgress(0);
+        setCompressionInfo('');
+      };
+      
+      reader.readAsDataURL(file);
       
     } catch (error) {
-      console.error('Video compression error:', error);
-      toast.error('Ошибка при обработке видео');
+      console.error('Video upload error:', error);
+      toast.error('Ошибка при загрузке видео');
       setIsUploading(false);
       setUploadProgress(0);
       setCompressionInfo('');
     }
-
-    // Сбрасываем input и превью
-    handleCancelPreview();
   };
 
   const handleRemoveVideo = async (videoId: string) => {
@@ -347,7 +400,7 @@ const VideoUploader = ({
             
             <div className="text-sm text-muted-foreground">
               <p>Размер: {previewFile && (previewFile.size / 1024 / 1024).toFixed(1)} MB</p>
-              <p className="mt-1">Видео будет оптимизировано до 720p (1280×720) для быстрой загрузки</p>
+              <p className="mt-1">Видео будет загружено в облачное хранилище и доступно через CDN</p>
             </div>
             
             <div className="flex gap-2 justify-end">
@@ -373,7 +426,7 @@ const VideoUploader = ({
           Фоновое видео
         </Label>
         <p className="text-xs text-muted-foreground">
-          Загрузите видео для анимированного фона. Видео будет оптимизировано и загружено в CDN для молниеносной загрузки.
+          Загрузите видео для анимированного фона. Рекомендуется использовать оптимизированные видео до 10 МБ.
         </p>
       </div>
 
