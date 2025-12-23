@@ -35,9 +35,6 @@ const Settings = () => {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [displayName, setDisplayName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [fullName, setFullName] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [interests, setInterests] = useState('');
@@ -204,9 +201,6 @@ const Settings = () => {
         console.log('[SETTINGS] new_year_enabled:', s.new_year_enabled);
         
         setSettings(s);
-        setDisplayName(s.display_name || '');
-        setPhone(s.phone || '');
-        setFullName(s.full_name || '');
         setBio(s.bio || '');
         setLocation(s.location || '');
         setInterests(s.interests || '');
@@ -364,9 +358,6 @@ const Settings = () => {
           'X-User-Id': userId.toString()
         },
         body: JSON.stringify({
-          display_name: displayName,
-          phone: phone,
-          full_name: fullName,
           bio: bio,
           location: location,
           interests: interests,
@@ -474,13 +465,6 @@ const Settings = () => {
             )}
 
             <ProfileSection
-              displayName={displayName}
-              setDisplayName={setDisplayName}
-              fullName={fullName}
-              setFullName={setFullName}
-              phone={phone}
-              setPhone={setPhone}
-              phoneVerified={!!settings?.phone_verified_at}
               bio={bio}
               setBio={setBio}
               location={location}
