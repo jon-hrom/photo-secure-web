@@ -10,21 +10,8 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [backgroundVideo, setBackgroundVideo] = useState<string | null>(null);
-  const [showSecondVideo, setShowSecondVideo] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const video1Ref = useRef<HTMLVideoElement>(null);
-  const video2Ref = useRef<HTMLVideoElement>(null);
   const API_URL = funcUrls['background-media'];
-
-  // Определяем мобильное устройство
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Загружаем видео с сервера
   useEffect(() => {
@@ -140,53 +127,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     img.src = backgroundImage;
   }, [backgroundImage, backgroundVideo]);
 
-  // Плавный переход между концом и началом видео (только на десктопе)
-  useEffect(() => {
-    if (!backgroundVideo || isMobile) return;
 
-    const video1 = video1Ref.current;
-    const video2 = video2Ref.current;
-    if (!video1 || !video2) return;
-
-    let isFirstVideo = true;
-    let transitionInProgress = false;
-
-    // Предзагружаем второе видео сразу
-    video2.load();
-    video2.currentTime = 0;
-
-    const handleTimeUpdate = () => {
-      const currentVideo = isFirstVideo ? video1 : video2;
-      const nextVideo = isFirstVideo ? video2 : video1;
-      
-      // За 1.5 секунды до конца начинаем переход (больше времени для буферизации)
-      if (!transitionInProgress && currentVideo.duration - currentVideo.currentTime < 1.5) {
-        transitionInProgress = true;
-        
-        // Запускаем следующее видео ДО переключения opacity
-        nextVideo.currentTime = 0;
-        nextVideo.play().then(() => {
-          // После старта следующего видео делаем плавное переключение
-          setTimeout(() => {
-            setShowSecondVideo(!isFirstVideo);
-            isFirstVideo = !isFirstVideo;
-            transitionInProgress = false;
-          }, 100);
-        }).catch(e => {
-          console.log('[LOGIN_BG] Play error:', e);
-          transitionInProgress = false;
-        });
-      }
-    };
-
-    video1.addEventListener('timeupdate', handleTimeUpdate);
-    video2.addEventListener('timeupdate', handleTimeUpdate);
-
-    return () => {
-      video1.removeEventListener('timeupdate', handleTimeUpdate);
-      video2.removeEventListener('timeupdate', handleTimeUpdate);
-    };
-  }, [backgroundVideo, isMobile]);
 
   console.log('[LOGIN_BG] Render - backgroundVideo:', backgroundVideo);
   console.log('[LOGIN_BG] Render - currentImage:', currentImage);
@@ -199,75 +140,21 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       
       {backgroundVideo && (
         <>
-          {isMobile ? (
-            // Мобильная версия: простой loop без двойного видео
-            <>
-              <video
-                ref={video1Ref}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-                className="fixed inset-0 w-full h-full object-cover"
-                style={{ zIndex: 0 }}
-                onLoadedData={() => {
-                  console.log('[LOGIN_BG] Mobile video loaded');
-                  // Форсируем play для iOS
-                  const video = video1Ref.current;
-                  if (video) {
-                    video.play().catch(e => console.log('[LOGIN_BG] Mobile play error:', e));
-                  }
-                }}
-                onError={(e) => console.error('[LOGIN_BG] Mobile video error:', e)}
-              >
-                <source src={backgroundVideo} type="video/mp4" />
-                <source src={backgroundVideo} type="video/webm" />
-              </video>
-            </>
-          ) : (
-            // Десктопная версия: плавный crossfade с двумя видео
-            <>
-              <video
-                ref={video1Ref}
-                autoPlay
-                muted
-                playsInline
-                preload="auto"
-                className="fixed inset-0 w-full h-full object-cover"
-                style={{ 
-                  zIndex: 0,
-                  opacity: showSecondVideo ? 0 : 1,
-                  transition: 'opacity 0.8s ease-in-out',
-                  willChange: 'opacity'
-                }}
-                onLoadedData={() => console.log('[LOGIN_BG] Video 1 loaded')}
-                onError={(e) => console.error('[LOGIN_BG] Video 1 error:', e)}
-              >
-                <source src={backgroundVideo} type="video/webm" />
-                <source src={backgroundVideo} type="video/mp4" />
-              </video>
-              
-              <video
-                ref={video2Ref}
-                muted
-                playsInline
-                preload="auto"
-                className="fixed inset-0 w-full h-full object-cover"
-                style={{ 
-                  zIndex: 0,
-                  opacity: showSecondVideo ? 1 : 0,
-                  transition: 'opacity 0.8s ease-in-out',
-                  willChange: 'opacity'
-                }}
-                onLoadedData={() => console.log('[LOGIN_BG] Video 2 loaded')}
-                onError={(e) => console.error('[LOGIN_BG] Video 2 error:', e)}
-              >
-                <source src={backgroundVideo} type="video/webm" />
-                <source src={backgroundVideo} type="video/mp4" />
-              </video>
-            </>
-          )}
+          <video
+            ref={video1Ref}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            className="fixed inset-0 w-full h-full object-cover"
+            style={{ zIndex: 0 }}
+            onLoadedData={() => console.log('[LOGIN_BG] Video loaded')}
+            onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
+          >
+            <source src={backgroundVideo} type="video/mp4" />
+            <source src={backgroundVideo} type="video/webm" />
+          </video>
           
           <div 
             className="fixed inset-0"
