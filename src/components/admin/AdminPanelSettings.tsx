@@ -10,6 +10,7 @@ export const useAdminPanelSettings = () => {
     registrationEnabled: true,
     maintenanceMode: false,
     blockNonAdminLogin: false,
+    blockLoginMessage: 'Доступ на вход временно недоступен по техническим причинам',
     emailNotifications: true,
     smsNotifications: true,
     autoBackup: true,
@@ -83,6 +84,7 @@ export const useAdminPanelSettings = () => {
           maintenanceMode: appSettings.maintenance_mode ?? prev.maintenanceMode,
           guestAccess: appSettings.guest_access ?? prev.guestAccess,
           blockNonAdminLogin: appSettings.block_non_admin_login ?? prev.blockNonAdminLogin,
+          blockLoginMessage: appSettings.block_login_message ?? prev.blockLoginMessage,
           maxFileSize: String(oldData.settings.maxFileSize || 10),
           sessionTimeout: String(oldData.settings.sessionTimeout || 7),
           maxLoginAttempts: String(oldData.settings.maxLoginAttempts || 5),
@@ -95,6 +97,7 @@ export const useAdminPanelSettings = () => {
           maintenanceMode: appSettings.maintenance_mode ?? prev.maintenanceMode,
           guestAccess: appSettings.guest_access ?? prev.guestAccess,
           blockNonAdminLogin: appSettings.block_non_admin_login ?? prev.blockNonAdminLogin,
+          blockLoginMessage: appSettings.block_login_message ?? prev.blockLoginMessage,
         }));
       }
       
@@ -200,8 +203,30 @@ export const useAdminPanelSettings = () => {
     }
   };
 
-  const handleInputChange = (key: string, value: string) => {
+  const handleInputChange = async (key: string, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+    
+    // Если это текст сообщения блокировки, сохраняем его сразу в БД
+    if (key === 'blockLoginMessage') {
+      try {
+        await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key: 'block_login_message',
+            value: value
+          })
+        });
+        
+        localStorage.removeItem('settings_cache');
+        settingsSync.notifyAllUsers();
+        
+        toast.success('Текст уведомления обновлен');
+      } catch (error) {
+        console.error('Ошибка сохранения текста уведомления:', error);
+        toast.error('Не удалось сохранить текст');
+      }
+    }
   };
 
   const handleColorChange = (key: string, value: string) => {

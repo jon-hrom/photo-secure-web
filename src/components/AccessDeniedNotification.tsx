@@ -3,10 +3,11 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 
 interface AccessDeniedNotificationProps {
+  message?: string;
   onClose: () => void;
 }
 
-const AccessDeniedNotification = ({ onClose }: AccessDeniedNotificationProps) => {
+const AccessDeniedNotification = ({ message = 'Доступ на вход временно недоступен по техническим причинам', onClose }: AccessDeniedNotificationProps) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -40,7 +41,7 @@ const AccessDeniedNotification = ({ onClose }: AccessDeniedNotificationProps) =>
               Доступ временно ограничен
             </h2>
             <p className="text-muted-foreground text-lg">
-              Доступ на вход временно недоступен по техническим причинам
+              {message}
             </p>
           </div>
           

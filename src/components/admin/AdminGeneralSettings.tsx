@@ -104,6 +104,25 @@ const AdminGeneralSettings = ({ settings, onToggle, onInputChange }: AdminGenera
                 onCheckedChange={() => onToggle('blockNonAdminLogin')}
               />
             </div>
+            
+            {settings.blockNonAdminLogin && (
+              <div className="space-y-2 pl-0 sm:pl-6">
+                <Label htmlFor="blockLoginMessage" className="text-sm sm:text-base">
+                  Текст уведомления
+                </Label>
+                <Input
+                  id="blockLoginMessage"
+                  type="text"
+                  value={settings.blockLoginMessage || ''}
+                  onChange={(e) => onInputChange('blockLoginMessage', e.target.value)}
+                  placeholder="Доступ на вход временно недоступен по техническим причинам"
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Этот текст увидят пользователи при попытке входа
+                </p>
+              </div>
+            )}
             <Separator />
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">

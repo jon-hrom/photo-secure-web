@@ -37,6 +37,7 @@ export const useAuth = () => {
   const [blockReason, setBlockReason] = useState<string | null>(null);
   const [blockData, setBlockData] = useState<any | null>(null);
   const [showAccessDenied, setShowAccessDenied] = useState(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState('Доступ на вход временно недоступен по техническим причинам');
   const lastActivityRef = useRef<number>(Date.now());
 
   const handleLoginSuccess = async (uid: number, email?: string) => {
@@ -45,11 +46,17 @@ export const useAuth = () => {
     // Проверяем настройку блокировки входа для не-админов
     if (!isUserAdmin) {
       try {
-        const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=block_non_admin_login');
-        const data = await response.json();
+        const [blockResponse, messageResponse] = await Promise.all([
+          fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=block_non_admin_login'),
+          fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=block_login_message')
+        ]);
         
-        if (data.value === true) {
+        const blockData = await blockResponse.json();
+        const messageData = await messageResponse.json();
+        
+        if (blockData.value === true) {
           console.log('🚫 Non-admin login blocked by admin setting');
+          setAccessDeniedMessage(messageData.value || 'Доступ на вход временно недоступен по техническим причинам');
           setShowAccessDenied(true);
           return;
         }
@@ -521,6 +528,7 @@ export const useAuth = () => {
     blockReason,
     blockData,
     showAccessDenied,
+    accessDeniedMessage,
     setShowAccessDenied,
     setNeeds2FA,
     setPendingUserData,

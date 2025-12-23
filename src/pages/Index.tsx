@@ -30,6 +30,7 @@ const Index = () => {
     blockReason,
     blockData,
     showAccessDenied,
+    accessDeniedMessage,
     setShowAccessDenied,
     setNeeds2FA,
     setIsBlocked,
@@ -121,7 +122,7 @@ const Index = () => {
   }
 
   if (showAccessDenied) {
-    return <AccessDeniedNotification onClose={() => setShowAccessDenied(false)} />;
+    return <AccessDeniedNotification message={accessDeniedMessage} onClose={() => setShowAccessDenied(false)} />;
   }
 
   if (!isAuthenticated && guestAccess && currentPage === 'auth') {
