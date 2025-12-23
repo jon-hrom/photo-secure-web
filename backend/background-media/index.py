@@ -50,8 +50,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             print(f'[BG_MEDIA] GET request, type={media_type}')
             
+            # TEMPORARY DEBUG: Попробуем разные подходы к листингу
+            print(f'[BG_MEDIA] Trying list_objects_v2...')
             response = s3.list_objects_v2(Bucket='files', Prefix='background-media/')
-            print(f'[BG_MEDIA] S3 response: {response.get("KeyCount", 0)} objects')
+            print(f'[BG_MEDIA] S3 list response: {response.get("KeyCount", 0)} objects, IsTruncated={response.get("IsTruncated", False)}')
+            print(f'[BG_MEDIA] Response keys: {list(response.keys())}')
+            
+            # Попробуем также list_objects (v1)
+            try:
+                response_v1 = s3.list_objects(Bucket='files', Prefix='background-media/')
+                contents_count = len(response_v1.get('Contents', []))
+                print(f'[BG_MEDIA] S3 list_objects (v1) response: {contents_count} objects')
+            except Exception as e:
+                print(f'[BG_MEDIA] list_objects v1 failed: {e}')
             
             files = []
             
@@ -97,6 +108,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         except Exception as e:
+            print(f'[BG_MEDIA] GET error: {e}')
+            import traceback
+            print(f'[BG_MEDIA] Traceback: {traceback.format_exc()}')
             return {
                 'statusCode': 500,
                 'headers': {
