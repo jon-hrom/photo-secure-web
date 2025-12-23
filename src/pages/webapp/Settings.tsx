@@ -9,6 +9,10 @@ import NewYearSettings, { SnowSettings } from '@/components/settings/NewYearSett
 import ProfileSection from '@/components/settings/ProfileSection';
 import ThemeSection from '@/components/settings/ThemeSection';
 import NotificationsSection from '@/components/settings/NotificationsSection';
+import ContactInfoCard from '@/components/settings/ContactInfoCard';
+import EmailVerificationDialog from '@/components/EmailVerificationDialog';
+import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
+import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
 
 interface UserSettings {
   id: number;
@@ -55,6 +59,21 @@ const Settings = () => {
     }
   });
   const [newYearModeAvailable, setNewYearModeAvailable] = useState(false);
+  
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [editedEmail, setEditedEmail] = useState('');
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedPhone, setEditedPhone] = useState('');
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [editedDisplayName, setEditedDisplayName] = useState('');
+  const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
+  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
+
+  const SETTINGS_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -194,6 +213,11 @@ const Settings = () => {
         setEmailNotifications(s.two_factor_email || false);
         setSmsNotifications(s.two_factor_sms || false);
         
+        setEditedEmail(s.email || '');
+        setEditedPhone(s.phone || '');
+        setEditedDisplayName(s.display_name || '');
+        setPhoneVerified(!!s.phone);
+        
         if (s.new_year_enabled !== undefined) {
           console.log('[NEW_YEAR] Loading settings from API:', {
             enabled: s.new_year_enabled,
@@ -237,6 +261,74 @@ const Settings = () => {
     localStorage.setItem('theme', newTheme);
     window.dispatchEvent(new Event('themeChange'));
     toast.success(`Тема изменена на ${newTheme === 'dark' ? 'тёмную' : 'светлую'}`);
+  };
+
+  const handleUpdateContact = async (field: 'email' | 'phone' | 'display_name', value: string) => {
+    const userId = getUserId();
+    if (!userId) {
+      toast.error('Требуется авторизация');
+      return;
+    }
+
+    console.log('[SETTINGS] Updating contact:', { field, value, userId });
+    if (field === 'email') {
+      setIsSavingEmail(true);
+    } else if (field === 'phone') {
+      setIsSavingPhone(true);
+    } else if (field === 'display_name') {
+      setIsSavingDisplayName(true);
+    }
+    
+    if (field === 'phone' && !validatePhone(value)) {
+      toast.error('Телефон должен содержать 11 цифр (включая +7)');
+      setIsSavingPhone(false);
+      return;
+    }
+    
+    try {
+      const finalValue = field === 'phone' ? formatPhone(value) : value;
+      
+      const requestBody = { action: 'update-contact', userId, field, value: finalValue };
+      console.log('[SETTINGS] Request body:', requestBody);
+      
+      const response = await fetch(SETTINGS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+      console.log('[SETTINGS] Update response:', { status: response.status, data });
+
+      if (response.ok) {
+        if (settings) {
+          setSettings({ ...settings, [field]: finalValue });
+        }
+        if (field === 'phone') {
+          setEditedPhone(finalValue);
+          toast.success('Телефон сохранен. Теперь подтвердите его.');
+          setShowPhoneVerification(true);
+          return;
+        } else if (field === 'email') {
+          setEditedEmail(finalValue);
+        }
+        toast.success('Контактные данные обновлены');
+      } else {
+        console.error('[SETTINGS] Update error:', data);
+        toast.error(data.error || 'Ошибка обновления');
+      }
+    } catch (error) {
+      console.error('[SETTINGS] Update exception:', error);
+      toast.error('Ошибка подключения к серверу');
+    } finally {
+      if (field === 'email') {
+        setIsSavingEmail(false);
+      } else if (field === 'phone') {
+        setIsSavingPhone(false);
+      } else if (field === 'display_name') {
+        setIsSavingDisplayName(false);
+      }
+    }
   };
 
   const handleNewYearSettingsChange = (newSettings: SnowSettings) => {
@@ -314,11 +406,73 @@ const Settings = () => {
 
   return (
     <>
+      {showEmailVerification && (
+        <EmailVerificationDialog
+          open={showEmailVerification}
+          onClose={() => setShowEmailVerification(false)}
+          onVerified={async () => {
+            setShowEmailVerification(false);
+            await loadSettings();
+          }}
+          userId={settings?.id.toString() || ''}
+          userEmail={settings?.email || ''}
+          isVerified={!!settings?.email_verified_at}
+        />
+      )}
+
+      {showPhoneVerification && (
+        <PhoneVerificationDialog
+          open={showPhoneVerification}
+          onClose={() => setShowPhoneVerification(false)}
+          onVerified={() => {
+            setPhoneVerified(true);
+            setShowPhoneVerification(false);
+            loadSettings();
+          }}
+          userId={settings?.id.toString() || ''}
+          userPhone={settings?.phone || ''}
+        />
+      )}
+
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6 pb-32 md:pb-6">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Настройки</h1>
           
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 space-y-6">
+            {settings && (
+              <ContactInfoCard
+                settings={{
+                  email: settings.email,
+                  phone: settings.phone || '',
+                  two_factor_email: settings.two_factor_email,
+                  email_verified_at: settings.email_verified_at,
+                  source: (settings.source as 'email' | 'vk' | 'google' | 'yandex') || 'email',
+                  display_name: settings.display_name || undefined
+                }}
+                editedEmail={editedEmail}
+                isEditingEmail={isEditingEmail}
+                setEditedEmail={setEditedEmail}
+                setIsEditingEmail={setIsEditingEmail}
+                isSavingEmail={isSavingEmail}
+                editedPhone={editedPhone}
+                isEditingPhone={isEditingPhone}
+                setEditedPhone={setEditedPhone}
+                setIsEditingPhone={setIsEditingPhone}
+                setPhoneVerified={setPhoneVerified}
+                isSavingPhone={isSavingPhone}
+                phoneVerified={phoneVerified}
+                handleUpdateContact={handleUpdateContact}
+                loadSettings={loadSettings}
+                setShowEmailVerification={setShowEmailVerification}
+                setShowPhoneVerification={setShowPhoneVerification}
+                editedDisplayName={editedDisplayName}
+                isEditingDisplayName={isEditingDisplayName}
+                setEditedDisplayName={setEditedDisplayName}
+                setIsEditingDisplayName={setIsEditingDisplayName}
+                isSavingDisplayName={isSavingDisplayName}
+              />
+            )}
+
             <ProfileSection
               displayName={displayName}
               setDisplayName={setDisplayName}
