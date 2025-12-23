@@ -443,12 +443,11 @@ const VideoUploader = ({
           {videos.map((video) => (
             <div
               key={video.id}
-              className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+              className={`relative group rounded-lg overflow-hidden border-2 transition-all ${
                 selectedVideoId === video.id
                   ? 'border-primary ring-2 ring-primary/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
               }`}
-              onClick={() => onSelectVideo(selectedVideoId === video.id ? null : video.id)}
             >
               {video.thumbnail ? (
                 <div className="relative aspect-video">
@@ -467,13 +466,44 @@ const VideoUploader = ({
                 </div>
               )}
               
-              <div className="p-2 bg-white dark:bg-gray-800">
-                <p className="text-xs font-medium truncate text-gray-900 dark:text-gray-100">
-                  {video.name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {(video.size / 1024 / 1024).toFixed(1)} MB • CDN
-                </p>
+              <div className="p-2 bg-white dark:bg-gray-800 space-y-2">
+                <div>
+                  <p className="text-xs font-medium truncate text-gray-900 dark:text-gray-100">
+                    {video.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {(video.size / 1024 / 1024).toFixed(1)} MB • CDN
+                  </p>
+                </div>
+                
+                {selectedVideoId !== video.id && (
+                  <Button
+                    size="sm"
+                    className="w-full h-7 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectVideo(video.id);
+                    }}
+                  >
+                    <Icon name="CheckCircle" size={14} className="mr-1" />
+                    Применить
+                  </Button>
+                )}
+                
+                {selectedVideoId === video.id && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full h-7 text-xs border-primary text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectVideo(null);
+                    }}
+                  >
+                    <Icon name="Check" size={14} className="mr-1" />
+                    Активно
+                  </Button>
+                )}
               </div>
 
               <Button
@@ -487,12 +517,6 @@ const VideoUploader = ({
               >
                 <Icon name="X" size={14} />
               </Button>
-
-              {selectedVideoId === video.id && (
-                <div className="absolute top-2 left-2 bg-primary text-white px-2 py-1 rounded text-xs font-medium">
-                  Активно
-                </div>
-              )}
             </div>
           ))}
         </div>
