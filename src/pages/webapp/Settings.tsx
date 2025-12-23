@@ -1,6 +1,9 @@
 import { Button } from '@/components/ui/button';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import MobileNavigation from '@/components/layout/MobileNavigation';
+import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
+import { isAdminUser } from '@/utils/adminCheck';
+import { useNavigate } from 'react-router-dom';
 import SecuritySettings from '@/components/settings/SecuritySettings';
 import MultiEmailCard from '@/components/settings/MultiEmailCard';
 import NewYearSettings from '@/components/settings/NewYearSettings';
@@ -16,6 +19,11 @@ import { useContactManager } from '@/hooks/useContactManager';
 import { useNewYearManager } from '@/hooks/useNewYearManager';
 
 const Settings = () => {
+  const navigate = useNavigate();
+  const [vkUser, setVkUser] = useState<any>(null);
+  const [emailUser, setEmailUser] = useState<any>(null);
+  const [finalIsAdmin, setFinalIsAdmin] = useState(false);
+
   const {
     settings,
     setSettings,
@@ -105,6 +113,35 @@ const Settings = () => {
       }
     };
     initialize();
+
+    const vkUserData = localStorage.getItem('vk_user');
+    const authSession = localStorage.getItem('authSession');
+
+    if (vkUserData) {
+      try {
+        const parsed = JSON.parse(vkUserData);
+        setVkUser(parsed);
+        const adminCheck = isAdminUser(parsed.user_id);
+        setFinalIsAdmin(adminCheck);
+      } catch (e) {
+        console.error('Failed to parse vk_user:', e);
+      }
+    } else if (authSession) {
+      try {
+        const session = JSON.parse(authSession);
+        setEmailUser({
+          userEmail: session.email || 'Пользователь',
+          email: session.email,
+          name: session.name || session.email,
+          phone: session.phone || null,
+          verified: session.verified || false
+        });
+        const adminCheck = isAdminUser(session.userId);
+        setFinalIsAdmin(adminCheck);
+      } catch (e) {
+        console.error('Failed to parse authSession:', e);
+      }
+    }
   }, []);
 
   if (loading) {
@@ -148,11 +185,22 @@ const Settings = () => {
         />
       )}
 
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6 pb-32 md:pb-6">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Настройки</h1>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-6 pb-32 md:pb-6">
+        <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+          <DashboardUserCard
+            vkUser={vkUser}
+            emailUser={emailUser}
+            finalIsAdmin={finalIsAdmin}
+            onOpenAdminPanel={() => navigate('/admin')}
+            onLogout={() => {
+              localStorage.clear();
+              window.location.href = '/';
+            }}
+          />
+
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Настройки</h1>
           
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-6 space-y-4 sm:space-y-6">
             {settings && (
               <ContactInfoCard
                 settings={{
@@ -225,11 +273,11 @@ const Settings = () => {
               />
             )}
 
-            <div className="pt-4">
+            <div className="pt-2 sm:pt-4">
               <Button 
                 onClick={saveSettings} 
                 disabled={saving}
-                className="w-full md:w-auto"
+                className="w-full sm:w-auto text-sm sm:text-base"
               >
                 {saving ? 'Сохранение...' : 'Сохранить изменения'}
               </Button>
