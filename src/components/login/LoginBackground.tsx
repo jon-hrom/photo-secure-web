@@ -11,9 +11,20 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [backgroundVideo, setBackgroundVideo] = useState<string | null>(null);
   const [showSecondVideo, setShowSecondVideo] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const video1Ref = useRef<HTMLVideoElement>(null);
   const video2Ref = useRef<HTMLVideoElement>(null);
   const API_URL = funcUrls['background-media'];
+
+  // Определяем мобильное устройство
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Загружаем видео с сервера
   useEffect(() => {
@@ -129,9 +140,9 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     img.src = backgroundImage;
   }, [backgroundImage, backgroundVideo]);
 
-  // Плавный переход между концом и началом видео
+  // Плавный переход между концом и началом видео (только на десктопе)
   useEffect(() => {
-    if (!backgroundVideo) return;
+    if (!backgroundVideo || isMobile) return;
 
     const video1 = video1Ref.current;
     const video2 = video2Ref.current;
@@ -175,7 +186,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       video1.removeEventListener('timeupdate', handleTimeUpdate);
       video2.removeEventListener('timeupdate', handleTimeUpdate);
     };
-  }, [backgroundVideo]);
+  }, [backgroundVideo, isMobile]);
 
   console.log('[LOGIN_BG] Render - backgroundVideo:', backgroundVideo);
   console.log('[LOGIN_BG] Render - currentImage:', currentImage);
@@ -188,46 +199,68 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       
       {backgroundVideo && (
         <>
-          {/* Первое видео */}
-          <video
-            ref={video1Ref}
-            autoPlay
-            muted
-            playsInline
-            preload="auto"
-            className="fixed inset-0 w-full h-full object-cover"
-            style={{ 
-              zIndex: 0,
-              opacity: showSecondVideo ? 0 : 1,
-              transition: 'opacity 0.8s ease-in-out',
-              willChange: 'opacity'
-            }}
-            onLoadedData={() => console.log('[LOGIN_BG] Video 1 loaded')}
-            onError={(e) => console.error('[LOGIN_BG] Video 1 error:', e)}
-          >
-            <source src={backgroundVideo} type="video/webm" />
-            <source src={backgroundVideo} type="video/mp4" />
-          </video>
-          
-          {/* Второе видео (для плавного перехода) */}
-          <video
-            ref={video2Ref}
-            muted
-            playsInline
-            preload="auto"
-            className="fixed inset-0 w-full h-full object-cover"
-            style={{ 
-              zIndex: 0,
-              opacity: showSecondVideo ? 1 : 0,
-              transition: 'opacity 0.8s ease-in-out',
-              willChange: 'opacity'
-            }}
-            onLoadedData={() => console.log('[LOGIN_BG] Video 2 loaded')}
-            onError={(e) => console.error('[LOGIN_BG] Video 2 error:', e)}
-          >
-            <source src={backgroundVideo} type="video/webm" />
-            <source src={backgroundVideo} type="video/mp4" />
-          </video>
+          {isMobile ? (
+            // Мобильная версия: простой loop без двойного видео
+            <>
+              <video
+                ref={video1Ref}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                className="fixed inset-0 w-full h-full object-cover"
+                style={{ zIndex: 0 }}
+                onLoadedData={() => console.log('[LOGIN_BG] Mobile video loaded')}
+                onError={(e) => console.error('[LOGIN_BG] Mobile video error:', e)}
+              >
+                <source src={backgroundVideo} type="video/webm" />
+                <source src={backgroundVideo} type="video/mp4" />
+              </video>
+            </>
+          ) : (
+            // Десктопная версия: плавный crossfade с двумя видео
+            <>
+              <video
+                ref={video1Ref}
+                autoPlay
+                muted
+                playsInline
+                preload="auto"
+                className="fixed inset-0 w-full h-full object-cover"
+                style={{ 
+                  zIndex: 0,
+                  opacity: showSecondVideo ? 0 : 1,
+                  transition: 'opacity 0.8s ease-in-out',
+                  willChange: 'opacity'
+                }}
+                onLoadedData={() => console.log('[LOGIN_BG] Video 1 loaded')}
+                onError={(e) => console.error('[LOGIN_BG] Video 1 error:', e)}
+              >
+                <source src={backgroundVideo} type="video/webm" />
+                <source src={backgroundVideo} type="video/mp4" />
+              </video>
+              
+              <video
+                ref={video2Ref}
+                muted
+                playsInline
+                preload="auto"
+                className="fixed inset-0 w-full h-full object-cover"
+                style={{ 
+                  zIndex: 0,
+                  opacity: showSecondVideo ? 1 : 0,
+                  transition: 'opacity 0.8s ease-in-out',
+                  willChange: 'opacity'
+                }}
+                onLoadedData={() => console.log('[LOGIN_BG] Video 2 loaded')}
+                onError={(e) => console.error('[LOGIN_BG] Video 2 error:', e)}
+              >
+                <source src={backgroundVideo} type="video/webm" />
+                <source src={backgroundVideo} type="video/mp4" />
+              </video>
+            </>
+          )}
           
           <div 
             className="fixed inset-0"
