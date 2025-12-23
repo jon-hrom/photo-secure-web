@@ -548,14 +548,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
-        # Get all settings
-        cursor.execute("SELECT setting_key, setting_value FROM app_settings")
+        # Get all settings from key-value pairs and column-based settings
+        cursor.execute("SELECT setting_key, setting_value, new_year_mode_enabled FROM app_settings")
         rows = cursor.fetchall()
         
         settings = {}
+        new_year_mode = False  # Default value
+        
         for row in rows:
-            key, value = row
-            # Try to parse as JSON first
+            key, value, new_year_enabled = row
+            
+            # Store new_year_mode_enabled from any row (they should all be the same)
+            if new_year_enabled is not None:
+                new_year_mode = new_year_enabled
+            
+            # Parse key-value settings
             try:
                 settings[key] = json.loads(value)
             except (json.JSONDecodeError, ValueError):
@@ -564,6 +571,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     settings[key] = value.lower() == 'true'
                 else:
                     settings[key] = value
+        
+        # Add column-based setting to response
+        settings['new_year_mode_enabled'] = new_year_mode
         
         cursor.close()
         conn.close()
