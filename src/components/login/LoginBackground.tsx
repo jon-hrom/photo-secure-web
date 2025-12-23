@@ -208,14 +208,21 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
                 loop
                 muted
                 playsInline
-                preload="metadata"
+                preload="auto"
                 className="fixed inset-0 w-full h-full object-cover"
                 style={{ zIndex: 0 }}
-                onLoadedData={() => console.log('[LOGIN_BG] Mobile video loaded')}
+                onLoadedData={() => {
+                  console.log('[LOGIN_BG] Mobile video loaded');
+                  // Форсируем play для iOS
+                  const video = video1Ref.current;
+                  if (video) {
+                    video.play().catch(e => console.log('[LOGIN_BG] Mobile play error:', e));
+                  }
+                }}
                 onError={(e) => console.error('[LOGIN_BG] Mobile video error:', e)}
               >
-                <source src={backgroundVideo} type="video/webm" />
                 <source src={backgroundVideo} type="video/mp4" />
+                <source src={backgroundVideo} type="video/webm" />
               </video>
             </>
           ) : (
