@@ -46,14 +46,17 @@ const VideoUploader = ({
 
   const loadVideos = async () => {
     try {
+      console.log('[VIDEO_UPLOADER] Loading videos from:', API_URL);
       const response = await fetch(`${API_URL}?type=video`);
       const data = await response.json();
+      console.log('[VIDEO_UPLOADER] Videos loaded:', data);
       
       if (data.success && data.files) {
         onVideosChange(data.files);
+        console.log('[VIDEO_UPLOADER] Videos set, count:', data.files.length);
       }
     } catch (error) {
-      console.error('Failed to load videos:', error);
+      console.error('[VIDEO_UPLOADER] Failed to load videos:', error);
     } finally {
       setIsLoadingVideos(false);
     }
@@ -364,6 +367,8 @@ const VideoUploader = ({
       toast.error('Ошибка удаления');
     }
   };
+
+  console.log('[VIDEO_UPLOADER] Render - videos:', videos.length, 'selectedVideoId:', selectedVideoId);
 
   if (isLoadingVideos) {
     return (
