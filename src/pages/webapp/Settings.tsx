@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import Icon from '@/components/ui/icon';
 import { useEffect, useState } from 'react';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import { toast } from 'sonner';
@@ -7,6 +6,9 @@ import funcUrls from '../../../backend/func2url.json';
 import SecuritySettings from '@/components/settings/SecuritySettings';
 import MultiEmailCard from '@/components/settings/MultiEmailCard';
 import NewYearSettings, { SnowSettings } from '@/components/settings/NewYearSettings';
+import ProfileSection from '@/components/settings/ProfileSection';
+import ThemeSection from '@/components/settings/ThemeSection';
+import NotificationsSection from '@/components/settings/NotificationsSection';
 
 interface UserSettings {
   id: number;
@@ -83,18 +85,15 @@ const Settings = () => {
   useEffect(() => {
     console.log('[SETTINGS] Component mounted');
     loadSettings();
-    // Загрузка темы из localStorage
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     if (savedTheme) {
       setTheme(savedTheme);
       applyTheme(savedTheme);
     } else {
-      // По умолчанию тёмная тема
       setTheme('dark');
       applyTheme('dark');
     }
     
-    // Загрузка новогоднего режима
     const checkNewYearMode = async () => {
       console.log('[NEW_YEAR] Starting to check new year mode...');
       try {
@@ -112,7 +111,6 @@ const Settings = () => {
     
     checkNewYearMode();
     
-    // Загрузка настроек снега
     const savedSnowSettings = localStorage.getItem('newYearSettings');
     if (savedSnowSettings) {
       try {
@@ -124,7 +122,6 @@ const Settings = () => {
   }, []);
 
   const getUserId = (): number | null => {
-    // Проверяем все источники авторизации
     const vkUser = localStorage.getItem('vk_user');
     const googleUser = localStorage.getItem('google_user');
     const authSession = localStorage.getItem('authSession');
@@ -197,7 +194,6 @@ const Settings = () => {
         setEmailNotifications(s.two_factor_email || false);
         setSmsNotifications(s.two_factor_sms || false);
         
-        // Загрузка новогодних настроек
         if (s.new_year_enabled !== undefined) {
           console.log('[NEW_YEAR] Loading settings from API:', {
             enabled: s.new_year_enabled,
@@ -211,7 +207,6 @@ const Settings = () => {
           });
         }
         
-        // Загрузка темы
         const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
         if (savedTheme) {
           setTheme(savedTheme);
@@ -240,7 +235,6 @@ const Settings = () => {
     setTheme(newTheme);
     applyTheme(newTheme);
     localStorage.setItem('theme', newTheme);
-    // Dispatch event для обновления темы в других компонентах
     window.dispatchEvent(new Event('themeChange'));
     toast.success(`Тема изменена на ${newTheme === 'dark' ? 'тёмную' : 'светлую'}`);
   };
@@ -250,7 +244,6 @@ const Settings = () => {
     localStorage.setItem('newYearSettings', JSON.stringify(newSettings));
     window.dispatchEvent(new Event('newYearSettingsChange'));
     
-    // Update global new year mode
     if (newSettings.enabled) {
       localStorage.setItem('newYearMode', 'true');
       window.dispatchEvent(new CustomEvent('newYearModeChange', { detail: true }));
@@ -326,146 +319,35 @@ const Settings = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Настройки</h1>
           
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 space-y-6">
-            <section>
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Профиль</h2>
-              <div className="space-y-4">
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Отображаемое имя</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    placeholder="Как вас называть?"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                  />
-                </div>
+            <ProfileSection
+              displayName={displayName}
+              setDisplayName={setDisplayName}
+              fullName={fullName}
+              setFullName={setFullName}
+              phone={phone}
+              setPhone={setPhone}
+              phoneVerified={!!settings?.phone_verified_at}
+              bio={bio}
+              setBio={setBio}
+              location={location}
+              setLocation={setLocation}
+              interests={interests}
+              setInterests={setInterests}
+            />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Полное имя</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    placeholder="Имя Фамилия"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
-                </div>
+            <ThemeSection
+              theme={theme}
+              onThemeChange={handleThemeChange}
+            />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Телефон</label>
-                  <input 
-                    type="tel" 
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    placeholder="+7 (___) ___-__-__"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                  {settings?.phone_verified_at && (
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Подтверждён</p>
-                  )}
-                </div>
+            <NotificationsSection
+              emailNotifications={emailNotifications}
+              setEmailNotifications={setEmailNotifications}
+              smsNotifications={smsNotifications}
+              setSmsNotifications={setSmsNotifications}
+            />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">О себе</label>
-                  <textarea 
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    rows={3}
-                    placeholder="Расскажите о себе..."
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Местоположение</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    placeholder="Город, страна"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Интересы</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    placeholder="Фотография, путешествия, дизайн..."
-                    value={interests}
-                    onChange={(e) => setInterests(e.target.value)}
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Оформление</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Тема интерфейса</label>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleThemeChange('light')}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                        theme === 'light'
-                          ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <Icon name="Sun" size={20} />
-                      <span className="font-medium">Светлая</span>
-                    </button>
-                    <button
-                      onClick={() => handleThemeChange('dark')}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                        theme === 'dark'
-                          ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <Icon name="Moon" size={20} />
-                      <span className="font-medium">Тёмная</span>
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Изменения применяются мгновенно
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Уведомления</h2>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 text-primary rounded"
-                    checked={emailNotifications}
-                    onChange={(e) => setEmailNotifications(e.target.checked)}
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">Уведомления по email</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 text-primary rounded"
-                    checked={smsNotifications}
-                    onChange={(e) => setSmsNotifications(e.target.checked)}
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">SMS уведомления</span>
-                </label>
-              </div>
-            </section>
-
-            {settings?.id && (
-              <div className="mt-6">
-                <MultiEmailCard userId={settings.id} />
-              </div>
-            )}
+            <MultiEmailCard userId={settings?.id || 0} />
 
             <SecuritySettings 
               userId={settings?.id || 0}
