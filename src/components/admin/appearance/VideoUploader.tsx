@@ -183,17 +183,31 @@ const VideoUploader = ({
           const data = await response.json();
           
           if (data.success && data.file) {
+            console.log('[VIDEO_UPLOADER] Upload success, file:', data.file);
+            
             // Добавляем thumbnail к файлу
             const newVideo: BackgroundVideo = {
               ...data.file,
               thumbnail
             };
             
+            console.log('[VIDEO_UPLOADER] New video object:', newVideo);
+            
             const updatedVideos = [...videos, newVideo];
             onVideosChange(updatedVideos);
             
-            // Автоматически выбираем загруженное видео (используем локальный список)
+            // Сохраняем URL в localStorage сразу
+            localStorage.setItem('loginPageVideoUrl', newVideo.url);
+            console.log('[VIDEO_UPLOADER] Saved URL to localStorage:', newVideo.url);
+            
+            // Автоматически выбираем загруженное видео (передаем URL)
             onSelectVideo(newVideo.id);
+            
+            // Отправляем событие с URL сразу
+            window.dispatchEvent(new CustomEvent('backgroundVideoChange', { 
+              detail: { id: newVideo.id, url: newVideo.url } 
+            }));
+            console.log('[VIDEO_UPLOADER] Dispatched event with URL:', newVideo.url);
             
             setUploadProgress(100);
             toast.success('Видео загружено и применено как фон!');
