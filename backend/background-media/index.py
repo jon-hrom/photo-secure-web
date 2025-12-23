@@ -110,12 +110,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # POST - загрузка файла
     if method == 'POST':
         try:
+            print('[BG_MEDIA] POST request started')
             body = json.loads(event.get('body', '{}'))
             file_data = body.get('file')
             filename = body.get('filename', 'media')
             file_type = body.get('type', 'image')
             
+            print(f'[BG_MEDIA] POST data: filename={filename}, type={file_type}, has_file={bool(file_data)}')
+            
             if not file_data:
+                print('[BG_MEDIA] POST error: No file data')
                 return {
                     'statusCode': 400,
                     'headers': {
@@ -128,6 +132,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Декодируем base64
             file_bytes = base64.b64decode(file_data)
+            print(f'[BG_MEDIA] Decoded file size: {len(file_bytes)} bytes')
             
             # Определяем content type
             content_type = 'video/webm' if file_type == 'video' else 'image/jpeg'
@@ -136,6 +141,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Генерируем уникальное имя
             file_id = f"{context.request_id}"
             key = f"background-media/{file_id}{extension}"
+            
+            print(f'[BG_MEDIA] Uploading to S3: bucket=files, key={key}, size={len(file_bytes)}')
             
             # Загружаем в S3
             s3.put_object(
@@ -146,7 +153,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 CacheControl='public, max-age=31536000'  # Кэш на год
             )
             
+            print(f'[BG_MEDIA] S3 upload successful! Key: {key}')
+            
             cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+            
+            print(f'[BG_MEDIA] POST success: id={file_id}, url={cdn_url}')
             
             return {
                 'statusCode': 200,
