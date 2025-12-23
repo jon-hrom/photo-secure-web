@@ -195,18 +195,15 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
         <div className="fixed inset-0 bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" style={{ zIndex: 0 }} />
       )}
       
-      {/* Мобильная картинка (приоритет на мобильных) */}
+      {/* Мобильная картинка/GIF (приоритет на мобильных) */}
       {shouldShowMobileImage && (
         <>
-          <div 
-            className="fixed inset-0"
-            style={{
-              backgroundImage: `url(${mobileBackgroundImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              zIndex: 0
-            }}
+          <img
+            src={mobileBackgroundImage}
+            alt="Mobile background"
+            className="fixed inset-0 w-full h-full object-cover"
+            style={{ zIndex: 0 }}
+            loading="eager"
           />
           <div 
             className="fixed inset-0"
