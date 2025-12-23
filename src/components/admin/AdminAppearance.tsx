@@ -48,6 +48,10 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(
     localStorage.getItem('loginPageVideo') || null
   );
+  const [mobileBackgroundImages, setMobileBackgroundImages] = useState<BackgroundImage[]>([]);
+  const [selectedMobileBackgroundId, setSelectedMobileBackgroundId] = useState<string | null>(
+    localStorage.getItem('loginPageMobileBackground') || null
+  );
   const { toast } = useToast();
 
   useState(() => {
@@ -61,6 +65,13 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     const savedImages = localStorage.getItem('backgroundImages');
     if (savedImages) {
       setBackgroundImages(JSON.parse(savedImages));
+    }
+  });
+
+  useState(() => {
+    const savedMobileImages = localStorage.getItem('mobileBackgroundImages');
+    if (savedMobileImages) {
+      setMobileBackgroundImages(JSON.parse(savedMobileImages));
     }
   });
 
@@ -329,6 +340,63 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     }
   };
 
+  const handleMobileBackgroundUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newImages: BackgroundImage[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) continue;
+
+      const reader = new FileReader();
+      await new Promise<void>((resolve) => {
+        reader.onload = (e) => {
+          newImages.push({
+            id: `mobile-bg-${Date.now()}-${i}`,
+            url: e.target?.result as string,
+            name: file.name,
+          });
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const updatedImages = [...mobileBackgroundImages, ...newImages];
+    setMobileBackgroundImages(updatedImages);
+    localStorage.setItem('mobileBackgroundImages', JSON.stringify(updatedImages));
+
+    sonnerToast.success(`Добавлено ${newImages.length} фоновых изображений для мобильных`);
+  };
+
+  const handleSelectMobileBackground = (imageId: string) => {
+    setSelectedMobileBackgroundId(imageId);
+    const selectedImage = mobileBackgroundImages.find(img => img.id === imageId);
+    
+    if (selectedImage) {
+      localStorage.setItem('loginPageMobileBackground', imageId);
+      localStorage.setItem('loginPageMobileBackgroundUrl', selectedImage.url);
+      window.dispatchEvent(new CustomEvent('mobileBackgroundChange', { detail: selectedImage.url }));
+      sonnerToast.success('Мобильный фон применен');
+    }
+  };
+
+  const handleRemoveMobileBackground = (imageId: string) => {
+    const updatedImages = mobileBackgroundImages.filter(img => img.id !== imageId);
+    setMobileBackgroundImages(updatedImages);
+    localStorage.setItem('mobileBackgroundImages', JSON.stringify(updatedImages));
+    
+    if (selectedMobileBackgroundId === imageId) {
+      setSelectedMobileBackgroundId(null);
+      localStorage.removeItem('loginPageMobileBackground');
+      localStorage.removeItem('loginPageMobileBackgroundUrl');
+      window.dispatchEvent(new CustomEvent('mobileBackgroundChange', { detail: null }));
+    }
+
+    sonnerToast.success('Мобильное изображение удалено');
+  };
+
   return (
     <Card>
       <CardHeader 
@@ -376,6 +444,81 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
           onSelectVideo={handleSelectVideo}
           onRemoveVideo={handleRemoveVideo}
         />
+
+        <Separator />
+
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Мобильный фон (картинка/GIF)</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            На мобильных устройствах вместо видео будет показываться эта картинка или GIF
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => handleMobileBackgroundUpload(e.target.files)}
+                className="hidden"
+                id="mobile-bg-upload"
+              />
+              <label
+                htmlFor="mobile-bg-upload"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 cursor-pointer transition-colors"
+              >
+                <Icon name="Upload" size={20} />
+                Загрузить картинку/GIF для мобильных
+              </label>
+            </div>
+
+            {mobileBackgroundImages.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {mobileBackgroundImages.map((image) => (
+                  <div
+                    key={image.id}
+                    className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedMobileBackgroundId === image.id
+                        ? 'border-primary ring-2 ring-primary/20'
+                        : 'border-transparent hover:border-primary/50'
+                    }`}
+                    onClick={() => handleSelectMobileBackground(image.id)}
+                  >
+                    <img
+                      src={image.url}
+                      alt={image.name}
+                      className="w-full h-32 object-cover"
+                    />
+                    {selectedMobileBackgroundId === image.id && (
+                      <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
+                        <Icon name="Check" size={16} />
+                      </div>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveMobileBackground(image.id);
+                      }}
+                      className="absolute bottom-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Icon name="Trash2" size={16} />
+                    </button>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 truncate">
+                      {image.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {mobileBackgroundImages.length === 0 && (
+              <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
+                <Icon name="ImagePlus" size={48} className="mx-auto mb-2 opacity-50" />
+                <p>Загрузите картинку или GIF для мобильных устройств</p>
+              </div>
+            )}
+          </div>
+        </div>
 
         <Separator />
 

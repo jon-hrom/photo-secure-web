@@ -11,6 +11,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [backgroundVideo, setBackgroundVideo] = useState<string | null>(null);
   const [mobileVideo, setMobileVideo] = useState<string | null>(null);
+  const [mobileBackgroundImage, setMobileBackgroundImage] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const video1Ref = useRef<HTMLVideoElement>(null);
   const API_URL = funcUrls['background-media'];
@@ -25,6 +26,23 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Загружаем мобильный фон (картинка/GIF)
+  useEffect(() => {
+    const mobileBackgroundUrl = localStorage.getItem('loginPageMobileBackgroundUrl');
+    if (mobileBackgroundUrl) {
+      setMobileBackgroundImage(mobileBackgroundUrl);
+      console.log('[LOGIN_BG] Mobile background image loaded:', mobileBackgroundUrl);
+    }
+
+    const handleMobileBackgroundChange = (e: CustomEvent) => {
+      setMobileBackgroundImage(e.detail);
+      console.log('[LOGIN_BG] Mobile background changed:', e.detail);
+    };
+
+    window.addEventListener('mobileBackgroundChange', handleMobileBackgroundChange as EventListener);
+    return () => window.removeEventListener('mobileBackgroundChange', handleMobileBackgroundChange as EventListener);
   }, []);
 
   // Загружаем видео с сервера
@@ -167,13 +185,41 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   console.log('[LOGIN_BG] Render - backgroundVideo:', backgroundVideo);
   console.log('[LOGIN_BG] Render - currentImage:', currentImage);
 
+  // На мобильных устройствах: если есть мобильная картинка, показываем её вместо видео
+  const shouldShowMobileImage = isMobile && mobileBackgroundImage;
+  const effectiveBackgroundVideo = shouldShowMobileImage ? null : backgroundVideo;
+
   return (
     <>
-      {!isLoaded && !backgroundVideo && backgroundImage && (
+      {!isLoaded && !effectiveBackgroundVideo && backgroundImage && !shouldShowMobileImage && (
         <div className="fixed inset-0 bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" style={{ zIndex: 0 }} />
       )}
       
-      {backgroundVideo && (
+      {/* Мобильная картинка (приоритет на мобильных) */}
+      {shouldShowMobileImage && (
+        <>
+          <div 
+            className="fixed inset-0"
+            style={{
+              backgroundImage: `url(${mobileBackgroundImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              zIndex: 0
+            }}
+          />
+          <div 
+            className="fixed inset-0"
+            style={{
+              backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity / 100})`,
+              zIndex: 1
+            }}
+          />
+        </>
+      )}
+      
+      {/* Видео (только на десктопе или если нет мобильной картинки) */}
+      {effectiveBackgroundVideo && !shouldShowMobileImage && (
         <>
           <video
             ref={video1Ref}
@@ -187,8 +233,8 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             onLoadedData={() => console.log('[LOGIN_BG] Video loaded, isMobile:', isMobile)}
             onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
           >
-            <source src={isMobile && mobileVideo ? mobileVideo : backgroundVideo} type="video/mp4" />
-            <source src={isMobile && mobileVideo ? mobileVideo : backgroundVideo} type="video/webm" />
+            <source src={effectiveBackgroundVideo} type="video/mp4" />
+            <source src={effectiveBackgroundVideo} type="video/webm" />
           </video>
           
           <div 
@@ -201,7 +247,8 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
         </>
       )}
       
-      {!backgroundVideo && currentImage && (
+      {/* Обычное фоновое изображение (когда нет видео и мобильной картинки) */}
+      {!effectiveBackgroundVideo && currentImage && !shouldShowMobileImage && (
         <>
           <div 
             className={`fixed inset-0 transition-opacity duration-700 ${
