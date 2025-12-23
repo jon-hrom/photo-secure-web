@@ -187,17 +187,6 @@ const Settings = () => {
 
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-6 pb-32 md:pb-6">
         <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
-          <DashboardUserCard
-            vkUser={vkUser}
-            emailUser={emailUser}
-            finalIsAdmin={finalIsAdmin}
-            onOpenAdminPanel={() => navigate('/admin')}
-            onLogout={() => {
-              localStorage.clear();
-              window.location.href = '/';
-            }}
-          />
-
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/')}
