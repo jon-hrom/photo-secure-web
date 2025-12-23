@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import MaintenancePage from '@/components/MaintenancePage';
 import AuthenticatedLayout from '@/components/layout/AuthenticatedLayout';
 import UnauthenticatedViews from '@/components/layout/UnauthenticatedViews';
+import AccessDeniedNotification from '@/components/AccessDeniedNotification';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { useClientsSync } from '@/hooks/useClientsSync';
@@ -28,6 +29,8 @@ const Index = () => {
     isBlocked,
     blockReason,
     blockData,
+    showAccessDenied,
+    setShowAccessDenied,
     setNeeds2FA,
     setIsBlocked,
     lastActivityRef,
@@ -115,6 +118,10 @@ const Index = () => {
         onLogout={handleLogout}
       />
     );
+  }
+
+  if (showAccessDenied) {
+    return <AccessDeniedNotification onClose={() => setShowAccessDenied(false)} />;
   }
 
   if (!isAuthenticated && guestAccess && currentPage === 'auth') {

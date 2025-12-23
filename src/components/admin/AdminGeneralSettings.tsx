@@ -90,6 +90,24 @@ const AdminGeneralSettings = ({ settings, onToggle, onInputChange }: AdminGenera
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
               <div className="space-y-0.5 flex-1">
+                <Label htmlFor="blockNonAdminLogin" className="text-sm sm:text-base flex items-center gap-2">
+                  <Icon name="ShieldAlert" size={18} className="text-orange-500" />
+                  Блокировка входа для пользователей
+                </Label>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Запретить вход всем пользователям кроме администраторов
+                </p>
+              </div>
+              <Switch
+                id="blockNonAdminLogin"
+                checked={settings.blockNonAdminLogin}
+                onCheckedChange={() => onToggle('blockNonAdminLogin')}
+              />
+            </div>
+            <Separator />
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+              <div className="space-y-0.5 flex-1">
                 <Label htmlFor="fileUpload" className="text-sm sm:text-base">Загрузка файлов</Label>
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Разрешить пользователям загружать файлы

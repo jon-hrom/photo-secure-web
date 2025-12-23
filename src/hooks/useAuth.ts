@@ -36,10 +36,28 @@ export const useAuth = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState<string | null>(null);
   const [blockData, setBlockData] = useState<any | null>(null);
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
   const lastActivityRef = useRef<number>(Date.now());
 
-  const handleLoginSuccess = (uid: number, email?: string) => {
+  const handleLoginSuccess = async (uid: number, email?: string) => {
     const isUserAdmin = isAdminUser(email || null, null);
+    
+    // Проверяем настройку блокировки входа для не-админов
+    if (!isUserAdmin) {
+      try {
+        const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=block_non_admin_login');
+        const data = await response.json();
+        
+        if (data.value === true) {
+          console.log('🚫 Non-admin login blocked by admin setting');
+          setShowAccessDenied(true);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking block_non_admin_login setting:', error);
+      }
+    }
+    
     setIsAuthenticated(true);
     setUserId(uid);
     setUserEmail(email || '');
@@ -502,6 +520,8 @@ export const useAuth = () => {
     isBlocked,
     blockReason,
     blockData,
+    showAccessDenied,
+    setShowAccessDenied,
     setNeeds2FA,
     setPendingUserData,
     setIsBlocked,

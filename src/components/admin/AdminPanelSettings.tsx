@@ -9,6 +9,7 @@ export const useAdminPanelSettings = () => {
     twoFactorEnabled: true,
     registrationEnabled: true,
     maintenanceMode: false,
+    blockNonAdminLogin: false,
     emailNotifications: true,
     smsNotifications: true,
     autoBackup: true,
@@ -81,6 +82,7 @@ export const useAdminPanelSettings = () => {
           registrationEnabled: appSettings.registration_enabled ?? prev.registrationEnabled,
           maintenanceMode: appSettings.maintenance_mode ?? prev.maintenanceMode,
           guestAccess: appSettings.guest_access ?? prev.guestAccess,
+          blockNonAdminLogin: appSettings.block_non_admin_login ?? prev.blockNonAdminLogin,
           maxFileSize: String(oldData.settings.maxFileSize || 10),
           sessionTimeout: String(oldData.settings.sessionTimeout || 7),
           maxLoginAttempts: String(oldData.settings.maxLoginAttempts || 5),
@@ -92,6 +94,7 @@ export const useAdminPanelSettings = () => {
           registrationEnabled: appSettings.registration_enabled ?? prev.registrationEnabled,
           maintenanceMode: appSettings.maintenance_mode ?? prev.maintenanceMode,
           guestAccess: appSettings.guest_access ?? prev.guestAccess,
+          blockNonAdminLogin: appSettings.block_non_admin_login ?? prev.blockNonAdminLogin,
         }));
       }
       
@@ -159,11 +162,12 @@ export const useAdminPanelSettings = () => {
     const newValue = !settings[key as keyof typeof settings];
     setSettings(prev => ({ ...prev, [key]: newValue }));
     
-    if (key === 'registrationEnabled' || key === 'maintenanceMode' || key === 'guestAccess') {
+    if (key === 'registrationEnabled' || key === 'maintenanceMode' || key === 'guestAccess' || key === 'blockNonAdminLogin') {
       const settingKeyMap: Record<string, string> = {
         registrationEnabled: 'registration_enabled',
         maintenanceMode: 'maintenance_mode',
         guestAccess: 'guest_access',
+        blockNonAdminLogin: 'block_non_admin_login',
       };
       
       try {
