@@ -81,6 +81,7 @@ const Settings = () => {
   }, []);
 
   useEffect(() => {
+    console.log('[SETTINGS] Component mounted');
     loadSettings();
     // Загрузка темы из localStorage
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -95,11 +96,14 @@ const Settings = () => {
     
     // Загрузка новогоднего режима
     const checkNewYearMode = async () => {
+      console.log('[NEW_YEAR] Starting to check new year mode...');
       try {
         const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0');
+        console.log('[NEW_YEAR] Response status:', response.status);
         const data = await response.json();
         console.log('[NEW_YEAR] Settings response:', data);
         console.log('[NEW_YEAR] Mode enabled:', data.new_year_mode_enabled);
+        console.log('[NEW_YEAR] Setting newYearModeAvailable to:', data.new_year_mode_enabled || false);
         setNewYearModeAvailable(data.new_year_mode_enabled || false);
       } catch (error) {
         console.error('[NEW_YEAR] Failed to check new year mode:', error);
@@ -450,12 +454,15 @@ const Settings = () => {
               userSource={settings?.source}
             />
 
-            {newYearModeAvailable && (
-              <NewYearSettings 
-                settings={newYearSettings}
-                onChange={handleNewYearSettingsChange}
-              />
-            )}
+            {(() => {
+              console.log('[NEW_YEAR] Render check - newYearModeAvailable:', newYearModeAvailable);
+              return newYearModeAvailable ? (
+                <NewYearSettings 
+                  settings={newYearSettings}
+                  onChange={handleNewYearSettingsChange}
+                />
+              ) : null;
+            })()}
 
             <div className="pt-4 border-t">
               <Button 
