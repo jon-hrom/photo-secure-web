@@ -56,7 +56,7 @@ const Settings = () => {
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      const maxBlocks = document.querySelectorAll('[data-max-connection-card], .max-connection-card, section:has(h2:contains("MAX"))');
+      const maxBlocks = document.querySelectorAll('[data-max-connection-card], .max-connection-card');
       maxBlocks.forEach(block => {
         if (block && (block.textContent?.includes('MAX') || block.textContent?.includes('Мессенджер'))) {
           (block as HTMLElement).style.display = 'none';
@@ -454,15 +454,12 @@ const Settings = () => {
               userSource={settings?.source}
             />
 
-            {(() => {
-              console.log('[NEW_YEAR] Render check - newYearModeAvailable:', newYearModeAvailable);
-              return newYearModeAvailable ? (
-                <NewYearSettings 
-                  settings={newYearSettings}
-                  onChange={handleNewYearSettingsChange}
-                />
-              ) : null;
-            })()}
+            {newYearModeAvailable && (
+              <NewYearSettings 
+                settings={newYearSettings}
+                onChange={handleNewYearSettingsChange}
+              />
+            )}
 
             <div className="pt-4 border-t">
               <Button 
