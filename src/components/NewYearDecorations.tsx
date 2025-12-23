@@ -1,25 +1,116 @@
 import { useEffect, useState } from 'react';
 
+export interface SnowSettings {
+  enabled: boolean;
+  speed: number;
+  size: number;
+  direction: 'down' | 'left' | 'right' | 'auto';
+  colors: {
+    white: number;
+    blue: number;
+    black: number;
+    yellow: number;
+    red: number;
+    green: number;
+  };
+}
+
+const DEFAULT_SETTINGS: SnowSettings = {
+  enabled: true,
+  speed: 1,
+  size: 20,
+  direction: 'auto',
+  colors: {
+    white: 70,
+    blue: 15,
+    black: 0,
+    yellow: 10,
+    red: 3,
+    green: 2,
+  }
+};
+
 const NewYearDecorations = () => {
   const [showSnow, setShowSnow] = useState(true);
+  const [settings, setSettings] = useState<SnowSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSnow(true), 100);
-    return () => clearTimeout(timer);
+    
+    // Load settings from localStorage
+    const saved = localStorage.getItem('newYearSettings');
+    if (saved) {
+      try {
+        setSettings(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse snow settings:', e);
+      }
+    }
+    
+    // Listen for settings changes
+    const handleSettingsChange = () => {
+      const saved = localStorage.getItem('newYearSettings');
+      if (saved) {
+        try {
+          setSettings(JSON.parse(saved));
+        } catch (e) {
+          console.error('Failed to parse snow settings:', e);
+        }
+      }
+    };
+    
+    window.addEventListener('newYearSettingsChange', handleSettingsChange);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('newYearSettingsChange', handleSettingsChange);
+    };
   }, []);
+
+  if (!settings.enabled || !showSnow) return null;
+
+  // Generate snowflakes with color distribution
+  const getSnowflakeColor = (index: number): string => {
+    const colors = settings.colors;
+    const total = colors.white + colors.blue + colors.black + colors.yellow + colors.red + colors.green;
+    const random = (index * 17) % total; // Pseudo-random based on index
+    
+    let cumulative = 0;
+    if (random < (cumulative += colors.white)) return '#ffffff';
+    if (random < (cumulative += colors.blue)) return '#3b82f6';
+    if (random < (cumulative += colors.yellow)) return '#facc15';
+    if (random < (cumulative += colors.red)) return '#ef4444';
+    if (random < (cumulative += colors.green)) return '#22c55e';
+    return '#000000'; // black
+  };
+
+  // Calculate animation based on direction and speed
+  const getAnimationName = (index: number): string => {
+    if (settings.direction === 'auto') {
+      const directions = ['fall-down', 'fall-left', 'fall-right'];
+      return directions[index % directions.length];
+    }
+    return settings.direction === 'down' ? 'fall-down' : 
+           settings.direction === 'left' ? 'fall-left' : 'fall-right';
+  };
+
+  const baseSpeed = 8; // base duration in seconds
+  const duration = baseSpeed / settings.speed;
 
   return (
     <>
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-        {showSnow && Array.from({ length: 50 }).map((_, i) => (
+        {Array.from({ length: 50 }).map((_, i) => (
           <div
             key={i}
-            className="snowflake absolute text-white opacity-70"
+            className="snowflake absolute opacity-70"
             style={{
               left: `${Math.random() * 100}%`,
               animationDelay: `${Math.random() * 5}s`,
-              fontSize: `${Math.random() * 10 + 10}px`,
-              animation: `fall ${Math.random() * 3 + 5}s linear infinite`
+              fontSize: `${settings.size}px`,
+              animation: `${getAnimationName(i)} ${duration + Math.random() * 3}s linear infinite`,
+              color: getSnowflakeColor(i),
+              textShadow: `0 0 5px ${getSnowflakeColor(i)}`,
             }}
           >
             ❄
@@ -61,9 +152,9 @@ const NewYearDecorations = () => {
       </div>
 
       <style>{`
-        @keyframes fall {
+        @keyframes fall-down {
           0% {
-            transform: translateY(-10vh) rotate(0deg);
+            transform: translateY(-10vh) translateX(0) rotate(0deg);
             opacity: 0;
           }
           10% {
@@ -73,7 +164,41 @@ const NewYearDecorations = () => {
             opacity: 0.7;
           }
           100% {
-            transform: translateY(100vh) rotate(360deg);
+            transform: translateY(100vh) translateX(0) rotate(360deg);
+            opacity: 0;
+          }
+        }
+
+        @keyframes fall-left {
+          0% {
+            transform: translateY(-10vh) translateX(0) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.7;
+          }
+          90% {
+            opacity: 0.7;
+          }
+          100% {
+            transform: translateY(100vh) translateX(-30vw) rotate(360deg);
+            opacity: 0;
+          }
+        }
+
+        @keyframes fall-right {
+          0% {
+            transform: translateY(-10vh) translateX(0) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.7;
+          }
+          90% {
+            opacity: 0.7;
+          }
+          100% {
+            transform: translateY(100vh) translateX(30vw) rotate(360deg);
             opacity: 0;
           }
         }

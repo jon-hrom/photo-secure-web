@@ -11,6 +11,7 @@ export const useAdminPanelSettings = () => {
     maintenanceMode: false,
     blockNonAdminLogin: false,
     blockLoginMessage: 'Доступ на вход временно недоступен по техническим причинам',
+    newYearModeEnabled: false,
     emailNotifications: true,
     smsNotifications: true,
     autoBackup: true,
@@ -85,6 +86,7 @@ export const useAdminPanelSettings = () => {
           guestAccess: appSettings.guest_access ?? prev.guestAccess,
           blockNonAdminLogin: appSettings.block_non_admin_login ?? prev.blockNonAdminLogin,
           blockLoginMessage: appSettings.block_login_message ?? prev.blockLoginMessage,
+          newYearModeEnabled: appSettings.new_year_mode_enabled ?? prev.newYearModeEnabled,
           maxFileSize: String(oldData.settings.maxFileSize || 10),
           sessionTimeout: String(oldData.settings.sessionTimeout || 7),
           maxLoginAttempts: String(oldData.settings.maxLoginAttempts || 5),
@@ -98,6 +100,7 @@ export const useAdminPanelSettings = () => {
           guestAccess: appSettings.guest_access ?? prev.guestAccess,
           blockNonAdminLogin: appSettings.block_non_admin_login ?? prev.blockNonAdminLogin,
           blockLoginMessage: appSettings.block_login_message ?? prev.blockLoginMessage,
+          newYearModeEnabled: appSettings.new_year_mode_enabled ?? prev.newYearModeEnabled,
         }));
       }
       
@@ -165,12 +168,13 @@ export const useAdminPanelSettings = () => {
     const newValue = !settings[key as keyof typeof settings];
     setSettings(prev => ({ ...prev, [key]: newValue }));
     
-    if (key === 'registrationEnabled' || key === 'maintenanceMode' || key === 'guestAccess' || key === 'blockNonAdminLogin') {
+    if (key === 'registrationEnabled' || key === 'maintenanceMode' || key === 'guestAccess' || key === 'blockNonAdminLogin' || key === 'newYearModeEnabled') {
       const settingKeyMap: Record<string, string> = {
         registrationEnabled: 'registration_enabled',
         maintenanceMode: 'maintenance_mode',
         guestAccess: 'guest_access',
         blockNonAdminLogin: 'block_non_admin_login',
+        newYearModeEnabled: 'new_year_mode_enabled',
       };
       
       try {

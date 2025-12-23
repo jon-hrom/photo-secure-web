@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import funcUrls from '../../../backend/func2url.json';
 import SecuritySettings from '@/components/settings/SecuritySettings';
 import MultiEmailCard from '@/components/settings/MultiEmailCard';
+import NewYearSettings, { SnowSettings } from '@/components/settings/NewYearSettings';
 
 interface UserSettings {
   id: number;
@@ -37,6 +38,21 @@ const Settings = () => {
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [smsNotifications, setSmsNotifications] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [newYearSettings, setNewYearSettings] = useState<SnowSettings>({
+    enabled: false,
+    speed: 1,
+    size: 20,
+    direction: 'auto',
+    colors: {
+      white: 70,
+      blue: 15,
+      black: 0,
+      yellow: 10,
+      red: 3,
+      green: 2,
+    }
+  });
+  const [newYearModeAvailable, setNewYearModeAvailable] = useState(false);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -78,9 +94,27 @@ const Settings = () => {
     }
     
     // Загрузка новогоднего режима
-    const savedNewYearMode = localStorage.getItem('newYearMode') === 'true';
-    setNewYearMode(savedNewYearMode);
-    window.dispatchEvent(new CustomEvent('newYearModeChange', { detail: savedNewYearMode }));
+    const checkNewYearMode = async () => {
+      try {
+        const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0');
+        const data = await response.json();
+        setNewYearModeAvailable(data.new_year_mode_enabled || false);
+      } catch (error) {
+        console.error('Failed to check new year mode:', error);
+      }
+    };
+    
+    checkNewYearMode();
+    
+    // Загрузка настроек снега
+    const savedSnowSettings = localStorage.getItem('newYearSettings');
+    if (savedSnowSettings) {
+      try {
+        setNewYearSettings(JSON.parse(savedSnowSettings));
+      } catch (e) {
+        console.error('Failed to parse snow settings:', e);
+      }
+    }
   }, []);
 
   const getUserId = (): number | null => {
@@ -184,6 +218,21 @@ const Settings = () => {
     // Dispatch event для обновления темы в других компонентах
     window.dispatchEvent(new Event('themeChange'));
     toast.success(`Тема изменена на ${newTheme === 'dark' ? 'тёмную' : 'светлую'}`);
+  };
+
+  const handleNewYearSettingsChange = (newSettings: SnowSettings) => {
+    setNewYearSettings(newSettings);
+    localStorage.setItem('newYearSettings', JSON.stringify(newSettings));
+    window.dispatchEvent(new Event('newYearSettingsChange'));
+    
+    // Update global new year mode
+    if (newSettings.enabled) {
+      localStorage.setItem('newYearMode', 'true');
+      window.dispatchEvent(new CustomEvent('newYearModeChange', { detail: true }));
+    } else {
+      localStorage.setItem('newYearMode', 'false');
+      window.dispatchEvent(new CustomEvent('newYearModeChange', { detail: false }));
+    }
   };
 
   const handleSave = async () => {
@@ -398,6 +447,13 @@ const Settings = () => {
               hasPassword={settings?.has_password === 'true'}
               userSource={settings?.source}
             />
+
+            {newYearModeAvailable && (
+              <NewYearSettings 
+                settings={newYearSettings}
+                onChange={handleNewYearSettingsChange}
+              />
+            )}
 
             <div className="pt-4 border-t">
               <Button 

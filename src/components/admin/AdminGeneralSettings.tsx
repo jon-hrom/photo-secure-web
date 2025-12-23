@@ -17,6 +17,7 @@ const AdminGeneralSettings = ({ settings, onToggle, onInputChange }: AdminGenera
     basic: true,
     notifications: true,
     security: true,
+    newYear: true,
   });
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -148,6 +149,43 @@ const AdminGeneralSettings = ({ settings, onToggle, onInputChange }: AdminGenera
                 value={settings.maxFileSize}
                 onChange={(e) => onInputChange('maxFileSize', e.target.value)}
                 className="w-full sm:max-w-xs"
+              />
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader 
+          className="cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => toggleSection('newYear')}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                🎄 Новогодний интерьер
+              </CardTitle>
+              <CardDescription>Управление новогодним оформлением сайта</CardDescription>
+            </div>
+            <Icon 
+              name={expandedSections.newYear ? 'ChevronUp' : 'ChevronDown'} 
+              className="text-muted-foreground" 
+            />
+          </div>
+        </CardHeader>
+        {expandedSections.newYear && (
+          <CardContent className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+              <div className="space-y-0.5 flex-1">
+                <Label htmlFor="newYearMode" className="text-sm sm:text-base">Включить новогоднее оформление</Label>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Показывать новогодний интерьер всем пользователям
+                </p>
+              </div>
+              <Switch
+                id="newYearMode"
+                checked={settings.newYearModeEnabled}
+                onCheckedChange={() => onToggle('newYearModeEnabled')}
               />
             </div>
           </CardContent>
