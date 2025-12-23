@@ -176,7 +176,7 @@ const ContactInfoCard = ({
             <Label htmlFor="phone" className="text-sm md:text-base text-gray-900 dark:text-gray-100">Телефон</Label>
             <div className="flex items-center gap-1.5 text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white px-2 py-1 rounded-full shadow-sm">
               <div className="w-3 h-3 rounded-sm bg-white/20 flex items-center justify-center">
-                <span className="text-white font-bold text-[8px]">M</span>
+                <span className="text-white font-bold text-[8px]"></span>
               </div>
               <span className="font-semibold">для MAX</span>
             </div>
