@@ -62,11 +62,6 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     if (savedImages) {
       setBackgroundImages(JSON.parse(savedImages));
     }
-    
-    const savedVideos = localStorage.getItem('backgroundVideos');
-    if (savedVideos) {
-      setBackgroundVideos(JSON.parse(savedVideos));
-    }
   });
 
   const handleBackgroundUpload = async (files: FileList | null) => {
@@ -288,7 +283,6 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
 
   const handleVideosChange = (videos: BackgroundVideo[]) => {
     setBackgroundVideos(videos);
-    localStorage.setItem('backgroundVideos', JSON.stringify(videos));
   };
 
   const handleSelectVideo = (videoId: string | null) => {
@@ -310,18 +304,12 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const handleRemoveVideo = (videoId: string) => {
     const updatedVideos = backgroundVideos.filter(v => v.id !== videoId);
     setBackgroundVideos(updatedVideos);
-    localStorage.setItem('backgroundVideos', JSON.stringify(updatedVideos));
     
     if (selectedVideoId === videoId) {
       setSelectedVideoId(null);
       localStorage.removeItem('loginPageVideo');
       window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: null }));
     }
-
-    toast({
-      title: 'Видео удалено',
-      description: 'Фоновое видео удалено',
-    });
   };
 
   return (

@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
+import funcUrls from '../../../../backend/func2url.json';
 
 export interface BackgroundVideo {
   id: string;
@@ -31,7 +32,29 @@ const VideoUploader = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [compressionInfo, setCompressionInfo] = useState<string>('');
+  const [isLoadingVideos, setIsLoadingVideos] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const API_URL = funcUrls['background-media'];
+
+  // Загружаем список видео при монтировании
+  useEffect(() => {
+    loadVideos();
+  }, []);
+
+  const loadVideos = async () => {
+    try {
+      const response = await fetch(`${API_URL}?type=video`);
+      const data = await response.json();
+      
+      if (data.success && data.files) {
+        onVideosChange(data.files);
+      }
+    } catch (error) {
+      console.error('Failed to load videos:', error);
+    } finally {
+      setIsLoadingVideos(false);
+    }
+  };
 
   const compressVideo = async (file: File): Promise<{ blob: Blob; thumbnail: string }> => {
     return new Promise((resolve, reject) => {
@@ -43,9 +66,9 @@ const VideoUploader = ({
       video.src = URL.createObjectURL(file);
       
       video.onloadedmetadata = () => {
-        // Уменьшаем разрешение для быстрой загрузки
-        const maxWidth = 1920;
-        const maxHeight = 1080;
+        // Уменьшаем разрешение до 720p для быстрой загрузки
+        const maxWidth = 1280;
+        const maxHeight = 720;
         let width = video.videoWidth;
         let height = video.videoHeight;
         
@@ -62,23 +85,33 @@ const VideoUploader = ({
         canvas.height = height;
         
         // Создаем thumbnail
-        video.currentTime = 1;
+        video.currentTime = Math.min(1, video.duration / 2);
         video.onseeked = () => {
           ctx.drawImage(video, 0, 0, width, height);
           const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
           
-          // Сжимаем видео через canvas
+          // Сжимаем видео
           const chunks: Blob[] = [];
-          const stream = canvas.captureStream(30); // 30 FPS
+          const stream = canvas.captureStream(25); // 25 FPS для меньшего размера
+          
+          let mimeType = 'video/webm;codecs=vp8'; // VP8 быстрее VP9
+          const videoBitsPerSecond = 1500000; // 1.5 Mbps - баланс качество/размер
+          
+          // Проверяем поддержку кодеков
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'video/webm';
+          }
+          
           const mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'video/webm;codecs=vp9',
-            videoBitsPerSecond: 2500000 // 2.5 Mbps для хорошего качества
+            mimeType,
+            videoBitsPerSecond
           });
           
           mediaRecorder.ondataavailable = (e) => {
             if (e.data.size > 0) {
               chunks.push(e.data);
-              setUploadProgress(Math.min(90, (chunks.length / 100) * 100));
+              const progress = Math.min(90, (video.currentTime / video.duration) * 100);
+              setUploadProgress(progress);
             }
           };
           
@@ -135,9 +168,9 @@ const VideoUploader = ({
       return;
     }
 
-    // Проверка размера (макс 100MB оригинал)
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error('Файл слишком большой. Максимум 100MB');
+    // Проверка размера (макс 50MB оригинал)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('Файл слишком большой. Максимум 50MB');
       return;
     }
 
@@ -156,34 +189,61 @@ const VideoUploader = ({
       const saved = ((1 - optimizedSize / originalSize) * 100).toFixed(0);
       
       setCompressionInfo(
-        `Оригинал: ${(originalSize / 1024 / 1024).toFixed(1)} MB → ` +
         `Оптимизировано: ${(optimizedSize / 1024 / 1024).toFixed(1)} MB (сжато на ${saved}%)`
       );
       
-      // Конвертируем в base64 для сохранения в localStorage
+      setUploadProgress(92);
+      toast.info('Загрузка в облако...');
+      
+      // Конвертируем в base64
       const reader = new FileReader();
-      reader.onload = () => {
-        const videoUrl = reader.result as string;
+      reader.onload = async () => {
+        const base64Data = (reader.result as string).split(',')[1];
         
-        const newVideo: BackgroundVideo = {
-          id: `video-${Date.now()}`,
-          url: videoUrl,
-          name: file.name,
-          size: optimizedSize,
-          thumbnail
-        };
-        
-        const updatedVideos = [...videos, newVideo];
-        onVideosChange(updatedVideos);
-        
-        setUploadProgress(100);
-        toast.success('Видео загружено и оптимизировано!');
-        
-        setTimeout(() => {
+        try {
+          // Загружаем в S3
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              file: base64Data,
+              filename: file.name,
+              type: 'video'
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success && data.file) {
+            // Добавляем thumbnail к файлу
+            const newVideo: BackgroundVideo = {
+              ...data.file,
+              thumbnail
+            };
+            
+            const updatedVideos = [...videos, newVideo];
+            onVideosChange(updatedVideos);
+            
+            setUploadProgress(100);
+            toast.success('Видео загружено! Теперь оно загружается молниеносно через CDN');
+            
+            setTimeout(() => {
+              setIsUploading(false);
+              setUploadProgress(0);
+              setCompressionInfo('');
+            }, 2000);
+          } else {
+            throw new Error(data.error || 'Upload failed');
+          }
+        } catch (uploadError) {
+          console.error('Upload error:', uploadError);
+          toast.error('Ошибка загрузки в облако');
           setIsUploading(false);
           setUploadProgress(0);
           setCompressionInfo('');
-        }, 2000);
+        }
       };
       
       reader.readAsDataURL(blob);
@@ -202,6 +262,38 @@ const VideoUploader = ({
     }
   };
 
+  const handleRemoveVideo = async (videoId: string) => {
+    try {
+      const response = await fetch(API_URL, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fileId: videoId })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        onRemoveVideo(videoId);
+        toast.success('Видео удалено');
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Ошибка удаления');
+    }
+  };
+
+  if (isLoadingVideos) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Icon name="Loader2" className="animate-spin text-muted-foreground" size={32} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -209,7 +301,7 @@ const VideoUploader = ({
           Фоновое видео
         </Label>
         <p className="text-xs text-muted-foreground">
-          Загрузите видео для анимированного фона страницы входа. Видео будет автоматически оптимизировано.
+          Загрузите видео для анимированного фона. Видео будет оптимизировано и загружено в CDN для молниеносной загрузки.
         </p>
       </div>
 
@@ -247,7 +339,7 @@ const VideoUploader = ({
                   {video.name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {(video.size / 1024 / 1024).toFixed(1)} MB
+                  {(video.size / 1024 / 1024).toFixed(1)} MB • CDN
                 </p>
               </div>
 
@@ -257,7 +349,7 @@ const VideoUploader = ({
                 className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRemoveVideo(video.id);
+                  handleRemoveVideo(video.id);
                 }}
               >
                 <Icon name="X" size={14} />
@@ -295,7 +387,7 @@ const VideoUploader = ({
             </>
           ) : (
             <>
-              <Icon name="Video" size={16} className="mr-2" />
+              <Icon name="Upload" size={16} className="mr-2" />
               Загрузить видео
             </>
           )}
@@ -315,14 +407,14 @@ const VideoUploader = ({
 
       <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
         <div className="flex gap-2">
-          <Icon name="Info" size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <Icon name="Zap" size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div className="space-y-1 text-xs text-blue-900 dark:text-blue-300">
-            <p className="font-medium">Рекомендации по видео:</p>
+            <p className="font-medium">Молниеносная загрузка через CDN:</p>
             <ul className="list-disc list-inside space-y-0.5 text-blue-800 dark:text-blue-400">
-              <li>Длительность: 10-30 секунд (будет зациклено)</li>
-              <li>Формат: любой (MP4, MOV, AVI и т.д.)</li>
-              <li>Размер: до 100MB (будет автоматически сжато)</li>
-              <li>Разрешение: будет оптимизировано до Full HD</li>
+              <li>Видео сжимается до 720p с битрейтом 1.5 Mbps</li>
+              <li>Загружается в облачное хранилище Yandex Cloud</li>
+              <li>Раздается через CDN для мгновенной загрузки</li>
+              <li>Рекомендуем: 10-30 секунд (будет зациклено)</li>
             </ul>
           </div>
         </div>

@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Get media files list",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "files": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Delete without fileId",
+      "method": "DELETE",
+      "path": "/",
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": {
+        "success": false
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
