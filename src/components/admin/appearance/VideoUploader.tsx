@@ -33,7 +33,10 @@ const VideoUploader = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [compressionInfo, setCompressionInfo] = useState<string>('');
   const [isLoadingVideos, setIsLoadingVideos] = useState(true);
+  const [previewVideo, setPreviewVideo] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
   const API_URL = funcUrls['background-media'];
 
   // Загружаем список видео при монтировании
@@ -174,6 +177,28 @@ const VideoUploader = ({
       return;
     }
 
+    // Показываем предпросмотр
+    const videoUrl = URL.createObjectURL(file);
+    setPreviewVideo(videoUrl);
+    setPreviewFile(file);
+  };
+
+  const handleCancelPreview = () => {
+    if (previewVideo) {
+      URL.revokeObjectURL(previewVideo);
+    }
+    setPreviewVideo(null);
+    setPreviewFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!previewFile) return;
+
+    const file = previewFile;
+
     setIsUploading(true);
     setUploadProgress(0);
     setCompressionInfo('');
@@ -256,10 +281,8 @@ const VideoUploader = ({
       setCompressionInfo('');
     }
 
-    // Сбрасываем input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    // Сбрасываем input и превью
+    handleCancelPreview();
   };
 
   const handleRemoveVideo = async (videoId: string) => {
@@ -296,6 +319,55 @@ const VideoUploader = ({
 
   return (
     <div className="space-y-4">
+      {/* Превью видео перед загрузкой */}
+      {previewVideo && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Предпросмотр видео</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancelPreview}
+              >
+                <Icon name="X" size={20} />
+              </Button>
+            </div>
+            
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+              <video
+                ref={previewVideoRef}
+                src={previewVideo}
+                controls
+                autoPlay
+                loop
+                className="w-full h-full object-contain"
+              />
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              <p>Размер: {previewFile && (previewFile.size / 1024 / 1024).toFixed(1)} MB</p>
+              <p className="mt-1">Видео будет оптимизировано до 720p (1280×720) для быстрой загрузки</p>
+            </div>
+            
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={handleCancelPreview}
+              >
+                Отмена
+              </Button>
+              <Button
+                onClick={handleConfirmUpload}
+                disabled={isUploading}
+              >
+                {isUploading ? 'Загрузка...' : 'Загрузить видео'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">
           Фоновое видео
