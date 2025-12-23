@@ -1,4 +1,5 @@
 import { useEffect, useState, ReactNode } from 'react';
+import funcUrls from '../../backend/func2url.json';
 
 interface LoginPageBackgroundProps {
   children: ReactNode;
@@ -8,6 +9,7 @@ const LoginPageBackground = ({ children }: LoginPageBackgroundProps) => {
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [backgroundVideo, setBackgroundVideo] = useState<string | null>(null);
   const [backgroundOpacity, setBackgroundOpacity] = useState<number>(20);
+  const API_URL = funcUrls['background-media'];
 
   useEffect(() => {
     const loadBackground = async () => {
@@ -16,7 +18,6 @@ const LoginPageBackground = ({ children }: LoginPageBackgroundProps) => {
       if (selectedVideoId) {
         try {
           // Загружаем список видео с сервера
-          const API_URL = 'https://functions.poehali.dev/e14599a3-7e42-421d-b200-7e41d0291ad7';
           const response = await fetch(`${API_URL}?type=video`);
           const data = await response.json();
           
@@ -57,7 +58,6 @@ const LoginPageBackground = ({ children }: LoginPageBackgroundProps) => {
       const videoId = e.detail;
       if (videoId) {
         try {
-          const API_URL = 'https://functions.poehali.dev/e14599a3-7e42-421d-b200-7e41d0291ad7';
           const response = await fetch(`${API_URL}?type=video`);
           const data = await response.json();
           
