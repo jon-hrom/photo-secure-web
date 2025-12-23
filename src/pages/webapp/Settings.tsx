@@ -179,9 +179,14 @@ const Settings = () => {
       });
 
       const data = await response.json();
+      console.log('[SETTINGS] Full response data:', JSON.stringify(data, null, 2));
 
       if (data.success && data.settings) {
         const s = data.settings;
+        console.log('[SETTINGS] Settings object:', s);
+        console.log('[SETTINGS] new_year_mode_available:', s.new_year_mode_available);
+        console.log('[SETTINGS] new_year_enabled:', s.new_year_enabled);
+        
         setSettings(s);
         setDisplayName(s.display_name || '');
         setPhone(s.phone || '');
@@ -191,6 +196,20 @@ const Settings = () => {
         setInterests(s.interests || '');
         setEmailNotifications(s.two_factor_email || false);
         setSmsNotifications(s.two_factor_sms || false);
+        
+        // Загрузка новогодних настроек
+        if (s.new_year_enabled !== undefined) {
+          console.log('[NEW_YEAR] Loading settings from API:', {
+            enabled: s.new_year_enabled,
+            snowflakes: s.new_year_snowflakes,
+            music: s.new_year_music
+          });
+          setNewYearSettings({
+            enabled: s.new_year_enabled === true || s.new_year_enabled === 'true',
+            snowflakes: s.new_year_snowflakes === true || s.new_year_snowflakes === 'true',
+            music: s.new_year_music === true || s.new_year_music === 'true'
+          });
+        }
         
         // Загрузка темы
         const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
