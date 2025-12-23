@@ -148,9 +148,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             file_bytes = base64.b64decode(file_data)
             print(f'[BG_MEDIA] Decoded file size: {len(file_bytes)} bytes')
             
-            # Определяем content type
-            content_type = 'video/webm' if file_type == 'video' else 'image/jpeg'
-            extension = '.webm' if file_type == 'video' else '.jpg'
+            # Определяем content type и расширение по имени файла
+            filename_lower = filename.lower()
+            if file_type == 'video':
+                content_type = 'video/webm'
+                extension = '.webm'
+            elif filename_lower.endswith('.gif'):
+                content_type = 'image/gif'
+                extension = '.gif'
+            elif filename_lower.endswith('.png'):
+                content_type = 'image/png'
+                extension = '.png'
+            elif filename_lower.endswith('.webp'):
+                content_type = 'image/webp'
+                extension = '.webp'
+            else:
+                content_type = 'image/jpeg'
+                extension = '.jpg'
             
             # Генерируем уникальное имя
             file_id = f"{context.request_id}"

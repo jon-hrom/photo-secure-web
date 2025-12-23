@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -68,12 +68,19 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     }
   });
 
-  useState(() => {
+  useEffect(() => {
     const savedMobileImages = localStorage.getItem('mobileBackgroundImages');
     if (savedMobileImages) {
-      setMobileBackgroundImages(JSON.parse(savedMobileImages));
+      try {
+        const parsed = JSON.parse(savedMobileImages);
+        setMobileBackgroundImages(parsed);
+        console.log('[ADMIN_APPEARANCE] Loaded mobile backgrounds:', parsed);
+      } catch (e) {
+        console.error('[ADMIN_APPEARANCE] Failed to parse mobile backgrounds:', e);
+        localStorage.removeItem('mobileBackgroundImages');
+      }
     }
-  });
+  }, []);
 
   const handleBackgroundUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -343,31 +350,65 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const handleMobileBackgroundUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const newImages: BackgroundImage[] = [];
+    sonnerToast.loading('Загрузка изображений...', { id: 'mobile-upload' });
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!file.type.startsWith('image/')) continue;
+    try {
+      const uploadedImages: BackgroundImage[] = [];
 
-      const reader = new FileReader();
-      await new Promise<void>((resolve) => {
-        reader.onload = (e) => {
-          newImages.push({
-            id: `mobile-bg-${Date.now()}-${i}`,
-            url: e.target?.result as string,
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith('image/')) continue;
+
+        // Читаем файл как base64
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64 = result.split(',')[1]; // Убираем "data:image/...;base64,"
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        // Отправляем на сервер
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            file: base64Data,
+            filename: file.name,
+            type: 'image',
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (data.success && data.file) {
+          uploadedImages.push({
+            id: data.file.id,
+            url: data.file.url,
             name: file.name,
           });
-          resolve();
-        };
-        reader.readAsDataURL(file);
-      });
+        }
+      }
+
+      const updatedImages = [...mobileBackgroundImages, ...uploadedImages];
+      setMobileBackgroundImages(updatedImages);
+      
+      // Сохраняем только метаданные, НЕ сами изображения
+      const imagesMetadata = updatedImages.map(img => ({
+        id: img.id,
+        url: img.url,
+        name: img.name
+      }));
+      localStorage.setItem('mobileBackgroundImages', JSON.stringify(imagesMetadata));
+
+      sonnerToast.success(`Добавлено ${uploadedImages.length} изображений`, { id: 'mobile-upload' });
+    } catch (error) {
+      console.error('Mobile background upload error:', error);
+      sonnerToast.error('Ошибка загрузки', { id: 'mobile-upload' });
     }
-
-    const updatedImages = [...mobileBackgroundImages, ...newImages];
-    setMobileBackgroundImages(updatedImages);
-    localStorage.setItem('mobileBackgroundImages', JSON.stringify(updatedImages));
-
-    sonnerToast.success(`Добавлено ${newImages.length} фоновых изображений для мобильных`);
   };
 
   const handleSelectMobileBackground = (imageId: string) => {
