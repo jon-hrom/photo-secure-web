@@ -48,7 +48,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             params = event.get('queryStringParameters') or {}
             media_type = params.get('type', 'all')  # 'video', 'image', 'all'
             
+            print(f'[BG_MEDIA] GET request, type={media_type}')
+            
             response = s3.list_objects_v2(Bucket='files', Prefix='background-media/')
+            print(f'[BG_MEDIA] S3 response: {response.get("KeyCount", 0)} objects')
+            
             files = []
             
             if 'Contents' in response:
@@ -70,14 +74,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
                     
-                    files.append({
+                    file_data = {
                         'id': filename.rsplit('.', 1)[0],
                         'url': cdn_url,
                         'name': filename,
                         'size': obj['Size'],
                         'type': 'video' if is_video else 'image',
                         'uploaded': obj['LastModified'].isoformat()
-                    })
+                    }
+                    files.append(file_data)
+                    print(f'[BG_MEDIA] Added file: {filename}, type={file_data["type"]}')
+            
+            print(f'[BG_MEDIA] Returning {len(files)} files')
             
             return {
                 'statusCode': 200,
