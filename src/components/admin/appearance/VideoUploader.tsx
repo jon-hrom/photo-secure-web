@@ -192,18 +192,22 @@ const VideoUploader = ({
             const updatedVideos = [...videos, newVideo];
             onVideosChange(updatedVideos);
             
-            // Автоматически выбираем загруженное видео
-            onSelectVideo(newVideo.id);
-            
             setUploadProgress(100);
-            toast.success('Видео загружено и установлено как фон!');
+            toast.success('Видео загружено! Ждём синхронизации...');
             
-            setTimeout(() => {
+            // Ждём 3 секунды для репликации S3, затем перезагружаем список и применяем
+            setTimeout(async () => {
+              await loadVideos(); // Обновляем список с сервера
+              
+              // Только после перезагрузки списка выбираем видео
+              onSelectVideo(newVideo.id);
+              toast.success('Видео применено как фон!');
+              
               setIsUploading(false);
               setUploadProgress(0);
               setCompressionInfo('');
               handleCancelPreview();
-            }, 2000);
+            }, 3000);
           } else {
             throw new Error(data.error || 'Upload failed');
           }
