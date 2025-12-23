@@ -7,6 +7,7 @@ import Icon from '@/components/ui/icon';
 import ColorPicker from './appearance/ColorPicker';
 import BackgroundSettings from './appearance/BackgroundSettings';
 import BackgroundGallery, { BackgroundImage } from './appearance/BackgroundGallery';
+import VideoUploader, { BackgroundVideo } from './appearance/VideoUploader';
 
 interface AdminAppearanceProps {
   colors: {
@@ -43,6 +44,10 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const [garlandEnabled, setGarlandEnabled] = useState(
     localStorage.getItem('garlandEnabled') === 'true'
   );
+  const [backgroundVideos, setBackgroundVideos] = useState<BackgroundVideo[]>([]);
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(
+    localStorage.getItem('loginPageVideo') || null
+  );
   const { toast } = useToast();
 
   useState(() => {
@@ -56,6 +61,11 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     const savedImages = localStorage.getItem('backgroundImages');
     if (savedImages) {
       setBackgroundImages(JSON.parse(savedImages));
+    }
+    
+    const savedVideos = localStorage.getItem('backgroundVideos');
+    if (savedVideos) {
+      setBackgroundVideos(JSON.parse(savedVideos));
     }
   });
 
@@ -97,6 +107,13 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const handleSelectBackground = (imageId: string) => {
     setSelectedBackgroundId(imageId);
     localStorage.setItem('loginPageBackground', imageId);
+    
+    // Убираем видео если выбрано изображение
+    if (selectedVideoId) {
+      setSelectedVideoId(null);
+      localStorage.removeItem('loginPageVideo');
+      window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: null }));
+    }
     
     toast({
       title: 'Фон применен',
@@ -269,6 +286,44 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     sonnerToast.success(enabled ? '🎄 Гирлянда включена' : 'Гирлянда выключена');
   };
 
+  const handleVideosChange = (videos: BackgroundVideo[]) => {
+    setBackgroundVideos(videos);
+    localStorage.setItem('backgroundVideos', JSON.stringify(videos));
+  };
+
+  const handleSelectVideo = (videoId: string | null) => {
+    setSelectedVideoId(videoId);
+    if (videoId) {
+      localStorage.setItem('loginPageVideo', videoId);
+      // Убираем фоновое изображение если выбрано видео
+      setSelectedBackgroundId(null);
+      localStorage.removeItem('loginPageBackground');
+      window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: videoId }));
+      sonnerToast.success('Фоновое видео применено');
+    } else {
+      localStorage.removeItem('loginPageVideo');
+      window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: null }));
+      sonnerToast.info('Фоновое видео отключено');
+    }
+  };
+
+  const handleRemoveVideo = (videoId: string) => {
+    const updatedVideos = backgroundVideos.filter(v => v.id !== videoId);
+    setBackgroundVideos(updatedVideos);
+    localStorage.setItem('backgroundVideos', JSON.stringify(updatedVideos));
+    
+    if (selectedVideoId === videoId) {
+      setSelectedVideoId(null);
+      localStorage.removeItem('loginPageVideo');
+      window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: null }));
+    }
+
+    toast({
+      title: 'Видео удалено',
+      description: 'Фоновое видео удалено',
+    });
+  };
+
   return (
     <Card>
       <CardHeader 
@@ -305,6 +360,16 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
           onCardTransitionTimeChange={handleCardTransitionTimeChange}
           garlandEnabled={garlandEnabled}
           onGarlandToggle={handleGarlandToggle}
+        />
+
+        <Separator />
+
+        <VideoUploader
+          videos={backgroundVideos}
+          selectedVideoId={selectedVideoId}
+          onVideosChange={handleVideosChange}
+          onSelectVideo={handleSelectVideo}
+          onRemoveVideo={handleRemoveVideo}
         />
 
         <Separator />
