@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import funcUrls from '../../../backend/func2url.json';
 
 interface LoginBackgroundProps {
@@ -10,6 +10,9 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [backgroundVideo, setBackgroundVideo] = useState<string | null>(null);
+  const [showSecondVideo, setShowSecondVideo] = useState(false);
+  const video1Ref = useRef<HTMLVideoElement>(null);
+  const video2Ref = useRef<HTMLVideoElement>(null);
   const API_URL = funcUrls['background-media'];
 
   // Загружаем видео с сервера
@@ -126,6 +129,42 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     img.src = backgroundImage;
   }, [backgroundImage, backgroundVideo]);
 
+  // Плавный переход между концом и началом видео
+  useEffect(() => {
+    if (!backgroundVideo) return;
+
+    const video1 = video1Ref.current;
+    const video2 = video2Ref.current;
+    if (!video1 || !video2) return;
+
+    let isFirstVideo = true;
+
+    const handleTimeUpdate = () => {
+      const currentVideo = isFirstVideo ? video1 : video2;
+      const nextVideo = isFirstVideo ? video2 : video1;
+      
+      // За 1 секунду до конца начинаем показывать второе видео
+      if (currentVideo.duration - currentVideo.currentTime < 1) {
+        setShowSecondVideo(!isFirstVideo);
+        
+        // Перезапускаем следующее видео с начала
+        nextVideo.currentTime = 0;
+        nextVideo.play().catch(e => console.log('[LOGIN_BG] Play error:', e));
+        
+        // Переключаем активное видео
+        isFirstVideo = !isFirstVideo;
+      }
+    };
+
+    video1.addEventListener('timeupdate', handleTimeUpdate);
+    video2.addEventListener('timeupdate', handleTimeUpdate);
+
+    return () => {
+      video1.removeEventListener('timeupdate', handleTimeUpdate);
+      video2.removeEventListener('timeupdate', handleTimeUpdate);
+    };
+  }, [backgroundVideo]);
+
   console.log('[LOGIN_BG] Render - backgroundVideo:', backgroundVideo);
   console.log('[LOGIN_BG] Render - currentImage:', currentImage);
 
@@ -137,19 +176,41 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       
       {backgroundVideo && (
         <>
+          {/* Первое видео */}
           <video
+            ref={video1Ref}
             autoPlay
-            loop
             muted
             playsInline
-            className="fixed inset-0 w-full h-full object-cover"
-            style={{ zIndex: 0 }}
-            onLoadedData={() => console.log('[LOGIN_BG] Video loaded successfully')}
-            onError={(e) => console.error('[LOGIN_BG] Video load error:', e)}
+            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            style={{ 
+              zIndex: 0,
+              opacity: showSecondVideo ? 0 : 1
+            }}
+            onLoadedData={() => console.log('[LOGIN_BG] Video 1 loaded')}
+            onError={(e) => console.error('[LOGIN_BG] Video 1 error:', e)}
           >
             <source src={backgroundVideo} type="video/webm" />
             <source src={backgroundVideo} type="video/mp4" />
           </video>
+          
+          {/* Второе видео (для плавного перехода) */}
+          <video
+            ref={video2Ref}
+            muted
+            playsInline
+            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            style={{ 
+              zIndex: 0,
+              opacity: showSecondVideo ? 1 : 0
+            }}
+            onLoadedData={() => console.log('[LOGIN_BG] Video 2 loaded')}
+            onError={(e) => console.error('[LOGIN_BG] Video 2 error:', e)}
+          >
+            <source src={backgroundVideo} type="video/webm" />
+            <source src={backgroundVideo} type="video/mp4" />
+          </video>
+          
           <div 
             className="fixed inset-0"
             style={{
