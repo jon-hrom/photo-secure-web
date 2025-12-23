@@ -8,6 +8,7 @@ import ColorPicker from './appearance/ColorPicker';
 import BackgroundSettings from './appearance/BackgroundSettings';
 import BackgroundGallery, { BackgroundImage } from './appearance/BackgroundGallery';
 import VideoUploader, { BackgroundVideo } from './appearance/VideoUploader';
+import funcUrls from '../../../backend/func2url.json';
 
 interface AdminAppearanceProps {
   colors: {
@@ -22,6 +23,7 @@ interface AdminAppearanceProps {
 }
 
 const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps) => {
+  const API_URL = funcUrls['background-media'];
   const [isExpanded, setIsExpanded] = useState(true);
   const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>([]);
   const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(
