@@ -33,17 +33,22 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       const selectedVideoId = localStorage.getItem('loginPageVideo');
       const selectedVideoUrl = localStorage.getItem('loginPageVideoUrl');
       const selectedMobileVideoUrl = localStorage.getItem('loginPageMobileVideoUrl');
+      console.log('[LOGIN_BG] ===== VIDEO LOAD START =====');
       console.log('[LOGIN_BG] Selected video ID:', selectedVideoId);
       console.log('[LOGIN_BG] Selected video URL:', selectedVideoUrl);
       console.log('[LOGIN_BG] Selected mobile video URL:', selectedMobileVideoUrl);
+      console.log('[LOGIN_BG] All localStorage keys:', Object.keys(localStorage));
       
       // Если есть URL в localStorage, используем его напрямую (быстрее)
       if (selectedVideoUrl) {
         console.log('[LOGIN_BG] Using cached video URL:', selectedVideoUrl);
         setBackgroundVideo(selectedVideoUrl);
         setMobileVideo(selectedMobileVideoUrl || selectedVideoUrl); // Fallback на обычное видео
+        console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (cached) =====');
         return;
       }
+      
+      console.log('[LOGIN_BG] No cached URL, checking if need to fetch from server');
       
       // Иначе загружаем с сервера (для старых данных)
       if (selectedVideoId) {
@@ -60,12 +65,18 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
               setBackgroundVideo(selectedVideo.url);
               // Кешируем URL для следующего раза
               localStorage.setItem('loginPageVideoUrl', selectedVideo.url);
-              console.log('[LOGIN_BG] Video URL set:', selectedVideo.url);
+              console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (from server) =====');
+            } else {
+              console.log('[LOGIN_BG] ===== VIDEO NOT FOUND in server response =====');
             }
+          } else {
+            console.log('[LOGIN_BG] ===== SERVER RESPONSE NOT SUCCESS =====');
           }
         } catch (error) {
-          console.error('[LOGIN_BG] Failed to load video:', error);
+          console.error('[LOGIN_BG] ===== FAILED TO LOAD VIDEO =====', error);
         }
+      } else {
+        console.log('[LOGIN_BG] ===== NO VIDEO ID - video will not load =====');
       }
     };
 

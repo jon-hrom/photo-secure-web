@@ -294,9 +294,11 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
       if (selectedVideo) {
         // Сохраняем URL для быстрого доступа
         localStorage.setItem('loginPageVideoUrl', selectedVideo.url);
-        // Отправляем событие с ID и URL
+        // Получаем мобильную версию из localStorage
+        const mobileUrl = localStorage.getItem('loginPageMobileVideoUrl');
+        // Отправляем событие с ID, URL и mobileUrl
         window.dispatchEvent(new CustomEvent('backgroundVideoChange', { 
-          detail: { id: videoId, url: selectedVideo.url } 
+          detail: { id: videoId, url: selectedVideo.url, mobileUrl } 
         }));
       } else {
         // Fallback: только ID (для старых данных)
