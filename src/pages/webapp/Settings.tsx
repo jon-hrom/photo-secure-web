@@ -9,7 +9,7 @@ import MultiEmailCard from '@/components/settings/MultiEmailCard';
 import NewYearSettings from '@/components/settings/NewYearSettings';
 import ProfileSection from '@/components/settings/ProfileSection';
 import ThemeSection from '@/components/settings/ThemeSection';
-
+import Icon from '@/components/ui/icon';
 import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
@@ -198,7 +198,16 @@ const Settings = () => {
             }}
           />
 
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Настройки</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Вернуться на главную"
+            >
+              <Icon name="ArrowLeft" size={24} className="text-gray-700 dark:text-gray-300" />
+            </button>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Настройки</h1>
+          </div>
           
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-6 space-y-4 sm:space-y-6">
             {settings && (
