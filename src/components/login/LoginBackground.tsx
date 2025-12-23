@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import funcUrls from '../../../backend/func2url.json';
 
 interface LoginBackgroundProps {
   backgroundImage: string | null;
@@ -8,9 +9,75 @@ interface LoginBackgroundProps {
 const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackgroundProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
+  const [backgroundVideo, setBackgroundVideo] = useState<string | null>(null);
+  const API_URL = funcUrls['background-media'];
 
+  // Загружаем видео с сервера
   useEffect(() => {
-    if (!backgroundImage) {
+    const loadVideo = async () => {
+      const selectedVideoId = localStorage.getItem('loginPageVideo');
+      console.log('[LOGIN_BG] Selected video ID:', selectedVideoId);
+      
+      if (selectedVideoId) {
+        try {
+          console.log('[LOGIN_BG] Fetching videos from:', API_URL);
+          const response = await fetch(`${API_URL}?type=video`);
+          const data = await response.json();
+          console.log('[LOGIN_BG] Videos response:', data);
+          
+          if (data.success && data.files) {
+            const selectedVideo = data.files.find((v: any) => v.id === selectedVideoId);
+            console.log('[LOGIN_BG] Found video:', selectedVideo);
+            if (selectedVideo) {
+              setBackgroundVideo(selectedVideo.url);
+              console.log('[LOGIN_BG] Video URL set:', selectedVideo.url);
+            }
+          }
+        } catch (error) {
+          console.error('[LOGIN_BG] Failed to load video:', error);
+        }
+      }
+    };
+
+    loadVideo();
+
+    // Слушаем изменения видео
+    const handleVideoChange = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const videoId = customEvent.detail;
+      console.log('[LOGIN_BG] Video change event:', videoId);
+      
+      if (videoId) {
+        try {
+          const response = await fetch(`${API_URL}?type=video`);
+          const data = await response.json();
+          console.log('[LOGIN_BG] Video change - fetched videos:', data);
+          
+          if (data.success && data.files) {
+            const video = data.files.find((v: any) => v.id === videoId);
+            console.log('[LOGIN_BG] Video change - found video:', video);
+            if (video) {
+              setBackgroundVideo(video.url);
+              setCurrentImage(null);
+              console.log('[LOGIN_BG] Video change - URL set:', video.url);
+            }
+          }
+        } catch (error) {
+          console.error('[LOGIN_BG] Video change - failed:', error);
+        }
+      } else {
+        console.log('[LOGIN_BG] Video change - clearing video');
+        setBackgroundVideo(null);
+      }
+    };
+
+    window.addEventListener('backgroundVideoChange', handleVideoChange);
+    return () => window.removeEventListener('backgroundVideoChange', handleVideoChange);
+  }, [API_URL]);
+
+  // Загружаем изображение
+  useEffect(() => {
+    if (!backgroundImage || backgroundVideo) {
       setIsLoaded(false);
       setCurrentImage(null);
       return;
@@ -30,15 +97,43 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     };
     
     img.src = backgroundImage;
-  }, [backgroundImage]);
+  }, [backgroundImage, backgroundVideo]);
+
+  console.log('[LOGIN_BG] Render - backgroundVideo:', backgroundVideo);
+  console.log('[LOGIN_BG] Render - currentImage:', currentImage);
 
   return (
     <>
-      {!isLoaded && backgroundImage && (
+      {!isLoaded && !backgroundVideo && backgroundImage && (
         <div className="fixed inset-0 bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" style={{ zIndex: 0 }} />
       )}
       
-      {currentImage && (
+      {backgroundVideo && (
+        <>
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="fixed inset-0 w-full h-full object-cover"
+            style={{ zIndex: 0 }}
+            onLoadedData={() => console.log('[LOGIN_BG] Video loaded successfully')}
+            onError={(e) => console.error('[LOGIN_BG] Video load error:', e)}
+          >
+            <source src={backgroundVideo} type="video/webm" />
+            <source src={backgroundVideo} type="video/mp4" />
+          </video>
+          <div 
+            className="fixed inset-0"
+            style={{
+              backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity / 100})`,
+              zIndex: 1
+            }}
+          />
+        </>
+      )}
+      
+      {!backgroundVideo && currentImage && (
         <>
           <div 
             className={`fixed inset-0 transition-opacity duration-700 ${
