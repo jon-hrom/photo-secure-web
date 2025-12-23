@@ -116,10 +116,10 @@ const UserImpersonation = ({
   }, [users, searchQuery, filterStatus, sortBy]);
 
   return (
-    <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+    <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/50 dark:to-pink-950/50">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Icon name="Eye" className="text-purple-600" size={24} />
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+          <Icon name="Eye" className="text-purple-600 dark:text-purple-400" size={24} />
           Просмотр кабинетов пользователей
         </CardTitle>
       </CardHeader>
