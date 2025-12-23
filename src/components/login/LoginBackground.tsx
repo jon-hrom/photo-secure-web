@@ -10,21 +10,38 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [backgroundVideo, setBackgroundVideo] = useState<string | null>(null);
+  const [mobileVideo, setMobileVideo] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const video1Ref = useRef<HTMLVideoElement>(null);
   const API_URL = funcUrls['background-media'];
+
+  // Определяем мобильное устройство
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      setIsMobile(mobile);
+      console.log('[LOGIN_BG] Device is mobile:', mobile);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Загружаем видео с сервера
   useEffect(() => {
     const loadVideo = async () => {
       const selectedVideoId = localStorage.getItem('loginPageVideo');
       const selectedVideoUrl = localStorage.getItem('loginPageVideoUrl');
+      const selectedMobileVideoUrl = localStorage.getItem('loginPageMobileVideoUrl');
       console.log('[LOGIN_BG] Selected video ID:', selectedVideoId);
       console.log('[LOGIN_BG] Selected video URL:', selectedVideoUrl);
+      console.log('[LOGIN_BG] Selected mobile video URL:', selectedMobileVideoUrl);
       
       // Если есть URL в localStorage, используем его напрямую (быстрее)
       if (selectedVideoUrl) {
         console.log('[LOGIN_BG] Using cached video URL:', selectedVideoUrl);
         setBackgroundVideo(selectedVideoUrl);
+        setMobileVideo(selectedMobileVideoUrl || selectedVideoUrl); // Fallback на обычное видео
         return;
       }
       
@@ -67,10 +84,15 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
         
         if (url) {
           // Используем URL напрямую из события
+          const { mobileUrl } = detail;
           setBackgroundVideo(url);
+          setMobileVideo(mobileUrl || url);
           setCurrentImage(null);
           localStorage.setItem('loginPageVideoUrl', url);
-          console.log('[LOGIN_BG] Video change - URL set from event:', url);
+          if (mobileUrl) {
+            localStorage.setItem('loginPageMobileVideoUrl', mobileUrl);
+          }
+          console.log('[LOGIN_BG] Video change - URL set from event:', url, 'mobile:', mobileUrl);
         } else {
           // Загружаем с сервера (fallback)
           try {
@@ -95,7 +117,9 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       } else {
         console.log('[LOGIN_BG] Video change - clearing video');
         setBackgroundVideo(null);
+        setMobileVideo(null);
         localStorage.removeItem('loginPageVideoUrl');
+        localStorage.removeItem('loginPageMobileVideoUrl');
       }
     };
 
@@ -149,11 +173,11 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             preload="auto"
             className="fixed inset-0 w-full h-full object-cover"
             style={{ zIndex: 0 }}
-            onLoadedData={() => console.log('[LOGIN_BG] Video loaded')}
+            onLoadedData={() => console.log('[LOGIN_BG] Video loaded, isMobile:', isMobile)}
             onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
           >
-            <source src={backgroundVideo} type="video/mp4" />
-            <source src={backgroundVideo} type="video/webm" />
+            <source src={isMobile && mobileVideo ? mobileVideo : backgroundVideo} type="video/mp4" />
+            <source src={isMobile && mobileVideo ? mobileVideo : backgroundVideo} type="video/webm" />
           </video>
           
           <div 

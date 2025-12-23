@@ -132,7 +132,7 @@ const VideoUploader = ({
     setPreviewFile(null);
   };
 
-  const handleConfirmUpload = async () => {
+  const handleConfirmUpload = async (includeMobileVersion = false) => {
     if (!previewFile) return;
 
     const file = previewFile;
@@ -145,12 +145,12 @@ const VideoUploader = ({
       const fileSize = file.size;
       setCompressionInfo(`Размер: ${(fileSize / 1024 / 1024).toFixed(1)} MB`);
       
-      toast.info('Загрузка в облако...');
+      toast.info(includeMobileVersion ? 'Загрузка двух версий видео...' : 'Загрузка в облако...');
       setUploadProgress(10);
       
       // Создаем thumbnail (быстро, без сжатия всего видео)
       const thumbnail = await createThumbnail(file);
-      setUploadProgress(30);
+      setUploadProgress(includeMobileVersion ? 15 : 30);
       
       // Конвертируем файл в base64 напрямую (БЕЗ сжатия)
       const reader = new FileReader();
@@ -200,14 +200,21 @@ const VideoUploader = ({
             localStorage.setItem('loginPageVideoUrl', newVideo.url);
             console.log('[VIDEO_UPLOADER] Saved URL to localStorage:', newVideo.url);
             
+            // Если загружаем мобильную версию, сохраняем её отдельно
+            if (includeMobileVersion) {
+              localStorage.setItem('loginPageMobileVideoUrl', newVideo.url);
+              toast.success('Мобильная версия видео загружена!');
+            }
+            
             // Автоматически выбираем загруженное видео (передаем URL)
             onSelectVideo(newVideo.id);
             
             // Отправляем событие с URL сразу
+            const mobileUrl = includeMobileVersion ? newVideo.url : localStorage.getItem('loginPageMobileVideoUrl');
             window.dispatchEvent(new CustomEvent('backgroundVideoChange', { 
-              detail: { id: newVideo.id, url: newVideo.url } 
+              detail: { id: newVideo.id, url: newVideo.url, mobileUrl } 
             }));
-            console.log('[VIDEO_UPLOADER] Dispatched event with URL:', newVideo.url);
+            console.log('[VIDEO_UPLOADER] Dispatched event with URL:', newVideo.url, 'mobile:', mobileUrl);
             
             setUploadProgress(100);
             toast.success('Видео загружено и применено как фон!');
@@ -291,7 +298,7 @@ const VideoUploader = ({
           previewFile={previewFile}
           isUploading={isUploading}
           onCancel={handleCancelPreview}
-          onConfirm={handleConfirmUpload}
+          onConfirm={(isMobile) => handleConfirmUpload(isMobile || false)}
         />
       )}
 
@@ -301,6 +308,9 @@ const VideoUploader = ({
         </Label>
         <p className="text-xs text-muted-foreground">
           Загрузите видео для анимированного фона. Рекомендуется использовать оптимизированные видео до 10 МБ.
+        </p>
+        <p className="text-xs text-blue-600 dark:text-blue-400">
+          📱 Совет: загрузите отдельную сжатую версию для мобильных (720p) — кнопка появится при загрузке
         </p>
         {videos.length > 0 && !selectedVideoId && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
