@@ -40,32 +40,23 @@ const App = () => {
         document.documentElement.classList.remove('dark');
       }
     } else {
-      // Если темы нет - определяем по системным настройкам
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (prefersDark) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        localStorage.setItem('theme', 'light');
-      }
+      // Если темы нет - по умолчанию тёмная тема
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
     }
     
-    // Слушаем изменения системной темы
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleThemeChange = (e: MediaQueryListEvent) => {
-      const savedTheme = localStorage.getItem('theme');
-      // Только если пользователь не выбрал тему вручную
-      if (!savedTheme) {
-        if (e.matches) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
+    // Слушаем изменения темы через custom event
+    const handleThemeChange = () => {
+      const currentTheme = localStorage.getItem('theme');
+      if (currentTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
       }
     };
     
-    mediaQuery.addEventListener('change', handleThemeChange);
-    return () => mediaQuery.removeEventListener('change', handleThemeChange);
+    window.addEventListener('themeChange', handleThemeChange);
+    return () => window.removeEventListener('themeChange', handleThemeChange);
   }, []);
 
   useEffect(() => {

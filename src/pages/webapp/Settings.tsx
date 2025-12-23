@@ -71,6 +71,10 @@ const Settings = () => {
     if (savedTheme) {
       setTheme(savedTheme);
       applyTheme(savedTheme);
+    } else {
+      // По умолчанию тёмная тема
+      setTheme('dark');
+      applyTheme('dark');
     }
     
     // Загрузка новогоднего режима
@@ -177,6 +181,8 @@ const Settings = () => {
     setTheme(newTheme);
     applyTheme(newTheme);
     localStorage.setItem('theme', newTheme);
+    // Dispatch event для обновления темы в других компонентах
+    window.dispatchEvent(new Event('themeChange'));
     toast.success(`Тема изменена на ${newTheme === 'dark' ? 'тёмную' : 'светлую'}`);
   };
 

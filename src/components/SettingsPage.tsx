@@ -55,6 +55,9 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     if (savedTheme) {
       setTheme(savedTheme);
+    } else {
+      // По умолчанию тёмная тема
+      setTheme('dark');
     }
   }, [userId]);
 
@@ -97,6 +100,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     setTheme(newTheme);
     applyTheme(newTheme);
     localStorage.setItem('theme', newTheme);
+    // Dispatch event для обновления темы в других компонентах
+    window.dispatchEvent(new Event('themeChange'));
     toast.success(`Тема изменена на ${newTheme === 'dark' ? 'тёмную' : 'светлую'}`);
   };
 
