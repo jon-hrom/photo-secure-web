@@ -275,7 +275,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             }}
             onLoadedData={(e) => {
               console.log('[LOGIN_BG] Video loaded');
-              e.currentTarget.playbackRate = 0.75; // 75% скорости
+              e.currentTarget.playbackRate = 0.85; // 85% скорости
             }}
             onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
             onTimeUpdate={(e) => {
