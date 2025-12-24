@@ -17,10 +17,12 @@ const LoginCard = ({ isRegistering, children }: LoginCardProps) => {
   const [cardBackgroundImages, setCardBackgroundImages] = useState<BackgroundImage[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [transitionTime, setTransitionTime] = useState(5);
+  const [cardOpacity, setCardOpacity] = useState(95);
 
   useEffect(() => {
     const savedCardImages = localStorage.getItem('cardBackgroundImages');
     const savedTransitionTime = localStorage.getItem('cardTransitionTime');
+    const savedCardOpacity = localStorage.getItem('loginCardOpacity');
     
     if (savedCardImages) {
       setCardBackgroundImages(JSON.parse(savedCardImages));
@@ -30,14 +32,24 @@ const LoginCard = ({ isRegistering, children }: LoginCardProps) => {
       setTransitionTime(Number(savedTransitionTime));
     }
 
+    if (savedCardOpacity) {
+      setCardOpacity(Number(savedCardOpacity));
+    }
+
     const handleTransitionTimeChange = (e: CustomEvent) => {
       setTransitionTime(e.detail);
     };
 
+    const handleCardOpacityChange = (e: CustomEvent) => {
+      setCardOpacity(e.detail);
+    };
+
     window.addEventListener('cardTransitionTimeChange', handleTransitionTimeChange as EventListener);
+    window.addEventListener('cardOpacityChange', handleCardOpacityChange as EventListener);
     
     return () => {
       window.removeEventListener('cardTransitionTimeChange', handleTransitionTimeChange as EventListener);
+      window.removeEventListener('cardOpacityChange', handleCardOpacityChange as EventListener);
     };
   }, []);
 
@@ -65,7 +77,10 @@ const LoginCard = ({ isRegistering, children }: LoginCardProps) => {
         transition: 'background-image 1s ease-in-out',
       }}
     >
-      <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-0" />
+      <div 
+        className="absolute inset-0 bg-background backdrop-blur-sm z-0" 
+        style={{ opacity: cardOpacity / 100 }}
+      />
       <div className="relative z-10">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">

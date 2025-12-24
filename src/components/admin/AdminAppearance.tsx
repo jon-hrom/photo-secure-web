@@ -50,6 +50,9 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
   const [selectedMobileBackgroundId, setSelectedMobileBackgroundId] = useState<string | null>(
     localStorage.getItem('loginPageMobileBackground') || null
   );
+  const [cardOpacity, setCardOpacity] = useState<number>(
+    Number(localStorage.getItem('loginCardOpacity')) || 95
+  );
   const { toast } = useToast();
 
   useState(() => {
@@ -144,6 +147,13 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     sonnerToast.success(enabled ? '🎄 Гирлянда включена' : 'Гирлянда выключена');
   };
 
+  const handleCardOpacityChange = (value: number[]) => {
+    const opacity = value[0];
+    setCardOpacity(opacity);
+    localStorage.setItem('loginCardOpacity', opacity.toString());
+    window.dispatchEvent(new CustomEvent('cardOpacityChange', { detail: opacity }));
+  };
+
   return (
     <Card>
       <CardHeader 
@@ -180,6 +190,8 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
           onCardTransitionTimeChange={handleCardTransitionTimeChange}
           garlandEnabled={garlandEnabled}
           onGarlandToggle={handleGarlandToggle}
+          cardOpacity={cardOpacity}
+          onCardOpacityChange={handleCardOpacityChange}
         />
 
         <Separator />

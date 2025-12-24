@@ -15,6 +15,8 @@ interface BackgroundSettingsProps {
   onCardTransitionTimeChange: (value: number[]) => void;
   garlandEnabled: boolean;
   onGarlandToggle: (enabled: boolean) => void;
+  cardOpacity: number;
+  onCardOpacityChange: (value: number[]) => void;
 }
 
 const BackgroundSettings = ({ 
@@ -26,7 +28,9 @@ const BackgroundSettings = ({
   onCardBackgroundRemove,
   onCardTransitionTimeChange,
   garlandEnabled,
-  onGarlandToggle
+  onGarlandToggle,
+  cardOpacity,
+  onCardOpacityChange
 }: BackgroundSettingsProps) => {
   return (
     <div className="space-y-6">
@@ -45,6 +49,24 @@ const BackgroundSettings = ({
         />
         <p className="text-xs text-muted-foreground">
           Прозрачность затемнения на странице входа для лучшей читаемости
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Прозрачность карточки входа</Label>
+          <span className="text-sm text-muted-foreground">{cardOpacity}%</span>
+        </div>
+        <Slider
+          value={[cardOpacity]}
+          onValueChange={onCardOpacityChange}
+          min={0}
+          max={100}
+          step={5}
+          className="w-full"
+        />
+        <p className="text-xs text-muted-foreground">
+          Чем ниже значение, тем прозрачнее карточка (будет видно фоновое видео)
         </p>
       </div>
 
