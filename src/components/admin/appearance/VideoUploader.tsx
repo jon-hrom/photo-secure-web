@@ -38,6 +38,16 @@ const VideoUploader = ({
     loadVideos();
   }, []);
 
+  // Автоматически выбираем первое видео, если ничего не выбрано
+  useEffect(() => {
+    if (!selectedVideoId && videos.length > 0 && !isLoadingVideos) {
+      const firstVideo = videos[0];
+      console.log('[VIDEO_UPLOADER] Auto-selecting first video:', firstVideo.id);
+      onSelectVideo(firstVideo.id);
+      toast.info('Фоновое видео применено автоматически');
+    }
+  }, [videos, selectedVideoId, isLoadingVideos, onSelectVideo]);
+
   const loadVideos = async () => {
     try {
       console.log('[VIDEO_UPLOADER] Loading videos from:', API_URL);
