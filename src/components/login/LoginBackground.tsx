@@ -269,19 +269,23 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             muted
             playsInline
             preload="auto"
-            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-[2000ms]"
             style={{ 
               zIndex: 0,
               opacity: activeVideo === 1 ? 1 : 0
             }}
             onLoadedData={() => console.log('[LOGIN_BG] Video 1 loaded')}
             onError={(e) => console.error('[LOGIN_BG] Video 1 error:', e)}
-            onEnded={() => {
-              console.log('[LOGIN_BG] Video 1 ended, switching to video 2');
-              setActiveVideo(2);
-              if (video2Ref.current) {
-                video2Ref.current.currentTime = 0;
-                video2Ref.current.play();
+            onTimeUpdate={(e) => {
+              const video = e.currentTarget;
+              const timeLeft = video.duration - video.currentTime;
+              if (timeLeft <= 2 && timeLeft > 1.9 && activeVideo === 1) {
+                console.log('[LOGIN_BG] Video 1 ending soon, preparing video 2');
+                setActiveVideo(2);
+                if (video2Ref.current) {
+                  video2Ref.current.currentTime = 0;
+                  video2Ref.current.play();
+                }
               }
             }}
           >
@@ -295,19 +299,23 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             muted
             playsInline
             preload="auto"
-            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-[2000ms]"
             style={{ 
               zIndex: 0,
               opacity: activeVideo === 2 ? 1 : 0
             }}
             onLoadedData={() => console.log('[LOGIN_BG] Video 2 loaded')}
             onError={(e) => console.error('[LOGIN_BG] Video 2 error:', e)}
-            onEnded={() => {
-              console.log('[LOGIN_BG] Video 2 ended, switching to video 1');
-              setActiveVideo(1);
-              if (video1Ref.current) {
-                video1Ref.current.currentTime = 0;
-                video1Ref.current.play();
+            onTimeUpdate={(e) => {
+              const video = e.currentTarget;
+              const timeLeft = video.duration - video.currentTime;
+              if (timeLeft <= 2 && timeLeft > 1.9 && activeVideo === 2) {
+                console.log('[LOGIN_BG] Video 2 ending soon, preparing video 1');
+                setActiveVideo(1);
+                if (video1Ref.current) {
+                  video1Ref.current.currentTime = 0;
+                  video1Ref.current.play();
+                }
               }
             }}
           >
