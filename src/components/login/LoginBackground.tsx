@@ -13,10 +13,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [mobileVideo, setMobileVideo] = useState<string | null>(null);
   const [mobileBackgroundImage, setMobileBackgroundImage] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const video1Ref = useRef<HTMLVideoElement>(null);
-  const video2Ref = useRef<HTMLVideoElement>(null);
-  const [activeVideo, setActiveVideo] = useState<1 | 2>(1);
-  const transitionTriggeredRef = useRef<boolean>(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const API_URL = funcUrls['background-media'];
   const SETTINGS_API = funcUrls['background-settings'];
 
@@ -263,70 +260,17 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       {/* Видео (только на десктопе или если нет мобильной картинки) */}
       {effectiveBackgroundVideo && !shouldShowMobileImage && (
         <>
-          {/* Первое видео */}
           <video
-            ref={video1Ref}
+            ref={videoRef}
             autoPlay
+            loop
             muted
             playsInline
             preload="auto"
-            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-[3000ms]"
-            style={{ 
-              zIndex: 0,
-              opacity: activeVideo === 1 ? 1 : 0
-            }}
-            onLoadedData={() => console.log('[LOGIN_BG] Video 1 loaded')}
-            onError={(e) => console.error('[LOGIN_BG] Video 1 error:', e)}
-            onTimeUpdate={(e) => {
-              const video = e.currentTarget;
-              const timeLeft = video.duration - video.currentTime;
-              if (timeLeft <= 3 && !transitionTriggeredRef.current && activeVideo === 1) {
-                console.log('[LOGIN_BG] Video 1 ending soon, preparing video 2');
-                transitionTriggeredRef.current = true;
-                setActiveVideo(2);
-                if (video2Ref.current) {
-                  video2Ref.current.currentTime = 0;
-                  video2Ref.current.play();
-                }
-              }
-              if (timeLeft > 3) {
-                transitionTriggeredRef.current = false;
-              }
-            }}
-          >
-            <source src={effectiveBackgroundVideo} type="video/mp4" />
-            <source src={effectiveBackgroundVideo} type="video/webm" />
-          </video>
-
-          {/* Второе видео (для плавного перехода) */}
-          <video
-            ref={video2Ref}
-            muted
-            playsInline
-            preload="auto"
-            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-[3000ms]"
-            style={{ 
-              zIndex: 0,
-              opacity: activeVideo === 2 ? 1 : 0
-            }}
-            onLoadedData={() => console.log('[LOGIN_BG] Video 2 loaded')}
-            onError={(e) => console.error('[LOGIN_BG] Video 2 error:', e)}
-            onTimeUpdate={(e) => {
-              const video = e.currentTarget;
-              const timeLeft = video.duration - video.currentTime;
-              if (timeLeft <= 3 && !transitionTriggeredRef.current && activeVideo === 2) {
-                console.log('[LOGIN_BG] Video 2 ending soon, preparing video 1');
-                transitionTriggeredRef.current = true;
-                setActiveVideo(1);
-                if (video1Ref.current) {
-                  video1Ref.current.currentTime = 0;
-                  video1Ref.current.play();
-                }
-              }
-              if (timeLeft > 3) {
-                transitionTriggeredRef.current = false;
-              }
-            }}
+            className="fixed inset-0 w-full h-full object-cover"
+            style={{ zIndex: 0 }}
+            onLoadedData={() => console.log('[LOGIN_BG] Video loaded')}
+            onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
           >
             <source src={effectiveBackgroundVideo} type="video/mp4" />
             <source src={effectiveBackgroundVideo} type="video/webm" />
