@@ -16,6 +16,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const video1Ref = useRef<HTMLVideoElement>(null);
   const video2Ref = useRef<HTMLVideoElement>(null);
   const [activeVideo, setActiveVideo] = useState<1 | 2>(1);
+  const transitionTriggeredRef = useRef<boolean>(false);
   const API_URL = funcUrls['background-media'];
   const SETTINGS_API = funcUrls['background-settings'];
 
@@ -279,13 +280,17 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             onTimeUpdate={(e) => {
               const video = e.currentTarget;
               const timeLeft = video.duration - video.currentTime;
-              if (timeLeft <= 3 && timeLeft > 2.9 && activeVideo === 1) {
+              if (timeLeft <= 3 && !transitionTriggeredRef.current && activeVideo === 1) {
                 console.log('[LOGIN_BG] Video 1 ending soon, preparing video 2');
+                transitionTriggeredRef.current = true;
                 setActiveVideo(2);
                 if (video2Ref.current) {
                   video2Ref.current.currentTime = 0;
                   video2Ref.current.play();
                 }
+              }
+              if (timeLeft > 3) {
+                transitionTriggeredRef.current = false;
               }
             }}
           >
@@ -309,13 +314,17 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             onTimeUpdate={(e) => {
               const video = e.currentTarget;
               const timeLeft = video.duration - video.currentTime;
-              if (timeLeft <= 3 && timeLeft > 2.9 && activeVideo === 2) {
+              if (timeLeft <= 3 && !transitionTriggeredRef.current && activeVideo === 2) {
                 console.log('[LOGIN_BG] Video 2 ending soon, preparing video 1');
+                transitionTriggeredRef.current = true;
                 setActiveVideo(1);
                 if (video1Ref.current) {
                   video1Ref.current.currentTime = 0;
                   video1Ref.current.play();
                 }
+              }
+              if (timeLeft > 3) {
+                transitionTriggeredRef.current = false;
               }
             }}
           >
