@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Get background settings",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "settings": {}
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Save background settings",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "videoId": "test-video-123",
+        "videoUrl": "https://cdn.poehali.dev/test.mp4",
+        "opacity": "30"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

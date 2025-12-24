@@ -15,6 +15,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [isMobile, setIsMobile] = useState(false);
   const video1Ref = useRef<HTMLVideoElement>(null);
   const API_URL = funcUrls['background-media'];
+  const SETTINGS_API = funcUrls['background-settings'];
 
   // Определяем мобильное устройство
   useEffect(() => {
@@ -30,11 +31,32 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
 
   // Загружаем мобильный фон (картинка/GIF)
   useEffect(() => {
-    const mobileBackgroundUrl = localStorage.getItem('loginPageMobileBackgroundUrl');
-    if (mobileBackgroundUrl) {
-      setMobileBackgroundImage(mobileBackgroundUrl);
-      console.log('[LOGIN_BG] Mobile background image loaded:', mobileBackgroundUrl);
-    }
+    const loadMobileBackground = async () => {
+      try {
+        // Пробуем загрузить из БД
+        const response = await fetch(SETTINGS_API);
+        const data = await response.json();
+        
+        if (data.success && data.settings?.login_mobile_background_url) {
+          const mobileUrl = data.settings.login_mobile_background_url;
+          setMobileBackgroundImage(mobileUrl);
+          localStorage.setItem('loginPageMobileBackgroundUrl', mobileUrl);
+          console.log('[LOGIN_BG] Mobile background from DB:', mobileUrl);
+          return;
+        }
+      } catch (error) {
+        console.error('[LOGIN_BG] Failed to load mobile background from DB:', error);
+      }
+      
+      // Fallback на localStorage
+      const mobileBackgroundUrl = localStorage.getItem('loginPageMobileBackgroundUrl');
+      if (mobileBackgroundUrl) {
+        setMobileBackgroundImage(mobileBackgroundUrl);
+        console.log('[LOGIN_BG] Mobile background from localStorage:', mobileBackgroundUrl);
+      }
+    };
+    
+    loadMobileBackground();
 
     const handleMobileBackgroundChange = (e: CustomEvent) => {
       setMobileBackgroundImage(e.detail);
@@ -43,58 +65,78 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
 
     window.addEventListener('mobileBackgroundChange', handleMobileBackgroundChange as EventListener);
     return () => window.removeEventListener('mobileBackgroundChange', handleMobileBackgroundChange as EventListener);
-  }, []);
+  }, [SETTINGS_API]);
 
   // Загружаем видео с сервера
   useEffect(() => {
     const loadVideo = async () => {
+      console.log('[LOGIN_BG] ===== VIDEO LOAD START =====');
+      
+      // СНАЧАЛА пробуем загрузить из БД
+      try {
+        console.log('[LOGIN_BG] Fetching settings from database...');
+        const response = await fetch(SETTINGS_API);
+        const data = await response.json();
+        console.log('[LOGIN_BG] Database settings:', data);
+        
+        if (data.success && data.settings) {
+          const videoUrl = data.settings.login_background_video_url;
+          const mobileUrl = data.settings.login_mobile_background_url;
+          
+          if (videoUrl) {
+            console.log('[LOGIN_BG] Video URL from DB:', videoUrl);
+            setBackgroundVideo(videoUrl);
+            setMobileVideo(mobileUrl || videoUrl);
+            
+            // Синхронизируем localStorage
+            localStorage.setItem('loginPageVideoUrl', videoUrl);
+            if (mobileUrl) {
+              localStorage.setItem('loginPageMobileVideoUrl', mobileUrl);
+            }
+            
+            console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (from DB) =====');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('[LOGIN_BG] Failed to load from DB, falling back to localStorage:', error);
+      }
+      
+      // Fallback на localStorage (для обратной совместимости)
       const selectedVideoId = localStorage.getItem('loginPageVideo');
       const selectedVideoUrl = localStorage.getItem('loginPageVideoUrl');
       const selectedMobileVideoUrl = localStorage.getItem('loginPageMobileVideoUrl');
-      console.log('[LOGIN_BG] ===== VIDEO LOAD START =====');
-      console.log('[LOGIN_BG] Selected video ID:', selectedVideoId);
-      console.log('[LOGIN_BG] Selected video URL:', selectedVideoUrl);
-      console.log('[LOGIN_BG] Selected mobile video URL:', selectedMobileVideoUrl);
-      console.log('[LOGIN_BG] All localStorage keys:', Object.keys(localStorage));
+      console.log('[LOGIN_BG] Fallback - Selected video ID:', selectedVideoId);
+      console.log('[LOGIN_BG] Fallback - Selected video URL:', selectedVideoUrl);
       
-      // Если есть URL в localStorage, используем его напрямую (быстрее)
       if (selectedVideoUrl) {
         console.log('[LOGIN_BG] Using cached video URL:', selectedVideoUrl);
         setBackgroundVideo(selectedVideoUrl);
-        setMobileVideo(selectedMobileVideoUrl || selectedVideoUrl); // Fallback на обычное видео
+        setMobileVideo(selectedMobileVideoUrl || selectedVideoUrl);
         console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (cached) =====');
         return;
       }
       
-      console.log('[LOGIN_BG] No cached URL, checking if need to fetch from server');
-      
-      // Иначе загружаем с сервера (для старых данных)
+      // Последний fallback - загружаем с файлового сервера
       if (selectedVideoId) {
         try {
           console.log('[LOGIN_BG] Fetching videos from:', API_URL);
           const response = await fetch(`${API_URL}?type=video`);
           const data = await response.json();
-          console.log('[LOGIN_BG] Videos response:', data);
           
           if (data.success && data.files) {
             const selectedVideo = data.files.find((v: any) => v.id === selectedVideoId);
-            console.log('[LOGIN_BG] Found video:', selectedVideo);
             if (selectedVideo) {
               setBackgroundVideo(selectedVideo.url);
-              // Кешируем URL для следующего раза
               localStorage.setItem('loginPageVideoUrl', selectedVideo.url);
-              console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (from server) =====');
-            } else {
-              console.log('[LOGIN_BG] ===== VIDEO NOT FOUND in server response =====');
+              console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (from media server) =====');
             }
-          } else {
-            console.log('[LOGIN_BG] ===== SERVER RESPONSE NOT SUCCESS =====');
           }
         } catch (error) {
           console.error('[LOGIN_BG] ===== FAILED TO LOAD VIDEO =====', error);
         }
       } else {
-        console.log('[LOGIN_BG] ===== NO VIDEO ID - video will not load =====');
+        console.log('[LOGIN_BG] ===== NO VIDEO CONFIGURED =====');
       }
     };
 

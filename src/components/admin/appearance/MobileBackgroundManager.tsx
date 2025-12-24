@@ -1,6 +1,7 @@
 import { toast as sonnerToast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import { BackgroundImage } from './BackgroundGallery';
+import funcUrls from '../../../../backend/func2url.json';
 
 interface MobileBackgroundManagerProps {
   API_URL: string;
@@ -17,6 +18,30 @@ const MobileBackgroundManager = ({
   selectedMobileBackgroundId,
   setSelectedMobileBackgroundId,
 }: MobileBackgroundManagerProps) => {
+  const SETTINGS_API = funcUrls['background-settings'];
+
+  const saveToDatabase = async (mobileUrl: string) => {
+    try {
+      const videoId = localStorage.getItem('loginPageVideo') || '';
+      const videoUrl = localStorage.getItem('loginPageVideoUrl') || '';
+      const imageId = localStorage.getItem('loginPageBackground') || '';
+      const opacity = localStorage.getItem('loginPageBackgroundOpacity') || '20';
+      
+      await fetch(SETTINGS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoId,
+          videoUrl,
+          mobileUrl,
+          imageId,
+          opacity
+        })
+      });
+    } catch (error) {
+      console.error('[MOBILE_BG] Failed to save settings:', error);
+    }
+  };
   const handleMobileBackgroundUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
@@ -78,13 +103,14 @@ const MobileBackgroundManager = ({
     }
   };
 
-  const handleSelectMobileBackground = (imageId: string) => {
+  const handleSelectMobileBackground = async (imageId: string) => {
     setSelectedMobileBackgroundId(imageId);
     const selectedImage = mobileBackgroundImages.find(img => img.id === imageId);
     
     if (selectedImage) {
       localStorage.setItem('loginPageMobileBackground', imageId);
       localStorage.setItem('loginPageMobileBackgroundUrl', selectedImage.url);
+      await saveToDatabase(selectedImage.url);
       window.dispatchEvent(new CustomEvent('mobileBackgroundChange', { detail: selectedImage.url }));
       sonnerToast.success('Мобильный фон применен');
     }
