@@ -269,7 +269,10 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             playsInline
             preload="auto"
             className="fixed inset-0 w-full h-full object-cover"
-            style={{ zIndex: 0 }}
+            style={{ 
+              zIndex: 0,
+              filter: 'saturate(1.3) contrast(1.1)'
+            }}
             onLoadedData={() => console.log('[LOGIN_BG] Video loaded')}
             onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
             onTimeUpdate={(e) => {
