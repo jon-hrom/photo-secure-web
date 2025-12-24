@@ -269,7 +269,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             muted
             playsInline
             preload="auto"
-            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-[2000ms]"
+            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-[3000ms]"
             style={{ 
               zIndex: 0,
               opacity: activeVideo === 1 ? 1 : 0
@@ -279,7 +279,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             onTimeUpdate={(e) => {
               const video = e.currentTarget;
               const timeLeft = video.duration - video.currentTime;
-              if (timeLeft <= 2 && timeLeft > 1.9 && activeVideo === 1) {
+              if (timeLeft <= 3 && timeLeft > 2.9 && activeVideo === 1) {
                 console.log('[LOGIN_BG] Video 1 ending soon, preparing video 2');
                 setActiveVideo(2);
                 if (video2Ref.current) {
@@ -299,7 +299,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             muted
             playsInline
             preload="auto"
-            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-[2000ms]"
+            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-[3000ms]"
             style={{ 
               zIndex: 0,
               opacity: activeVideo === 2 ? 1 : 0
@@ -309,7 +309,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             onTimeUpdate={(e) => {
               const video = e.currentTarget;
               const timeLeft = video.duration - video.currentTime;
-              if (timeLeft <= 2 && timeLeft > 1.9 && activeVideo === 2) {
+              if (timeLeft <= 3 && timeLeft > 2.9 && activeVideo === 2) {
                 console.log('[LOGIN_BG] Video 2 ending soon, preparing video 1');
                 setActiveVideo(1);
                 if (video1Ref.current) {
