@@ -14,6 +14,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [mobileBackgroundImage, setMobileBackgroundImage] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [fadeOpacity, setFadeOpacity] = useState(0);
   const API_URL = funcUrls['background-media'];
   const SETTINGS_API = funcUrls['background-settings'];
 
@@ -271,11 +272,42 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             style={{ zIndex: 0 }}
             onLoadedData={() => console.log('[LOGIN_BG] Video loaded')}
             onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
+            onTimeUpdate={(e) => {
+              const video = e.currentTarget;
+              const timeLeft = video.duration - video.currentTime;
+              
+              // За 0.5 сек до конца - начинаем затемнение
+              if (timeLeft <= 0.5) {
+                const opacity = 1 - (timeLeft / 0.5);
+                setFadeOpacity(opacity);
+              }
+              // Первые 0.5 сек - осветление
+              else if (video.currentTime <= 0.5) {
+                const opacity = 1 - (video.currentTime / 0.5);
+                setFadeOpacity(opacity);
+              }
+              // Остальное время - прозрачно
+              else {
+                setFadeOpacity(0);
+              }
+            }}
           >
             <source src={effectiveBackgroundVideo} type="video/mp4" />
             <source src={effectiveBackgroundVideo} type="video/webm" />
           </video>
           
+          {/* Fade-слой для плавного перехода */}
+          <div 
+            className="fixed inset-0 transition-opacity duration-100"
+            style={{
+              backgroundColor: 'black',
+              opacity: fadeOpacity,
+              zIndex: 0.5,
+              pointerEvents: 'none'
+            }}
+          />
+          
+          {/* Overlay с настраиваемой прозрачностью */}
           <div 
             className="fixed inset-0"
             style={{
