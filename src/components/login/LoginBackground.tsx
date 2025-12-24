@@ -14,6 +14,8 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [mobileBackgroundImage, setMobileBackgroundImage] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const video1Ref = useRef<HTMLVideoElement>(null);
+  const video2Ref = useRef<HTMLVideoElement>(null);
+  const [activeVideo, setActiveVideo] = useState<1 | 2>(1);
   const API_URL = funcUrls['background-media'];
   const SETTINGS_API = funcUrls['background-settings'];
 
@@ -260,17 +262,54 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       {/* Видео (только на десктопе или если нет мобильной картинки) */}
       {effectiveBackgroundVideo && !shouldShowMobileImage && (
         <>
+          {/* Первое видео */}
           <video
             ref={video1Ref}
             autoPlay
-            loop
             muted
             playsInline
             preload="auto"
-            className="fixed inset-0 w-full h-full object-cover"
-            style={{ zIndex: 0 }}
-            onLoadedData={() => console.log('[LOGIN_BG] Video loaded, isMobile:', isMobile)}
-            onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
+            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            style={{ 
+              zIndex: 0,
+              opacity: activeVideo === 1 ? 1 : 0
+            }}
+            onLoadedData={() => console.log('[LOGIN_BG] Video 1 loaded')}
+            onError={(e) => console.error('[LOGIN_BG] Video 1 error:', e)}
+            onEnded={() => {
+              console.log('[LOGIN_BG] Video 1 ended, switching to video 2');
+              setActiveVideo(2);
+              if (video2Ref.current) {
+                video2Ref.current.currentTime = 0;
+                video2Ref.current.play();
+              }
+            }}
+          >
+            <source src={effectiveBackgroundVideo} type="video/mp4" />
+            <source src={effectiveBackgroundVideo} type="video/webm" />
+          </video>
+
+          {/* Второе видео (для плавного перехода) */}
+          <video
+            ref={video2Ref}
+            muted
+            playsInline
+            preload="auto"
+            className="fixed inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            style={{ 
+              zIndex: 0,
+              opacity: activeVideo === 2 ? 1 : 0
+            }}
+            onLoadedData={() => console.log('[LOGIN_BG] Video 2 loaded')}
+            onError={(e) => console.error('[LOGIN_BG] Video 2 error:', e)}
+            onEnded={() => {
+              console.log('[LOGIN_BG] Video 2 ended, switching to video 1');
+              setActiveVideo(1);
+              if (video1Ref.current) {
+                video1Ref.current.currentTime = 0;
+                video1Ref.current.play();
+              }
+            }}
           >
             <source src={effectiveBackgroundVideo} type="video/mp4" />
             <source src={effectiveBackgroundVideo} type="video/webm" />
