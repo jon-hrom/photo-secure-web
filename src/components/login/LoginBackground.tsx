@@ -236,7 +236,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   return (
     <>
       {!isLoaded && !effectiveBackgroundVideo && backgroundImage && !shouldShowMobileImage && (
-        <div className="fixed inset-0 bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" style={{ zIndex: 0 }} />
+        <div className="fixed inset-0 bg-black" style={{ zIndex: 0 }} />
       )}
       
       {/* Мобильная картинка/GIF (приоритет на мобильных) */}
