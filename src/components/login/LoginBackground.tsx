@@ -15,6 +15,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const [isMobile, setIsMobile] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [fadeOpacity, setFadeOpacity] = useState(0);
+  const animationFrameRef = useRef<number | null>(null);
   const API_URL = funcUrls['background-media'];
   const SETTINGS_API = funcUrls['background-settings'];
 
@@ -199,6 +200,45 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     return () => window.removeEventListener('backgroundVideoChange', handleVideoChange);
   }, [API_URL]);
 
+  // Плавная анимация fade через requestAnimationFrame
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !backgroundVideo) return;
+
+    const fadeDuration = 1.5;
+    const easeInOutQuad = (t: number) => {
+      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    };
+
+    const updateFade = () => {
+      if (!video) return;
+      
+      const timeLeft = video.duration - video.currentTime;
+      
+      if (timeLeft <= fadeDuration) {
+        const progress = 1 - (timeLeft / fadeDuration);
+        const opacity = easeInOutQuad(progress);
+        setFadeOpacity(opacity);
+      } else if (video.currentTime <= fadeDuration) {
+        const progress = video.currentTime / fadeDuration;
+        const opacity = 1 - easeInOutQuad(progress);
+        setFadeOpacity(opacity);
+      } else {
+        setFadeOpacity(0);
+      }
+
+      animationFrameRef.current = requestAnimationFrame(updateFade);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateFade);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [backgroundVideo]);
+
   // Загружаем изображение
   useEffect(() => {
     if (!backgroundImage || backgroundVideo) {
@@ -278,33 +318,6 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
               e.currentTarget.playbackRate = 0.85; // 85% скорости
             }}
             onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
-            onTimeUpdate={(e) => {
-              const video = e.currentTarget;
-              const timeLeft = video.duration - video.currentTime;
-              const fadeDuration = 1.5; // Длительность fade в секундах
-              
-              // Easing функция для плавного перехода (ease-in-out)
-              const easeInOutQuad = (t: number) => {
-                return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-              };
-              
-              // За 1.5 сек до конца - начинаем затемнение
-              if (timeLeft <= fadeDuration) {
-                const progress = 1 - (timeLeft / fadeDuration);
-                const opacity = easeInOutQuad(progress);
-                setFadeOpacity(opacity);
-              }
-              // Первые 1.5 сек - осветление
-              else if (video.currentTime <= fadeDuration) {
-                const progress = video.currentTime / fadeDuration;
-                const opacity = 1 - easeInOutQuad(progress);
-                setFadeOpacity(opacity);
-              }
-              // Остальное время - прозрачно
-              else {
-                setFadeOpacity(0);
-              }
-            }}
           >
             <source src={effectiveBackgroundVideo} type="video/mp4" />
             <source src={effectiveBackgroundVideo} type="video/webm" />
@@ -317,8 +330,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
               backgroundColor: 'black',
               opacity: fadeOpacity,
               zIndex: 0.5,
-              pointerEvents: 'none',
-              transition: 'opacity 0.1s linear'
+              pointerEvents: 'none'
             }}
           />
           
