@@ -275,15 +275,23 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             onTimeUpdate={(e) => {
               const video = e.currentTarget;
               const timeLeft = video.duration - video.currentTime;
+              const fadeDuration = 1.5; // Длительность fade в секундах
               
-              // За 0.5 сек до конца - начинаем затемнение
-              if (timeLeft <= 0.5) {
-                const opacity = 1 - (timeLeft / 0.5);
+              // Easing функция для плавного перехода (ease-in-out)
+              const easeInOutQuad = (t: number) => {
+                return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+              };
+              
+              // За 1.5 сек до конца - начинаем затемнение
+              if (timeLeft <= fadeDuration) {
+                const progress = 1 - (timeLeft / fadeDuration);
+                const opacity = easeInOutQuad(progress);
                 setFadeOpacity(opacity);
               }
-              // Первые 0.5 сек - осветление
-              else if (video.currentTime <= 0.5) {
-                const opacity = 1 - (video.currentTime / 0.5);
+              // Первые 1.5 сек - осветление
+              else if (video.currentTime <= fadeDuration) {
+                const progress = video.currentTime / fadeDuration;
+                const opacity = 1 - easeInOutQuad(progress);
                 setFadeOpacity(opacity);
               }
               // Остальное время - прозрачно
@@ -298,12 +306,13 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
           
           {/* Fade-слой для плавного перехода */}
           <div 
-            className="fixed inset-0 transition-opacity duration-100"
+            className="fixed inset-0"
             style={{
               backgroundColor: 'black',
               opacity: fadeOpacity,
               zIndex: 0.5,
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              transition: 'opacity 0.1s linear'
             }}
           />
           
