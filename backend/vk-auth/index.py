@@ -290,8 +290,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'code_verifier': session['code_verifier'],
             'client_id': VK_CLIENT_ID,
             'redirect_uri': 'https://foto-mix.ru/vk-callback',
-            'state': state,
-            'device_id': session.get('device_id', '')  # Используем сохранённый device_id
+            'state': state
         }
         
         token_request = urllib.request.Request(
