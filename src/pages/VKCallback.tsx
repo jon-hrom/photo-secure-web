@@ -65,11 +65,19 @@ const VKCallback = () => {
             phone: profile.phone || profile.phone_number
           };
           
+          console.log('VKCallback: Saving to localStorage:', userData);
           localStorage.setItem('vk_user', JSON.stringify(userData));
           localStorage.setItem('auth_token', data.token || data.session_id);
           localStorage.setItem('userId', user_id.toString());
+          console.log('VKCallback: Saved. Checking...');
+          console.log('VKCallback: vk_user =', localStorage.getItem('vk_user'));
+          console.log('VKCallback: auth_token =', localStorage.getItem('auth_token'));
+          console.log('VKCallback: userId =', localStorage.getItem('userId'));
 
           toast.success(`Добро пожаловать, ${profile.name || 'пользователь'}!`);
+          
+          // Даём время на сохранение в localStorage перед редиректом
+          await new Promise(resolve => setTimeout(resolve, 100));
           navigate('/');
         } else {
           console.error('VKCallback: Auth failed:', data);
