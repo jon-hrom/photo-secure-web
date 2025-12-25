@@ -34,8 +34,8 @@ export const createAddProjectHandler = (
         id: Date.now() + 1,
         date: bookingDate,
         booking_date: newProject.startDate,
-        booking_time: '10:00',
-        time: '10:00',
+        booking_time: newProject.shooting_time || '10:00',
+        time: newProject.shooting_time || '10:00',
         title: newProject.name,
         description: newProject.description || `Бронирование для проекта: ${newProject.name}`,
         notificationEnabled: false,
@@ -55,12 +55,54 @@ export const createAddProjectHandler = (
     };
 
     onUpdate(updatedClient);
+
+    // Sync with Google Calendar if requested
+    if (newProject.add_to_calendar && newProject.startDate) {
+      try {
+        const CALENDAR_API = 'https://functions.poehali.dev/calendar-sync';
+        const userId = localStorage.getItem('userId');
+        
+        const response = await fetch(CALENDAR_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId || ''
+          },
+          body: JSON.stringify({
+            project_id: project.id,
+            name: newProject.name,
+            description: newProject.description,
+            start_date: newProject.startDate,
+            shooting_time: newProject.shooting_time,
+            shooting_duration: newProject.shooting_duration || 2,
+            shooting_address: newProject.shooting_address,
+            client_name: localClient.name,
+            client_phone: localClient.phone
+          })
+        });
+
+        if (response.ok) {
+          toast.success('Проект добавлен в Google Calendar');
+        } else {
+          const error = await response.json();
+          toast.error(`Не удалось добавить в календарь: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Calendar sync error:', error);
+        toast.error('Ошибка синхронизации с календарём');
+      }
+    }
+
     setNewProject({ 
       name: '', 
       budget: '', 
       description: '',
       startDate: new Date().toISOString().split('T')[0],
-      shootingStyleId: ''
+      shootingStyleId: '',
+      shooting_time: '10:00',
+      shooting_duration: 2,
+      shooting_address: '',
+      add_to_calendar: false
     });
     toast.success('Услуга добавлена' + (newProject.startDate ? ' и создана запись' : ''));
 
