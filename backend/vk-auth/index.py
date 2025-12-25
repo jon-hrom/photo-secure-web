@@ -139,7 +139,7 @@ def fetch_vk_user_info(user_id: str) -> Optional[Dict[str, Any]]:
 
 def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url: str, 
                    is_verified: bool, email: str, phone: str, ip_address: str, user_agent: str) -> int:
-    """Создание или обновление VK пользователя"""
+    """Создание или обновление VK пользователя с объединением по телефону"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -159,7 +159,31 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 if not is_main_admin and vk_user['is_blocked']:
                     raise Exception(f"USER_BLOCKED:{vk_user.get('blocked_reason', 'Аккаунт заблокирован')}")
                 
-                return vk_user['user_id']
+                user_id = vk_user['user_id']
+                
+                # Обновляем данные
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.vk_users 
+                    SET full_name = {escape_sql(full_name)},
+                        avatar_url = {escape_sql(avatar_url)},
+                        is_verified = {escape_sql(is_verified)},
+                        email = {escape_sql(email)},
+                        phone_number = {escape_sql(phone)},
+                        last_login = CURRENT_TIMESTAMP
+                    WHERE vk_sub = {escape_sql(vk_user_id)}
+                """)
+                
+                # Добавляем email в user_emails если есть
+                if email:
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
+                        VALUES ({user_id}, {escape_sql(email)}, 'vk', FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        ON CONFLICT (user_id, email) DO UPDATE 
+                        SET last_used_at = CURRENT_TIMESTAMP
+                    """)
+                
+                conn.commit()
+                return user_id
             
             # Проверяем существование в users по vk_id
             cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE vk_id = {escape_sql(vk_user_id)}")
@@ -174,10 +198,66 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     VALUES ({escape_sql(vk_user_id)}, {user_id}, {escape_sql(full_name)}, {escape_sql(avatar_url)}, 
                             {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, TRUE, CURRENT_TIMESTAMP)
                 """)
+                
+                # Добавляем email в user_emails
+                if email:
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
+                        VALUES ({user_id}, {escape_sql(email)}, 'vk', FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        ON CONFLICT (user_id, email) DO UPDATE 
+                        SET last_used_at = CURRENT_TIMESTAMP
+                    """)
+                
                 conn.commit()
                 return user_id
             
-            # Создаём нового пользователя
+            # КРИТИЧНО: Проверяем существование пользователя по телефону (объединение аккаунтов)
+            user_id = None
+            if phone:
+                cur.execute(f"""
+                    SELECT id FROM {SCHEMA}.users 
+                    WHERE phone = {escape_sql(phone)} AND phone IS NOT NULL AND phone != ''
+                    ORDER BY registered_at ASC LIMIT 1
+                """)
+                existing_by_phone = cur.fetchone()
+                if existing_by_phone:
+                    user_id = existing_by_phone['id']
+                    print(f"[VK_AUTH] Found existing user by phone: user_id={user_id}, phone={phone}")
+                    
+                    # Обновляем существующего пользователя
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.users 
+                        SET vk_id = {escape_sql(vk_user_id)},
+                            display_name = COALESCE(display_name, {escape_sql(full_name)}),
+                            last_login = CURRENT_TIMESTAMP,
+                            ip_address = {escape_sql(ip_address)},
+                            user_agent = {escape_sql(user_agent)}
+                        WHERE id = {user_id}
+                    """)
+                    
+                    # Создаём запись в vk_users
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.vk_users 
+                        (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login, 
+                         ip_address, user_agent)
+                        VALUES ({escape_sql(vk_user_id)}, {user_id}, {escape_sql(full_name)}, {escape_sql(avatar_url)}, 
+                                {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, TRUE, CURRENT_TIMESTAMP, 
+                                {escape_sql(ip_address)}, {escape_sql(user_agent)})
+                    """)
+                    
+                    # Добавляем email в user_emails
+                    if email:
+                        cur.execute(f"""
+                            INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
+                            VALUES ({user_id}, {escape_sql(email)}, 'vk', FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                            ON CONFLICT (user_id, email) DO UPDATE 
+                            SET last_used_at = CURRENT_TIMESTAMP
+                        """)
+                    
+                    conn.commit()
+                    return user_id
+            
+            # Создаём нового пользователя (телефон не найден)
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.users 
                 (vk_id, email, phone, display_name, is_active, source, registered_at, created_at, updated_at, last_login, 
@@ -198,6 +278,16 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                         {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, TRUE, CURRENT_TIMESTAMP, 
                         {escape_sql(ip_address)}, {escape_sql(user_agent)})
             """)
+            
+            # Добавляем email в user_emails
+            if email:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
+                    VALUES ({new_user_id}, {escape_sql(email)}, 'vk', FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id, email) DO UPDATE 
+                    SET last_used_at = CURRENT_TIMESTAMP
+                """)
+            
             conn.commit()
             return new_user_id
     finally:

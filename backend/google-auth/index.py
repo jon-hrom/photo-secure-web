@@ -114,7 +114,7 @@ def delete_session(state: str) -> None:
 
 def upsert_google_user(google_sub: str, email: str, name: str, picture: str, 
                        verified_email: bool, ip_address: str, user_agent: str) -> Dict[str, Any]:
-    """Создание или обновление Google пользователя, возвращает user_id и настройки 2FA"""
+    """Создание или обновление Google пользователя с объединением по email, возвращает user_id и настройки 2FA"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -133,6 +133,8 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                 if not is_main_admin and google_user['is_blocked']:
                     raise Exception(f"USER_BLOCKED:{google_user.get('block_reason', 'Аккаунт заблокирован')}")
                 
+                user_id = google_user['user_id']
+                
                 # Обновляем данные в google_users
                 cur.execute(f"""
                     UPDATE {SCHEMA}.google_users 
@@ -149,41 +151,53 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                     UPDATE {SCHEMA}.users 
                     SET display_name = {escape_sql(name)},
                         last_login = CURRENT_TIMESTAMP,
-                        email_verified_at = CASE WHEN email_verified_at IS NULL AND {escape_sql(verified_email)} 
+                        email_verified_at = CASE WHEN email_verified_at IS NULL 
                                                 THEN CURRENT_TIMESTAMP ELSE email_verified_at END
-                    WHERE id = {google_user['user_id']}
+                    WHERE id = {user_id}
                 """)
+                
+                # Добавляем email в user_emails (автоматически verified для Google)
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
+                    VALUES ({user_id}, {escape_sql(email)}, 'google', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id, email) DO UPDATE 
+                    SET last_used_at = CURRENT_TIMESTAMP,
+                        is_verified = TRUE,
+                        verified_at = CURRENT_TIMESTAMP
+                """)
+                
                 conn.commit()
                 
                 # Проверяем настройки 2FA пользователя
                 cur.execute(f"""
                     SELECT two_factor_email, two_factor_sms, phone, email 
                     FROM {SCHEMA}.users 
-                    WHERE id = {google_user['user_id']}
+                    WHERE id = {user_id}
                 """)
                 user_settings = cur.fetchone()
                 
                 return {
-                    'user_id': google_user['user_id'],
+                    'user_id': user_id,
                     'two_factor_email': user_settings.get('two_factor_email', False) if user_settings else False,
                     'two_factor_sms': user_settings.get('two_factor_sms', False) if user_settings else False,
                     'phone': user_settings.get('phone') if user_settings else None,
                     'user_email': user_settings.get('email') if user_settings else email
                 }
             
-            # Проверяем существование в users по email
+            # КРИТИЧНО: Проверяем существование в users по email (объединение аккаунтов)
             cur.execute(f"SELECT id, two_factor_email, two_factor_sms, phone, email FROM {SCHEMA}.users WHERE email = {escape_sql(email)}")
             existing_user = cur.fetchone()
             
             if existing_user:
                 user_id = existing_user['id']
+                print(f"[GOOGLE_AUTH] Found existing user by email: user_id={user_id}, email={email}")
                 
                 # Обновляем display_name если пустой
                 cur.execute(f"""
                     UPDATE {SCHEMA}.users 
                     SET display_name = COALESCE(display_name, {escape_sql(name)}),
                         last_login = CURRENT_TIMESTAMP,
-                        email_verified_at = CASE WHEN email_verified_at IS NULL AND {escape_sql(verified_email)} 
+                        email_verified_at = CASE WHEN email_verified_at IS NULL 
                                                 THEN CURRENT_TIMESTAMP ELSE email_verified_at END
                     WHERE id = {user_id}
                 """)
@@ -195,31 +209,35 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                     VALUES ({escape_sql(google_sub)}, {user_id}, {escape_sql(email)}, {escape_sql(name)}, 
                             {escape_sql(picture)}, {escape_sql(verified_email)}, TRUE, CURRENT_TIMESTAMP)
                 """)
-                # Добавляем email в user_emails как google провайдер
+                
+                # Добавляем email в user_emails (автоматически verified для Google)
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                    VALUES ({user_id}, {escape_sql(email)}, 'google', {escape_sql(verified_email)}, 
-                            CASE WHEN {escape_sql(verified_email)} THEN CURRENT_TIMESTAMP ELSE NULL END,
-                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    ON CONFLICT (email, provider) DO UPDATE SET last_used_at = CURRENT_TIMESTAMP
+                    VALUES ({user_id}, {escape_sql(email)}, 'google', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id, email) DO UPDATE 
+                    SET last_used_at = CURRENT_TIMESTAMP,
+                        is_verified = TRUE,
+                        verified_at = CURRENT_TIMESTAMP
                 """)
+                
                 conn.commit()
+                
                 return {
                     'user_id': user_id,
                     'two_factor_email': existing_user.get('two_factor_email', False),
                     'two_factor_sms': existing_user.get('two_factor_sms', False),
                     'phone': existing_user.get('phone'),
-                    'user_email': existing_user.get('email', email)
+                    'user_email': existing_user.get('email')
                 }
             
-            # Создаём нового пользователя
+            # Создаём нового пользователя (ни по email не найден)
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.users 
                 (email, display_name, is_active, source, registered_at, created_at, updated_at, last_login, 
-                 ip_address, user_agent, email_verified_at, role)
+                 ip_address, user_agent, role, email_verified_at)
                 VALUES ({escape_sql(email)}, {escape_sql(name)}, TRUE, 'google', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
-                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)},
-                        CASE WHEN {escape_sql(verified_email)} THEN CURRENT_TIMESTAMP ELSE NULL END, 'user')
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user',
+                        CURRENT_TIMESTAMP)
                 RETURNING id
             """)
             new_user = cur.fetchone()
@@ -228,20 +246,23 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
             # Создаём запись в google_users
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.google_users 
-                (google_sub, user_id, email, full_name, avatar_url, is_verified, is_active, last_login, ip_address, user_agent)
+                (google_sub, user_id, email, full_name, avatar_url, is_verified, is_active, last_login, 
+                 ip_address, user_agent)
                 VALUES ({escape_sql(google_sub)}, {new_user_id}, {escape_sql(email)}, {escape_sql(name)}, 
                         {escape_sql(picture)}, {escape_sql(verified_email)}, TRUE, CURRENT_TIMESTAMP, 
                         {escape_sql(ip_address)}, {escape_sql(user_agent)})
             """)
-            # Добавляем email в user_emails
+            
+            # Добавляем email в user_emails (автоматически verified для Google)
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_primary, is_verified, verified_at, added_at, last_used_at)
-                VALUES ({new_user_id}, {escape_sql(email)}, 'google', TRUE, {escape_sql(verified_email)},
-                        CASE WHEN {escape_sql(verified_email)} THEN CURRENT_TIMESTAMP ELSE NULL END,
-                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (email, provider) DO NOTHING
+                INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
+                VALUES ({new_user_id}, {escape_sql(email)}, 'google', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id, email) DO UPDATE 
+                SET last_used_at = CURRENT_TIMESTAMP
             """)
+            
             conn.commit()
+            
             return {
                 'user_id': new_user_id,
                 'two_factor_email': False,
@@ -255,7 +276,6 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
 
 def generate_jwt_token(user_id: int) -> str:
     """Генерация JWT токена (упрощённая версия)"""
-    # Для production используйте библиотеку PyJWT
     import hmac
     payload = f"{user_id}:{datetime.now().timestamp()}"
     signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
@@ -421,40 +441,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             finally:
                 conn.close()
             
-            print(f"[GOOGLE_AUTH] 2FA required for user_id={user_id}")
             return {
                 'statusCode': 200,
                 'headers': cors_headers,
                 'body': json.dumps({
-                    'success': False,
-                    'requires2FA': True,
+                    'success': True,
+                    'requires_2fa': True,
                     'temp_token': temp_token,
-                    'user_id': user_id,
-                    'user_email': user_data.get('user_email'),
-                    'two_factor_type': 'email' if user_data.get('two_factor_email') else 'sms',
-                    'profile': {
-                        'sub': user_info['id'],
-                        'email': user_info.get('email'),
-                        'name': user_info.get('name'),
-                        'picture': user_info.get('picture'),
-                        'verified_email': user_info.get('verified_email', False)
-                    }
+                    'two_factor_type': 'sms' if user_data.get('two_factor_sms') else 'email',
+                    'user_id': user_id
                 }),
                 'isBase64Encoded': False
             }
         
-        # Генерация JWT сессии (если 2FA не требуется)
+        # Генерация JWT токена
         session_token = generate_jwt_token(user_id)
         
+        # Возвращаем данные для фронтенда
         return {
             'statusCode': 200,
             'headers': cors_headers,
             'body': json.dumps({
                 'success': True,
                 'user_id': user_id,
-                'session_id': session_token,
-                'profile': {
-                    'sub': user_info['id'],
+                'session_token': session_token,
+                'user': {
+                    'id': user_id,
                     'email': user_info.get('email'),
                     'name': user_info.get('name'),
                     'picture': user_info.get('picture'),
@@ -472,7 +484,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(f"[GOOGLE_AUTH] ERROR: {error_msg}")
         print(f"[GOOGLE_AUTH] TRACEBACK: {error_trace}")
         
-        # Обработка блокировки пользователя
+        # Проверка на блокировку пользователя
         if error_msg.startswith('USER_BLOCKED:'):
             reason = error_msg.split(':', 1)[1]
             return {
@@ -481,8 +493,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({
                     'success': False,
                     'blocked': True,
-                    'message': reason,
-                    'auth_method': 'google'
+                    'message': reason
                 }),
                 'isBase64Encoded': False
             }
