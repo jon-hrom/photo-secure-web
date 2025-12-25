@@ -20,21 +20,7 @@ export const useActivityTracking = ({
 
     const updateActivityOnServer = async () => {
       try {
-        const vkUser = localStorage.getItem('vk_user');
-        
-        if (vkUser) {
-          const userData = JSON.parse(vkUser);
-          const res = await fetch('https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'update-activity', vk_id: userData.vk_id || userData.user_id })
-          });
-          
-          // Если эндпоинт падает - просто игнорируем (не критично)
-          if (!res.ok) {
-            console.warn(`[ACTIVITY] VK activity tracking failed (${res.status}), continuing...`);
-          }
-        } else if (userEmail) {
+        if (userEmail) {
           const res = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -42,11 +28,10 @@ export const useActivityTracking = ({
           });
           
           if (!res.ok) {
-            console.warn(`[ACTIVITY] Email activity tracking failed (${res.status}), continuing...`);
+            console.warn(`[ACTIVITY] Activity tracking failed (${res.status}), continuing...`);
           }
         }
       } catch (error) {
-        // Ошибки трекинга активности не должны ломать приложение
         console.warn('[ACTIVITY] Activity tracking error (non-critical):', error);
       }
     };
