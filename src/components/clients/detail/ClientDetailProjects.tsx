@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { Project, Payment } from '@/components/clients/ClientsTypes';
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -13,7 +14,17 @@ import { getShootingStyles } from '@/data/shootingStyles';
 interface ClientDetailProjectsProps {
   projects: Project[];
   payments: Payment[];
-  newProject: { name: string; budget: string; description: string; startDate: string; shootingStyleId?: string };
+  newProject: { 
+    name: string; 
+    budget: string; 
+    description: string; 
+    startDate: string; 
+    shootingStyleId?: string;
+    shooting_time?: string;
+    shooting_duration?: number;
+    shooting_address?: string;
+    add_to_calendar?: boolean;
+  };
   setNewProject: (project: any) => void;
   handleAddProject: () => void;
   handleDeleteProject: (projectId: number) => void;
@@ -290,6 +301,38 @@ const ClientDetailProjects = ({
               />
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Время съёмки</Label>
+              <Input
+                type="time"
+                value={newProject.shooting_time || ''}
+                onChange={(e) => setNewProject({ ...newProject, shooting_time: e.target.value })}
+                className="text-xs h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Длительность (часы)</Label>
+              <Input
+                type="number"
+                min="1"
+                max="12"
+                value={newProject.shooting_duration || 2}
+                onChange={(e) => setNewProject({ ...newProject, shooting_duration: parseInt(e.target.value) || 2 })}
+                className="text-xs h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Адрес съёмки</Label>
+              <Input
+                type="text"
+                value={newProject.shooting_address || ''}
+                onChange={(e) => setNewProject({ ...newProject, shooting_address: e.target.value })}
+                placeholder="Парк Горького, Москва"
+                className="text-xs h-9"
+              />
+            </div>
+          </div>
           <div className="space-y-1">
             <Label className="text-xs">Стиль съёмки</Label>
             <ShootingStyleSelector
@@ -307,6 +350,20 @@ const ClientDetailProjects = ({
               rows={2}
               className="text-xs"
             />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="add_to_calendar"
+              checked={newProject.add_to_calendar || false}
+              onCheckedChange={(checked) => setNewProject({ ...newProject, add_to_calendar: checked as boolean })}
+            />
+            <Label 
+              htmlFor="add_to_calendar" 
+              className="text-xs cursor-pointer flex items-center gap-2"
+            >
+              <Icon name="Calendar" size={14} />
+              Добавить в Google Calendar
+            </Label>
           </div>
           <div className="h-16"></div>
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t md:static md:border-0 md:p-0">

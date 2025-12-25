@@ -125,7 +125,6 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             tabs={tabs}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            onUpdate={onUpdate}
           />
         </Tabs>
       </DialogContent>

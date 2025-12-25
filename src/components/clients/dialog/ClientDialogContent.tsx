@@ -2,7 +2,6 @@ import { TabsContent } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import SwipeContainer from '@/components/layout/SwipeContainer';
 import ClientDetailOverview from '@/components/clients/detail/ClientDetailOverview';
-import ClientDetailShooting from '@/components/clients/detail/ClientDetailShooting';
 import ClientDetailProjects from '@/components/clients/detail/ClientDetailProjects';
 import ClientDetailPayments from '@/components/clients/detail/ClientDetailPayments';
 import ClientDetailDocumentsHistory from '@/components/clients/detail/ClientDetailDocumentsHistory';
@@ -47,7 +46,6 @@ interface ClientDialogContentProps {
   tabs: readonly string[];
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  onUpdate: (client: Client) => void;
 }
 
 const ClientDialogContent = ({
@@ -87,7 +85,6 @@ const ClientDialogContent = ({
   tabs,
   activeTab,
   setActiveTab,
-  onUpdate,
 }: ClientDialogContentProps) => {
   return (
     <div className="relative overflow-hidden">
@@ -131,16 +128,6 @@ const ClientDialogContent = ({
             handleAddComment={handleAddComment}
             handleDeleteComment={handleDeleteComment}
             formatDateTime={formatDateTime}
-          />
-        </TabsContent>
-
-        <TabsContent value="shooting" className="space-y-4 mt-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
-          <ClientDetailShooting
-            client={localClient}
-            onUpdate={(updates) => {
-              const updatedClient = { ...localClient, ...updates };
-              onUpdate(updatedClient);
-            }}
           />
         </TabsContent>
 

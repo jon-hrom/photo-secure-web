@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Client } from '@/components/clients/ClientsTypes';
 
 export const useClientDetailState = (client: Client | null, open: boolean) => {
-  const tabs = ['overview', 'shooting', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
+  const tabs = ['overview', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
   const [activeTab, setActiveTab] = useState('overview');
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [photographerPhone, setPhotographerPhone] = useState('');
@@ -12,7 +12,11 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     budget: '', 
     description: '',
     startDate: new Date().toISOString().split('T')[0],
-    shootingStyleId: ''
+    shootingStyleId: '',
+    shooting_time: '10:00',
+    shooting_duration: 2,
+    shooting_address: '',
+    add_to_calendar: false
   });
   const [newPayment, setNewPayment] = useState({ 
     amount: '', 

@@ -33,6 +33,12 @@ export interface Project {
   photoDownloadUrl?: string;
   photoDownloadedAt?: string;
   shootingStyleId?: string;
+  shooting_time?: string;
+  shooting_duration?: number;
+  shooting_address?: string;
+  add_to_calendar?: boolean;
+  google_event_id?: string;
+  synced_at?: string;
 }
 
 export interface Document {
