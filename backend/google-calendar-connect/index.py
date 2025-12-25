@@ -219,12 +219,19 @@ def handler(event, context):
                 
                 is_connected = result['calendar_enabled'] and result['token_expires_at']
                 
+                expires_at = None
+                if result.get('token_expires_at'):
+                    try:
+                        expires_at = result['token_expires_at'].isoformat() if hasattr(result['token_expires_at'], 'isoformat') else str(result['token_expires_at'])
+                    except:
+                        expires_at = None
+                
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({
                         'connected': is_connected,
-                        'expires_at': result['token_expires_at'].isoformat() if result['token_expires_at'] else None
+                        'expires_at': expires_at
                     })
                 }
         finally:
