@@ -159,11 +159,8 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                 # Добавляем email в user_emails (автоматически verified для Google)
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                    VALUES ({user_id}, {escape_sql(email)}, 'google', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    ON CONFLICT (user_id, email) DO UPDATE 
-                    SET last_used_at = CURRENT_TIMESTAMP,
-                        is_verified = TRUE,
-                        verified_at = CURRENT_TIMESTAMP
+                    VALUES ({user_id}, {escape_sql(email)}, 'google', {escape_sql(True)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT DO NOTHING
                 """)
                 
                 conn.commit()
@@ -213,11 +210,8 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                 # Добавляем email в user_emails (автоматически verified для Google)
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                    VALUES ({user_id}, {escape_sql(email)}, 'google', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    ON CONFLICT (user_id, email) DO UPDATE 
-                    SET last_used_at = CURRENT_TIMESTAMP,
-                        is_verified = TRUE,
-                        verified_at = CURRENT_TIMESTAMP
+                    VALUES ({user_id}, {escape_sql(email)}, 'google', {escape_sql(True)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT DO NOTHING
                 """)
                 
                 conn.commit()
@@ -257,7 +251,7 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
                 VALUES ({new_user_id}, {escape_sql(email)}, 'google', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (user_id, email) DO UPDATE 
+                ON CONFLICT DO NOTHING 
                 SET last_used_at = CURRENT_TIMESTAMP
             """)
             

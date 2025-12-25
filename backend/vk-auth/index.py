@@ -177,8 +177,8 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 if email:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                        VALUES ({user_id}, {escape_sql(email)}, 'vk', FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT (user_id, email) DO UPDATE 
+                        VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        ON CONFLICT DO NOTHING 
                         SET last_used_at = CURRENT_TIMESTAMP
                     """)
                 
@@ -203,8 +203,8 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 if email:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                        VALUES ({user_id}, {escape_sql(email)}, 'vk', FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT (user_id, email) DO UPDATE 
+                        VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        ON CONFLICT DO NOTHING 
                         SET last_used_at = CURRENT_TIMESTAMP
                     """)
                 
@@ -249,8 +249,8 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     if email:
                         cur.execute(f"""
                             INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                            VALUES ({user_id}, {escape_sql(email)}, 'vk', FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                            ON CONFLICT (user_id, email) DO UPDATE 
+                            VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                            ON CONFLICT DO NOTHING 
                             SET last_used_at = CURRENT_TIMESTAMP
                         """)
                     
@@ -283,8 +283,8 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
             if email:
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                    VALUES ({new_user_id}, {escape_sql(email)}, 'vk', FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    ON CONFLICT (user_id, email) DO UPDATE 
+                    VALUES ({new_user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT DO NOTHING 
                     SET last_used_at = CURRENT_TIMESTAMP
                 """)
             
