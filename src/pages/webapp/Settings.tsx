@@ -13,6 +13,7 @@ import Icon from '@/components/ui/icon';
 import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
+import GoogleCalendarConnect from '@/components/settings/GoogleCalendarConnect';
 import { useSettingsData } from '@/hooks/useSettingsData';
 import { useThemeManager } from '@/hooks/useThemeManager';
 import { useContactManager } from '@/hooks/useContactManager';
@@ -270,6 +271,8 @@ const Settings = () => {
                 onSave={saveNewYearSettings}
               />
             )}
+
+            <GoogleCalendarConnect />
 
             <div className="pt-2 sm:pt-4">
               <Button 

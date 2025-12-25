@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Get OAuth URL",
+      "method": "GET",
+      "headers": {
+        "X-User-Id": "12"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "auth_url": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Check connection status",
+      "method": "POST",
+      "headers": {
+        "X-User-Id": "12"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "connected": "boolean"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
