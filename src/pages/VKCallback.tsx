@@ -51,21 +51,23 @@ const VKCallback = () => {
           return;
         }
         
-        if (data.success && data.profile) {
-          const { profile, user_id } = data;
+        if (data.success && (data.profile || data.userData)) {
+          const profile = data.profile || data.userData;
+          const user_id = data.user_id;
           
           const userData = {
             user_id: user_id,
-            vk_id: profile.sub,
+            vk_id: profile.vk_id || profile.sub,
             email: profile.email,
             name: profile.name,
-            avatar: profile.picture,
-            is_verified: profile.is_verified,
-            phone: profile.phone_number
+            avatar: profile.avatar || profile.picture,
+            verified: profile.verified || profile.is_verified || false,
+            phone: profile.phone || profile.phone_number
           };
           
           localStorage.setItem('vk_user', JSON.stringify(userData));
-          localStorage.setItem('auth_token', data.session_id);
+          localStorage.setItem('auth_token', data.token || data.session_id);
+          localStorage.setItem('userId', user_id.toString());
 
           toast.success(`Добро пожаловать, ${profile.name || 'пользователь'}!`);
           navigate('/');
