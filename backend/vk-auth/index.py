@@ -264,6 +264,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # Обработка callback
     code = query_params.get('code')
     state = query_params.get('state')
+    device_id = query_params.get('device_id')  # VK ID возвращает device_id в callback
+    payload = query_params.get('payload')  # Альтернативный способ получения данных
+    
+    print(f"[VK_AUTH] Callback params: code={code}, state={state}, device_id={device_id}, payload={payload}")
     
     if not code or not state:
         return {
@@ -292,6 +296,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'redirect_uri': 'https://foto-mix.ru/vk-callback',
             'state': state
         }
+        
+        # Добавляем device_id если получили от VK ID
+        if device_id:
+            token_data['device_id'] = device_id
+            print(f"[VK_AUTH] Using device_id from callback: {device_id}")
+        else:
+            print(f"[VK_AUTH] WARNING: No device_id in callback, trying without it")
         
         token_request = urllib.request.Request(
             VK_TOKEN_URL,

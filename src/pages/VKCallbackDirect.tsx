@@ -8,10 +8,18 @@ const VKCallbackDirect = () => {
   useEffect(() => {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
+    const deviceId = searchParams.get('device_id');
+    const payload = searchParams.get('payload');
 
     if (code && state) {
       const vkAuthUrl = funcUrls['vk-auth'];
-      window.location.href = `${vkAuthUrl}?code=${code}&state=${state}`;
+      const params = new URLSearchParams({
+        code,
+        state,
+        ...(deviceId && { device_id: deviceId }),
+        ...(payload && { payload })
+      });
+      window.location.href = `${vkAuthUrl}?${params.toString()}`;
     }
   }, [searchParams]);
 
