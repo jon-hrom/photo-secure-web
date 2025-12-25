@@ -195,7 +195,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     INSERT INTO {SCHEMA}.vk_users 
                     (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login)
                     VALUES ({escape_sql(vk_user_id)}, {user_id}, {escape_sql(full_name)}, {escape_sql(avatar_url)}, 
-                            {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, TRUE, CURRENT_TIMESTAMP)
+                            {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(True)}, CURRENT_TIMESTAMP)
                 """)
                 
                 # Добавляем email в user_emails
@@ -239,7 +239,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                         (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login, 
                          ip_address, user_agent)
                         VALUES ({escape_sql(vk_user_id)}, {user_id}, {escape_sql(full_name)}, {escape_sql(avatar_url)}, 
-                                {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, TRUE, CURRENT_TIMESTAMP, 
+                                {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(True)}, CURRENT_TIMESTAMP, 
                                 {escape_sql(ip_address)}, {escape_sql(user_agent)})
                     """)
                     
@@ -272,7 +272,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login, 
                  ip_address, user_agent)
                 VALUES ({escape_sql(vk_user_id)}, {new_user_id}, {escape_sql(full_name)}, {escape_sql(avatar_url)}, 
-                        {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, TRUE, CURRENT_TIMESTAMP, 
+                        {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(True)}, CURRENT_TIMESTAMP, 
                         {escape_sql(ip_address)}, {escape_sql(user_agent)})
             """)
             
