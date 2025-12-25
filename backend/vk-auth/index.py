@@ -267,7 +267,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     device_id = query_params.get('device_id')  # VK ID возвращает device_id в callback
     payload = query_params.get('payload')  # Альтернативный способ получения данных
     
-    print(f"[VK_AUTH] Callback params: code={code}, state={state}, device_id={device_id}, payload={payload}")
+    print(f"[VK_AUTH] Callback params: code={code}, state={state}, device_id={device_id}, payload={payload[:50] if payload else None}...")
+    
+    # Если payload передан, декодируем его
+    if payload and not device_id:
+        try:
+            payload_data = json.loads(base64.urlsafe_b64decode(payload + '=='))
+            device_id = payload_data.get('device_id')
+            print(f"[VK_AUTH] Extracted from payload: device_id={device_id}")
+        except Exception as e:
+            print(f"[VK_AUTH] Failed to decode payload: {e}")
     
     if not code or not state:
         return {

@@ -6,10 +6,19 @@ const VKCallbackDirect = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
+    // VK ID возвращает параметры в query string
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const deviceId = searchParams.get('device_id');
     const payload = searchParams.get('payload');
+
+    // Также проверяем hash fragment (для payload)
+    const hash = window.location.hash.substring(1);
+    const hashParams = new URLSearchParams(hash);
+    const hashPayload = hashParams.get('payload');
+
+    console.log('[VK Callback] Query params:', { code, state, deviceId, payload });
+    console.log('[VK Callback] Hash params:', { payload: hashPayload });
 
     if (code && state) {
       const vkAuthUrl = funcUrls['vk-auth'];
@@ -17,7 +26,8 @@ const VKCallbackDirect = () => {
         code,
         state,
         ...(deviceId && { device_id: deviceId }),
-        ...(payload && { payload })
+        ...(payload && { payload }),
+        ...(hashPayload && !payload && { payload: hashPayload })
       });
       window.location.href = `${vkAuthUrl}?${params.toString()}`;
     }
