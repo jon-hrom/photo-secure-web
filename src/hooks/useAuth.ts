@@ -278,10 +278,12 @@ export const useAuth = () => {
           // CRITICAL: Check if user is still not blocked before restoring session
           console.log('🔍 Checking if user is blocked before restoring session...');
           
-          // Check block status via users-management endpoint
-          fetch(`https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a?checkUserId=${uid}`)
-            .then(res => res.json())
-            .then(blockData => {
+          // Выполняем проверку блокировки и загрузку данных параллельно для ускорения
+          Promise.all([
+            fetch(`https://functions.poehali.dev/349714d2-fe2e-4f42-88fe-367b6a31396a?checkUserId=${uid}`).then(res => res.json()),
+            fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${uid}`).then(res => res.json())
+          ])
+            .then(([blockData, userData2]) => {
               console.log('🔍 Block check result:', blockData);
               
               // Check if user is blocked
@@ -310,23 +312,13 @@ export const useAuth = () => {
                 return;
               }
               
-              console.log('✅ User not blocked, loading user data...');
-              
-              // User not blocked, load user data
-              fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${uid}`)
-                .then(res => res.json())
-                .then(data => {
-                  continueSessionRestore(userData, data, uid);
-                })
-                .catch(err => {
-                  console.error('❌ Error loading user data:', err);
-                  continueSessionRestore(userData, {}, uid);
-                });
+              console.log('✅ User not blocked, continuing...');
+              continueSessionRestore(userData, userData2, uid);
             })
             .catch(err => {
-              console.error('❌ Error checking block status:', err);
-              handleLogout();
-              setLoading(false);
+              console.error('❌ Error checking session:', err);
+              // Не разлогиниваем при ошибке - работаем с кешированными данными
+              continueSessionRestore(userData, {}, uid);
             });
           
           const continueSessionRestore = (userData: any, dbData: any, uid: number) => {
