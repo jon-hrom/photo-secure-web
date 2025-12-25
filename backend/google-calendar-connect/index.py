@@ -22,6 +22,9 @@ CALENDAR_SCOPES = [
     'https://www.googleapis.com/auth/calendar.events'
 ]
 
+# Redirect URI — прямой URL функции (не /api/)
+REDIRECT_URI = "https://functions.poehali.dev/3d87d4f5-3bb5-4b17-a2c6-45d61cd21992"
+
 
 def escape_sql(value):
     """Безопасное экранирование для Simple Query Protocol"""
@@ -70,7 +73,7 @@ def handler(event, context):
                 'body': json.dumps({'error': 'Missing X-User-Id header'})
             }
         
-        redirect_uri = f"{BASE_URL}/api/google-calendar-callback"
+        redirect_uri = REDIRECT_URI
         
         params = {
             'client_id': GOOGLE_CLIENT_ID,
@@ -102,7 +105,7 @@ def handler(event, context):
                 'body': '<h1>❌ Ошибка: отсутствует user_id</h1><script>setTimeout(() => window.close(), 3000)</script>'
             }
         
-        redirect_uri = f"{BASE_URL}/api/google-calendar-callback"
+        redirect_uri = REDIRECT_URI
         
         # Exchange code for tokens
         token_url = 'https://oauth2.googleapis.com/token'

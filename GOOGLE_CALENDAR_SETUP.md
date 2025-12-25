@@ -31,9 +31,9 @@
 #### Шаг 3: Создайте или обновите OAuth 2.0 Client ID
 1. Перейдите: APIs & Services → Credentials
 2. Найдите существующий OAuth 2.0 Client ID или создайте новый
-3. **Критично!** Добавьте Redirect URI:
+3. **Критично!** Добавьте Redirect URI (URL функции, НЕ /api/):
    ```
-   https://p28211681.poehali.work/api/google-calendar-callback
+   https://functions.poehali.dev/3d87d4f5-3bb5-4b17-a2c6-45d61cd21992
    ```
 4. Скопируйте:
    - **Client ID** → сохраните в секрет `GOOGLE_CLIENT_ID`
