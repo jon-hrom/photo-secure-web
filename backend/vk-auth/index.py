@@ -61,15 +61,15 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
-def save_session(state: str, code_verifier: str) -> None:
+def save_session(state: str, code_verifier: str, device_id: str) -> None:
     """Сохранение OAuth сессии в БД"""
     conn = get_db_connection()
     try:
         expires_at = datetime.now() + timedelta(minutes=10)
         with conn.cursor() as cur:
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.oauth_sessions (state, nonce, code_verifier, provider, expires_at)
-                VALUES ({escape_sql(state)}, {escape_sql(state)}, {escape_sql(code_verifier)}, 'vkid', {escape_sql(expires_at.isoformat())})
+                INSERT INTO {SCHEMA}.oauth_sessions (state, nonce, code_verifier, provider, expires_at, device_id)
+                VALUES ({escape_sql(state)}, {escape_sql(state)}, {escape_sql(code_verifier)}, 'vkid', {escape_sql(expires_at.isoformat())}, {escape_sql(device_id)})
             """)
         conn.commit()
     finally:
@@ -85,7 +85,7 @@ def get_session(state: str) -> Optional[Dict[str, Any]]:
             conn.commit()
             
             cur.execute(f"""
-                SELECT state, code_verifier 
+                SELECT state, code_verifier, device_id 
                 FROM {SCHEMA}.oauth_sessions 
                 WHERE state = {escape_sql(state)} AND expires_at > CURRENT_TIMESTAMP
             """)
@@ -238,8 +238,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         state = generate_state()
         code_verifier = generate_code_verifier()
         code_challenge = generate_code_challenge(code_verifier)
+        device_id = generate_state()  # Генерируем уникальный device_id
         
-        save_session(state, code_verifier)
+        save_session(state, code_verifier, device_id)
         
         auth_params = {
             'client_id': VK_CLIENT_ID,
@@ -248,7 +249,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'scope': 'email phone',
             'state': state,
             'code_challenge': code_challenge,
-            'code_challenge_method': 'S256'
+            'code_challenge_method': 'S256',
+            'device_id': device_id
         }
         
         redirect_url = f"{VK_AUTH_URL}?{urlencode(auth_params)}"
@@ -290,7 +292,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'client_id': VK_CLIENT_ID,
             'redirect_uri': 'https://foto-mix.ru/vk-callback',
             'state': state,
-            'device_id': VK_CLIENT_ID  # VK требует device_id, используем client_id
+            'device_id': session.get('device_id', '')  # Используем сохранённый device_id
         }
         
         token_request = urllib.request.Request(
