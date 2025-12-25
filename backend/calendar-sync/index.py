@@ -302,24 +302,61 @@ Email: {client_email or 'не указан'}
                 {'email': client_email, 'responseStatus': 'needsAction'}
             ]
         
-        created_event = service.events().insert(calendarId='primary', body=event_body).execute()
+        print(f'[CALENDAR-SYNC] Creating event: {event_body["summary"]}')
+        print(f'[CALENDAR-SYNC] Start: {event_body["start"]}')
+        print(f'[CALENDAR-SYNC] End: {event_body["end"]}')
         
-        # Сохраняем event_id в БД
-        cur.execute("""
-            UPDATE client_projects 
-            SET google_event_id = %s, synced_at = NOW()
-            WHERE id = %s
-        """, (created_event['id'], project_id))
+        try:
+            created_event = service.events().insert(calendarId='primary', body=event_body).execute()
+            print(f'[CALENDAR-SYNC] Event created successfully: {created_event.get("id")}')
+        except Exception as cal_error:
+            print(f'[CALENDAR-SYNC] Calendar API error: {str(cal_error)}')
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': f'Calendar API error: {str(cal_error)}'}),
+                'isBase64Encoded': False
+            }
         
-        conn.commit()
         cur.close()
         conn.close()
+        
+        # Сохраняем google_event_id обратно в JSON через clients API
+        project_data['google_event_id'] = created_event['id']
+        project_data['synced_at'] = datetime.now().isoformat()
+        
+        # Обновляем данные через PUT запрос к clients API
+        for client in clients_data:
+            if client.get('id') == client_data.get('id'):
+                for i, proj in enumerate(client.get('projects', [])):
+                    if proj.get('id') == project_id:
+                        client['projects'][i] = project_data
+                        break
+                break
+        
+        # Отправляем обновлённые данные обратно
+        update_req = urllib.request.Request(
+            CLIENTS_API,
+            data=json.dumps(clients_data).encode('utf-8'),
+            headers={'Content-Type': 'application/json', 'X-User-Id': user_id},
+            method='PUT'
+        )
+        
+        try:
+            with urllib.request.urlopen(update_req) as update_response:
+                update_result = json.loads(update_response.read().decode())
+                print(f'[CALENDAR-SYNC] Updated clients data: {update_result}')
+        except Exception as update_error:
+            print(f'[CALENDAR-SYNC] Failed to update clients data: {str(update_error)}')
         
         return {
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
             'body': json.dumps({
                 'success': True,
+                'event_id': created_event['id'],
                 'event_id': created_event['id'],
                 'event_link': created_event.get('htmlLink')
             }),
