@@ -1117,10 +1117,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if user_data.get('email_verified_at'):
                 user_data['email_verified_at'] = user_data['email_verified_at'].isoformat()
             
+            # Добавляем success и token для совместимости с фронтендом
+            response_data = {
+                'success': True,
+                'token': 'verified',  # Для VK пользователей токен уже проверен
+                'userData': user_data
+            }
+            
             return {
                 'statusCode': 200,
                 'headers': headers,
-                'body': json.dumps(user_data),
+                'body': json.dumps(response_data),
                 'isBase64Encoded': False
             }
         
