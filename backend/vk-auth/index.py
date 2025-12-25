@@ -243,7 +243,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         auth_params = {
             'client_id': VK_CLIENT_ID,
-            'redirect_uri': f'{BASE_URL}/vk-callback',
+            'redirect_uri': 'https://foto-mix.ru/vk-callback',
             'response_type': 'code',
             'scope': 'email phone',
             'state': state,
@@ -288,7 +288,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'code': code,
             'code_verifier': session['code_verifier'],
             'client_id': VK_CLIENT_ID,
-            'redirect_uri': f'{BASE_URL}/vk-callback',
+            'redirect_uri': 'https://foto-mix.ru/vk-callback',
             'state': state
         }
         
