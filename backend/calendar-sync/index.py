@@ -4,6 +4,7 @@ import psycopg2
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
+import urllib.request
 
 
 def delete_calendar_event(user_id: str, google_event_id: str) -> dict:
@@ -157,6 +158,8 @@ def handler(event: dict, context) -> dict:
         project_id = body.get('project_id')
         user_id = event.get('headers', {}).get('x-user-id')
         
+        print(f'[CALENDAR-SYNC] Received project_id={project_id}, user_id={user_id}')
+        
         if not project_id or not user_id:
             return {
                 'statusCode': 400,
@@ -165,25 +168,31 @@ def handler(event: dict, context) -> dict:
                 'isBase64Encoded': False
             }
         
-        dsn = os.environ.get('DATABASE_URL')
-        conn = psycopg2.connect(dsn)
-        cur = conn.cursor()
+        # Получаем данные из clients API
+        CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d'
+        req = urllib.request.Request(
+            f'{CLIENTS_API}?userId={user_id}',
+            headers={'X-User-Id': user_id}
+        )
+        with urllib.request.urlopen(req) as response:
+            clients_data = json.loads(response.read().decode())
         
-        # Получаем данные проекта
-        cur.execute("""
-            SELECT cp.name, cp.description, cp.start_date, cp.shooting_time, 
-                   cp.shooting_duration, cp.shooting_address, cp.add_to_calendar,
-                   c.name as client_name, c.phone as client_phone, c.email as client_email
-            FROM client_projects cp
-            JOIN clients c ON cp.client_id = c.id
-            WHERE cp.id = %s AND cp.photographer_id = %s
-        """, (project_id, user_id))
+        print(f'[CALENDAR-SYNC] Loaded {len(clients_data)} clients')
         
-        project = cur.fetchone()
+        # Находим проект
+        project_data = None
+        client_data = None
+        for client in clients_data:
+            for proj in client.get('projects', []):
+                if proj.get('id') == project_id:
+                    project_data = proj
+                    client_data = client
+                    break
+            if project_data:
+                break
         
-        if not project:
-            cur.close()
-            conn.close()
+        if not project_data:
+            print(f'[CALENDAR-SYNC] Project {project_id} not found')
             return {
                 'statusCode': 404,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -191,11 +200,22 @@ def handler(event: dict, context) -> dict:
                 'isBase64Encoded': False
             }
         
-        name, desc, start_date, shoot_time, duration, address, add_cal, client_name, client_phone, client_email = project
+        print(f'[CALENDAR-SYNC] Found project: {project_data.get("name")}')
+        
+        name = project_data.get('name')
+        desc = project_data.get('description', '')
+        start_date = project_data.get('startDate')
+        shoot_time = project_data.get('shooting_time', '10:00')
+        duration = project_data.get('shooting_duration', 2)
+        address = project_data.get('shooting_address', '')
+        add_cal = project_data.get('add_to_calendar', False)
+        
+        client_name = client_data.get('name', '')
+        client_phone = client_data.get('phone', '')
+        client_email = client_data.get('email', '')
         
         if not add_cal:
-            cur.close()
-            conn.close()
+            print('[CALENDAR-SYNC] add_to_calendar is False, skipping')
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -203,7 +223,11 @@ def handler(event: dict, context) -> dict:
                 'isBase64Encoded': False
             }
         
-        # Получаем Google tokens фотографа
+        # Получаем Google tokens фотографа из БД
+        dsn = os.environ.get('DATABASE_URL')
+        conn = psycopg2.connect(dsn)
+        cur = conn.cursor()
+        
         cur.execute("""
             SELECT google_access_token, google_refresh_token 
             FROM users 
@@ -213,6 +237,7 @@ def handler(event: dict, context) -> dict:
         user_tokens = cur.fetchone()
         
         if not user_tokens or not user_tokens[0]:
+            print('[CALENDAR-SYNC] User not authenticated with Google')
             cur.close()
             conn.close()
             return {
