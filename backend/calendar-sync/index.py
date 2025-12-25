@@ -173,7 +173,7 @@ def handler(event: dict, context) -> dict:
         cur.execute("""
             SELECT cp.name, cp.description, cp.start_date, cp.shooting_time, 
                    cp.shooting_duration, cp.shooting_address, cp.add_to_calendar,
-                   c.name as client_name, c.phone as client_phone
+                   c.name as client_name, c.phone as client_phone, c.email as client_email
             FROM client_projects cp
             JOIN clients c ON cp.client_id = c.id
             WHERE cp.id = %s AND cp.photographer_id = %s
@@ -191,7 +191,7 @@ def handler(event: dict, context) -> dict:
                 'isBase64Encoded': False
             }
         
-        name, desc, start_date, shoot_time, duration, address, add_cal, client_name, client_phone = project
+        name, desc, start_date, shoot_time, duration, address, add_cal, client_name, client_phone, client_email = project
         
         if not add_cal:
             cur.close()
@@ -250,6 +250,7 @@ def handler(event: dict, context) -> dict:
             'location': address or '',
             'description': f"""
 Клиент: {client_name}
+Email: {client_email or 'не указан'}
 Телефон: {client_phone or 'не указан'}
 Описание: {desc or 'не указано'}
 """.strip(),
@@ -269,6 +270,12 @@ def handler(event: dict, context) -> dict:
                 ],
             },
         }
+        
+        # Добавляем клиента как участника события
+        if client_email and '@' in client_email:
+            event_body['attendees'] = [
+                {'email': client_email, 'responseStatus': 'needsAction'}
+            ]
         
         created_event = service.events().insert(calendarId='primary', body=event_body).execute()
         
