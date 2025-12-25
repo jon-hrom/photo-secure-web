@@ -72,7 +72,7 @@ def format_date_ru(date_str: str) -> str:
         return date_str
 
 
-def send_photographer_reminder(photographer_phone: str, project_data: dict, client_data: dict, hours_before: int) -> bool:
+def send_photographer_reminder(photographer_phone: str, photographer_name: str, project_data: dict, client_data: dict, hours_before: int) -> bool:
     """Отправить напоминание фотографу"""
     creds = get_max_credentials()
     
@@ -125,25 +125,92 @@ def send_photographer_reminder(photographer_phone: str, project_data: dict, clie
         return False
 
 
+def send_client_reminder(client_phone: str, photographer_name: str, project_data: dict, hours_before: int) -> bool:
+    """Отправить напоминание клиенту о съёмке"""
+    creds = get_max_credentials()
+    
+    if not creds.get('instance_id') or not creds.get('token'):
+        print('[REMINDER] MAX credentials not configured')
+        return False
+    
+    if not client_phone:
+        print('[REMINDER] Client phone not found')
+        return False
+    
+    date_str = format_date_ru(project_data.get('startDate', ''))
+    time_str = project_data.get('shooting_time', '10:00')
+    address = project_data.get('shooting_address', 'Адрес не указан')
+    project_name = project_data.get('name', 'Съёмка')
+    
+    if hours_before == 24:
+        message = f"""📅 Напоминание о фотосессии завтра!
+
+🎬 Проект: {project_name}
+📅 Дата: {date_str}
+🕐 Время: {time_str}
+📍 Адрес: {address}
+
+👤 Фотограф: {photographer_name}
+
+✨ Не забудьте подготовиться заранее:
+• Подберите наряды и аксессуары
+• Выспитесь и отдохните
+• Подготовьте реквизит (если нужен)
+• Продумайте образы
+
+До встречи! 📷"""
+    else:  # 2 hours
+        message = f"""⏰ Время близко! Фотосессия через 2 часа!
+
+🎬 Проект: {project_name}
+📅 Дата: {date_str}
+🕐 Время: {time_str}
+📍 Адрес: {address}
+
+👤 Фотограф: {photographer_name}
+
+✅ Всё ли подготовили?
+• Наряды и аксессуары ✨
+• Хорошее настроение 😊
+• Заряженный телефон 📱
+• Выехали вовремя 🚗
+
+А самое главное — хорошее настроение не забудьте взять!!! 🌟💫
+
+Увидимся скоро! 📸"""
+    
+    try:
+        send_via_green_api(
+            creds['instance_id'],
+            creds['token'],
+            client_phone,
+            message
+        )
+        print(f'[REMINDER] Sent {hours_before}h reminder to client for project {project_data.get("id")}')
+        return True
+    except Exception as e:
+        print(f'[REMINDER] Error sending to client: {str(e)}')
+        return False
+
+
 def check_and_send_reminders():
     """Проверить все съёмки и отправить напоминания"""
     conn = get_db_connection()
     results = {
         'checked': 0,
-        'sent_24h': 0,
-        'sent_1h': 0,
+        'sent_24h_photographer': 0,
+        'sent_1h_photographer': 0,
+        'sent_24h_client': 0,
+        'sent_2h_client': 0,
         'errors': 0
     }
     
     try:
-        # Получаем всех пользователей с подтвержденными телефонами
+        # Получаем всех пользователей (фотографов)
         with conn.cursor() as cur:
             cur.execute(f"""
-                SELECT id, phone, email
+                SELECT id, phone, email, display_name, phone_verified
                 FROM {SCHEMA}.users
-                WHERE phone IS NOT NULL 
-                AND phone != ''
-                AND phone_verified = TRUE
             """)
             photographers = cur.fetchall()
         
@@ -151,7 +218,9 @@ def check_and_send_reminders():
         
         for photographer in photographers:
             photographer_id = photographer['id']
-            photographer_phone = photographer['phone']
+            photographer_phone = photographer.get('phone')
+            photographer_name = photographer.get('display_name') or photographer.get('email', 'Фотограф')
+            photographer_phone_verified = photographer.get('phone_verified', False)
             
             # Получаем все проекты фотографа
             try:
@@ -165,6 +234,8 @@ def check_and_send_reminders():
                 
                 # Проверяем все проекты всех клиентов
                 for client in clients_data:
+                    client_phone = client.get('phone')
+                    
                     for project in client.get('projects', []):
                         results['checked'] += 1
                         
@@ -184,19 +255,37 @@ def check_and_send_reminders():
                         time_until = shooting_datetime - now
                         hours_until = time_until.total_seconds() / 3600
                         
-                        # Отправляем напоминание за 24 часа (с окном ±1 час)
+                        # Отправляем напоминания за 24 часа (с окном ±1 час)
                         if 23 <= hours_until <= 25:
-                            if send_photographer_reminder(photographer_phone, project, client, 24):
-                                results['sent_24h'] += 1
-                            else:
-                                results['errors'] += 1
+                            # Фотографу (если телефон подтверждён)
+                            if photographer_phone and photographer_phone_verified:
+                                if send_photographer_reminder(photographer_phone, photographer_name, project, client, 24):
+                                    results['sent_24h_photographer'] += 1
+                                else:
+                                    results['errors'] += 1
+                            
+                            # Клиенту (если телефон указан)
+                            if client_phone:
+                                if send_client_reminder(client_phone, photographer_name, project, 24):
+                                    results['sent_24h_client'] += 1
+                                else:
+                                    results['errors'] += 1
                         
-                        # Отправляем напоминание за 1 час (с окном ±15 минут)
+                        # Отправляем напоминание фотографу за 1 час (с окном ±15 минут)
                         elif 0.75 <= hours_until <= 1.25:
-                            if send_photographer_reminder(photographer_phone, project, client, 1):
-                                results['sent_1h'] += 1
-                            else:
-                                results['errors'] += 1
+                            if photographer_phone and photographer_phone_verified:
+                                if send_photographer_reminder(photographer_phone, photographer_name, project, client, 1):
+                                    results['sent_1h_photographer'] += 1
+                                else:
+                                    results['errors'] += 1
+                        
+                        # Отправляем напоминание клиенту за 2 часа (с окном ±15 минут)
+                        elif 1.75 <= hours_until <= 2.25:
+                            if client_phone:
+                                if send_client_reminder(client_phone, photographer_name, project, 2):
+                                    results['sent_2h_client'] += 1
+                                else:
+                                    results['errors'] += 1
                 
             except Exception as e:
                 print(f'[REMINDER] Error processing photographer {photographer_id}: {str(e)}')
