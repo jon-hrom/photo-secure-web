@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Test shooting notification - missing params",
+      "method": "POST",
+      "headers": {
+        "X-User-Id": "18"
+      },
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test shooting notification - unauthorized",
+      "method": "POST",
+      "body": {
+        "project_id": "test-123",
+        "client_id": "client-456"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "Missing X-User-Id header"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

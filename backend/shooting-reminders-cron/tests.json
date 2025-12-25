@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "name": "Test reminder cron - should return results",
+      "method": "GET",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

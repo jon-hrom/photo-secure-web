@@ -50,6 +50,28 @@ ${project.description ? `Описание: ${project.description}` : ''}
       });
     }
 
+    // Отправляем уведомления через новую систему (клиенту и фотографу)
+    if (userId && project.startDate && project.shooting_time) {
+      const SHOOTING_NOTIF_API = 'https://functions.poehali.dev/b2bd6fbd-f4a9-4bec-b6b7-0689b79375ae';
+      try {
+        await fetch(SHOOTING_NOTIF_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId
+          },
+          body: JSON.stringify({
+            project_id: project.id,
+            client_id: client.id,
+            notify_client: true,
+            notify_photographer: true
+          })
+        });
+      } catch (notifError) {
+        console.error('[Shooting Notifications] Error:', notifError);
+      }
+    }
+
     if (client.email) {
       const EMAIL_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
       
