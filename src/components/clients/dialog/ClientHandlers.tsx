@@ -17,14 +17,19 @@ export const createAddProjectHandler = (
       return;
     }
 
+    const tempProjectId = Date.now();
     const project: Project = {
-      id: Date.now(),
+      id: tempProjectId,
       name: newProject.name,
       status: 'new',
       budget: parseFloat(newProject.budget),
       startDate: new Date(newProject.startDate).toISOString(),
       description: newProject.description,
       shootingStyleId: newProject.shootingStyleId,
+      shooting_time: newProject.shooting_time,
+      shooting_duration: newProject.shooting_duration,
+      shooting_address: newProject.shooting_address,
+      add_to_calendar: newProject.add_to_calendar
     };
 
     const updatedBookings = [...localClient.bookings];
@@ -56,36 +61,53 @@ export const createAddProjectHandler = (
 
     onUpdate(updatedClient);
 
+    // Wait for database to save and get real project ID
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // Sync with Google Calendar if requested
     if (newProject.add_to_calendar && newProject.startDate) {
       try {
-        const CALENDAR_API = 'https://functions.poehali.dev/calendar-sync';
+        const CALENDAR_API = 'https://functions.poehali.dev/fc049737-8d51-4e98-95e4-c1dd7f6e6c2c';
         const userId = localStorage.getItem('userId');
+        const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
         
-        const response = await fetch(CALENDAR_API, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': userId || ''
-          },
-          body: JSON.stringify({
-            project_id: project.id,
-            name: newProject.name,
-            description: newProject.description,
-            start_date: newProject.startDate,
-            shooting_time: newProject.shooting_time,
-            shooting_duration: newProject.shooting_duration || 2,
-            shooting_address: newProject.shooting_address,
-            client_name: localClient.name,
-            client_phone: localClient.phone
-          })
+        // Get updated client data with real project ID from database
+        const clientResponse = await fetch(`${CLIENTS_API}?userId=${userId}`, {
+          headers: { 'X-User-Id': userId || '' }
         });
+        
+        if (clientResponse.ok) {
+          const clientsData = await clientResponse.json();
+          const updatedClientData = clientsData.find((c: Client) => c.id === localClient.id);
+          
+          // Find the newly created project by matching name and date
+          const realProject = updatedClientData?.projects?.find((p: Project) => 
+            p.name === newProject.name && 
+            p.startDate === new Date(newProject.startDate).toISOString() &&
+            p.id !== tempProjectId
+          );
+          
+          if (realProject) {
+            const response = await fetch(CALENDAR_API, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': userId || ''
+              },
+              body: JSON.stringify({
+                project_id: realProject.id
+              })
+            });
 
-        if (response.ok) {
-          toast.success('Проект добавлен в Google Calendar');
-        } else {
-          const error = await response.json();
-          toast.error(`Не удалось добавить в календарь: ${error.error}`);
+            if (response.ok) {
+              toast.success('Проект добавлен в Google Calendar');
+            } else {
+              const error = await response.json();
+              toast.error(`Не удалось добавить в календарь: ${error.error}`);
+            }
+          } else {
+            toast.error('Не удалось получить ID проекта для календаря');
+          }
         }
       } catch (error) {
         console.error('Calendar sync error:', error);
