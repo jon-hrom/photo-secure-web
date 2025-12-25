@@ -302,7 +302,24 @@ export const createDeleteProjectHandler = (
   payments: Payment[],
   onUpdate: (client: Client) => void
 ) => {
-  return (projectId: number) => {
+  return async (projectId: number) => {
+    // Удаляем из Google Calendar перед удалением проекта
+    try {
+      const CALENDAR_API = 'https://functions.poehali.dev/fc049737-8d51-4e98-95e4-c1dd7f6e6c2c';
+      const userId = localStorage.getItem('userId');
+      
+      await fetch(CALENDAR_API, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId || ''
+        },
+        body: JSON.stringify({ project_id: projectId })
+      });
+    } catch (error) {
+      console.error('Failed to delete calendar event:', error);
+    }
+    
     const updatedProjects = projects.filter(p => p.id !== projectId);
     const updatedPayments = payments.filter(p => p.projectId !== projectId);
 
@@ -401,7 +418,30 @@ export const createUpdateProjectStatusHandler = (
   projects: Project[],
   onUpdate: (client: Client) => void
 ) => {
-  return (projectId: number, status: Project['status']) => {
+  return async (projectId: number, status: Project['status']) => {
+    const project = projects.find(p => p.id === projectId);
+    
+    // Если проект завершён или отменён, удаляем из Google Calendar
+    if (project && (status === 'completed' || status === 'cancelled')) {
+      try {
+        const CALENDAR_API = 'https://functions.poehali.dev/fc049737-8d51-4e98-95e4-c1dd7f6e6c2c';
+        const userId = localStorage.getItem('userId');
+        
+        await fetch(CALENDAR_API, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId || ''
+          },
+          body: JSON.stringify({ project_id: projectId })
+        });
+        
+        toast.success('Событие удалено из календаря');
+      } catch (error) {
+        console.error('Failed to delete calendar event:', error);
+      }
+    }
+    
     const updatedProjects = projects.map(p =>
       p.id === projectId ? { ...p, status } : p
     );

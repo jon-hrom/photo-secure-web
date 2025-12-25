@@ -6,6 +6,45 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 
 
+def delete_calendar_event(user_id: str, google_event_id: str) -> dict:
+    """Удаление события из Google Calendar"""
+    try:
+        dsn = os.environ.get('DATABASE_URL')
+        conn = psycopg2.connect(dsn)
+        cur = conn.cursor()
+        
+        # Получаем Google tokens фотографа
+        cur.execute("""
+            SELECT google_access_token, google_refresh_token 
+            FROM users 
+            WHERE id = %s AND email LIKE '%%@gmail.com'
+        """, (user_id,))
+        
+        user_tokens = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if not user_tokens or not user_tokens[0]:
+            return {'success': False, 'error': 'User not authenticated with Google'}
+        
+        access_token, refresh_token = user_tokens
+        
+        credentials = Credentials(
+            token=access_token,
+            refresh_token=refresh_token,
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+            client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
+        )
+        
+        service = build('calendar', 'v3', credentials=credentials)
+        service.events().delete(calendarId='primary', eventId=google_event_id).execute()
+        
+        return {'success': True}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
 def handler(event: dict, context) -> dict:
     """Синхронизация проектов с Google Calendar фотографа"""
     
@@ -16,12 +55,91 @@ def handler(event: dict, context) -> dict:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
             },
             'body': '',
             'isBase64Encoded': False
         }
+    
+    if method == 'DELETE':
+        try:
+            body_str = event.get('body', '{}')
+            if not body_str or body_str.strip() == '':
+                body_str = '{}'
+            body = json.loads(body_str)
+            project_id = body.get('project_id')
+            user_id = event.get('headers', {}).get('x-user-id')
+            
+            if not project_id or not user_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'project_id and user_id required'}),
+                    'isBase64Encoded': False
+                }
+            
+            dsn = os.environ.get('DATABASE_URL')
+            conn = psycopg2.connect(dsn)
+            cur = conn.cursor()
+            
+            # Получаем google_event_id проекта
+            cur.execute("""
+                SELECT google_event_id FROM client_projects 
+                WHERE id = %s AND photographer_id = %s AND google_event_id IS NOT NULL
+            """, (project_id, user_id))
+            
+            result = cur.fetchone()
+            
+            if not result:
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Calendar event not found'}),
+                    'isBase64Encoded': False
+                }
+            
+            google_event_id = result[0]
+            
+            # Удаляем из Google Calendar
+            delete_result = delete_calendar_event(user_id, google_event_id)
+            
+            if delete_result['success']:
+                # Очищаем google_event_id в БД
+                cur.execute("""
+                    UPDATE client_projects 
+                    SET google_event_id = NULL, synced_at = NULL
+                    WHERE id = %s
+                """, (project_id,))
+                conn.commit()
+                
+                cur.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True, 'message': 'Event deleted from calendar'}),
+                    'isBase64Encoded': False
+                }
+            else:
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 500,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': delete_result.get('error', 'Unknown error')}),
+                    'isBase64Encoded': False
+                }
+        except Exception as e:
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': str(e)}),
+                'isBase64Encoded': False
+            }
     
     if method != 'POST':
         return {
