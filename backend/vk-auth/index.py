@@ -249,8 +249,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'scope': 'email phone',
             'state': state,
             'code_challenge': code_challenge,
-            'code_challenge_method': 'S256',
-            'device_id': device_id
+            'code_challenge_method': 'S256'
         }
         
         redirect_url = f"{VK_AUTH_URL}?{urlencode(auth_params)}"
