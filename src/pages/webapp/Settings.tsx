@@ -105,7 +105,6 @@ const Settings = () => {
   }, []);
 
   useEffect(() => {
-    console.log('[SETTINGS] Component mounted');
     const initialize = async () => {
       const loadedSettings = await loadSettings();
       if (loadedSettings) {

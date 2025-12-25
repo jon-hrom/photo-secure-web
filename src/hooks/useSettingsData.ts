@@ -82,14 +82,9 @@ export const useSettingsData = () => {
       });
 
       const data = await response.json();
-      console.log('[SETTINGS] Full response data:', JSON.stringify(data, null, 2));
 
       if (data.success && data.settings) {
         const s = data.settings;
-        console.log('[SETTINGS] Settings object:', s);
-        console.log('[SETTINGS] new_year_mode_available:', s.new_year_mode_available);
-        console.log('[SETTINGS] new_year_enabled:', s.new_year_enabled);
-        
         setSettings(s);
         setBio(s.bio || '');
         setLocation(s.location || '');

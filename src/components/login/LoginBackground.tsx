@@ -24,7 +24,6 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     const checkMobile = () => {
       const mobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       setIsMobile(mobile);
-      console.log('[LOGIN_BG] Device is mobile:', mobile);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -43,7 +42,6 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
           const mobileUrl = data.settings.login_mobile_background_url;
           setMobileBackgroundImage(mobileUrl);
           localStorage.setItem('loginPageMobileBackgroundUrl', mobileUrl);
-          console.log('[LOGIN_BG] Mobile background from DB:', mobileUrl);
           return;
         }
       } catch (error) {
@@ -54,7 +52,6 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       const mobileBackgroundUrl = localStorage.getItem('loginPageMobileBackgroundUrl');
       if (mobileBackgroundUrl) {
         setMobileBackgroundImage(mobileBackgroundUrl);
-        console.log('[LOGIN_BG] Mobile background from localStorage:', mobileBackgroundUrl);
       }
     };
     
@@ -62,7 +59,6 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
 
     const handleMobileBackgroundChange = (e: CustomEvent) => {
       setMobileBackgroundImage(e.detail);
-      console.log('[LOGIN_BG] Mobile background changed:', e.detail);
     };
 
     window.addEventListener('mobileBackgroundChange', handleMobileBackgroundChange as EventListener);
@@ -72,21 +68,16 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   // Загружаем видео с сервера
   useEffect(() => {
     const loadVideo = async () => {
-      console.log('[LOGIN_BG] ===== VIDEO LOAD START =====');
-      
       // СНАЧАЛА пробуем загрузить из БД
       try {
-        console.log('[LOGIN_BG] Fetching settings from database...');
         const response = await fetch(SETTINGS_API);
         const data = await response.json();
-        console.log('[LOGIN_BG] Database settings:', data);
         
         if (data.success && data.settings) {
           const videoUrl = data.settings.login_background_video_url;
           const mobileUrl = data.settings.login_mobile_background_url;
           
           if (videoUrl) {
-            console.log('[LOGIN_BG] Video URL from DB:', videoUrl);
             setBackgroundVideo(videoUrl);
             setMobileVideo(mobileUrl || videoUrl);
             
@@ -95,8 +86,6 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             if (mobileUrl) {
               localStorage.setItem('loginPageMobileVideoUrl', mobileUrl);
             }
-            
-            console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (from DB) =====');
             return;
           }
         }
@@ -105,24 +94,19 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       }
       
       // Fallback на localStorage (для обратной совместимости)
-      const selectedVideoId = localStorage.getItem('loginPageVideo');
       const selectedVideoUrl = localStorage.getItem('loginPageVideoUrl');
       const selectedMobileVideoUrl = localStorage.getItem('loginPageMobileVideoUrl');
-      console.log('[LOGIN_BG] Fallback - Selected video ID:', selectedVideoId);
-      console.log('[LOGIN_BG] Fallback - Selected video URL:', selectedVideoUrl);
       
       if (selectedVideoUrl) {
-        console.log('[LOGIN_BG] Using cached video URL:', selectedVideoUrl);
         setBackgroundVideo(selectedVideoUrl);
         setMobileVideo(selectedMobileVideoUrl || selectedVideoUrl);
-        console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (cached) =====');
         return;
       }
       
       // Последний fallback - загружаем с файлового сервера
       if (selectedVideoId) {
         try {
-          console.log('[LOGIN_BG] Fetching videos from:', API_URL);
+
           const response = await fetch(`${API_URL}?type=video`);
           const data = await response.json();
           
@@ -131,14 +115,14 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             if (selectedVideo) {
               setBackgroundVideo(selectedVideo.url);
               localStorage.setItem('loginPageVideoUrl', selectedVideo.url);
-              console.log('[LOGIN_BG] ===== VIDEO LOAD SUCCESS (from media server) =====');
+
             }
           }
         } catch (error) {
           console.error('[LOGIN_BG] ===== FAILED TO LOAD VIDEO =====', error);
         }
       } else {
-        console.log('[LOGIN_BG] ===== NO VIDEO CONFIGURED =====');
+
       }
     };
 
@@ -148,12 +132,12 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     const handleVideoChange = async (e: Event) => {
       const customEvent = e as CustomEvent;
       const detail = customEvent.detail;
-      console.log('[LOGIN_BG] Video change event:', detail);
+
       
       // detail может быть объектом {id, url} или просто null
       if (detail && typeof detail === 'object') {
         const { id, url } = detail;
-        console.log('[LOGIN_BG] Video change - id:', id, 'url:', url);
+
         
         if (url) {
           // Используем URL напрямую из события
@@ -165,22 +149,22 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
           if (mobileUrl) {
             localStorage.setItem('loginPageMobileVideoUrl', mobileUrl);
           }
-          console.log('[LOGIN_BG] Video change - URL set from event:', url, 'mobile:', mobileUrl);
+
         } else {
           // Загружаем с сервера (fallback)
           try {
             const response = await fetch(`${API_URL}?type=video`);
             const data = await response.json();
-            console.log('[LOGIN_BG] Video change - fetched videos:', data);
+
             
             if (data.success && data.files) {
               const video = data.files.find((v: any) => v.id === id);
-              console.log('[LOGIN_BG] Video change - found video:', video);
+
               if (video) {
                 setBackgroundVideo(video.url);
                 setCurrentImage(null);
                 localStorage.setItem('loginPageVideoUrl', video.url);
-                console.log('[LOGIN_BG] Video change - URL set:', video.url);
+
               }
             }
           } catch (error) {
@@ -188,7 +172,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
           }
         }
       } else {
-        console.log('[LOGIN_BG] Video change - clearing video');
+
         setBackgroundVideo(null);
         setMobileVideo(null);
         localStorage.removeItem('loginPageVideoUrl');
@@ -262,11 +246,6 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     
     img.src = backgroundImage;
   }, [backgroundImage, backgroundVideo]);
-
-
-
-  console.log('[LOGIN_BG] Render - backgroundVideo:', backgroundVideo);
-  console.log('[LOGIN_BG] Render - currentImage:', currentImage);
 
   // На мобильных устройствах: если есть мобильная картинка, показываем её вместо видео
   const shouldShowMobileImage = isMobile && mobileBackgroundImage;
