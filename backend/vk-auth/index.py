@@ -147,7 +147,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
             
             # Проверяем существование в vk_users
             cur.execute(f"""
-                SELECT user_id, is_blocked, block_reason 
+                SELECT user_id, is_blocked, blocked_reason 
                 FROM {SCHEMA}.vk_users 
                 WHERE vk_sub = {escape_sql(vk_user_id)}
             """)
@@ -157,7 +157,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 is_main_admin = vk_user_id == '74713477' or email == 'jonhrom2012@gmail.com'
                 
                 if not is_main_admin and vk_user['is_blocked']:
-                    raise Exception(f"USER_BLOCKED:{vk_user.get('block_reason', 'Аккаунт заблокирован')}")
+                    raise Exception(f"USER_BLOCKED:{vk_user.get('blocked_reason', 'Аккаунт заблокирован')}")
                 
                 return vk_user['user_id']
             
