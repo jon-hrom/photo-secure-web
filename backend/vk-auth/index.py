@@ -233,6 +233,91 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     query_params = event.get('queryStringParameters', {}) or {}
     
+    # Проверка существующей сессии (GET /vk-auth?session_id=...)
+    session_id_param = query_params.get('session_id')
+    if session_id_param:
+        try:
+            # Валидация JWT токена
+            parts = session_id_param.split(':')
+            if len(parts) != 3:
+                raise Exception('Неверный формат токена')
+            
+            user_id_str, timestamp_str, signature = parts
+            user_id = int(user_id_str)
+            
+            # Проверяем подпись
+            payload = f"{user_id}:{timestamp_str}"
+            expected_signature = hashlib.sha256(
+                (payload + ':' + hashlib.sha256((payload + ':' + JWT_SECRET).encode()).hexdigest()).encode()
+            ).hexdigest()
+            
+            import hmac
+            expected_signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+            
+            if signature != expected_signature:
+                raise Exception('Неверная подпись токена')
+            
+            # Получаем данные пользователя из БД
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(f"""
+                        SELECT user_id, vk_sub, email, phone_number, full_name, avatar_url, is_verified, is_blocked, blocked_reason
+                        FROM {SCHEMA}.vk_users
+                        WHERE user_id = {user_id}
+                    """)
+                    user = cur.fetchone()
+                    
+                    if not user:
+                        raise Exception('Пользователь не найден')
+                    
+                    # Проверяем блокировку
+                    is_main_admin = user['vk_sub'] == '74713477' or user['email'] == 'jonhrom2012@gmail.com'
+                    if not is_main_admin and user['is_blocked']:
+                        return {
+                            'statusCode': 403,
+                            'headers': cors_headers,
+                            'body': json.dumps({
+                                'success': False,
+                                'blocked': True,
+                                'message': user['blocked_reason'] or 'Аккаунт заблокирован'
+                            }),
+                            'isBase64Encoded': False
+                        }
+                    
+                    return {
+                        'statusCode': 200,
+                        'headers': cors_headers,
+                        'body': json.dumps({
+                            'success': True,
+                            'token': session_id_param,
+                            'userData': {
+                                'user_id': user['user_id'],
+                                'vk_id': int(user['vk_sub']) if user['vk_sub'] else None,
+                                'email': user['email'],
+                                'phone': user['phone_number'],
+                                'name': user['full_name'],
+                                'avatar': user['avatar_url'],
+                                'verified': user['is_verified']
+                            }
+                        }),
+                        'isBase64Encoded': False
+                    }
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            print(f"[VK_AUTH] Session validation error: {str(e)}")
+            return {
+                'statusCode': 401,
+                'headers': cors_headers,
+                'body': json.dumps({
+                    'success': False,
+                    'error': 'Недействительная сессия'
+                }),
+                'isBase64Encoded': False
+            }
+    
     # Инициализация OAuth flow
     if method == 'GET' and not query_params.get('code') and not query_params.get('state'):
         state = generate_state()
