@@ -378,6 +378,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'success': True,
                 'user_id': db_user_id,
                 'session_id': session_token,
+                'token': session_token,  # Добавляем token для совместимости с фронтендом
+                'userData': {
+                    'user_id': db_user_id,
+                    'vk_id': user_id,
+                    'email': email,
+                    'phone': phone,
+                    'name': f"{first_name} {last_name}".strip(),
+                    'avatar': avatar_url,
+                    'verified': is_verified
+                },
                 'profile': {
                     'vk_id': user_id,
                     'email': email,
