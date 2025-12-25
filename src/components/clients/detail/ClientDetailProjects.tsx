@@ -270,7 +270,7 @@ const ClientDetailProjects = ({
         <CardHeader className="py-3">
           <CardTitle className="text-sm sm:text-base">Добавить новую услугу</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 py-3 pb-20">
+        <CardContent className="space-y-2 py-3 pb-20 max-h-[60vh] md:max-h-none overflow-y-auto md:overflow-visible">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">Название проекта *</Label>
