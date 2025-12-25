@@ -87,7 +87,6 @@ export const useSettingsData = () => {
       if (data.success && data.settings) {
         const s = data.settings;
         console.log('[SETTINGS] Settings object:', s);
-        console.log('[SETTINGS] email_verified_at:', s.email_verified_at);
         console.log('[SETTINGS] new_year_mode_available:', s.new_year_mode_available);
         console.log('[SETTINGS] new_year_enabled:', s.new_year_enabled);
         

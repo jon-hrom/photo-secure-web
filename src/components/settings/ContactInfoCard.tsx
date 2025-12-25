@@ -145,7 +145,7 @@ const ContactInfoCard = ({
               </Button>
             )}
           </div>
-          {settings.email_verified_at ? (
+          {settings.email_verified_at || settings.source === 'google' ? (
             <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
               <Icon name="CheckCircle2" size={14} className="md:w-4 md:h-4" />
               <span className="font-medium">Почта подтверждена</span>
@@ -154,14 +154,26 @@ const ContactInfoCard = ({
             <div className="flex items-center gap-2 text-xs md:text-sm text-amber-700 bg-amber-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
               <Icon name="AlertCircle" size={14} className="md:w-4 md:h-4" />
               <span className="font-medium">Email не подтверждён</span>
-              <Button
-                variant="link"
-                size="sm"
-                onClick={() => setShowEmailVerification(true)}
-                className="p-0 h-auto font-semibold underline text-amber-700 hover:text-amber-900 ml-auto"
-              >
-                Подтвердить
-              </Button>
+              {settings.source !== 'google' && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setShowEmailVerification(true)}
+                  className="p-0 h-auto font-semibold underline text-amber-700 hover:text-amber-900 ml-auto"
+                >
+                  Подтвердить
+                </Button>
+              )}
+              {settings.source === 'google' && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                  className="p-0 h-auto font-semibold underline text-amber-700 hover:text-amber-900 ml-auto"
+                >
+                  Обновить
+                </Button>
+              )}
             </div>
           ) : settings.source === 'vk' && editedEmail && editedEmail.trim() && editedEmail.includes('@') ? (
             <div className="flex items-center gap-2 text-xs md:text-sm text-blue-700 bg-blue-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-blue-200 animate-in fade-in slide-in-from-top-2 duration-300">
