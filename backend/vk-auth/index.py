@@ -306,11 +306,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print(f"[VK_AUTH] Token exchange failed: {http_err.code} - {error_body}")
             raise Exception(f'VK token error: {error_body}')
         
+        print(f"[VK_AUTH] Token response: {json.dumps(token_response)}")
+        
         user_id = token_response.get('user_id')
         email = token_response.get('email')
         phone = token_response.get('phone')
         
         if not user_id:
+            print(f"[VK_AUTH] ERROR: user_id not found in response: {token_response}")
             raise Exception('Не получен user_id от VK')
         
         # Получение дополнительной информации о пользователе
