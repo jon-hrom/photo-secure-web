@@ -133,7 +133,7 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                 if not is_main_admin and google_user['is_blocked']:
                     raise Exception(f"USER_BLOCKED:{google_user.get('block_reason', 'Аккаунт заблокирован')}")
                 
-                # Обновляем данные
+                # Обновляем данные в google_users
                 cur.execute(f"""
                     UPDATE {SCHEMA}.google_users 
                     SET full_name = {escape_sql(name)},
@@ -142,6 +142,16 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                         email = {escape_sql(email)},
                         last_login = CURRENT_TIMESTAMP
                     WHERE google_sub = {escape_sql(google_sub)}
+                """)
+                
+                # Обновляем display_name в users если он пустой
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.users 
+                    SET display_name = {escape_sql(name)},
+                        last_login = CURRENT_TIMESTAMP,
+                        email_verified_at = CASE WHEN email_verified_at IS NULL AND {escape_sql(verified_email)} 
+                                                THEN CURRENT_TIMESTAMP ELSE email_verified_at END
+                    WHERE id = {google_user['user_id']}
                 """)
                 conn.commit()
                 
@@ -167,6 +177,17 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
             
             if existing_user:
                 user_id = existing_user['id']
+                
+                # Обновляем display_name если пустой
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.users 
+                    SET display_name = COALESCE(display_name, {escape_sql(name)}),
+                        last_login = CURRENT_TIMESTAMP,
+                        email_verified_at = CASE WHEN email_verified_at IS NULL AND {escape_sql(verified_email)} 
+                                                THEN CURRENT_TIMESTAMP ELSE email_verified_at END
+                    WHERE id = {user_id}
+                """)
+                
                 # Создаём запись в google_users
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.google_users 
@@ -194,9 +215,11 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
             # Создаём нового пользователя
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.users 
-                (email, is_active, source, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
-                VALUES ({escape_sql(email)}, TRUE, 'google', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
-                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)})
+                (email, display_name, is_active, source, registered_at, created_at, updated_at, last_login, 
+                 ip_address, user_agent, email_verified_at, role)
+                VALUES ({escape_sql(email)}, {escape_sql(name)}, TRUE, 'google', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)},
+                        CASE WHEN {escape_sql(verified_email)} THEN CURRENT_TIMESTAMP ELSE NULL END, 'user')
                 RETURNING id
             """)
             new_user = cur.fetchone()

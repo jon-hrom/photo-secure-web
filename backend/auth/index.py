@@ -350,9 +350,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 password_hash = hash_password(password)
                 user_agent = event.get('headers', {}).get('User-Agent', '')
                 
+                # Извлекаем имя из email если не передано отдельно
+                display_name = body.get('name', email.split('@')[0])
+                
                 cursor.execute(
-                    "INSERT INTO users (email, password_hash, phone, ip_address, user_agent, last_login) VALUES (%s, %s, %s, %s, %s, NOW()) RETURNING id",
-                    (email, password_hash, phone, ip_address, user_agent)
+                    "INSERT INTO users (email, password_hash, phone, display_name, ip_address, user_agent, last_login, source, role, is_active, registered_at, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, NOW(), 'email', 'user', TRUE, NOW(), NOW(), NOW()) RETURNING id",
+                    (email, password_hash, phone, display_name, ip_address, user_agent)
                 )
                 user_id = cursor.fetchone()['id']
                 

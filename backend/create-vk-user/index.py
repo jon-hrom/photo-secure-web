@@ -122,8 +122,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Update existing user
             cursor.execute(
-                f"UPDATE {SCHEMA}.users SET vk_id = %s, email = %s, phone = %s, source = 'vk', is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
-                (vk_id, final_email, final_phone, user_id)
+                f"UPDATE {SCHEMA}.users SET vk_id = %s, email = %s, phone = %s, display_name = COALESCE(display_name, %s), source = 'vk', is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
+                (vk_id, final_email, final_phone, full_name, user_id)
             )
             
             # Check if vk_users record exists for this user_id
@@ -170,8 +170,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Create new user
         cursor.execute(
-            f"INSERT INTO {SCHEMA}.users (vk_id, email, phone, is_active, source, registered_at, created_at, updated_at, last_login) VALUES (%s, %s, %s, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id",
-            (vk_id, email if email else None, phone if phone else None)
+            f"INSERT INTO {SCHEMA}.users (vk_id, email, phone, display_name, is_active, source, registered_at, created_at, updated_at, last_login, role) VALUES (%s, %s, %s, %s, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'user') RETURNING id",
+            (vk_id, email if email else None, phone if phone else None, full_name)
         )
         user_id = cursor.fetchone()['id']
         
