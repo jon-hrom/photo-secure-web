@@ -864,6 +864,75 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        elif method == 'PUT':
+            body = json.loads(event.get('body', '{}'))
+            client_id = body.get('id')
+            
+            if not client_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'client_id required'}),
+                    'isBase64Encoded': False
+                }
+            
+            # Обновляем данные клиента
+            cur.execute('''
+                UPDATE t_p28211681_photo_secure_web.clients
+                SET 
+                    name = %s,
+                    phone = %s,
+                    email = %s,
+                    address = %s,
+                    vk_profile = %s,
+                    shooting_date = %s,
+                    shooting_time = %s,
+                    shooting_duration = %s,
+                    shooting_address = %s,
+                    project_price = %s,
+                    project_comments = %s,
+                    google_event_id = %s,
+                    synced_at = %s,
+                    updated_at = NOW()
+                WHERE id = %s AND user_id = %s
+                RETURNING id
+            ''', (
+                body.get('name'),
+                body.get('phone'),
+                body.get('email', ''),
+                body.get('address', ''),
+                body.get('vkProfile', ''),
+                body.get('shooting_date'),
+                body.get('shooting_time'),
+                body.get('shooting_duration'),
+                body.get('shooting_address'),
+                body.get('project_price'),
+                body.get('project_comments'),
+                body.get('google_event_id'),
+                body.get('synced_at'),
+                client_id,
+                user_id
+            ))
+            
+            result = cur.fetchone()
+            
+            if not result:
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Client not found'}),
+                    'isBase64Encoded': False
+                }
+            
+            conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': True}),
+                'isBase64Encoded': False
+            }
+        
         elif method == 'DELETE':
             params = event.get('queryStringParameters', {})
             action = params.get('action')

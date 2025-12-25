@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Client } from '@/components/clients/ClientsTypes';
 
 export const useClientDetailState = (client: Client | null, open: boolean) => {
-  const tabs = ['overview', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
+  const tabs = ['overview', 'shooting', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
   const [activeTab, setActiveTab] = useState('overview');
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [photographerPhone, setPhotographerPhone] = useState('');

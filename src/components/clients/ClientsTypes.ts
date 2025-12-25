@@ -83,4 +83,13 @@ export interface Client {
   messages?: Message[];
   comments?: Comment[];
   created_at?: string;
+  
+  shooting_date?: string;
+  shooting_time?: string;
+  shooting_duration?: number;
+  shooting_address?: string;
+  project_price?: number;
+  project_comments?: string;
+  google_event_id?: string;
+  synced_at?: string;
 }

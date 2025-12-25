@@ -7,10 +7,14 @@ interface ClientDialogTabsProps {
 
 const ClientDialogTabs = ({ activeTab }: ClientDialogTabsProps) => {
   return (
-    <TabsList className="grid grid-cols-6 w-full h-auto">
+    <TabsList className="grid grid-cols-7 w-full h-auto">
       <TabsTrigger value="overview" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
         <Icon name="LayoutDashboard" size={16} className="sm:mr-2" />
         <span className="hidden sm:inline">Обзор</span>
+      </TabsTrigger>
+      <TabsTrigger value="shooting" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
+        <Icon name="Camera" size={16} className="sm:mr-2" />
+        <span className="hidden sm:inline">Съёмка</span>
       </TabsTrigger>
       <TabsTrigger value="projects" className="flex-col sm:flex-row gap-1 text-xs sm:text-sm py-2">
         <Icon name="Briefcase" size={16} className="sm:mr-2" />

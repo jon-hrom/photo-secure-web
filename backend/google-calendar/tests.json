@@ -1,0 +1,31 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": "",
+      "bodyMatcher": "exact"
+    },
+    {
+      "name": "Missing X-User-Id header",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "client_id": 1,
+        "client_data": {
+          "name": "Test Client",
+          "phone": "+79991234567",
+          "shooting_date": "2024-12-30",
+          "shooting_time": "14:00:00"
+        }
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
