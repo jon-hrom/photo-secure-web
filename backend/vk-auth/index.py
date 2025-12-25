@@ -260,7 +260,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 (vk_id, email, phone, display_name, is_active, source, registered_at, created_at, updated_at, last_login, 
                  ip_address, user_agent, role)
                 VALUES ({escape_sql(vk_user_id)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(full_name)}, 
-                        TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
+                        {escape_sql(True)}, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
                         {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user')
                 RETURNING id
             """)
