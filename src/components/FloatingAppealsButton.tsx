@@ -79,7 +79,7 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
   useEffect(() => {
     if (isAdmin) {
       fetchAppeals();
-      const interval = setInterval(fetchAppeals, 10000);
+      const interval = setInterval(fetchAppeals, 60000);
       return () => clearInterval(interval);
     }
   }, [isAdmin, userId]);

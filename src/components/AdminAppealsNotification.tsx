@@ -71,7 +71,7 @@ const AdminAppealsNotification = ({ userId, isAdmin }: AdminAppealsNotificationP
   useEffect(() => {
     if (isAdmin) {
       fetchAppeals();
-      const interval = setInterval(fetchAppeals, 30000);
+      const interval = setInterval(fetchAppeals, 120000);
       return () => clearInterval(interval);
     }
   }, [isAdmin, userId]);
