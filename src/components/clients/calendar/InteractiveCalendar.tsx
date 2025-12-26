@@ -22,33 +22,8 @@ const InteractiveCalendar = ({
 }: InteractiveCalendarProps) => {
   
   const handleDateClick = (date: Date | undefined) => {
-    if (!date) {
-      onDateClick(date);
-      return;
-    }
-
-    const clickedDate = new Date(date);
-    clickedDate.setHours(0, 0, 0, 0);
-    
-    // Находим все съёмки на эту дату
-    const bookingsOnDate = clients.flatMap(c => 
-      (c.bookings || [])
-        .filter(b => {
-          const bookingDate = new Date(b.booking_date || b.date);
-          bookingDate.setHours(0, 0, 0, 0);
-          return bookingDate.getTime() === clickedDate.getTime();
-        })
-        .map(b => ({ client: c, booking: b }))
-    );
-
-    // Если только одна съёмка - сразу открываем детали
-    if (bookingsOnDate.length === 1) {
-      onBookingClick(bookingsOnDate[0].client, bookingsOnDate[0].booking);
-    } 
-    // Если несколько или ноль - используем стандартную логику фильтрации
-    else {
-      onDateClick(date);
-    }
+    // Просто передаём выбранную дату наверх для отображения
+    onDateClick(date);
   };
   return (
     <Card className="overflow-hidden border border-purple-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">

@@ -70,7 +70,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
         return bookingDate >= today;
       })
       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 7);
+      .slice(0, 5);
 
     setUpcomingBookings(bookings);
   }, [propClients]);

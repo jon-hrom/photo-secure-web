@@ -53,36 +53,12 @@ const ClientsCalendarSection = ({
         selectedDate={selectedDate}
         allBookedDates={allBookedDates}
         onDateClick={(date) => {
-          if (!date) {
-            onDateClick(date);
-            return;
-          }
-
-          const clickedDate = new Date(date);
-          clickedDate.setHours(0, 0, 0, 0);
-          
-          const bookingsOnDate = clients.flatMap(c => 
-            (c.bookings || [])
-              .filter(b => {
-                const bookingDate = new Date(b.booking_date || b.date);
-                bookingDate.setHours(0, 0, 0, 0);
-                return bookingDate.getTime() === clickedDate.getTime();
-              })
-              .map(b => ({ ...b, client: c }))
-          );
-
-          // Если только одна съёмка - сразу открываем детали
-          if (bookingsOnDate.length === 1) {
-            onBookingClick(bookingsOnDate[0].client, bookingsOnDate[0]);
-          } 
-          // Если несколько съёмок - показываем список и прокручиваем к нему
-          else if (bookingsOnDate.length > 1) {
-            onDateClick(date);
+          onDateClick(date);
+          if (date) {
             setTimeout(() => {
               upcomingListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
           }
-          // Если съёмок нет - ничего не делаем
         }}
         today={today}
         clients={clients}

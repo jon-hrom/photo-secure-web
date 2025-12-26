@@ -79,7 +79,7 @@ const UpcomingBookingsList = ({
         {upcomingBookings.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <Icon name="CalendarX" size={48} className="mx-auto mb-3 text-gray-300 dark:text-gray-500" />
-            <p>Нет предстоящих встреч</p>
+            <p>{selectedDate ? 'На эту дату нет записей' : 'Нет предстоящих встреч'}</p>
           </div>
         ) : (
           upcomingBookings.map((booking, index) => {
