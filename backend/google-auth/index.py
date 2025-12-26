@@ -204,7 +204,7 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                     INSERT INTO {SCHEMA}.google_users 
                     (google_sub, user_id, email, full_name, avatar_url, is_verified, is_active, last_login)
                     VALUES ({escape_sql(google_sub)}, {user_id}, {escape_sql(email)}, {escape_sql(name)}, 
-                            {escape_sql(picture)}, {escape_sql(verified_email)}, TRUE, CURRENT_TIMESTAMP)
+                            {escape_sql(picture)}, {escape_sql(verified_email)}, {escape_sql(True)}, CURRENT_TIMESTAMP)
                 """)
                 
                 # Добавляем email в user_emails (автоматически verified для Google)
@@ -229,7 +229,7 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                 INSERT INTO {SCHEMA}.users 
                 (email, display_name, is_active, source, registered_at, created_at, updated_at, last_login, 
                  ip_address, user_agent, role, email_verified_at)
-                VALUES ({escape_sql(email)}, {escape_sql(name)}, TRUE, 'google', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
+                VALUES ({escape_sql(email)}, {escape_sql(name)}, {escape_sql(True)}, 'google', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
                         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user',
                         CURRENT_TIMESTAMP)
                 RETURNING id
@@ -243,7 +243,7 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                 (google_sub, user_id, email, full_name, avatar_url, is_verified, is_active, last_login, 
                  ip_address, user_agent)
                 VALUES ({escape_sql(google_sub)}, {new_user_id}, {escape_sql(email)}, {escape_sql(name)}, 
-                        {escape_sql(picture)}, {escape_sql(verified_email)}, TRUE, CURRENT_TIMESTAMP, 
+                        {escape_sql(picture)}, {escape_sql(verified_email)}, {escape_sql(True)}, CURRENT_TIMESTAMP, 
                         {escape_sql(ip_address)}, {escape_sql(user_agent)})
             """)
             
