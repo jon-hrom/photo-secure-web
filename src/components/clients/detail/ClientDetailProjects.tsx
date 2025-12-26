@@ -28,6 +28,7 @@ interface ClientDetailProjectsProps {
   setNewProject: (project: any) => void;
   handleAddProject: () => void;
   handleDeleteProject: (projectId: number) => void;
+  handleUpdateProject: (projectId: number, updates: Partial<Project>) => void;
   updateProjectStatus: (projectId: number, status: Project['status']) => void;
   updateProjectDate: (projectId: number, newDate: string) => void;
   updateProjectShootingStyle: (projectId: number, styleId: string) => void;
@@ -42,6 +43,7 @@ const ClientDetailProjects = ({
   setNewProject,
   handleAddProject,
   handleDeleteProject,
+  handleUpdateProject,
   updateProjectStatus,
   updateProjectDate,
   updateProjectShootingStyle,
@@ -239,6 +241,38 @@ const ClientDetailProjects = ({
                       key={`existing-project-${project.id}-${selectorKeys[project.id] || 0}`}
                       value={project.shootingStyleId}
                       onChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">⏰ Время съёмки</Label>
+                      <Input
+                        type="time"
+                        value={project.shooting_time || ''}
+                        onChange={(e) => handleUpdateProject(project.id, { shooting_time: e.target.value })}
+                        className="text-xs h-9"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">⏱️ Длительность (часы)</Label>
+                      <Input
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        value={project.shooting_duration || ''}
+                        onChange={(e) => handleUpdateProject(project.id, { shooting_duration: parseFloat(e.target.value) })}
+                        placeholder="2"
+                        className="text-xs h-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">📍 Адрес съёмки</Label>
+                    <Input
+                      value={project.shooting_address || ''}
+                      onChange={(e) => handleUpdateProject(project.id, { shooting_address: e.target.value })}
+                      placeholder="Москва, Красная площадь, 1"
+                      className="text-xs h-9"
                     />
                   </div>
                   <div className="flex gap-2">

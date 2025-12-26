@@ -20,6 +20,7 @@ interface ClientDialogContentProps {
   setNewProject: (project: any) => void;
   handleAddProject: () => void;
   handleDeleteProject: (projectId: number) => void;
+  handleUpdateProject: (projectId: number, updates: Partial<Project>) => void;
   updateProjectStatus: (projectId: number, status: Project['status']) => void;
   updateProjectDate: (projectId: number, newDate: string) => void;
   updateProjectShootingStyle: (projectId: number, styleId: string) => void;
@@ -59,6 +60,7 @@ const ClientDialogContent = ({
   setNewProject,
   handleAddProject,
   handleDeleteProject,
+  handleUpdateProject,
   updateProjectStatus,
   updateProjectDate,
   updateProjectShootingStyle,
@@ -140,6 +142,7 @@ const ClientDialogContent = ({
             setNewProject={setNewProject}
             handleAddProject={handleAddProject}
             handleDeleteProject={handleDeleteProject}
+            handleUpdateProject={handleUpdateProject}
             updateProjectStatus={updateProjectStatus}
             updateProjectDate={updateProjectDate}
             updateProjectShootingStyle={updateProjectShootingStyle}

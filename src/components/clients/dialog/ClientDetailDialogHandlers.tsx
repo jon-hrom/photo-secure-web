@@ -74,7 +74,8 @@ export const useClientDetailHandlers = (
   const handleUpdateProject = createUpdateProjectHandler(
     localClient,
     projects,
-    onUpdate
+    onUpdate,
+    photographerName
   );
 
   const handleDeleteProject = createDeleteProjectHandler(

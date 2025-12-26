@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import { Client, Project, Payment } from '@/components/clients/ClientsTypes';
-import { sendProjectNotification } from './NotificationService';
+import { sendProjectNotification, sendProjectUpdateNotification } from './NotificationService';
 
 export const createAddProjectHandler = (
   localClient: Client,
@@ -134,9 +134,11 @@ export const createAddProjectHandler = (
 export const createUpdateProjectHandler = (
   localClient: Client,
   projects: Project[],
-  onUpdate: (client: Client) => void
+  onUpdate: (client: Client) => void,
+  photographerName?: string
 ) => {
-  return (projectId: number, updates: Partial<Project>) => {
+  return async (projectId: number, updates: Partial<Project>) => {
+    const oldProject = projects.find(p => p.id === projectId);
     const updatedProjects = projects.map(p =>
       p.id === projectId ? { ...p, ...updates } : p
     );
@@ -147,6 +149,23 @@ export const createUpdateProjectHandler = (
     };
 
     onUpdate(updatedClient);
+
+    // Send update notification if important fields changed
+    if (oldProject && photographerName) {
+      const importantFieldsChanged = 
+        updates.startDate !== undefined ||
+        updates.shooting_time !== undefined ||
+        updates.shooting_address !== undefined ||
+        updates.shooting_duration !== undefined ||
+        updates.status !== undefined;
+
+      if (importantFieldsChanged) {
+        const updatedProject = updatedProjects.find(p => p.id === projectId);
+        if (updatedProject) {
+          await sendProjectUpdateNotification(localClient, oldProject, updatedProject, photographerName);
+        }
+      }
+    }
   };
 };
 

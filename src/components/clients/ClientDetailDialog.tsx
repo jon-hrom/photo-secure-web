@@ -47,6 +47,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     handleAddPayment,
     handleAddComment,
     handleAddMessage,
+    handleUpdateProject,
     handleDeleteProject,
     handleDeletePayment,
     handleDeleteComment,
@@ -99,6 +100,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             setNewProject={setNewProject}
             handleAddProject={handleAddProject}
             handleDeleteProject={handleDeleteProject}
+            handleUpdateProject={handleUpdateProject}
             updateProjectStatus={updateProjectStatus}
             updateProjectDate={updateProjectDate}
             updateProjectShootingStyle={updateProjectShootingStyle}
