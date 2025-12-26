@@ -517,7 +517,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         first_name = user_info.get('first_name', '')
         last_name = user_info.get('last_name', '')
         avatar_url = user_info.get('photo_200', '')
-        is_verified = user_info.get('verified', False)
+        is_verified = bool(user_info.get('verified', 0))
         
         # IP и User-Agent
         request_context = event.get('requestContext', {})
