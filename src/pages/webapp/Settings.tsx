@@ -249,9 +249,7 @@ const Settings = () => {
 
             {settings && (
               <MultiEmailCard
-                userId={settings.id.toString()}
-                primaryEmail={settings.email}
-                onEmailsChanged={loadSettings}
+                userId={settings.id}
               />
             )}
 

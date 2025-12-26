@@ -114,7 +114,7 @@ def delete_session(state: str) -> None:
 
 def upsert_google_user(google_sub: str, email: str, name: str, picture: str, 
                        verified_email: bool, ip_address: str, user_agent: str) -> Dict[str, Any]:
-    """Создание или обновление Google пользователя с объединением по email, возвращает user_id и настройки 2FA"""
+    """Создание или обновление Google пользователя с умным объединением по email, возвращает user_id и настройки 2FA"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -181,13 +181,17 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                     'user_email': user_settings.get('email') if user_settings else email
                 }
             
-            # КРИТИЧНО: Проверяем существование в users по email (объединение аккаунтов)
-            cur.execute(f"SELECT id, two_factor_email, two_factor_sms, phone, email FROM {SCHEMA}.users WHERE email = {escape_sql(email)}")
-            existing_user = cur.fetchone()
+            # КРИТИЧНО: Умное объединение - проверяем email в user_emails (любой провайдер)
+            cur.execute(f"""SELECT user_id FROM {SCHEMA}.user_emails WHERE email = {escape_sql(email)} LIMIT 1""")
+            existing_email = cur.fetchone()
             
-            if existing_user:
-                user_id = existing_user['id']
-                print(f"[GOOGLE_AUTH] Found existing user by email: user_id={user_id}, email={email}")
+            if existing_email:
+                user_id = existing_email['user_id']
+                print(f"[GOOGLE_AUTH] Found existing user by email in user_emails: user_id={user_id}, email={email}")
+                
+                # Получаем настройки 2FA
+                cur.execute(f"""SELECT two_factor_email, two_factor_sms, phone, email FROM {SCHEMA}.users WHERE id = {escape_sql(user_id)}""")
+                existing_user = cur.fetchone()
                 
                 # Обновляем display_name если пустой
                 cur.execute(f"""
@@ -199,19 +203,26 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                     WHERE id = {user_id}
                 """)
                 
-                # Создаём запись в google_users
+                # Создаём или обновляем запись в google_users
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.google_users 
                     (google_sub, user_id, email, full_name, avatar_url, is_verified, is_active, last_login)
                     VALUES ({escape_sql(google_sub)}, {user_id}, {escape_sql(email)}, {escape_sql(name)}, 
                             {escape_sql(picture)}, {escape_sql(verified_email)}, {escape_sql(True)}, CURRENT_TIMESTAMP)
+                    ON CONFLICT (google_sub) DO UPDATE SET
+                        full_name = EXCLUDED.full_name,
+                        avatar_url = EXCLUDED.avatar_url,
+                        last_login = EXCLUDED.last_login
                 """)
                 
-                # Добавляем email в user_emails (автоматически verified для Google)
+                # Добавляем email в user_emails ONLY если его еще нет
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
                     VALUES ({user_id}, {escape_sql(email)}, 'google', {escape_sql(True)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    ON CONFLICT DO NOTHING
+                    ON CONFLICT (email, provider) DO UPDATE SET
+                        last_used_at = CURRENT_TIMESTAMP,
+                        is_verified = TRUE,
+                        verified_at = CURRENT_TIMESTAMP
                 """)
                 
                 conn.commit()
