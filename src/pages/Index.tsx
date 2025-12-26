@@ -3,6 +3,7 @@ import MaintenancePage from '@/components/MaintenancePage';
 import AuthenticatedLayout from '@/components/layout/AuthenticatedLayout';
 import UnauthenticatedViews from '@/components/layout/UnauthenticatedViews';
 import AccessDeniedNotification from '@/components/AccessDeniedNotification';
+import SessionTimeoutWarning from '@/components/SessionTimeoutWarning';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { useClientsSync } from '@/hooks/useClientsSync';
@@ -121,6 +122,22 @@ const Index = () => {
     );
   }
 
+  const handleExtendSession = () => {
+    lastActivityRef.current = Date.now();
+    const savedSession = localStorage.getItem('authSession');
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession);
+        localStorage.setItem('authSession', JSON.stringify({
+          ...session,
+          lastActivity: Date.now(),
+        }));
+      } catch (error) {
+        console.error('[SESSION] Error extending session:', error);
+      }
+    }
+  };
+
   if (showAccessDenied) {
     return <AccessDeniedNotification message={accessDeniedMessage} onClose={() => setShowAccessDenied(false)} />;
   }
@@ -175,27 +192,35 @@ const Index = () => {
   }
 
   return (
-    <AuthenticatedLayout
-      currentPage={currentPage}
-      setCurrentPage={setCurrentPage}
-      userName={userName}
-      userEmail={userEmail}
-      userAvatar={userAvatar}
-      isVerified={isVerified}
-      isAdmin={isAdmin}
-      userId={userId}
-      clients={clients}
-      setClients={setClients}
-      clientsLoading={clientsLoading}
-      lastSyncTime={lastSyncTime}
-      showEmailVerification={showEmailVerification}
-      setShowEmailVerification={setShowEmailVerification}
-      emailVerified={emailVerified}
-      setEmailVerified={setEmailVerified}
-      hasEmail={hasEmail}
-      hasVerifiedPhone={hasVerifiedPhone}
-      onLogout={handleLogout}
-    />
+    <>
+      {isAuthenticated && (
+        <SessionTimeoutWarning
+          onExtendSession={handleExtendSession}
+          onLogout={handleLogout}
+        />
+      )}
+      <AuthenticatedLayout
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        userName={userName}
+        userEmail={userEmail}
+        userAvatar={userAvatar}
+        isVerified={isVerified}
+        isAdmin={isAdmin}
+        userId={userId}
+        clients={clients}
+        setClients={setClients}
+        clientsLoading={clientsLoading}
+        lastSyncTime={lastSyncTime}
+        showEmailVerification={showEmailVerification}
+        setShowEmailVerification={setShowEmailVerification}
+        emailVerified={emailVerified}
+        setEmailVerified={setEmailVerified}
+        hasEmail={hasEmail}
+        hasVerifiedPhone={hasVerifiedPhone}
+        onLogout={handleLogout}
+      />
+    </>
   );
 };
 

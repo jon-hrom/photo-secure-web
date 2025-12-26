@@ -24,6 +24,9 @@ export const useAdminPanelSettings = () => {
     maxFileSize: '10',
     sessionTimeout: '7',
     maxLoginAttempts: '5',
+    lockoutDuration: '15',
+    jwtExpiration: '30',
+    sessionWarning: '1',
     passwordMinLength: '8',
   });
 
@@ -90,6 +93,9 @@ export const useAdminPanelSettings = () => {
           maxFileSize: String(oldData.settings.maxFileSize || 10),
           sessionTimeout: String(oldData.settings.sessionTimeout || 7),
           maxLoginAttempts: String(oldData.settings.maxLoginAttempts || 5),
+          lockoutDuration: String(oldData.settings.lockoutDuration || 15),
+          jwtExpiration: String(oldData.settings.jwtExpiration || 30),
+          sessionWarning: String(oldData.settings.sessionWarning || 1),
           passwordMinLength: String(oldData.settings.passwordMinLength || 8),
         }));
       } else {
@@ -139,6 +145,9 @@ export const useAdminPanelSettings = () => {
             maxFileSize: parseInt(settings.maxFileSize),
             sessionTimeout: parseInt(settings.sessionTimeout),
             maxLoginAttempts: parseInt(settings.maxLoginAttempts),
+            lockoutDuration: parseInt(settings.lockoutDuration),
+            jwtExpiration: parseInt(settings.jwtExpiration),
+            sessionWarning: parseInt(settings.sessionWarning),
             passwordMinLength: parseInt(settings.passwordMinLength),
           },
           colors,

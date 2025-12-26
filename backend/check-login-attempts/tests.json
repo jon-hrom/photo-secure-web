@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Test check without email",
+      "method": "GET",
+      "path": "/?action=check",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "success": false,
+        "error": "Email is required"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test check with valid email",
+      "method": "GET",
+      "path": "/?action=check&email=test@example.com",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "blocked": false
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

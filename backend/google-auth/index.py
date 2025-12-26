@@ -278,12 +278,65 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
         conn.close()
 
 
-def generate_jwt_token(user_id: int) -> str:
-    """Генерация JWT токена (упрощённая версия)"""
+def get_security_settings() -> Dict[str, int]:
+    """Получение настроек безопасности из БД"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT setting_key, setting_value 
+                FROM {SCHEMA}.app_settings 
+                WHERE setting_key IN ('jwt_expiration_minutes', 'session_timeout_minutes')
+            """)
+            rows = cur.fetchall()
+            settings = {row['setting_key']: int(row['setting_value']) for row in rows}
+            return {
+                'jwt_expiration_minutes': settings.get('jwt_expiration_minutes', 30),
+                'session_timeout_minutes': settings.get('session_timeout_minutes', 7)
+            }
+    except Exception as e:
+        print(f"[SECURITY] Error loading settings: {e}")
+        return {'jwt_expiration_minutes': 30, 'session_timeout_minutes': 7}
+    finally:
+        conn.close()
+
+
+def generate_jwt_token(user_id: int, ip_address: str, user_agent: str) -> tuple[str, str]:
+    """Генерация JWT токена с expiration и сохранение в active_sessions"""
     import hmac
-    payload = f"{user_id}:{datetime.now().timestamp()}"
+    import uuid
+    
+    security_settings = get_security_settings()
+    jwt_expiration_minutes = security_settings['jwt_expiration_minutes']
+    
+    session_id = str(uuid.uuid4())
+    issued_at = datetime.now()
+    expires_at = issued_at + timedelta(minutes=jwt_expiration_minutes)
+    
+    payload = f"{user_id}:{session_id}:{int(issued_at.timestamp())}:{int(expires_at.timestamp())}"
     signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return f"{payload}:{signature}"
+    token = f"{payload}:{signature}"
+    
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.active_sessions 
+                (session_id, user_id, token_hash, created_at, expires_at, last_activity, ip_address, user_agent)
+                VALUES ({escape_sql(session_id)}, {user_id}, {escape_sql(token_hash)}, 
+                        {escape_sql(issued_at.isoformat())}, {escape_sql(expires_at.isoformat())}, 
+                        {escape_sql(issued_at.isoformat())}, {escape_sql(ip_address)}, {escape_sql(user_agent)})
+            """)
+        conn.commit()
+        print(f"[GOOGLE_AUTH] Session created: session_id={session_id}, expires_at={expires_at}")
+    except Exception as e:
+        print(f"[GOOGLE_AUTH] Error saving session: {e}")
+    finally:
+        conn.close()
+    
+    return token, session_id
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -459,7 +512,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         # Генерация JWT токена
-        session_token = generate_jwt_token(user_id)
+        session_token, session_id = generate_jwt_token(user_id, ip_address, user_agent)
         
         # Возвращаем данные для фронтенда
         return {

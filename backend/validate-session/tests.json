@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Test validate with missing token",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "success": false,
+        "valid": false,
+        "error": "Token not provided"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test validate with invalid token format",
+      "method": "GET",
+      "path": "/?token=invalid-token",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "success": false,
+        "valid": false
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

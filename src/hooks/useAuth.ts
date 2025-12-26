@@ -17,7 +17,23 @@ export interface AuthState {
   blockData: any | null;
 }
 
-const SESSION_TIMEOUT = 7 * 60 * 1000;
+const getSessionTimeout = async (): Promise<number> => {
+  try {
+    const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=session_timeout_minutes');
+    const data = await response.json();
+    return (data.value || 7) * 60 * 1000;
+  } catch (error) {
+    console.warn('[AUTH] Failed to load session timeout, using default 7 minutes');
+    return 7 * 60 * 1000;
+  }
+};
+
+let SESSION_TIMEOUT = 7 * 60 * 1000;
+
+getSessionTimeout().then(timeout => {
+  SESSION_TIMEOUT = timeout;
+  console.log('[AUTH] Session timeout loaded:', SESSION_TIMEOUT / 60000, 'minutes');
+});
 
 export const useAuth = () => {
   const [currentPage, setCurrentPage] = useState<'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin'>('auth');

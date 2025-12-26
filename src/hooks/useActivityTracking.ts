@@ -1,6 +1,20 @@
 import { useEffect, MutableRefObject } from 'react';
 
-const SESSION_TIMEOUT = 7 * 60 * 1000;
+const getSessionTimeout = async (): Promise<number> => {
+  try {
+    const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=session_timeout_minutes');
+    const data = await response.json();
+    return (data.value || 7) * 60 * 1000;
+  } catch (error) {
+    return 7 * 60 * 1000;
+  }
+};
+
+let SESSION_TIMEOUT = 7 * 60 * 1000;
+
+getSessionTimeout().then(timeout => {
+  SESSION_TIMEOUT = timeout;
+});
 
 interface UseActivityTrackingProps {
   isAuthenticated: boolean;

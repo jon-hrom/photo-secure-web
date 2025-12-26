@@ -298,9 +298,62 @@ const AdminGeneralSettings = ({ settings, onToggle, onInputChange }: AdminGenera
                 value={settings.maxLoginAttempts}
                 onChange={(e) => onInputChange('maxLoginAttempts', e.target.value)}
                 className="w-full sm:max-w-xs"
+                min="1"
+                max="20"
               />
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Блокировка после неудачных попыток
+                Блокировка после неудачных попыток (по умолчанию: 5)
+              </p>
+            </div>
+            <Separator />
+            
+            <div className="space-y-2">
+              <Label htmlFor="lockoutDuration" className="text-sm sm:text-base">Длительность блокировки (минуты)</Label>
+              <Input
+                id="lockoutDuration"
+                type="number"
+                value={settings.lockoutDuration}
+                onChange={(e) => onInputChange('lockoutDuration', e.target.value)}
+                className="w-full sm:max-w-xs"
+                min="1"
+                max="1440"
+              />
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Время блокировки после превышения попыток (по умолчанию: 15 минут)
+              </p>
+            </div>
+            <Separator />
+            
+            <div className="space-y-2">
+              <Label htmlFor="jwtExpiration" className="text-sm sm:text-base">Время жизни токена (минуты)</Label>
+              <Input
+                id="jwtExpiration"
+                type="number"
+                value={settings.jwtExpiration}
+                onChange={(e) => onInputChange('jwtExpiration', e.target.value)}
+                className="w-full sm:max-w-xs"
+                min="5"
+                max="1440"
+              />
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Срок действия JWT токена после авторизации (по умолчанию: 30 минут)
+              </p>
+            </div>
+            <Separator />
+            
+            <div className="space-y-2">
+              <Label htmlFor="sessionWarning" className="text-sm sm:text-base">Предупреждение о таймауте (минуты)</Label>
+              <Input
+                id="sessionWarning"
+                type="number"
+                value={settings.sessionWarning}
+                onChange={(e) => onInputChange('sessionWarning', e.target.value)}
+                className="w-full sm:max-w-xs"
+                min="1"
+                max="10"
+              />
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                За сколько минут предупреждать о завершении сессии (по умолчанию: 1 минута)
               </p>
             </div>
             <Separator />

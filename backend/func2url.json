@@ -1,4 +1,6 @@
 {
+  "check-login-attempts": "https://functions.poehali.dev/d667741c-1926-4d72-abc8-c10085f1e9ec",
+  "validate-session": "https://functions.poehali.dev/3e98aec6-4516-46cf-9be7-a267e5964270",
   "shooting-reminders-cron": "https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c",
   "shooting-notifications": "https://functions.poehali.dev/b2bd6fbd-f4a9-4bec-b6b7-0689b79375ae",
   "google-calendar-connect": "https://functions.poehali.dev/3d87d4f5-3bb5-4b17-a2c6-45d61cd21992",
