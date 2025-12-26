@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Test list sessions without user_id",
+      "method": "GET",
+      "path": "/?action=list",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "success": false,
+        "error": "User ID is required"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test revoke without session_id",
+      "method": "GET",
+      "path": "/?action=revoke&user_id=1",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "success": false,
+        "error": "Session ID is required"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

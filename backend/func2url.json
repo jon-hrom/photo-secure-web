@@ -1,4 +1,7 @@
 {
+  "refresh-token": "https://functions.poehali.dev/6e739b0f-5682-48f9-b42c-daae674eba6a",
+  "rate-limiter": "https://functions.poehali.dev/0df5f286-377f-4588-9af0-67b3654b9979",
+  "session-management": "https://functions.poehali.dev/e3e5511e-7caa-42ba-b6dd-a76e44fd0272",
   "check-login-attempts": "https://functions.poehali.dev/d667741c-1926-4d72-abc8-c10085f1e9ec",
   "validate-session": "https://functions.poehali.dev/3e98aec6-4516-46cf-9be7-a267e5964270",
   "shooting-reminders-cron": "https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c",

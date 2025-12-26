@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "name": "Test rate limit check",
+      "method": "GET",
+      "path": "/?action=check&endpoint=test",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "allowed": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

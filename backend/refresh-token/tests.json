@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Test refresh without token",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "refresh"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "success": false,
+        "error": "Refresh token is required"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

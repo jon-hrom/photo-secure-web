@@ -9,6 +9,7 @@ import MultiEmailCard from '@/components/settings/MultiEmailCard';
 import NewYearSettings from '@/components/settings/NewYearSettings';
 import ProfileSection from '@/components/settings/ProfileSection';
 import ThemeSection from '@/components/settings/ThemeSection';
+import ActiveSessionsCard from '@/components/settings/ActiveSessionsCard';
 import Icon from '@/components/ui/icon';
 import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
@@ -259,6 +260,10 @@ const Settings = () => {
                 hasPassword={settings.has_password === 'true' || settings.has_password === '1'}
                 userSource={settings.source as 'email' | 'vk' | 'google' | 'yandex' | null}
               />
+            )}
+
+            {settings && (
+              <ActiveSessionsCard userId={settings.id} />
             )}
 
             {newYearModeAvailable && (
