@@ -236,9 +236,20 @@ export const createUpdateProjectStatusHandler = (
       }
     }
     
-    const updatedProjects = projects.map(p =>
-      p.id === projectId ? { ...p, status } : p
-    );
+    const updatedProjects = projects.map(p => {
+      if (p.id === projectId) {
+        const updates: Partial<Project> = { status };
+        
+        // При завершении или отмене проекта сохраняем дату завершения
+        if (status === 'completed' || status === 'cancelled') {
+          updates.endDate = new Date().toISOString();
+        }
+        
+        return { ...p, ...updates };
+      }
+      return p;
+    });
+    
     onUpdate({ ...localClient, projects: updatedProjects });
   };
 };

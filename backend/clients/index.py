@@ -236,7 +236,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Массовый запрос всех projects
                 cur.execute('''
-                    SELECT client_id, id, name, status, budget, start_date, description, shooting_style_id
+                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id
                     FROM t_p28211681_photo_secure_web.client_projects 
                     WHERE client_id = ANY(%s)
                     ORDER BY created_at DESC
@@ -719,14 +719,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     project_budget = project.get('budget') or 0
                     project_description = project.get('description') or ''
                     
+                    # Парсим end_date если есть
+                    end_date_str = project.get('endDate')
+                    end_date = None
+                    if end_date_str:
+                        try:
+                            if 'T' in end_date_str:
+                                end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                            else:
+                                end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+                        except (ValueError, AttributeError):
+                            end_date = None
+                    
                     cur.execute('''
-                        INSERT INTO t_p28211681_photo_secure_web.client_projects (id, client_id, name, status, budget, start_date, description, shooting_style_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO t_p28211681_photo_secure_web.client_projects (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
                             status = EXCLUDED.status,
                             budget = EXCLUDED.budget,
                             start_date = EXCLUDED.start_date,
+                            end_date = EXCLUDED.end_date,
                             description = EXCLUDED.description,
                             shooting_style_id = EXCLUDED.shooting_style_id
                     ''', (
@@ -736,6 +749,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         project_status,
                         project_budget,
                         start_date,
+                        end_date,
                         project_description,
                         project.get('shootingStyleId')
                     ))

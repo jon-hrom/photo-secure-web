@@ -61,6 +61,137 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
 
   return (
     <>
+      {completedOrCancelledProjects.length > 0 && (
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="Archive" size={20} />
+              Архив проектов
+              <Badge variant="secondary" className="ml-2">{completedOrCancelledProjects.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="hidden md:table-header-group">
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-3 text-sm font-semibold text-muted-foreground">Услуга</th>
+                    <th className="text-left py-2 px-3 text-sm font-semibold text-muted-foreground">Дата съёмки</th>
+                    <th className="text-left py-2 px-3 text-sm font-semibold text-muted-foreground">Дата завершения</th>
+                    <th className="text-left py-2 px-3 text-sm font-semibold text-muted-foreground">Статус</th>
+                    <th className="text-left py-2 px-3 text-sm font-semibold text-muted-foreground">Сумма</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {completedOrCancelledProjects
+                    .sort((a, b) => new Date(b.endDate || b.startDate).getTime() - new Date(a.endDate || a.startDate).getTime())
+                    .map((project) => {
+                      const projectPayments = payments.filter(p => p.projectId === project.id && p.status === 'completed');
+                      const totalPaid = projectPayments.reduce((sum, p) => sum + p.amount, 0);
+                      
+                      return (
+                        <tr 
+                          key={`archive-${project.id}`}
+                          onClick={() => handleProjectClick(project)}
+                          className="border-b hover:bg-accent/50 cursor-pointer transition-colors"
+                        >
+                          {/* Desktop версия */}
+                          <td className="hidden md:table-cell py-3 px-3">
+                            <div className="font-medium">{project.name}</div>
+                            {project.description && (
+                              <div className="text-xs text-muted-foreground truncate max-w-[200px]">{project.description}</div>
+                            )}
+                          </td>
+                          <td className="hidden md:table-cell py-3 px-3 text-sm">
+                            {new Date(project.startDate).toLocaleDateString('ru-RU', { 
+                              day: 'numeric', 
+                              month: 'short', 
+                              year: 'numeric' 
+                            })}
+                          </td>
+                          <td className="hidden md:table-cell py-3 px-3 text-sm">
+                            {project.endDate 
+                              ? new Date(project.endDate).toLocaleDateString('ru-RU', { 
+                                  day: 'numeric', 
+                                  month: 'short', 
+                                  year: 'numeric' 
+                                })
+                              : '—'
+                            }
+                          </td>
+                          <td className="hidden md:table-cell py-3 px-3">
+                            <Badge 
+                              variant={project.status === 'completed' ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {project.status === 'completed' ? '✓ Завершён' : '✗ Отменён'}
+                            </Badge>
+                          </td>
+                          <td className="hidden md:table-cell py-3 px-3 text-sm">
+                            <div className="font-medium">{project.budget.toLocaleString('ru-RU')} ₽</div>
+                            {totalPaid > 0 && (
+                              <div className="text-xs text-green-600">Оплачено: {totalPaid.toLocaleString('ru-RU')} ₽</div>
+                            )}
+                          </td>
+                          
+                          {/* Mobile версия - карточка */}
+                          <td className="md:hidden py-3 px-3" colSpan={5}>
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="font-medium">{project.name}</div>
+                                <Badge 
+                                  variant={project.status === 'completed' ? 'default' : 'secondary'}
+                                  className="text-xs shrink-0"
+                                >
+                                  {project.status === 'completed' ? '✓ Завершён' : '✗ Отменён'}
+                                </Badge>
+                              </div>
+                              {project.description && (
+                                <div className="text-xs text-muted-foreground">{project.description}</div>
+                              )}
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <div className="text-muted-foreground">Дата съёмки:</div>
+                                  <div className="font-medium">
+                                    {new Date(project.startDate).toLocaleDateString('ru-RU', { 
+                                      day: 'numeric', 
+                                      month: 'short', 
+                                      year: 'numeric' 
+                                    })}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-muted-foreground">Завершён:</div>
+                                  <div className="font-medium">
+                                    {project.endDate 
+                                      ? new Date(project.endDate).toLocaleDateString('ru-RU', { 
+                                          day: 'numeric', 
+                                          month: 'short', 
+                                          year: 'numeric' 
+                                        })
+                                      : '—'
+                                    }
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between pt-1 border-t">
+                                <div className="font-medium text-sm">{project.budget.toLocaleString('ru-RU')} ₽</div>
+                                {totalPaid > 0 && (
+                                  <div className="text-xs text-green-600">Оплачено: {totalPaid.toLocaleString('ru-RU')} ₽</div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>История взаимодействий</CardTitle>
