@@ -992,6 +992,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             try:
                 print(f"[SETTINGS] Updating {field} for user {user_id}")
                 
+                # КРИТИЧНО: Проверка email - не допускать добавление email занятого другим пользователем
+                if field == 'email' and value:
+                    cursor.execute("""
+                        SELECT user_id FROM t_p28211681_photo_secure_web.user_emails
+                        WHERE email = %s AND user_id != %s
+                        LIMIT 1
+                    """, (value, int(user_id)))
+                    existing_email = cursor.fetchone()
+                    
+                    if existing_email:
+                        print(f"[SETTINGS] Email {value} already exists for user {existing_email[0]}")
+                        cursor.close()
+                        conn.close()
+                        return {
+                            'statusCode': 409,
+                            'headers': {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            'body': json.dumps({
+                                'error': f'Этот email уже используется другим аккаунтом. Если это ваш email, войдите через него для объединения аккаунтов.'
+                            }),
+                            'isBase64Encoded': False
+                        }
+                
                 # Update users table
                 cursor.execute(f"""
                     UPDATE t_p28211681_photo_secure_web.users
@@ -999,12 +1024,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     WHERE id = %s
                 """, (value, int(user_id)))
                 
-                # Also update vk_users if exists (only for email and phone)
-                if field in ('email', 'phone'):
-                    vk_field = 'phone_number' if field == 'phone' else field
+                # Добавляем email в user_emails если это email
+                if field == 'email' and value:
+                    # Проверяем источник пользователя для определения провайдера
+                    cursor.execute("""
+                        SELECT source FROM t_p28211681_photo_secure_web.users WHERE id = %s
+                    """, (int(user_id),))
+                    user_source_row = cursor.fetchone()
+                    provider = user_source_row[0] if user_source_row and user_source_row[0] else 'email'
+                    
+                    cursor.execute("""
+                        INSERT INTO t_p28211681_photo_secure_web.user_emails 
+                        (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
+                        VALUES (%s, %s, %s, FALSE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        ON CONFLICT (email, provider) DO UPDATE SET
+                            last_used_at = CURRENT_TIMESTAMP
+                    """, (int(user_id), value, provider))
+                    print(f"[SETTINGS] Added email to user_emails for user {user_id}")
+                
+                # Also update vk_users if exists (only for phone)
+                if field == 'phone':
                     cursor.execute(f"""
                         UPDATE t_p28211681_photo_secure_web.vk_users
-                        SET {vk_field} = %s
+                        SET phone_number = %s
                         WHERE user_id = %s
                     """, (value, int(user_id)))
                     print(f"[SETTINGS] Updated {cursor.rowcount} rows in vk_users")
