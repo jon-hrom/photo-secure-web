@@ -73,22 +73,23 @@ const GoogleCallback = () => {
           return;
         }
         
-        if (data.success && data.profile) {
-          const { profile, user_id } = data;
+        if (data.success && data.user) {
+          const { user, user_id, session_token } = data;
           
           const userData = {
             user_id: user_id,
-            google_sub: profile.sub,
-            email: profile.email,
-            name: profile.name,
-            avatar: profile.picture,
-            verified_email: profile.verified_email
+            google_id: user.id,
+            email: user.email,
+            name: user.name,
+            avatar: user.picture,
+            verified_email: user.verified_email
           };
           
           localStorage.setItem('google_user', JSON.stringify(userData));
-          localStorage.setItem('auth_token', data.session_id);
+          localStorage.setItem('auth_token', session_token);
+          localStorage.setItem('userId', user_id.toString());
 
-          toast.success(`Добро пожаловать, ${profile.name || 'пользователь'}!`);
+          toast.success(`Добро пожаловать, ${user.name || 'пользователь'}!`);
           navigate('/');
         } else {
           console.error('GoogleCallback: Auth failed:', data);
