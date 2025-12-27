@@ -28,6 +28,7 @@ interface ClientDialogsProps {
   emailVerified: boolean;
   handleOpenAddDialog?: () => void;
   hasUnsavedData?: boolean;
+  userId?: string | null;
 }
 
 const ClientDialogs = ({
@@ -44,6 +45,7 @@ const ClientDialogs = ({
   emailVerified,
   handleOpenAddDialog,
   hasUnsavedData = false,
+  userId,
 }: ClientDialogsProps) => {
   const handleAddClientWithCheck = () => {
     if (!validatePhone(newClient.phone)) {

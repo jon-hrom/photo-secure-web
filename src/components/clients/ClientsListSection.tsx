@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
 interface ClientsListSectionProps {
   filteredClients: Client[];
@@ -11,6 +13,7 @@ interface ClientsListSectionProps {
   onEditClient: (client: Client) => void;
   onDeleteClient: (clientId: number) => void;
   onAddBooking: (client: Client) => void;
+  userId?: string | null;
 }
 
 const ClientsListSection = ({
@@ -19,8 +22,15 @@ const ClientsListSection = ({
   onEditClient,
   onDeleteClient,
   onAddBooking,
+  userId,
 }: ClientsListSectionProps) => {
   const [selectedClients, setSelectedClients] = useState<number[]>([]);
+  const { loadProjectData } = useUnsavedClientData(userId);
+
+  const hasUnsavedProject = (clientId: number) => {
+    const saved = loadProjectData(clientId);
+    return saved ? (saved.name || saved.budget || saved.description || false) : false;
+  };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -187,8 +197,25 @@ const ClientsListSection = ({
                             <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 text-xs md:text-base shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
                               {getClientInitials(client.name)}
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-medium truncate text-xs md:text-base max-w-[120px] md:max-w-none">{client.name}</p>
+                            <div className="min-w-0 relative">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium truncate text-xs md:text-base max-w-[120px] md:max-w-none">{client.name}</p>
+                                {hasUnsavedProject(client.id) && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="flex h-2 w-2">
+                                          <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-orange-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="text-xs">Есть несохранённый проект</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                               <p className="text-xs text-muted-foreground md:hidden truncate">{client.phone}</p>
                             </div>
                           </div>

@@ -41,6 +41,7 @@ interface ClientsHeaderProps {
   clients?: Client[];
   handleOpenAddDialog?: () => void;
   hasUnsavedData?: boolean;
+  userId?: string | null;
 }
 
 const ClientsHeader = ({
@@ -72,6 +73,7 @@ const ClientsHeader = ({
   clients = [],
   handleOpenAddDialog,
   hasUnsavedData = false,
+  userId,
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
@@ -122,6 +124,7 @@ const ClientsHeader = ({
             emailVerified={emailVerified}
             handleOpenAddDialog={handleOpenAddDialog}
             hasUnsavedData={hasUnsavedData}
+            userId={userId}
           />
           
           {setViewMode && (

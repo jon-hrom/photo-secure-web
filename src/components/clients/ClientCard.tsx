@@ -13,10 +13,11 @@ interface ClientCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onAddBooking: () => void;
+  userId?: string | null;
 }
 
-const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking }: ClientCardProps) => {
-  const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: propUserId }: ClientCardProps) => {
+  const userId = propUserId || (typeof window !== 'undefined' ? localStorage.getItem('userId') : null);
   const { loadProjectData } = useUnsavedClientData(userId);
   
   const activeBookings = client.bookings.filter(b => b.date >= new Date());

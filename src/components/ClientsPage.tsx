@@ -282,6 +282,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
         clients={searchFilteredClients}
+        userId={userId}
       />
 
       {dialogsState.viewMode === 'table' ? (
@@ -307,6 +308,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
               onEditClient={dialogsState.openEditDialog}
               onDeleteClient={handlers.handleDeleteClient}
               onAddBooking={dialogsState.openBookingDialog}
+              userId={userId}
             />
           </div>
 
