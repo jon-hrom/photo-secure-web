@@ -236,7 +236,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Массовый запрос всех projects
                 cur.execute('''
-                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id
+                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar
                     FROM t_p28211681_photo_secure_web.client_projects 
                     WHERE client_id = ANY(%s)
                     ORDER BY created_at DESC
@@ -732,8 +732,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             end_date = None
                     
                     cur.execute('''
-                        INSERT INTO t_p28211681_photo_secure_web.client_projects (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO t_p28211681_photo_secure_web.client_projects 
+                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
                             status = EXCLUDED.status,
@@ -741,7 +742,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             start_date = EXCLUDED.start_date,
                             end_date = EXCLUDED.end_date,
                             description = EXCLUDED.description,
-                            shooting_style_id = EXCLUDED.shooting_style_id
+                            shooting_style_id = EXCLUDED.shooting_style_id,
+                            shooting_time = EXCLUDED.shooting_time,
+                            shooting_duration = EXCLUDED.shooting_duration,
+                            shooting_address = EXCLUDED.shooting_address,
+                            add_to_calendar = EXCLUDED.add_to_calendar
                     ''', (
                         project.get('id'),
                         client_id,
@@ -751,7 +756,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         start_date,
                         end_date,
                         project_description,
-                        project.get('shootingStyleId')
+                        project.get('shootingStyleId'),
+                        project.get('shooting_time'),
+                        project.get('shooting_duration'),
+                        project.get('shooting_address'),
+                        project.get('add_to_calendar')
                     ))
             
             # Обновляем платежи (upsert)

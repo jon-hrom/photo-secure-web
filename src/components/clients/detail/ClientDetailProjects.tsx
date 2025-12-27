@@ -254,16 +254,38 @@ const ClientDetailProjects = ({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">⏱️ Длительность (часы)</Label>
-                      <Input
-                        type="number"
-                        min="0.5"
-                        step="0.5"
-                        value={project.shooting_duration || ''}
-                        onChange={(e) => handleUpdateProject(project.id, { shooting_duration: parseFloat(e.target.value) })}
-                        placeholder="2"
-                        className="text-xs h-9"
-                      />
+                      <Label className="text-xs">⏱️ Длительность (минуты)</Label>
+                      <Select
+                        value={String(project.shooting_duration || 120)}
+                        onValueChange={(value) => handleUpdateProject(project.id, { shooting_duration: parseInt(value) })}
+                      >
+                        <SelectTrigger className="text-xs h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 минут</SelectItem>
+                          <SelectItem value="10">10 минут</SelectItem>
+                          <SelectItem value="15">15 минут</SelectItem>
+                          <SelectItem value="20">20 минут</SelectItem>
+                          <SelectItem value="25">25 минут</SelectItem>
+                          <SelectItem value="30">30 минут</SelectItem>
+                          <SelectItem value="35">35 минут</SelectItem>
+                          <SelectItem value="40">40 минут</SelectItem>
+                          <SelectItem value="45">45 минут</SelectItem>
+                          <SelectItem value="50">50 минут</SelectItem>
+                          <SelectItem value="55">55 минут</SelectItem>
+                          <SelectItem value="60">1 час</SelectItem>
+                          <SelectItem value="90">1.5 часа</SelectItem>
+                          <SelectItem value="120">2 часа</SelectItem>
+                          <SelectItem value="150">2.5 часа</SelectItem>
+                          <SelectItem value="180">3 часа</SelectItem>
+                          <SelectItem value="240">4 часа</SelectItem>
+                          <SelectItem value="300">5 часов</SelectItem>
+                          <SelectItem value="360">6 часов</SelectItem>
+                          <SelectItem value="420">7 часов</SelectItem>
+                          <SelectItem value="480">8 часов</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -346,15 +368,38 @@ const ClientDetailProjects = ({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Длительность (часы)</Label>
-              <Input
-                type="number"
-                min="1"
-                max="12"
-                value={newProject.shooting_duration || 2}
-                onChange={(e) => setNewProject({ ...newProject, shooting_duration: parseInt(e.target.value) || 2 })}
-                className="text-xs h-9"
-              />
+              <Label className="text-xs">Длительность (минуты)</Label>
+              <Select
+                value={String(newProject.shooting_duration || 120)}
+                onValueChange={(value) => setNewProject({ ...newProject, shooting_duration: parseInt(value) })}
+              >
+                <SelectTrigger className="text-xs h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 минут</SelectItem>
+                  <SelectItem value="10">10 минут</SelectItem>
+                  <SelectItem value="15">15 минут</SelectItem>
+                  <SelectItem value="20">20 минут</SelectItem>
+                  <SelectItem value="25">25 минут</SelectItem>
+                  <SelectItem value="30">30 минут</SelectItem>
+                  <SelectItem value="35">35 минут</SelectItem>
+                  <SelectItem value="40">40 минут</SelectItem>
+                  <SelectItem value="45">45 минут</SelectItem>
+                  <SelectItem value="50">50 минут</SelectItem>
+                  <SelectItem value="55">55 минут</SelectItem>
+                  <SelectItem value="60">1 час</SelectItem>
+                  <SelectItem value="90">1.5 часа</SelectItem>
+                  <SelectItem value="120">2 часа</SelectItem>
+                  <SelectItem value="150">2.5 часа</SelectItem>
+                  <SelectItem value="180">3 часа</SelectItem>
+                  <SelectItem value="240">4 часа</SelectItem>
+                  <SelectItem value="300">5 часов</SelectItem>
+                  <SelectItem value="360">6 часов</SelectItem>
+                  <SelectItem value="420">7 часов</SelectItem>
+                  <SelectItem value="480">8 часов</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Адрес съёмки</Label>

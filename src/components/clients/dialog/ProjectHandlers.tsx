@@ -121,7 +121,7 @@ export const createAddProjectHandler = (
       startDate: new Date().toISOString().split('T')[0],
       shootingStyleId: '',
       shooting_time: '10:00',
-      shooting_duration: 2,
+      shooting_duration: 120,
       shooting_address: '',
       add_to_calendar: false
     });

@@ -3,7 +3,7 @@ import { Client } from '@/components/clients/ClientsTypes';
 
 export const useClientDetailState = (client: Client | null, open: boolean) => {
   const tabs = ['overview', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('projects');
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [photographerPhone, setPhotographerPhone] = useState('');
   const [photographerName, setPhotographerName] = useState('');
@@ -14,7 +14,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     startDate: new Date().toISOString().split('T')[0],
     shootingStyleId: '',
     shooting_time: '10:00',
-    shooting_duration: 2,
+    shooting_duration: 120,
     shooting_address: '',
     add_to_calendar: false
   });
