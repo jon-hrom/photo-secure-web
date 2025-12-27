@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { toast } from 'sonner';
@@ -26,6 +27,7 @@ interface ClientDialogsProps {
   handleUpdateClient: () => void;
   emailVerified: boolean;
   handleOpenAddDialog?: () => void;
+  hasUnsavedData?: boolean;
 }
 
 const ClientDialogs = ({
@@ -41,6 +43,7 @@ const ClientDialogs = ({
   handleUpdateClient,
   emailVerified,
   handleOpenAddDialog,
+  hasUnsavedData = false,
 }: ClientDialogsProps) => {
   const handleAddClientWithCheck = () => {
     if (!validatePhone(newClient.phone)) {
@@ -61,14 +64,31 @@ const ClientDialogs = ({
           </DialogTrigger>
         )}
         {handleOpenAddDialog && (
-          <Button 
-            onClick={handleOpenAddDialog}
-            className="rounded-full shadow-lg hover-scale" 
-            data-tour="add-client"
-          >
-            <Icon name="UserPlus" size={20} className="mr-2" />
-            Добавить карточку клиента
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleOpenAddDialog}
+                  className="rounded-full shadow-lg hover-scale relative" 
+                  data-tour="add-client"
+                >
+                  {hasUnsavedData && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-orange-500 border-2 border-white"></span>
+                    </span>
+                  )}
+                  <Icon name="UserPlus" size={20} className="mr-2" />
+                  Добавить карточку клиента
+                </Button>
+              </TooltipTrigger>
+              {hasUnsavedData && (
+                <TooltipContent>
+                  <p className="text-xs">Есть несохранённые данные клиента</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         )}
         <DialogContent className="max-w-md" data-tour="client-form" aria-describedby="add-client-description">
           <DialogHeader>

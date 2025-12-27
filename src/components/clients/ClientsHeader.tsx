@@ -40,6 +40,7 @@ interface ClientsHeaderProps {
   onFilterChange?: (filter: FilterType) => void;
   clients?: Client[];
   handleOpenAddDialog?: () => void;
+  hasUnsavedData?: boolean;
 }
 
 const ClientsHeader = ({
@@ -70,6 +71,7 @@ const ClientsHeader = ({
   onFilterChange,
   clients = [],
   handleOpenAddDialog,
+  hasUnsavedData = false,
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
@@ -119,6 +121,7 @@ const ClientsHeader = ({
             handleUpdateClient={handleUpdateClient}
             emailVerified={emailVerified}
             handleOpenAddDialog={handleOpenAddDialog}
+            hasUnsavedData={hasUnsavedData}
           />
           
           {setViewMode && (

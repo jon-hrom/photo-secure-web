@@ -262,6 +262,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         isAddDialogOpen={dialogsState.isAddDialogOpen}
         setIsAddDialogOpen={dialogsState.setIsAddDialogOpen}
         handleOpenAddDialog={dialogsState.handleOpenAddDialog}
+        hasUnsavedData={dialogsState.hasUnsavedClientData()}
         isEditDialogOpen={dialogsState.isEditDialogOpen}
         setIsEditDialogOpen={dialogsState.setIsEditDialogOpen}
         newClient={dialogsState.newClient}

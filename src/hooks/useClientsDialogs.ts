@@ -129,6 +129,11 @@ export const useClientsDialogs = (userId?: string | null) => {
     });
   };
 
+  const hasUnsavedClientData = () => {
+    const saved = loadClientData();
+    return saved ? (saved.name || saved.phone || saved.email || false) : false;
+  };
+
   return {
     isAddDialogOpen,
     setIsAddDialogOpen,
@@ -184,5 +189,6 @@ export const useClientsDialogs = (userId?: string | null) => {
     handleClearSavedData,
     handleClientCreated,
     loadClientData,
+    hasUnsavedClientData,
   };
 };
