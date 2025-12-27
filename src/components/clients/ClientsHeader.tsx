@@ -39,6 +39,7 @@ interface ClientsHeaderProps {
   activeFilter?: FilterType;
   onFilterChange?: (filter: FilterType) => void;
   clients?: Client[];
+  handleOpenAddDialog?: () => void;
 }
 
 const ClientsHeader = ({
@@ -68,6 +69,7 @@ const ClientsHeader = ({
   activeFilter,
   onFilterChange,
   clients = [],
+  handleOpenAddDialog,
 }: ClientsHeaderProps) => {
   return (
     <div className="flex flex-col gap-4">
@@ -116,6 +118,7 @@ const ClientsHeader = ({
             handleAddClient={handleAddClient}
             handleUpdateClient={handleUpdateClient}
             emailVerified={emailVerified}
+            handleOpenAddDialog={handleOpenAddDialog}
           />
           
           {setViewMode && (

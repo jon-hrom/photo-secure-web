@@ -25,6 +25,7 @@ interface ClientDialogsProps {
   handleAddClient: () => void;
   handleUpdateClient: () => void;
   emailVerified: boolean;
+  handleOpenAddDialog?: () => void;
 }
 
 const ClientDialogs = ({
@@ -39,6 +40,7 @@ const ClientDialogs = ({
   handleAddClient,
   handleUpdateClient,
   emailVerified,
+  handleOpenAddDialog,
 }: ClientDialogsProps) => {
   const handleAddClientWithCheck = () => {
     if (!validatePhone(newClient.phone)) {
@@ -50,12 +52,24 @@ const ClientDialogs = ({
   return (
     <>
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogTrigger asChild>
-          <Button className="rounded-full shadow-lg hover-scale" data-tour="add-client">
+        {!handleOpenAddDialog && (
+          <DialogTrigger asChild>
+            <Button className="rounded-full shadow-lg hover-scale" data-tour="add-client">
+              <Icon name="UserPlus" size={20} className="mr-2" />
+              Добавить карточку клиента
+            </Button>
+          </DialogTrigger>
+        )}
+        {handleOpenAddDialog && (
+          <Button 
+            onClick={handleOpenAddDialog}
+            className="rounded-full shadow-lg hover-scale" 
+            data-tour="add-client"
+          >
             <Icon name="UserPlus" size={20} className="mr-2" />
             Добавить карточку клиента
           </Button>
-        </DialogTrigger>
+        )}
         <DialogContent className="max-w-md" data-tour="client-form" aria-describedby="add-client-description">
           <DialogHeader>
             <DialogTitle>Новый клиент</DialogTitle>

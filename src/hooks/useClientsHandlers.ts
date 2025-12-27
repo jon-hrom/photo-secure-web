@@ -40,6 +40,7 @@ interface UseClientsHandlersProps {
   setEmailBody: (body: string) => void;
   setIsDetailDialogOpen?: (open: boolean) => void;
   setIsCountdownOpen?: (open: boolean) => void;
+  onClientCreated?: () => void;
 }
 
 export const useClientsHandlers = ({
@@ -70,6 +71,7 @@ export const useClientsHandlers = ({
   setEmailBody,
   setIsDetailDialogOpen,
   setIsCountdownOpen,
+  onClientCreated,
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
@@ -125,6 +127,11 @@ export const useClientsHandlers = ({
         }
         
         toast.success('Клиент успешно добавлен');
+        
+        // Очищаем сохранённые данные после успешного создания
+        if (onClientCreated) {
+          onClientCreated();
+        }
         
         // Обновить список клиентов и сразу открыть окно
         if (setIsDetailDialogOpen && setIsCountdownOpen) {

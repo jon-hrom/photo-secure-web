@@ -12,6 +12,7 @@ import MessageDialog from '@/components/clients/MessageDialog';
 import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
 import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
 import LoadingProgressBar from '@/components/clients/LoadingProgressBar';
+import UnsavedDataDialog from '@/components/clients/UnsavedDataDialog';
 import { useClientsData } from '@/hooks/useClientsData';
 import { useClientsDialogs } from '@/hooks/useClientsDialogs';
 import { useClientsHandlers } from '@/hooks/useClientsHandlers';
@@ -35,7 +36,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   const { clients, setClients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId, propClients, onClientsUpdate);
   
   // Хук для управления диалогами и состоянием
-  const dialogsState = useClientsDialogs();
+  const dialogsState = useClientsDialogs(userId);
   
   // Открываем диалог добавления клиента при autoOpenAddDialog
   useEffect(() => {
@@ -79,6 +80,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     setEmailBody: dialogsState.setEmailBody,
     setIsDetailDialogOpen: dialogsState.setIsDetailDialogOpen,
     setIsCountdownOpen: dialogsState.setIsCountdownOpen,
+    onClientCreated: dialogsState.handleClientCreated,
   });
 
   // Фильтрация клиентов по поиску
@@ -259,6 +261,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         totalClients={clients.length}
         isAddDialogOpen={dialogsState.isAddDialogOpen}
         setIsAddDialogOpen={dialogsState.setIsAddDialogOpen}
+        handleOpenAddDialog={dialogsState.handleOpenAddDialog}
         isEditDialogOpen={dialogsState.isEditDialogOpen}
         setIsEditDialogOpen={dialogsState.setIsEditDialogOpen}
         newClient={dialogsState.newClient}
@@ -377,6 +380,14 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         open={dialogsState.isCountdownOpen}
         maxTime={30000}
         onComplete={() => dialogsState.setIsCountdownOpen(false)}
+      />
+
+      <UnsavedDataDialog
+        open={dialogsState.isUnsavedDataDialogOpen}
+        onContinue={dialogsState.handleContinueWithSavedData}
+        onClear={dialogsState.handleClearSavedData}
+        onCancel={() => dialogsState.setIsUnsavedDataDialogOpen(false)}
+        clientData={dialogsState.loadClientData()}
       />
     </div>
   );

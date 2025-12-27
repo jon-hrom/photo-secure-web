@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Client, Booking } from '@/components/clients/ClientsTypes';
+import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
-export const useClientsDialogs = () => {
+export const useClientsDialogs = (userId?: string | null) => {
+  const { saveClientData, loadClientData, clearClientData } = useUnsavedClientData(userId);
+  
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isUnsavedDataDialogOpen, setIsUnsavedDataDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
@@ -27,6 +31,27 @@ export const useClientsDialogs = () => {
     address: '',
     vkProfile: '',
   });
+
+  useEffect(() => {
+    if (userId) {
+      const saved = loadClientData();
+      if (saved) {
+        setNewClient({
+          name: saved.name || '',
+          phone: saved.phone || '',
+          email: saved.email || '',
+          address: saved.address || '',
+          vkProfile: saved.vkProfile || '',
+        });
+      }
+    }
+  }, [userId, loadClientData]);
+
+  useEffect(() => {
+    if (userId && (newClient.name || newClient.phone || newClient.email)) {
+      saveClientData(newClient);
+    }
+  }, [newClient, userId, saveClientData]);
 
   const [newBooking, setNewBooking] = useState({
     time: '',
@@ -66,9 +91,49 @@ export const useClientsDialogs = () => {
     setIsDetailDialogOpen(true);
   };
 
+  const handleOpenAddDialog = () => {
+    const saved = loadClientData();
+    if (saved && (saved.name || saved.phone || saved.email)) {
+      setIsUnsavedDataDialogOpen(true);
+    } else {
+      setIsAddDialogOpen(true);
+    }
+  };
+
+  const handleContinueWithSavedData = () => {
+    setIsUnsavedDataDialogOpen(false);
+    setIsAddDialogOpen(true);
+  };
+
+  const handleClearSavedData = () => {
+    clearClientData();
+    setNewClient({
+      name: '',
+      phone: '',
+      email: '',
+      address: '',
+      vkProfile: '',
+    });
+    setIsUnsavedDataDialogOpen(false);
+    setIsAddDialogOpen(true);
+  };
+
+  const handleClientCreated = () => {
+    clearClientData();
+    setNewClient({
+      name: '',
+      phone: '',
+      email: '',
+      address: '',
+      vkProfile: '',
+    });
+  };
+
   return {
     isAddDialogOpen,
     setIsAddDialogOpen,
+    isUnsavedDataDialogOpen,
+    setIsUnsavedDataDialogOpen,
     isEditDialogOpen,
     setIsEditDialogOpen,
     isBookingDialogOpen,
@@ -114,5 +179,10 @@ export const useClientsDialogs = () => {
     setIsExportDialogOpen,
     isCountdownOpen,
     setIsCountdownOpen,
+    handleOpenAddDialog,
+    handleContinueWithSavedData,
+    handleClearSavedData,
+    handleClientCreated,
+    loadClientData,
   };
 };
