@@ -37,7 +37,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   const { clients, setClients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId, propClients, onClientsUpdate);
   
   // Хук для управления диалогами и состоянием
-  const dialogsState = useClientsDialogs(userId);
+  const dialogsState = useClientsDialogs(userId, clients);
   
   // Открываем диалог добавления клиента при autoOpenAddDialog
   useEffect(() => {

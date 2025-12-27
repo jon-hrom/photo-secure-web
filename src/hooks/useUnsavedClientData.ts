@@ -113,6 +113,37 @@ export const useUnsavedClientData = (userId: string | null) => {
     localStorage.removeItem(projectKey);
   }, [userId]);
 
+  const hasAnyUnsavedProject = useCallback((): { hasUnsaved: boolean; clientId: number | null } => {
+    if (!userId) return { hasUnsaved: false, clientId: null };
+    
+    try {
+      const prefix = `unsaved_project_${userId}_`;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const data = JSON.parse(stored) as ProjectData & { timestamp: number };
+            
+            if (data.timestamp && (Date.now() - data.timestamp > STORAGE_TIMEOUT)) {
+              localStorage.removeItem(key);
+              continue;
+            }
+            
+            if (data.name || data.budget || data.description) {
+              const clientId = parseInt(key.replace(prefix, ''));
+              return { hasUnsaved: true, clientId };
+            }
+          }
+        }
+      }
+      return { hasUnsaved: false, clientId: null };
+    } catch (error) {
+      console.error('[useUnsavedClientData] Error checking for unsaved projects:', error);
+      return { hasUnsaved: false, clientId: null };
+    }
+  }, [userId]);
+
   return {
     saveClientData,
     loadClientData,
@@ -120,5 +151,6 @@ export const useUnsavedClientData = (userId: string | null) => {
     saveProjectData,
     loadProjectData,
     clearProjectData,
+    hasAnyUnsavedProject,
   };
 };

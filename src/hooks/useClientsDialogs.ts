@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Client, Booking } from '@/components/clients/ClientsTypes';
 import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
-export const useClientsDialogs = (userId?: string | null) => {
-  const { saveClientData, loadClientData, clearClientData, loadProjectData, clearProjectData } = useUnsavedClientData(userId);
+export const useClientsDialogs = (userId?: string | null, clients?: Client[]) => {
+  const { saveClientData, loadClientData, clearClientData, loadProjectData, clearProjectData, hasAnyUnsavedProject } = useUnsavedClientData(userId);
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isUnsavedDataDialogOpen, setIsUnsavedDataDialogOpen] = useState(false);
@@ -95,9 +95,14 @@ export const useClientsDialogs = (userId?: string | null) => {
   };
 
   const handleOpenAddDialog = () => {
-    const saved = loadClientData();
-    if (saved && (saved.name || saved.phone || saved.email)) {
+    const savedClient = loadClientData();
+    const { hasUnsaved, clientId } = hasAnyUnsavedProject();
+    
+    if (savedClient && (savedClient.name || savedClient.phone || savedClient.email)) {
       setIsUnsavedDataDialogOpen(true);
+    } else if (hasUnsaved && clientId) {
+      setUnsavedProjectClientId(clientId);
+      setIsUnsavedProjectDialogOpen(true);
     } else {
       setIsAddDialogOpen(true);
     }
@@ -122,6 +127,13 @@ export const useClientsDialogs = (userId?: string | null) => {
       setIsDetailDialogOpen(true);
       setUnsavedProjectClientId(null);
       setPendingClient(null);
+    } else if (unsavedProjectClientId && clients) {
+      const client = clients.find(c => c.id === unsavedProjectClientId);
+      if (client) {
+        setSelectedClient(client);
+        setIsDetailDialogOpen(true);
+      }
+      setUnsavedProjectClientId(null);
     }
   };
 
@@ -135,6 +147,13 @@ export const useClientsDialogs = (userId?: string | null) => {
       setIsDetailDialogOpen(true);
       setUnsavedProjectClientId(null);
       setPendingClient(null);
+    } else if (unsavedProjectClientId && clients) {
+      const client = clients.find(c => c.id === unsavedProjectClientId);
+      if (client) {
+        setSelectedClient(client);
+        setIsDetailDialogOpen(true);
+      }
+      setUnsavedProjectClientId(null);
     }
   };
 
@@ -169,7 +188,8 @@ export const useClientsDialogs = (userId?: string | null) => {
 
   const hasUnsavedClientData = () => {
     const saved = loadClientData();
-    return saved ? (saved.name || saved.phone || saved.email || false) : false;
+    const { hasUnsaved } = hasAnyUnsavedProject();
+    return (saved ? (saved.name || saved.phone || saved.email || false) : false) || hasUnsaved;
   };
 
   const hasUnsavedProjectData = (clientId: number) => {

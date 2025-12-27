@@ -27,7 +27,7 @@ const UnsavedProjectDialog = ({ open, onContinue, onClear, onCancel, projectData
             <span className="leading-tight">Остались несохранённые данные проекта</span>
           </DialogTitle>
           <DialogDescription id="unsaved-project-description" className="text-sm">
-            Вы начали заполнять данные проекта, но не завершили создание
+            Вы начали заполнять проект для клиента, но не завершили создание
           </DialogDescription>
         </DialogHeader>
         

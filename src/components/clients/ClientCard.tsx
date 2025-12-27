@@ -1,11 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
-import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
 interface ClientCardProps {
   client: Client;
@@ -17,9 +15,6 @@ interface ClientCardProps {
 }
 
 const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: propUserId }: ClientCardProps) => {
-  const userId = propUserId || (typeof window !== 'undefined' ? localStorage.getItem('userId') : null);
-  const { loadProjectData } = useUnsavedClientData(userId);
-  
   const activeBookings = client.bookings.filter(b => b.date >= new Date());
   const pastBookings = client.bookings.filter(b => b.date < new Date());
   
@@ -27,11 +22,6 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
   const payments = client.payments || [];
   const activeProjects = projects.filter(p => p.status === 'in_progress' || p.status === 'new');
   const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
-  
-  const hasUnsavedProject = () => {
-    const saved = loadProjectData(client.id);
-    return saved ? (saved.name || saved.budget || saved.description || false) : false;
-  };
 
   return (
     <Card className="hover-scale cursor-pointer" onClick={onSelect} data-tour="client-card">
@@ -40,25 +30,6 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
           <div className="flex items-center gap-2 min-w-0 flex-1 relative">
             <Icon name="User" className="text-primary flex-shrink-0" size={18} />
             <span className="truncate text-base md:text-lg">{client.name}</span>
-            {hasUnsavedProject() && (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span 
-                      className="flex h-2 w-2 md:h-2.5 md:w-2.5 flex-shrink-0 ml-1 cursor-help"
-                      role="status"
-                      aria-label="Есть несохранённый проект"
-                    >
-                      <span className="animate-ping absolute inline-flex h-2 w-2 md:h-2.5 md:w-2.5 rounded-full bg-orange-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-orange-500 border border-white shadow-sm"></span>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs font-medium bg-orange-500 text-white border-orange-600">
-                    <p>Есть несохранённый проект</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
           </div>
           <div className="flex gap-1 flex-shrink-0">
             <Button
