@@ -35,7 +35,8 @@ export const useClientDetailHandlers = (
   newMessage: any,
   setNewMessage: (message: any) => void,
   onUpdate: (client: Client) => void,
-  photographerName: string
+  photographerName: string,
+  onProjectCreated?: () => void
 ) => {
   const handleAddProject = createAddProjectHandler(
     localClient,
@@ -43,7 +44,8 @@ export const useClientDetailHandlers = (
     newProject,
     setNewProject,
     onUpdate,
-    photographerName
+    photographerName,
+    onProjectCreated
   );
 
   const handleAddPayment = createAddPaymentHandler(

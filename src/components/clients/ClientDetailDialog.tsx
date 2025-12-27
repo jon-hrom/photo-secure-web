@@ -6,6 +6,8 @@ import ClientDialogTabs from '@/components/clients/dialog/ClientDialogTabs';
 import ClientDialogContent from '@/components/clients/dialog/ClientDialogContent';
 import { useClientDetailState } from '@/components/clients/dialog/ClientDetailDialogState';
 import { useClientDetailHandlers } from '@/components/clients/dialog/ClientDetailDialogHandlers';
+import UnsavedProjectDialog from '@/components/clients/UnsavedProjectDialog';
+import { useState, useEffect } from 'react';
 
 interface ClientDetailDialogProps {
   open: boolean;
@@ -15,6 +17,9 @@ interface ClientDetailDialogProps {
 }
 
 const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDetailDialogProps) => {
+  const [isUnsavedProjectDialogOpen, setIsUnsavedProjectDialogOpen] = useState(false);
+  const [shouldShowProjectWarning, setShouldShowProjectWarning] = useState(false);
+
   const {
     tabs,
     activeTab,
@@ -31,8 +36,26 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     newMessage,
     setNewMessage,
     localClient,
-    setLocalClient
+    setLocalClient,
+    loadProjectData,
+    clearProjectData
   } = useClientDetailState(client, open);
+
+  useEffect(() => {
+    if (open && client?.id && activeTab === 'projects') {
+      const saved = loadProjectData(client.id);
+      if (saved && (saved.name || saved.budget || saved.description) && !shouldShowProjectWarning) {
+        setIsUnsavedProjectDialogOpen(true);
+        setShouldShowProjectWarning(true);
+      }
+    }
+  }, [open, client?.id, activeTab, loadProjectData, shouldShowProjectWarning]);
+
+  useEffect(() => {
+    if (!open) {
+      setShouldShowProjectWarning(false);
+    }
+  }, [open]);
 
   if (!localClient) return null;
 
@@ -76,7 +99,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     newMessage,
     setNewMessage,
     onUpdate,
-    photographerName
+    photographerName,
+    () => clearProjectData(localClient.id)
   );
 
   return (
@@ -130,6 +154,34 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
           />
         </Tabs>
       </DialogContent>
+
+      <UnsavedProjectDialog
+        open={isUnsavedProjectDialogOpen}
+        onContinue={() => {
+          setIsUnsavedProjectDialogOpen(false);
+        }}
+        onClear={() => {
+          if (client?.id) {
+            clearProjectData(client.id);
+            setNewProject({
+              name: '',
+              budget: '',
+              description: '',
+              startDate: new Date().toISOString().split('T')[0],
+              shootingStyleId: '',
+              shooting_time: '10:00',
+              shooting_duration: 120,
+              shooting_address: '',
+              add_to_calendar: false
+            });
+          }
+          setIsUnsavedProjectDialogOpen(false);
+        }}
+        onCancel={() => {
+          setIsUnsavedProjectDialogOpen(false);
+        }}
+        projectData={client?.id ? loadProjectData(client.id) : null}
+      />
     </Dialog>
   );
 };

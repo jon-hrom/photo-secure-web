@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Client } from '@/components/clients/ClientsTypes';
+import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
 export const useClientDetailState = (client: Client | null, open: boolean) => {
+  const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+  const { saveProjectData, loadProjectData, clearProjectData } = useUnsavedClientData(userId);
   const tabs = ['overview', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
   const [activeTab, setActiveTab] = useState('projects');
   const [showSwipeHint, setShowSwipeHint] = useState(false);
@@ -72,6 +75,12 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
   }, [client]);
 
   useEffect(() => {
+    if (client?.id && open && (newProject.name || newProject.budget || newProject.description)) {
+      saveProjectData(client.id, newProject);
+    }
+  }, [newProject, client?.id, open, saveProjectData]);
+
+  useEffect(() => {
     if (open) {
       const hasSeenHint = localStorage.getItem('clientDetailSwipeHintSeen');
       if (!hasSeenHint) {
@@ -81,8 +90,25 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
           localStorage.setItem('clientDetailSwipeHintSeen', 'true');
         }, 3500);
       }
+      
+      if (client?.id) {
+        const saved = loadProjectData(client.id);
+        if (saved) {
+          setNewProject({
+            name: saved.name || '',
+            budget: saved.budget || '',
+            description: saved.description || '',
+            startDate: saved.startDate || new Date().toISOString().split('T')[0],
+            shootingStyleId: saved.shootingStyleId || '',
+            shooting_time: saved.shooting_time || '10:00',
+            shooting_duration: saved.shooting_duration || 120,
+            shooting_address: saved.shooting_address || '',
+            add_to_calendar: false
+          });
+        }
+      }
     }
-  }, [open]);
+  }, [open, client?.id, loadProjectData]);
 
   return {
     tabs,
@@ -100,6 +126,8 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     newMessage,
     setNewMessage,
     localClient,
-    setLocalClient
+    setLocalClient,
+    loadProjectData,
+    clearProjectData
   };
 };

@@ -8,7 +8,8 @@ export const createAddProjectHandler = (
   newProject: any,
   setNewProject: (project: any) => void,
   onUpdate: (client: Client) => void,
-  photographerName: string
+  photographerName: string,
+  onProjectCreated?: () => void
 ) => {
   return async () => {
     if (!newProject.name || !newProject.budget) {
@@ -126,6 +127,10 @@ export const createAddProjectHandler = (
       add_to_calendar: false
     });
     toast.success('Услуга добавлена' + (newProject.startDate ? ' и создана запись' : ''));
+
+    if (onProjectCreated) {
+      onProjectCreated();
+    }
 
     await sendProjectNotification(localClient, project, photographerName);
   };
