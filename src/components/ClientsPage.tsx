@@ -48,6 +48,46 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
       }
     }
   }, [autoOpenAddDialog, onAddDialogClose]);
+
+  // Проверка несохранённых данных при загрузке страницы
+  useEffect(() => {
+    if (!loading && clients.length > 0 && userId) {
+      const hasSeenUnsavedNotification = sessionStorage.getItem(`unsaved_notification_seen_${userId}`);
+      
+      if (!hasSeenUnsavedNotification) {
+        const savedClient = dialogsState.loadClientData();
+        const { hasUnsaved, clientId } = dialogsState.hasAnyUnsavedProject ? dialogsState.hasAnyUnsavedProject() : { hasUnsaved: false, clientId: null };
+        
+        if (savedClient && (savedClient.name || savedClient.phone || savedClient.email)) {
+          setTimeout(() => {
+            toast.info('У вас есть несохранённые данные клиента', {
+              description: 'Нажмите на кнопку "Добавить клиента" чтобы продолжить',
+              duration: 8000,
+              action: {
+                label: 'Продолжить',
+                onClick: () => dialogsState.handleOpenAddDialog()
+              }
+            });
+          }, 1000);
+          sessionStorage.setItem(`unsaved_notification_seen_${userId}`, 'true');
+        } else if (hasUnsaved && clientId) {
+          setTimeout(() => {
+            const client = clients.find(c => c.id === clientId);
+            const clientName = client ? client.name : 'клиента';
+            toast.info(`У вас есть несохранённый проект для ${clientName}`, {
+              description: 'Нажмите на кнопку "Добавить клиента" чтобы продолжить',
+              duration: 8000,
+              action: {
+                label: 'Продолжить',
+                onClick: () => dialogsState.handleOpenAddDialog()
+              }
+            });
+          }, 1000);
+          sessionStorage.setItem(`unsaved_notification_seen_${userId}`, 'true');
+        }
+      }
+    }
+  }, [loading, clients, userId, dialogsState]);
   
   // Хук для навигации
   const navigation = useNavigationHistory();

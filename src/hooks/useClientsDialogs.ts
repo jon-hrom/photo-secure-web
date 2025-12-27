@@ -261,5 +261,6 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
     handleClearSavedProject,
     loadProjectData,
     hasUnsavedProjectData,
+    hasAnyUnsavedProject,
   };
 };
