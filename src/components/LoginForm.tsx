@@ -23,6 +23,7 @@ interface LoginFormProps {
   formatTime: (seconds: number) => string;
   loginAttemptFailed: boolean;
   onForgotPasswordClick: () => void;
+  onPrivacyPolicyClick: () => void;
 }
 
 const LoginForm = ({
@@ -40,6 +41,7 @@ const LoginForm = ({
   formatTime,
   loginAttemptFailed,
   onForgotPasswordClick,
+  onPrivacyPolicyClick,
 }: LoginFormProps) => {
   return (
     <>
@@ -112,6 +114,16 @@ const LoginForm = ({
           <VKAuthButton onSuccess={onVKSuccess} disabled={isBlocked} />
         </>
       )}
+      <p className="text-xs text-center text-muted-foreground">
+        Используя сервис, вы соглашаетесь с{' '}
+        <button
+          type="button"
+          onClick={onPrivacyPolicyClick}
+          className="text-primary hover:underline"
+        >
+          Политикой обработки персональных данных
+        </button>
+      </p>
     </>
   );
 };

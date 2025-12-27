@@ -14,6 +14,7 @@ interface RegisterFormProps {
   setPhone: (value: string) => void;
   passwordError: string;
   onRegister: () => void;
+  onPrivacyPolicyClick: () => void;
 }
 
 const RegisterForm = ({
@@ -27,6 +28,7 @@ const RegisterForm = ({
   setPhone,
   passwordError,
   onRegister,
+  onPrivacyPolicyClick,
 }: RegisterFormProps) => {
   return (
     <>
@@ -73,6 +75,16 @@ const RegisterForm = ({
       <Button onClick={onRegister} className="w-full">
         Зарегистрироваться
       </Button>
+      <p className="text-xs text-center text-muted-foreground">
+        Регистрируясь, вы соглашаетесь с{' '}
+        <button
+          type="button"
+          onClick={onPrivacyPolicyClick}
+          className="text-primary hover:underline"
+        >
+          Политикой обработки персональных данных
+        </button>
+      </p>
     </>
   );
 };
