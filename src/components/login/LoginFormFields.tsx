@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 
 interface LoginFormFieldsProps {
@@ -14,6 +15,7 @@ interface LoginFormFieldsProps {
   blockTimeRemaining: number;
   passwordError: string;
   loginAttemptFailed: boolean;
+  privacyAccepted: boolean;
   onEmailChange: (email: string) => void;
   onPasswordChange: (password: string) => void;
   onPhoneChange: (phone: string) => void;
@@ -21,6 +23,8 @@ interface LoginFormFieldsProps {
   onSubmit: () => void;
   onToggleMode: () => void;
   onForgotPassword: () => void;
+  onPrivacyAcceptedChange: (accepted: boolean) => void;
+  onPrivacyPolicyClick: () => void;
   formatTime: (seconds: number) => string;
 }
 
@@ -35,6 +39,7 @@ const LoginFormFields = ({
   blockTimeRemaining,
   passwordError,
   loginAttemptFailed,
+  privacyAccepted,
   onEmailChange,
   onPasswordChange,
   onPhoneChange,
@@ -42,6 +47,8 @@ const LoginFormFields = ({
   onSubmit,
   onToggleMode,
   onForgotPassword,
+  onPrivacyAcceptedChange,
+  onPrivacyPolicyClick,
   formatTime,
 }: LoginFormFieldsProps) => {
   const handlePasswordChange = (value: string) => {
@@ -132,13 +139,38 @@ const LoginFormFields = ({
           </div>
         )}
 
-        <Button
-          onClick={onSubmit}
-          disabled={isBlocked}
-          className="w-full rounded-xl"
-        >
-          {isRegistering ? 'Зарегистрироваться' : 'Войти'}
-        </Button>
+        <div className="space-y-3">
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="privacy-policy"
+              checked={privacyAccepted}
+              onCheckedChange={onPrivacyAcceptedChange}
+              disabled={isBlocked}
+              className="mt-1"
+            />
+            <label
+              htmlFor="privacy-policy"
+              className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed"
+            >
+              Я согласен с условиями обработки{' '}
+              <button
+                type="button"
+                onClick={onPrivacyPolicyClick}
+                className="text-primary hover:underline font-medium"
+              >
+                Персональных данных
+              </button>
+            </label>
+          </div>
+
+          <Button
+            onClick={onSubmit}
+            disabled={isBlocked || !privacyAccepted}
+            className="w-full rounded-xl"
+          >
+            {isRegistering ? 'Зарегистрироваться' : 'Войти'}
+          </Button>
+        </div>
 
         <Button
           variant="secondary"

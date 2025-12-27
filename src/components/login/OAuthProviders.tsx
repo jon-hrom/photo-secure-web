@@ -10,13 +10,15 @@ interface OAuthProvidersProps {
     google: boolean;
   };
   isBlocked: boolean;
+  privacyAccepted: boolean;
   onLoginSuccess: (userId: number, email?: string) => void;
   onOAuthLogin: (provider: 'yandex' | 'vk' | 'google') => void;
 }
 
 const OAuthProviders = ({ 
   authProviders, 
-  isBlocked, 
+  isBlocked,
+  privacyAccepted, 
   onLoginSuccess, 
   onOAuthLogin 
 }: OAuthProvidersProps) => {
@@ -105,7 +107,7 @@ const OAuthProviders = ({
 
       {authProviders.vk && (
         <div className="flex justify-center">
-          <VKAuthButton onSuccess={onLoginSuccess} disabled={isBlocked} />
+          <VKAuthButton onSuccess={onLoginSuccess} disabled={isBlocked || !privacyAccepted} />
         </div>
       )}
 
@@ -116,7 +118,7 @@ const OAuthProviders = ({
               ref={yandexButtonRef}
               variant="outline"
               onClick={() => handleOAuthClick('yandex')}
-              disabled={isBlocked}
+              disabled={isBlocked || !privacyAccepted}
               className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#FF0000] hover:bg-[#FF0000]/5 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
               title="Войти через Яндекс"
             >
@@ -146,7 +148,7 @@ const OAuthProviders = ({
               ref={googleButtonRef}
               variant="outline"
               onClick={() => handleOAuthClick('google')}
-              disabled={isBlocked}
+              disabled={isBlocked || !privacyAccepted}
               className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#4285F4] hover:bg-[#4285F4]/5 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
               title="Войти через Google"
             >

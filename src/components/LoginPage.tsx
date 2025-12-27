@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 import ForgotPasswordDialog from '@/components/ForgotPasswordDialog';
+import PrivacyPolicyDialog from '@/components/PrivacyPolicyDialog';
 import LoginBackground from '@/components/login/LoginBackground';
 import LoginCard from '@/components/login/LoginCard';
 import LoginFormFields from '@/components/login/LoginFormFields';
@@ -46,6 +47,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [showGarland, setShowGarland] = useState(
     localStorage.getItem('garlandEnabled') === 'true'
   );
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
   useEffect(() => {
     const selectedBgId = localStorage.getItem('loginPageBackground');
@@ -165,6 +168,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       return;
     }
 
+    if (!privacyAccepted) {
+      toast.error('Необходимо согласие на обработку персональных данных');
+      return;
+    }
+
     if (isBlocked) {
       toast.error(`Слишком много попыток. Подождите ${formatTime(blockTimeRemaining)}`);
       return;
@@ -235,6 +243,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       return;
     }
 
+    if (!privacyAccepted) {
+      toast.error('Необходимо согласие на обработку персональных данных');
+      return;
+    }
+
     if (password.length < 8) {
       toast.error('Пароль должен содержать минимум 8 символов');
       setPasswordError('Минимум 8 символов');
@@ -279,6 +292,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   };
 
   const handleOAuthLogin = (provider: 'yandex' | 'vk' | 'google') => {
+    if (!privacyAccepted) {
+      toast.error('Необходимо согласие на обработку персональных данных');
+      return;
+    }
+
     if (provider === 'google') {
       window.location.href = 'https://functions.poehali.dev/a362a521-0759-4577-adbf-7960bf063100';
     } else {
@@ -344,6 +362,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           blockTimeRemaining={blockTimeRemaining}
           passwordError={passwordError}
           loginAttemptFailed={loginAttemptFailed}
+          privacyAccepted={privacyAccepted}
           onEmailChange={setEmail}
           onPasswordChange={handlePasswordChange}
           onPhoneChange={setPhone}
@@ -351,12 +370,15 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           onSubmit={isRegistering ? handleRegister : handleLogin}
           onToggleMode={handleToggleMode}
           onForgotPassword={() => setShowForgotPassword(true)}
+          onPrivacyAcceptedChange={setPrivacyAccepted}
+          onPrivacyPolicyClick={() => setShowPrivacyPolicy(true)}
           formatTime={formatTime}
         />
 
         <OAuthProviders
           authProviders={authProviders}
           isBlocked={isBlocked}
+          privacyAccepted={privacyAccepted}
           onLoginSuccess={onLoginSuccess}
           onOAuthLogin={handleOAuthLogin}
         />
@@ -375,6 +397,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       <ForgotPasswordDialog 
         open={showForgotPassword} 
         onClose={() => setShowForgotPassword(false)}
+      />
+
+      <PrivacyPolicyDialog
+        open={showPrivacyPolicy}
+        onClose={() => setShowPrivacyPolicy(false)}
       />
 
       <Dialog open={showAppealDialog} onOpenChange={setShowAppealDialog}>
