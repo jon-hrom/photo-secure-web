@@ -22,6 +22,7 @@ import Tariffs from "./pages/webapp/Tariffs";
 import Clients from "./pages/webapp/Clients";
 import AdminCleanup from "./pages/AdminCleanup";
 import NewYearDecorations from "./components/NewYearDecorations";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ const App = () => {
           <Route path="/auth/callback/vkid" element={<VKCallback />} />
           <Route path="/auth/callback/google" element={<GoogleCallback />} />
           <Route path="/client/photobook/:id" element={<ClientPhotobook />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
