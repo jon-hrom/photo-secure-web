@@ -3,10 +3,13 @@ import { Client, Booking } from '@/components/clients/ClientsTypes';
 import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
 export const useClientsDialogs = (userId?: string | null) => {
-  const { saveClientData, loadClientData, clearClientData } = useUnsavedClientData(userId);
+  const { saveClientData, loadClientData, clearClientData, loadProjectData, clearProjectData } = useUnsavedClientData(userId);
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isUnsavedDataDialogOpen, setIsUnsavedDataDialogOpen] = useState(false);
+  const [isUnsavedProjectDialogOpen, setIsUnsavedProjectDialogOpen] = useState(false);
+  const [unsavedProjectClientId, setUnsavedProjectClientId] = useState<number | null>(null);
+  const [pendingClient, setPendingClient] = useState<Client | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
@@ -100,6 +103,41 @@ export const useClientsDialogs = (userId?: string | null) => {
     }
   };
 
+  const handleOpenClientWithProjectCheck = (client: Client) => {
+    const saved = loadProjectData(client.id);
+    if (saved && (saved.name || saved.budget || saved.description)) {
+      setUnsavedProjectClientId(client.id);
+      setPendingClient(client);
+      setIsUnsavedProjectDialogOpen(true);
+    } else {
+      setSelectedClient(client);
+      setIsDetailDialogOpen(true);
+    }
+  };
+
+  const handleContinueWithSavedProject = () => {
+    setIsUnsavedProjectDialogOpen(false);
+    if (pendingClient) {
+      setSelectedClient(pendingClient);
+      setIsDetailDialogOpen(true);
+      setUnsavedProjectClientId(null);
+      setPendingClient(null);
+    }
+  };
+
+  const handleClearSavedProject = () => {
+    if (unsavedProjectClientId) {
+      clearProjectData(unsavedProjectClientId);
+    }
+    setIsUnsavedProjectDialogOpen(false);
+    if (pendingClient) {
+      setSelectedClient(pendingClient);
+      setIsDetailDialogOpen(true);
+      setUnsavedProjectClientId(null);
+      setPendingClient(null);
+    }
+  };
+
   const handleContinueWithSavedData = () => {
     setIsUnsavedDataDialogOpen(false);
     setIsAddDialogOpen(true);
@@ -134,11 +172,19 @@ export const useClientsDialogs = (userId?: string | null) => {
     return saved ? (saved.name || saved.phone || saved.email || false) : false;
   };
 
+  const hasUnsavedProjectData = (clientId: number) => {
+    const saved = loadProjectData(clientId);
+    return saved ? (saved.name || saved.budget || saved.description || false) : false;
+  };
+
   return {
     isAddDialogOpen,
     setIsAddDialogOpen,
     isUnsavedDataDialogOpen,
     setIsUnsavedDataDialogOpen,
+    isUnsavedProjectDialogOpen,
+    setIsUnsavedProjectDialogOpen,
+    unsavedProjectClientId,
     isEditDialogOpen,
     setIsEditDialogOpen,
     isBookingDialogOpen,
@@ -190,5 +236,10 @@ export const useClientsDialogs = (userId?: string | null) => {
     handleClientCreated,
     loadClientData,
     hasUnsavedClientData,
+    handleOpenClientWithProjectCheck,
+    handleContinueWithSavedProject,
+    handleClearSavedProject,
+    loadProjectData,
+    hasUnsavedProjectData,
   };
 };

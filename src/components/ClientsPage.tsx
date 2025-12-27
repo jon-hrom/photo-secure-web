@@ -13,6 +13,7 @@ import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
 import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
 import LoadingProgressBar from '@/components/clients/LoadingProgressBar';
 import UnsavedDataDialog from '@/components/clients/UnsavedDataDialog';
+import UnsavedProjectDialog from '@/components/clients/UnsavedProjectDialog';
 import { useClientsData } from '@/hooks/useClientsData';
 import { useClientsDialogs } from '@/hooks/useClientsDialogs';
 import { useClientsHandlers } from '@/hooks/useClientsHandlers';
@@ -288,7 +289,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
       {dialogsState.viewMode === 'table' ? (
         <ClientsTableView
           clients={filteredClients}
-          onSelectClient={dialogsState.openDetailDialog}
+          onSelectClient={dialogsState.handleOpenClientWithProjectCheck}
           onDeleteClients={handlers.handleDeleteMultipleClients}
         />
       ) : (
@@ -304,7 +305,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
           <div className="xl:order-2">
             <ClientsListSection
               filteredClients={filteredClients}
-              onSelectClient={dialogsState.openDetailDialog}
+              onSelectClient={dialogsState.handleOpenClientWithProjectCheck}
               onEditClient={dialogsState.openEditDialog}
               onDeleteClient={handlers.handleDeleteClient}
               onAddBooking={dialogsState.openBookingDialog}
@@ -392,6 +393,16 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onCancel={() => dialogsState.setIsUnsavedDataDialogOpen(false)}
         clientData={dialogsState.loadClientData()}
       />
+
+      {dialogsState.unsavedProjectClientId && (
+        <UnsavedProjectDialog
+          open={dialogsState.isUnsavedProjectDialogOpen}
+          onContinue={dialogsState.handleContinueWithSavedProject}
+          onClear={dialogsState.handleClearSavedProject}
+          onCancel={() => dialogsState.setIsUnsavedProjectDialogOpen(false)}
+          projectData={dialogsState.loadProjectData(dialogsState.unsavedProjectClientId)}
+        />
+      )}
     </div>
   );
 };
