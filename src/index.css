@@ -328,4 +328,42 @@
   div[class*="MAXConnection"] {
     display: none !important;
   }
+
+  /* Touch-friendly improvements for unsaved data indicators */
+  @media (hover: none) and (pointer: coarse) {
+    /* Make indicators slightly larger on touch devices */
+    [role="status"][aria-label*="несохранён"] {
+      @apply scale-110;
+    }
+
+    /* Ensure tooltips are easily readable */
+    [data-radix-popper-content-wrapper] {
+      @apply touch-pan-y;
+    }
+
+    /* Improve tap targets for small indicators */
+    .cursor-help {
+      min-width: 24px;
+      min-height: 24px;
+      @apply flex items-center justify-center;
+    }
+  }
+
+  /* Ensure indicators are visible in both light and dark modes */
+  @keyframes pulse-orange {
+    0%,
+    100% {
+      opacity: 0.75;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.1);
+    }
+  }
+
+  /* Enhanced pulsing for better visibility */
+  .animate-ping {
+    animation: pulse-orange 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
 }

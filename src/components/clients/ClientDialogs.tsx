@@ -66,27 +66,33 @@ const ClientDialogs = ({
           </DialogTrigger>
         )}
         {handleOpenAddDialog && (
-          <TooltipProvider>
+          <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
                   onClick={handleOpenAddDialog}
-                  className="rounded-full shadow-lg hover-scale relative" 
+                  className="rounded-full shadow-lg hover-scale relative text-sm md:text-base px-4 md:px-6 h-10 md:h-11" 
                   data-tour="add-client"
+                  aria-label={hasUnsavedData ? "Добавить клиента (есть несохранённые данные)" : "Добавить клиента"}
                 >
                   {hasUnsavedData && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span 
+                      className="absolute -top-0.5 -right-0.5 md:-top-1 md:-right-1 flex h-3.5 w-3.5 md:h-4 md:w-4 z-10"
+                      role="status"
+                      aria-label="Индикатор несохранённых данных"
+                    >
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-4 w-4 bg-orange-500 border-2 border-white"></span>
+                      <span className="relative inline-flex rounded-full h-full w-full bg-orange-500 border-2 border-white shadow-sm"></span>
                     </span>
                   )}
-                  <Icon name="UserPlus" size={20} className="mr-2" />
-                  Добавить карточку клиента
+                  <Icon name="UserPlus" size={18} className="mr-1.5 md:mr-2 flex-shrink-0" />
+                  <span className="hidden sm:inline whitespace-nowrap">Добавить карточку клиента</span>
+                  <span className="sm:hidden whitespace-nowrap">Добавить клиента</span>
                 </Button>
               </TooltipTrigger>
               {hasUnsavedData && (
-                <TooltipContent>
-                  <p className="text-xs">Есть несохранённые данные клиента</p>
+                <TooltipContent side="bottom" className="text-xs max-w-[200px] font-medium bg-orange-500 text-white border-orange-600">
+                  <p>Есть несохранённые данные клиента</p>
                 </TooltipContent>
               )}
             </Tooltip>

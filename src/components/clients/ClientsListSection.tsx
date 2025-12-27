@@ -198,19 +198,23 @@ const ClientsListSection = ({
                               {getClientInitials(client.name)}
                             </div>
                             <div className="min-w-0 relative">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium truncate text-xs md:text-base max-w-[120px] md:max-w-none">{client.name}</p>
+                              <div className="flex items-center gap-1.5 md:gap-2">
+                                <p className="font-medium truncate text-xs md:text-base max-w-[100px] md:max-w-none">{client.name}</p>
                                 {hasUnsavedProject(client.id) && (
-                                  <TooltipProvider>
+                                  <TooltipProvider delayDuration={200}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="flex h-2 w-2">
-                                          <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-orange-400 opacity-75"></span>
-                                          <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                                        <span 
+                                          className="flex h-2 w-2 md:h-2.5 md:w-2.5 flex-shrink-0 cursor-help"
+                                          role="status"
+                                          aria-label="Есть несохранённый проект"
+                                        >
+                                          <span className="animate-ping absolute inline-flex h-2 w-2 md:h-2.5 md:w-2.5 rounded-full bg-orange-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-orange-500 border border-white shadow-sm"></span>
                                         </span>
                                       </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p className="text-xs">Есть несохранённый проект</p>
+                                      <TooltipContent side="top" className="text-xs font-medium bg-orange-500 text-white border-orange-600">
+                                        <p>Есть несохранённый проект</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>

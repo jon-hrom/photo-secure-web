@@ -38,19 +38,23 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
       <CardHeader className="pb-3">
         <CardTitle className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1 relative">
-            <Icon name="User" className="text-primary flex-shrink-0" />
-            <span className="truncate">{client.name}</span>
+            <Icon name="User" className="text-primary flex-shrink-0" size={18} />
+            <span className="truncate text-base md:text-lg">{client.name}</span>
             {hasUnsavedProject() && (
-              <TooltipProvider>
+              <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="flex h-2.5 w-2.5 absolute -top-1 left-4">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500"></span>
+                    <span 
+                      className="flex h-2 w-2 md:h-2.5 md:w-2.5 flex-shrink-0 ml-1 cursor-help"
+                      role="status"
+                      aria-label="Есть несохранённый проект"
+                    >
+                      <span className="animate-ping absolute inline-flex h-2 w-2 md:h-2.5 md:w-2.5 rounded-full bg-orange-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-orange-500 border border-white shadow-sm"></span>
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Есть несохранённый проект</p>
+                  <TooltipContent side="top" className="text-xs font-medium bg-orange-500 text-white border-orange-600">
+                    <p>Есть несохранённый проект</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
