@@ -27,12 +27,23 @@ const ClientsCalendarSection = ({
   today.setHours(0, 0, 0, 0);
 
   let upcomingBookings = clients
-    .flatMap(c => c.bookings.map(b => {
-      const bookingDate = new Date(b.booking_date || b.date);
-      bookingDate.setHours(0, 0, 0, 0);
-      return { ...b, client: c, normalizedDate: bookingDate };
+    .flatMap(c => (c.projects || []).map(project => {
+      if (!project.startDate || !project.shooting_time) return null;
+      
+      const shootingDate = new Date(project.startDate);
+      shootingDate.setHours(0, 0, 0, 0);
+      
+      return {
+        id: project.id,
+        date: shootingDate,
+        normalizedDate: shootingDate,
+        time: project.shooting_time,
+        description: project.name,
+        client: c,
+        project
+      };
     }))
-    .filter(b => b.normalizedDate >= today)
+    .filter((b): b is NonNullable<typeof b> => b !== null && b.normalizedDate >= today)
     .sort((a, b) => a.normalizedDate.getTime() - b.normalizedDate.getTime());
 
   // Если выбрана дата - фильтруем только бронирования на эту дату

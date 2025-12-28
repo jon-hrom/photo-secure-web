@@ -72,13 +72,45 @@ const DashboardProjectDetailsDialog = ({
             </div>
           </div>
 
-          {/* Дата съёмки */}
-          <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-lg">
-            <Icon name="Calendar" size={18} className="text-green-600 dark:text-green-400 sm:w-5 sm:h-5 flex-shrink-0" />
-            <div>
-              <p className="text-xs sm:text-sm text-muted-foreground">Дата съёмки</p>
-              <p className="font-semibold text-sm sm:text-base text-foreground">{formatDate(project.startDate)}</p>
+          {/* Дата и время съёмки */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-lg">
+              <Icon name="Calendar" size={18} className="text-green-600 dark:text-green-400 sm:w-5 sm:h-5 flex-shrink-0" />
+              <div>
+                <p className="text-xs sm:text-sm text-muted-foreground">Дата съёмки</p>
+                <p className="font-semibold text-sm sm:text-base text-foreground">{formatDate(project.startDate)}</p>
+              </div>
             </div>
+            
+            {project.shooting_time && (
+              <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded-lg">
+                <Icon name="Clock" size={18} className="text-blue-600 dark:text-blue-400 sm:w-5 sm:h-5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Время</p>
+                  <p className="font-semibold text-sm sm:text-base text-foreground">{project.shooting_time}</p>
+                </div>
+              </div>
+            )}
+            
+            {project.shooting_duration && (
+              <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-lg">
+                <Icon name="Timer" size={18} className="text-indigo-600 dark:text-indigo-400 sm:w-5 sm:h-5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Длительность</p>
+                  <p className="font-semibold text-sm sm:text-base text-foreground">{project.shooting_duration / 60} ч</p>
+                </div>
+              </div>
+            )}
+            
+            {project.shooting_address && (
+              <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-lg">
+                <Icon name="MapPin" size={18} className="text-orange-600 dark:text-orange-400 sm:w-5 sm:h-5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Адрес съёмки</p>
+                  <p className="font-semibold text-sm sm:text-base text-foreground">{project.shooting_address}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Бюджет */}

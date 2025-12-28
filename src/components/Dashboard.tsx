@@ -52,27 +52,32 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const bookings = propClients
+    const projectBookings = propClients
       .flatMap((client: Client) => 
-        (client.bookings || []).map(b => {
-          const bookingDate = new Date(b.booking_date || b.date);
+        (client.projects || []).map(project => {
+          if (!project.startDate || !project.shooting_time) return null;
+          
+          const shootingDate = new Date(project.startDate);
+          shootingDate.setHours(0, 0, 0, 0);
+          
           return {
-            ...b,
-            date: bookingDate,
-            time: b.booking_time || b.time,
-            client
+            id: project.id,
+            date: shootingDate,
+            time: project.shooting_time,
+            description: project.name,
+            client,
+            project
           };
         })
       )
       .filter((b: any) => {
-        const bookingDate = new Date(b.date);
-        bookingDate.setHours(0, 0, 0, 0);
-        return bookingDate >= today;
+        if (!b) return false;
+        return b.date >= today;
       })
       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5);
 
-    setUpcomingBookings(bookings);
+    setUpcomingBookings(projectBookings);
   }, [propClients]);
 
 
@@ -323,12 +328,21 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
         />
       </div>
 
-      <DashboardBookingDetailsDialog
-        open={isBookingDetailsOpen}
-        onOpenChange={setIsBookingDetailsOpen}
-        client={selectedClient}
-        booking={selectedBooking}
-      />
+      {selectedBooking?.project ? (
+        <DashboardProjectDetailsDialog
+          open={isBookingDetailsOpen}
+          onOpenChange={setIsBookingDetailsOpen}
+          client={selectedClient}
+          project={selectedBooking.project}
+        />
+      ) : (
+        <DashboardBookingDetailsDialog
+          open={isBookingDetailsOpen}
+          onOpenChange={setIsBookingDetailsOpen}
+          client={selectedClient}
+          booking={selectedBooking}
+        />
+      )}
 
       <DashboardProjectDetailsDialog
         open={isProjectDetailsOpen}

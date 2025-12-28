@@ -196,20 +196,35 @@ const BookingDialogs = ({
                   <div>
                     <p className="text-xs text-purple-600/70 dark:text-purple-400/70 font-medium mb-1">Клиент</p>
                     <p className="font-bold text-lg text-gray-900 dark:text-gray-100">
-                      {clients.find(c => c.id === selectedBooking.clientId)?.name}
+                      {selectedClient?.name || clients.find(c => c.id === selectedBooking.clientId)?.name}
                     </p>
+                    {selectedClient?.phone && (
+                      <p className="text-sm text-purple-600/70 dark:text-purple-400/70 mt-1">{selectedClient.phone}</p>
+                    )}
                   </div>
                 </div>
 
-                {selectedBooking.title && (
+                {(selectedBooking.title || selectedBooking.description) && (
                   <div className="group p-4 rounded-2xl bg-gradient-to-br from-green-100/50 to-emerald-100/50 dark:from-green-900/50 dark:to-emerald-900/50 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900 dark:hover:to-emerald-900 transition-all duration-300 shadow-sm hover:shadow-md">
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-green-200/50 dark:bg-green-800/50 rounded-lg group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
                         <Icon name="Camera" size={18} className="text-green-600 dark:text-green-400" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs text-green-600/70 dark:text-green-400/70 font-medium mb-1">Что за съёмка</p>
-                        <p className="font-bold text-base text-gray-900 dark:text-gray-100">{selectedBooking.title}</p>
+                        <p className="text-xs text-green-600/70 dark:text-green-400/70 font-medium mb-1">Проект</p>
+                        <p className="font-bold text-base text-gray-900 dark:text-gray-100">{selectedBooking.title || selectedBooking.description}</p>
+                        {selectedBooking.project?.shooting_address && (
+                          <div className="flex items-center gap-2 mt-2 text-sm text-green-700 dark:text-green-300">
+                            <Icon name="MapPin" size={14} />
+                            <span>{selectedBooking.project.shooting_address}</span>
+                          </div>
+                        )}
+                        {selectedBooking.project?.shooting_duration && (
+                          <div className="flex items-center gap-2 mt-1 text-sm text-green-700 dark:text-green-300">
+                            <Icon name="Timer" size={14} />
+                            <span>{selectedBooking.project.shooting_duration / 60} ч</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -244,7 +259,7 @@ const BookingDialogs = ({
                   </div>
                 </div>
 
-                {selectedBooking.description && (
+                {selectedBooking.project?.description && (
                   <div className="group p-4 rounded-2xl bg-gradient-to-r from-amber-100/50 to-orange-100/50 dark:from-amber-900/50 dark:to-orange-900/50 hover:from-amber-100 hover:to-orange-100 dark:hover:from-amber-900 dark:hover:to-orange-900 transition-all duration-300 shadow-sm hover:shadow-md">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="p-2 bg-amber-200/50 dark:bg-amber-800/50 rounded-lg group-hover:scale-110 transition-transform duration-300">
@@ -252,7 +267,7 @@ const BookingDialogs = ({
                       </div>
                       <p className="text-xs text-amber-600/70 dark:text-amber-400/70 font-medium">Описание</p>
                     </div>
-                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{selectedBooking.description}</p>
+                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{selectedBooking.project.description}</p>
                   </div>
                 )}
 
@@ -275,14 +290,16 @@ const BookingDialogs = ({
                 )}
               </div>
 
-              <Button
-                variant="outline"
-                onClick={() => handleDeleteBooking(selectedBooking.id)}
-                className="w-full rounded-xl h-12 bg-gradient-to-r from-red-100 to-rose-100 dark:from-red-900/50 dark:to-rose-900/50 hover:from-red-200 hover:to-rose-200 dark:hover:from-red-900 dark:hover:to-rose-900 text-red-700 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 border-red-200/50 dark:border-red-700/50 shadow-md hover:shadow-lg transition-all duration-300 font-semibold group"
-              >
-                <Icon name="Trash2" size={18} className="mr-2 group-hover:scale-110 transition-transform" />
-                Удалить съёмку
-              </Button>
+              {!selectedBooking.project && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleDeleteBooking(selectedBooking.id)}
+                  className="w-full rounded-xl h-12 bg-gradient-to-r from-red-100 to-rose-100 dark:from-red-900/50 dark:to-rose-900/50 hover:from-red-200 hover:to-rose-200 dark:hover:from-red-900 dark:hover:to-rose-900 text-red-700 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 border-red-200/50 dark:border-red-700/50 shadow-md hover:shadow-lg transition-all duration-300 font-semibold group"
+                >
+                  <Icon name="Trash2" size={18} className="mr-2 group-hover:scale-110 transition-transform" />
+                  Удалить съёмку
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>
