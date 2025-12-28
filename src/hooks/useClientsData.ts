@@ -123,13 +123,20 @@ export const useClientsData = (
     if (!userId) return;
     
     try {
-      const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
+      const res = await fetch('https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994', {
+        headers: { 'X-User-Id': userId }
+      });
       const data = await res.json();
+      
+      if (!data.success || !data.settings) {
+        setEmailVerified(false);
+        return;
+      }
       
       const vkUser = localStorage.getItem('vk_user');
       const authSession = localStorage.getItem('authSession');
       
-      let userEmail = data.email || null;
+      let userEmail = data.settings.email || null;
       let vkUserData = null;
       
       if (authSession) {
@@ -150,7 +157,7 @@ export const useClientsData = (
         return;
       }
       
-      setEmailVerified(!!data.email_verified_at);
+      setEmailVerified(!!data.settings.email_verified_at);
     } catch (err) {
       console.error('Failed to check email verification:', err);
     }

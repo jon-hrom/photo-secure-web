@@ -119,6 +119,15 @@ def get_user_settings(user_id: int) -> Optional[Dict[str, Any]]:
             if not user:
                 return None
             
+            # Проверяем is_verified у primary email из user_emails
+            cur.execute(f"""
+                SELECT is_verified, verified_at 
+                FROM {SCHEMA}.user_emails 
+                WHERE user_id = {escape_sql(user_id)} AND is_primary = TRUE
+                LIMIT 1
+            """)
+            primary_email = cur.fetchone()
+            
             # Получаем профиль
             cur.execute(f"""
                 SELECT full_name, bio, location, avatar_url, interests
@@ -129,6 +138,13 @@ def get_user_settings(user_id: int) -> Optional[Dict[str, Any]]:
             
             # Объединяем данные
             result = dict(user)
+            
+            # Обновляем email_verified_at из user_emails (приоритет новой системы)
+            if primary_email and primary_email['is_verified']:
+                result['email_verified_at'] = primary_email['verified_at']
+            elif not primary_email or not primary_email['is_verified']:
+                result['email_verified_at'] = None
+            
             if profile:
                 result.update(dict(profile))
             
