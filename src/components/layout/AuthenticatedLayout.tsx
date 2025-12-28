@@ -169,6 +169,7 @@ const AuthenticatedLayout = ({
               setShouldOpenAddClient(true);
               setCurrentPage('clients');
             }}
+            onNavigateToSettings={() => setCurrentPage('settings')}
             isAdmin={isAdmin}
           />
         )}

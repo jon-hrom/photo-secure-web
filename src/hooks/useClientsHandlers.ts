@@ -92,9 +92,16 @@ export const useClientsHandlers = ({
       
       const settingsData = await settingsResponse.json();
       
-      if (!settingsData.success || !settingsData.settings || !settingsData.settings.city) {
-        toast.error('Заполните город в настройках', {
-          description: 'Перед добавлением клиентов укажите ваш город в разделе Настройки'
+      if (!settingsData.success || !settingsData.settings || !settingsData.settings.city || !settingsData.settings.region) {
+        toast.error('Укажите ваш город в настройках', {
+          description: 'Перейдите в Настройки → Профиль → выберите Область и Город',
+          duration: 6000,
+          action: {
+            label: 'Открыть настройки',
+            onClick: () => {
+              window.location.hash = '#/webapp/settings';
+            }
+          }
         });
         setIsAddDialogOpen(false);
         return;

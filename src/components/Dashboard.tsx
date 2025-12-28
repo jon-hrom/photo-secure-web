@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import StorageWarning from '@/components/StorageWarning';
+import LocationWarningBanner from '@/components/LocationWarningBanner';
 import DashboardUserCard from '@/components/dashboard/DashboardUserCard';
 import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
 import DashboardBookingDetailsDialog from '@/components/dashboard/DashboardBookingDetailsDialog';
@@ -25,9 +26,10 @@ interface DashboardProps {
   onNavigateToClients?: () => void;
   onNavigateToPhotobook?: () => void;
   onOpenAddClient?: () => void;
+  onNavigateToSettings?: () => void;
 }
 
-const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], onOpenClientBooking, onMeetingClick, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs, onNavigateToClients, onNavigateToPhotobook, onOpenAddClient }: DashboardProps) => {
+const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], onOpenClientBooking, onMeetingClick, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs, onNavigateToClients, onNavigateToPhotobook, onOpenAddClient, onNavigateToSettings }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -164,6 +166,10 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
 
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in-up px-3 sm:px-0">
+      <LocationWarningBanner 
+        userId={propUserId} 
+        onNavigateToSettings={onNavigateToSettings}
+      />
       <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
         <Card className="bg-gradient-to-br from-primary to-secondary text-white border-0 shadow-xl w-full lg:w-1/2">
         <CardContent className="p-3 sm:p-4 md:p-6">
