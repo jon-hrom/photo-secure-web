@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { formatPhoneNumber as formatPhone } from '@/utils/phoneFormat';
 import LocationSelector from './LocationSelector';
+import { useEffect, useState } from 'react';
 
 interface UserSettings {
   email: string;
@@ -67,6 +68,20 @@ const ContactInfoCard = ({
   setIsEditingDisplayName,
   isSavingDisplayName,
 }: ContactInfoCardProps) => {
+  const [shouldHighlight, setShouldHighlight] = useState(false);
+
+  useEffect(() => {
+    const highlight = sessionStorage.getItem('highlightLocation');
+    if (highlight === 'true') {
+      setShouldHighlight(true);
+      sessionStorage.removeItem('highlightLocation');
+      
+      setTimeout(() => {
+        setShouldHighlight(false);
+      }, 3000);
+    }
+  }, []);
+
   return (
     <Card className="shadow-xl">
       <CardHeader>
@@ -250,17 +265,26 @@ const ContactInfoCard = ({
             )}
           </div>
 
-          <LocationSelector
-            country={settings.country || 'Россия'}
-            region={settings.region || ''}
-            city={settings.city || ''}
-            onLocationChange={async (country, region, city) => {
-              await handleUpdateContact('country', country);
-              await handleUpdateContact('region', region);
-              await handleUpdateContact('city', city);
-              await loadSettings();
-            }}
-          />
+          <div 
+            className={`transition-all duration-300 ${
+              shouldHighlight 
+                ? 'ring-4 ring-orange-400 ring-opacity-50 rounded-xl p-3 bg-orange-50 dark:bg-orange-950/20' 
+                : ''
+            }`}
+            data-location-section
+          >
+            <LocationSelector
+              country={settings.country || 'Россия'}
+              region={settings.region || ''}
+              city={settings.city || ''}
+              onLocationChange={async (country, region, city) => {
+                await handleUpdateContact('country', country);
+                await handleUpdateContact('region', region);
+                await handleUpdateContact('city', city);
+                await loadSettings();
+              }}
+            />
+          </div>
 
           {phoneVerified ? (
             <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">

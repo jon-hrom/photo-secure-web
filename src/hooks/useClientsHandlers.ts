@@ -113,7 +113,14 @@ export const useClientsHandlers = ({
           action: {
             label: 'Открыть настройки',
             onClick: () => {
+              sessionStorage.setItem('highlightLocation', 'true');
               window.location.hash = '#/webapp/settings';
+              setTimeout(() => {
+                const locationSection = document.querySelector('[data-location-section]');
+                if (locationSection) {
+                  locationSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }, 300);
             }
           }
         });
