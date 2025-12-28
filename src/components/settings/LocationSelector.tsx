@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,18 +11,28 @@ interface LocationSelectorProps {
   region: string;
   city: string;
   onLocationChange: (country: string, region: string, city: string) => void;
+  autoOpen?: boolean;
 }
 
 const LocationSelector = ({
   country,
   region,
   city,
-  onLocationChange
+  onLocationChange,
+  autoOpen = false
 }: LocationSelectorProps) => {
   const [showRegionModal, setShowRegionModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
   const [searchRegion, setSearchRegion] = useState('');
   const [searchCity, setSearchCity] = useState('');
+
+  useEffect(() => {
+    if (autoOpen && !region) {
+      setTimeout(() => {
+        setShowRegionModal(true);
+      }, 500);
+    }
+  }, [autoOpen, region]);
 
   const selectedRegionData = russianRegions.find(r => r.name === region);
   const filteredRegions = russianRegions.filter(r =>

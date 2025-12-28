@@ -283,6 +283,7 @@ const ContactInfoCard = ({
                 await handleUpdateContact('city', city);
                 await loadSettings();
               }}
+              autoOpen={shouldHighlight}
             />
           </div>
 
