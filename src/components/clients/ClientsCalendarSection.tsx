@@ -26,8 +26,17 @@ const ClientsCalendarSection = ({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  console.log('[CLIENTS_CALENDAR] Clients:', clients.length, 'projects:', clients.flatMap(c => c.projects || []).length);
+
   let upcomingBookings = clients
     .flatMap(c => (c.projects || []).map(project => {
+      console.log('[CLIENTS_CALENDAR] Project:', {
+        name: project.name,
+        startDate: project.startDate,
+        shooting_time: project.shooting_time,
+        client: c.name
+      });
+      
       if (!project.startDate || !project.shooting_time) return null;
       
       const shootingDate = new Date(project.startDate);
@@ -45,6 +54,8 @@ const ClientsCalendarSection = ({
     }))
     .filter((b): b is NonNullable<typeof b> => b !== null && b.normalizedDate >= today)
     .sort((a, b) => a.normalizedDate.getTime() - b.normalizedDate.getTime());
+  
+  console.log('[CLIENTS_CALENDAR] Upcoming bookings:', upcomingBookings.length);
 
   // Если выбрана дата - фильтруем только бронирования на эту дату
   if (selectedDate) {
