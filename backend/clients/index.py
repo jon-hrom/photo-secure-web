@@ -409,6 +409,38 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             action = body.get('action', 'create')
             
             if action == 'create':
+                # Проверяем дубликаты по email или телефону
+                email = body.get('email', '').strip()
+                phone = body.get('phone', '').strip()
+                
+                # Ищем существующего клиента по email или телефону
+                existing_client = None
+                if email and email != '':
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.clients 
+                        WHERE user_id = %s AND LOWER(email) = LOWER(%s)
+                        LIMIT 1
+                    ''', (user_id, email))
+                    existing_client = cur.fetchone()
+                
+                if not existing_client and phone and phone != '' and phone != '-':
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.clients 
+                        WHERE user_id = %s AND phone = %s
+                        LIMIT 1
+                    ''', (user_id, phone))
+                    existing_client = cur.fetchone()
+                
+                # Если клиент найден - возвращаем его ID
+                if existing_client:
+                    return {
+                        'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'id': existing_client['id'], 'duplicate': True}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Если дубликата нет - создаём нового клиента
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.clients (user_id, name, phone, email, address, vk_profile)
                     VALUES (%s, %s, %s, %s, %s, %s)

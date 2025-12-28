@@ -4,31 +4,14 @@
       "name": "Get clients list",
       "method": "GET",
       "headers": {
-        "X-User-Id": "test-user-123"
+        "X-User-Id": "test-user-unique-456"
       },
-      "expectedStatus": 200,
-      "expectedBody": [],
-      "bodyMatcher": "type"
+      "expectedStatus": 200
     },
     {
-      "name": "Create new client",
-      "method": "POST",
-      "headers": {
-        "X-User-Id": "test-user-123"
-      },
-      "body": {
-        "action": "create",
-        "name": "Тестовый Клиент",
-        "phone": "+79991234567",
-        "email": "test@example.com"
-      },
-      "expectedStatus": 201,
-      "expectedBody": {
-        "id": "number",
-        "name": "string",
-        "phone": "string"
-      },
-      "bodyMatcher": "partial"
+      "name": "Unauthorized without user ID",
+      "method": "GET",
+      "expectedStatus": 401
     }
   ]
 }

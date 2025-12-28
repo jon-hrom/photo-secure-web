@@ -113,20 +113,28 @@ export const useClientsHandlers = ({
           })
         });
         
-        if (!res.ok) {
+        if (!res.ok && res.status !== 200) {
           throw new Error('Failed to add client');
         }
         
         let createdClientId: number | null = null;
+        let isDuplicate = false;
         
         try {
           const result = await res.json();
           createdClientId = result?.id || null;
+          isDuplicate = result?.duplicate || false;
         } catch (err) {
           console.error('[CLIENT_ADD] No JSON response');
         }
         
-        toast.success('Клиент успешно добавлен');
+        if (isDuplicate) {
+          toast.info('Клиент с такими данными уже существует', {
+            description: 'Открываю карточку существующего клиента'
+          });
+        } else {
+          toast.success('Клиент успешно добавлен');
+        }
         
         // Очищаем сохранённые данные после успешного создания
         if (onClientCreated) {
@@ -138,13 +146,20 @@ export const useClientsHandlers = ({
         
         // ПАРАЛЛЕЛЬНО формируем данные клиента (пока идёт счётчик)
         const dataPromise = (async () => {
-          // Используем данные из ответа сервера напрямую - не делаем лишние запросы
-          
           if (!createdClientId) {
             throw new Error('Client ID not returned from server');
           }
           
-          // Формируем объект клиента из уже имеющихся данных
+          // Если дубликат - загружаем полные данные существующего клиента из списка
+          if (isDuplicate) {
+            await loadClients(); // Обновляем список клиентов
+            const existingClient = clients.find(c => c.id === createdClientId);
+            if (existingClient) {
+              return existingClient;
+            }
+          }
+          
+          // Если новый клиент - формируем объект из данных формы
           return {
             id: createdClientId,
             name: clientNameForSearch,
