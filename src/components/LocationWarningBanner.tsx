@@ -52,31 +52,33 @@ const LocationWarningBanner = ({ userId, onNavigateToSettings }: LocationWarning
   return (
     <Alert className="mb-6 bg-orange-50 border-orange-200">
       <Icon name="MapPin" className="h-5 w-5 text-orange-600" />
-      <AlertDescription className="flex items-center justify-between">
-        <div className="flex-1 mr-4">
-          <p className="font-semibold text-orange-900 mb-1">
-            Укажите ваш город в настройках
-          </p>
-          <p className="text-sm text-orange-700">
-            Это необходимо для правильной работы системы клиентов. Укажите область и город, где вы работаете.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setDismissed(true)}
-            className="text-orange-700 hover:text-orange-900 hover:bg-orange-100"
-          >
-            Позже
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleNavigate}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            Перейти в настройки
-          </Button>
+      <AlertDescription>
+        <div className="space-y-3">
+          <div>
+            <p className="font-semibold text-orange-900 mb-1">
+              Укажите ваш город в настройках
+            </p>
+            <p className="text-sm text-orange-700">
+              Это необходимо для правильной работы системы клиентов. Укажите область и город, где вы работаете.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDismissed(true)}
+              className="text-orange-700 hover:text-orange-900 hover:bg-orange-100"
+            >
+              Позже
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleNavigate}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              Перейти в настройки
+            </Button>
+          </div>
         </div>
       </AlertDescription>
     </Alert>
