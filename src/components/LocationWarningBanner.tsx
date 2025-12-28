@@ -17,7 +17,7 @@ const LocationWarningBanner = ({ userId, onNavigateToSettings }: LocationWarning
       if (!userId || dismissed) return;
 
       try {
-        const response = await fetch('https://functions.poehali.dev/e2a76d38-8e20-40b0-a7c4-b4d62d18fccb', {
+        const response = await fetch('https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

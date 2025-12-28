@@ -82,7 +82,7 @@ export const useClientsHandlers = ({
     
     // Проверяем наличие города в профиле
     try {
-      const settingsResponse = await fetch('https://functions.poehali.dev/e2a76d38-8e20-40b0-a7c4-b4d62d18fccb', {
+      const settingsResponse = await fetch('https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
