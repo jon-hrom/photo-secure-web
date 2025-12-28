@@ -88,6 +88,10 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     
     date_str = format_date_ru(project_data.get('startDate', ''))
     time_str = project_data.get('shooting_time', '10:00')
+    # Ensure time is in HH:MM format
+    if time_str and ':' in time_str:
+        hours, minutes = time_str.split(':')
+        time_str = f"{hours.zfill(2)}:{minutes.zfill(2)}"
     address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
     
