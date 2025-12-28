@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
@@ -31,6 +32,7 @@ interface ClientsPageProps {
 
 const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId, clients: propClients, onClientsUpdate }: ClientsPageProps) => {
   const userId = propUserId || localStorage.getItem('userId');
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   
   // Хук для работы с данными
@@ -122,6 +124,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     setIsDetailDialogOpen: dialogsState.setIsDetailDialogOpen,
     setIsCountdownOpen: dialogsState.setIsCountdownOpen,
     onClientCreated: dialogsState.handleClientCreated,
+    navigateToSettings: () => navigate('/webapp/settings'),
   });
 
   // Фильтрация клиентов по поиску

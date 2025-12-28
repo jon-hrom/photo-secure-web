@@ -41,6 +41,7 @@ interface UseClientsHandlersProps {
   setIsDetailDialogOpen?: (open: boolean) => void;
   setIsCountdownOpen?: (open: boolean) => void;
   onClientCreated?: () => void;
+  navigateToSettings?: () => void;
 }
 
 export const useClientsHandlers = ({
@@ -72,6 +73,7 @@ export const useClientsHandlers = ({
   setIsDetailDialogOpen,
   setIsCountdownOpen,
   onClientCreated,
+  navigateToSettings,
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
@@ -114,7 +116,11 @@ export const useClientsHandlers = ({
             label: 'Открыть настройки',
             onClick: () => {
               sessionStorage.setItem('highlightLocation', 'true');
-              window.location.hash = '#/webapp/settings';
+              if (navigateToSettings) {
+                navigateToSettings();
+              } else {
+                window.location.hash = '#/webapp/settings';
+              }
               setTimeout(() => {
                 const locationSection = document.querySelector('[data-location-section]');
                 if (locationSection) {
