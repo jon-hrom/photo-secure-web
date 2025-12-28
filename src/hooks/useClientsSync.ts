@@ -61,7 +61,11 @@ export const useClientsSync = ({ isAuthenticated, userId }: UseClientsSyncProps)
             budget: parseFloat(p.budget) || 0,
             startDate: p.start_date || p.startDate,
             description: p.description || '',
-            shootingStyleId: p.shooting_style_id || p.shootingStyleId || undefined
+            shootingStyleId: p.shooting_style_id || p.shootingStyleId || undefined,
+            shooting_time: p.shooting_time,
+            shooting_duration: p.shooting_duration,
+            shooting_address: p.shooting_address,
+            add_to_calendar: p.add_to_calendar
           })),
           payments: (client.payments || []).map((pay: any) => ({
             id: pay.id,

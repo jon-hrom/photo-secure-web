@@ -49,21 +49,12 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
   }, []);
 
   useEffect(() => {
-    console.log('[DASHBOARD] Clients:', propClients.length, 'projects:', propClients.flatMap(c => c.projects || []).length);
-    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     const projectBookings = propClients
       .flatMap((client: Client) => 
         (client.projects || []).map(project => {
-          console.log('[DASHBOARD] Project:', {
-            name: project.name,
-            startDate: project.startDate,
-            shooting_time: project.shooting_time,
-            client: client.name
-          });
-          
           if (!project.startDate || !project.shooting_time) return null;
           
           const shootingDate = new Date(project.startDate);
@@ -86,7 +77,6 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5);
 
-    console.log('[DASHBOARD] Upcoming bookings:', projectBookings.length);
     setUpcomingBookings(projectBookings);
   }, [propClients]);
 
