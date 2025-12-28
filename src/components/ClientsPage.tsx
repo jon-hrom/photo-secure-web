@@ -124,7 +124,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     setIsDetailDialogOpen: dialogsState.setIsDetailDialogOpen,
     setIsCountdownOpen: dialogsState.setIsCountdownOpen,
     onClientCreated: dialogsState.handleClientCreated,
-    navigateToSettings: () => navigate('/webapp/settings'),
+    navigateToSettings: () => navigate('/settings'),
   });
 
   // Фильтрация клиентов по поиску
