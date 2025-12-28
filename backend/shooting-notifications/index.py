@@ -91,7 +91,7 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
     
-    message = f"""📸 Подтверждение съёмки
+    message = f"""📸 Новая бронь на фотосессию
 
 🎬 Проект: {project_name}
 📅 Дата: {date_str}

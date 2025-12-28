@@ -94,10 +94,16 @@ def send_photographer_reminder(photographer_phone: str, photographer_name: str, 
     
     if hours_before == 24:
         emoji = '📅'
-        time_text = 'завтра'
+        time_text = f'завтра (через {hours_before} часов)'
+        tip = 'Не забудьте проверить оборудование! 📷'
+    elif hours_before == 5:
+        emoji = '⏰'
+        time_text = f'через {hours_before} часов'
+        tip = 'Проверьте заряд батарей и карты памяти! 🔋'
     else:
         emoji = '⏰'
-        time_text = 'через час'
+        time_text = f'через {hours_before} час'
+        tip = 'Выезжайте заранее! 🚗'
     
     message = f"""{emoji} Напоминание о съёмке {time_text}!
 
@@ -109,7 +115,7 @@ def send_photographer_reminder(photographer_phone: str, photographer_name: str, 
 👤 Клиент: {client_name}
 📞 Телефон: {client_phone}
 
-{"Не забудьте проверить оборудование! 📷" if hours_before == 24 else "Выезжайте заранее! 🚗"}"""
+{tip}"""
     
     try:
         send_via_green_api(
@@ -143,7 +149,7 @@ def send_client_reminder(client_phone: str, photographer_name: str, project_data
     project_name = project_data.get('name', 'Съёмка')
     
     if hours_before == 24:
-        message = f"""📅 Напоминание о фотосессии завтра!
+        message = f"""📅 Напоминание о фотосессии завтра через {hours_before} часов!
 
 🎬 Проект: {project_name}
 📅 Дата: {date_str}
@@ -159,8 +165,25 @@ def send_client_reminder(client_phone: str, photographer_name: str, project_data
 • Продумайте образы
 
 До встречи! 📷"""
-    else:  # 2 hours
-        message = f"""⏰ Время близко! Фотосессия через 2 часа!
+    elif hours_before == 5:
+        message = f"""⏰ Скоро съёмка! Осталось {hours_before} часов
+
+🎬 Проект: {project_name}
+📅 Дата: {date_str}
+🕐 Время: {time_str}
+📍 Адрес: {address}
+
+👤 Фотограф: {photographer_name}
+
+⏱ Подготовьтесь к выходу:
+• Проверьте наряды ✨
+• Соберите аксессуары 💄
+• Проверьте адрес 📍
+• Рассчитайте время в пути 🚗
+
+Скоро встретимся! 📸"""
+    else:  # 1 hour
+        message = f"""⏰ Время близко! Фотосессия через {hours_before} час!
 
 🎬 Проект: {project_name}
 📅 Дата: {date_str}
@@ -199,9 +222,11 @@ def check_and_send_reminders():
     results = {
         'checked': 0,
         'sent_24h_photographer': 0,
+        'sent_5h_photographer': 0,
         'sent_1h_photographer': 0,
         'sent_24h_client': 0,
-        'sent_2h_client': 0,
+        'sent_5h_client': 0,
+        'sent_1h_client': 0,
         'errors': 0
     }
     
@@ -271,19 +296,31 @@ def check_and_send_reminders():
                                 else:
                                     results['errors'] += 1
                         
-                        # Отправляем напоминание фотографу за 1 час (с окном ±15 минут)
+                        # Отправляем напоминание за 5 часов (с окном ±30 минут)
+                        elif 4.5 <= hours_until <= 5.5:
+                            if photographer_phone and photographer_phone_verified:
+                                if send_photographer_reminder(photographer_phone, photographer_name, project, client, 5):
+                                    results['sent_5h_photographer'] += 1
+                                else:
+                                    results['errors'] += 1
+                            
+                            if client_phone:
+                                if send_client_reminder(client_phone, photographer_name, project, 5):
+                                    results['sent_5h_client'] += 1
+                                else:
+                                    results['errors'] += 1
+                        
+                        # Отправляем напоминание за 1 час (с окном ±15 минут)
                         elif 0.75 <= hours_until <= 1.25:
                             if photographer_phone and photographer_phone_verified:
                                 if send_photographer_reminder(photographer_phone, photographer_name, project, client, 1):
                                     results['sent_1h_photographer'] += 1
                                 else:
                                     results['errors'] += 1
-                        
-                        # Отправляем напоминание клиенту за 2 часа (с окном ±15 минут)
-                        elif 1.75 <= hours_until <= 2.25:
+                            
                             if client_phone:
-                                if send_client_reminder(client_phone, photographer_name, project, 2):
-                                    results['sent_2h_client'] += 1
+                                if send_client_reminder(client_phone, photographer_name, project, 1):
+                                    results['sent_1h_client'] += 1
                                 else:
                                     results['errors'] += 1
                 

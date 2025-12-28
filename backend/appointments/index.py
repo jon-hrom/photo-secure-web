@@ -216,19 +216,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             formatted_date = meeting_datetime.strftime('%d.%m.%Y')
             formatted_time = meeting_datetime.strftime('%H:%M')
             
-            # Отправка MAX уведомления (если есть номер телефона)
-            if notification_enabled and client_phone:
-                send_max_message(
-                    user_id=int(user_id),
-                    client_phone=client_phone,
-                    template_type='new_booking',
-                    variables={
-                        'date': formatted_date,
-                        'time': formatted_time,
-                        'description': description or title,
-                        'photographer_name': photographer_name
-                    }
-                )
+            # MAX уведомление отправляется через shooting-notifications API
+            # (убрано дублирование)
             
             # Отправка email (если есть)
             if notification_enabled and client_email:
