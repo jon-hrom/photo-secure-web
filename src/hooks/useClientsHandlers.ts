@@ -90,7 +90,21 @@ export const useClientsHandlers = ({
         }
       });
       
+      if (!settingsResponse.ok) {
+        console.error('[CLIENT_ADD] Settings API error:', settingsResponse.status);
+        toast.error('Не удалось проверить настройки', {
+          description: 'Попробуйте ещё раз или перезагрузите страницу'
+        });
+        return;
+      }
+      
       const settingsData = await settingsResponse.json();
+      console.log('[CLIENT_ADD] Settings check:', { 
+        success: settingsData.success, 
+        hasSettings: !!settingsData.settings,
+        city: settingsData.settings?.city,
+        region: settingsData.settings?.region
+      });
       
       if (!settingsData.success || !settingsData.settings || !settingsData.settings.city || !settingsData.settings.region) {
         toast.error('Укажите ваш город в настройках', {
@@ -107,8 +121,10 @@ export const useClientsHandlers = ({
         return;
       }
     } catch (error) {
-      console.error('Failed to check city:', error);
-      toast.error('Ошибка проверки настроек');
+      console.error('[CLIENT_ADD] Failed to check city:', error);
+      toast.error('Ошибка сети', {
+        description: 'Проверьте подключение к интернету и попробуйте снова'
+      });
       return;
     }
     
