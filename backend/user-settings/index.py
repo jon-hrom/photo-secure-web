@@ -110,6 +110,7 @@ def get_user_settings(user_id: int) -> Optional[Dict[str, Any]]:
                     two_factor_sms, two_factor_email,
                     email_verified_at, phone_verified_at,
                     created_at, last_login, source,
+                    country, region, city,
                     CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 'true' ELSE 'false' END as has_password
                 FROM {SCHEMA}.users 
                 WHERE id = {escape_sql(user_id)}
@@ -168,6 +169,12 @@ def update_user_settings(user_id: int, settings: Dict[str, Any]) -> bool:
                 user_fields.append(f"two_factor_sms = {escape_sql(settings['two_factor_sms'])}")
             if 'two_factor_email' in settings:
                 user_fields.append(f"two_factor_email = {escape_sql(settings['two_factor_email'])}")
+            if 'country' in settings:
+                user_fields.append(f"country = {escape_sql(settings['country'])}")
+            if 'region' in settings:
+                user_fields.append(f"region = {escape_sql(settings['region'])}")
+            if 'city' in settings:
+                user_fields.append(f"city = {escape_sql(settings['city'])}")
             
             if user_fields:
                 user_fields.append("updated_at = CURRENT_TIMESTAMP")

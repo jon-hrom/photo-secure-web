@@ -203,7 +203,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 cur.execute('''
                     SELECT id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
                     FROM t_p28211681_photo_secure_web.clients 
-                    WHERE user_id = %s
+                    WHERE photographer_id = %s
                     ORDER BY created_at DESC
                 ''', (user_id,))
                 clients = cur.fetchall()
@@ -418,7 +418,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if email and email != '':
                     cur.execute('''
                         SELECT id FROM t_p28211681_photo_secure_web.clients 
-                        WHERE user_id = %s AND LOWER(email) = LOWER(%s)
+                        WHERE photographer_id = %s AND LOWER(email) = LOWER(%s)
                         LIMIT 1
                     ''', (user_id, email))
                     existing_client = cur.fetchone()
@@ -426,7 +426,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if not existing_client and phone and phone != '' and phone != '-':
                     cur.execute('''
                         SELECT id FROM t_p28211681_photo_secure_web.clients 
-                        WHERE user_id = %s AND phone = %s
+                        WHERE photographer_id = %s AND phone = %s
                         LIMIT 1
                     ''', (user_id, phone))
                     existing_client = cur.fetchone()
@@ -442,10 +442,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Если дубликата нет - создаём нового клиента
                 cur.execute('''
-                    INSERT INTO t_p28211681_photo_secure_web.clients (user_id, name, phone, email, address, vk_profile)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO t_p28211681_photo_secure_web.clients (user_id, photographer_id, name, phone, email, address, vk_profile)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
                 ''', (
+                    user_id,
                     user_id,
                     body.get('name'),
                     body.get('phone'),
@@ -480,7 +481,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 notification_time = body.get('notificationTime', 24)
                 
                 # Получаем информацию о клиенте
-                cur.execute('SELECT name, phone, email FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                cur.execute('SELECT name, phone, email FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND photographer_id = %s', (client_id, user_id))
                 client = cur.fetchone()
                 
                 if not client:

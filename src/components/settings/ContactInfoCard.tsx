@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { formatPhoneNumber as formatPhone } from '@/utils/phoneFormat';
+import LocationSelector from './LocationSelector';
 
 interface UserSettings {
   email: string;
@@ -12,6 +13,9 @@ interface UserSettings {
   email_verified_at: string | null;
   source?: 'email' | 'vk' | 'google' | 'yandex';
   display_name?: string;
+  country?: string;
+  region?: string;
+  city?: string;
 }
 
 interface ContactInfoCardProps {
@@ -28,7 +32,7 @@ interface ContactInfoCardProps {
   setPhoneVerified: (value: boolean) => void;
   isSavingPhone: boolean;
   phoneVerified: boolean;
-  handleUpdateContact: (field: 'email' | 'phone' | 'display_name', value: string) => Promise<void>;
+  handleUpdateContact: (field: 'email' | 'phone' | 'display_name' | 'country' | 'region' | 'city', value: string) => Promise<void>;
   loadSettings: () => Promise<void>;
   setShowEmailVerification: (value: boolean) => void;
   setShowPhoneVerification: (value: boolean) => void;
@@ -245,6 +249,19 @@ const ContactInfoCard = ({
               </Button>
             )}
           </div>
+
+          <LocationSelector
+            country={settings.country || 'Россия'}
+            region={settings.region || ''}
+            city={settings.city || ''}
+            onLocationChange={async (country, region, city) => {
+              await handleUpdateContact('country', country);
+              await handleUpdateContact('region', region);
+              await handleUpdateContact('city', city);
+              await loadSettings();
+            }}
+          />
+
           {phoneVerified ? (
             <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
               <Icon name="CheckCircle2" size={14} className="md:w-4 md:h-4" />
