@@ -80,6 +80,31 @@ export const useClientsHandlers = ({
       return;
     }
     
+    // Проверяем наличие города в профиле
+    try {
+      const settingsResponse = await fetch('https://functions.poehali.dev/e2a76d38-8e20-40b0-a7c4-b4d62d18fccb', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        }
+      });
+      
+      const settingsData = await settingsResponse.json();
+      
+      if (!settingsData.success || !settingsData.settings || !settingsData.settings.city) {
+        toast.error('Заполните город в настройках', {
+          description: 'Перед добавлением клиентов укажите ваш город в разделе Настройки'
+        });
+        setIsAddDialogOpen(false);
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to check city:', error);
+      toast.error('Ошибка проверки настроек');
+      return;
+    }
+    
     // Сохраняем данные клиента до очистки формы
     // Если имя не указано - используем "Новый клиент"
     // Если телефон не указан - используем пустую строку (БД требует значение)

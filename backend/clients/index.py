@@ -136,13 +136,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     headers = event.get('headers', {})
-    user_id = headers.get('X-User-Id') or headers.get('x-user-id')
+    photographer_id = headers.get('X-User-Id') or headers.get('x-user-id')
     
-    if not user_id:
+    if not photographer_id:
         return {
             'statusCode': 401,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'User ID required'}),
+            'body': json.dumps({'error': 'Photographer ID required'}),
             'isBase64Encoded': False
         }
     
@@ -205,7 +205,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     FROM t_p28211681_photo_secure_web.clients 
                     WHERE photographer_id = %s
                     ORDER BY created_at DESC
-                ''', (user_id,))
+                ''', (photographer_id,))
                 clients = cur.fetchall()
                 
                 if not clients:
@@ -420,7 +420,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         SELECT id FROM t_p28211681_photo_secure_web.clients 
                         WHERE photographer_id = %s AND LOWER(email) = LOWER(%s)
                         LIMIT 1
-                    ''', (user_id, email))
+                    ''', (photographer_id, email))
                     existing_client = cur.fetchone()
                 
                 if not existing_client and phone and phone != '' and phone != '-':
@@ -428,7 +428,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         SELECT id FROM t_p28211681_photo_secure_web.clients 
                         WHERE photographer_id = %s AND phone = %s
                         LIMIT 1
-                    ''', (user_id, phone))
+                    ''', (photographer_id, phone))
                     existing_client = cur.fetchone()
                 
                 # Если клиент найден - возвращаем его ID
@@ -446,8 +446,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
                 ''', (
-                    user_id,
-                    user_id,
+                    photographer_id,
+                    photographer_id,
                     body.get('name'),
                     body.get('phone'),
                     body.get('email'),
