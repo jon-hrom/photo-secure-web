@@ -77,6 +77,8 @@ export const useClientsHandlers = ({
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
+    console.log('[CLIENT_ADD] handleAddClient called, userId:', userId);
+    
     if (!userId) {
       toast.error('Не удалось определить пользователя');
       return;
@@ -84,6 +86,7 @@ export const useClientsHandlers = ({
     
     // Проверяем наличие города в профиле
     try {
+      console.log('[CLIENT_ADD] Checking settings API...');
       const settingsResponse = await fetch('https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994', {
         method: 'GET',
         headers: {
@@ -109,20 +112,25 @@ export const useClientsHandlers = ({
       });
       
       if (!settingsData.success || !settingsData.settings || !settingsData.settings.city || !settingsData.settings.region) {
+        console.log('[CLIENT_ADD] Location missing, showing toast');
         toast.error('Укажите ваш город в настройках', {
           description: 'Перейдите в Настройки → Профиль → выберите Область и Город',
           duration: 6000,
           action: {
             label: 'Открыть настройки',
             onClick: () => {
+              console.log('[CLIENT_ADD] Navigate button clicked');
               sessionStorage.setItem('highlightLocation', 'true');
               if (navigateToSettings) {
+                console.log('[CLIENT_ADD] Calling navigateToSettings');
                 navigateToSettings();
               } else {
+                console.log('[CLIENT_ADD] Using window.location.hash');
                 window.location.hash = '#/webapp/settings';
               }
               setTimeout(() => {
                 const locationSection = document.querySelector('[data-location-section]');
+                console.log('[CLIENT_ADD] Looking for location section:', locationSection);
                 if (locationSection) {
                   locationSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
