@@ -89,20 +89,24 @@ def send_photographer_reminder(photographer_phone: str, photographer_name: str, 
     
     date_str = format_date_ru(project_data.get('startDate', ''))
     time_str = project_data.get('shooting_time', '10:00')
+    # Ensure time is in HH:MM format
+    if time_str and ':' in time_str:
+        hours_part, minutes_part = time_str.split(':')
+        time_str = f"{hours_part.zfill(2)}:{minutes_part.zfill(2)}"
     address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
     
     if hours_before == 24:
         emoji = '📅'
-        time_text = f'завтра (через {hours_before} часов)'
+        time_text = f'завтра (через {int(hours_before)} часов)'
         tip = 'Не забудьте проверить оборудование! 📷'
     elif hours_before == 5:
         emoji = '⏰'
-        time_text = f'через {hours_before} часов'
+        time_text = f'через {int(hours_before)} часов'
         tip = 'Проверьте заряд батарей и карты памяти! 🔋'
     else:
         emoji = '⏰'
-        time_text = f'через {hours_before} час'
+        time_text = f'через {int(hours_before)} час'
         tip = 'Выезжайте заранее! 🚗'
     
     message = f"""{emoji} Напоминание о съёмке {time_text}!
@@ -145,11 +149,15 @@ def send_client_reminder(client_phone: str, photographer_name: str, project_data
     
     date_str = format_date_ru(project_data.get('startDate', ''))
     time_str = project_data.get('shooting_time', '10:00')
+    # Ensure time is in HH:MM format
+    if time_str and ':' in time_str:
+        hours_part, minutes_part = time_str.split(':')
+        time_str = f"{hours_part.zfill(2)}:{minutes_part.zfill(2)}"
     address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
     
     if hours_before == 24:
-        message = f"""📅 Напоминание о фотосессии завтра через {hours_before} часов!
+        message = f"""📅 Напоминание о фотосессии завтра через {int(hours_before)} часов!
 
 🎬 Проект: {project_name}
 📅 Дата: {date_str}
@@ -166,7 +174,7 @@ def send_client_reminder(client_phone: str, photographer_name: str, project_data
 
 До встречи! 📷"""
     elif hours_before == 5:
-        message = f"""⏰ Скоро съёмка! Осталось {hours_before} часов
+        message = f"""⏰ Скоро съёмка! Осталось {int(hours_before)} часов
 
 🎬 Проект: {project_name}
 📅 Дата: {date_str}
@@ -183,7 +191,7 @@ def send_client_reminder(client_phone: str, photographer_name: str, project_data
 
 Скоро встретимся! 📸"""
     else:  # 1 hour
-        message = f"""⏰ Время близко! Фотосессия через {hours_before} час!
+        message = f"""⏰ Время близко! Фотосессия через {int(hours_before)} час!
 
 🎬 Проект: {project_name}
 📅 Дата: {date_str}

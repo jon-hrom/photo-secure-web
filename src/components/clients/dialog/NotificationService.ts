@@ -35,22 +35,7 @@ ${project.description ? `Описание: ${project.description}` : ''}
 Сообщение сформировано автоматически системой учёта клиентов для фотографов foto-mix.ru. На него отвечать не нужно.`;
 
     const userId = localStorage.getItem('userId');
-    if (userId && client.phone) {
-      const MAX_API = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
-      await fetch(MAX_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId
-        },
-        body: JSON.stringify({
-          action: 'send_message_to_client',
-          client_id: client.id,
-          message: whatsappMessage
-        })
-      });
-    }
-
+    
     // Отправляем уведомления через новую систему (клиенту и фотографу)
     if (userId && project.startDate && project.shooting_time) {
       const SHOOTING_NOTIF_API = 'https://functions.poehali.dev/b2bd6fbd-f4a9-4bec-b6b7-0689b79375ae';
