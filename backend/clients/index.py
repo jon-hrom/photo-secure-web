@@ -328,7 +328,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'budget': float(p['budget']),
                         'startDate': str(p['start_date']),
                         'description': p['description'],
-                        'shooting_style_id': p.get('shooting_style_id')
+                        'shooting_style_id': p.get('shooting_style_id'),
+                        'shooting_time': p.get('shooting_time'),
+                        'shooting_duration': p.get('shooting_duration'),
+                        'shooting_address': p.get('shooting_address'),
+                        'add_to_calendar': p.get('add_to_calendar')
                     } for p in raw_projects]
                     
                     # Конвертируем payments

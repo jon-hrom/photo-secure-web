@@ -137,14 +137,16 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
     time_str = project_data.get('shooting_time', '10:00')
     address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
-    duration = project_data.get('shooting_duration', 2)
+    duration_minutes = project_data.get('shooting_duration', 120)
+    # Конвертируем минуты в часы для отображения
+    duration_hours = duration_minutes / 60 if duration_minutes else 2
     
     message = f"""📸 Напоминание о съёмке
 
 🎬 Проект: {project_name}
 📅 Дата: {date_str}
 🕐 Время: {time_str}
-⏱ Длительность: {duration} ч
+⏱ Длительность: {duration_hours:.1f} ч
 📍 Адрес: {address}
 
 👤 Клиент: {client_name}
