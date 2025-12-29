@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { formatPhoneNumber as formatPhone } from '@/utils/phoneFormat';
-import { useEffect, useState } from 'react';
+import LocationSelector from './LocationSelector';
+import { useState } from 'react';
 
 interface UserSettings {
   email: string;
@@ -187,6 +188,28 @@ const ContactInfoCard = ({
               <span className="font-medium text-xs md:text-sm">Сначала сохраните email</span>
             </div>
           ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm md:text-base text-gray-900 dark:text-gray-100">Местоположение</Label>
+          <LocationSelector
+            country={settings.country || 'Россия'}
+            region={settings.region || ''}
+            city={settings.city || ''}
+            onLocationChange={async (country, region, city) => {
+              if (country && country !== settings.country) {
+                await handleUpdateContact('country', country);
+              }
+              if (region && region !== settings.region) {
+                await handleUpdateContact('region', region);
+              }
+              if (city && city !== settings.city) {
+                await handleUpdateContact('city', city);
+              }
+              await loadSettings();
+            }}
+            autoOpen={false}
+          />
         </div>
 
         <div className="space-y-2">
