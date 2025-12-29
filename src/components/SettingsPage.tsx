@@ -30,6 +30,8 @@ interface SettingsPageProps {
 const USER_SETTINGS_API = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
 const SETTINGS_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
 
+console.log('[SETTINGS_PAGE] Using API endpoints:', { USER_SETTINGS_API, SETTINGS_API });
+
 const SettingsPage = ({ userId }: SettingsPageProps) => {
   const [settings, setSettings] = useState<UserSettings>({
     email: '',
