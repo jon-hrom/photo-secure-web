@@ -58,13 +58,8 @@ export const usePhotoBankApi = (
         headers: { 'X-User-Id': userId }
       });
       const data = await res.json();
-      console.log('[PHOTOBANK] Received photos:', data.photos?.length || 0);
-      if (data.photos && data.photos.length > 0) {
-        console.log('[PHOTOBANK] First photo sample:', data.photos[0]);
-      }
       setPhotos(data.photos || []);
     } catch (error) {
-      console.error('[PHOTOBANK] Error fetching photos:', error);
       toast({
         title: 'Ошибка',
         description: 'Не удалось загрузить фотографии',

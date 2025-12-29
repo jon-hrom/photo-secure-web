@@ -27,11 +27,9 @@ export const loadFaceDetectionModels = async (): Promise<boolean> => {
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
     ]);
     modelsLoaded = true;
-    console.log('✅ Face detection models loaded successfully');
     return true;
   } catch (error) {
     console.warn('⚠️ Face detection models not found. Face detection will be disabled.');
-    console.warn('To enable: Download models to public/models/ folder');
     return false;
   }
 };

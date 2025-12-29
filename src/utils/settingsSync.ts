@@ -13,7 +13,6 @@ export class SettingsSync {
       this.channel = new BroadcastChannel(CHANNEL_NAME);
       this.channel.onmessage = (event) => {
         if (event.data.type === 'settings_updated') {
-          console.log('🔔 Settings update notification received');
           this.handleSettingsUpdate();
         }
       };
@@ -23,7 +22,6 @@ export class SettingsSync {
   private handleSettingsUpdate() {
     // Clear cache
     localStorage.removeItem(CACHE_KEY);
-    console.log('🔄 Settings cache cleared due to admin update');
 
     // Notify UI to show toast
     if (this.onUpdateCallback) {
@@ -38,7 +36,6 @@ export class SettingsSync {
   public notifyAllUsers() {
     if (this.channel) {
       this.channel.postMessage({ type: 'settings_updated' });
-      console.log('📢 Settings update broadcasted to all users');
     }
   }
 

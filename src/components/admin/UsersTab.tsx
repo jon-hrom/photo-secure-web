@@ -65,9 +65,6 @@ export const UsersTab = ({ users, plans, onUpdateUser }: UsersTabProps) => {
 
   const handleOpenDialog = (user: User) => {
     const plan = plans.find(p => p.plan_id === user.plan_id);
-    console.log('[EDIT_USER] Opening dialog for user:', user);
-    console.log('[EDIT_USER] Found plan:', plan);
-    console.log('[EDIT_USER] All plans:', plans);
     setEditingUser({
       ...user,
       plan_id: user.plan_id || null,
@@ -136,10 +133,8 @@ export const UsersTab = ({ users, plans, onUpdateUser }: UsersTabProps) => {
                               <Select
                                 value={editingUser?.plan_id ? editingUser.plan_id.toString() : 'none'}
                                 onValueChange={(value) => {
-                                  console.log('[EDIT_USER] Plan selected:', value);
                                   const planId = value !== 'none' ? Number(value) : null;
                                   const selectedPlan = plans.find(p => p.plan_id === planId);
-                                  console.log('[EDIT_USER] Selected plan:', selectedPlan);
                                   setEditingUser({
                                     ...editingUser,
                                     plan_id: planId,

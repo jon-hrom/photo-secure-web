@@ -15,7 +15,6 @@ export const sendBookingNotification = async (params: SendBookingNotificationPar
     const postboxSecret = import.meta.env.VITE_POSTBOX_SECRET_ACCESS_KEY;
     
     if (!postboxKeyId || !postboxSecret) {
-      console.warn('Email credentials not configured');
       return false;
     }
 
@@ -158,15 +157,6 @@ export const scheduleBookingNotification = (
   const hoursBeforeText = notificationTime >= 24 
     ? `${notificationTime / 24} ${notificationTime === 24 ? 'день' : notificationTime === 48 ? 'дня' : 'недель'}`
     : `${notificationTime} ${notificationTime === 1 ? 'час' : notificationTime <= 4 ? 'часа' : 'часов'}`;
-
-  console.log('Notification scheduled:', {
-    bookingDate,
-    bookingTime,
-    notificationTime,
-    clientEmail,
-    clientName,
-    hoursBeforeText
-  });
 
   toast.info(`Уведомление будет отправлено за ${hoursBeforeText} до встречи на ${clientEmail}`);
 };

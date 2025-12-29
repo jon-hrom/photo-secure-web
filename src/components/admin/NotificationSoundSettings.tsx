@@ -72,7 +72,7 @@ const NotificationSoundSettings = () => {
       const soundUrl = customSound || defaultSound;
       const audio = new Audio(soundUrl);
       audio.volume = 0.5;
-      audio.play().catch(err => console.log('Sound play failed:', err));
+      audio.play().catch(() => {});
       toast.success('Проигрывается тестовый звук');
     } catch (error) {
       console.error('Error playing test sound:', error);

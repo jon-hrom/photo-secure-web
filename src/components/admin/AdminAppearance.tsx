@@ -75,7 +75,6 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
       try {
         const parsed = JSON.parse(savedMobileImages);
         setMobileBackgroundImages(parsed);
-        console.log('[ADMIN_APPEARANCE] Loaded mobile backgrounds:', parsed);
       } catch (e) {
         console.error('[ADMIN_APPEARANCE] Failed to parse mobile backgrounds:', e);
         localStorage.removeItem('mobileBackgroundImages');

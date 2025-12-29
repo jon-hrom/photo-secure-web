@@ -100,12 +100,10 @@ const DesktopBackgroundManager = ({
       );
 
       if (!response.ok) {
-        console.error('Pexels API error:', response.status, response.statusText);
         throw new Error('Search failed');
       }
 
       const data = await response.json();
-      console.log('Pexels response:', data);
 
       if (!data.photos || data.photos.length === 0) {
         toast({

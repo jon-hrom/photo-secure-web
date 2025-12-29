@@ -44,20 +44,17 @@ export const useVerificationChecks = ({
   useEffect(() => {
     const checkEmailVerification = async () => {
       if (!isAuthenticated || !userId) {
-        console.log('[EMAIL_CHECK] Skipping - not authenticated or no userId:', { isAuthenticated, userId });
         setEmailVerified(false);
         setShowEmailVerification(false);
         return;
       }
       
       if (currentPage !== 'dashboard') {
-        console.log('[EMAIL_CHECK] Skipping - not on dashboard page');
         return;
       }
       
       const userIdFromStorage = localStorage.getItem('userId');
       if (!userIdFromStorage) {
-        console.log('[EMAIL_CHECK] No userId in localStorage, waiting...');
         return;
       }
       
@@ -81,7 +78,6 @@ export const useVerificationChecks = ({
       }
       
       if (isAdminUser(userEmail, vkUserData)) {
-        console.log('[EMAIL_CHECK] Main admin detected - skipping verification');
         setEmailVerified(true);
         setShowEmailVerification(false);
         return;
@@ -91,11 +87,9 @@ export const useVerificationChecks = ({
       const dismissed = localStorage.getItem(dismissedKey);
       
       try {
-        console.log('[EMAIL_CHECK] Fetching user data for userId:', userId);
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
         
         if (!res.ok) {
-          console.error('[EMAIL_CHECK] API returned error:', res.status);
           return;
         }
         

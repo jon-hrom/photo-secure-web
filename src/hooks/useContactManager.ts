@@ -36,8 +36,6 @@ export const useContactManager = (
       toast.error('Требуется авторизация');
       return;
     }
-
-    console.log('[CONTACT_MANAGER] Updating contact:', { field, value, userId });
     if (field === 'email') {
       setIsSavingEmail(true);
     } else if (field === 'phone') {
@@ -56,7 +54,6 @@ export const useContactManager = (
       const finalValue = field === 'phone' ? formatPhone(value) : value;
       
       const requestBody = { [field]: finalValue };
-      console.log('[CONTACT_MANAGER] Request body:', requestBody);
       
       const response = await fetch(USER_SETTINGS_API, {
         method: 'POST',
@@ -68,7 +65,6 @@ export const useContactManager = (
       });
 
       const data = await response.json();
-      console.log('[CONTACT_MANAGER] Update response:', { status: response.status, data });
 
       if (response.ok && data.success) {
         if (settings) {
@@ -86,11 +82,9 @@ export const useContactManager = (
         }
         toast.success('Контактные данные обновлены');
       } else {
-        console.error('[CONTACT_MANAGER] Update error:', data);
         toast.error(data.error || 'Ошибка обновления');
       }
     } catch (error) {
-      console.error('[CONTACT_MANAGER] Update exception:', error);
       toast.error('Ошибка подключения к серверу');
     } finally {
       if (field === 'email') {

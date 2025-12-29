@@ -15,7 +15,6 @@ interface SendSMSResponse {
  */
 export async function sendVerificationCode(phone: string): Promise<SendSMSResponse> {
   try {
-    console.log('[SMS] Requesting verification code for:', phone);
     
     const response = await fetch(SETTINGS_API, {
       method: 'POST',
@@ -31,7 +30,6 @@ export async function sendVerificationCode(phone: string): Promise<SendSMSRespon
     const result = await response.json();
     
     if (!result.ok) {
-      console.error('[SMS] Error:', result.error);
       return {
         ok: false,
         error: result.error || 'Ошибка отправки SMS',
@@ -39,7 +37,6 @@ export async function sendVerificationCode(phone: string): Promise<SendSMSRespon
       };
     }
     
-    console.log('[SMS] Verification code sent');
     return result;
   } catch (error) {
     console.error('[SMS] Exception:', error);
@@ -55,7 +52,6 @@ export async function sendVerificationCode(phone: string): Promise<SendSMSRespon
  */
 export async function verifyPhoneCode(phone: string, code: string): Promise<SendSMSResponse> {
   try {
-    console.log('[SMS] Verifying code for:', phone);
     
     const response = await fetch(SETTINGS_API, {
       method: 'POST',
@@ -72,14 +68,12 @@ export async function verifyPhoneCode(phone: string, code: string): Promise<Send
     const result = await response.json();
     
     if (!result.ok) {
-      console.error('[SMS] Verification failed:', result.error);
       return {
         ok: false,
         error: result.error || 'Неверный код'
       };
     }
     
-    console.log('[SMS] Code verified successfully');
     return result;
   } catch (error) {
     console.error('[SMS] Exception:', error);

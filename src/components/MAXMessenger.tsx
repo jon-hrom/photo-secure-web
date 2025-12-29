@@ -86,7 +86,6 @@ const MAXMessenger = ({ userId, isOpen = false, onClose }: MAXMessengerProps) =>
         
         return audioContext;
       } catch (e) {
-        console.log('Web Audio API not supported:', e);
         return null;
       }
     };
@@ -235,7 +234,6 @@ const MAXMessenger = ({ userId, isOpen = false, onClose }: MAXMessengerProps) =>
       try {
         audioRef.current.play();
       } catch (e) {
-        console.log('Audio play error:', e);
       }
     }
   };

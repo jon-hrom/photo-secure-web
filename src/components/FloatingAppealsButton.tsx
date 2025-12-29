@@ -33,11 +33,8 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
 
   const fetchAppeals = async () => {
     if (!isAdmin) {
-      console.log('[APPEALS] Not admin, skipping fetch');
       return;
     }
-
-    console.log('[APPEALS] Fetching appeals for admin userId:', userId);
 
     try {
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
@@ -50,26 +47,19 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       });
 
       const data = await response.json();
-      console.log('[APPEALS] Response:', { status: response.status, data });
 
       if (response.ok && data.appeals) {
-        console.log('[APPEALS] Got appeals:', data.appeals.length);
         setAppeals(data.appeals);
         const unread = data.appeals.filter((a: Appeal) => !a.is_read && !a.is_archived).length;
-        console.log('[APPEALS] Unread count:', unread);
         
         if (!hasPlayedInitialSound.current && unread > 0) {
-          console.log('[APPEALS] Playing initial sound');
           playNotificationSound();
           hasPlayedInitialSound.current = true;
         } else if (unread > previousUnreadCount.current && previousUnreadCount.current >= 0) {
-          console.log('[APPEALS] Playing new appeal sound');
           playNotificationSound();
         }
         previousUnreadCount.current = unread;
         setUnreadCount(unread);
-      } else {
-        console.error('[APPEALS] Error in response:', data);
       }
     } catch (error) {
       console.error('[APPEALS] Error fetching appeals:', error);
@@ -96,9 +86,8 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       const soundUrl = customSound || 'data:audio/wav;base64,UklGRmQEAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAEAACAP4CAf4B/gICAgH+AgIB/gH+AgICAgICAf4CAgH+Af4CAgICAgICAgH+AgICAgH+Af4B/gICAgICAf4CAgICAf4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+AgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+AgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gH+Af4B/gH+AgICAgICAgICAgICAgICAgA==';
       const audio = new Audio(soundUrl);
       audio.volume = 0.5;
-      audio.play().catch(err => console.log('Sound play failed:', err));
+      audio.play().catch(() => {});
     } catch (error) {
-      console.error('Error playing notification sound:', error);
     }
   };
 

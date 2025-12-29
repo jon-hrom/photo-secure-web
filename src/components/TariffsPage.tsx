@@ -51,25 +51,21 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
 
   const loadPlans = async () => {
     try {
-      console.log('[TARIFFS] Loading plans from backend...');
       // Загружаем без admin_key, т.к. это публичная страница
       const response = await fetch(`${STORAGE_ADMIN_URL}?action=list-plans&admin_key=public`);
       
       if (!response.ok) {
-        console.error('[TARIFFS] Failed to load plans:', response.status);
         toast.error('Не удалось загрузить тарифы');
         setLoading(false);
         return;
       }
 
       const data = await response.json();
-      console.log('[TARIFFS] Loaded plans:', data);
       
       // Фильтруем только активные тарифы для пользователей
       const activePlans = (data.plans || []).filter((p: Plan) => p.is_active);
       setPlans(activePlans);
     } catch (error) {
-      console.error('[TARIFFS] Error loading plans:', error);
       toast.error('Ошибка загрузки тарифов');
     } finally {
       setLoading(false);
