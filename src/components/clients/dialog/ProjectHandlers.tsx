@@ -132,7 +132,39 @@ export const createAddProjectHandler = (
       onProjectCreated();
     }
 
-    await sendProjectNotification(localClient, project, photographerName);
+    // Отправляем уведомления только если есть дата и время съёмки
+    if (newProject.startDate && newProject.shooting_time) {
+      try {
+        const userId = localStorage.getItem('userId');
+        const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
+        
+        // Получаем реальный ID проекта из базы
+        const clientResponse = await fetch(`${CLIENTS_API}?userId=${userId}`, {
+          headers: { 'X-User-Id': userId || '' }
+        });
+        
+        if (clientResponse.ok) {
+          const clientsData = await clientResponse.json();
+          const updatedClientData = clientsData.find((c: Client) => c.id === localClient.id);
+          
+          // Находим созданный проект по имени и дате
+          const realProject = updatedClientData?.projects?.find((p: Project) => 
+            p.name === newProject.name && 
+            p.startDate === new Date(newProject.startDate).toISOString() &&
+            p.id !== tempProjectId
+          );
+          
+          if (realProject) {
+            // Отправляем уведомление с реальным ID проекта
+            await sendProjectNotification(localClient, realProject, photographerName);
+          } else {
+            console.warn('[PROJECT] Could not find real project ID for notifications');
+          }
+        }
+      } catch (error) {
+        console.error('[PROJECT] Error sending notifications:', error);
+      }
+    }
   };
 };
 
