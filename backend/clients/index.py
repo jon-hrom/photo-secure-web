@@ -695,6 +695,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif method == 'PUT':
             body = json.loads(event.get('body', '{}'))
             client_id = body.get('id')
+            user_id = body.get('user_id')
             
             cur.execute('''
                 UPDATE t_p28211681_photo_secure_web.clients 
