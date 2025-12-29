@@ -176,14 +176,18 @@ export const useClientsHandlers = ({
           const result = await res.json();
           createdClientId = result?.id || null;
           isDuplicate = result?.duplicate || false;
+          console.log('[CLIENT_ADD] Server response:', { createdClientId, isDuplicate, result });
         } catch (err) {
+          console.error('[CLIENT_ADD] Failed to parse response:', err);
         }
         
         if (isDuplicate) {
+          console.log('[CLIENT_ADD] Duplicate client detected, ID:', createdClientId);
           toast.info('Клиент с такими данными уже существует', {
             description: 'Открываю карточку существующего клиента'
           });
         } else {
+          console.log('[CLIENT_ADD] New client created, ID:', createdClientId);
           toast.success('Клиент успешно добавлен');
         }
         
@@ -201,16 +205,108 @@ export const useClientsHandlers = ({
             throw new Error('Client ID not returned from server');
           }
           
-          // Если дубликат - загружаем полные данные существующего клиента из списка
+          // Если дубликат - загружаем свежий список и ищем клиента
           if (isDuplicate) {
-            await loadClients(); // Обновляем список клиентов
-            const existingClient = clients.find(c => c.id === createdClientId);
-            if (existingClient) {
+            console.log('[CLIENT_ADD] Duplicate detected, loading fresh client list');
+            
+            // Загружаем обновлённый список клиентов напрямую из API
+            const freshRes = await fetch(CLIENTS_API, {
+              headers: { 'X-User-Id': userId }
+            });
+            
+            if (!freshRes.ok) {
+              throw new Error('Failed to load fresh client list');
+            }
+            
+            const freshData = await freshRes.json();
+            
+            // Ищем клиента с нужным ID в свежих данных
+            const existingClientRaw = freshData.find((c: any) => c.id === createdClientId);
+            
+            if (existingClientRaw) {
+              console.log('[CLIENT_ADD] Found existing client:', existingClientRaw.id);
+              
+              // Парсим данные клиента в нужный формат
+              const existingClient: Client = {
+                id: existingClientRaw.id,
+                name: existingClientRaw.name,
+                phone: existingClientRaw.phone,
+                email: existingClientRaw.email || '',
+                address: existingClientRaw.address || '',
+                vkProfile: existingClientRaw.vk_profile || '',
+                bookings: (existingClientRaw.bookings || []).map((b: any) => ({
+                  id: b.id,
+                  date: new Date(b.booking_date),
+                  booking_date: b.booking_date,
+                  time: b.booking_time,
+                  booking_time: b.booking_time,
+                  title: b.title || '',
+                  description: b.description || '',
+                  notificationEnabled: b.notification_enabled,
+                  notification_enabled: b.notification_enabled,
+                  notificationTime: b.notification_time || 24,
+                  notification_time: b.notification_time || 24,
+                  clientId: b.client_id,
+                  client_id: b.client_id
+                })),
+                projects: (existingClientRaw.projects || []).map((p: any) => ({
+                  id: p.id,
+                  name: p.name,
+                  status: p.status,
+                  budget: parseFloat(p.budget) || 0,
+                  startDate: p.start_date || p.startDate,
+                  description: p.description || '',
+                  shootingStyleId: p.shooting_style_id || p.shootingStyleId || undefined,
+                  shooting_time: p.shooting_time,
+                  shooting_duration: p.shooting_duration,
+                  shooting_address: p.shooting_address,
+                  add_to_calendar: p.add_to_calendar
+                })),
+                payments: (existingClientRaw.payments || []).map((pay: any) => ({
+                  id: pay.id,
+                  amount: parseFloat(pay.amount) || 0,
+                  date: pay.payment_date || pay.date,
+                  status: pay.status,
+                  method: pay.method,
+                  description: pay.description || '',
+                  projectId: pay.project_id || pay.projectId
+                })),
+                documents: (existingClientRaw.documents || []).map((d: any) => ({
+                  id: d.id,
+                  name: d.name,
+                  fileUrl: d.file_url,
+                  uploadDate: d.upload_date
+                })),
+                comments: (existingClientRaw.comments || []).map((c: any) => ({
+                  id: c.id,
+                  author: c.author,
+                  text: c.text,
+                  date: c.comment_date || c.date
+                })),
+                messages: (existingClientRaw.messages || []).map((m: any) => ({
+                  id: m.id,
+                  type: m.type,
+                  author: m.author,
+                  content: m.content,
+                  date: m.message_date || m.date
+                }))
+              };
+              
+              // Обновляем список клиентов в фоне
+              loadClients();
+              
               return existingClient;
             }
+            
+            throw new Error('Existing client not found in fresh data');
           }
           
-          // Если новый клиент - формируем объект из данных формы
+          // Если новый клиент - формируем объект из данных формы и обновляем список
+          console.log('[CLIENT_ADD] New client created, updating list');
+          
+          // Обновляем список клиентов в фоне
+          loadClients();
+          
           return {
             id: createdClientId,
             name: clientNameForSearch,
@@ -234,10 +330,12 @@ export const useClientsHandlers = ({
         try {
           // Формируем данные клиента
           const parsedClient = await dataPromise;
+          console.log('[CLIENT_ADD] Client data ready:', parsedClient.id, parsedClient.name);
           setSelectedClient(parsedClient);
           
           // Считаем сколько времени прошло
           const elapsedTime = Date.now() - startTime;
+          console.log('[CLIENT_ADD] Data loaded in', elapsedTime, 'ms');
           
           // Показываем прогресс минимум 500мс для плавности
           const minDisplayTime = 500;
@@ -247,6 +345,7 @@ export const useClientsHandlers = ({
           
           // Если данные готовы раньше 30 секунд - открываем сразу
           if (elapsedTime < maxWaitTime) {
+            console.log('[CLIENT_ADD] Opening detail dialog');
             setIsCountdownOpen(false);
             setTimeout(() => {
               setIsDetailDialogOpen(true);
@@ -257,17 +356,20 @@ export const useClientsHandlers = ({
             if (remainingTime > 0) {
               await new Promise(resolve => setTimeout(resolve, remainingTime));
             }
+            console.log('[CLIENT_ADD] Opening detail dialog (after wait)');
             setIsDetailDialogOpen(true);
           }
         } catch (error) {
-          console.error('[CLIENT_ADD] Error:', error);
+          console.error('[CLIENT_ADD] Error loading client data:', error);
           const elapsedTime = Date.now() - startTime;
           const remainingTime = maxWaitTime - elapsedTime;
           if (remainingTime > 0) {
             await new Promise(resolve => setTimeout(resolve, remainingTime));
           }
           setIsCountdownOpen(false);
-          toast.error('Не удалось загрузить данные клиента');
+          toast.error('Не удалось загрузить данные клиента', {
+            description: 'Попробуйте обновить страницу'
+          });
         }
         
         // Обновляем список клиентов ОДИН РАЗ в конце
