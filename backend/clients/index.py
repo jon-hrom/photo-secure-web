@@ -137,6 +137,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     headers = event.get('headers', {})
     photographer_id = headers.get('X-User-Id') or headers.get('x-user-id')
+    user_id = photographer_id  # Alias for compatibility
     
     if not photographer_id:
         return {
