@@ -356,9 +356,12 @@ export const useClientsHandlers = ({
               setIsDetailDialogOpen(true);
             }, 100);
             
-            // Сохраняем данные открытой карточки для индикатора
-            if (saveOpenCardData && parsedClient) {
+            // Сохраняем данные открытой карточки для индикатора ТОЛЬКО для новых клиентов
+            if (saveOpenCardData && parsedClient && !isDuplicate) {
+              console.log('[CLIENT_ADD] Saving open card data (fast path):', parsedClient.id, parsedClient.name);
               saveOpenCardData(parsedClient.id, parsedClient.name);
+            } else if (isDuplicate) {
+              console.log('[CLIENT_ADD] Duplicate detected, NOT saving open card data');
             }
           } else {
             // Если что-то пошло не так - ждём окончания countdown
@@ -369,9 +372,12 @@ export const useClientsHandlers = ({
             console.log('[CLIENT_ADD] Opening detail dialog (after wait)');
             setIsDetailDialogOpen(true);
             
-            // Сохраняем данные открытой карточки для индикатора
-            if (saveOpenCardData && parsedClient) {
+            // Сохраняем данные открытой карточки для индикатора ТОЛЬКО для новых клиентов
+            if (saveOpenCardData && parsedClient && !isDuplicate) {
+              console.log('[CLIENT_ADD] Saving open card data (slow path):', parsedClient.id, parsedClient.name);
               saveOpenCardData(parsedClient.id, parsedClient.name);
+            } else if (isDuplicate) {
+              console.log('[CLIENT_ADD] Duplicate detected, NOT saving open card data');
             }
           }
         } catch (error) {

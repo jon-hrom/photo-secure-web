@@ -190,7 +190,9 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
     const saved = loadClientData();
     const { hasUnsaved } = hasAnyUnsavedProject();
     const { hasOpen } = hasAnyOpenCard();
-    return (saved ? (saved.name || saved.phone || saved.email || false) : false) || hasUnsaved || hasOpen;
+    const result = (saved ? (saved.name || saved.phone || saved.email || false) : false) || hasUnsaved || hasOpen;
+    console.log('[hasUnsavedClientData]', { saved: !!saved, hasUnsaved, hasOpen, result });
+    return result;
   };
 
   const hasUnsavedProjectData = (clientId: number) => {
