@@ -89,9 +89,11 @@ def send_photographer_reminder(photographer_phone: str, photographer_name: str, 
     
     date_str = format_date_ru(project_data.get('startDate', ''))
     time_str = project_data.get('shooting_time', '10:00')
-    # Ensure time is in HH:MM format
+    # Ensure time is in HH:MM format (handle HH:MM:SS format)
     if time_str and ':' in time_str:
-        hours_part, minutes_part = time_str.split(':')
+        time_parts = time_str.split(':')
+        hours_part = time_parts[0]
+        minutes_part = time_parts[1] if len(time_parts) > 1 else '00'
         time_str = f"{hours_part.zfill(2)}:{minutes_part.zfill(2)}"
     address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
@@ -149,9 +151,11 @@ def send_client_reminder(client_phone: str, photographer_name: str, project_data
     
     date_str = format_date_ru(project_data.get('startDate', ''))
     time_str = project_data.get('shooting_time', '10:00')
-    # Ensure time is in HH:MM format
+    # Ensure time is in HH:MM format (handle HH:MM:SS format)
     if time_str and ':' in time_str:
-        hours_part, minutes_part = time_str.split(':')
+        time_parts = time_str.split(':')
+        hours_part = time_parts[0]
+        minutes_part = time_parts[1] if len(time_parts) > 1 else '00'
         time_str = f"{hours_part.zfill(2)}:{minutes_part.zfill(2)}"
     address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
@@ -239,11 +243,13 @@ def check_and_send_reminders():
     }
     
     try:
-        # Получаем всех пользователей (фотографов)
+        # Получаем всех пользователей (фотографов) с профилями
         with conn.cursor() as cur:
             cur.execute(f"""
-                SELECT id, phone, email, display_name, phone_verified
-                FROM {SCHEMA}.users
+                SELECT u.id, u.phone, u.email, up.full_name as display_name
+                FROM "{SCHEMA}"."users" u
+                LEFT JOIN "{SCHEMA}"."user_profiles" up ON u.id = up.user_id
+                WHERE u.is_active = true AND u.is_blocked = false
             """)
             photographers = cur.fetchall()
         
@@ -253,7 +259,6 @@ def check_and_send_reminders():
             photographer_id = photographer['id']
             photographer_phone = photographer.get('phone')
             photographer_name = photographer.get('display_name') or photographer.get('email', 'Фотограф')
-            photographer_phone_verified = photographer.get('phone_verified', False)
             
             # Получаем все проекты фотографа
             try:
