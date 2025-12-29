@@ -96,20 +96,40 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
         time_str = f"{hours.zfill(2)}:{minutes.zfill(2)}"
     address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
+    description = project_data.get('description', '')
+    duration_minutes = project_data.get('shooting_duration', 120)
+    duration_hours = int(duration_minutes / 60) if duration_minutes else 2
     
-    message = f"""📸 Новая бронь на фотосессию
-
-🎬 Проект: {project_name}
-📅 Дата: {date_str}
-🕐 Время: {time_str}
-📍 Адрес: {address}
-
-👤 Фотограф: {photographer_name}
-📞 Телефон: {photographer_phone}
-
-Если у вас есть вопросы или нужно перенести съёмку, свяжитесь с фотографом.
-
-До встречи! 🎥"""
+    # Получаем стиль съёмки
+    shooting_style = project_data.get('shooting_style_name', '')
+    
+    message_parts = [
+        f"📸 Новая бронь на фотосессию от foto-mix",
+        "",
+        f"🎬 Услуга: {project_name}",
+        f"📅 Дата: {date_str}",
+        f"🕐 Время: {time_str}",
+        f"⏱ Длительность: {duration_hours} ч",
+        f"📍 Место: {address}"
+    ]
+    
+    if shooting_style:
+        message_parts.append(f"🎨 Стиль съёмки: {shooting_style}")
+    
+    if description:
+        message_parts.append(f"\n📝 Пожелания: {description}")
+    
+    message_parts.extend([
+        "",
+        f"👤 Фотограф: {photographer_name}",
+        f"📞 Телефон фотографа: {photographer_phone}",
+        "",
+        "Если у вас есть вопросы или нужно перенести съёмку, свяжитесь с фотографом.",
+        "",
+        "До встречи на съёмке! 📷"
+    ])
+    
+    message = "\n".join(message_parts)
     
     try:
         result = send_via_green_api(
@@ -138,6 +158,7 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
     client_name = client_data.get('name', 'Клиент')
     client_phone = client_data.get('phone', 'не указан')
     client_email = client_data.get('email', 'не указан')
+    client_address = client_data.get('address', '')
     
     date_str = format_date_ru(project_data.get('startDate', ''))
     time_str = project_data.get('shooting_time', '10:00')
@@ -147,25 +168,49 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
         hours = time_parts[0]
         minutes = time_parts[1] if len(time_parts) > 1 else '00'
         time_str = f"{hours.zfill(2)}:{minutes.zfill(2)}"
-    address = project_data.get('shooting_address', 'Адрес не указан')
+    shooting_address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
+    description = project_data.get('description', '')
+    budget = project_data.get('budget', 0)
     duration_minutes = project_data.get('shooting_duration', 120)
-    # Конвертируем минуты в часы для отображения (целое число)
     duration_hours = int(duration_minutes / 60) if duration_minutes else 2
     
-    message = f"""📸 Напоминание о съёмке
-
-🎬 Проект: {project_name}
-📅 Дата: {date_str}
-🕐 Время: {time_str}
-⏱ Длительность: {duration_hours} ч
-📍 Адрес: {address}
-
-👤 Клиент: {client_name}
-📞 Телефон: {client_phone}
-📧 Email: {client_email}
-
-Не забудьте проверить оборудование перед выездом! 📷"""
+    # Получаем стиль съёмки
+    shooting_style = project_data.get('shooting_style_name', '')
+    
+    message_parts = [
+        f"📸 Новый проект съёмки (foto-mix)",
+        "",
+        f"🎬 Проект: {project_name}",
+        f"💰 Бюджет: {budget} ₽",
+        f"📅 Дата: {date_str}",
+        f"🕐 Время: {time_str}",
+        f"⏱ Длительность: {duration_hours} ч",
+        f"📍 Место съёмки: {shooting_address}"
+    ]
+    
+    if shooting_style:
+        message_parts.append(f"🎨 Стиль: {shooting_style}")
+    
+    if description:
+        message_parts.append(f"\n📝 Пожелания клиента: {description}")
+    
+    message_parts.extend([
+        "",
+        f"👤 Клиент: {client_name}",
+        f"📞 Телефон: {client_phone}",
+        f"📧 Email: {client_email}"
+    ])
+    
+    if client_address:
+        message_parts.append(f"🏠 Адрес клиента: {client_address}")
+    
+    message_parts.extend([
+        "",
+        "Не забудьте проверить оборудование перед выездом! 📷"
+    ])
+    
+    message = "\n".join(message_parts)
     
     try:
         result = send_via_green_api(
@@ -267,7 +312,7 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Project or client not found'})
                 }
             
-            # Получаем данные фотографа
+            # Получаем данные фотографа и стиль съёмки
             with conn.cursor() as cur:
                 cur.execute(f"""
                     SELECT id, email, phone, display_name
@@ -284,6 +329,17 @@ def handler(event: dict, context) -> dict:
                     }
                 
                 photographer_data = dict(photographer_row)
+                
+                # Получаем название стиля съёмки, если указан
+                shooting_style_id = project_data.get('shootingStyleId')
+                if shooting_style_id:
+                    cur.execute(f"""
+                        SELECT name FROM {SCHEMA}.shooting_styles
+                        WHERE id = {escape_sql(shooting_style_id)}
+                    """)
+                    style_row = cur.fetchone()
+                    if style_row:
+                        project_data['shooting_style_name'] = style_row['name']
             
             results = {}
             
