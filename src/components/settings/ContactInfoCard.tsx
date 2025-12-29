@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { formatPhoneNumber as formatPhone } from '@/utils/phoneFormat';
-import LocationSelector from './LocationSelector';
 import { useEffect, useState } from 'react';
 
 interface UserSettings {
@@ -68,25 +67,7 @@ const ContactInfoCard = ({
   setIsEditingDisplayName,
   isSavingDisplayName,
 }: ContactInfoCardProps) => {
-  const [shouldHighlight, setShouldHighlight] = useState(false);
-  
-  console.log('[CONTACT_INFO] Rendering with location:', {
-    country: settings.country,
-    region: settings.region,
-    city: settings.city
-  });
 
-  useEffect(() => {
-    const highlight = sessionStorage.getItem('highlightLocation');
-    if (highlight === 'true') {
-      setShouldHighlight(true);
-      sessionStorage.removeItem('highlightLocation');
-      
-      setTimeout(() => {
-        setShouldHighlight(false);
-      }, 3000);
-    }
-  }, []);
 
   return (
     <Card className="shadow-xl">
@@ -269,44 +250,6 @@ const ContactInfoCard = ({
                 <Icon name="Save" size={18} />
               </Button>
             )}
-          </div>
-
-          <div 
-            className={`transition-all duration-300 ${
-              shouldHighlight 
-                ? 'ring-4 ring-orange-400 ring-opacity-50 rounded-xl p-3 bg-orange-50 dark:bg-orange-950/20' 
-                : ''
-            }`}
-            data-location-section
-          >
-            <LocationSelector
-              country={settings.country || 'Россия'}
-              region={settings.region || ''}
-              city={settings.city || ''}
-              onLocationChange={async (country, region, city) => {
-                console.log('[CONTACT_INFO] Location change:', { country, region, city });
-                console.log('[CONTACT_INFO] Current settings:', { 
-                  country: settings.country, 
-                  region: settings.region, 
-                  city: settings.city 
-                });
-                
-                if (country && country !== settings.country) {
-                  console.log('[CONTACT_INFO] Saving country:', country);
-                  await handleUpdateContact('country', country);
-                }
-                if (region && region !== settings.region) {
-                  console.log('[CONTACT_INFO] Saving region:', region);
-                  await handleUpdateContact('region', region);
-                }
-                if (city && city !== settings.city) {
-                  console.log('[CONTACT_INFO] Saving city:', city);
-                  await handleUpdateContact('city', city);
-                }
-                await loadSettings();
-              }}
-              autoOpen={shouldHighlight}
-            />
           </div>
 
           {phoneVerified ? (
