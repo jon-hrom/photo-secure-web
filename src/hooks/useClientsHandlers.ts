@@ -87,7 +87,8 @@ export const useClientsHandlers = ({
       return;
     }
     
-    // Проверяем наличие города в профиле
+    // Проверяем наличие города в профиле (мягкая проверка - не блокируем создание)
+    let cityWarningShown = false;
     try {
       const settingsResponse = await fetch('https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994', {
         method: 'GET',
@@ -97,47 +98,38 @@ export const useClientsHandlers = ({
         }
       });
       
-      if (!settingsResponse.ok) {
-        console.error('[CLIENT_ADD] Settings API error:', settingsResponse.status);
-        toast.error('Не удалось проверить настройки', {
-          description: 'Попробуйте ещё раз или перезагрузите страницу'
-        });
-        return;
-      }
-      
-      const settingsData = await settingsResponse.json();
-      
-      if (!settingsData.success || !settingsData.settings || !settingsData.settings.city || !settingsData.settings.region) {
-        toast.error('Укажите ваш город в настройках', {
-          description: 'Перейдите в Настройки → Профиль → выберите Область и Город',
-          duration: 6000,
-          action: {
-            label: 'Открыть настройки',
-            onClick: () => {
-              sessionStorage.setItem('highlightLocation', 'true');
-              if (navigateToSettings) {
-                navigateToSettings();
-              } else {
-                window.location.hash = '#/webapp/settings';
-              }
-              setTimeout(() => {
-                const locationSection = document.querySelector('[data-location-section]');
-                if (locationSection) {
-                  locationSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (settingsResponse.ok) {
+        const settingsData = await settingsResponse.json();
+        
+        // Если города нет - показываем предупреждение, но НЕ блокируем создание
+        if (!settingsData.success || !settingsData.settings || !settingsData.settings.city || !settingsData.settings.region) {
+          toast.warning('Рекомендуем указать ваш город в настройках', {
+            description: 'Это поможет клиентам найти вас. Перейдите в Настройки → Профиль',
+            duration: 5000,
+            action: {
+              label: 'Настройки',
+              onClick: () => {
+                sessionStorage.setItem('highlightLocation', 'true');
+                if (navigateToSettings) {
+                  navigateToSettings();
+                } else {
+                  window.location.hash = '#/webapp/settings';
                 }
-              }, 300);
+                setTimeout(() => {
+                  const locationSection = document.querySelector('[data-location-section]');
+                  if (locationSection) {
+                    locationSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }, 300);
+              }
             }
-          }
-        });
-        setIsAddDialogOpen(false);
-        return;
+          });
+          cityWarningShown = true;
+        }
       }
     } catch (error) {
-      console.error('[CLIENT_ADD] Failed to check city:', error);
-      toast.error('Ошибка сети', {
-        description: 'Проверьте подключение к интернету и попробуйте снова'
-      });
-      return;
+      console.error('[CLIENT_ADD] Failed to check city (non-critical):', error);
+      // Не прерываем создание клиента при ошибке проверки города
     }
     
     // Сохраняем данные клиента до очистки формы
