@@ -25,6 +25,8 @@ const LocationSelector = ({
   const [showCityModal, setShowCityModal] = useState(false);
   const [searchRegion, setSearchRegion] = useState('');
   const [searchCity, setSearchCity] = useState('');
+  
+  console.log('[LOCATION_SELECTOR] Props:', { country, region, city });
 
   useEffect(() => {
     if (autoOpen && !region) {

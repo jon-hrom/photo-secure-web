@@ -69,6 +69,12 @@ const ContactInfoCard = ({
   isSavingDisplayName,
 }: ContactInfoCardProps) => {
   const [shouldHighlight, setShouldHighlight] = useState(false);
+  
+  console.log('[CONTACT_INFO] Rendering with location:', {
+    country: settings.country,
+    region: settings.region,
+    city: settings.city
+  });
 
   useEffect(() => {
     const highlight = sessionStorage.getItem('highlightLocation');
@@ -278,14 +284,23 @@ const ContactInfoCard = ({
               region={settings.region || ''}
               city={settings.city || ''}
               onLocationChange={async (country, region, city) => {
-                // Сохраняем только те поля, которые действительно изменились и не пустые
+                console.log('[CONTACT_INFO] Location change:', { country, region, city });
+                console.log('[CONTACT_INFO] Current settings:', { 
+                  country: settings.country, 
+                  region: settings.region, 
+                  city: settings.city 
+                });
+                
                 if (country && country !== settings.country) {
+                  console.log('[CONTACT_INFO] Saving country:', country);
                   await handleUpdateContact('country', country);
                 }
                 if (region && region !== settings.region) {
+                  console.log('[CONTACT_INFO] Saving region:', region);
                   await handleUpdateContact('region', region);
                 }
                 if (city && city !== settings.city) {
+                  console.log('[CONTACT_INFO] Saving city:', city);
                   await handleUpdateContact('city', city);
                 }
                 await loadSettings();

@@ -74,6 +74,11 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
       const data = await response.json();
       
       console.log('[SETTINGS] Response:', { status: response.status, data });
+      console.log('[SETTINGS] Location data:', { 
+        country: data.settings?.country, 
+        region: data.settings?.region, 
+        city: data.settings?.city 
+      });
       
       if (response.ok && data.success) {
         setSettings(data.settings);
@@ -81,6 +86,12 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
         setEditedPhone(data.settings.phone || '');
         setEditedDisplayName(data.settings.display_name || '');
         setPhoneVerified(!!data.settings.phone);
+        
+        console.log('[SETTINGS] Settings state updated:', {
+          country: data.settings.country,
+          region: data.settings.region,
+          city: data.settings.city
+        });
       } else {
         console.error('[SETTINGS] Load error:', { status: response.status, data });
         toast.error(data.error || 'Ошибка загрузки настроек');
