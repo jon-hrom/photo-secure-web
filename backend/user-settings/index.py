@@ -116,6 +116,7 @@ def get_user_settings(user_id: int) -> Optional[Dict[str, Any]]:
                 WHERE id = {escape_sql(user_id)}
             """)
             user = cur.fetchone()
+            print(f"[USER_SETTINGS] Raw user data from DB: {dict(user) if user else None}")
             
             if not user:
                 return None
@@ -149,6 +150,7 @@ def get_user_settings(user_id: int) -> Optional[Dict[str, Any]]:
             if profile:
                 result.update(dict(profile))
             
+            print(f"[USER_SETTINGS] Returning result with location: country={result.get('country')}, region={result.get('region')}, city={result.get('city')}")
             return result
     finally:
         conn.close()
