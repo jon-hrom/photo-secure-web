@@ -17,6 +17,9 @@ export interface UserSettings {
   phone_verified_at: string | null;
   source: string | null;
   has_password: string;
+  country?: string;
+  region?: string;
+  city?: string;
 }
 
 export const useSettingsData = () => {

@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
 import type { UserSettings } from './useSettingsData';
 
-const SETTINGS_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
+const USER_SETTINGS_API = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
 
 export const useContactManager = (
   settings: UserSettings | null,
@@ -30,14 +30,14 @@ export const useContactManager = (
     setPhoneVerified(!!s.phone);
   };
 
-  const handleUpdateContact = async (field: 'email' | 'phone' | 'display_name', value: string) => {
+  const handleUpdateContact = async (field: 'email' | 'phone' | 'display_name' | 'country' | 'region' | 'city', value: string) => {
     const userId = getUserId();
     if (!userId) {
       toast.error('Требуется авторизация');
       return;
     }
 
-    console.log('[SETTINGS] Updating contact:', { field, value, userId });
+    console.log('[CONTACT_MANAGER] Updating contact:', { field, value, userId });
     if (field === 'email') {
       setIsSavingEmail(true);
     } else if (field === 'phone') {
@@ -55,19 +55,22 @@ export const useContactManager = (
     try {
       const finalValue = field === 'phone' ? formatPhone(value) : value;
       
-      const requestBody = { action: 'update-contact', userId, field, value: finalValue };
-      console.log('[SETTINGS] Request body:', requestBody);
+      const requestBody = { [field]: finalValue };
+      console.log('[CONTACT_MANAGER] Request body:', requestBody);
       
-      const response = await fetch(SETTINGS_API, {
+      const response = await fetch(USER_SETTINGS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
         body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
-      console.log('[SETTINGS] Update response:', { status: response.status, data });
+      console.log('[CONTACT_MANAGER] Update response:', { status: response.status, data });
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         if (settings) {
           setSettings({ ...settings, [field]: finalValue });
         }
@@ -78,14 +81,16 @@ export const useContactManager = (
           return;
         } else if (field === 'email') {
           setEditedEmail(finalValue);
+        } else if (field === 'country' || field === 'region' || field === 'city') {
+          return;
         }
         toast.success('Контактные данные обновлены');
       } else {
-        console.error('[SETTINGS] Update error:', data);
+        console.error('[CONTACT_MANAGER] Update error:', data);
         toast.error(data.error || 'Ошибка обновления');
       }
     } catch (error) {
-      console.error('[SETTINGS] Update exception:', error);
+      console.error('[CONTACT_MANAGER] Update exception:', error);
       toast.error('Ошибка подключения к серверу');
     } finally {
       if (field === 'email') {
