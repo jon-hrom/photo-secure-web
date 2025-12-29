@@ -189,7 +189,8 @@ export const useClientsHandlers = ({
           toast.info('Клиент с такими данными уже существует', {
             description: 'Открываю карточку существующего клиента'
           });
-          // НЕ очищаем форму для дубликата - оставляем данные для пульсирующего индикатора
+          // Очищаем форму сразу, чтобы при последующем UPDATE не перезаписать данные клиента
+          setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
         } else {
           console.log('[CLIENT_ADD] New client created, ID:', createdClientId);
           toast.success('Клиент успешно добавлен');
