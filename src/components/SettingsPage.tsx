@@ -18,12 +18,16 @@ interface UserSettings {
   email_verified_at: string | null;
   source?: 'email' | 'vk' | 'google' | 'yandex';
   display_name?: string;
+  country?: string;
+  region?: string;
+  city?: string;
 }
 
 interface SettingsPageProps {
   userId: number;
 }
 
+const USER_SETTINGS_API = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
 const SETTINGS_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
 
 const SettingsPage = ({ userId }: SettingsPageProps) => {
@@ -64,17 +68,19 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
   const loadSettings = async () => {
     console.log('[SETTINGS] Loading settings for userId:', userId);
     try {
-      const response = await fetch(`${SETTINGS_API}?userId=${userId}`);
+      const response = await fetch(USER_SETTINGS_API, {
+        headers: { 'X-User-Id': userId.toString() }
+      });
       const data = await response.json();
       
       console.log('[SETTINGS] Response:', { status: response.status, data });
       
-      if (response.ok) {
-        setSettings(data);
-        setEditedEmail(data.email || '');
-        setEditedPhone(data.phone || '');
-        setEditedDisplayName(data.display_name || '');
-        setPhoneVerified(!!data.phone);
+      if (response.ok && data.success) {
+        setSettings(data.settings);
+        setEditedEmail(data.settings.email || '');
+        setEditedPhone(data.settings.phone || '');
+        setEditedDisplayName(data.settings.display_name || '');
+        setPhoneVerified(!!data.settings.phone);
       } else {
         console.error('[SETTINGS] Load error:', { status: response.status, data });
         toast.error(data.error || 'Ошибка загрузки настроек');
@@ -136,7 +142,7 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
 
 
 
-  const handleUpdateContact = async (field: 'email' | 'phone' | 'display_name', value: string) => {
+  const handleUpdateContact = async (field: 'email' | 'phone' | 'display_name' | 'country' | 'region' | 'city', value: string) => {
     console.log('[SETTINGS] Updating contact:', { field, value, userId });
     if (field === 'email') {
       setIsSavingEmail(true);
@@ -155,19 +161,22 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
     try {
       const finalValue = field === 'phone' ? formatPhone(value) : value;
       
-      const requestBody = { action: 'update-contact', userId, field, value: finalValue };
+      const requestBody = { [field]: finalValue };
       console.log('[SETTINGS] Request body:', requestBody);
       
-      const response = await fetch(SETTINGS_API, {
+      const response = await fetch(USER_SETTINGS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
         body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
       console.log('[SETTINGS] Update response:', { status: response.status, data });
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         setSettings((prev) => ({ ...prev, [field]: finalValue }));
         if (field === 'phone') {
           setEditedPhone(finalValue);
@@ -176,6 +185,8 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
           return;
         } else if (field === 'email') {
           setEditedEmail(finalValue);
+        } else if (field === 'country' || field === 'region' || field === 'city') {
+          return;
         }
         toast.success('Контактные данные обновлены');
       } else {
