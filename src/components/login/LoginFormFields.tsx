@@ -153,13 +153,14 @@ const LoginFormFields = ({
               className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed"
             >
               Я согласен с условиями обработки{' '}
-              <button
-                type="button"
-                onClick={onPrivacyPolicyClick}
+              <a
+                href="https://foto-mix.ru/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-primary hover:underline font-medium"
               >
                 Персональных данных
-              </button>
+              </a>
             </label>
           </div>
 
