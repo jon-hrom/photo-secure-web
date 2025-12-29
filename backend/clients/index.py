@@ -713,12 +713,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif method == 'PUT':
             body = json.loads(event.get('body', '{}'))
             client_id = body.get('id')
-            user_id = body.get('user_id')
+            
+            print(f'[UPDATE_CLIENT] photographer_id: {photographer_id}, client_id: {client_id}')
+            print(f'[UPDATE_CLIENT] body: {body}')
+            
+            if not client_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Client ID required'}),
+                    'isBase64Encoded': False
+                }
+            
+            # Проверяем что клиент принадлежит фотографу
+            cur.execute('SELECT id FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND photographer_id = %s', (client_id, photographer_id))
+            if not cur.fetchone():
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Client not found or access denied'}),
+                    'isBase64Encoded': False
+                }
             
             cur.execute('''
                 UPDATE t_p28211681_photo_secure_web.clients 
                 SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s AND user_id = %s
+                WHERE id = %s AND photographer_id = %s
                 RETURNING id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
             ''', (
                 body.get('name'),
@@ -727,7 +747,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 body.get('address'),
                 body.get('vkProfile'),
                 client_id,
-                user_id
+                photographer_id
             ))
             client = cur.fetchone()
             
@@ -735,7 +755,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {
                     'statusCode': 404,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Client not found'}),
+                    'body': json.dumps({'error': 'Failed to update client'}),
                     'isBase64Encoded': False
                 }
             
