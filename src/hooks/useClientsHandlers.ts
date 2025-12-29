@@ -137,9 +137,10 @@ export const useClientsHandlers = ({
     // Если телефон не указан - используем пустую строку (БД требует значение)
     const clientNameForSearch = newClient.name || 'Новый клиент';
     const clientPhoneForSearch = newClient.phone || '-';
+    const savedClientData = { ...newClient }; // Сохраняем копию для восстановления
     
     // Закрываем форму и показываем счётчик СРАЗУ (не ждём сервер!)
-    setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
+    // НО НЕ очищаем форму - это будет сделано после определения дубликата/нового
     setIsAddDialogOpen(false);
     
     if (setIsDetailDialogOpen && setIsCountdownOpen) {
@@ -186,14 +187,16 @@ export const useClientsHandlers = ({
           toast.info('Клиент с такими данными уже существует', {
             description: 'Открываю карточку существующего клиента'
           });
+          // НЕ очищаем форму для дубликата - оставляем данные для пульсирующего индикатора
         } else {
           console.log('[CLIENT_ADD] New client created, ID:', createdClientId);
           toast.success('Клиент успешно добавлен');
-        }
-        
-        // Очищаем сохранённые данные после успешного создания
-        if (onClientCreated) {
-          onClientCreated();
+          
+          // Очищаем форму и localStorage ТОЛЬКО для новых клиентов
+          setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
+          if (onClientCreated) {
+            onClientCreated();
+          }
         }
         
         // Обновить список клиентов и сразу открыть окно
