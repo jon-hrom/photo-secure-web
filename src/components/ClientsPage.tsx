@@ -394,7 +394,12 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
       <ClientDetailDialog
         open={dialogsState.isDetailDialogOpen}
-        onOpenChange={dialogsState.setIsDetailDialogOpen}
+        onOpenChange={(open) => {
+          dialogsState.setIsDetailDialogOpen(open);
+          if (!open) {
+            dialogsState.setSelectedClient(null);
+          }
+        }}
         client={dialogsState.selectedClient}
         onUpdate={handlers.handleUpdateClient}
       />
