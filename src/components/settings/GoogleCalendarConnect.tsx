@@ -42,9 +42,13 @@ export default function GoogleCalendarConnect() {
         const data = await response.json();
         setIsConnected(data.connected);
         setExpiresAt(data.expires_at);
+      } else if (response.status === 404) {
+        setIsConnected(false);
+        setExpiresAt(null);
       }
     } catch (error) {
       console.error('Error checking calendar connection:', error);
+      setIsConnected(false);
     } finally {
       setIsLoading(false);
     }

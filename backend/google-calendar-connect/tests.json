@@ -20,7 +20,7 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "connected": "boolean"
+        "connected": false
       },
       "bodyMatcher": "partial"
     }

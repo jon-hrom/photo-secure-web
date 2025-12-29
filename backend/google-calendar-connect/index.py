@@ -212,9 +212,9 @@ def handler(event, context):
                 
                 if not result:
                     return {
-                        'statusCode': 404,
+                        'statusCode': 200,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'connected': False, 'error': 'User not found'})
+                        'body': json.dumps({'connected': False})
                     }
                 
                 is_connected = result['calendar_enabled'] and result['token_expires_at']
