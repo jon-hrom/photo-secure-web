@@ -12,6 +12,8 @@ interface ClientsListSectionProps {
   onDeleteClient: (clientId: number) => void;
   onAddBooking: (client: Client) => void;
   userId?: string | null;
+  isDetailDialogOpen?: boolean;
+  selectedClientId?: number | null;
 }
 
 const ClientsListSection = ({
@@ -21,6 +23,8 @@ const ClientsListSection = ({
   onDeleteClient,
   onAddBooking,
   userId,
+  isDetailDialogOpen = false,
+  selectedClientId = null,
 }: ClientsListSectionProps) => {
   const [selectedClients, setSelectedClients] = useState<number[]>([]);
 
@@ -159,11 +163,14 @@ const ClientsListSection = ({
                     const activeProjects = getActiveProjectsCount(client);
                     const totalPaid = getTotalPaid(client);
                     const documentsCount = getDocumentsCount(client);
+                    const isCurrentClientOpen = isDetailDialogOpen && selectedClientId === client.id;
 
                     return (
                       <tr
                         key={client.id}
-                        className="border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 group"
+                        className={`border-b hover:bg-gradient-to-r hover:from-purple-50/50 hover:via-pink-50/30 hover:to-rose-50/50 transition-all duration-200 group ${
+                          isCurrentClientOpen ? 'bg-purple-50/70 dark:bg-purple-900/20' : ''
+                        }`}
                       >
                         <td className="p-2 md:p-3 text-center sticky left-0 bg-white dark:bg-gray-900 group-hover:bg-gradient-to-r group-hover:from-purple-50/50 group-hover:via-pink-50/30 group-hover:to-transparent z-10 w-12"
                           onClick={(e) => e.stopPropagation()}>

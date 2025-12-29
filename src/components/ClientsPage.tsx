@@ -353,6 +353,8 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
               onDeleteClient={handlers.handleDeleteClient}
               onAddBooking={dialogsState.openBookingDialog}
               userId={userId}
+              isDetailDialogOpen={dialogsState.isDetailDialogOpen}
+              selectedClientId={dialogsState.selectedClient?.id || null}
             />
           </div>
 
@@ -394,12 +396,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
       <ClientDetailDialog
         open={dialogsState.isDetailDialogOpen}
-        onOpenChange={(open) => {
-          dialogsState.setIsDetailDialogOpen(open);
-          if (!open) {
-            dialogsState.setSelectedClient(null);
-          }
-        }}
+        onOpenChange={dialogsState.setIsDetailDialogOpen}
         client={dialogsState.selectedClient}
         onUpdate={handlers.handleUpdateClient}
       />
