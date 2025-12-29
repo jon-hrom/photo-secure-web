@@ -410,6 +410,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             action = body.get('action', 'create')
             
             if action == 'create':
+                # Логируем данные для отладки
+                print(f'[CREATE_CLIENT] photographer_id: {photographer_id}')
+                print(f'[CREATE_CLIENT] body: {body}')
+                
+                # Дополнительная проверка photographer_id
+                if not photographer_id or photographer_id == 'null' or photographer_id == 'undefined':
+                    print(f'[CREATE_CLIENT] ERROR: Invalid photographer_id: {photographer_id}')
+                    return {
+                        'statusCode': 401,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Valid Photographer ID required'}),
+                        'isBase64Encoded': False
+                    }
+                
                 # Проверяем дубликаты по email или телефону
                 email = body.get('email', '').strip()
                 phone = body.get('phone', '').strip()
@@ -434,6 +448,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Если клиент найден - возвращаем его ID
                 if existing_client:
+                    print(f'[CREATE_CLIENT] Found duplicate client: {existing_client["id"]}')
                     return {
                         'statusCode': 200,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -457,6 +472,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 ))
                 client = cur.fetchone()
                 conn.commit()
+                
+                print(f'[CREATE_CLIENT] Successfully created client: {client["id"]}')
                 
                 return {
                     'statusCode': 201,

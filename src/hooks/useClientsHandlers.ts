@@ -77,9 +77,13 @@ export const useClientsHandlers = ({
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
+    console.log('[CLIENT_ADD] userId:', userId, 'type:', typeof userId);
     
-    if (!userId) {
-      toast.error('Не удалось определить пользователя');
+    if (!userId || userId === 'null' || userId === 'undefined') {
+      console.error('[CLIENT_ADD] Invalid userId:', userId);
+      toast.error('Не удалось определить пользователя', {
+        description: 'Попробуйте перезагрузить страницу и войти заново'
+      });
       return;
     }
     
