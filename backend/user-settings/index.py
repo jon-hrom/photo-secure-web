@@ -156,6 +156,7 @@ def get_user_settings(user_id: int) -> Optional[Dict[str, Any]]:
 
 def update_user_settings(user_id: int, settings: Dict[str, Any]) -> bool:
     """Обновление настроек пользователя"""
+    print(f"[USER_SETTINGS] update_user_settings called with: user_id={user_id}, settings={settings}")
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -333,7 +334,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if method == 'POST':
         try:
             body_data = json.loads(event.get('body', '{}'))
-        except json.JSONDecodeError:
+            print(f"[USER_SETTINGS] POST request body: {body_data}")
+        except json.JSONDecodeError as e:
+            print(f"[USER_SETTINGS] JSON decode error: {e}")
             return {
                 'statusCode': 400,
                 'headers': cors_headers,
@@ -382,7 +385,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
         
         # Обновление настроек пользователя (default action)
+        print(f"[USER_SETTINGS] Updating settings for user {user_id} with data: {body_data}")
         success = update_user_settings(user_id, body_data)
+        print(f"[USER_SETTINGS] Update result: {success}")
         
         if success:
             # Получаем обновлённые настройки
