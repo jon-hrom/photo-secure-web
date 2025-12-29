@@ -208,7 +208,10 @@ const Settings = () => {
                   two_factor_email: settings.two_factor_email,
                   email_verified_at: settings.email_verified_at,
                   source: (settings.source as 'email' | 'vk' | 'google' | 'yandex') || 'email',
-                  display_name: settings.display_name || undefined
+                  display_name: settings.display_name || undefined,
+                  country: settings.country,
+                  region: settings.region,
+                  city: settings.city
                 }}
                 editedEmail={editedEmail}
                 isEditingEmail={isEditingEmail}
