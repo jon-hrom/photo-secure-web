@@ -33,8 +33,6 @@ const Settings = () => {
     saving,
     bio,
     setBio,
-    location,
-    setLocation,
     interests,
     setInterests,
 
@@ -240,8 +238,6 @@ const Settings = () => {
             <ProfileSection
               bio={bio}
               setBio={setBio}
-              location={location}
-              setLocation={setLocation}
               interests={interests}
               setInterests={setInterests}
             />

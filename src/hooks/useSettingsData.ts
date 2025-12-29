@@ -27,7 +27,6 @@ export const useSettingsData = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bio, setBio] = useState('');
-  const [location, setLocation] = useState('');
   const [interests, setInterests] = useState('');
 
   const getUserId = (): number | null => {
@@ -90,7 +89,6 @@ export const useSettingsData = () => {
         const s = data.settings;
         setSettings(s);
         setBio(s.bio || '');
-        setLocation(s.location || '');
         setInterests(s.interests || '');
         
         return s;
@@ -125,7 +123,6 @@ export const useSettingsData = () => {
         },
         body: JSON.stringify({
           bio: bio,
-          location: location,
           interests: interests
         })
       });
@@ -155,8 +152,6 @@ export const useSettingsData = () => {
     saving,
     bio,
     setBio,
-    location,
-    setLocation,
     interests,
     setInterests,
     getUserId,
