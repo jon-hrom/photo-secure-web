@@ -278,9 +278,16 @@ const ContactInfoCard = ({
               region={settings.region || ''}
               city={settings.city || ''}
               onLocationChange={async (country, region, city) => {
-                await handleUpdateContact('country', country);
-                await handleUpdateContact('region', region);
-                await handleUpdateContact('city', city);
+                // Сохраняем только те поля, которые действительно изменились и не пустые
+                if (country && country !== settings.country) {
+                  await handleUpdateContact('country', country);
+                }
+                if (region && region !== settings.region) {
+                  await handleUpdateContact('region', region);
+                }
+                if (city && city !== settings.city) {
+                  await handleUpdateContact('city', city);
+                }
                 await loadSettings();
               }}
               autoOpen={shouldHighlight}
