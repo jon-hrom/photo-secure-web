@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface LoadingProgressBarProps {
   open: boolean;
@@ -38,7 +39,18 @@ const LoadingProgressBar = ({ open, maxTime, onComplete }: LoadingProgressBarPro
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-md" hideCloseButton>
+      <DialogContent 
+        className="sm:max-w-md" 
+        hideCloseButton
+        aria-describedby="loading-description"
+      >
+        <VisuallyHidden>
+          <DialogTitle>Загрузка данных</DialogTitle>
+          <DialogDescription id="loading-description">
+            Пожалуйста, подождите. Идёт сохранение данных и загрузка формы.
+          </DialogDescription>
+        </VisuallyHidden>
+        
         <div className="space-y-4 py-6">
           <div className="text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 mb-4">

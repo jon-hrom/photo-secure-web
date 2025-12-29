@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Icon from '@/components/ui/icon';
 
 interface CountdownLoaderProps {
@@ -41,7 +42,17 @@ const CountdownLoader = ({ open, seconds = 3, onComplete }: CountdownLoaderProps
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-md border-0 bg-gradient-to-br from-primary/5 via-purple-50/50 to-blue-50/50 backdrop-blur-xl">
+      <DialogContent 
+        className="sm:max-w-md border-0 bg-gradient-to-br from-primary/5 via-purple-50/50 to-blue-50/50 backdrop-blur-xl"
+        aria-describedby="countdown-description"
+      >
+        <VisuallyHidden>
+          <DialogTitle>Создание карточки клиента</DialogTitle>
+          <DialogDescription id="countdown-description">
+            Пожалуйста, подождите. Мы создаём карточку клиента и подготавливаем данные.
+          </DialogDescription>
+        </VisuallyHidden>
+        
         <div className="flex flex-col items-center justify-center py-8 space-y-6">
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-full blur-2xl opacity-30 animate-pulse" />
