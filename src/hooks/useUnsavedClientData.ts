@@ -20,6 +20,12 @@ interface ProjectData {
   shooting_address: string;
 }
 
+interface OpenCardData {
+  clientId: number;
+  clientName: string;
+  timestamp: number;
+}
+
 const STORAGE_KEY = 'unsaved_client_data';
 const STORAGE_TIMEOUT = 24 * 60 * 60 * 1000;
 
@@ -144,6 +150,51 @@ export const useUnsavedClientData = (userId: string | null) => {
     }
   }, [userId]);
 
+  const saveOpenCardData = useCallback((clientId: number, clientName: string) => {
+    if (!userId) return;
+    const key = `open_card_${userId}_${clientId}`;
+    const data: OpenCardData = {
+      clientId,
+      clientName,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+  }, [userId]);
+
+  const clearOpenCardData = useCallback((clientId: number) => {
+    if (!userId) return;
+    const key = `open_card_${userId}_${clientId}`;
+    localStorage.removeItem(key);
+  }, [userId]);
+
+  const hasAnyOpenCard = useCallback((): { hasOpen: boolean; clientId: number | null; clientName: string | null } => {
+    if (!userId) return { hasOpen: false, clientId: null, clientName: null };
+    
+    try {
+      const prefix = `open_card_${userId}_`;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const data = JSON.parse(stored) as OpenCardData;
+            
+            if (data.timestamp && (Date.now() - data.timestamp > STORAGE_TIMEOUT)) {
+              localStorage.removeItem(key);
+              continue;
+            }
+            
+            return { hasOpen: true, clientId: data.clientId, clientName: data.clientName };
+          }
+        }
+      }
+      return { hasOpen: false, clientId: null, clientName: null };
+    } catch (error) {
+      console.error('[useUnsavedClientData] Error checking for open cards:', error);
+      return { hasOpen: false, clientId: null, clientName: null };
+    }
+  }, [userId]);
+
   return {
     saveClientData,
     loadClientData,
@@ -152,5 +203,8 @@ export const useUnsavedClientData = (userId: string | null) => {
     loadProjectData,
     clearProjectData,
     hasAnyUnsavedProject,
+    saveOpenCardData,
+    clearOpenCardData,
+    hasAnyOpenCard,
   };
 };

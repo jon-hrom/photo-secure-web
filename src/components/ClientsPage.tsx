@@ -59,6 +59,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
       if (!hasSeenUnsavedNotification) {
         const savedClient = dialogsState.loadClientData();
         const { hasUnsaved, clientId } = dialogsState.hasAnyUnsavedProject ? dialogsState.hasAnyUnsavedProject() : { hasUnsaved: false, clientId: null };
+        const { hasOpen, clientId: openCardClientId, clientName: openCardClientName } = dialogsState.hasAnyOpenCard();
         
         if (savedClient && (savedClient.name || savedClient.phone || savedClient.email)) {
           setTimeout(() => {
@@ -68,6 +69,23 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
               action: {
                 label: 'Продолжить',
                 onClick: () => dialogsState.handleOpenAddDialog()
+              }
+            });
+          }, 1000);
+          sessionStorage.setItem(`unsaved_notification_seen_${userId}`, 'true');
+        } else if (hasOpen && openCardClientId && openCardClientName) {
+          setTimeout(() => {
+            toast.info(`У вас незавершённая работа с ${openCardClientName}`, {
+              description: 'Карточка клиента была закрыта без добавления проекта',
+              duration: 8000,
+              action: {
+                label: 'Продолжить',
+                onClick: () => {
+                  const client = clients.find(c => c.id === openCardClientId);
+                  if (client) {
+                    dialogsState.handleOpenClientWithProjectCheck(client);
+                  }
+                }
               }
             });
           }, 1000);
@@ -125,6 +143,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     setIsCountdownOpen: dialogsState.setIsCountdownOpen,
     onClientCreated: dialogsState.handleClientCreated,
     navigateToSettings: () => navigate('/settings'),
+    saveOpenCardData: dialogsState.saveOpenCardData,
   });
 
   // Фильтрация клиентов по поиску

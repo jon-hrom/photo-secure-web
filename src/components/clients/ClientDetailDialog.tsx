@@ -38,7 +38,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     localClient,
     setLocalClient,
     loadProjectData,
-    clearProjectData
+    clearProjectData,
+    clearOpenCardData
   } = useClientDetailState(client, open);
 
   useEffect(() => {
@@ -100,7 +101,10 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     setNewMessage,
     onUpdate,
     photographerName,
-    () => clearProjectData(localClient.id)
+    () => {
+      clearProjectData(localClient.id);
+      clearOpenCardData(localClient.id);
+    }
   );
 
   return (

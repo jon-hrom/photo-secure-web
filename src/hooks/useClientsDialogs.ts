@@ -3,7 +3,7 @@ import { Client, Booking } from '@/components/clients/ClientsTypes';
 import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
 export const useClientsDialogs = (userId?: string | null, clients?: Client[]) => {
-  const { saveClientData, loadClientData, clearClientData, loadProjectData, clearProjectData, hasAnyUnsavedProject } = useUnsavedClientData(userId);
+  const { saveClientData, loadClientData, clearClientData, loadProjectData, clearProjectData, hasAnyUnsavedProject, saveOpenCardData, clearOpenCardData, hasAnyOpenCard } = useUnsavedClientData(userId);
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isUnsavedDataDialogOpen, setIsUnsavedDataDialogOpen] = useState(false);
@@ -189,7 +189,8 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
   const hasUnsavedClientData = () => {
     const saved = loadClientData();
     const { hasUnsaved } = hasAnyUnsavedProject();
-    return (saved ? (saved.name || saved.phone || saved.email || false) : false) || hasUnsaved;
+    const { hasOpen } = hasAnyOpenCard();
+    return (saved ? (saved.name || saved.phone || saved.email || false) : false) || hasUnsaved || hasOpen;
   };
 
   const hasUnsavedProjectData = (clientId: number) => {
@@ -262,5 +263,8 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
     loadProjectData,
     hasUnsavedProjectData,
     hasAnyUnsavedProject,
+    saveOpenCardData,
+    clearOpenCardData,
+    hasAnyOpenCard,
   };
 };

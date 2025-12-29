@@ -42,6 +42,7 @@ interface UseClientsHandlersProps {
   setIsCountdownOpen?: (open: boolean) => void;
   onClientCreated?: () => void;
   navigateToSettings?: () => void;
+  saveOpenCardData?: (clientId: number, clientName: string) => void;
 }
 
 export const useClientsHandlers = ({
@@ -74,6 +75,7 @@ export const useClientsHandlers = ({
   setIsCountdownOpen,
   onClientCreated,
   navigateToSettings,
+  saveOpenCardData,
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
@@ -353,6 +355,11 @@ export const useClientsHandlers = ({
             setTimeout(() => {
               setIsDetailDialogOpen(true);
             }, 100);
+            
+            // Сохраняем данные открытой карточки для индикатора
+            if (saveOpenCardData && parsedClient) {
+              saveOpenCardData(parsedClient.id, parsedClient.name);
+            }
           } else {
             // Если что-то пошло не так - ждём окончания countdown
             const remainingTime = maxWaitTime - elapsedTime;
@@ -361,6 +368,11 @@ export const useClientsHandlers = ({
             }
             console.log('[CLIENT_ADD] Opening detail dialog (after wait)');
             setIsDetailDialogOpen(true);
+            
+            // Сохраняем данные открытой карточки для индикатора
+            if (saveOpenCardData && parsedClient) {
+              saveOpenCardData(parsedClient.id, parsedClient.name);
+            }
           }
         } catch (error) {
           console.error('[CLIENT_ADD] Error loading client data:', error);

@@ -4,7 +4,7 @@ import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
 export const useClientDetailState = (client: Client | null, open: boolean) => {
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
-  const { saveProjectData, loadProjectData, clearProjectData } = useUnsavedClientData(userId);
+  const { saveProjectData, loadProjectData, clearProjectData, clearOpenCardData } = useUnsavedClientData(userId);
   const tabs = ['overview', 'projects', 'documents', 'payments', 'messages', 'history'] as const;
   const [activeTab, setActiveTab] = useState('projects');
   const [showSwipeHint, setShowSwipeHint] = useState(false);
@@ -128,6 +128,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     localClient,
     setLocalClient,
     loadProjectData,
-    clearProjectData
+    clearProjectData,
+    clearOpenCardData
   };
 };
