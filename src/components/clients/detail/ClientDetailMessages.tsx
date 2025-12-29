@@ -4,8 +4,15 @@ import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { Message } from '@/components/clients/ClientsTypes';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
+
+interface Template {
+  template_type: string;
+  template_text: string;
+  variables: string[];
+}
 
 interface ClientDetailMessagesProps {
   messages: Message[];
@@ -44,6 +51,8 @@ const ClientDetailMessages = ({
 }: ClientDetailMessagesProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sendingViaMax, setSendingViaMax] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -54,12 +63,56 @@ const ClientDetailMessages = ({
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const userId = localStorage.getItem('userId');
+        const response = await fetch(MAX_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId || '1'
+          },
+          body: JSON.stringify({ action: 'get_templates' })
+        });
+
+        const data = await response.json();
+        console.log('[ClientDetailMessages] Templates loaded:', data);
+        
+        if (data.templates) {
+          setTemplates(data.templates);
+        }
+      } catch (error) {
+        console.error('[ClientDetailMessages] Error loading templates:', error);
+      }
+    };
+
+    loadTemplates();
+  }, []);
+
   const handleAdd = () => {
     onAddMessage();
   };
 
+  const handleTemplateSelect = (templateType: string) => {
+    setSelectedTemplate(templateType);
+    const template = templates.find(t => t.template_type === templateType);
+    if (template) {
+      let message = template.template_text;
+      
+      // Подставляем переменные
+      message = message.replace(/{client_name}/g, clientName);
+      message = message.replace(/{photographer_name}/g, photographerName);
+      
+      onMessageChange('content', message);
+    }
+  };
+
   const handleSendViaMax = async () => {
+    console.log('[ClientDetailMessages] handleSendViaMax called', { clientId, messageContent: newMessage.content });
+    
     if (!clientId || !newMessage.content.trim()) {
+      console.log('[ClientDetailMessages] Validation failed:', { clientId, hasContent: !!newMessage.content.trim() });
       toast.error('Не указан клиент или сообщение пусто');
       return;
     }
@@ -67,6 +120,8 @@ const ClientDetailMessages = ({
     setSendingViaMax(true);
     try {
       const userId = localStorage.getItem('userId');
+      console.log('[ClientDetailMessages] Sending request to MAX', { userId, clientId, MAX_URL });
+      
       const response = await fetch(MAX_URL, {
         method: 'POST',
         headers: {
@@ -80,18 +135,20 @@ const ClientDetailMessages = ({
         })
       });
 
+      console.log('[ClientDetailMessages] Response received:', { status: response.status, ok: response.ok });
       const data = await response.json();
+      console.log('[ClientDetailMessages] Response data:', data);
 
       if (data.success) {
         toast.success('Сообщение отправлено через MAX');
         onMessageChange('content', '');
-        // Перезагрузим сообщения
+        setSelectedTemplate('');
         window.location.reload();
       } else {
         toast.error(data.error || 'Ошибка отправки');
       }
     } catch (error) {
-      console.error('Ошибка:', error);
+      console.error('[ClientDetailMessages] Error:', error);
       toast.error('Не удалось отправить сообщение');
     } finally {
       setSendingViaMax(false);
@@ -198,6 +255,24 @@ const ClientDetailMessages = ({
 
       <div className="p-4 bg-white border-t-2 border-gray-200 rounded-b-2xl shadow-lg">
         <div className="space-y-2">
+          {clientId && templates.length > 0 && (
+            <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Выберите шаблон сообщения..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((template) => (
+                  <SelectItem key={template.template_type} value={template.template_type}>
+                    <div className="flex items-center gap-2">
+                      <Icon name="FileText" size={14} />
+                      <span>{template.template_type}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <div className="flex gap-2">
             <Input
               placeholder="Напишите сообщение..."
