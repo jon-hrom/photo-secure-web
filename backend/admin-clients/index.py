@@ -87,20 +87,17 @@ def handle_get_clients(cursor, conn) -> dict:
                 c.project_comments,
                 c.created_at,
                 c.updated_at,
-                u.email as photographer_email,
-                u.username as photographer_name,
                 COUNT(DISTINCT cp.id) as projects_count,
                 COUNT(DISTINCT cpay.id) as payments_count,
                 COUNT(DISTINCT cd.id) as documents_count,
                 COUNT(DISTINCT b.id) as bookings_count,
                 COALESCE(SUM(cpay.amount), 0) as total_paid
             FROM {DB_SCHEMA}.clients c
-            LEFT JOIN {DB_SCHEMA}.users u ON c.photographer_id = u.id
             LEFT JOIN {DB_SCHEMA}.client_projects cp ON c.id = cp.client_id
             LEFT JOIN {DB_SCHEMA}.client_payments cpay ON c.id = cpay.client_id
             LEFT JOIN {DB_SCHEMA}.client_documents cd ON c.id = cd.client_id
             LEFT JOIN {DB_SCHEMA}.bookings b ON c.id = b.client_id
-            GROUP BY c.id, u.email, u.username
+            GROUP BY c.id
             ORDER BY c.created_at DESC
         '''
         
@@ -114,8 +111,8 @@ def handle_get_clients(cursor, conn) -> dict:
                 'id': client['id'],
                 'user_id': client['user_id'],
                 'photographer_id': client['photographer_id'],
-                'photographer_email': client['photographer_email'],
-                'photographer_name': client['photographer_name'],
+                'photographer_email': client['user_id'],
+                'photographer_name': f'Фотограф {client["user_id"]}',
                 'name': client['name'],
                 'phone': client['phone'],
                 'email': client['email'],
