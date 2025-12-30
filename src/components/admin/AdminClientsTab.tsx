@@ -28,6 +28,8 @@ interface Client {
   photographer_id: number;
   photographer_email: string;
   photographer_name: string;
+  photographer_region: string;
+  photographer_city: string;
   name: string;
   phone: string;
   email: string;
@@ -218,9 +220,16 @@ export default function AdminClientsTab() {
           <Collapsible key={photographerEmail} defaultOpen>
             <CollapsibleTrigger asChild>
               <Button variant="outline" className="w-full justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Icon name="User" className="h-4 w-4" />
-                  <span className="font-semibold">{photographerEmail}</span>
+                  <div className="flex flex-col items-start">
+                    <span className="font-semibold">{photographerClients[0]?.photographer_name || photographerEmail}</span>
+                    {(photographerClients[0]?.photographer_region || photographerClients[0]?.photographer_city) && (
+                      <span className="text-xs text-muted-foreground">
+                        {[photographerClients[0]?.photographer_region, photographerClients[0]?.photographer_city].filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </div>
                   <Badge variant="secondary">{photographerClients.length}</Badge>
                 </div>
                 <Icon name="ChevronDown" className="h-4 w-4" />
