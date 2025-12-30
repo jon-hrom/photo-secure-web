@@ -7,6 +7,7 @@ from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
+import requests
 
 # S3 configuration
 S3_BUCKET = 'foto-mix'
@@ -14,6 +15,96 @@ S3_ENDPOINT = 'https://storage.yandexcloud.net'
 
 # Database schema
 DB_SCHEMA = 't_p28211681_photo_secure_web'
+
+def send_booking_whatsapp_notification(client_name: str, client_phone: str, photographer_phone: str, booking_date: str, booking_time: str, description: str):
+    '''Отправить уведомления о новом бронировании через WhatsApp'''
+    try:
+        instance_id = os.environ.get('MAX_INSTANCE_ID', '')
+        token = os.environ.get('MAX_TOKEN', '')
+        
+        if not instance_id or not token:
+            print('[BOOKING_NOTIF] MAX credentials not configured')
+            return False
+        
+        media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
+        url = f"https://{media_server}.api.green-api.com/v3/waInstance{instance_id}/sendMessage/{token}"
+        
+        # Форматируем дату в читабельный формат
+        try:
+            date_obj = datetime.fromisoformat(booking_date.replace('Z', ''))
+            months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+                      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+            formatted_date = f"{date_obj.day} {months[date_obj.month - 1]} {date_obj.year}"
+        except:
+            formatted_date = booking_date
+        
+        # Форматируем время (убираем секунды если есть)
+        formatted_time = booking_time
+        if ':' in booking_time:
+            parts = booking_time.split(':')
+            formatted_time = f"{parts[0].zfill(2)}:{parts[1].zfill(2)}"
+        
+        # Отправляем уведомление клиенту
+        if client_phone:
+            clean_phone = ''.join(filter(str.isdigit, client_phone))
+            if not clean_phone.startswith('7'):
+                clean_phone = '7' + clean_phone.lstrip('8')
+            
+            client_message = f"""📅 Подтверждение бронирования от foto-mix
+
+Здравствуйте, {client_name}!
+
+Ваша встреча успешно забронирована:
+
+📅 Дата: {formatted_date}
+🕐 Время: {formatted_time}"""
+            
+            if description:
+                client_message += f"\n📝 Описание: {description}"
+            
+            client_message += "\n\nМы с нетерпением ждём встречи с вами! 📷"
+            
+            try:
+                response = requests.post(url, json={
+                    "chatId": f"{clean_phone}@c.us",
+                    "message": client_message
+                }, timeout=10)
+                print(f'[BOOKING_NOTIF] Client notification sent: {response.status_code}')
+            except Exception as e:
+                print(f'[BOOKING_NOTIF] Error sending to client: {e}')
+        
+        # Отправляем уведомление фотографу
+        if photographer_phone:
+            clean_photographer_phone = ''.join(filter(str.isdigit, photographer_phone))
+            if not clean_photographer_phone.startswith('7'):
+                clean_photographer_phone = '7' + clean_photographer_phone.lstrip('8')
+            
+            photographer_message = f"""📸 Новое бронирование от foto-mix
+
+👤 Клиент: {client_name}
+📞 Телефон: {client_phone}
+
+📅 Дата: {formatted_date}
+🕐 Время: {formatted_time}"""
+            
+            if description:
+                photographer_message += f"\n📝 Описание: {description}"
+            
+            photographer_message += "\n\nПодготовьте оборудование к съёмке! 📷"
+            
+            try:
+                response = requests.post(url, json={
+                    "chatId": f"{clean_photographer_phone}@c.us",
+                    "message": photographer_message
+                }, timeout=10)
+                print(f'[BOOKING_NOTIF] Photographer notification sent: {response.status_code}')
+            except Exception as e:
+                print(f'[BOOKING_NOTIF] Error sending to photographer: {e}')
+        
+        return True
+    except Exception as e:
+        print(f'[BOOKING_NOTIF] Unexpected error: {e}')
+        return False
 
 def get_s3_client():
     '''Возвращает S3 клиент'''
@@ -549,6 +640,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 conn.commit()
                 
                 print(f'[ADD_BOOKING] Successfully created booking with id: {booking["id"]} and meeting')
+                
+                # Получаем телефон фотографа для отправки уведомлений
+                cur.execute('SELECT phone FROM t_p28211681_photo_secure_web.users WHERE id = %s', (user_id,))
+                photographer = cur.fetchone()
+                photographer_phone = photographer['phone'] if photographer else None
+                
+                # Отправляем уведомления о бронировании через WhatsApp
+                if notification_enabled:
+                    send_booking_whatsapp_notification(
+                        client_name=client['name'],
+                        client_phone=client['phone'],
+                        photographer_phone=photographer_phone,
+                        booking_date=booking_date,
+                        booking_time=booking_time,
+                        description=description or ''
+                    )
                 
                 return {
                     'statusCode': 201,
