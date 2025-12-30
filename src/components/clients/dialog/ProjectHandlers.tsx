@@ -134,31 +134,10 @@ export const createAddProjectHandler = (
     // Отправляем уведомления только если есть дата и время съёмки
     if (newProject.startDate && newProject.shooting_time) {
       try {
-        const userId = localStorage.getItem('userId');
-        const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
-        
-        // Получаем реальный ID проекта из базы
-        const clientResponse = await fetch(`${CLIENTS_API}?userId=${userId}`, {
-          headers: { 'X-User-Id': userId || '' }
-        });
-        
-        if (clientResponse.ok) {
-          const clientsData = await clientResponse.json();
-          const updatedClientData = clientsData.find((c: Client) => c.id === localClient.id);
-          
-          // Находим созданный проект по имени и дате (включая временный ID, т.к. он сохраняется в базу)
-          const realProject = updatedClientData?.projects?.find((p: Project) => 
-            p.name === newProject.name && 
-            p.startDate === new Date(newProject.startDate).toISOString()
-          );
-          
-          if (realProject) {
-            // Отправляем уведомление с ID проекта из базы
-            await sendProjectNotification(localClient, realProject, photographerName);
-          } else {
-            console.warn('[PROJECT] Could not find project for notifications');
-          }
-        }
+        // Используем созданный проект напрямую - это объект `project` который мы создали на строке 21-33
+        // Он уже содержит все необходимые данные для отправки уведомлений
+        await sendProjectNotification(updatedClient, project, photographerName);
+        console.log('[PROJECT] Notification sent for project:', project.id, project.name);
       } catch (error) {
         console.error('[PROJECT] Error sending notifications:', error);
       }
