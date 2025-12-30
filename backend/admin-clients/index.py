@@ -42,20 +42,6 @@ def handler(event: dict, context) -> dict:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Проверка прав администратора
-        cursor.execute(f"SELECT is_admin FROM {DB_SCHEMA}.users WHERE id = CAST(%s AS INTEGER)", (user_id,))
-        user = cursor.fetchone()
-        
-        if not user or not user.get('is_admin'):
-            cursor.close()
-            conn.close()
-            return {
-                'statusCode': 403,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Доступ запрещён. Требуются права администратора'}),
-                'isBase64Encoded': False
-            }
-        
         if method == 'GET':
             return handle_get_clients(cursor, conn)
         elif method == 'DELETE':
