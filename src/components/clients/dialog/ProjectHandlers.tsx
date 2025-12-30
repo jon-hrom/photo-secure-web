@@ -80,11 +80,10 @@ export const createAddProjectHandler = (
           const clientsData = await clientResponse.json();
           const updatedClientData = clientsData.find((c: Client) => c.id === localClient.id);
           
-          // Find the newly created project by matching name and date
+          // Find the newly created project by matching name and date (including temp ID as it's saved to DB)
           const realProject = updatedClientData?.projects?.find((p: Project) => 
             p.name === newProject.name && 
-            p.startDate === new Date(newProject.startDate).toISOString() &&
-            p.id !== tempProjectId
+            p.startDate === new Date(newProject.startDate).toISOString()
           );
           
           if (realProject) {
@@ -147,18 +146,17 @@ export const createAddProjectHandler = (
           const clientsData = await clientResponse.json();
           const updatedClientData = clientsData.find((c: Client) => c.id === localClient.id);
           
-          // Находим созданный проект по имени и дате
+          // Находим созданный проект по имени и дате (включая временный ID, т.к. он сохраняется в базу)
           const realProject = updatedClientData?.projects?.find((p: Project) => 
             p.name === newProject.name && 
-            p.startDate === new Date(newProject.startDate).toISOString() &&
-            p.id !== tempProjectId
+            p.startDate === new Date(newProject.startDate).toISOString()
           );
           
           if (realProject) {
-            // Отправляем уведомление с реальным ID проекта
+            // Отправляем уведомление с ID проекта из базы
             await sendProjectNotification(localClient, realProject, photographerName);
           } else {
-            console.warn('[PROJECT] Could not find real project ID for notifications');
+            console.warn('[PROJECT] Could not find project for notifications');
           }
         }
       } catch (error) {

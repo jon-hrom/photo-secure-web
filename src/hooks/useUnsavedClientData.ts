@@ -158,14 +158,12 @@ export const useUnsavedClientData = (userId: string | null) => {
       clientName,
       timestamp: Date.now()
     };
-    console.log('[saveOpenCardData] Saving:', key, data);
     localStorage.setItem(key, JSON.stringify(data));
   }, [userId]);
 
   const clearOpenCardData = useCallback((clientId: number) => {
     if (!userId) return;
     const key = `open_card_${userId}_${clientId}`;
-    console.log('[clearOpenCardData] Clearing:', key);
     localStorage.removeItem(key);
   }, [userId]);
 
@@ -174,17 +172,14 @@ export const useUnsavedClientData = (userId: string | null) => {
     
     try {
       const prefix = `open_card_${userId}_`;
-      console.log('[hasAnyOpenCard] Checking for open cards with prefix:', prefix);
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith(prefix)) {
           const stored = localStorage.getItem(key);
           if (stored) {
             const data = JSON.parse(stored) as OpenCardData;
-            console.log('[hasAnyOpenCard] Found open card:', key, data);
             
             if (data.timestamp && (Date.now() - data.timestamp > STORAGE_TIMEOUT)) {
-              console.log('[hasAnyOpenCard] Card expired, removing');
               localStorage.removeItem(key);
               continue;
             }
@@ -193,7 +188,6 @@ export const useUnsavedClientData = (userId: string | null) => {
           }
         }
       }
-      console.log('[hasAnyOpenCard] No open cards found');
       return { hasOpen: false, clientId: null, clientName: null };
     } catch (error) {
       console.error('[useUnsavedClientData] Error checking for open cards:', error);
