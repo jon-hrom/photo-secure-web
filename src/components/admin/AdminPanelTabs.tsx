@@ -9,6 +9,7 @@ import NotificationSoundSettings from '@/components/admin/NotificationSoundSetti
 import SmsBalanceManager from '@/components/admin/SmsBalanceManager';
 import MaxTemplates from '@/components/admin/MaxTemplates';
 import MaxSettings from '@/components/admin/MaxSettings';
+import AdminClientsTab from '@/components/admin/AdminClientsTab';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -180,6 +181,18 @@ const AdminPanelTabs = ({
             onUnblock={onUnblockUser}
             onRefresh={onRefreshUsers}
           />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="all-clients">
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="flex items-center gap-2">
+            <Icon name="Users" size={20} />
+            Управление клиентами
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          <AdminClientsTab />
         </AccordionContent>
       </AccordionItem>
 

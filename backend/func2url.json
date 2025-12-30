@@ -1,4 +1,5 @@
 {
+  "admin-clients": "https://functions.poehali.dev/d96a37c3-e019-4e0f-b3a9-ed6573dbc0c5",
   "refresh-token": "https://functions.poehali.dev/6e739b0f-5682-48f9-b42c-daae674eba6a",
   "rate-limiter": "https://functions.poehali.dev/0df5f286-377f-4588-9af0-67b3654b9979",
   "session-management": "https://functions.poehali.dev/e3e5511e-7caa-42ba-b6dd-a76e44fd0272",
