@@ -154,8 +154,8 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     
     if (dialogsState.statusFilter === 'all') return matchesSearch;
     
-    // Проверяем есть ли активные проекты (не "завершён" и не "отменён")
-    const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled');
+    // Проверяем есть ли активные проекты (не "завершён" и не "отменён" и не "завершить")
+    const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled' && p.status !== 'finalize');
     // Проверяем будущие бронирования
     const hasActiveBookings = (client.bookings || []).some(b => {
       const bookingDate = new Date(b.booking_date || b.date);
@@ -189,7 +189,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
       
       case 'active-projects':
         return clientsList.filter(c => 
-          (c.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled')
+          (c.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled' && p.status !== 'finalize')
         );
       
       case 'upcoming-meetings':

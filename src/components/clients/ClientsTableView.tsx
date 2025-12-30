@@ -119,7 +119,7 @@ const ClientsTableView = ({ clients, onSelectClient, onDeleteClients, externalSe
 
       if (statusFilter === 'all') return true;
       
-      const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled');
+      const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled' && p.status !== 'finalize');
       const hasActiveBookings = (client.bookings || []).some(b => {
         const bookingDate = new Date(b.booking_date || b.date);
         const today = new Date();

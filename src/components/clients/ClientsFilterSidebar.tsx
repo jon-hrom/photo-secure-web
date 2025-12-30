@@ -38,7 +38,7 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
 
   const getFilterCounts = () => {
     const activeProjects = clients.filter(c => 
-      (c.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled')
+      (c.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled' && p.status !== 'finalize')
     ).length;
 
     const upcomingMeetings = clients.filter(c =>
