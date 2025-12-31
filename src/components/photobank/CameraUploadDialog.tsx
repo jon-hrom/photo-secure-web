@@ -6,7 +6,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
 const MOBILE_UPLOAD_API = 'https://functions.poehali.dev/3372b3ed-5509-41e0-a542-b3774be6b702';
-const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/6ebe8c65-0cda-4cbf-a49e-f9beb7e5da5a';
+const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
 const MAX_CONCURRENT_UPLOADS = 3;
 
 interface FileUploadStatus {
