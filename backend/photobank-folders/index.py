@@ -543,6 +543,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     print(f'[UPLOAD_PHOTO] Success, photo_id={photo["id"]}')
                 
+                # Проверяем, нужно ли генерировать превью для RAW
+                raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
+                file_ext_lower = os.path.splitext(file_name.lower())[1]
+                if file_ext_lower in raw_extensions:
+                    print(f'[UPLOAD_PHOTO] Detected RAW file, triggering thumbnail generation')
+                    try:
+                        generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
+                        requests.post(
+                            generate_thumbnail_url,
+                            json={'photo_id': photo['id']},
+                            timeout=2
+                        )
+                        print(f'[UPLOAD_PHOTO] Thumbnail generation triggered for photo {photo["id"]}')
+                    except Exception as e:
+                        print(f'[UPLOAD_PHOTO] Failed to trigger thumbnail: {e}')
+                
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
