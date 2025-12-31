@@ -14,6 +14,7 @@ import boto3
 from botocore.client import Config
 from PIL import Image
 import io
+import requests
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
@@ -173,6 +174,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pb.id, 
                             pb.file_name, 
                             pb.s3_key,
+                            pb.thumbnail_s3_key,
+                            pb.is_raw,
                             pb.file_size, 
                             pb.width, 
                             pb.height, 
@@ -191,17 +194,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         if photo['created_at']:
                             photo['created_at'] = photo['created_at'].isoformat()
                         
-                        if photo['s3_key']:
+                        # Для RAW файлов используем превью, если оно есть
+                        display_key = photo['thumbnail_s3_key'] if photo.get('is_raw') and photo.get('thumbnail_s3_key') else photo['s3_key']
+                        
+                        if display_key:
                             try:
                                 # Пытаемся сгенерировать URL для нового bucket 'files'
                                 download_url = s3_client.generate_presigned_url(
                                     'get_object',
-                                    Params={'Bucket': bucket, 'Key': photo['s3_key']},
+                                    Params={'Bucket': bucket, 'Key': display_key},
                                     ExpiresIn=600
                                 )
                                 photo['s3_url'] = download_url
                             except Exception as e:
-                                print(f'[FALLBACK] Trying old bucket for {photo["s3_key"]}')
+                                print(f'[FALLBACK] Trying old bucket for {display_key}')
                                 # Fallback: пытаемся старый bucket 'foto-mix' на Yandex Cloud
                                 try:
                                     old_s3_client = boto3.client(
@@ -214,13 +220,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                     )
                                     download_url = old_s3_client.generate_presigned_url(
                                         'get_object',
-                                        Params={'Bucket': 'foto-mix', 'Key': photo['s3_key']},
+                                        Params={'Bucket': 'foto-mix', 'Key': display_key},
                                         ExpiresIn=600
                                     )
                                     photo['s3_url'] = download_url
                                     print(f'[FALLBACK] Success with old bucket')
                                 except Exception as e2:
-                                    print(f'[FALLBACK] Failed for {photo["s3_key"]}: {e2}')
+                                    print(f'[FALLBACK] Failed for {display_key}: {e2}')
                                     photo['s3_url'] = None
                         
                         result_photos.append(photo)
@@ -370,6 +376,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if photo['created_at']:
                         photo['created_at'] = photo['created_at'].isoformat()
                 
+                # Проверяем, нужно ли генерировать превью для RAW
+                raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
+                file_ext_lower = f".{file_ext.lower()}"
+                if file_ext_lower in raw_extensions:
+                    print(f'[UPLOAD_DIRECT] Detected RAW file, triggering thumbnail generation')
+                    try:
+                        generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
+                        requests.post(
+                            generate_thumbnail_url,
+                            json={'photo_id': photo['id']},
+                            timeout=2
+                        )
+                        print(f'[UPLOAD_DIRECT] Thumbnail generation triggered for photo {photo["id"]}')
+                    except Exception as e:
+                        print(f'[UPLOAD_DIRECT] Failed to trigger thumbnail: {e}')
+                
                 print('[UPLOAD_DIRECT] Complete!')
                 return {
                     'statusCode': 200,
@@ -440,6 +462,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     if photo['created_at']:
                         photo['created_at'] = photo['created_at'].isoformat()
+                
+                # Проверяем, нужно ли генерировать превью для RAW
+                raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
+                file_ext_lower = os.path.splitext(file_name.lower())[1]
+                if file_ext_lower in raw_extensions:
+                    print(f'[CONFIRM_UPLOAD] Detected RAW file, triggering thumbnail generation')
+                    try:
+                        generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
+                        requests.post(
+                            generate_thumbnail_url,
+                            json={'photo_id': photo['id']},
+                            timeout=2
+                        )
+                        print(f'[CONFIRM_UPLOAD] Thumbnail generation triggered for photo {photo["id"]}')
+                    except Exception as e:
+                        print(f'[CONFIRM_UPLOAD] Failed to trigger thumbnail: {e}')
                 
                 print(f'[CONFIRM_UPLOAD] Success!')
                 return {
