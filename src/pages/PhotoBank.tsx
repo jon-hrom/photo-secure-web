@@ -320,7 +320,14 @@ const PhotoBank = () => {
           photos={photos}
           selectionMode={selectionMode}
           selectedPhotos={selectedPhotos}
-          onNavigateBack={() => navigate('/')}
+          onNavigateBack={() => {
+            if (selectedFolder) {
+              setSelectedFolder(null);
+              setPhotos([]);
+            } else {
+              navigate('/');
+            }
+          }}
           onAddToPhotobook={handleAddToPhotobook}
           onCancelSelection={() => {
             setSelectionMode(false);
