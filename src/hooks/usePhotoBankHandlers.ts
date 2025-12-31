@@ -133,7 +133,7 @@ export const usePhotoBankHandlers = (
     if (tooLargeFiles.length > 0) {
       toast({
         title: 'Файлы слишком большие',
-        description: `Макс. размер: 50 МБ (фото), 100 МБ (видео). Файлы: ${tooLargeFiles.map(f => f.name).join(', ')},
+        description: `Макс. размер: 50 МБ (фото), 100 МБ (видео). Файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
         variant: 'destructive'
       });
       return;
