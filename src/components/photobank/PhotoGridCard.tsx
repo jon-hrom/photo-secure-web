@@ -9,6 +9,8 @@ interface Photo {
   s3_key?: string;
   thumbnail_s3_url?: string;
   is_raw?: boolean;
+  is_video?: boolean;
+  content_type?: string;
   file_size: number;
   width: number | null;
   height: number | null;
@@ -72,14 +74,23 @@ const PhotoGridCard = ({
           <Icon name="Info" size={16} className="text-white" />
         </button>
       )}
-      <div className="w-full h-full">
+      <div className="w-full h-full relative">
         {(photo.thumbnail_s3_url || photo.s3_url) ? (
-          <img
-            src={photo.thumbnail_s3_url || photo.s3_url}
-            alt={photo.file_name}
-            className="w-full h-full object-contain"
-            loading="lazy"
-          />
+          <>
+            <img
+              src={photo.thumbnail_s3_url || photo.s3_url}
+              alt={photo.file_name}
+              className="w-full h-full object-contain"
+              loading="lazy"
+            />
+            {photo.is_video && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                  <Icon name="Play" size={32} className="text-white" />
+                </div>
+              </div>
+            )}
+          </>
         ) : photo.data_url ? (
           <img
             src={photo.data_url}
@@ -93,6 +104,11 @@ const PhotoGridCard = ({
               <div className="text-center p-4">
                 <Icon name="Loader2" size={32} className="text-muted-foreground animate-spin mx-auto mb-2" />
                 <p className="text-xs text-muted-foreground">Конвертация RAW...</p>
+              </div>
+            ) : photo.is_video ? (
+              <div className="text-center p-4">
+                <Icon name="Loader2" size={32} className="text-muted-foreground animate-spin mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Обработка видео...</p>
               </div>
             ) : (
               <Icon name="ImageOff" size={32} className="text-muted-foreground" />

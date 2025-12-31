@@ -102,7 +102,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
-                        SELECT id, file_name, file_data, file_size, width, height, created_at
+                        SELECT id, file_name, file_data, file_size, width, height, created_at,
+                               is_video, content_type, thumbnail_s3_url
                         FROM photo_bank
                         WHERE folder_id = %s AND user_id = %s
                         ORDER BY created_at DESC
@@ -114,7 +115,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             photo['created_at'] = photo['created_at'].isoformat()
                         # Convert binary data to data URL
                         if photo.get('file_data'):
-                            photo['data_url'] = f'data:image/jpeg;base64,{base64.b64encode(photo["file_data"]).decode()}'
+                            content_type = photo.get('content_type', 'image/jpeg')
+                            photo['data_url'] = f'data:{content_type};base64,{base64.b64encode(photo["file_data"]).decode()}'
                             del photo['file_data']  # Don't send raw binary in JSON
                 
                 return {
@@ -163,6 +165,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 file_data = body_data.get('file_data')
                 width = body_data.get('width')
                 height = body_data.get('height')
+                content_type = body_data.get('content_type', 'image/jpeg')
+                is_video = content_type.startswith('video/')
                 
                 print(f'[UPLOAD] folder_id={folder_id}, file_name={file_name}, user_id={user_id}')
                 
@@ -177,7 +181,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
                 if file_data.startswith('data:'):
-                    file_data = file_data.split(',', 1)[1]
+                    parts = file_data.split(',', 1)
+                    if len(parts) == 2:
+                        file_data = parts[1]
+                    # Extract content type from data URL if not provided
+                    if content_type == 'image/jpeg' and 'data:' in parts[0]:
+                        extracted_type = parts[0].replace('data:', '').split(';')[0]
+                        if extracted_type:
+                            content_type = extracted_type
+                            is_video = content_type.startswith('video/')
                 
                 try:
                     file_bytes = base64.b64decode(file_data)
@@ -199,10 +211,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 try:
                     with conn.cursor(cursor_factory=RealDictCursor) as cur:
                         cur.execute('''
-                            INSERT INTO photo_bank (folder_id, user_id, file_name, file_data, file_size, width, height)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            RETURNING id, file_name, file_size, created_at
-                        ''', (folder_id, user_id, file_name, psycopg2.Binary(file_bytes), file_size, width, height))
+                            INSERT INTO photo_bank (folder_id, user_id, file_name, file_data, file_size, width, height, is_video, content_type)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            RETURNING id, file_name, file_size, created_at, is_video, content_type
+                        ''', (folder_id, user_id, file_name, psycopg2.Binary(file_bytes), file_size, width, height, is_video, content_type))
                         conn.commit()
                         photo = cur.fetchone()
                         
@@ -213,7 +225,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     print(f'[DB] Photo saved with id={photo["id"]} in {upload_time:.3f}s')
                     
                     # Return photo with data URL for immediate display
-                    photo['data_url'] = f'data:image/jpeg;base64,{file_data}'
+                    photo['data_url'] = f'data:{content_type};base64,{file_data}'
                     return {
                         'statusCode': 200,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},

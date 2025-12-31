@@ -5,6 +5,7 @@ import PhotoGridHeader from './PhotoGridHeader';
 import PhotoGridCard from './PhotoGridCard';
 import PhotoGridViewer from './PhotoGridViewer';
 import PhotoExifDialog from './PhotoExifDialog';
+import VideoPlayer from './VideoPlayer';
 
 interface Photo {
   id: number;
@@ -14,6 +15,8 @@ interface Photo {
   s3_key?: string;
   thumbnail_s3_url?: string;
   is_raw?: boolean;
+  is_video?: boolean;
+  content_type?: string;
   file_size: number;
   width: number | null;
   height: number | null;
@@ -76,6 +79,7 @@ const PhotoBankPhotoGrid = ({
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
+  const [viewVideo, setViewVideo] = useState<Photo | null>(null);
   
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Б';
@@ -87,7 +91,11 @@ const PhotoBankPhotoGrid = ({
 
   const handlePhotoClick = (photo: Photo) => {
     if (!selectionMode) {
-      setViewPhoto(photo);
+      if (photo.is_video) {
+        setViewVideo(photo);
+      } else {
+        setViewPhoto(photo);
+      }
     } else {
       onTogglePhotoSelection(photo.id);
     }
@@ -169,6 +177,15 @@ const PhotoBankPhotoGrid = ({
           s3Key={exifPhoto.s3_key || ''}
           fileName={exifPhoto.file_name}
           photoUrl={exifPhoto.thumbnail_s3_url || exifPhoto.s3_url || exifPhoto.data_url}
+        />
+      )}
+
+      {viewVideo && (
+        <VideoPlayer
+          src={viewVideo.s3_url || ''}
+          poster={viewVideo.thumbnail_s3_url}
+          fileName={viewVideo.file_name}
+          onClose={() => setViewVideo(null)}
         />
       )}
     </Card>

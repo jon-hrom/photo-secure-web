@@ -17,6 +17,9 @@ interface Photo {
   width: number | null;
   height: number | null;
   created_at: string;
+  is_video?: boolean;
+  content_type?: string;
+  thumbnail_s3_url?: string;
 }
 
 export const usePhotoBankHandlers = (
@@ -107,26 +110,30 @@ export const usePhotoBankHandlers = (
       return RAW_EXTENSIONS.includes(ext);
     };
 
-    const imageFiles = Array.from(files).filter(file => 
-      file.type.startsWith('image/') || isRawFile(file.name)
+    const mediaFiles = Array.from(files).filter(file => 
+      file.type.startsWith('image/') || file.type.startsWith('video/') || isRawFile(file.name)
     );
     
-    if (imageFiles.length === 0) {
+    if (mediaFiles.length === 0) {
       toast({
         title: 'Ошибка',
-        description: 'Можно загружать только изображения',
+        description: 'Можно загружать только изображения и видео',
         variant: 'destructive'
       });
       return;
     }
 
-    // Check file size limit (50 MB)
+    // Check file size limit (50 MB for images, 100 MB for videos)
     const MAX_FILE_SIZE = 50 * 1024 * 1024;
-    const tooLargeFiles = imageFiles.filter(file => file.size > MAX_FILE_SIZE);
+    const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+    const tooLargeFiles = mediaFiles.filter(file => {
+      const maxSize = file.type.startsWith('video/') ? MAX_VIDEO_SIZE : MAX_FILE_SIZE;
+      return file.size > maxSize;
+    });
     if (tooLargeFiles.length > 0) {
       toast({
         title: 'Файлы слишком большие',
-        description: `Максимальный размер файла: 50 МБ. Слишком большие файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
+        description: `Макс. размер: 50 МБ (фото), 100 МБ (видео). Файлы: ${tooLargeFiles.map(f => f.name).join(', ')},
         variant: 'destructive'
       });
       return;
@@ -134,31 +141,32 @@ export const usePhotoBankHandlers = (
 
     setUploading(true);
     setUploadCancelled(false);
-    setUploadProgress({ current: 0, total: imageFiles.length, percent: 0, currentFileName: '' });
+    setUploadProgress({ current: 0, total: mediaFiles.length, percent: 0, currentFileName: '' });
     let successCount = 0;
     let errorCount = 0;
 
     try {
-      for (let i = 0; i < imageFiles.length; i++) {
+      for (let i = 0; i < mediaFiles.length; i++) {
         if (uploadCancelled) {
           console.log('[UPLOAD] Cancelled by user');
           break;
         }
 
-        const file = imageFiles[i];
-        const percent = Math.round(((i) / imageFiles.length) * 100);
+        const file = mediaFiles[i];
+        const percent = Math.round(((i) / mediaFiles.length) * 100);
         setUploadProgress({ 
           current: i, 
-          total: imageFiles.length, 
+          total: mediaFiles.length, 
           percent,
           currentFileName: file.name 
         });
-        console.log(`[UPLOAD] Processing file ${i + 1}/${imageFiles.length}:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        console.log(`[UPLOAD] Processing file ${i + 1}/${mediaFiles.length}:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         
         try {
           const isRaw = isRawFile(file.name);
+          const isVideo = file.type.startsWith('video/');
           
-          if (isRaw) {
+          if (isRaw || isVideo) {
             // RAW файлы загружаем через mobile-upload API (S3)
             const MOBILE_UPLOAD_API = 'https://functions.poehali.dev/3372b3ed-5509-41e0-a542-b3774be6b702';
             
@@ -180,10 +188,10 @@ export const usePhotoBankHandlers = (
               xhr.upload.addEventListener('progress', (e) => {
                 if (e.lengthComputable) {
                   const filePercent = Math.round((e.loaded / e.total) * 100);
-                  const overallPercent = Math.round(((i + (e.loaded / e.total)) / imageFiles.length) * 100);
+                  const overallPercent = Math.round(((i + (e.loaded / e.total)) / mediaFiles.length) * 100);
                   setUploadProgress({
                     current: i,
-                    total: imageFiles.length,
+                    total: mediaFiles.length,
                     percent: overallPercent,
                     currentFileName: `${file.name} (${filePercent}%)`
                   });
@@ -309,7 +317,8 @@ export const usePhotoBankHandlers = (
               file_name: file.name,
               file_data: base64Data,
               width: Math.round(finalWidth),
-              height: Math.round(finalHeight)
+              height: Math.round(finalHeight),
+              content_type: file.type || 'image/jpeg'
             })
           });
 
@@ -345,7 +354,7 @@ export const usePhotoBankHandlers = (
           console.error(`[UPLOAD] Error uploading ${file.name}:`, err);
           errorCount++;
         }
-        const newPercent = Math.round(((i + 1) / imageFiles.length) * 100);
+        const newPercent = Math.round(((i + 1) / mediaFiles.length) * 100);
         setUploadProgress({ 
           current: i + 1, 
           total: imageFiles.length, 

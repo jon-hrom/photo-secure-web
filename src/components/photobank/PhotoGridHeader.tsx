@@ -38,7 +38,7 @@ const PhotoGridHeader = ({
               type="file"
               id="photo-upload"
               className="hidden"
-              accept="image/*,.raw,.cr2,.nef,.arw,.dng"
+              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
               multiple
               onChange={onUploadPhoto}
               disabled={uploading}
@@ -46,7 +46,7 @@ const PhotoGridHeader = ({
             <Button asChild disabled={uploading} size="sm">
               <label htmlFor="photo-upload" className="cursor-pointer">
                 <Icon name="Upload" className="mr-2" size={16} />
-                {uploading ? 'Загрузка...' : 'Загрузить фото'}
+                {uploading ? 'Загрузка...' : 'Загрузить медиа'}
               </label>
             </Button>
           </div>
