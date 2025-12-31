@@ -69,14 +69,31 @@ export const usePhotoBankApi = (
   };
 
   const fetchPhotos = async (folderId: number) => {
+    console.log('[FETCH_PHOTOS] Starting fetch for folder:', folderId);
     setLoading(true);
     try {
-      const res = await fetch(`${PHOTOBANK_FOLDERS_API}?action=list_photos&folder_id=${folderId}`, {
+      const url = `${PHOTOBANK_FOLDERS_API}?action=list_photos&folder_id=${folderId}`;
+      console.log('[FETCH_PHOTOS] Fetching from:', url);
+      
+      const res = await fetch(url, {
         headers: { 'X-User-Id': userId }
       });
+      
+      console.log('[FETCH_PHOTOS] Response status:', res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[FETCH_PHOTOS] Error response:', errorText);
+        throw new Error(`API returned ${res.status}: ${errorText}`);
+      }
+      
       const data = await res.json();
+      console.log('[FETCH_PHOTOS] Received data:', data);
+      console.log('[FETCH_PHOTOS] Photos count:', data.photos?.length || 0);
+      
       setPhotos(data.photos || []);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[FETCH_PHOTOS] Error:', error);
       toast({
         title: 'Ошибка',
         description: 'Не удалось загрузить фотографии',
