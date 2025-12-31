@@ -30,6 +30,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
   const [folderName, setFolderName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const filesRef = useRef<FileUploadStatus[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -49,7 +50,11 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
       progress: 0,
     }));
 
-    setFiles(prev => [...prev, ...newFiles]);
+    setFiles(prev => {
+      const updated = [...prev, ...newFiles];
+      filesRef.current = updated;
+      return updated;
+    });
   };
 
   const uploadFile = async (fileStatus: FileUploadStatus): Promise<void> => {
@@ -58,9 +63,13 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
     abortControllersRef.current.set(file.name, abortController);
 
     try {
-      setFiles(prev => prev.map(f => 
-        f.file.name === file.name ? { ...f, status: 'uploading', progress: 0 } : f
-      ));
+      setFiles(prev => {
+        const updated = prev.map(f => 
+          f.file.name === file.name ? { ...f, status: 'uploading', progress: 0 } : f
+        );
+        filesRef.current = updated;
+        return updated;
+      });
 
       const urlResponse = await fetch(
         `${MOBILE_UPLOAD_API}?action=get-url&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
@@ -79,9 +88,13 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
           const progress = (e.loaded / e.total) * 100;
-          setFiles(prev => prev.map(f => 
-            f.file.name === file.name ? { ...f, progress } : f
-          ));
+          setFiles(prev => {
+            const updated = prev.map(f => 
+              f.file.name === file.name ? { ...f, progress } : f
+            );
+            filesRef.current = updated;
+            return updated;
+          });
         }
       });
 
@@ -116,25 +129,37 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
         }),
       });
 
-      setFiles(prev => prev.map(f => 
-        f.file.name === file.name 
-          ? { ...f, status: 'success', progress: 100, s3_key: key } 
-          : f
-      ));
+      setFiles(prev => {
+        const updated = prev.map(f => 
+          f.file.name === file.name 
+            ? { ...f, status: 'success', progress: 100, s3_key: key } 
+            : f
+        );
+        filesRef.current = updated;
+        return updated;
+      });
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        setFiles(prev => prev.map(f => 
-          f.file.name === file.name 
-            ? { ...f, status: 'error', error: 'Отменено' } 
-            : f
-        ));
+        setFiles(prev => {
+          const updated = prev.map(f => 
+            f.file.name === file.name 
+              ? { ...f, status: 'error', error: 'Отменено' } 
+              : f
+          );
+          filesRef.current = updated;
+          return updated;
+        });
       } else {
-        setFiles(prev => prev.map(f => 
-          f.file.name === file.name 
-            ? { ...f, status: 'error', error: error.message } 
-            : f
-        ));
+        setFiles(prev => {
+          const updated = prev.map(f => 
+            f.file.name === file.name 
+              ? { ...f, status: 'error', error: error.message } 
+              : f
+          );
+          filesRef.current = updated;
+          return updated;
+        });
       }
     } finally {
       abortControllersRef.current.delete(file.name);
@@ -152,19 +177,24 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
       return;
     }
 
+    console.log('[CAMERA_UPLOAD] Starting upload with', files.length, 'files');
     setUploading(true);
 
     try {
-      const pendingFiles = files.filter(f => f.status === 'pending' || f.status === 'error');
+      const pendingFiles = filesRef.current.filter(f => f.status === 'pending' || f.status === 'error');
+      console.log('[CAMERA_UPLOAD] Pending files to upload:', pendingFiles.length);
       
       for (let i = 0; i < pendingFiles.length; i += MAX_CONCURRENT_UPLOADS) {
         const batch = pendingFiles.slice(i, i + MAX_CONCURRENT_UPLOADS);
         await Promise.all(batch.map(uploadFile));
       }
 
-      const successfulUploads = files.filter(f => f.status === 'success');
+      // Use ref to get latest state after uploads
+      const successfulUploads = filesRef.current.filter(f => f.status === 'success');
+      console.log('[CAMERA_UPLOAD] Successful uploads:', successfulUploads.length, successfulUploads);
 
       if (successfulUploads.length > 0) {
+        console.log('[CAMERA_UPLOAD] Creating folder:', folderName.trim());
         const createFolderResponse = await fetch(PHOTOBANK_FOLDERS_API, {
           method: 'POST',
           headers: {
@@ -178,16 +208,22 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
         });
 
         if (!createFolderResponse.ok) {
+          const errorText = await createFolderResponse.text();
+          console.error('[CAMERA_UPLOAD] Create folder error:', errorText);
           throw new Error('Не удалось создать папку');
         }
 
-        const { folder } = await createFolderResponse.json();
+        const folderData = await createFolderResponse.json();
+        console.log('[CAMERA_UPLOAD] Folder created:', folderData);
+        const { folder } = folderData;
 
+        console.log('[CAMERA_UPLOAD] Adding photos to folder:', folder.id);
         for (const fileStatus of successfulUploads) {
           if (fileStatus.s3_key) {
             const s3Url = `https://storage.yandexcloud.net/foto-mix/${fileStatus.s3_key}`;
+            console.log('[CAMERA_UPLOAD] Adding photo:', fileStatus.file.name, 's3_key:', fileStatus.s3_key);
             
-            await fetch(PHOTOBANK_FOLDERS_API, {
+            const addPhotoResponse = await fetch(PHOTOBANK_FOLDERS_API, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -201,9 +237,17 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
                 file_size: fileStatus.file.size,
               }),
             });
+
+            if (!addPhotoResponse.ok) {
+              const errorText = await addPhotoResponse.text();
+              console.error('[CAMERA_UPLOAD] Add photo error:', errorText);
+            } else {
+              console.log('[CAMERA_UPLOAD] Photo added successfully:', fileStatus.file.name);
+            }
           }
         }
 
+        console.log('[CAMERA_UPLOAD] Upload complete!');
         toast.success(`Загружено ${successfulUploads.length} файлов в папку "${folderName}"`);
         
         if (onUploadComplete) {
@@ -211,10 +255,15 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
         }
 
         setFiles([]);
+        filesRef.current = [];
         onOpenChange(false);
+      } else {
+        console.log('[CAMERA_UPLOAD] No successful uploads');
+        toast.error('Файлы не удалось загрузить');
       }
 
     } catch (error: any) {
+      console.error('[CAMERA_UPLOAD] Upload error:', error);
       toast.error(`Ошибка: ${error.message}`);
     } finally {
       setUploading(false);
