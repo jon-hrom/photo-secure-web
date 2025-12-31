@@ -160,7 +160,7 @@ export const usePhotoBankHandlers = (
           percent,
           currentFileName: file.name 
         });
-        console.log(`[UPLOAD] Processing file ${i + 1}/${mediaFiles.length}:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        console.log(`[UPLOAD] Processing file ${i + 1}/${mediaFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         
         try {
           const isRaw = isRawFile(file.name);
