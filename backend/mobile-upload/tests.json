@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Get pre-signed URL for file upload",
+      "method": "GET",
+      "path": "/?action=get-url&filename=test.jpg&contentType=image/jpeg",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "url": "string",
+        "key": "string",
+        "expires_in": 900
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "List uploaded files",
+      "method": "GET",
+      "path": "/?action=list",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "expectedStatus": 200,
+      "bodyMatcher": "array"
+    }
+  ]
+}

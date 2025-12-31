@@ -1,4 +1,5 @@
 {
+  "mobile-upload": "https://functions.poehali.dev/3372b3ed-5509-41e0-a542-b3774be6b702",
   "admin-clients": "https://functions.poehali.dev/d96a37c3-e019-4e0f-b3a9-ed6573dbc0c5",
   "refresh-token": "https://functions.poehali.dev/6e739b0f-5682-48f9-b42c-daae674eba6a",
   "rate-limiter": "https://functions.poehali.dev/0df5f286-377f-4588-9af0-67b3654b9979",
