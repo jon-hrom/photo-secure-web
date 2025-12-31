@@ -38,7 +38,7 @@ const PhotoGridHeader = ({
               type="file"
               id="photo-upload"
               className="hidden"
-              accept="image/*"
+              accept="image/*,.raw,.cr2,.nef,.arw,.dng"
               multiple
               onChange={onUploadPhoto}
               disabled={uploading}

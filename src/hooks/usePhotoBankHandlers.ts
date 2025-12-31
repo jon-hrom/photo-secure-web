@@ -101,7 +101,16 @@ export const usePhotoBankHandlers = (
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    const RAW_EXTENSIONS = ['.cr2', '.nef', '.arw', '.dng', '.raw'];
+    const isRawFile = (filename: string) => {
+      const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
+      return RAW_EXTENSIONS.includes(ext);
+    };
+
+    const imageFiles = Array.from(files).filter(file => 
+      file.type.startsWith('image/') || isRawFile(file.name)
+    );
+    
     if (imageFiles.length === 0) {
       toast({
         title: 'Ошибка',
@@ -145,8 +154,61 @@ export const usePhotoBankHandlers = (
           currentFileName: file.name 
         });
         console.log(`[UPLOAD] Processing file ${i + 1}/${imageFiles.length}:`, file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        
         try {
-          // Load image to get dimensions
+          const isRaw = isRawFile(file.name);
+          
+          if (isRaw) {
+            // RAW файлы загружаем через mobile-upload API (S3)
+            const MOBILE_UPLOAD_API = 'https://functions.poehali.dev/3372b3ed-5509-41e0-a542-b3774be6b702';
+            
+            // 1. Получаем pre-signed URL
+            const urlResponse = await fetch(
+              `${MOBILE_UPLOAD_API}?action=get-url&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/octet-stream')}`,
+              {
+                headers: { 'X-User-Id': userId },
+              }
+            );
+            
+            if (!urlResponse.ok) throw new Error('Failed to get upload URL');
+            const { url, key } = await urlResponse.json();
+            
+            // 2. Загружаем файл в S3
+            const uploadResponse = await fetch(url, {
+              method: 'PUT',
+              headers: { 'Content-Type': file.type || 'application/octet-stream' },
+              body: file
+            });
+            
+            if (!uploadResponse.ok) throw new Error('Failed to upload file to S3');
+            
+            // 3. Привязываем к папке через upload_photo
+            const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
+            const addPhotoResponse = await fetch(PHOTOBANK_FOLDERS_API, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': userId,
+              },
+              body: JSON.stringify({
+                action: 'upload_photo',
+                folder_id: selectedFolder.id,
+                file_name: file.name,
+                s3_url: s3Url,
+                file_size: file.size
+              }),
+            });
+            
+            if (!addPhotoResponse.ok) {
+              const error = await addPhotoResponse.json();
+              throw new Error(error.error || 'Failed to add photo to folder');
+            }
+            
+            successCount++;
+            continue;
+          }
+          
+          // Обычные изображения - загружаем через base64
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
             const image = new Image();
             image.onload = () => resolve(image);

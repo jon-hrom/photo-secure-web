@@ -305,6 +305,7 @@ const PhotoBank = () => {
         open={showCameraUpload}
         onOpenChange={setShowCameraUpload}
         userId={userId || ''}
+        folders={folders}
         onUploadComplete={() => {
           fetchFolders();
           fetchStorageUsage();

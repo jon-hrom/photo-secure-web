@@ -17,17 +17,25 @@ interface FileUploadStatus {
   s3_key?: string;
 }
 
+interface PhotoFolder {
+  id: number;
+  folder_name: string;
+}
+
 interface CameraUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId: string;
+  folders: PhotoFolder[];
   onUploadComplete?: () => void;
 }
 
-const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: CameraUploadDialogProps) => {
+const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadComplete }: CameraUploadDialogProps) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [folderMode, setFolderMode] = useState<'new' | 'existing'>('new');
   const [folderName, setFolderName] = useState('');
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const filesRef = useRef<FileUploadStatus[]>([]);
@@ -37,6 +45,8 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
       const now = new Date();
       const defaultName = `Загрузка ${now.toLocaleDateString('ru-RU')} ${now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
       setFolderName(defaultName);
+      setFolderMode('new');
+      setSelectedFolderId(null);
     }
   }, [open]);
 
@@ -172,8 +182,13 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
       return;
     }
 
-    if (!folderName.trim()) {
+    if (folderMode === 'new' && !folderName.trim()) {
       toast.error('Введите название папки');
+      return;
+    }
+
+    if (folderMode === 'existing' && !selectedFolderId) {
+      toast.error('Выберите папку');
       return;
     }
 
@@ -189,35 +204,40 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
         await Promise.all(batch.map(uploadFile));
       }
 
-      // Use ref to get latest state after uploads
       const successfulUploads = filesRef.current.filter(f => f.status === 'success');
       console.log('[CAMERA_UPLOAD] Successful uploads:', successfulUploads.length, successfulUploads);
 
       if (successfulUploads.length > 0) {
-        console.log('[CAMERA_UPLOAD] Creating folder:', folderName.trim());
-        const createFolderResponse = await fetch(PHOTOBANK_FOLDERS_API, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': userId,
-          },
-          body: JSON.stringify({
-            action: 'create_folder',
-            folder_name: folderName.trim(),
-          }),
-        });
+        let targetFolderId: number;
 
-        if (!createFolderResponse.ok) {
-          const errorText = await createFolderResponse.text();
-          console.error('[CAMERA_UPLOAD] Create folder error:', errorText);
-          throw new Error('Не удалось создать папку');
+        if (folderMode === 'new') {
+          console.log('[CAMERA_UPLOAD] Creating folder:', folderName.trim());
+          const createFolderResponse = await fetch(PHOTOBANK_FOLDERS_API, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': userId,
+            },
+            body: JSON.stringify({
+              action: 'create_folder',
+              folder_name: folderName.trim(),
+            }),
+          });
+
+          if (!createFolderResponse.ok) {
+            const errorText = await createFolderResponse.text();
+            console.error('[CAMERA_UPLOAD] Create folder error:', errorText);
+            throw new Error('Не удалось создать папку');
+          }
+
+          const folderData = await createFolderResponse.json();
+          console.log('[CAMERA_UPLOAD] Folder created:', folderData);
+          targetFolderId = folderData.folder.id;
+        } else {
+          targetFolderId = selectedFolderId!;
         }
 
-        const folderData = await createFolderResponse.json();
-        console.log('[CAMERA_UPLOAD] Folder created:', folderData);
-        const { folder } = folderData;
-
-        console.log('[CAMERA_UPLOAD] Adding photos to folder:', folder.id);
+        console.log('[CAMERA_UPLOAD] Adding photos to folder:', targetFolderId);
         for (const fileStatus of successfulUploads) {
           if (fileStatus.s3_key) {
             const s3Url = `https://storage.yandexcloud.net/foto-mix/${fileStatus.s3_key}`;
@@ -231,7 +251,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
               },
               body: JSON.stringify({
                 action: 'upload_photo',
-                folder_id: folder.id,
+                folder_id: targetFolderId,
                 file_name: fileStatus.file.name,
                 s3_url: s3Url,
                 file_size: fileStatus.file.size,
@@ -294,16 +314,53 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Название папки</label>
-            <input
-              type="text"
-              value={folderName}
-              onChange={(e) => setFolderName(e.target.value)}
-              placeholder="Введите название папки"
-              className="w-full px-3 py-2 border rounded-lg bg-background text-foreground placeholder:text-muted-foreground"
-              disabled={uploading}
-            />
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Выберите папку</label>
+            <div className="flex gap-2">
+              <Button
+                variant={folderMode === 'new' ? 'default' : 'outline'}
+                onClick={() => setFolderMode('new')}
+                disabled={uploading}
+                className="flex-1"
+              >
+                <Icon name="FolderPlus" size={18} className="mr-2" />
+                Новая папка
+              </Button>
+              <Button
+                variant={folderMode === 'existing' ? 'default' : 'outline'}
+                onClick={() => setFolderMode('existing')}
+                disabled={uploading || folders.length === 0}
+                className="flex-1"
+              >
+                <Icon name="Folder" size={18} className="mr-2" />
+                Существующая
+              </Button>
+            </div>
+
+            {folderMode === 'new' ? (
+              <input
+                type="text"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                placeholder="Введите название папки"
+                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground placeholder:text-muted-foreground"
+                disabled={uploading}
+              />
+            ) : (
+              <select
+                value={selectedFolderId || ''}
+                onChange={(e) => setSelectedFolderId(Number(e.target.value))}
+                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
+                disabled={uploading}
+              >
+                <option value="">Выберите папку...</option>
+                {folders.map(folder => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.folder_name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
