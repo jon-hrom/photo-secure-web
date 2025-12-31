@@ -236,7 +236,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             body_data = json.loads(event.get('body', '{}'))
             action = body_data.get('action')
             
-            if action == 'create':
+            if action == 'create' or action == 'create_folder':
                 folder_name = body_data.get('folder_name')
                 if not folder_name:
                     return {
@@ -446,6 +446,77 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({'photo': photo}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'upload_photo':
+                folder_id = body_data.get('folder_id')
+                file_name = body_data.get('file_name')
+                s3_url = body_data.get('s3_url')
+                file_size = body_data.get('file_size', 0)
+                
+                print(f'[UPLOAD_PHOTO] folder_id={folder_id}, file_name={file_name}, s3_url={s3_url}')
+                
+                if not all([folder_id, file_name, s3_url]):
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id, file_name, and s3_url required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Extract s3_key from s3_url (e.g., https://storage.yandexcloud.net/foto-mix/uploads/...)
+                s3_key = s3_url.split('foto-mix/')[-1] if 'foto-mix/' in s3_url else None
+                
+                if not s3_key:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Invalid s3_url format'}),
+                        'isBase64Encoded': False
+                    }
+                
+                print(f'[UPLOAD_PHOTO] Extracted s3_key: {s3_key}')
+                
+                # Get image dimensions from S3
+                width, height = None, None
+                try:
+                    image_response = s3_client.get_object(Bucket=bucket, Key=s3_key)
+                    image_data = image_response['Body'].read()
+                    image = Image.open(io.BytesIO(image_data))
+                    width = image.width
+                    height = image.height
+                    print(f'[UPLOAD_PHOTO] Extracted dimensions: {width}x{height}')
+                except Exception as e:
+                    print(f'[UPLOAD_PHOTO] Failed to get dimensions: {str(e)}')
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        INSERT INTO photo_bank 
+                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id, file_name, s3_key, file_size, created_at
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height))
+                    conn.commit()
+                    photo = cur.fetchone()
+                    
+                    if photo['created_at']:
+                        photo['created_at'] = photo['created_at'].isoformat()
+                    
+                    print(f'[UPLOAD_PHOTO] Success, photo_id={photo["id"]}')
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'photo': photo}),
+                    'isBase64Encoded': False
+                }
+            
+            else:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': f'Unknown action: {action}'}),
                     'isBase64Encoded': False
                 }
         
