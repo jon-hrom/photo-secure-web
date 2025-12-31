@@ -204,22 +204,23 @@ const PhotoBank = () => {
         
         console.log('[PHOTO_BANK] Checking email verification for userId:', userId);
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         
         const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`, {
           signal: controller.signal
         });
         clearTimeout(timeoutId);
         
+        if (!res.ok) {
+          throw new Error(`Verification API returned ${res.status}`);
+        }
+        
         const data = await res.json();
         console.log('[PHOTO_BANK] Verification response:', data);
         setEmailVerified(!!data.email_verified_at);
       } catch (err: any) {
         console.error('[PHOTO_BANK] Failed to check email verification:', err);
-        if (err.name === 'AbortError') {
-          console.warn('[PHOTO_BANK] Verification check timeout, allowing access');
-          setEmailVerified(true);
-        }
+        setEmailVerified(false);
       } finally {
         setCheckingVerification(false);
       }
