@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 const EXTRACT_EXIF_API = 'https://functions.poehali.dev/340b5361-292f-4f16-8d31-f179fa6856b1';
 
@@ -39,6 +44,7 @@ interface PhotoExifDialogProps {
 const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: PhotoExifDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [exifData, setExifData] = useState<ExifData | null>(null);
+  const [showAllData, setShowAllData] = useState(false);
 
   useEffect(() => {
     if (open && s3Key) {
@@ -196,6 +202,11 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
     const fNumber = exifData.FNumber;
     const iso = exifData.ISOSpeedRatings || exifData.ISO;
     const focalLength = exifData.FocalLength;
+    const focalLength35mm = exifData.FocalLengthIn35mmFilm;
+    const exposureMode = exifData.ExposureMode;
+    const exposureProgram = exifData.ExposureProgram;
+    const meteringMode = exifData.MeteringMode;
+    const maxAperture = exifData.MaxApertureValue;
 
     const hasSettings = exposureTime || fNumber || iso || focalLength;
 
@@ -229,7 +240,40 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
           {focalLength && (
             <div>
               <div className="text-xs text-muted-foreground">Фокусное расстояние</div>
-              <div className="font-mono text-sm font-semibold">{formatFocalLength(focalLength)}</div>
+              <div className="font-mono text-sm font-semibold">
+                {formatFocalLength(focalLength)}
+                {focalLength35mm && ` (${focalLength35mm}mm экв.)`}
+              </div>
+            </div>
+          )}
+          {maxAperture && (
+            <div>
+              <div className="text-xs text-muted-foreground">Макс. диафрагма</div>
+              <div className="font-mono text-sm font-semibold">{formatFNumber(maxAperture)}</div>
+            </div>
+          )}
+          {meteringMode && (
+            <div>
+              <div className="text-xs text-muted-foreground">Режим замера</div>
+              <div className="font-mono text-sm font-semibold">
+                {meteringMode === '5' ? 'Матричный' : meteringMode === '3' ? 'Точечный' : meteringMode === '2' ? 'Центровзвешенный' : meteringMode}
+              </div>
+            </div>
+          )}
+          {exposureProgram && (
+            <div>
+              <div className="text-xs text-muted-foreground">Программа</div>
+              <div className="font-mono text-sm font-semibold">
+                {exposureProgram === '1' ? 'Ручная' : exposureProgram === '2' ? 'Авто' : exposureProgram === '3' ? 'Приоритет диафрагмы' : exposureProgram === '4' ? 'Приоритет выдержки' : exposureProgram}
+              </div>
+            </div>
+          )}
+          {exposureMode && (
+            <div>
+              <div className="text-xs text-muted-foreground">Режим экспозиции</div>
+              <div className="font-mono text-sm font-semibold">
+                {exposureMode === '0' ? 'Авто' : exposureMode === '1' ? 'Ручная' : exposureMode === '2' ? 'Брекетинг' : exposureMode}
+              </div>
             </div>
           )}
         </div>
@@ -243,8 +287,19 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
     const flash = exifData.Flash;
     const whiteBalance = exifData.WhiteBalance;
     const software = exifData.Software;
+    const colorSpace = exifData.ColorSpace;
+    const orientation = exifData.Orientation;
+    const contrast = exifData.Contrast;
+    const saturation = exifData.Saturation;
+    const sharpness = exifData.Sharpness;
+    const sceneType = exifData.SceneType;
+    const lightSource = exifData.LightSource;
+    const digitalZoom = exifData.DigitalZoomRatio;
+    const exposureCompensation = exifData.ExposureBiasValue;
 
-    const hasInfo = flash || whiteBalance || software;
+    const hasInfo = flash || whiteBalance || software || colorSpace || orientation || 
+                     contrast || saturation || sharpness || sceneType || lightSource || 
+                     digitalZoom || exposureCompensation;
 
     if (!hasInfo) return null;
 
@@ -254,27 +309,132 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
           <Icon name="Info" size={18} />
           Дополнительно
         </h3>
-        <div className="space-y-2 text-sm">
+        <div className="grid grid-cols-2 gap-3 text-sm">
           {flash && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Вспышка:</span>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Вспышка</span>
               <span className="font-medium">{getFlashText(flash)}</span>
             </div>
           )}
           {whiteBalance && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Баланс белого:</span>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Баланс белого</span>
               <span className="font-medium">{whiteBalance === '0' ? 'Авто' : 'Ручной'}</span>
             </div>
           )}
+          {exposureCompensation && exposureCompensation !== '0' && (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Компенсация экспозиции</span>
+              <span className="font-medium">{exposureCompensation} EV</span>
+            </div>
+          )}
+          {colorSpace && (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Цветовое пространство</span>
+              <span className="font-medium">{colorSpace === '1' ? 'sRGB' : colorSpace === '65535' ? 'Adobe RGB' : colorSpace}</span>
+            </div>
+          )}
+          {orientation && (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Ориентация</span>
+              <span className="font-medium">
+                {orientation === '1' ? 'Горизонтальная' : orientation === '6' ? 'Повёрнуто 90° CW' : orientation === '8' ? 'Повёрнуто 90° CCW' : orientation === '3' ? 'Повёрнуто 180°' : orientation}
+              </span>
+            </div>
+          )}
+          {contrast && (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Контраст</span>
+              <span className="font-medium">{contrast === '0' ? 'Нормальный' : contrast === '1' ? 'Низкий' : contrast === '2' ? 'Высокий' : contrast}</span>
+            </div>
+          )}
+          {saturation && (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Насыщенность</span>
+              <span className="font-medium">{saturation === '0' ? 'Нормальная' : saturation === '1' ? 'Низкая' : saturation === '2' ? 'Высокая' : saturation}</span>
+            </div>
+          )}
+          {sharpness && (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Резкость</span>
+              <span className="font-medium">{sharpness === '0' ? 'Нормальная' : sharpness === '1' ? 'Низкая' : sharpness === '2' ? 'Высокая' : sharpness}</span>
+            </div>
+          )}
+          {lightSource && (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Источник света</span>
+              <span className="font-medium">
+                {lightSource === '0' ? 'Неизвестно' : lightSource === '1' ? 'Дневной свет' : lightSource === '2' ? 'Флуоресцентный' : lightSource === '3' ? 'Вольфрамовый' : lightSource === '17' ? 'Стандартный A' : lightSource === '18' ? 'Стандартный B' : lightSource === '19' ? 'Стандартный C' : lightSource}
+              </span>
+            </div>
+          )}
+          {digitalZoom && digitalZoom !== '0' && digitalZoom !== '1' && (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Цифровой зум</span>
+              <span className="font-medium">{digitalZoom}x</span>
+            </div>
+          )}
           {software && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">ПО:</span>
+            <div className="flex flex-col col-span-2">
+              <span className="text-xs text-muted-foreground">Программное обеспечение</span>
               <span className="font-medium">{software}</span>
             </div>
           )}
         </div>
       </div>
+    );
+  };
+
+  const renderAllExifData = () => {
+    if (!exifData || Object.keys(exifData).length === 0) return null;
+
+    // Исключаем уже показанные поля и служебные
+    const excludeKeys = [
+      'Make', 'Model', 'LensModel', 'DateTimeOriginal', 'DateTime',
+      'ImageWidth', 'ImageHeight', 'Format', 'ExposureTime', 'FNumber',
+      'ISO', 'ISOSpeedRatings', 'FocalLength', 'FocalLengthIn35mmFilm',
+      'Flash', 'WhiteBalance', 'Software', 'ExposureMode', 'ExposureProgram',
+      'MeteringMode', 'MaxApertureValue', 'ColorSpace', 'Orientation',
+      'Contrast', 'Saturation', 'Sharpness', 'SceneType', 'LightSource',
+      'DigitalZoomRatio', 'ExposureBiasValue'
+    ];
+
+    const allData = Object.entries(exifData)
+      .filter(([key]) => !excludeKeys.includes(key))
+      .sort((a, b) => a[0].localeCompare(b[0]));
+
+    if (allData.length === 0) return null;
+
+    return (
+      <Collapsible open={showAllData} onOpenChange={setShowAllData}>
+        <div className="border-t pt-4 mt-4">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between p-2 h-auto">
+              <span className="font-semibold flex items-center gap-2">
+                <Icon name="Code2" size={18} />
+                Все данные EXIF ({allData.length} полей)
+              </span>
+              <Icon
+                name={showAllData ? "ChevronUp" : "ChevronDown"}
+                size={18}
+                className="text-muted-foreground"
+              />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <div className="space-y-1 text-xs max-h-64 overflow-y-auto bg-muted/30 rounded-lg p-3">
+              {allData.map(([key, value]) => (
+                <div key={key} className="flex justify-between gap-4 py-1">
+                  <span className="text-muted-foreground font-medium">{key}:</span>
+                  <span className="font-mono text-right break-all">
+                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
     );
   };
 
@@ -307,6 +467,7 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
             {renderMainInfo()}
             {renderSettings()}
             {renderAdditionalInfo()}
+            {renderAllExifData()}
           </div>
         )}
 
