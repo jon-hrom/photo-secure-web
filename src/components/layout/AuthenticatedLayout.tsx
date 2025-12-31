@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
@@ -61,6 +62,7 @@ const AuthenticatedLayout = ({
   hasVerifiedPhone,
   onLogout,
 }: AuthenticatedLayoutProps) => {
+  const navigate = useNavigate();
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(undefined);
   const [shouldOpenAddClient, setShouldOpenAddClient] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
@@ -165,6 +167,7 @@ const AuthenticatedLayout = ({
             onOpenTariffs={() => setCurrentPage('tariffs')}
             onNavigateToClients={() => setCurrentPage('clients')}
             onNavigateToPhotobook={() => setCurrentPage('photobook')}
+            onNavigateToPhotoBank={() => navigate('/photo-bank')}
             onOpenAddClient={() => {
               setShouldOpenAddClient(true);
               setCurrentPage('clients');
