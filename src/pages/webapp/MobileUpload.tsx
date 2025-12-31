@@ -152,10 +152,10 @@ const MobileUpload = () => {
     const batchSize = 3;
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, i + batchSize);
-      const batchPromises = batch.map((uploadFile, batchIndex) => {
+      const batchPromises = batch.map((fileItem, batchIndex) => {
         const actualIndex = i + batchIndex;
-        if (uploadFile.status === 'pending' || uploadFile.status === 'error') {
-          return uploadFile(uploadFile, actualIndex);
+        if (fileItem.status === 'pending' || fileItem.status === 'error') {
+          return uploadFile(fileItem, actualIndex);
         }
         return Promise.resolve();
       });
