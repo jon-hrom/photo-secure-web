@@ -11,10 +11,11 @@ const MAX_CONCURRENT_UPLOADS = 3;
 
 interface FileUploadStatus {
   file: File;
-  status: 'pending' | 'uploading' | 'success' | 'error';
+  status: 'pending' | 'uploading' | 'success' | 'error' | 'retrying';
   progress: number;
   error?: string;
   s3_key?: string;
+  retryCount?: number;
 }
 
 interface PhotoFolder {
@@ -30,15 +31,44 @@ interface CameraUploadDialogProps {
   onUploadComplete?: () => void;
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
+
 const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadComplete }: CameraUploadDialogProps) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
   const [uploading, setUploading] = useState(false);
   const [folderMode, setFolderMode] = useState<'new' | 'existing'>('new');
   const [folderName, setFolderName] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const filesRef = useRef<FileUploadStatus[]>([]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('[CAMERA_UPLOAD] Network online');
+      setIsOnline(true);
+      if (uploading && filesRef.current.some(f => f.status === 'error')) {
+        toast.info('Интернет восстановлен, продолжаем загрузку...');
+        retryFailedUploads();
+      }
+    };
+    
+    const handleOffline = () => {
+      console.log('[CAMERA_UPLOAD] Network offline');
+      setIsOnline(false);
+      toast.error('Нет интернета. Загрузка возобновится автоматически.');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [uploading]);
 
   useEffect(() => {
     if (open) {
@@ -67,7 +97,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     });
   };
 
-  const uploadFile = async (fileStatus: FileUploadStatus): Promise<void> => {
+  const uploadFile = async (fileStatus: FileUploadStatus, retryAttempt: number = 0): Promise<void> => {
     const { file } = fileStatus;
     const abortController = new AbortController();
     abortControllersRef.current.set(file.name, abortController);
@@ -75,11 +105,17 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     try {
       setFiles(prev => {
         const updated = prev.map(f => 
-          f.file.name === file.name ? { ...f, status: 'uploading', progress: 0 } : f
+          f.file.name === file.name 
+            ? { ...f, status: retryAttempt > 0 ? 'retrying' : 'uploading', progress: 0, retryCount: retryAttempt } 
+            : f
         );
         filesRef.current = updated;
         return updated;
       });
+
+      if (!navigator.onLine) {
+        throw new Error('Нет подключения к интернету');
+      }
 
       const urlResponse = await fetch(
         `${MOBILE_UPLOAD_API}?action=get-url&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
@@ -161,18 +197,40 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
           return updated;
         });
       } else {
-        setFiles(prev => {
-          const updated = prev.map(f => 
-            f.file.name === file.name 
-              ? { ...f, status: 'error', error: error.message } 
-              : f
-          );
-          filesRef.current = updated;
-          return updated;
-        });
+        const isNetworkError = error.message.includes('Network') || 
+                               error.message.includes('интернет') || 
+                               !navigator.onLine;
+        
+        if (isNetworkError && retryAttempt < MAX_RETRIES) {
+          console.log(`[CAMERA_UPLOAD] Retry ${retryAttempt + 1}/${MAX_RETRIES} for ${file.name}`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          await uploadFile(fileStatus, retryAttempt + 1);
+        } else {
+          setFiles(prev => {
+            const updated = prev.map(f => 
+              f.file.name === file.name 
+                ? { ...f, status: 'error', error: isNetworkError ? 'Ошибка сети' : error.message } 
+                : f
+            );
+            filesRef.current = updated;
+            return updated;
+          });
+        }
       }
     } finally {
       abortControllersRef.current.delete(file.name);
+    }
+  };
+
+  const retryFailedUploads = async () => {
+    const failedFiles = filesRef.current.filter(f => f.status === 'error');
+    if (failedFiles.length === 0) return;
+
+    console.log('[CAMERA_UPLOAD] Retrying failed uploads:', failedFiles.length);
+    
+    for (let i = 0; i < failedFiles.length; i += MAX_CONCURRENT_UPLOADS) {
+      const batch = failedFiles.slice(i, i + MAX_CONCURRENT_UPLOADS);
+      await Promise.all(batch.map(f => uploadFile(f)));
     }
   };
 
@@ -310,6 +368,12 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
           <DialogTitle className="flex items-center gap-2">
             <Icon name="Camera" size={24} />
             Загрузить фото с камеры
+            {!isOnline && (
+              <span className="ml-auto flex items-center gap-1 text-sm font-normal text-destructive">
+                <Icon name="WifiOff" size={16} />
+                Нет сети
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -369,6 +433,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
               type="file"
               multiple
               accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
+              capture="environment"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -411,11 +476,19 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
                       {fileStatus.status === 'uploading' && (
                         <Icon name="Loader2" size={16} className="animate-spin ml-2" />
                       )}
+                      {fileStatus.status === 'retrying' && (
+                        <Icon name="RefreshCw" size={16} className="animate-spin text-orange-500 ml-2" />
+                      )}
                     </div>
-                    {fileStatus.status === 'uploading' && (
+                    {(fileStatus.status === 'uploading' || fileStatus.status === 'retrying') && (
                       <Progress value={fileStatus.progress} className="h-1" />
                     )}
-                    {fileStatus.error && (
+                    {fileStatus.status === 'retrying' && fileStatus.retryCount !== undefined && (
+                      <p className="text-xs text-orange-500">
+                        Повторная попытка {fileStatus.retryCount + 1}/{MAX_RETRIES + 1}
+                      </p>
+                    )}
+                    {fileStatus.error && fileStatus.status === 'error' && (
                       <p className="text-xs text-red-600">{fileStatus.error}</p>
                     )}
                   </div>
@@ -442,6 +515,16 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
                 </>
               )}
             </Button>
+            {errorCount > 0 && !uploading && (
+              <Button
+                onClick={retryFailedUploads}
+                variant="outline"
+                className="flex-shrink-0"
+              >
+                <Icon name="RefreshCw" size={18} className="mr-2" />
+                Повтор ({errorCount})
+              </Button>
+            )}
             <Button
               onClick={handleCancel}
               variant="outline"
