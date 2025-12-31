@@ -7,6 +7,7 @@ from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import io
 from datetime import datetime
+import rawpy
 
 S3_BUCKET = 'foto-mix'
 S3_ENDPOINT = 'https://storage.yandexcloud.net'
@@ -21,7 +22,31 @@ def get_s3_client():
         config=Config(signature_version='s3v4')
     )
 
-def extract_exif_data(image_data: bytes) -> Dict[str, Any]:
+def extract_exif_from_raw(raw_data: bytes) -> Dict[str, Any]:
+    '''Извлекает EXIF из RAW файла используя rawpy'''
+    try:
+        with rawpy.imread(io.BytesIO(raw_data)) as raw:
+            # Получаем встроенное JPEG превью с EXIF
+            try:
+                thumb = raw.extract_thumb()
+                if thumb.format == rawpy.ThumbFormat.JPEG:
+                    # Извлекаем EXIF из встроенного JPEG
+                    return extract_exif_from_jpeg(thumb.data)
+            except:
+                pass
+            
+            # Если превью нет, берём базовые данные из RAW
+            exif_data = {}
+            exif_data['ImageWidth'] = raw.sizes.width
+            exif_data['ImageHeight'] = raw.sizes.height
+            exif_data['Format'] = 'RAW'
+            return exif_data
+    except Exception as e:
+        print(f'Error extracting EXIF from RAW: {e}')
+        return {}
+
+def extract_exif_from_jpeg(image_data: bytes) -> Dict[str, Any]:
+    '''Извлекает EXIF из JPEG файла используя Pillow'''
     try:
         image = Image.open(io.BytesIO(image_data))
         
@@ -61,7 +86,7 @@ def extract_exif_data(image_data: bytes) -> Dict[str, Any]:
         
         return exif_data
     except Exception as e:
-        print(f'Error extracting EXIF: {e}')
+        print(f'Error extracting EXIF from JPEG: {e}')
         return {}
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -104,7 +129,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=s3_key)
         image_data = response['Body'].read()
         
-        exif_data = extract_exif_data(image_data)
+        # Определяем тип файла по расширению
+        file_ext = s3_key.lower().split('.')[-1]
+        raw_extensions = ['cr2', 'nef', 'arw', 'dng', 'orf', 'rw2', 'raw']
+        
+        if file_ext in raw_extensions:
+            print(f'[EXIF] Processing RAW file: {s3_key}')
+            exif_data = extract_exif_from_raw(image_data)
+        else:
+            print(f'[EXIF] Processing regular image: {s3_key}')
+            exif_data = extract_exif_from_jpeg(image_data)
         
         result = {
             'success': True,

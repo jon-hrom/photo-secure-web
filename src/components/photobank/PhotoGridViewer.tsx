@@ -9,6 +9,7 @@ interface Photo {
   file_name: string;
   data_url?: string;
   s3_url?: string;
+  s3_key?: string;
   thumbnail_s3_url?: string;
   is_raw?: boolean;
   file_size: number;
@@ -265,11 +266,7 @@ const PhotoGridViewer = ({
         <PhotoExifDialog
           open={showExif}
           onOpenChange={setShowExif}
-          s3Key={
-            viewPhoto.s3_url
-              ? viewPhoto.s3_url.replace('https://storage.yandexcloud.net/foto-mix/', '')
-              : ''
-          }
+          s3Key={viewPhoto.s3_key || ''}
           fileName={viewPhoto.file_name}
           photoUrl={viewPhoto.s3_url || viewPhoto.data_url}
         />

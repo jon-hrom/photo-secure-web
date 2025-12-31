@@ -6,6 +6,7 @@ interface Photo {
   file_name: string;
   data_url?: string;
   s3_url?: string;
+  s3_key?: string;
   thumbnail_s3_url?: string;
   is_raw?: boolean;
   file_size: number;
