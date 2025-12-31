@@ -35,6 +35,8 @@ const PageNavigation = ({ onNavigate, className }: PageNavigationProps) => {
       } else {
         navigate('/');
       }
+    } else if (item.path === '/photo-bank') {
+      navigate('/photo-bank');
     } else if (item.path === '/clients') {
       if (onNavigate) {
         onNavigate('clients');
