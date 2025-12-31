@@ -280,7 +280,10 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
         
         <Card 
           className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 border-0 shadow-xl cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group w-full lg:w-1/2"
-          onClick={() => onNavigateToPhotoBank?.()}
+          onClick={() => {
+            console.log('[DASHBOARD] Clicking Photo Bank card, handler:', typeof onNavigateToPhotoBank);
+            onNavigateToPhotoBank?.();
+          }}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <CardContent className="pt-3 sm:pt-4 md:pt-6 relative z-10">
