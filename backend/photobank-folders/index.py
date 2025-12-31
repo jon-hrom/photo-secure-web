@@ -190,44 +190,58 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     photos = cur.fetchall()
                     
                     result_photos = []
+                    
+                    # Инициализируем Yandex S3 клиент для fallback
+                    old_s3_client = boto3.client(
+                        's3',
+                        endpoint_url='https://storage.yandexcloud.net',
+                        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+                        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+                        region_name='ru-central1',
+                        config=Config(signature_version='s3v4')
+                    )
+                    
                     for photo in photos:
                         if photo['created_at']:
                             photo['created_at'] = photo['created_at'].isoformat()
                         
-                        # Для RAW файлов используем превью, если оно есть
-                        display_key = photo['thumbnail_s3_key'] if photo.get('is_raw') and photo.get('thumbnail_s3_key') else photo['s3_key']
-                        
-                        if display_key:
+                        # Генерируем URL для оригинала
+                        if photo['s3_key']:
                             try:
-                                # Пытаемся сгенерировать URL для нового bucket 'files'
-                                download_url = s3_client.generate_presigned_url(
+                                photo['s3_url'] = s3_client.generate_presigned_url(
                                     'get_object',
-                                    Params={'Bucket': bucket, 'Key': display_key},
+                                    Params={'Bucket': bucket, 'Key': photo['s3_key']},
                                     ExpiresIn=600
                                 )
-                                photo['s3_url'] = download_url
-                            except Exception as e:
-                                print(f'[FALLBACK] Trying old bucket for {display_key}')
-                                # Fallback: пытаемся старый bucket 'foto-mix' на Yandex Cloud
+                            except Exception:
                                 try:
-                                    old_s3_client = boto3.client(
-                                        's3',
-                                        endpoint_url='https://storage.yandexcloud.net',
-                                        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
-                                        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
-                                        region_name='ru-central1',
-                                        config=Config(signature_version='s3v4')
-                                    )
-                                    download_url = old_s3_client.generate_presigned_url(
+                                    photo['s3_url'] = old_s3_client.generate_presigned_url(
                                         'get_object',
-                                        Params={'Bucket': 'foto-mix', 'Key': display_key},
+                                        Params={'Bucket': 'foto-mix', 'Key': photo['s3_key']},
                                         ExpiresIn=600
                                     )
-                                    photo['s3_url'] = download_url
-                                    print(f'[FALLBACK] Success with old bucket')
-                                except Exception as e2:
-                                    print(f'[FALLBACK] Failed for {display_key}: {e2}')
+                                except Exception:
                                     photo['s3_url'] = None
+                        
+                        # Генерируем URL для превью (если есть)
+                        if photo.get('thumbnail_s3_key'):
+                            try:
+                                photo['thumbnail_s3_url'] = s3_client.generate_presigned_url(
+                                    'get_object',
+                                    Params={'Bucket': bucket, 'Key': photo['thumbnail_s3_key']},
+                                    ExpiresIn=600
+                                )
+                            except Exception:
+                                try:
+                                    photo['thumbnail_s3_url'] = old_s3_client.generate_presigned_url(
+                                        'get_object',
+                                        Params={'Bucket': 'foto-mix', 'Key': photo['thumbnail_s3_key']},
+                                        ExpiresIn=600
+                                    )
+                                except Exception:
+                                    photo['thumbnail_s3_url'] = None
+                        else:
+                            photo['thumbnail_s3_url'] = None
                         
                         result_photos.append(photo)
                 
@@ -470,12 +484,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     print(f'[CONFIRM_UPLOAD] Detected RAW file, triggering thumbnail generation')
                     try:
                         generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
+                        # Fire-and-forget: не ждём ответа, конвертация займёт время
                         requests.post(
                             generate_thumbnail_url,
                             json={'photo_id': photo['id']},
-                            timeout=2
+                            timeout=30
                         )
                         print(f'[CONFIRM_UPLOAD] Thumbnail generation triggered for photo {photo["id"]}')
+                    except requests.exceptions.Timeout:
+                        print(f'[CONFIRM_UPLOAD] Thumbnail generation timeout (expected for large RAW)')
                     except Exception as e:
                         print(f'[CONFIRM_UPLOAD] Failed to trigger thumbnail: {e}')
                 
@@ -550,12 +567,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     print(f'[UPLOAD_PHOTO] Detected RAW file, triggering thumbnail generation')
                     try:
                         generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
+                        # Fire-and-forget: не ждём ответа, конвертация займёт время
                         requests.post(
                             generate_thumbnail_url,
                             json={'photo_id': photo['id']},
-                            timeout=2
+                            timeout=30
                         )
                         print(f'[UPLOAD_PHOTO] Thumbnail generation triggered for photo {photo["id"]}')
+                    except requests.exceptions.Timeout:
+                        print(f'[UPLOAD_PHOTO] Thumbnail generation timeout (expected for large RAW)')
                     except Exception as e:
                         print(f'[UPLOAD_PHOTO] Failed to trigger thumbnail: {e}')
                 

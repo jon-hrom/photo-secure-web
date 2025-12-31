@@ -9,6 +9,8 @@ interface Photo {
   file_name: string;
   data_url?: string;
   s3_url?: string;
+  thumbnail_s3_url?: string;
+  is_raw?: boolean;
   file_size: number;
   width: number | null;
   height: number | null;
@@ -218,23 +220,31 @@ const PhotoGridViewer = ({
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            <img
-              src={viewPhoto.s3_url || viewPhoto.data_url || ''}
-              alt={viewPhoto.file_name}
-              className="object-contain cursor-move transition-transform duration-200 select-none"
-              style={{
-                transform: `scale(${zoom})`,
-                maxWidth: '100%',
-                maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)'
-              }}
-              onDoubleClick={handleDoubleTap}
-              onTouchEnd={(e) => {
-                if (e.timeStamp - (touchStart?.time || 0) < 300) {
-                  handleDoubleTap(e);
-                }
-              }}
-              draggable={false}
-            />
+            {viewPhoto.is_raw && !viewPhoto.thumbnail_s3_url ? (
+              <div className="flex flex-col items-center justify-center text-white/60 p-8">
+                <Icon name="Loader2" size={48} className="animate-spin mb-4" />
+                <p className="text-lg mb-2">Конвертация RAW файла...</p>
+                <p className="text-sm text-white/40">Это может занять до минуты</p>
+              </div>
+            ) : (
+              <img
+                src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
+                alt={viewPhoto.file_name}
+                className="object-contain cursor-move transition-transform duration-200 select-none"
+                style={{
+                  transform: `scale(${zoom})`,
+                  maxWidth: '100%',
+                  maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)'
+                }}
+                onDoubleClick={handleDoubleTap}
+                onTouchEnd={(e) => {
+                  if (e.timeStamp - (touchStart?.time || 0) < 300) {
+                    handleDoubleTap(e);
+                  }
+                }}
+                draggable={false}
+              />
+            )}
           </div>
 
           {!isLandscape && (

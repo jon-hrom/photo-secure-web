@@ -247,6 +247,22 @@ const PhotoBank = () => {
     }
   }, [selectedFolder]);
 
+  // Автообновление для RAW файлов (проверка превью каждые 10 сек)
+  useEffect(() => {
+    if (!selectedFolder || !photos.length) return;
+    
+    const hasRawWithoutThumbnail = photos.some(p => p.is_raw && !p.thumbnail_s3_url);
+    if (!hasRawWithoutThumbnail) return;
+    
+    console.log('[PHOTO_BANK] RAW files without thumbnail detected, scheduling refresh');
+    const intervalId = setInterval(() => {
+      console.log('[PHOTO_BANK] Auto-refreshing photos for thumbnail updates');
+      fetchPhotos(selectedFolder.id);
+    }, 10000);
+    
+    return () => clearInterval(intervalId);
+  }, [selectedFolder, photos]);
+
   // Сохранение состояния навигации
   useEffect(() => {
     if (folders.length > 0) {

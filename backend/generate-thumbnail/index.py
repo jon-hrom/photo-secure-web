@@ -86,24 +86,18 @@ def handler(event: dict, context) -> dict:
         
         print(f'[THUMBNAIL] Downloading RAW file: {photo["s3_key"]}')
         
-        # Пытаемся скачать из нового bucket
-        try:
-            response = s3_client.get_object(Bucket='files', Key=photo['s3_key'])
-            raw_data = response['Body'].read()
-        except Exception as e:
-            print(f'[THUMBNAIL] Failed to get from new bucket, trying old: {e}')
-            # Fallback на старый Yandex bucket
-            from botocore.config import Config
-            old_s3 = boto3.client(
-                's3',
-                endpoint_url='https://storage.yandexcloud.net',
-                aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
-                aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
-                region_name='ru-central1',
-                config=Config(signature_version='s3v4')
-            )
-            response = old_s3.get_object(Bucket='foto-mix', Key=photo['s3_key'])
-            raw_data = response['Body'].read()
+        # Скачиваем из Yandex bucket (файлы загружаются через mobile-upload)
+        from botocore.config import Config
+        yandex_s3 = boto3.client(
+            's3',
+            endpoint_url='https://storage.yandexcloud.net',
+            aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+            aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+            region_name='ru-central1',
+            config=Config(signature_version='s3v4')
+        )
+        response = yandex_s3.get_object(Bucket='foto-mix', Key=photo['s3_key'])
+        raw_data = response['Body'].read()
         
         print(f'[THUMBNAIL] Downloaded {len(raw_data)} bytes, converting to JPEG')
         
@@ -125,11 +119,11 @@ def handler(event: dict, context) -> dict:
         img.save(jpeg_buffer, format='JPEG', quality=85, optimize=True)
         jpeg_buffer.seek(0)
         
-        # Загружаем превью в S3
+        # Загружаем превью в Yandex S3 (туда же, где оригинал)
         thumbnail_key = photo['s3_key'].rsplit('.', 1)[0] + '_thumb.jpg'
         
-        s3_client.put_object(
-            Bucket='files',
+        yandex_s3.put_object(
+            Bucket='foto-mix',
             Key=thumbnail_key,
             Body=jpeg_buffer.getvalue(),
             ContentType='image/jpeg',
