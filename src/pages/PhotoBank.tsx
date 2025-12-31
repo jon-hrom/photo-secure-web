@@ -5,6 +5,7 @@ import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
 import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
 import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
+import CameraUploadDialog from '@/components/photobank/CameraUploadDialog';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
@@ -40,15 +41,21 @@ const PhotoBank = () => {
   const [emailVerified, setEmailVerified] = useState(false);
   const [checkingVerification, setCheckingVerification] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
+  const [showCameraUpload, setShowCameraUpload] = useState(false);
 
   useEffect(() => {
     const checkAuth = () => {
       const authSession = localStorage.getItem('authSession');
       const vkUser = localStorage.getItem('vk_user');
+      const googleUser = localStorage.getItem('google_user');
       
-      console.log('[PHOTO_BANK] Auth check:', { hasAuthSession: !!authSession, hasVkUser: !!vkUser });
+      console.log('[PHOTO_BANK] Auth check:', { 
+        hasAuthSession: !!authSession, 
+        hasVkUser: !!vkUser,
+        hasGoogleUser: !!googleUser 
+      });
       
-      if (!authSession && !vkUser) {
+      if (!authSession && !vkUser && !googleUser) {
         console.log('[PHOTO_BANK] No auth found, redirecting to /');
         navigate('/');
         return;
@@ -57,29 +64,18 @@ const PhotoBank = () => {
       if (authSession) {
         try {
           const session = JSON.parse(authSession);
-          console.log('[PHOTO_BANK] Auth session:', { isAuthenticated: session.isAuthenticated, userId: session.userId });
-          if (!session.isAuthenticated || !session.userId) {
-            console.log('[PHOTO_BANK] Invalid auth session, redirecting to /');
+          console.log('[PHOTO_BANK] Auth session:', { 
+            isAuthenticated: session.isAuthenticated, 
+            userId: session.userId,
+            hasUserId: !!session.userId
+          });
+          if (!session.userId) {
+            console.log('[PHOTO_BANK] No userId in session, redirecting to /');
             navigate('/');
             return;
           }
         } catch (err) {
           console.log('[PHOTO_BANK] Error parsing auth session:', err);
-          navigate('/');
-          return;
-        }
-      }
-      
-      if (vkUser) {
-        try {
-          const userData = JSON.parse(vkUser);
-          if (!userData.user_id && !userData.vk_id) {
-            console.log('[PHOTO_BANK] Invalid VK user, redirecting to /');
-            navigate('/');
-            return;
-          }
-        } catch {
-          console.log('[PHOTO_BANK] Error parsing VK user');
           navigate('/');
           return;
         }
@@ -271,6 +267,16 @@ const PhotoBank = () => {
         onClearAll={handleClearAll}
       />
 
+      <CameraUploadDialog
+        open={showCameraUpload}
+        onOpenChange={setShowCameraUpload}
+        userId={userId || ''}
+        onUploadComplete={() => {
+          fetchFolders();
+          fetchStorageUsage();
+        }}
+      />
+
       <div className="max-w-7xl mx-auto space-y-6">
         <PhotoBankStorageIndicator storageUsage={storageUsage} />
 
@@ -289,6 +295,7 @@ const PhotoBank = () => {
           onStartSelection={() => setSelectionMode(true)}
           onShowCreateFolder={() => setShowCreateFolder(true)}
           onShowClearConfirm={() => setShowClearConfirm(true)}
+          onShowCameraUpload={() => setShowCameraUpload(true)}
           canGoBack={navigation.canGoBack}
           canGoForward={navigation.canGoForward}
           onGoBack={handleGoBack}

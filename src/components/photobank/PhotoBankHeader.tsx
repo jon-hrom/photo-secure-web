@@ -32,6 +32,7 @@ interface PhotoBankHeaderProps {
   onStartSelection: () => void;
   onShowCreateFolder: () => void;
   onShowClearConfirm: () => void;
+  onShowCameraUpload?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
   onGoBack?: () => void;
@@ -50,6 +51,7 @@ const PhotoBankHeader = ({
   onStartSelection,
   onShowCreateFolder,
   onShowClearConfirm,
+  onShowCameraUpload,
   canGoBack = false,
   canGoForward = false,
   onGoBack,
@@ -133,6 +135,16 @@ const PhotoBankHeader = ({
           <Icon name="FolderPlus" className="mr-2" size={18} />
           Новая папка
         </Button>
+        {onShowCameraUpload && (
+          <Button 
+            variant="outline"
+            onClick={onShowCameraUpload}
+            className="bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200"
+          >
+            <Icon name="Camera" className="mr-2" size={18} />
+            Загрузить с камеры
+          </Button>
+        )}
         <Button 
           variant="outline"
           onClick={() => navigate('/photo-bank/trash')}
