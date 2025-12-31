@@ -173,14 +173,38 @@ export const usePhotoBankHandlers = (
             if (!urlResponse.ok) throw new Error('Failed to get upload URL');
             const { url, key } = await urlResponse.json();
             
-            // 2. Загружаем файл в S3
-            const uploadResponse = await fetch(url, {
-              method: 'PUT',
-              headers: { 'Content-Type': file.type || 'application/octet-stream' },
-              body: file
+            // 2. Загружаем файл в S3 с отслеживанием прогресса
+            await new Promise<void>((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              
+              xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                  const filePercent = Math.round((e.loaded / e.total) * 100);
+                  const overallPercent = Math.round(((i + (e.loaded / e.total)) / imageFiles.length) * 100);
+                  setUploadProgress({
+                    current: i,
+                    total: imageFiles.length,
+                    percent: overallPercent,
+                    currentFileName: `${file.name} (${filePercent}%)`
+                  });
+                }
+              });
+              
+              xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve();
+                } else {
+                  reject(new Error('Failed to upload file to S3'));
+                }
+              });
+              
+              xhr.addEventListener('error', () => reject(new Error('Network error')));
+              xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+              
+              xhr.open('PUT', url);
+              xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+              xhr.send(file);
             });
-            
-            if (!uploadResponse.ok) throw new Error('Failed to upload file to S3');
             
             // 3. Привязываем к папке через upload_photo
             const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;

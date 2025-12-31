@@ -23,6 +23,7 @@ interface PhotoGridCardProps {
   onPhotoClick: (photo: Photo) => void;
   onDownload: (url: string, fileName: string) => void;
   onDeletePhoto: (photoId: number, fileName: string) => void;
+  onShowExif?: (photo: Photo) => void;
 }
 
 const PhotoGridCard = ({
@@ -32,7 +33,8 @@ const PhotoGridCard = ({
   emailVerified,
   onPhotoClick,
   onDownload,
-  onDeletePhoto
+  onDeletePhoto,
+  onShowExif
 }: PhotoGridCardProps) => {
   const isVertical = (photo.height || 0) > (photo.width || 0);
 
@@ -57,6 +59,18 @@ const PhotoGridCard = ({
             )}
           </div>
         </div>
+      )}
+      {!selectionMode && onShowExif && (photo.thumbnail_s3_url || photo.s3_url) && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowExif(photo);
+          }}
+          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+          title="Информация о фото"
+        >
+          <Icon name="Info" size={16} className="text-white" />
+        </button>
       )}
       <div className="w-full h-full">
         {(photo.thumbnail_s3_url || photo.s3_url) ? (

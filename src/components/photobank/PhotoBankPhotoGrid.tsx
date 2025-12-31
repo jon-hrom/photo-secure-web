@@ -4,6 +4,7 @@ import { useState } from 'react';
 import PhotoGridHeader from './PhotoGridHeader';
 import PhotoGridCard from './PhotoGridCard';
 import PhotoGridViewer from './PhotoGridViewer';
+import PhotoExifDialog from './PhotoExifDialog';
 
 interface Photo {
   id: number;
@@ -74,6 +75,7 @@ const PhotoBankPhotoGrid = ({
   onCancelUpload
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
+  const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
   
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Б';
@@ -145,6 +147,7 @@ const PhotoBankPhotoGrid = ({
                 onPhotoClick={handlePhotoClick}
                 onDownload={handleDownload}
                 onDeletePhoto={onDeletePhoto}
+                onShowExif={(photo) => setExifPhoto(photo)}
               />
             ))}
           </div>
@@ -158,6 +161,16 @@ const PhotoBankPhotoGrid = ({
         onNavigate={handleNavigate}
         formatBytes={formatBytes}
       />
+
+      {exifPhoto && (
+        <PhotoExifDialog
+          open={!!exifPhoto}
+          onOpenChange={(open) => !open && setExifPhoto(null)}
+          s3Key={exifPhoto.s3_key || ''}
+          fileName={exifPhoto.file_name}
+          photoUrl={exifPhoto.thumbnail_s3_url || exifPhoto.s3_url || exifPhoto.data_url}
+        />
+      )}
     </Card>
   );
 };
