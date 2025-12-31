@@ -46,7 +46,10 @@ const PhotoBank = () => {
       const authSession = localStorage.getItem('authSession');
       const vkUser = localStorage.getItem('vk_user');
       
+      console.log('[PHOTO_BANK] Auth check:', { hasAuthSession: !!authSession, hasVkUser: !!vkUser });
+      
       if (!authSession && !vkUser) {
+        console.log('[PHOTO_BANK] No auth found, redirecting to /');
         navigate('/');
         return;
       }
@@ -54,11 +57,14 @@ const PhotoBank = () => {
       if (authSession) {
         try {
           const session = JSON.parse(authSession);
+          console.log('[PHOTO_BANK] Auth session:', { isAuthenticated: session.isAuthenticated, userId: session.userId });
           if (!session.isAuthenticated || !session.userId) {
+            console.log('[PHOTO_BANK] Invalid auth session, redirecting to /');
             navigate('/');
             return;
           }
-        } catch {
+        } catch (err) {
+          console.log('[PHOTO_BANK] Error parsing auth session:', err);
           navigate('/');
           return;
         }
@@ -68,15 +74,18 @@ const PhotoBank = () => {
         try {
           const userData = JSON.parse(vkUser);
           if (!userData.user_id && !userData.vk_id) {
+            console.log('[PHOTO_BANK] Invalid VK user, redirecting to /');
             navigate('/');
             return;
           }
         } catch {
+          console.log('[PHOTO_BANK] Error parsing VK user');
           navigate('/');
           return;
         }
       }
       
+      console.log('[PHOTO_BANK] Auth check passed');
       setAuthChecking(false);
     };
     

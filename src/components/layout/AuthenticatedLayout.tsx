@@ -167,7 +167,10 @@ const AuthenticatedLayout = ({
             onOpenTariffs={() => setCurrentPage('tariffs')}
             onNavigateToClients={() => setCurrentPage('clients')}
             onNavigateToPhotobook={() => setCurrentPage('photobook')}
-            onNavigateToPhotoBank={() => navigate('/photo-bank')}
+            onNavigateToPhotoBank={() => {
+              console.log('[AUTH_LAYOUT] Navigating to photo-bank');
+              navigate('/photo-bank');
+            }}
             onOpenAddClient={() => {
               setShouldOpenAddClient(true);
               setCurrentPage('clients');

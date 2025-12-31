@@ -73,7 +73,10 @@ const AppNavigation = ({
                   <Icon name="Book" size={18} className="mr-2" />
                   Фотокниги
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/photo-bank')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
+                <DropdownMenuItem onClick={() => {
+                  console.log('[APP_NAV] Navigating to photo-bank from dropdown');
+                  navigate('/photo-bank');
+                }} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
                   <Icon name="Images" size={18} className="mr-2" />
                   Мой фото банк
                 </DropdownMenuItem>
