@@ -33,17 +33,34 @@ export const usePhotoBankApi = (
   const { toast } = useToast();
 
   const fetchFolders = async () => {
+    console.log('[FETCH_FOLDERS] Starting fetch with userId:', userId);
     setLoading(true);
     try {
-      const res = await fetch(`${PHOTOBANK_FOLDERS_API}?action=list`, {
+      const url = `${PHOTOBANK_FOLDERS_API}?action=list`;
+      console.log('[FETCH_FOLDERS] Fetching from:', url);
+      
+      const res = await fetch(url, {
         headers: { 'X-User-Id': userId }
       });
+      
+      console.log('[FETCH_FOLDERS] Response status:', res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[FETCH_FOLDERS] Error response:', errorText);
+        throw new Error(`API returned ${res.status}: ${errorText}`);
+      }
+      
       const data = await res.json();
+      console.log('[FETCH_FOLDERS] Received data:', data);
+      console.log('[FETCH_FOLDERS] Folders count:', data.folders?.length || 0);
+      
       setFolders(data.folders || []);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[FETCH_FOLDERS] Error:', error);
       toast({
         title: 'Ошибка',
-        description: 'Не удалось загрузить папки',
+        description: `Не удалось загрузить папки: ${error.message}`,
         variant: 'destructive'
       });
     } finally {
