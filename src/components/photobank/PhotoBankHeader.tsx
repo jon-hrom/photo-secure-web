@@ -139,7 +139,7 @@ const PhotoBankHeader = ({
           <Button 
             variant="outline"
             onClick={onShowCameraUpload}
-            className="bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200"
+            className="bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-900 hover:text-green-950 dark:text-green-950 dark:hover:text-green-950"
           >
             <Icon name="Camera" className="mr-2" size={18} />
             Загрузить с камеры
