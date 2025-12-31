@@ -168,6 +168,7 @@ const PhotoBank = () => {
         // Check if user is main admin
         const authSession = localStorage.getItem('authSession');
         const vkUser = localStorage.getItem('vk_user');
+        const googleUser = localStorage.getItem('google_user');
         
         let userEmail = null;
         let vkUserData = null;
@@ -187,16 +188,38 @@ const PhotoBank = () => {
         
         // Main admins bypass email verification
         if (isAdminUser(userEmail, vkUserData)) {
+          console.log('[PHOTO_BANK] Admin user detected, bypassing verification');
+          setEmailVerified(true);
+          setCheckingVerification(false);
+          return;
+        }
+
+        // Google users are pre-verified
+        if (googleUser) {
+          console.log('[PHOTO_BANK] Google user detected, auto-verified');
           setEmailVerified(true);
           setCheckingVerification(false);
           return;
         }
         
-        const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`);
+        console.log('[PHOTO_BANK] Checking email verification for userId:', userId);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const res = await fetch(`https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9?userId=${userId}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
         const data = await res.json();
+        console.log('[PHOTO_BANK] Verification response:', data);
         setEmailVerified(!!data.email_verified_at);
-      } catch (err) {
-        console.error('Failed to check email verification:', err);
+      } catch (err: any) {
+        console.error('[PHOTO_BANK] Failed to check email verification:', err);
+        if (err.name === 'AbortError') {
+          console.warn('[PHOTO_BANK] Verification check timeout, allowing access');
+          setEmailVerified(true);
+        }
       } finally {
         setCheckingVerification(false);
       }
