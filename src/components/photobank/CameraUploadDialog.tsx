@@ -252,7 +252,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Ca
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
               placeholder="Введите название папки"
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-lg bg-background text-foreground placeholder:text-muted-foreground"
               disabled={uploading}
             />
           </div>
