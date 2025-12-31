@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import PhotoExifDialog from './PhotoExifDialog';
 
 interface Photo {
   id: number;
@@ -32,6 +33,7 @@ const PhotoGridViewer = ({
   const [zoom, setZoom] = useState(1);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
   const [isLandscape, setIsLandscape] = useState(false);
+  const [showExif, setShowExif] = useState(false);
 
   const currentPhotoIndex = viewPhoto ? photos.findIndex(p => p.id === viewPhoto.id) : -1;
   const hasPrev = currentPhotoIndex > 0;
@@ -168,6 +170,13 @@ const PhotoGridViewer = ({
                   {Math.round(zoom * 100)}%
                 </div>
                 <button
+                  onClick={() => setShowExif(true)}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                  title="Информация о фото"
+                >
+                  <Icon name="Info" size={20} className="text-white" />
+                </button>
+                <button
                   onClick={handleCloseDialog}
                   className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
                 >
@@ -241,6 +250,20 @@ const PhotoGridViewer = ({
           )}
         </div>
       </DialogContent>
+
+      {viewPhoto && (
+        <PhotoExifDialog
+          open={showExif}
+          onOpenChange={setShowExif}
+          s3Key={
+            viewPhoto.s3_url
+              ? viewPhoto.s3_url.replace('https://storage.yandexcloud.net/foto-mix/', '')
+              : ''
+          }
+          fileName={viewPhoto.file_name}
+          photoUrl={viewPhoto.s3_url || viewPhoto.data_url}
+        />
+      )}
     </Dialog>
   );
 };
