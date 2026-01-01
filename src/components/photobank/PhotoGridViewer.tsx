@@ -33,7 +33,7 @@ const PhotoGridViewer = ({
   onNavigate,
   formatBytes
 }: PhotoGridViewerProps) => {
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showExif, setShowExif] = useState(false);
@@ -48,13 +48,13 @@ const PhotoGridViewer = ({
       
       if (e.key === 'Escape') {
         onClose();
-        setZoom(1);
+        setZoom(0);
       } else if (e.key === 'ArrowLeft' && hasPrev) {
         onNavigate('prev');
-        setZoom(1);
+        setZoom(0);
       } else if (e.key === 'ArrowRight' && hasNext) {
         onNavigate('next');
-        setZoom(1);
+        setZoom(0);
       }
     };
 
@@ -63,7 +63,12 @@ const PhotoGridViewer = ({
       e.preventDefault();
       
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => Math.max(1, Math.min(2, prev + delta)));
+      setZoom(prev => {
+        if (prev === 0) return delta > 0 ? 1.1 : 0;
+        const newZoom = prev + delta;
+        if (newZoom < 0.5) return 0;
+        return Math.max(0, Math.min(2, newZoom));
+      });
     };
 
     const checkOrientation = () => {
@@ -130,17 +135,24 @@ const PhotoGridViewer = ({
     if (absDeltaX > absDeltaY && absDeltaX > 50) {
       if (deltaX > 0 && hasPrev) {
         onNavigate('prev');
-        setZoom(1);
+        setZoom(0);
       } else if (deltaX < 0 && hasNext) {
         onNavigate('next');
-        setZoom(1);
+        setZoom(0);
       }
     } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
       const zoomSteps = Math.floor(absDeltaY / 50);
       if (deltaY < 0) {
-        setZoom(prev => Math.min(2, prev + (zoomSteps * 0.15)));
+        setZoom(prev => {
+          const newZoom = prev === 0 ? 1.15 : Math.min(2, prev + (zoomSteps * 0.15));
+          return newZoom;
+        });
       } else {
-        setZoom(prev => Math.max(1, prev - (zoomSteps * 0.15)));
+        setZoom(prev => {
+          if (prev === 0) return 0;
+          const newZoom = Math.max(0, prev - (zoomSteps * 0.15));
+          return newZoom < 0.5 ? 0 : newZoom;
+        });
       }
     }
 
@@ -149,12 +161,12 @@ const PhotoGridViewer = ({
 
   const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
-    setZoom(1);
+    setZoom(0);
   };
 
   const handleCloseDialog = () => {
     onClose();
-    setZoom(1);
+    setZoom(0);
   };
 
   if (!viewPhoto) return null;
@@ -170,7 +182,7 @@ const PhotoGridViewer = ({
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  {Math.round(zoom * 100)}%
+                  {zoom === 0 ? 'Fit' : `${Math.round(zoom * 100)}%`}
                 </div>
                 <button
                   onClick={() => setShowExif(true)}
@@ -200,7 +212,7 @@ const PhotoGridViewer = ({
 
           {hasPrev && (
             <button
-              onClick={() => { onNavigate('prev'); setZoom(1); }}
+              onClick={() => { onNavigate('prev'); setZoom(0); }}
               className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
             >
               <Icon name="ChevronLeft" size={28} className="text-white" />
@@ -209,7 +221,7 @@ const PhotoGridViewer = ({
 
           {hasNext && (
             <button
-              onClick={() => { onNavigate('next'); setZoom(1); }}
+              onClick={() => { onNavigate('next'); setZoom(0); }}
               className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
             >
               <Icon name="ChevronRight" size={28} className="text-white" />
@@ -233,9 +245,11 @@ const PhotoGridViewer = ({
                 alt={viewPhoto.file_name}
                 className="object-contain cursor-move transition-transform duration-200 select-none"
                 style={{
-                  transform: `scale(${zoom})`,
+                  transform: zoom > 0 ? `scale(${zoom})` : 'none',
                   maxWidth: '100%',
-                  maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)'
+                  maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
+                  width: zoom === 0 ? 'auto' : undefined,
+                  height: zoom === 0 ? 'auto' : undefined
                 }}
                 onDoubleClick={handleDoubleTap}
                 onTouchEnd={(e) => {
