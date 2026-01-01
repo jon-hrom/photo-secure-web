@@ -152,7 +152,7 @@ public class CameraAccessPlugin extends Plugin {
         return fileInfo;
     }
 
-    private boolean hasRequiredPermissions() {
+    public boolean hasRequiredPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             return true;
         }
