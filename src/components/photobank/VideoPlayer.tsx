@@ -49,9 +49,21 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
       }
     });
 
+    const getVideoType = (url: string): string => {
+      const ext = url.split('.').pop()?.toLowerCase().split('?')[0];
+      switch (ext) {
+        case 'mp4': return 'video/mp4';
+        case 'webm': return 'video/webm';
+        case 'mov': return 'video/quicktime';
+        case 'avi': return 'video/x-msvideo';
+        case 'mkv': return 'video/x-matroska';
+        default: return 'video/mp4';
+      }
+    };
+
     player.src({
       src: src,
-      type: 'video/mp4'
+      type: getVideoType(src)
     });
 
     player.on('fullscreenchange', () => {

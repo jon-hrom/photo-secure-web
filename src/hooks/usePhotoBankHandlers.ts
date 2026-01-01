@@ -227,7 +227,8 @@ export const usePhotoBankHandlers = (
                 folder_id: selectedFolder.id,
                 file_name: file.name,
                 s3_url: s3Url,
-                file_size: file.size
+                file_size: file.size,
+                content_type: file.type || 'application/octet-stream'
               }),
             });
             
