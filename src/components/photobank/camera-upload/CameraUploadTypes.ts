@@ -6,7 +6,7 @@ export const RETRY_DELAY = 2000;
 
 export interface FileUploadStatus {
   file: File;
-  status: 'pending' | 'uploading' | 'success' | 'error' | 'retrying';
+  status: 'pending' | 'uploading' | 'success' | 'error' | 'retrying' | 'skipped';
   progress: number;
   error?: string;
   s3_key?: string;

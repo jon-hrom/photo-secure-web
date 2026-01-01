@@ -164,7 +164,7 @@ export const useCameraUploadLogic = (
     onOpenChange?: (open: boolean) => void
   ) => {
     try {
-      const pendingFiles = filesRef.current.filter(f => f.status === 'pending' || f.status === 'error');
+      const pendingFiles = filesRef.current.filter(f => (f.status === 'pending' || f.status === 'error') && f.status !== 'skipped');
       console.log('[CAMERA_UPLOAD] Pending files to upload:', pendingFiles.length);
       
       for (let i = 0; i < pendingFiles.length; i += MAX_CONCURRENT_UPLOADS) {

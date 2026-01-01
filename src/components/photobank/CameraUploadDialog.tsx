@@ -17,6 +17,8 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
   const [folderMode, setFolderMode] = useState<'new' | 'existing'>('new');
   const [folderName, setFolderName] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<FileUploadStatus[]>([]);
 
@@ -34,6 +36,8 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
       setFolderName(defaultName);
       setFolderMode('new');
       setSelectedFolderId(null);
+      setSelectedDate(null);
+      setAvailableDates([]);
     }
   }, [open]);
 
@@ -72,6 +76,16 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     setFiles(prev => {
       const updated = [...prev, ...newFiles];
       filesRef.current = updated;
+
+      const dates = new Set<string>();
+      updated.forEach(f => {
+        if (f.captureDate) {
+          const dateStr = f.captureDate.toLocaleDateString('ru-RU');
+          dates.add(dateStr);
+        }
+      });
+      setAvailableDates(Array.from(dates).sort());
+
       return updated;
     });
   };
@@ -79,6 +93,11 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
   const handleUpload = async () => {
     if (files.length === 0) {
       toast.error('Выберите файлы для загрузки');
+      return;
+    }
+
+    if (!selectedDate) {
+      toast.error('Выберите дату съёмки для фильтрации');
       return;
     }
 
@@ -91,6 +110,29 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
       toast.error('Выберите папку');
       return;
     }
+
+    const filesToUpload = files.filter(f => {
+      if (!f.captureDate) return false;
+      const dateStr = f.captureDate.toLocaleDateString('ru-RU');
+      return dateStr === selectedDate;
+    });
+
+    if (filesToUpload.length === 0) {
+      toast.error('Нет файлов с выбранной датой съёмки');
+      return;
+    }
+
+    setFiles(prev => {
+      const updated = prev.map(f => {
+        const dateStr = f.captureDate?.toLocaleDateString('ru-RU');
+        if (dateStr === selectedDate && f.status === 'pending') {
+          return f;
+        }
+        return { ...f, status: 'skipped' as const };
+      });
+      filesRef.current = updated;
+      return updated;
+    });
 
     console.log('[CAMERA_UPLOAD] Starting upload with', files.length, 'files');
     setUploading(true);
@@ -117,6 +159,11 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
   const errorCount = files.filter(f => f.status === 'error').length;
   const pendingCount = files.filter(f => f.status === 'pending').length;
   const selectedCount = files.filter(f => f.selected).length;
+  const skippedCount = files.filter(f => f.status === 'skipped').length;
+  const filteredCount = selectedDate ? files.filter(f => {
+    const dateStr = f.captureDate?.toLocaleDateString('ru-RU');
+    return dateStr === selectedDate;
+  }).length : 0;
 
   const handleSelectAll = () => {
     setFiles(prev => {
@@ -217,6 +264,40 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
             )}
           </div>
 
+          {availableDates.length > 0 && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Icon name="Calendar" size={16} />
+                Фильтр по дате съёмки
+              </label>
+              <select
+                value={selectedDate || ''}
+                onChange={(e) => setSelectedDate(e.target.value || null)}
+                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
+                disabled={uploading}
+              >
+                <option value="">Выберите дату съёмки...</option>
+                {availableDates.map(date => {
+                  const count = files.filter(f => {
+                    const dateStr = f.captureDate?.toLocaleDateString('ru-RU');
+                    return dateStr === date;
+                  }).length;
+                  return (
+                    <option key={date} value={date}>
+                      {date} ({count} {count === 1 ? 'файл' : count < 5 ? 'файла' : 'файлов'})
+                    </option>
+                  );
+                })}
+              </select>
+              {selectedDate && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Icon name="Info" size={14} />
+                  Будет загружено {filteredCount} {filteredCount === 1 ? 'файл' : filteredCount < 5 ? 'файла' : 'файлов'} с датой {selectedDate}
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <input
               ref={fileInputRef}
@@ -245,6 +326,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
             errorCount={errorCount}
             pendingCount={pendingCount}
             selectedCount={selectedCount}
+            skippedCount={skippedCount}
             onToggleFile={handleToggleFile}
             onSelectAll={handleSelectAll}
             onDeselectAll={handleDeselectAll}

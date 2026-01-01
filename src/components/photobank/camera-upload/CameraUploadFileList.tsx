@@ -10,6 +10,7 @@ interface CameraUploadFileListProps {
   errorCount: number;
   pendingCount: number;
   selectedCount: number;
+  skippedCount?: number;
   onToggleFile: (index: number) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -28,6 +29,7 @@ const CameraUploadFileList = ({
   errorCount,
   pendingCount,
   selectedCount,
+  skippedCount = 0,
   onToggleFile,
   onSelectAll,
   onDeselectAll,
@@ -71,6 +73,7 @@ const CameraUploadFileList = ({
           <span className="text-green-600">✓ {successCount}</span>
           <span className="text-red-600">✗ {errorCount}</span>
           <span className="text-gray-600">⏳ {pendingCount}</span>
+          {skippedCount > 0 && <span className="text-orange-600">⊘ {skippedCount}</span>}
         </div>
       </div>
 
@@ -138,6 +141,9 @@ const CameraUploadFileList = ({
                       {fileStatus.status === 'retrying' && (
                         <Icon name="RefreshCw" size={16} className="animate-spin text-orange-500" />
                       )}
+                      {fileStatus.status === 'skipped' && (
+                        <Icon name="Ban" size={16} className="text-orange-600" />
+                      )}
                     </div>
                   </div>
                   {(fileStatus.status === 'uploading' || fileStatus.status === 'retrying') && (
@@ -150,6 +156,9 @@ const CameraUploadFileList = ({
                   )}
                   {fileStatus.error && fileStatus.status === 'error' && (
                     <p className="text-xs text-red-600">{fileStatus.error}</p>
+                  )}
+                  {fileStatus.status === 'skipped' && (
+                    <p className="text-xs text-orange-600">Пропущено (дата не совпадает)</p>
                   )}
                 </div>
               ))}
