@@ -304,7 +304,6 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
               type="file"
               multiple
               accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
-              capture="environment"
               onChange={handleFileSelect}
               className="hidden"
             />
