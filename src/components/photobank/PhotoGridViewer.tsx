@@ -246,10 +246,8 @@ const PhotoGridViewer = ({
                 className="object-contain cursor-move transition-transform duration-200 select-none"
                 style={{
                   transform: zoom > 0 ? `scale(${zoom})` : 'none',
-                  maxWidth: '100%',
-                  maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
-                  width: zoom === 0 ? 'auto' : undefined,
-                  height: zoom === 0 ? 'auto' : undefined
+                  maxWidth: zoom === 0 ? '90vw' : '100%',
+                  maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)')
                 }}
                 onDoubleClick={handleDoubleTap}
                 onTouchEnd={(e) => {

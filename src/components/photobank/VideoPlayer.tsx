@@ -162,11 +162,11 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
       </div>
 
       <div 
-        className="flex-1 flex items-center justify-center overflow-hidden"
+        className="flex-1 flex items-center justify-center overflow-hidden px-4"
         onTouchStart={handleDoubleTap}
         onClick={handleDoubleTap}
       >
-        <div className="w-full h-full max-h-full">
+        <div className="w-full h-full max-w-[90vw] max-h-[70vh]">
           <div data-vjs-player className="w-full h-full">
             <video
               ref={videoRef}
