@@ -176,6 +176,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pb.s3_key,
                             pb.thumbnail_s3_key,
                             pb.is_raw,
+                            pb.is_video,
+                            pb.content_type,
                             pb.file_size, 
                             pb.width, 
                             pb.height, 
@@ -509,8 +511,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 file_name = body_data.get('file_name')
                 s3_url = body_data.get('s3_url')
                 file_size = body_data.get('file_size', 0)
+                content_type = body_data.get('content_type', 'application/octet-stream')
                 
-                print(f'[UPLOAD_PHOTO] folder_id={folder_id}, file_name={file_name}, s3_url={s3_url}')
+                print(f'[UPLOAD_PHOTO] folder_id={folder_id}, file_name={file_name}, s3_url={s3_url}, content_type={content_type}')
                 
                 if not all([folder_id, file_name, s3_url]):
                     return {
@@ -533,32 +536,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 print(f'[UPLOAD_PHOTO] Extracted s3_key: {s3_key}')
                 
-                # Get image dimensions from S3
+                # Determine if this is a video based on content_type or file extension
+                is_video = content_type.startswith('video/') or file_name.lower().endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv'))
+                
+                # Get image dimensions from S3 (only for non-video files)
                 width, height = None, None
-                try:
-                    image_response = s3_client.get_object(Bucket=bucket, Key=s3_key)
-                    image_data = image_response['Body'].read()
-                    image = Image.open(io.BytesIO(image_data))
-                    width = image.width
-                    height = image.height
-                    print(f'[UPLOAD_PHOTO] Extracted dimensions: {width}x{height}')
-                except Exception as e:
-                    print(f'[UPLOAD_PHOTO] Failed to get dimensions: {str(e)}')
+                if not is_video:
+                    try:
+                        image_response = s3_client.get_object(Bucket=bucket, Key=s3_key)
+                        image_data = image_response['Body'].read()
+                        image = Image.open(io.BytesIO(image_data))
+                        width = image.width
+                        height = image.height
+                        print(f'[UPLOAD_PHOTO] Extracted dimensions: {width}x{height}')
+                    except Exception as e:
+                        print(f'[UPLOAD_PHOTO] Failed to get dimensions: {str(e)}')
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
-                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id, file_name, s3_key, file_size, created_at
-                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height))
+                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, content_type, is_video)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id, file_name, s3_key, file_size, created_at, is_video, content_type
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, content_type, is_video))
                     conn.commit()
                     photo = cur.fetchone()
                     
                     if photo['created_at']:
                         photo['created_at'] = photo['created_at'].isoformat()
                     
-                    print(f'[UPLOAD_PHOTO] Success, photo_id={photo["id"]}')
+                    print(f'[UPLOAD_PHOTO] Success, photo_id={photo["id"]}, is_video={is_video}')
                 
                 # Проверяем, нужно ли генерировать превью для RAW
                 raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
