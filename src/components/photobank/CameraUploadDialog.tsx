@@ -9,6 +9,7 @@ import {
   FileUploadStatus, 
   CameraUploadDialogProps 
 } from './camera-upload/CameraUploadTypes';
+import { exifr } from 'exifr';
 
 const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadComplete }: CameraUploadDialogProps) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
@@ -36,15 +37,37 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     }
   }, [open]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length === 0) return;
 
-    const newFiles: FileUploadStatus[] = selectedFiles.map(file => ({
-      file,
-      status: 'pending',
-      progress: 0,
-    }));
+    const newFilesPromises = selectedFiles.map(async (file) => {
+      let captureDate: Date | undefined;
+      try {
+        const exifData = await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'] });
+        if (exifData?.DateTimeOriginal) {
+          captureDate = new Date(exifData.DateTimeOriginal);
+        } else if (exifData?.CreateDate) {
+          captureDate = new Date(exifData.CreateDate);
+        }
+      } catch (err) {
+        captureDate = new Date(file.lastModified);
+      }
+
+      if (!captureDate || isNaN(captureDate.getTime())) {
+        captureDate = new Date(file.lastModified);
+      }
+
+      return {
+        file,
+        status: 'pending' as const,
+        progress: 0,
+        captureDate,
+        selected: false,
+      };
+    });
+
+    const newFiles = await Promise.all(newFilesPromises);
 
     setFiles(prev => {
       const updated = [...prev, ...newFiles];
@@ -93,6 +116,40 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
   const successCount = files.filter(f => f.status === 'success').length;
   const errorCount = files.filter(f => f.status === 'error').length;
   const pendingCount = files.filter(f => f.status === 'pending').length;
+  const selectedCount = files.filter(f => f.selected).length;
+
+  const handleSelectAll = () => {
+    setFiles(prev => {
+      const updated = prev.map(f => ({ ...f, selected: true }));
+      filesRef.current = updated;
+      return updated;
+    });
+  };
+
+  const handleDeselectAll = () => {
+    setFiles(prev => {
+      const updated = prev.map(f => ({ ...f, selected: false }));
+      filesRef.current = updated;
+      return updated;
+    });
+  };
+
+  const handleToggleFile = (index: number) => {
+    setFiles(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], selected: !updated[index].selected };
+      filesRef.current = updated;
+      return updated;
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    setFiles(prev => {
+      const updated = prev.filter(f => !f.selected);
+      filesRef.current = updated;
+      return updated;
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,6 +244,11 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
             successCount={successCount}
             errorCount={errorCount}
             pendingCount={pendingCount}
+            selectedCount={selectedCount}
+            onToggleFile={handleToggleFile}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onDeleteSelected={handleDeleteSelected}
           />
 
           <div className="flex gap-2">

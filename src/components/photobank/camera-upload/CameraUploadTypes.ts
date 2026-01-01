@@ -11,6 +11,8 @@ export interface FileUploadStatus {
   error?: string;
   s3_key?: string;
   retryCount?: number;
+  captureDate?: Date;
+  selected?: boolean;
 }
 
 export interface PhotoFolder {
