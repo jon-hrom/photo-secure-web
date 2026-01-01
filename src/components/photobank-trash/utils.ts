@@ -16,6 +16,16 @@ export const getAuthUserId = (): string | null => {
     } catch {}
   }
   
+  const googleUser = localStorage.getItem('google_user');
+  if (googleUser) {
+    try {
+      const userData = JSON.parse(googleUser);
+      if (userData.user_id) return userData.user_id.toString();
+      if (userData.id) return userData.id.toString();
+      if (userData.sub) return userData.sub.toString();
+    } catch {}
+  }
+  
   return null;
 };
 

@@ -38,8 +38,9 @@ const PhotoBankTrash = () => {
     const checkAuth = () => {
       const authSession = localStorage.getItem('authSession');
       const vkUser = localStorage.getItem('vk_user');
+      const googleUser = localStorage.getItem('google_user');
       
-      if (!authSession && !vkUser) {
+      if (!authSession && !vkUser && !googleUser) {
         navigate('/');
         return;
       }
@@ -47,7 +48,7 @@ const PhotoBankTrash = () => {
       if (authSession) {
         try {
           const session = JSON.parse(authSession);
-          if (!session.isAuthenticated || !session.userId) {
+          if (!session.userId) {
             navigate('/');
             return;
           }
