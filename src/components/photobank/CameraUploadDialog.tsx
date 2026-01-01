@@ -20,7 +20,6 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<FileUploadStatus[]>([]);
 
   const {
@@ -299,7 +298,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
             </div>
           )}
 
-          <div className="space-y-2">
+          <div>
             <input
               ref={fileInputRef}
               type="file"
@@ -308,37 +307,17 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
               onChange={handleFileSelect}
               className="hidden"
             />
-            <input
-              ref={folderInputRef}
-              type="file"
-              webkitdirectory=""
-              directory=""
-              multiple
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                variant="outline"
-                className="w-full"
-                disabled={uploading}
-              >
-                <Icon name="Images" size={18} className="mr-2" />
-                Выбрать файлы
-              </Button>
-              <Button
-                onClick={() => folderInputRef.current?.click()}
-                variant="outline"
-                className="w-full"
-                disabled={uploading}
-              >
-                <Icon name="FolderOpen" size={18} className="mr-2" />
-                Выбрать папку
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground text-center">
-              💡 Для камеры используйте "Выбрать папку"
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              className="w-full"
+              disabled={uploading}
+            >
+              <Icon name="FolderOpen" size={18} className="mr-2" />
+              Выбрать файлы
+            </Button>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              💡 В проводнике выберите камеру → откройте папку DCIM → выделите все нужные фото
             </p>
           </div>
 
