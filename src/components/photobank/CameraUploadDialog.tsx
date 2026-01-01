@@ -10,6 +10,8 @@ import {
   CameraUploadDialogProps 
 } from './camera-upload/CameraUploadTypes';
 import exifr from 'exifr';
+import { Capacitor } from '@capacitor/core';
+import CameraAccess from '@/plugins/cameraAccess';
 
 const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadComplete }: CameraUploadDialogProps) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
@@ -41,11 +43,8 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     }
   }, [open]);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    if (selectedFiles.length === 0) return;
-
-    const newFilesPromises = selectedFiles.map(async (file) => {
+  const processFiles = async (fileList: File[]) => {
+    const newFilesPromises = fileList.map(async (file) => {
       let captureDate: Date | undefined;
       try {
         const exifData = await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'] });
@@ -88,6 +87,38 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
 
       return updated;
     });
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+    await processFiles(selectedFiles);
+  };
+
+  const handleNativeFilePicker = async () => {
+    try {
+      const result = await CameraAccess.pickFiles();
+      
+      // Конвертируем base64 данные в File объекты
+      const files = result.files.map(fileData => {
+        const byteString = atob(fileData.data);
+        const arrayBuffer = new ArrayBuffer(byteString.length);
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        for (let i = 0; i < byteString.length; i++) {
+          uint8Array[i] = byteString.charCodeAt(i);
+        }
+        
+        const blob = new Blob([uint8Array], { type: fileData.type });
+        return new File([blob], fileData.name, { type: fileData.type });
+      });
+
+      await processFiles(files);
+      toast.success(`Выбрано файлов: ${files.length}`);
+    } catch (error) {
+      console.error('Ошибка выбора файлов:', error);
+      toast.error('Ошибка выбора файлов');
+    }
   };
 
   const handleUpload = async () => {
@@ -299,26 +330,47 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
           )}
 
           <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              variant="outline"
-              className="w-full"
-              disabled={uploading}
-            >
-              <Icon name="FolderOpen" size={18} className="mr-2" />
-              Выбрать файлы
-            </Button>
-            <p className="text-xs text-muted-foreground text-center mt-2">
-              💡 В проводнике выберите камеру → откройте папку DCIM → выделите все нужные фото
-            </p>
+            {Capacitor.isNativePlatform() ? (
+              // Нативное приложение - используем Capacitor плагин
+              <>
+                <Button
+                  onClick={handleNativeFilePicker}
+                  variant="outline"
+                  className="w-full"
+                  disabled={uploading}
+                >
+                  <Icon name="Camera" size={18} className="mr-2" />
+                  Выбрать с камеры
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  📸 Выберите камеру в проводнике → откройте DCIM → выделите нужные фото
+                </p>
+              </>
+            ) : (
+              // Веб-версия - стандартный input
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  className="w-full"
+                  disabled={uploading}
+                >
+                  <Icon name="FolderOpen" size={18} className="mr-2" />
+                  Выбрать файлы
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  💡 В проводнике выберите камеру → откройте папку DCIM → выделите все нужные фото
+                </p>
+              </>
+            )}
           </div>
 
           <CameraUploadFileList
