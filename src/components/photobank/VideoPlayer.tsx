@@ -25,7 +25,8 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
       autoplay: false,
       preload: 'metadata',
       fluid: true,
-      aspectRatio: '16:9',
+      fill: true,
+      responsive: true,
       poster: poster,
       playbackRates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2],
       controlBar: {
@@ -131,13 +132,14 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-6xl">
-          <div data-vjs-player>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full h-full">
+          <div data-vjs-player className="w-full h-full">
             <video
               ref={videoRef}
-              className="video-js vjs-theme-fantasy vjs-big-play-centered"
+              className="video-js vjs-theme-fantasy vjs-big-play-centered w-full h-full"
               playsInline
+              style={{ width: '100%', height: '100%' }}
             />
           </div>
         </div>
