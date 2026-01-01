@@ -16,6 +16,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [lastTap, setLastTap] = useState<{ time: number; x: number } | null>(null);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -85,6 +86,34 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
     };
   }, [src, poster]);
 
+  const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
+    const currentTime = Date.now();
+    const clickX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const screenWidth = window.innerWidth;
+    
+    if (lastTap && currentTime - lastTap.time < 300 && Math.abs(clickX - lastTap.x) < 50) {
+      if (playerRef.current) {
+        const player = playerRef.current;
+        const currentVideoTime = player.currentTime();
+        
+        if (clickX < screenWidth / 3) {
+          player.currentTime(Math.max(0, currentVideoTime - 10));
+        } else if (clickX > (screenWidth * 2) / 3) {
+          player.currentTime(Math.min(player.duration(), currentVideoTime + 10));
+        } else {
+          if (player.isFullscreen()) {
+            player.exitFullscreen();
+          } else {
+            player.requestFullscreen();
+          }
+        }
+      }
+      setLastTap(null);
+    } else {
+      setLastTap({ time: currentTime, x: clickX });
+    }
+  };
+
   const handleDownload = async () => {
     try {
       const response = await fetch(src);
@@ -104,7 +133,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
-      <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
+      <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent shrink-0">
         <div className="flex items-center gap-3">
           <Icon name="Video" className="text-white" size={24} />
           <h3 className="text-white font-medium truncate max-w-md">
@@ -132,37 +161,36 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-full h-full">
+      <div 
+        className="flex-1 flex items-center justify-center overflow-hidden"
+        onTouchStart={handleDoubleTap}
+        onClick={handleDoubleTap}
+      >
+        <div className="w-full h-full max-h-full">
           <div data-vjs-player className="w-full h-full">
             <video
               ref={videoRef}
-              className="video-js vjs-theme-fantasy vjs-big-play-centered w-full h-full"
+              className="video-js vjs-theme-fantasy vjs-big-play-centered"
               playsInline
-              style={{ width: '100%', height: '100%' }}
             />
           </div>
         </div>
       </div>
 
       {!isFullscreen && (
-        <div className="p-4 bg-gradient-to-t from-black/80 to-transparent">
+        <div className="p-3 bg-gradient-to-t from-black/80 to-transparent shrink-0">
           <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-white/70">
+            <div className="grid grid-cols-2 gap-2 text-xs text-white/70">
               <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-white/10 rounded">Пробел</kbd>
-                <span>Пауза/Воспр.</span>
+                <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">2x тап слева</kbd>
+                <span>-10 сек</span>
               </div>
               <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-white/10 rounded">← →</kbd>
-                <span>±5 сек</span>
+                <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">2x тап справа</kbd>
+                <span>+10 сек</span>
               </div>
               <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-white/10 rounded">↑ ↓</kbd>
-                <span>Громкость</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-white/10 rounded">F</kbd>
+                <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">2x тап центр</kbd>
                 <span>Полный экран</span>
               </div>
             </div>
