@@ -17,15 +17,8 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
   const playerRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  console.log('[VIDEO_PLAYER] Component mounted with:', { src, poster, fileName });
-
   useEffect(() => {
-    if (!videoRef.current) {
-      console.log('[VIDEO_PLAYER] videoRef is null');
-      return;
-    }
-
-    console.log('[VIDEO_PLAYER] Initializing Video.js');
+    if (!videoRef.current) return;
 
     const player = videojs(videoRef.current, {
       controls: true,

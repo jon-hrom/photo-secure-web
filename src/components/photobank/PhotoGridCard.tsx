@@ -48,6 +48,7 @@ const PhotoGridCard = ({
           : 'border-muted hover:border-muted-foreground/20'
       } ${isVertical ? 'aspect-[3/4]' : 'aspect-[4/3]'}`}
       onClick={() => onPhotoClick(photo)}
+      style={{ touchAction: 'manipulation', WebkitTouchCallout: 'none' } as React.CSSProperties}
     >
       {selectionMode && (
         <div className="absolute top-2 left-2 z-10">
@@ -82,8 +83,15 @@ const PhotoGridCard = ({
               alt={photo.file_name}
               className="w-full h-full object-contain"
               loading="lazy"
-              onContextMenu={(e) => photo.is_video && e.preventDefault()}
+              onContextMenu={(e) => e.preventDefault()}
               draggable={false}
+              style={{ 
+                touchAction: 'none',
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                pointerEvents: 'none'
+              } as React.CSSProperties}
             />
             {photo.is_video && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

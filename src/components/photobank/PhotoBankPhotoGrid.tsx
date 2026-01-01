@@ -90,20 +90,10 @@ const PhotoBankPhotoGrid = ({
   };
 
   const handlePhotoClick = (photo: Photo) => {
-    console.log('[PHOTO_GRID] Photo clicked:', {
-      fileName: photo.file_name,
-      isVideo: photo.is_video,
-      s3Url: photo.s3_url,
-      thumbnailUrl: photo.thumbnail_s3_url,
-      contentType: photo.content_type
-    });
-    
     if (!selectionMode) {
       if (photo.is_video) {
-        console.log('[PHOTO_GRID] Opening video player');
         setViewVideo(photo);
       } else {
-        console.log('[PHOTO_GRID] Opening photo viewer');
         setViewPhoto(photo);
       }
     } else {
