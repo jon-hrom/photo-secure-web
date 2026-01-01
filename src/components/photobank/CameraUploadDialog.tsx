@@ -9,7 +9,7 @@ import {
   FileUploadStatus, 
   CameraUploadDialogProps 
 } from './camera-upload/CameraUploadTypes';
-import { exifr } from 'exifr';
+import exifr from 'exifr';
 
 const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadComplete }: CameraUploadDialogProps) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
