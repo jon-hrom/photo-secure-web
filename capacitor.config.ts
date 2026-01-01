@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'ru.fotomix.app',
-  appName: 'FotoMix',
+  appName: 'Foto-Mix',
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {
