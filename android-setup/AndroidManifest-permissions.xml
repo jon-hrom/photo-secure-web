@@ -1,0 +1,8 @@
+<!-- Скопируй эти строки в android/app/src/main/AndroidManifest.xml -->
+<!-- Вставь ВНУТРИ тега <manifest>, после первой строки -->
+
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+    android:maxSdkVersion="32" />
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
