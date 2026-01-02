@@ -1,19 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { useCameraUploadLogic } from './camera-upload/CameraUploadLogic';
 import CameraUploadFileList from './camera-upload/CameraUploadFileList';
+import FileSelectionControls from './camera-upload/FileSelectionControls';
+import FolderSelection from './camera-upload/FolderSelection';
+import DateFilter from './camera-upload/DateFilter';
+import UploadControls from './camera-upload/UploadControls';
 import { 
   FileUploadStatus, 
   CameraUploadDialogProps 
 } from './camera-upload/CameraUploadTypes';
 import exifr from 'exifr';
-import { Capacitor } from '@capacitor/core';
 import CameraAccess from '@/plugins/cameraAccess';
-import NativeCameraCapture from '@/components/camera/NativeCameraCapture';
-import { isNativeApp } from '@/utils/capacitorCheck';
 
 const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadComplete }: CameraUploadDialogProps) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
@@ -103,7 +102,6 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
       const result = await CameraAccess.getAvailableDates();
       
       if (result.dates && result.dates.length > 0) {
-        // Преобразуем даты из формата YYYY-MM-DD в DD.MM.YYYY
         const formattedDates = result.dates.map(dateStr => {
           const [year, month, day] = dateStr.split('-');
           return `${day}.${month}.${year}`;
@@ -124,7 +122,6 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     try {
       let filterDate: string | undefined;
       
-      // Если выбрана дата, преобразуем её обратно в формат YYYY-MM-DD
       if (selectedDate) {
         const [day, month, year] = selectedDate.split('.');
         filterDate = `${year}-${month}-${day}`;
@@ -132,7 +129,6 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
       
       const result = await CameraAccess.pickFiles(filterDate ? { filterDate } : undefined);
       
-      // Конвертируем base64 данные в File объекты
       const files = result.files.map(fileData => {
         const byteString = atob(fileData.data);
         const arrayBuffer = new ArrayBuffer(byteString.length);
@@ -252,268 +248,80 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     setFiles(prev => {
       const updated = [...prev, newFile];
       filesRef.current = updated;
+      
+      const dates = new Set<string>();
+      updated.forEach(f => {
+        if (f.captureDate) {
+          const dateStr = f.captureDate.toLocaleDateString('ru-RU');
+          dates.add(dateStr);
+        }
+      });
+      setAvailableDates(Array.from(dates).sort());
+      
       return updated;
     });
-    
-    toast.success('Фото успешно загружено!');
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="Camera" size={24} />
-            Загрузить фото с камеру
-            {!isOnline && (
-              <span className="ml-auto flex items-center gap-1 text-sm font-normal text-destructive">
-                <Icon name="WifiOff" size={16} />
-                Нет сети
-              </span>
-            )}
-          </DialogTitle>
+          <DialogTitle>Загрузить фото/видео</DialogTitle>
         </DialogHeader>
-        
-        {isNativeApp() && (
-          <div className="mb-4">
-            <NativeCameraCapture
-              userId={userId}
-              folderId={selectedFolderId?.toString()}
-              onCapture={handleNativeCapture}
-            />
-          </div>
-        )}
 
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Выберите папку</label>
-            <div className="flex gap-2">
-              <Button
-                variant={folderMode === 'new' ? 'default' : 'outline'}
-                onClick={() => setFolderMode('new')}
-                disabled={uploading}
-                className="flex-1"
-              >
-                <Icon name="FolderPlus" size={18} className="mr-2" />
-                Новая папка
-              </Button>
-              <Button
-                variant={folderMode === 'existing' ? 'default' : 'outline'}
-                onClick={() => setFolderMode('existing')}
-                disabled={uploading || folders.length === 0}
-                className="flex-1"
-              >
-                <Icon name="Folder" size={18} className="mr-2" />
-                Существующая
-              </Button>
-            </div>
+        <div className="space-y-6">
+          <FileSelectionControls
+            fileInputRef={fileInputRef}
+            uploading={uploading}
+            userId={userId}
+            onFileSelect={handleFileSelect}
+            onScanDates={handleScanDates}
+            onNativeFilePicker={handleNativeFilePicker}
+            onNativeCapture={handleNativeCapture}
+          />
 
-            {folderMode === 'new' ? (
-              <input
-                type="text"
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                placeholder="Введите название папки"
-                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground placeholder:text-muted-foreground"
-                disabled={uploading}
-              />
-            ) : (
-              <select
-                value={selectedFolderId || ''}
-                onChange={(e) => setSelectedFolderId(Number(e.target.value))}
-                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
-                disabled={uploading}
-              >
-                <option value="">Выберите папку...</option>
-                {folders.map(folder => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.folder_name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          <FolderSelection
+            folderMode={folderMode}
+            folderName={folderName}
+            selectedFolderId={selectedFolderId}
+            folders={folders}
+            uploading={uploading}
+            onFolderModeChange={setFolderMode}
+            onFolderNameChange={setFolderName}
+            onFolderSelect={setSelectedFolderId}
+          />
 
-          {availableDates.length > 0 && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Icon name="Calendar" size={16} />
-                Фильтр по дате съёмки
-              </label>
-              <select
-                value={selectedDate || ''}
-                onChange={(e) => setSelectedDate(e.target.value || null)}
-                className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
-                disabled={uploading}
-              >
-                <option value="">Выберите дату съёмки...</option>
-                {availableDates.map(date => {
-                  const count = files.filter(f => {
-                    const dateStr = f.captureDate?.toLocaleDateString('ru-RU');
-                    return dateStr === date;
-                  }).length;
-                  return (
-                    <option key={date} value={date}>
-                      {date} ({count} {count === 1 ? 'файл' : count < 5 ? 'файла' : 'файлов'})
-                    </option>
-                  );
-                })}
-              </select>
-              {selectedDate && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Icon name="Info" size={14} />
-                  Будет загружено {filteredCount} {filteredCount === 1 ? 'файл' : filteredCount < 5 ? 'файла' : 'файлов'} с датой {selectedDate}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <label className="text-sm font-medium flex items-center gap-2">
-              {Capacitor.isNativePlatform() ? (
-                <><Icon name="Calendar" size={16} />Шаг 1: Сканируйте даты</>
-              ) : (
-                <><Icon name="FolderOpen" size={16} />Выбор файлов</>
-              )}
-            </label>
-            
-            {Capacitor.isNativePlatform() ? (
-              <>
-                <Button
-                  onClick={handleScanDates}
-                  variant="outline"
-                  className="w-full"
-                  disabled={uploading}
-                >
-                  <Icon name="Search" size={18} className="mr-2" />
-                  Сканировать даты с камеры
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  📸 Приложение просканирует фото на камере и покажет доступные даты
-                </p>
-              </>
-            ) : (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
-                  className="w-full"
-                  disabled={uploading}
-                >
-                  <Icon name="FolderOpen" size={18} className="mr-2" />
-                  Выбрать файлы
-                </Button>
-              </>
-            )}
-          </div>
-          
-          {Capacitor.isNativePlatform() && availableDates.length > 0 && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Icon name="Calendar" size={16} />
-                Шаг 2: Выберите дату
-              </label>
-              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
-                {availableDates.map((date) => (
-                  <Button
-                    key={date}
-                    onClick={() => setSelectedDate(date)}
-                    variant={selectedDate === date ? 'default' : 'outline'}
-                    size="sm"
-                    className="text-sm"
-                  >
-                    <Icon name="Calendar" size={14} className="mr-2" />
-                    {date}
-                  </Button>
-                ))}
-              </div>
-              {selectedDate && (
-                <div className="p-3 bg-primary/10 rounded-md flex items-center gap-2">
-                  <Icon name="Check" size={16} />
-                  <span className="text-sm font-medium">Выбрана дата: {selectedDate}</span>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {Capacitor.isNativePlatform() && selectedDate && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Icon name="Camera" size={16} />
-                Шаг 3: Загрузите фото
-              </label>
-              <Button
-                onClick={handleNativeFilePicker}
-                variant="default"
-                className="w-full"
-                disabled={uploading}
-              >
-                <Icon name="Download" size={18} className="mr-2" />
-                Загрузить фото за {selectedDate}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                🚀 Будут загружены только фото с выбранной даты
-              </p>
-            </div>
-          )}
+          <DateFilter
+            selectedDate={selectedDate}
+            availableDates={availableDates}
+            filteredCount={filteredCount}
+            uploading={uploading}
+            onDateSelect={setSelectedDate}
+          />
 
           <CameraUploadFileList
             files={files}
+            uploading={uploading}
+            selectedDate={selectedDate}
+            onToggleFile={handleToggleFile}
+          />
+
+          <UploadControls
+            uploading={uploading}
+            isOnline={isOnline}
             totalFiles={totalFiles}
             successCount={successCount}
             errorCount={errorCount}
             pendingCount={pendingCount}
             selectedCount={selectedCount}
             skippedCount={skippedCount}
-            onToggleFile={handleToggleFile}
+            onUpload={handleUpload}
+            onCancel={handleCancel}
+            onRetryFailed={retryFailedUploads}
             onSelectAll={handleSelectAll}
             onDeselectAll={handleDeselectAll}
             onDeleteSelected={handleDeleteSelected}
           />
-
-          <div className="flex gap-2">
-            <Button
-              onClick={handleUpload}
-              disabled={uploading || files.length === 0}
-              className="flex-1"
-            >
-              {uploading ? (
-                <>
-                  <Icon name="Loader2" size={18} className="mr-2 animate-spin" />
-                  Загрузка...
-                </>
-              ) : (
-                <>
-                  <Icon name="Upload" size={18} className="mr-2" />
-                  Загрузить ({files.length})
-                </>
-              )}
-            </Button>
-            {errorCount > 0 && !uploading && (
-              <Button
-                onClick={retryFailedUploads}
-                variant="outline"
-                className="flex-shrink-0"
-              >
-                <Icon name="RefreshCw" size={18} className="mr-2" />
-                Повтор ({errorCount})
-              </Button>
-            )}
-            <Button
-              onClick={handleCancel}
-              variant="outline"
-            >
-              Отмена
-            </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
