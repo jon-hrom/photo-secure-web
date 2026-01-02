@@ -4,6 +4,7 @@ import 'video.js/dist/video-js.css';
 import '@videojs/themes/dist/fantasy/index.css';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface VideoPlayerProps {
   src: string;
@@ -17,6 +18,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
   const playerRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastTap, setLastTap] = useState<{ time: number; x: number } | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -116,6 +118,11 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
 
   const handleDownload = async () => {
     try {
+      toast({
+        title: 'Загрузка начата',
+        description: 'Видео сохраняется на устройство'
+      });
+      
       const response = await fetch(src);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -126,8 +133,18 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      
+      toast({
+        title: 'Готово!',
+        description: 'Видео сохранено на устройство'
+      });
     } catch (error) {
       console.error('Download error:', error);
+      toast({
+        title: 'Ошибка загрузки',
+        description: 'Не удалось скачать видео',
+        variant: 'destructive'
+      });
     }
   };
 

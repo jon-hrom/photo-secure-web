@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import VideoPreviewDialog from '@/components/video/VideoPreviewDialog';
 
 interface NativeCameraCaptureProps {
   onCapture: (imageData: string, fileName: string) => Promise<void>;
@@ -11,10 +12,14 @@ interface NativeCameraCaptureProps {
   folderId?: string;
 }
 
+import VideoPreviewDialog from '@/components/video/VideoPreviewDialog';
+
 const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptureProps) => {
   const [capturing, setCapturing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [showVideoPreview, setShowVideoPreview] = useState(false);
+  const [pendingVideo, setPendingVideo] = useState<File | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -82,6 +87,11 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setPendingVideo(file);
+    setShowVideoPreview(true);
+  };
+
+  const handleVideoConfirm = async (file: File) => {
     try {
       setRecording(true);
       
@@ -89,8 +99,8 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
       reader.onload = async () => {
         const base64 = reader.result?.toString().split(',')[1];
         if (base64) {
-          const fileName = `video_${Date.now()}.mp4`;
-          await uploadToS3(base64, fileName, 'video/mp4');
+          const fileName = file.name || `video_${Date.now()}.mp4`;
+          await uploadToS3(base64, fileName, file.type || 'video/mp4');
         }
       };
       reader.readAsDataURL(file);
@@ -102,6 +112,14 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
       });
     } finally {
       setRecording(false);
+      setPendingVideo(null);
+    }
+  };
+
+  const handleVideoCancel = () => {
+    setPendingVideo(null);
+    if (videoInputRef.current) {
+      videoInputRef.current.value = '';
     }
   };
 
@@ -201,6 +219,14 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
           </div>
         )}
       </div>
+      
+      <VideoPreviewDialog
+        open={showVideoPreview}
+        onOpenChange={setShowVideoPreview}
+        videoFile={pendingVideo}
+        onConfirm={handleVideoConfirm}
+        onCancel={handleVideoCancel}
+      />
     </Card>
   );
 };
