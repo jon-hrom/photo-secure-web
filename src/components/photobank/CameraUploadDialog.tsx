@@ -95,9 +95,40 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     await processFiles(selectedFiles);
   };
 
+  const handleScanDates = async () => {
+    try {
+      toast.info('Сканирование дат с камеры...');
+      const result = await CameraAccess.getAvailableDates();
+      
+      if (result.dates && result.dates.length > 0) {
+        // Преобразуем даты из формата YYYY-MM-DD в DD.MM.YYYY
+        const formattedDates = result.dates.map(dateStr => {
+          const [year, month, day] = dateStr.split('-');
+          return `${day}.${month}.${year}`;
+        });
+        
+        setAvailableDates(formattedDates);
+        toast.success(`Найдено ${result.dates.length} дат с фотографиями`);
+      } else {
+        toast.info('Фото с датами не найдены');
+      }
+    } catch (error) {
+      console.error('Ошибка сканирования дат:', error);
+      toast.error('Ошибка сканирования дат с камеры');
+    }
+  };
+
   const handleNativeFilePicker = async () => {
     try {
-      const result = await CameraAccess.pickFiles();
+      let filterDate: string | undefined;
+      
+      // Если выбрана дата, преобразуем её обратно в формат YYYY-MM-DD
+      if (selectedDate) {
+        const [day, month, year] = selectedDate.split('.');
+        filterDate = `${year}-${month}-${day}`;
+      }
+      
+      const result = await CameraAccess.pickFiles(filterDate ? { filterDate } : undefined);
       
       // Конвертируем base64 данные в File объекты
       const files = result.files.map(fileData => {
@@ -114,7 +145,12 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
       });
 
       await processFiles(files);
-      toast.success(`Выбрано файлов: ${files.length}`);
+      
+      if (selectedDate) {
+        toast.success(`Загружено ${files.length} фото за ${selectedDate}`);
+      } else {
+        toast.success(`Выбрано файлов: ${files.length}`);
+      }
     } catch (error) {
       console.error('Ошибка выбора файлов:', error);
       toast.error('Ошибка выбора файлов');
@@ -127,11 +163,6 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
       return;
     }
 
-    if (!selectedDate) {
-      toast.error('Выберите дату съёмки для фильтрации');
-      return;
-    }
-
     if (folderMode === 'new' && !folderName.trim()) {
       toast.error('Введите название папки');
       return;
@@ -141,29 +172,6 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
       toast.error('Выберите папку');
       return;
     }
-
-    const filesToUpload = files.filter(f => {
-      if (!f.captureDate) return false;
-      const dateStr = f.captureDate.toLocaleDateString('ru-RU');
-      return dateStr === selectedDate;
-    });
-
-    if (filesToUpload.length === 0) {
-      toast.error('Нет файлов с выбранной датой съёмки');
-      return;
-    }
-
-    setFiles(prev => {
-      const updated = prev.map(f => {
-        const dateStr = f.captureDate?.toLocaleDateString('ru-RU');
-        if (dateStr === selectedDate && f.status === 'pending') {
-          return f;
-        }
-        return { ...f, status: 'skipped' as const };
-      });
-      filesRef.current = updated;
-      return updated;
-    });
 
     console.log('[CAMERA_UPLOAD] Starting upload with', files.length, 'files');
     setUploading(true);
@@ -329,25 +337,31 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
             </div>
           )}
 
-          <div>
+          <div className="space-y-3">
+            <label className="text-sm font-medium flex items-center gap-2">
+              {Capacitor.isNativePlatform() ? (
+                <><Icon name="Calendar" size={16} />Шаг 1: Сканируйте даты</>
+              ) : (
+                <><Icon name="FolderOpen" size={16} />Выбор файлов</>
+              )}
+            </label>
+            
             {Capacitor.isNativePlatform() ? (
-              // Нативное приложение - используем Capacitor плагин
               <>
                 <Button
-                  onClick={handleNativeFilePicker}
+                  onClick={handleScanDates}
                   variant="outline"
                   className="w-full"
                   disabled={uploading}
                 >
-                  <Icon name="Camera" size={18} className="mr-2" />
-                  Выбрать с камеры
+                  <Icon name="Search" size={18} className="mr-2" />
+                  Сканировать даты с камеры
                 </Button>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  📸 Выберите камеру в проводнике → откройте DCIM → выделите нужные фото
+                <p className="text-xs text-muted-foreground">
+                  📸 Приложение просканирует фото на камере и покажет доступные даты
                 </p>
               </>
             ) : (
-              // Веб-версия - стандартный input
               <>
                 <input
                   ref={fileInputRef}
@@ -366,12 +380,59 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
                   <Icon name="FolderOpen" size={18} className="mr-2" />
                   Выбрать файлы
                 </Button>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  💡 В проводнике выберите камеру → откройте папку DCIM → выделите все нужные фото
-                </p>
               </>
             )}
           </div>
+          
+          {Capacitor.isNativePlatform() && availableDates.length > 0 && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Icon name="Calendar" size={16} />
+                Шаг 2: Выберите дату
+              </label>
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
+                {availableDates.map((date) => (
+                  <Button
+                    key={date}
+                    onClick={() => setSelectedDate(date)}
+                    variant={selectedDate === date ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-sm"
+                  >
+                    <Icon name="Calendar" size={14} className="mr-2" />
+                    {date}
+                  </Button>
+                ))}
+              </div>
+              {selectedDate && (
+                <div className="p-3 bg-primary/10 rounded-md flex items-center gap-2">
+                  <Icon name="Check" size={16} />
+                  <span className="text-sm font-medium">Выбрана дата: {selectedDate}</span>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {Capacitor.isNativePlatform() && selectedDate && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Icon name="Camera" size={16} />
+                Шаг 3: Загрузите фото
+              </label>
+              <Button
+                onClick={handleNativeFilePicker}
+                variant="default"
+                className="w-full"
+                disabled={uploading}
+              >
+                <Icon name="Download" size={18} className="mr-2" />
+                Загрузить фото за {selectedDate}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                🚀 Будут загружены только фото с выбранной даты
+              </p>
+            </div>
+          )}
 
           <CameraUploadFileList
             files={files}

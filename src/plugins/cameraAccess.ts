@@ -2,10 +2,18 @@ import { registerPlugin } from '@capacitor/core';
 
 export interface CameraAccessPlugin {
   /**
+   * Сканирует доступные даты съёмки на подключенной камере
+   * Возвращает список уникальных дат в формате DD.MM.YYYY
+   */
+  getAvailableDates(): Promise<{ dates: string[] }>;
+  
+  /**
    * Открывает системный file picker для выбора множественных файлов
    * Поддерживает MTP устройства (камеры) на Android
+   * @param options - Опции для фильтрации файлов
+   * @param options.filterDate - Дата для фильтрации фото (формат: YYYY-MM-DD)
    */
-  pickFiles(): Promise<{ files: FileData[] }>;
+  pickFiles(options?: { filterDate?: string }): Promise<{ files: FileData[] }>;
 }
 
 export interface FileData {
@@ -14,6 +22,7 @@ export interface FileData {
   type: string;
   uri: string;
   data: string; // base64 encoded content
+  date?: string; // Дата съёмки из EXIF (формат: YYYY-MM-DD)
   error?: string;
 }
 
