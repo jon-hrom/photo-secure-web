@@ -12,8 +12,6 @@ interface NativeCameraCaptureProps {
   folderId?: string;
 }
 
-import VideoPreviewDialog from '@/components/video/VideoPreviewDialog';
-
 const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptureProps) => {
   const [capturing, setCapturing] = useState(false);
   const [uploading, setUploading] = useState(false);
