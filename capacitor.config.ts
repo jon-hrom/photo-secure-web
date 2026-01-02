@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {
-    url: 'https://webapp-ea3qv6a9.poehali.app',
+    url: 'https://preview--photo-secure-web.poehali.dev',
     androidScheme: 'https',
     cleartext: true
   },
