@@ -1,0 +1,9 @@
+// Добавь эту строку в dependencies в файле:
+// android/app/build.gradle
+
+dependencies {
+    // ... существующие зависимости ...
+    
+    // Для чтения EXIF данных из фото
+    implementation 'androidx.exifinterface:exifinterface:1.3.6'
+}
