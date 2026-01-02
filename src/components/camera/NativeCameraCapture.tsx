@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,6 +14,8 @@ interface NativeCameraCaptureProps {
 const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptureProps) => {
   const [capturing, setCapturing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const capturePhoto = async () => {
@@ -72,6 +74,37 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
     }
   };
 
+  const recordVideo = () => {
+    videoInputRef.current?.click();
+  };
+
+  const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setRecording(true);
+      
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result?.toString().split(',')[1];
+        if (base64) {
+          const fileName = `video_${Date.now()}.mp4`;
+          await uploadToS3(base64, fileName, 'video/mp4');
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка видео',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setRecording(false);
+    }
+  };
+
   const uploadToS3 = async (base64Data: string, fileName: string, fileType: string) => {
     try {
       setUploading(true);
@@ -93,9 +126,10 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
       const result = await response.json();
 
       if (result.success) {
+        const isVideo = fileType.startsWith('video/');
         toast({
           title: 'Успешно!',
-          description: 'Фото загружено на сервер'
+          description: isVideo ? 'Видео загружено на сервер' : 'Фото загружено на сервер'
         });
         await onCapture(result.cdn_url, fileName);
       } else {
@@ -120,7 +154,7 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
         <div className="grid grid-cols-2 gap-4">
           <Button
             onClick={capturePhoto}
-            disabled={capturing || uploading}
+            disabled={capturing || uploading || recording}
             size="lg"
             className="h-24 flex flex-col gap-2"
           >
@@ -130,7 +164,7 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
 
           <Button
             onClick={selectFromGallery}
-            disabled={capturing || uploading}
+            disabled={capturing || uploading || recording}
             size="lg"
             variant="secondary"
             className="h-24 flex flex-col gap-2"
@@ -139,10 +173,31 @@ const NativeCameraCapture = ({ onCapture, userId, folderId }: NativeCameraCaptur
             <span>Из галереи</span>
           </Button>
         </div>
+        
+        <div className="grid grid-cols-1 gap-4">
+          <Button
+            onClick={recordVideo}
+            disabled={capturing || uploading || recording}
+            size="lg"
+            variant="outline"
+            className="h-24 flex flex-col gap-2"
+          >
+            <Icon name="Video" size={32} />
+            <span>Снять видео</span>
+          </Button>
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            capture="environment"
+            onChange={handleVideoSelect}
+            className="hidden"
+          />
+        </div>
 
-        {(capturing || uploading) && (
+        {(capturing || uploading || recording) && (
           <div className="text-center text-sm text-muted-foreground">
-            {capturing ? 'Открываю камеру...' : 'Загружаю на сервер...'}
+            {capturing ? 'Открываю камеру...' : recording ? 'Обработка видео...' : 'Загружаю на сервер...'}
           </div>
         )}
       </div>
