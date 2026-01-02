@@ -1,4 +1,5 @@
 {
+  "camera-upload": "https://functions.poehali.dev/324ca8fc-3f85-427e-9bf0-bfe57b31e540",
   "generate-thumbnail": "https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c",
   "extract-exif": "https://functions.poehali.dev/340b5361-292f-4f16-8d31-f179fa6856b1",
   "mobile-upload": "https://functions.poehali.dev/3372b3ed-5509-41e0-a542-b3774be6b702",

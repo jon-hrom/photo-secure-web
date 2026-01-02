@@ -366,4 +366,32 @@
   .animate-ping {
     animation: pulse-orange 1s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
+
+  /* Mobile-optimized touch targets */
+  .touch-optimized {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  .mobile-button {
+    @apply h-14 text-lg font-semibold touch-optimized;
+  }
+
+  .mobile-input {
+    @apply h-12 text-base touch-optimized;
+  }
+
+  .mobile-card {
+    @apply p-6 rounded-2xl;
+  }
+
+  /* Safe area insets for notched devices */
+  @supports (padding: max(0px)) {
+    .safe-area-inset-top {
+      padding-top: max(env(safe-area-inset-top), 1rem);
+    }
+
+    .safe-area-inset-bottom {
+      padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+    }
+  }
 }

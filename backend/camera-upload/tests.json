@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "name": "Upload photo via camera",
+      "method": "POST",
+      "body": {
+        "user_id": "test_user",
+        "file": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "file_name": "test.jpg",
+        "file_type": "image/jpeg",
+        "folder_id": "test_folder"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "s3_key": "string",
+        "cdn_url": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

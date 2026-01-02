@@ -12,6 +12,8 @@ import {
 import exifr from 'exifr';
 import { Capacitor } from '@capacitor/core';
 import CameraAccess from '@/plugins/cameraAccess';
+import NativeCameraCapture from '@/components/camera/NativeCameraCapture';
+import { isNativeApp } from '@/utils/capacitorCheck';
 
 const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadComplete }: CameraUploadDialogProps) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
@@ -237,13 +239,32 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     });
   };
 
+  const handleNativeCapture = async (cdnUrl: string, fileName: string) => {
+    const newFile: FileUploadStatus = {
+      file: new File([], fileName),
+      status: 'success',
+      progress: 100,
+      captureDate: new Date(),
+      selected: false,
+      cdnUrl
+    };
+    
+    setFiles(prev => {
+      const updated = [...prev, newFile];
+      filesRef.current = updated;
+      return updated;
+    });
+    
+    toast.success('Фото успешно загружено!');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="Camera" size={24} />
-            Загрузить фото с камеры
+            Загрузить фото с камеру
             {!isOnline && (
               <span className="ml-auto flex items-center gap-1 text-sm font-normal text-destructive">
                 <Icon name="WifiOff" size={16} />
@@ -252,6 +273,16 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
             )}
           </DialogTitle>
         </DialogHeader>
+        
+        {isNativeApp() && (
+          <div className="mb-4">
+            <NativeCameraCapture
+              userId={userId}
+              folderId={selectedFolderId?.toString()}
+              onCapture={handleNativeCapture}
+            />
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="space-y-3">
