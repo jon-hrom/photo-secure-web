@@ -112,17 +112,19 @@ export const useCameraUploadLogic = (
         );
         filesRef.current = updated;
         
-        // Обновляем статистику для ETA
+        // Обновляем статистику для ETA на основе реального количества success файлов
         setUploadStats(stats => {
-          const completedFiles = stats.completedFiles + 1;
+          const actualCompleted = updated.filter(f => f.status === 'success').length;
           const elapsed = Date.now() - stats.startTime;
-          const avgTimePerFile = elapsed / completedFiles;
-          const remaining = stats.totalFiles - completedFiles;
-          const estimatedTimeRemaining = Math.round(avgTimePerFile * remaining / 1000);
+          const avgTimePerFile = actualCompleted > 0 ? elapsed / actualCompleted : 0;
+          const remaining = stats.totalFiles - actualCompleted;
+          const estimatedTimeRemaining = remaining > 0 && avgTimePerFile > 0 
+            ? Math.round(avgTimePerFile * remaining / 1000) 
+            : 0;
           
           return {
             ...stats,
-            completedFiles,
+            completedFiles: actualCompleted,
             estimatedTimeRemaining
           };
         });
