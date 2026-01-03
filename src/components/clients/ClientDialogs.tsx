@@ -48,8 +48,18 @@ const ClientDialogs = ({
   userId,
 }: ClientDialogsProps) => {
   const handleAddClientWithCheck = () => {
+    if (!newClient.name.trim()) {
+      toast.error('Укажите ФИО клиента', {
+        position: 'top-center',
+        duration: 3000,
+      });
+      return;
+    }
     if (!validatePhone(newClient.phone)) {
-      toast.error('Телефон должен содержать 11 цифр (включая +7)');
+      toast.error('Телефон должен содержать 11 цифр (включая +7)', {
+        position: 'top-center',
+        duration: 3000,
+      });
       return;
     }
     handleAddClient();
@@ -98,14 +108,14 @@ const ClientDialogs = ({
             </Tooltip>
           </TooltipProvider>
         )}
-        <DialogContent className="max-w-md" data-tour="client-form" aria-describedby="add-client-description">
+        <DialogContent className="max-w-md flex flex-col max-h-[85vh]" data-tour="client-form" aria-describedby="add-client-description">
           <DialogHeader>
             <DialogTitle>Новый клиент</DialogTitle>
           </DialogHeader>
           <div id="add-client-description" className="sr-only">
             Форма для добавления нового клиента в базу
           </div>
-          <div className="space-y-4 pt-4">
+          <div className="space-y-4 pt-4 overflow-y-auto flex-1">
             <div className="space-y-2">
               <Label htmlFor="name">ФИО *</Label>
               <Input
@@ -157,8 +167,14 @@ const ClientDialogs = ({
                 placeholder="username"
               />
             </div>
-            <Button onClick={handleAddClientWithCheck} className="w-full" disabled={!emailVerified}>
-              <Icon name="UserPlus" size={18} className="mr-2" />
+          </div>
+          <div className="pt-4 pb-2 border-t mt-4 sticky bottom-0 bg-background">
+            <Button 
+              onClick={handleAddClientWithCheck} 
+              className="w-full h-12 text-base font-semibold shadow-lg active:scale-95 transition-transform cursor-pointer touch-manipulation"
+              type="button"
+            >
+              <Icon name="UserPlus" size={20} className="mr-2" />
               Добавить карточку клиента
             </Button>
           </div>
@@ -166,7 +182,7 @@ const ClientDialogs = ({
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md" aria-describedby="edit-client-description">
+        <DialogContent className="max-w-md flex flex-col max-h-[85vh]" aria-describedby="edit-client-description">
           <DialogHeader>
             <DialogTitle>Редактирование клиента</DialogTitle>
           </DialogHeader>
@@ -174,58 +190,66 @@ const ClientDialogs = ({
             Форма для редактирования данных клиента
           </div>
           {editingClient && (
-            <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">ФИО *</Label>
-                <Input
-                  id="edit-name"
-                  value={editingClient.name}
-                  onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })}
-                />
+            <>
+              <div className="space-y-4 pt-4 overflow-y-auto flex-1">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">ФИО *</Label>
+                  <Input
+                    id="edit-name"
+                    value={editingClient.name}
+                    onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Телефон *</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editingClient.phone}
+                    onChange={(e) => {
+                      const formatted = formatPhoneNumber(e.target.value);
+                      setEditingClient({ ...editingClient, phone: formatted });
+                    }}
+                    maxLength={18}
+                  />
+                  <p className="text-xs text-muted-foreground">Формат: +7 (999) 123-45-67</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editingClient.email}
+                    onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">Адрес</Label>
+                  <Input
+                    id="edit-address"
+                    value={editingClient.address}
+                    onChange={(e) => setEditingClient({ ...editingClient, address: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vk">ВКонтакте</Label>
+                  <Input
+                    id="edit-vk"
+                    value={editingClient.vkProfile || ''}
+                    onChange={(e) => setEditingClient({ ...editingClient, vkProfile: e.target.value })}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-phone">Телефон *</Label>
-                <Input
-                  id="edit-phone"
-                  value={editingClient.phone}
-                  onChange={(e) => {
-                    const formatted = formatPhoneNumber(e.target.value);
-                    setEditingClient({ ...editingClient, phone: formatted });
-                  }}
-                  maxLength={18}
-                />
-                <p className="text-xs text-muted-foreground">Формат: +7 (999) 123-45-67</p>
+              <div className="pt-4 pb-2 border-t mt-4 sticky bottom-0 bg-background">
+                <Button 
+                  onClick={handleUpdateClient} 
+                  className="w-full h-12 text-base font-semibold shadow-lg active:scale-95 transition-transform cursor-pointer touch-manipulation"
+                  type="button"
+                >
+                  <Icon name="Save" size={20} className="mr-2" />
+                  Сохранить изменения
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={editingClient.email}
-                  onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-address">Адрес</Label>
-                <Input
-                  id="edit-address"
-                  value={editingClient.address}
-                  onChange={(e) => setEditingClient({ ...editingClient, address: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-vk">ВКонтакте</Label>
-                <Input
-                  id="edit-vk"
-                  value={editingClient.vkProfile || ''}
-                  onChange={(e) => setEditingClient({ ...editingClient, vkProfile: e.target.value })}
-                />
-              </div>
-              <Button onClick={handleUpdateClient} className="w-full">
-                <Icon name="Save" size={18} className="mr-2" />
-                Сохранить изменения
-              </Button>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
