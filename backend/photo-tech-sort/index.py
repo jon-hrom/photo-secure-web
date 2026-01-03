@@ -206,6 +206,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
+        print(f'[TECH_SORT] Starting analysis for folder_id={folder_id}, user_id={user_id}')
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Проверяем что папка принадлежит пользователю и это папка "originals"
             cur.execute('''
@@ -213,6 +214,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 FROM t_p28211681_photo_secure_web.photo_folders
                 WHERE id = %s AND user_id = %s AND is_trashed = FALSE
             ''', (folder_id, user_id))
+            print('[TECH_SORT] Folder query executed')
             
             folder = cur.fetchone()
             if not folder:
@@ -265,12 +267,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             ''', (folder_id, user_id))
             
             photos = cur.fetchall()
+            print(f'[TECH_SORT] Found {len(photos)} photos to analyze')
             
             rejected_count = 0
             processed_count = 0
             
             # Обрабатываем каждое фото
             for photo in photos:
+                print(f'[TECH_SORT] Processing photo id={photo["id"]}, s3_key={photo.get("s3_key", "none")}')
                 try:
                     # Получаем байты изображения
                     if photo['data_url']:
