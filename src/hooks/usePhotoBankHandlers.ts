@@ -146,9 +146,10 @@ export const usePhotoBankHandlers = (
     let errorCount = 0;
 
     const BATCH_SIZE = 5;
+    const cancelledRef = uploadCancelled;
     
     const uploadSingleFile = async (file: File, index: number) => {
-      if (uploadCancelled) {
+      if (cancelledRef) {
         throw new Error('Upload cancelled');
       }
       
@@ -293,7 +294,11 @@ export const usePhotoBankHandlers = (
 
     try {
       for (let i = 0; i < mediaFiles.length; i += BATCH_SIZE) {
-        if (uploadCancelled) break;
+        cancelledRef = uploadCancelled;
+        if (cancelledRef) {
+          console.log('[UPLOAD] Upload cancelled by user');
+          break;
+        }
         
         const batch = mediaFiles.slice(i, i + BATCH_SIZE);
         console.log(`[UPLOAD] Starting batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} files`);
@@ -302,6 +307,7 @@ export const usePhotoBankHandlers = (
           batch.map((file, batchIndex) => uploadSingleFile(file, i + batchIndex))
         );
         
+        let shouldStop = false;
         results.forEach((result, batchIndex) => {
           if (result.status === 'fulfilled') {
             successCount++;
@@ -313,7 +319,11 @@ export const usePhotoBankHandlers = (
                 description: 'Для загрузки фото необходимо подтвердить адрес электронной почты',
                 variant: 'destructive'
               });
-              setUploading(false);
+              shouldStop = true;
+              return;
+            }
+            if (result.reason?.message === 'Upload cancelled') {
+              shouldStop = true;
               return;
             }
             errorCount++;
@@ -326,22 +336,32 @@ export const usePhotoBankHandlers = (
           percent: Math.round(((i + batch.length) / mediaFiles.length) * 100),
           currentFileName: ''
         });
+        
+        if (shouldStop) break;
       }
 
-      if (successCount > 0) {
+      if (uploadCancelled) {
+        toast({
+          title: 'Загрузка остановлена',
+          description: `Загружено ${successCount} из ${mediaFiles.length} фото`
+        });
+      } else if (successCount > 0) {
         toast({
           title: 'Успешно',
           description: `Загружено ${successCount} фото${errorCount > 0 ? `, ошибок: ${errorCount}` : ''}`
         });
-        fetchPhotos(selectedFolder.id);
-        fetchFolders();
-        fetchStorageUsage();
       } else if (errorCount > 0) {
         toast({
           title: 'Ошибка',
           description: 'Не удалось загрузить фото',
           variant: 'destructive'
         });
+      }
+      
+      if (successCount > 0) {
+        fetchPhotos(selectedFolder.id);
+        fetchFolders();
+        fetchStorageUsage();
       }
     } catch (error: any) {
       toast({
