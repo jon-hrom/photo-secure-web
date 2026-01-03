@@ -17,6 +17,43 @@ import cv2
 import numpy as np
 from PIL import Image
 
+def detect_closed_eyes(img: np.ndarray) -> bool:
+    """
+    Детекция закрытых глаз на фото
+    Returns: True если глаза закрыты, False если открыты или лиц не найдено
+    """
+    try:
+        # Используем встроенный каскад Хаара для детекции лиц
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+        
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        
+        # Если лиц не найдено - не считаем браком (может быть пейзаж или объект)
+        if len(faces) == 0:
+            return False
+        
+        # Проверяем глаза на каждом найденном лице
+        for (x, y, w, h) in faces:
+            roi_gray = gray[y:y+h, x:x+w]
+            roi_color = img[y:y+h, x:x+w]
+            
+            # Ищем глаза в области лица
+            eyes = eye_cascade.detectMultiScale(roi_gray, scaleFactor=1.1, minNeighbors=10, minSize=(15, 15))
+            
+            # Если нашли меньше 2 глаз - считаем что глаза закрыты
+            if len(eyes) < 2:
+                print(f'[TECH_SORT] Closed eyes detected: found {len(eyes)} eyes')
+                return True
+        
+        return False
+        
+    except Exception as e:
+        print(f'[TECH_SORT] Error in eye detection: {str(e)}')
+        return False
+
+
 def analyze_photo_quality(image_bytes: bytes) -> Tuple[bool, str]:
     """
     Анализирует качество фото и определяет является ли оно техническим браком
@@ -81,6 +118,10 @@ def analyze_photo_quality(image_bytes: bytes) -> Tuple[bool, str]:
         contrast = np.std(v_channel)
         if contrast < 20:
             return True, 'low_contrast'
+        
+        # Проверка 5: Закрытые глаза
+        if detect_closed_eyes(img):
+            return True, 'closed_eyes'
         
         # Фото прошло все проверки - не брак
         return False, 'ok'
