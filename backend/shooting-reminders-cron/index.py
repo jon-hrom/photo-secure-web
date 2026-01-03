@@ -432,6 +432,23 @@ def send_client_reminder(client_phone: str, photographer_name: str, project_data
 • Рассчитайте время в пути 🚗
 
 Скоро встретимся! 📸"""
+    elif hours_before == 3:
+        message = f"""⏰ Осталось всего {int(hours_before)} часа до съёмки!
+
+🎬 Проект: {project_name}
+📅 Дата: {date_str}
+🕐 Время: {time_str}
+📍 Адрес: {address}
+
+👤 Фотограф: {photographer_name}
+
+🚀 Время собираться:
+• Оденьтесь и подготовьтесь ✨
+• Возьмите все необходимое 💼
+• Выезжайте с запасом времени 🚗
+• Телефон заряжен 📱
+
+Скоро увидимся! 📸"""
     else:  # 1 hour
         message = f"""⏰ Время близко! Фотосессия через {int(hours_before)} час!
 
@@ -473,9 +490,11 @@ def check_and_send_reminders():
         'checked': 0,
         'sent_24h_photographer': 0,
         'sent_5h_photographer': 0,
+        'sent_3h_photographer': 0,
         'sent_1h_photographer': 0,
         'sent_24h_client': 0,
         'sent_5h_client': 0,
+        'sent_3h_client': 0,
         'sent_1h_client': 0,
         'errors': 0
     }
@@ -570,6 +589,20 @@ def check_and_send_reminders():
                             if client_phone:
                                 if send_client_reminder(client_phone, photographer_name, project, 5):
                                     results['sent_5h_client'] += 1
+                                else:
+                                    results['errors'] += 1
+                        
+                        # Отправляем напоминание за 3 часа (с окном ±30 минут)
+                        elif 2.5 <= hours_until <= 3.5:
+                            if photographer_phone and photographer_phone_verified:
+                                if send_photographer_reminder(photographer_phone, photographer_name, project, client, 3):
+                                    results['sent_3h_photographer'] += 1
+                                else:
+                                    results['errors'] += 1
+                            
+                            if client_phone:
+                                if send_client_reminder(client_phone, photographer_name, project, 3):
+                                    results['sent_3h_client'] += 1
                                 else:
                                     results['errors'] += 1
                         
