@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
@@ -15,7 +16,15 @@ interface UserViewWrapperProps {
 }
 
 const UserViewWrapper = ({ viewedUser, onExit }: UserViewWrapperProps) => {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'clients' | 'photobook' | 'settings' | 'tariffs'>('dashboard');
+
+  const handleNavigateToPhotoBank = () => {
+    console.log('[USER_VIEW_WRAPPER] Navigating to photo bank for user:', viewedUser.userId);
+    localStorage.setItem('admin_viewing_user_id', String(viewedUser.userId));
+    console.log('[USER_VIEW_WRAPPER] Set admin_viewing_user_id to:', viewedUser.userId);
+    navigate('/photo-bank');
+  };
 
   return (
     <div className="space-y-4">
@@ -102,6 +111,7 @@ const UserViewWrapper = ({ viewedUser, onExit }: UserViewWrapperProps) => {
             userRole="user"
             userId={viewedUser.userId.toString()}
             isAdmin={false}
+            onNavigateToPhotoBank={handleNavigateToPhotoBank}
           />
         )}
         {currentPage === 'clients' && <ClientsPage userId={viewedUser.userId.toString()} />}
