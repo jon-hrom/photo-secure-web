@@ -54,7 +54,7 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
         return False
 
 
-def analyze_photo_quality(image_bytes: bytes) -> Tuple[bool, str]:
+def analyze_photo_quality(image_bytes: bytes, is_raw: bool = False) -> Tuple[bool, str]:
     """
     Анализирует качество фото и определяет является ли оно техническим браком
     Оптимизирован для быстрой работы на облачных функциях
@@ -62,8 +62,16 @@ def analyze_photo_quality(image_bytes: bytes) -> Tuple[bool, str]:
     """
     try:
         # Загружаем изображение
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if is_raw:
+            # Обработка RAW файлов через rawpy
+            import rawpy
+            with rawpy.imread(io.BytesIO(image_bytes)) as raw:
+                rgb = raw.postprocess(use_camera_wb=True, half_size=True)  # half_size для ускорения
+            img = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        else:
+            # Обычные JPEG/PNG
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
         if img is None:
             return True, 'corrupt_file'
@@ -313,8 +321,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         ''', (photo['id'],))
                         continue
                     
+                    # Определяем является ли файл RAW форматом
+                    raw_extensions = ['.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw']
+                    is_raw = any(photo['file_name'].lower().endswith(ext) for ext in raw_extensions)
+                    
                     # Анализируем качество
-                    is_reject, reason = analyze_photo_quality(image_bytes)
+                    is_reject, reason = analyze_photo_quality(image_bytes, is_raw=is_raw)
                     
                     if is_reject:
                         # Перемещаем фото в tech_rejects
