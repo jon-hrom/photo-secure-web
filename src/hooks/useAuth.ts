@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { isAdminUser } from '@/utils/adminCheck';
+import { clearUserSession } from '@/utils/sessionCleanup';
 
 export interface AuthState {
   isAuthenticated: boolean;
@@ -307,12 +308,7 @@ export const useAuth = () => {
                 console.log('🚫 User IS BLOCKED! Showing dialog...');
                 
                 // Clear session data without resetting block state
-                localStorage.removeItem('vk_user');
-                localStorage.removeItem('google_user');
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('authSession');
-                localStorage.removeItem('vk_user_id');
-                localStorage.removeItem('vk_access_token');
+                clearUserSession();
                 
                 setIsBlocked(true);
                 setBlockReason(blockData.message || 'Ваш аккаунт был заблокирован администратором');
@@ -382,9 +378,7 @@ export const useAuth = () => {
           return;
         } catch (error) {
           console.error('❌ Error restoring OAuth session:', error);
-          localStorage.removeItem('vk_user');
-          localStorage.removeItem('google_user');
-          localStorage.removeItem('vk_auth_completed');
+          clearUserSession();
         }
       }
       
@@ -403,11 +397,12 @@ export const useAuth = () => {
             setCurrentPage(session.currentPage || 'dashboard');
             lastActivityRef.current = now;
           } else {
-            localStorage.removeItem('authSession');
+            console.log('[AUTH] Session timeout, clearing');
+            clearUserSession();
           }
         } catch (error) {
           console.error('Ошибка восстановления сессии:', error);
-          localStorage.removeItem('authSession');
+          clearUserSession();
         }
       }
     };

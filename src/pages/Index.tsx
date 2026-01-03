@@ -8,10 +8,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { useClientsSync } from '@/hooks/useClientsSync';
 import { useVerificationChecks } from '@/hooks/useVerificationChecks';
+import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 import { settingsSync } from '@/utils/settingsSync';
 import { toast } from 'sonner';
 
 const Index = () => {
+  // Отслеживаем изменения сессии для автоматической очистки admin viewing
+  useSessionWatcher();
   const {
     currentPage,
     setCurrentPage,

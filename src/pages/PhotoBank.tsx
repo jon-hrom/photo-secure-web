@@ -15,9 +15,13 @@ import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
 import { usePhotoBankNavigationHistory } from '@/hooks/usePhotoBankNavigationHistory';
 import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewing } from '@/pages/photobank/PhotoBankAuth';
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
+import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 
 const PhotoBank = () => {
   const navigate = useNavigate();
+  
+  // Отслеживаем изменения сессии для автоматической очистки admin viewing
+  useSessionWatcher();
   
   const userId = getAuthUserId();
   const { authChecking } = usePhotoBankAuth();

@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAdminUser } from '@/utils/adminCheck';
+import { isAdminViewingSessionValid } from '@/utils/sessionCleanup';
 
 export const getAuthUserId = (): string | null => {
   console.log('[PHOTO_BANK] getAuthUserId called');
+  
+  // Проверяем валидность сессии просмотра админом
+  if (!isAdminViewingSessionValid()) {
+    console.warn('[PHOTO_BANK] Admin viewing session invalid, cleared');
+  }
+  
   const adminViewingUserId = localStorage.getItem('admin_viewing_user_id');
   console.log('[PHOTO_BANK] admin_viewing_user_id from localStorage:', adminViewingUserId);
   
@@ -41,7 +48,9 @@ export const getAuthUserId = (): string | null => {
       console.log('[PHOTO_BANK] Admin viewing user confirmed, using userId:', adminViewingUserId);
       return adminViewingUserId;
     } else {
-      console.warn('[PHOTO_BANK] admin_viewing_user_id exists but user is not admin, ignoring');
+      console.warn('[PHOTO_BANK] admin_viewing_user_id exists but user is not admin, clearing');
+      localStorage.removeItem('admin_viewing_user_id');
+      localStorage.removeItem('admin_viewing_user');
     }
   }
   
@@ -84,17 +93,52 @@ export const usePhotoBankAuth = () => {
       const authSession = localStorage.getItem('authSession');
       const vkUser = localStorage.getItem('vk_user');
       const googleUser = localStorage.getItem('google_user');
+      const adminViewingUserId = localStorage.getItem('admin_viewing_user_id');
       
       console.log('[PHOTO_BANK] Auth check:', { 
         hasAuthSession: !!authSession, 
         hasVkUser: !!vkUser,
-        hasGoogleUser: !!googleUser 
+        hasGoogleUser: !!googleUser,
+        hasAdminViewingUserId: !!adminViewingUserId
       });
       
+      // Если нет авторизации, очищаем admin_viewing_user_id
       if (!authSession && !vkUser && !googleUser) {
+        if (adminViewingUserId) {
+          console.log('[PHOTO_BANK] No auth found, clearing admin viewing session');
+          localStorage.removeItem('admin_viewing_user_id');
+          localStorage.removeItem('admin_viewing_user');
+        }
         console.log('[PHOTO_BANK] No auth found, redirecting to /');
         navigate('/');
         return;
+      }
+      
+      // Проверка: если есть admin_viewing_user_id, но пользователь не админ - очистить
+      if (adminViewingUserId) {
+        let adminEmail = null;
+        let adminVkData = null;
+        
+        if (authSession) {
+          try {
+            const session = JSON.parse(authSession);
+            adminEmail = session.userEmail;
+          } catch {}
+        }
+        
+        if (vkUser) {
+          try {
+            adminVkData = JSON.parse(vkUser);
+          } catch {}
+        }
+        
+        const isAdmin = isAdminUser(adminEmail, adminVkData);
+        
+        if (!isAdmin) {
+          console.log('[PHOTO_BANK] User is not admin anymore, clearing admin viewing session');
+          localStorage.removeItem('admin_viewing_user_id');
+          localStorage.removeItem('admin_viewing_user');
+        }
       }
       
       if (authSession) {
@@ -122,6 +166,20 @@ export const usePhotoBankAuth = () => {
     };
     
     checkAuth();
+    
+    // Слушаем изменения в localStorage (для logout в других вкладках)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'authSession' || e.key === 'vk_user' || e.key === 'google_user') {
+        console.log('[PHOTO_BANK] Auth storage changed, re-checking');
+        checkAuth();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [navigate]);
 
   return { authChecking };
