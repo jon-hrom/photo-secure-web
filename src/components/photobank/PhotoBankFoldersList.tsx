@@ -128,7 +128,7 @@ const PhotoBankFoldersList = ({
                         </td>
                         <td className="p-3">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
-                            {canStartTechSort(folder) && !isAdminViewing && (
+                            {canStartTechSort(folder) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -158,20 +158,18 @@ const PhotoBankFoldersList = ({
                             >
                               <Icon name="FolderOpen" size={16} />
                             </Button>
-                            {!isAdminViewing && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDeleteFolder(folder.id, folder.folder_name);
-                                }}
-                                title="Удалить"
-                              >
-                                <Icon name="Trash2" size={16} />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteFolder(folder.id, folder.folder_name);
+                              }}
+                              title="Удалить"
+                            >
+                              <Icon name="Trash2" size={16} />
+                            </Button>
                           </div>
                         </td>
                       </tr>

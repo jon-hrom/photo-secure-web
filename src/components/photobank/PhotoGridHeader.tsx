@@ -34,7 +34,7 @@ const PhotoGridHeader = ({
           <Icon name="Image" size={20} />
           {selectedFolder ? selectedFolder.folder_name : 'Фотографии'}
         </CardTitle>
-        {selectedFolder && !isAdminViewing && (
+        {selectedFolder && (
           <div className="relative">
             <input
               type="file"

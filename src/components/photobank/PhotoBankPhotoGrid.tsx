@@ -202,7 +202,7 @@ const PhotoBankPhotoGrid = ({
                     <div className="text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 bg-red-100 text-red-700 rounded text-center truncate" title={getRejectionReasonLabel(photo.tech_reject_reason)}>
                       {getRejectionReasonLabel(photo.tech_reject_reason)}
                     </div>
-                    {!isAdminViewing && onRestorePhoto && (
+                    {onRestorePhoto && (
                       <button
                         onClick={() => onRestorePhoto(photo.id)}
                         className="w-full text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 bg-green-100 hover:bg-green-200 active:bg-green-300 text-green-700 rounded transition-colors flex items-center justify-center gap-1 touch-manipulation"

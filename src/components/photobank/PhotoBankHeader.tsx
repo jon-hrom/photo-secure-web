@@ -102,8 +102,7 @@ const PhotoBankHeader = ({
           </div>
         )}
       </div>
-      {!isAdminViewing && (
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
           {selectionMode && (
             <>
               <Button 
@@ -156,7 +155,6 @@ const PhotoBankHeader = ({
             Корзина
           </Button>
         </div>
-      )}
     </div>
   );
 };
