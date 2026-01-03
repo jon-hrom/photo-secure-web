@@ -1,4 +1,5 @@
 import { useToast } from '@/hooks/use-toast';
+import { useCallback } from 'react';
 
 const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
 const PHOTOBANK_TRASH_API = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d';
@@ -41,7 +42,7 @@ export const usePhotoBankApi = (
 ) => {
   const { toast } = useToast();
 
-  const fetchFolders = async () => {
+  const fetchFolders = useCallback(async () => {
     console.log('[FETCH_FOLDERS] Starting fetch with userId:', userId);
     setLoading(true);
     try {
@@ -75,9 +76,9 @@ export const usePhotoBankApi = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, setFolders, setLoading, toast]);
 
-  const fetchPhotos = async (folderId: number) => {
+  const fetchPhotos = useCallback(async (folderId: number) => {
     console.log('[FETCH_PHOTOS] Starting fetch for folder:', folderId);
     setLoading(true);
     try {
@@ -111,9 +112,9 @@ export const usePhotoBankApi = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, setPhotos, setLoading, toast]);
 
-  const fetchStorageUsage = async () => {
+  const fetchStorageUsage = useCallback(async () => {
     try {
       const res = await fetch(`${STORAGE_API}?action=usage`, {
         headers: { 'X-User-Id': userId }
@@ -127,7 +128,7 @@ export const usePhotoBankApi = (
     } catch (error) {
       console.error('Failed to fetch storage usage:', error);
     }
-  };
+  }, [userId, setStorageUsage]);
 
   const startTechSort = async (folderId: number) => {
     try {

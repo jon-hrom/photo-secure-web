@@ -36,14 +36,14 @@ export const usePhotoBankEffects = ({
     
     fetchFolders();
     fetchStorageUsage();
-  }, [userId, authChecking, fetchFolders, fetchStorageUsage]);
+  }, [userId, authChecking]);
 
   // Загрузка фотографий при выборе папки
   useEffect(() => {
     if (selectedFolder) {
       fetchPhotos(selectedFolder.id);
     }
-  }, [selectedFolder, fetchPhotos]);
+  }, [selectedFolder?.id]);
 
   // Автообновление для RAW файлов (проверка превью каждые 10 сек)
   useEffect(() => {
@@ -59,7 +59,7 @@ export const usePhotoBankEffects = ({
     }, 10000);
     
     return () => clearInterval(intervalId);
-  }, [selectedFolder, photos, fetchPhotos]);
+  }, [selectedFolder?.id, photos.length, photos.some(p => p.is_raw && !p.thumbnail_s3_url)]);
 
   // Сохранение состояния навигации
   useEffect(() => {
