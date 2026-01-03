@@ -79,13 +79,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             id, 
                             folder_name, 
                             s3_prefix,
+                            folder_type,
+                            parent_folder_id,
                             created_at, 
                             updated_at,
-                            (SELECT COUNT(*) FROM photo_bank 
-                             WHERE folder_id = photo_folders.id AND is_trashed = FALSE) as photo_count
-                        FROM photo_folders
+                            (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank 
+                             WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as photo_count
+                        FROM t_p28211681_photo_secure_web.photo_folders
                         WHERE user_id = %s AND is_trashed = FALSE
-                        ORDER BY created_at DESC
+                        ORDER BY parent_folder_id NULLS FIRST, created_at DESC
                     ''', (user_id,))
                     folders = cur.fetchall()
                     
@@ -180,10 +182,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pb.content_type,
                             pb.file_size, 
                             pb.width, 
-                            pb.height, 
+                            pb.height,
+                            pb.tech_reject_reason,
+                            pb.tech_analyzed,
                             pb.created_at
-                        FROM photo_bank pb
-                        JOIN photo_folders pf ON pb.folder_id = pf.id
+                        FROM t_p28211681_photo_secure_web.photo_bank pb
+                        JOIN t_p28211681_photo_secure_web.photo_folders pf ON pb.folder_id = pf.id
                         WHERE pb.folder_id = %s 
                           AND pb.user_id = %s 
                           AND pb.is_trashed = FALSE

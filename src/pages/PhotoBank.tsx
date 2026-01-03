@@ -58,6 +58,8 @@ const PhotoBank = () => {
     fetchFolders,
     fetchPhotos,
     fetchStorageUsage,
+    startTechSort,
+    restorePhoto,
     PHOTOBANK_FOLDERS_API,
     PHOTOBANK_TRASH_API
   } = usePhotoBankApi(userId, setFolders, setPhotos, setLoading, setStorageUsage);
@@ -119,6 +121,37 @@ const PhotoBank = () => {
       navigate('/');
     } else {
       navigate('/');
+    }
+  };
+
+  const handleStartTechSort = async (folderId: number, folderName: string) => {
+    if (!window.confirm(`Запустить автоматическую сортировку фото в папке "${folderName}"?\n\nФото с техническим браком будут перемещены в отдельную подпапку.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await startTechSort(folderId);
+      await fetchFolders();
+    } catch (error) {
+      console.error('Failed to start tech sort:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestorePhoto = async (photoId: number) => {
+    setLoading(true);
+    try {
+      await restorePhoto(photoId);
+      if (selectedFolder) {
+        await fetchPhotos(selectedFolder.id);
+      }
+      await fetchFolders();
+    } catch (error) {
+      console.error('Failed to restore photo:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -208,6 +241,7 @@ const PhotoBank = () => {
             onSelectFolder={setSelectedFolder}
             onDeleteFolder={handleDeleteFolder}
             onCreateFolder={() => setShowCreateFolder(true)}
+            onStartTechSort={handleStartTechSort}
           />
         ) : (
           <PhotoBankPhotoGrid
@@ -224,6 +258,7 @@ const PhotoBank = () => {
             onDeletePhoto={handleDeletePhoto}
             onTogglePhotoSelection={togglePhotoSelection}
             onCancelUpload={handleCancelUpload}
+            onRestorePhoto={handleRestorePhoto}
           />
         )}
       </div>

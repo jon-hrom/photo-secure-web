@@ -8,6 +8,8 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
+  folder_type?: 'originals' | 'tech_rejects';
+  parent_folder_id?: number | null;
 }
 
 interface PhotoBankFoldersListProps {
@@ -17,6 +19,7 @@ interface PhotoBankFoldersListProps {
   onSelectFolder: (folder: PhotoFolder) => void;
   onDeleteFolder: (folderId: number, folderName: string) => void;
   onCreateFolder: () => void;
+  onStartTechSort: (folderId: number, folderName: string) => void;
   isAdminViewing?: boolean;
 }
 
@@ -27,6 +30,7 @@ const PhotoBankFoldersList = ({
   onSelectFolder,
   onDeleteFolder,
   onCreateFolder,
+  onStartTechSort,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
   const formatDate = (dateStr: string) => {
@@ -40,6 +44,15 @@ const PhotoBankFoldersList = ({
   const getFolderInitials = (name: string) => {
     const words = name.split(' ');
     return words.map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  // Группируем папки: основные папки и их подпапки
+  const mainFolders = folders.filter(f => !f.parent_folder_id);
+  const getSubfolders = (parentId: number) => folders.filter(f => f.parent_folder_id === parentId);
+
+  const canStartTechSort = (folder: PhotoFolder) => {
+    // Можно запустить сортировку только для папок originals с фото
+    return folder.folder_type === 'originals' && (folder.photo_count || 0) > 0;
   };
 
   return (
@@ -75,68 +88,146 @@ const PhotoBankFoldersList = ({
                 </tr>
               </thead>
               <tbody>
-                {folders.map((folder) => (
-                  <tr
-                    key={folder.id}
-                    className={`border-b hover:bg-accent/50 transition-colors cursor-pointer ${
-                      selectedFolder?.id === folder.id ? 'bg-primary/5' : ''
-                    }`}
-                    onClick={() => onSelectFolder(folder)}
-                  >
-                    <td className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                          <Icon name="Folder" size={20} className="text-orange-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{folder.folder_name}</p>
-                          <p className="text-sm text-muted-foreground md:hidden">
-                            {folder.photo_count || 0} фото • {formatDate(folder.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3 text-sm text-muted-foreground hidden md:table-cell">
-                      {formatDate(folder.created_at)}
-                    </td>
-                    <td className="p-3 text-center hidden lg:table-cell">
-                      <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
-                        <Icon name="Image" size={16} />
-                        <span>{folder.photo_count || 0}</span>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectFolder(folder);
-                          }}
-                          title="Открыть папку"
+                {mainFolders.map((folder) => {
+                  const subfolders = getSubfolders(folder.id);
+                  return (
+                    <>
+                      <tr
+                        key={folder.id}
+                        className={`border-b hover:bg-accent/50 transition-colors cursor-pointer ${
+                          selectedFolder?.id === folder.id ? 'bg-primary/5' : ''
+                        }`}
+                        onClick={() => onSelectFolder(folder)}
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                              <Icon name="Folder" size={20} className="text-orange-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium truncate">{folder.folder_name}</p>
+                                {folder.folder_type === 'originals' && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Оригиналы</span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground md:hidden">
+                                {folder.photo_count || 0} фото • {formatDate(folder.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-sm text-muted-foreground hidden md:table-cell">
+                          {formatDate(folder.created_at)}
+                        </td>
+                        <td className="p-3 text-center hidden lg:table-cell">
+                          <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
+                            <Icon name="Image" size={16} />
+                            <span>{folder.photo_count || 0}</span>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {canStartTechSort(folder) && !isAdminViewing && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onStartTechSort(folder.id, folder.folder_name);
+                                }}
+                                title="Отобрать фото на технический брак"
+                              >
+                                <Icon name="SlidersHorizontal" size={14} className="mr-1" />
+                                Отобрать
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectFolder(folder);
+                              }}
+                              title="Открыть папку"
+                            >
+                              <Icon name="FolderOpen" size={16} />
+                            </Button>
+                            {!isAdminViewing && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteFolder(folder.id, folder.folder_name);
+                                }}
+                                title="Удалить"
+                              >
+                                <Icon name="Trash2" size={16} />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {subfolders.map((subfolder) => (
+                        <tr
+                          key={subfolder.id}
+                          className={`border-b hover:bg-accent/50 transition-colors cursor-pointer bg-muted/30 ${
+                            selectedFolder?.id === subfolder.id ? 'bg-primary/5' : ''
+                          }`}
+                          onClick={() => onSelectFolder(subfolder)}
                         >
-                          <Icon name="FolderOpen" size={16} />
-                        </Button>
-                        {!isAdminViewing && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteFolder(folder.id, folder.folder_name);
-                            }}
-                            title="Удалить"
-                          >
-                            <Icon name="Trash2" size={16} />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <td className="p-3 pl-12">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                                <Icon name="AlertTriangle" size={20} className="text-red-600" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium truncate text-sm">{subfolder.folder_name}</p>
+                                  {subfolder.folder_type === 'tech_rejects' && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Брак</span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground md:hidden">
+                                  {subfolder.photo_count || 0} фото
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 text-sm text-muted-foreground hidden md:table-cell">
+                            {formatDate(subfolder.created_at)}
+                          </td>
+                          <td className="p-3 text-center hidden lg:table-cell">
+                            <div className="inline-flex items-center gap-1 text-red-600 font-medium">
+                              <Icon name="Image" size={16} />
+                              <span>{subfolder.photo_count || 0}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelectFolder(subfolder);
+                                }}
+                                title="Открыть папку"
+                              >
+                                <Icon name="FolderOpen" size={16} />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })}
               </tbody>
             </table>
           </div>

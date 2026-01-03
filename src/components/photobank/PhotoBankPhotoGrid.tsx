@@ -21,6 +21,8 @@ interface Photo {
   width: number | null;
   height: number | null;
   created_at: string;
+  tech_reject_reason?: string | null;
+  tech_analyzed?: boolean;
 }
 
 interface PhotoFolder {
@@ -29,6 +31,8 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
+  folder_type?: 'originals' | 'tech_rejects';
+  parent_folder_id?: number | null;
 }
 
 interface PhotoBankPhotoGridProps {
@@ -44,6 +48,7 @@ interface PhotoBankPhotoGridProps {
   onDeletePhoto: (photoId: number, fileName: string) => void;
   onTogglePhotoSelection: (photoId: number) => void;
   onCancelUpload: () => void;
+  onRestorePhoto?: (photoId: number) => void;
   isAdminViewing?: boolean;
 }
 
@@ -77,6 +82,7 @@ const PhotoBankPhotoGrid = ({
   onDeletePhoto,
   onTogglePhotoSelection,
   onCancelUpload,
+  onRestorePhoto,
   isAdminViewing = false
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
@@ -114,6 +120,22 @@ const PhotoBankPhotoGrid = ({
     }
   };
 
+  const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
+  
+  const getRejectionReasonLabel = (reason?: string | null) => {
+    const labels: Record<string, string> = {
+      blur: 'Размытие',
+      overexposed: 'Пересвет',
+      underexposed: 'Недосвет',
+      noise: 'Шум',
+      low_contrast: 'Низкий контраст',
+      corrupt_file: 'Поврежденный файл',
+      analysis_error: 'Ошибка анализа',
+      ok: 'OK'
+    };
+    return reason ? labels[reason] || reason : 'Неизвестно';
+  };
+
   return (
     <Card>
       <PhotoGridHeader
@@ -125,6 +147,20 @@ const PhotoBankPhotoGrid = ({
         onCancelUpload={onCancelUpload}
       />
       <CardContent>
+        {isTechRejectsFolder && photos.length > 0 && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2 text-red-700">
+              <Icon name="AlertTriangle" size={18} />
+              <p className="text-sm font-medium">
+                Папка с техническим браком ({photos.length} фото)
+              </p>
+            </div>
+            <p className="text-xs text-red-600 mt-1">
+              Эти фото автоматически определены как технический брак. Вы можете восстановить их в оригиналы.
+            </p>
+          </div>
+        )}
+
         {loading && (
           <div className="flex items-center justify-center py-12">
             <Icon name="Loader2" size={32} className="animate-spin text-muted-foreground" />
@@ -142,25 +178,42 @@ const PhotoBankPhotoGrid = ({
           <div className="text-center py-12 text-muted-foreground">
             <Icon name="ImageOff" size={48} className="mx-auto mb-4 opacity-50" />
             <p>В этой папке пока нет фотографий</p>
-            <p className="text-sm mt-2">Загрузите фото, чтобы начать работу</p>
+            {!isTechRejectsFolder && <p className="text-sm mt-2">Загрузите фото, чтобы начать работу</p>}
           </div>
         )}
 
         {!loading && photos.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
             {photos.map((photo) => (
-              <PhotoGridCard
-                key={photo.id}
-                photo={photo}
-                selectionMode={selectionMode}
-                isSelected={selectedPhotos.has(photo.id)}
-                emailVerified={emailVerified}
-                isAdminViewing={isAdminViewing}
-                onPhotoClick={handlePhotoClick}
-                onDownload={handleDownload}
-                onDeletePhoto={onDeletePhoto}
-                onShowExif={(photo) => setExifPhoto(photo)}
-              />
+              <div key={photo.id} className="relative">
+                <PhotoGridCard
+                  photo={photo}
+                  selectionMode={selectionMode}
+                  isSelected={selectedPhotos.has(photo.id)}
+                  emailVerified={emailVerified}
+                  isAdminViewing={isAdminViewing}
+                  onPhotoClick={handlePhotoClick}
+                  onDownload={handleDownload}
+                  onDeletePhoto={onDeletePhoto}
+                  onShowExif={(photo) => setExifPhoto(photo)}
+                />
+                {isTechRejectsFolder && photo.tech_reject_reason && (
+                  <div className="mt-1 space-y-1">
+                    <div className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded text-center">
+                      {getRejectionReasonLabel(photo.tech_reject_reason)}
+                    </div>
+                    {!isAdminViewing && onRestorePhoto && (
+                      <button
+                        onClick={() => onRestorePhoto(photo.id)}
+                        className="w-full text-xs px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Icon name="RotateCcw" size={12} />
+                        Восстановить
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
