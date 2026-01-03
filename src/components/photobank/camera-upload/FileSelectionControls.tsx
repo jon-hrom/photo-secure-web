@@ -25,26 +25,25 @@ const FileSelectionControls = ({
 }: FileSelectionControlsProps) => {
   return (
     <div className="space-y-4">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        onChange={onFileSelect}
+        className="hidden"
+      />
+      
       {!isNativeApp() ? (
-        <>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            onChange={onFileSelect}
-            className="hidden"
-          />
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="w-full"
-            size="lg"
-          >
-            <Icon name="Upload" className="mr-2" size={20} />
-            Выбрать файлы
-          </Button>
-        </>
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="w-full"
+          size="lg"
+        >
+          <Icon name="Upload" className="mr-2" size={20} />
+          Выбрать файлы
+        </Button>
       ) : (
         <>
           <div className="space-y-3">
@@ -60,13 +59,13 @@ const FileSelectionControls = ({
             </Button>
 
             <Button
-              onClick={onNativeFilePicker}
+              onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               className="w-full"
               size="lg"
             >
               <Icon name="Upload" className="mr-2" size={20} />
-              Выбрать из галереи
+              Выбрать фото
             </Button>
           </div>
 

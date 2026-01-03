@@ -2,6 +2,12 @@ import { WebPlugin } from '@capacitor/core';
 import type { CameraAccessPlugin, FileData } from './cameraAccess';
 
 export class CameraAccessWeb extends WebPlugin implements CameraAccessPlugin {
+  async getAvailableDates(): Promise<{ dates: string[] }> {
+    // Web версия не поддерживает сканирование камеры
+    // Возвращаем пустой массив - даты будут извлечены из EXIF при выборе файлов
+    return { dates: [] };
+  }
+
   async pickFiles(): Promise<{ files: FileData[] }> {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
