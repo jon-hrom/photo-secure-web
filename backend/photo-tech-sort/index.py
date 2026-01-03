@@ -318,6 +318,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             # Фото в S3 - копируем файл
                             new_s3_key = f"{tech_rejects_s3_prefix}{photo['file_name']}"
                             
+                            print(f'[TECH_SORT] Copying photo {photo["id"]}: {photo["s3_key"]} → {new_s3_key}')
+                            
                             try:
                                 s3_client.copy_object(
                                     Bucket=bucket,
