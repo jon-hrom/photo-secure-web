@@ -134,7 +134,16 @@ export const useClientsData = (
       }
       
       const vkUser = localStorage.getItem('vk_user');
+      const googleUser = localStorage.getItem('google_user');
       const authSession = localStorage.getItem('authSession');
+      
+      console.log('[EMAIL_VERIFICATION] Checking verification for user:', {
+        userId,
+        hasGoogleUser: !!googleUser,
+        hasVkUser: !!vkUser,
+        settingsSource: data.settings.source,
+        emailVerifiedAt: data.settings.email_verified_at
+      });
       
       let userEmail = data.settings.email || null;
       let vkUserData = null;
@@ -152,12 +161,32 @@ export const useClientsData = (
         } catch {}
       }
       
+      // Админы всегда имеют доступ
       if (isAdminUser(userEmail, vkUserData)) {
+        console.log('[EMAIL_VERIFICATION] Admin user - email auto-verified');
         setEmailVerified(true);
         return;
       }
       
-      setEmailVerified(!!data.settings.email_verified_at);
+      // Google пользователи имеют автоматически подтверждённую почту
+      if (googleUser || data.settings.source === 'google') {
+        console.log('[EMAIL_VERIFICATION] Google user detected - email auto-verified', {
+          hasGoogleUserInLocalStorage: !!googleUser,
+          sourceIsGoogle: data.settings.source === 'google'
+        });
+        setEmailVerified(true);
+        return;
+      }
+      
+      // Остальные проверяют по email_verified_at
+      const isVerified = !!data.settings.email_verified_at;
+      console.log('[EMAIL_VERIFICATION] Email verification status:', {
+        email: userEmail,
+        verified: isVerified,
+        verified_at: data.settings.email_verified_at,
+        source: data.settings.source
+      });
+      setEmailVerified(isVerified);
     } catch (err) {
       console.error('Failed to check email verification:', err);
     }

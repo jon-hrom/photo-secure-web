@@ -51,6 +51,39 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     }
   }, [autoOpenAddDialog, onAddDialogClose]);
 
+  // Уведомление о статусе email при загрузке страницы
+  useEffect(() => {
+    if (!loading && userId) {
+      const hasSeenEmailNotification = sessionStorage.getItem(`email_status_notification_seen_${userId}`);
+      
+      if (!hasSeenEmailNotification) {
+        const googleUser = localStorage.getItem('google_user');
+        
+        if (googleUser) {
+          setTimeout(() => {
+            toast.success('Ваша почта подтверждена автоматически', {
+              description: 'Вы вошли через Google — email подтверждён',
+              duration: 5000,
+            });
+          }, 500);
+          sessionStorage.setItem(`email_status_notification_seen_${userId}`, 'true');
+        } else if (!emailVerified) {
+          setTimeout(() => {
+            toast.warning('Подтвердите вашу почту', {
+              description: 'Для полного доступа к функциям подтвердите email в настройках',
+              duration: 8000,
+              action: {
+                label: 'Настройки',
+                onClick: () => navigate('/settings')
+              }
+            });
+          }, 500);
+          sessionStorage.setItem(`email_status_notification_seen_${userId}`, 'true');
+        }
+      }
+    }
+  }, [loading, userId, emailVerified, navigate]);
+
   // Проверка несохранённых данных при загрузке страницы
   useEffect(() => {
     if (!loading && clients.length > 0 && userId) {
