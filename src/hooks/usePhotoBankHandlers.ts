@@ -145,192 +145,169 @@ export const usePhotoBankHandlers = (
     let successCount = 0;
     let errorCount = 0;
 
-    try {
-      for (let i = 0; i < mediaFiles.length; i++) {
-        if (uploadCancelled) {
-          console.log('[UPLOAD] Cancelled by user');
-          break;
-        }
-
-        const file = mediaFiles[i];
-        const percent = Math.round(((i) / mediaFiles.length) * 100);
-        setUploadProgress({ 
-          current: i, 
-          total: mediaFiles.length, 
-          percent,
-          currentFileName: file.name 
-        });
-        console.log(`[UPLOAD] Processing file ${i + 1}/${mediaFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+    const BATCH_SIZE = 5;
+    
+    const uploadSingleFile = async (file: File, index: number) => {
+      if (uploadCancelled) {
+        throw new Error('Upload cancelled');
+      }
+      
+      console.log(`[UPLOAD] Processing file ${index + 1}/${mediaFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      
+      const isRaw = isRawFile(file.name);
+      const isVideo = file.type.startsWith('video/');
+      
+      if (isRaw || isVideo) {
+        const MOBILE_UPLOAD_API = 'https://functions.poehali.dev/3372b3ed-5509-41e0-a542-b3774be6b702';
         
-        try {
-          const isRaw = isRawFile(file.name);
-          const isVideo = file.type.startsWith('video/');
+        const urlResponse = await fetch(
+          `${MOBILE_UPLOAD_API}?action=get-url&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/octet-stream')}`,
+          { headers: { 'X-User-Id': userId } }
+        );
+        
+        if (!urlResponse.ok) throw new Error('Failed to get upload URL');
+        const { url, key } = await urlResponse.json();
+        
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
           
-          if (isRaw || isVideo) {
-            // RAW файлы загружаем через mobile-upload API (S3)
-            const MOBILE_UPLOAD_API = 'https://functions.poehali.dev/3372b3ed-5509-41e0-a542-b3774be6b702';
-            
-            // 1. Получаем pre-signed URL
-            const urlResponse = await fetch(
-              `${MOBILE_UPLOAD_API}?action=get-url&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/octet-stream')}`,
-              {
-                headers: { 'X-User-Id': userId },
-              }
-            );
-            
-            if (!urlResponse.ok) throw new Error('Failed to get upload URL');
-            const { url, key } = await urlResponse.json();
-            
-            // 2. Загружаем файл в S3 с отслеживанием прогресса
-            await new Promise<void>((resolve, reject) => {
-              const xhr = new XMLHttpRequest();
-              
-              xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) {
-                  const filePercent = Math.round((e.loaded / e.total) * 100);
-                  const overallPercent = Math.round(((i + (e.loaded / e.total)) / mediaFiles.length) * 100);
-                  setUploadProgress({
-                    current: i,
-                    total: mediaFiles.length,
-                    percent: overallPercent,
-                    currentFileName: `${file.name} (${filePercent}%)`
-                  });
-                }
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              const filePercent = Math.round((e.loaded / e.total) * 100);
+              setUploadProgress({
+                current: index,
+                total: mediaFiles.length,
+                percent: Math.round(((index + (e.loaded / e.total)) / mediaFiles.length) * 100),
+                currentFileName: `${file.name} (${filePercent}%)`
               });
-              
-              xhr.addEventListener('load', () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  resolve();
-                } else {
-                  reject(new Error('Failed to upload file to S3'));
-                }
-              });
-              
-              xhr.addEventListener('error', () => reject(new Error('Network error')));
-              xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
-              
-              xhr.open('PUT', url);
-              xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-              xhr.send(file);
-            });
-            
-            // 3. Привязываем к папке через upload_photo
-            const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
-            const addPhotoResponse = await fetch(PHOTOBANK_FOLDERS_API, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-User-Id': userId,
-              },
-              body: JSON.stringify({
-                action: 'upload_photo',
-                folder_id: selectedFolder.id,
-                file_name: file.name,
-                s3_url: s3Url,
-                file_size: file.size,
-                content_type: file.type || 'application/octet-stream'
-              }),
-            });
-            
-            if (!addPhotoResponse.ok) {
-              const error = await addPhotoResponse.json();
-              throw new Error(error.error || 'Failed to add photo to folder');
             }
-            
-            successCount++;
-            continue;
-          }
-          
-          // Обычные изображения - загружаем через base64
-          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const image = new Image();
-            image.onload = () => resolve(image);
-            image.onerror = reject;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              image.src = e.target?.result as string;
-            };
-            reader.readAsDataURL(file);
           });
-          console.log(`[UPLOAD] Original dimensions: ${img.width}x${img.height}`);
-
-          const width = img.width;
-          const height = img.height;
-
-          console.log(`[UPLOAD] Original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
           
-          // Cloud Functions limit is ~3.5 MB after base64 encoding (~2.6 MB original)
-          const MAX_SIZE_FOR_DIRECT = 2.5 * 1024 * 1024;
-          let base64Data: string;
-          const finalWidth = width;
-          const finalHeight = height;
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error('Failed to upload file to S3'));
+          });
           
-          if (file.size > MAX_SIZE_FOR_DIRECT) {
-            console.log(`[UPLOAD] File too large for direct upload, compressing smartly...`);
-            const canvas = document.createElement('canvas');
-            
-            // Сохраняем высокое разрешение, но сжимаем качество
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, width, height);
-            
-            // Пробуем разные уровни качества, пока не получим приемлемый размер
-            let quality = 0.85;
-            let blob: Blob;
-            
-            do {
-              blob = await new Promise<Blob>((resolve) => {
-                canvas.toBlob((b) => resolve(b!), 'image/jpeg', quality);
-              });
-              console.log(`[UPLOAD] Quality ${quality}: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
-              
-              if (blob.size <= MAX_SIZE_FOR_DIRECT) break;
-              quality -= 0.05;
-            } while (quality > 0.5);
-            
-            console.log(`[UPLOAD] Compressed: ${(file.size / 1024 / 1024).toFixed(2)} MB -> ${(blob.size / 1024 / 1024).toFixed(2)} MB at quality ${quality}`);
-            
-            const reader = new FileReader();
-            base64Data = await new Promise<string>((resolve) => {
-              reader.onload = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
+          xhr.addEventListener('error', () => reject(new Error('Network error')));
+          xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+          
+          xhr.open('PUT', url);
+          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+          xhr.send(file);
+        });
+        
+        const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
+        const addPhotoResponse = await fetch(PHOTOBANK_FOLDERS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+          body: JSON.stringify({
+            action: 'upload_photo',
+            folder_id: selectedFolder.id,
+            file_name: file.name,
+            s3_url: s3Url,
+            file_size: file.size,
+            content_type: file.type || 'application/octet-stream'
+          }),
+        });
+        
+        if (!addPhotoResponse.ok) {
+          const error = await addPhotoResponse.json();
+          throw new Error(error.error || 'Failed to add photo to folder');
+        }
+        
+        return;
+      }
+          
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        const reader = new FileReader();
+        reader.onload = (e) => { image.src = e.target?.result as string; };
+        reader.readAsDataURL(file);
+      });
+      
+      const width = img.width;
+      const height = img.height;
+      
+      const MAX_SIZE_FOR_DIRECT = 2.5 * 1024 * 1024;
+      let base64Data: string;
+      
+      if (file.size > MAX_SIZE_FOR_DIRECT) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        let quality = 0.85;
+        let blob: Blob;
+        
+        do {
+          blob = await new Promise<Blob>((resolve) => {
+            canvas.toBlob((b) => resolve(b!), 'image/jpeg', quality);
+          });
+          if (blob.size <= MAX_SIZE_FOR_DIRECT) break;
+          quality -= 0.05;
+        } while (quality > 0.5);
+        
+        const reader = new FileReader();
+        base64Data = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        const reader = new FileReader();
+        base64Data = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const res = await fetch(PHOTOBANK_FOLDERS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({
+          action: 'upload_direct',
+          folder_id: selectedFolder.id,
+          file_name: file.name,
+          file_data: base64Data,
+          width: Math.round(width),
+          height: Math.round(height),
+          content_type: file.type || 'image/jpeg'
+        })
+      });
+
+      if (res.status === 403) {
+        const errorData = await res.json();
+        if (errorData.requireEmailVerification) {
+          throw new Error('EMAIL_VERIFICATION_REQUIRED');
+        }
+      }
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Upload failed: ${res.status}`);
+      }
+    };
+
+    try {
+      for (let i = 0; i < mediaFiles.length; i += BATCH_SIZE) {
+        if (uploadCancelled) break;
+        
+        const batch = mediaFiles.slice(i, i + BATCH_SIZE);
+        console.log(`[UPLOAD] Starting batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} files`);
+        
+        const results = await Promise.allSettled(
+          batch.map((file, batchIndex) => uploadSingleFile(file, i + batchIndex))
+        );
+        
+        results.forEach((result, batchIndex) => {
+          if (result.status === 'fulfilled') {
+            successCount++;
           } else {
-            console.log(`[UPLOAD] File size OK, uploading original`);
-            const reader = new FileReader();
-            base64Data = await new Promise<string>((resolve) => {
-              reader.onload = () => resolve(reader.result as string);
-              reader.readAsDataURL(file);
-            });
-          }
-
-          console.log(`[UPLOAD] Uploading to backend...`);
-          const res = await fetch(PHOTOBANK_FOLDERS_API, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-User-Id': userId
-            },
-            body: JSON.stringify({
-              action: 'upload_direct',
-              folder_id: selectedFolder.id,
-              file_name: file.name,
-              file_data: base64Data,
-              width: Math.round(finalWidth),
-              height: Math.round(finalHeight),
-              content_type: file.type || 'image/jpeg'
-            })
-          });
-
-          console.log(`[UPLOAD] Response status: ${res.status}`);
-          if (res.ok) {
-            const data = await res.json();
-            console.log(`[UPLOAD] Success:`, data);
-            successCount++;
-          } else if (res.status === 403) {
-            const errorData = await res.json();
-            if (errorData.requireEmailVerification) {
+            console.error(`[UPLOAD] File ${i + batchIndex + 1} failed:`, result.reason);
+            if (result.reason?.message === 'EMAIL_VERIFICATION_REQUIRED') {
               toast({
                 title: 'Подтвердите email',
                 description: 'Для загрузки фото необходимо подтвердить адрес электронной почты',
@@ -340,27 +317,14 @@ export const usePhotoBankHandlers = (
               return;
             }
             errorCount++;
-          } else {
-            const errorText = await res.text();
-            console.error(`[UPLOAD] Failed with status ${res.status}:`, errorText);
-            try {
-              const errorData = JSON.parse(errorText);
-              console.error(`[UPLOAD] Error details:`, errorData);
-            } catch (e) {
-              console.error(`[UPLOAD] Raw error response:`, errorText);
-            }
-            errorCount++;
           }
-        } catch (err) {
-          console.error(`[UPLOAD] Error uploading ${file.name}:`, err);
-          errorCount++;
-        }
-        const newPercent = Math.round(((i + 1) / mediaFiles.length) * 100);
-        setUploadProgress({ 
-          current: i + 1, 
-          total: imageFiles.length, 
-          percent: newPercent,
-          currentFileName: i + 1 < imageFiles.length ? imageFiles[i + 1].name : '' 
+        });
+        
+        setUploadProgress({
+          current: i + batch.length,
+          total: mediaFiles.length,
+          percent: Math.round(((i + batch.length) / mediaFiles.length) * 100),
+          currentFileName: ''
         });
       }
 
@@ -372,7 +336,7 @@ export const usePhotoBankHandlers = (
         fetchPhotos(selectedFolder.id);
         fetchFolders();
         fetchStorageUsage();
-      } else {
+      } else if (errorCount > 0) {
         toast({
           title: 'Ошибка',
           description: 'Не удалось загрузить фото',

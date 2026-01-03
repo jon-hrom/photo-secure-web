@@ -3,7 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { isAdminUser } from '@/utils/adminCheck';
 import { isAdminViewingSessionValid } from '@/utils/sessionCleanup';
 
+// Кэш для userId чтобы не парсить localStorage сотни раз
+const cachedUserId: string | null | undefined = undefined;
+const cacheTimestamp = 0;
+const CACHE_TTL = 1000; // 1 секунда
+
 export const getAuthUserId = (): string | null => {
+  // Проверяем кэш
+  const now = Date.now();
+  if (cachedUserId !== undefined && (now - cacheTimestamp) < CACHE_TTL) {
+    return cachedUserId;
+  }
+  
   console.log('[PHOTO_BANK] getAuthUserId called');
   
   // Проверяем валидность сессии просмотра админом
@@ -46,6 +57,8 @@ export const getAuthUserId = (): string | null => {
     
     if (isAdmin) {
       console.log('[PHOTO_BANK] Admin viewing user confirmed, using userId:', adminViewingUserId);
+      cachedUserId = adminViewingUserId;
+      cacheTimestamp = Date.now();
       return adminViewingUserId;
     } else {
       console.warn('[PHOTO_BANK] admin_viewing_user_id exists but user is not admin, clearing');
@@ -58,7 +71,11 @@ export const getAuthUserId = (): string | null => {
   if (authSession) {
     try {
       const session = JSON.parse(authSession);
-      if (session.userId) return session.userId.toString();
+      if (session.userId) {
+        cachedUserId = session.userId.toString();
+        cacheTimestamp = Date.now();
+        return session.userId.toString();
+      }
     } catch {}
   }
   
@@ -66,8 +83,12 @@ export const getAuthUserId = (): string | null => {
   if (vkUser) {
     try {
       const userData = JSON.parse(vkUser);
-      if (userData.user_id) return userData.user_id.toString();
-      if (userData.vk_id) return userData.vk_id.toString();
+      const userId = userData.user_id?.toString() || userData.vk_id?.toString();
+      if (userId) {
+        cachedUserId = userId;
+        cacheTimestamp = Date.now();
+        return userId;
+      }
     } catch {}
   }
   
@@ -75,12 +96,17 @@ export const getAuthUserId = (): string | null => {
   if (googleUser) {
     try {
       const userData = JSON.parse(googleUser);
-      if (userData.user_id) return userData.user_id.toString();
-      if (userData.id) return userData.id.toString();
-      if (userData.sub) return userData.sub.toString();
+      const userId = userData.user_id?.toString() || userData.id?.toString() || userData.sub?.toString();
+      if (userId) {
+        cachedUserId = userId;
+        cacheTimestamp = Date.now();
+        return userId;
+      }
     } catch {}
   }
   
+  cachedUserId = null;
+  cacheTimestamp = Date.now();
   return null;
 };
 
