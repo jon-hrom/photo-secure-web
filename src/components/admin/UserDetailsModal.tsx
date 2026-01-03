@@ -34,9 +34,10 @@ interface UserDetailsModalProps {
   onBlock: (userId: string | number, reason: string) => void;
   onUnblock: (userId: string | number) => void;
   onDelete: (userId: string | number) => void;
+  onOpenPhotoBank?: (userId: string | number) => void;
 }
 
-const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete }: UserDetailsModalProps) => {
+const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete, onOpenPhotoBank }: UserDetailsModalProps) => {
   const [blockReason, setBlockReason] = useState('');
   const [showBlockForm, setShowBlockForm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -220,11 +221,16 @@ const UserDetailsModal = ({ user, isOpen, onClose, onBlock, onUnblock, onDelete 
           isBlocked={user.is_blocked}
           showBlockForm={showBlockForm}
           blockReason={blockReason}
+          userId={user.id}
           onBlockReasonChange={setBlockReason}
           onShowBlockForm={setShowBlockForm}
           onBlock={handleBlock}
           onUnblock={handleUnblock}
           onDelete={handleDelete}
+          onOpenPhotoBank={(userId) => {
+            onClose();
+            if (onOpenPhotoBank) onOpenPhotoBank(userId);
+          }}
         />
 
         {showDisable2FADialog && user && (

@@ -6,22 +6,26 @@ interface UserManagementActionsProps {
   isBlocked: boolean;
   showBlockForm: boolean;
   blockReason: string;
+  userId: string | number;
   onBlockReasonChange: (reason: string) => void;
   onShowBlockForm: (show: boolean) => void;
   onBlock: () => void;
   onUnblock: () => void;
   onDelete: () => void;
+  onOpenPhotoBank: (userId: string | number) => void;
 }
 
 const UserManagementActions = ({
   isBlocked,
   showBlockForm,
   blockReason,
+  userId,
   onBlockReasonChange,
   onShowBlockForm,
   onBlock,
   onUnblock,
-  onDelete
+  onDelete,
+  onOpenPhotoBank
 }: UserManagementActionsProps) => {
   return (
     <div className="border-t pt-4 space-y-3">
@@ -29,6 +33,15 @@ const UserManagementActions = ({
         <Icon name="Settings" size={18} />
         Управление пользователем
       </h4>
+
+      <Button
+        variant="outline"
+        onClick={() => onOpenPhotoBank(userId)}
+        className="w-full gap-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+      >
+        <Icon name="Images" size={18} />
+        Открыть Фото банк пользователя
+      </Button>
 
       {!isBlocked ? (
         <>

@@ -9,8 +9,10 @@ import { useAdminPanelSettings } from '@/components/admin/AdminPanelSettings';
 import { useAdminPanelUsers } from '@/components/admin/AdminPanelUsers';
 import { useAdminPanelRoleManager } from '@/components/admin/AdminPanelRoleManager';
 import { useAdminPanelHistory } from '@/components/admin/AdminPanelHistoryManager';
+import { useNavigate } from 'react-router-dom';
 
 const AdminPanel = () => {
+  const navigate = useNavigate();
   console.log('[ADMIN_PANEL] Component mounted');
   
   const {
@@ -63,6 +65,11 @@ const AdminPanel = () => {
       await loadSettings();
       await loadHistory();
     }
+  };
+
+  const handleOpenPhotoBank = (userId: string | number) => {
+    localStorage.setItem('admin_viewing_user_id', String(userId));
+    navigate('/photo-bank');
   };
 
   if (loading) {
@@ -135,6 +142,7 @@ const AdminPanel = () => {
             onBlockUser={blockUser}
             onUnblockUser={unblockUser}
             onRefreshUsers={loadUsers}
+            onOpenPhotoBank={handleOpenPhotoBank}
           />
         </>
       )}

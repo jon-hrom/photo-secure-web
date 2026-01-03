@@ -54,6 +54,7 @@ const LoginForm = ({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isBlocked}
+          autoComplete="email"
         />
       </div>
       <div className="space-y-2">
@@ -66,6 +67,7 @@ const LoginForm = ({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={isBlocked}
+            autoComplete="current-password"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !isBlocked) {
                 onLogin();
@@ -75,10 +77,11 @@ const LoginForm = ({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground w-11 h-11 flex items-center justify-center touch-manipulation"
             disabled={isBlocked}
+            aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
           >
-            <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={18} />
+            <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={20} />
           </button>
         </div>
         {loginAttemptFailed && (

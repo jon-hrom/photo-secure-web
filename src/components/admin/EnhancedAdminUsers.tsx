@@ -33,9 +33,10 @@ interface EnhancedAdminUsersProps {
   onUnblock: (userId: string | number) => void;
   onDelete: (userId: string | number) => void;
   onRefresh?: () => void;
+  onOpenPhotoBank?: (userId: string | number) => void;
 }
 
-const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: EnhancedAdminUsersProps) => {
+const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, onOpenPhotoBank }: EnhancedAdminUsersProps) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -475,6 +476,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh }: 
         onBlock={onBlock}
         onUnblock={onUnblock}
         onDelete={onDelete}
+        onOpenPhotoBank={onOpenPhotoBank}
       />
     </>
   );

@@ -31,6 +31,7 @@ interface AdminPanelTabsProps {
   onBlockUser: (userId: string | number, reason: string) => void;
   onUnblockUser: (userId: string | number) => void;
   onRefreshUsers?: () => void;
+  onOpenPhotoBank?: (userId: string | number) => void;
 }
 
 const AdminPanelTabs = ({
@@ -50,6 +51,7 @@ const AdminPanelTabs = ({
   onBlockUser,
   onUnblockUser,
   onRefreshUsers,
+  onOpenPhotoBank,
 }: AdminPanelTabsProps) => {
   const navigate = useNavigate();
 
@@ -180,6 +182,7 @@ const AdminPanelTabs = ({
             onBlock={onBlockUser}
             onUnblock={onUnblockUser}
             onRefresh={onRefreshUsers}
+            onOpenPhotoBank={onOpenPhotoBank}
           />
         </AccordionContent>
       </AccordionItem>

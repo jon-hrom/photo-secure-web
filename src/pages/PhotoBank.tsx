@@ -7,6 +7,7 @@ import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
 import CameraUploadDialog from '@/components/photobank/CameraUploadDialog';
 import MobileNavigation from '@/components/layout/MobileNavigation';
+import Icon from '@/components/ui/icon';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
@@ -17,6 +18,34 @@ const PhotoBank = () => {
   const navigate = useNavigate();
   
   const getAuthUserId = (): string | null => {
+    const adminViewingUserId = localStorage.getItem('admin_viewing_user_id');
+    if (adminViewingUserId) {
+      const authSession = localStorage.getItem('authSession');
+      const vkUser = localStorage.getItem('vk_user');
+      const googleUser = localStorage.getItem('google_user');
+      
+      let adminEmail = null;
+      let adminVkData = null;
+      
+      if (authSession) {
+        try {
+          const session = JSON.parse(authSession);
+          adminEmail = session.userEmail;
+        } catch {}
+      }
+      
+      if (vkUser) {
+        try {
+          adminVkData = JSON.parse(vkUser);
+        } catch {}
+      }
+      
+      if (isAdminUser(adminEmail, adminVkData)) {
+        console.log('[PHOTO_BANK] Admin viewing user:', adminViewingUserId);
+        return adminViewingUserId;
+      }
+    }
+    
     const authSession = localStorage.getItem('authSession');
     if (authSession) {
       try {
@@ -303,8 +332,60 @@ const PhotoBank = () => {
     );
   }
 
+  const isAdminViewing = (() => {
+    const adminViewingUserId = localStorage.getItem('admin_viewing_user_id');
+    if (!adminViewingUserId) return false;
+    
+    const authSession = localStorage.getItem('authSession');
+    const vkUser = localStorage.getItem('vk_user');
+    
+    let adminEmail = null;
+    let adminVkData = null;
+    
+    if (authSession) {
+      try {
+        const session = JSON.parse(authSession);
+        adminEmail = session.userEmail;
+      } catch {}
+    }
+    
+    if (vkUser) {
+      try {
+        adminVkData = JSON.parse(vkUser);
+      } catch {}
+    }
+    
+    return isAdminUser(adminEmail, adminVkData);
+  })();
+
+  const handleExitAdminView = () => {
+    localStorage.removeItem('admin_viewing_user_id');
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
+      {isAdminViewing && (
+        <div className="max-w-7xl mx-auto mb-4">
+          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-lg flex items-center justify-between shadow-lg">
+            <div className="flex items-center gap-3">
+              <Icon name="Shield" size={24} />
+              <div>
+                <h3 className="font-semibold">Режим администратора</h3>
+                <p className="text-sm opacity-90">Вы просматриваете Фото банк пользователя ID: {userId}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleExitAdminView}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+            >
+              <Icon name="LogOut" size={18} />
+              Выйти из режима просмотра
+            </button>
+          </div>
+        </div>
+      )}
+      
       <PhotoBankDialogs
         showCreateFolder={showCreateFolder}
         showClearConfirm={showClearConfirm}

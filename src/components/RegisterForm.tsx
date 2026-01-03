@@ -40,6 +40,7 @@ const RegisterForm = ({
           placeholder="your@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
         />
       </div>
       <div className="space-y-2">
@@ -51,13 +52,15 @@ const RegisterForm = ({
             placeholder="Минимум 8 символов"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground w-11 h-11 flex items-center justify-center touch-manipulation"
+            aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
           >
-            <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={18} />
+            <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={20} />
           </button>
         </div>
         {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
@@ -70,6 +73,7 @@ const RegisterForm = ({
           placeholder="+7 (999) 123-45-67"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+          autoComplete="tel"
         />
       </div>
       <Button onClick={onRegister} className="w-full">
