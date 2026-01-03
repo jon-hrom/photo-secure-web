@@ -190,15 +190,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     db_url = os.environ.get('DATABASE_URL')
-    s3_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
-    s3_secret = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    bucket = 'files'
+    s3_key_id = os.environ.get('YC_S3_KEY_ID')
+    s3_secret = os.environ.get('YC_S3_SECRET')
+    bucket = 'foto-mix'
     
     s3_client = boto3.client(
         's3',
-        endpoint_url='https://bucket.poehali.dev',
+        endpoint_url='https://storage.yandexcloud.net',
+        region_name='ru-central1',
         aws_access_key_id=s3_key_id,
-        aws_secret_access_key=s3_secret
+        aws_secret_access_key=s3_secret,
+        config=Config(signature_version='s3v4')
     )
     
     try:
@@ -293,12 +295,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         image_bytes = base64.b64decode(base64_str)
                     elif photo['s3_key']:
                         # Фото в S3
+                        print(f'[TECH_SORT] Reading S3: bucket={bucket}, key={photo["s3_key"]}')
                         try:
                             response = s3_client.get_object(Bucket=bucket, Key=photo['s3_key'])
                             image_bytes = response['Body'].read()
+                            print(f'[TECH_SORT] S3 read success: {len(image_bytes)} bytes')
                         except Exception as s3_err:
                             # Файл не найден в S3 - пропускаем
-                            print(f'[TECH_SORT] S3 error for photo {photo["id"]}: {str(s3_err)}')
+                            print(f'[TECH_SORT] S3 error for photo {photo["id"]}, key={photo["s3_key"]}: {str(s3_err)}')
                             cur.execute('''
                                 UPDATE t_p28211681_photo_secure_web.photo_bank
                                 SET tech_analyzed = TRUE,
