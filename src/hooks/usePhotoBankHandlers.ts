@@ -146,7 +146,7 @@ export const usePhotoBankHandlers = (
     let errorCount = 0;
 
     const BATCH_SIZE = 5;
-    const cancelledRef = uploadCancelled;
+    let cancelledRef = uploadCancelled;
     
     const uploadSingleFile = async (file: File, index: number) => {
       if (cancelledRef) {
