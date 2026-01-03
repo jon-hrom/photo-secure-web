@@ -26,6 +26,7 @@ interface PhotoGridCardProps {
   onDownload: (url: string, fileName: string) => void;
   onDeletePhoto: (photoId: number, fileName: string) => void;
   onShowExif?: (photo: Photo) => void;
+  isAdminViewing?: boolean;
 }
 
 const PhotoGridCard = ({
@@ -36,7 +37,8 @@ const PhotoGridCard = ({
   onPhotoClick,
   onDownload,
   onDeletePhoto,
-  onShowExif
+  onShowExif,
+  isAdminViewing = false
 }: PhotoGridCardProps) => {
   const isVertical = (photo.height || 0) > (photo.width || 0);
 
@@ -128,16 +130,18 @@ const PhotoGridCard = ({
       </div>
       {!selectionMode && (
         <>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeletePhoto(photo.id, photo.file_name);
-            }}
-            className="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 backdrop-blur-sm flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-            title="Удалить файл"
-          >
-            <Icon name="Trash2" size={16} className="text-white" />
-          </button>
+          {!isAdminViewing && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeletePhoto(photo.id, photo.file_name);
+              }}
+              className="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 backdrop-blur-sm flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+              title="Удалить файл"
+            >
+              <Icon name="Trash2" size={16} className="text-white" />
+            </button>
+          )}
           {emailVerified && photo.s3_url && (
             <button
               onClick={(e) => {

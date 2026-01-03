@@ -16,6 +16,7 @@ interface PhotoGridHeaderProps {
   uploadProgress: { current: number; total: number; percent: number; currentFileName: string };
   onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onCancelUpload: () => void;
+  isAdminViewing?: boolean;
 }
 
 const PhotoGridHeader = ({
@@ -23,7 +24,8 @@ const PhotoGridHeader = ({
   uploading,
   uploadProgress,
   onUploadPhoto,
-  onCancelUpload
+  onCancelUpload,
+  isAdminViewing = false
 }: PhotoGridHeaderProps) => {
   return (
     <CardHeader>
@@ -32,7 +34,7 @@ const PhotoGridHeader = ({
           <Icon name="Image" size={20} />
           {selectedFolder ? selectedFolder.folder_name : 'Фотографии'}
         </CardTitle>
-        {selectedFolder && (
+        {selectedFolder && !isAdminViewing && (
           <div className="relative">
             <input
               type="file"

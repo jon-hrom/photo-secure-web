@@ -44,6 +44,7 @@ interface PhotoBankPhotoGridProps {
   onDeletePhoto: (photoId: number, fileName: string) => void;
   onTogglePhotoSelection: (photoId: number) => void;
   onCancelUpload: () => void;
+  isAdminViewing?: boolean;
 }
 
 const handleDownload = async (url: string, fileName: string) => {
@@ -75,7 +76,8 @@ const PhotoBankPhotoGrid = ({
   onUploadPhoto,
   onDeletePhoto,
   onTogglePhotoSelection,
-  onCancelUpload
+  onCancelUpload,
+  isAdminViewing = false
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
@@ -118,6 +120,7 @@ const PhotoBankPhotoGrid = ({
         selectedFolder={selectedFolder}
         uploading={uploading}
         uploadProgress={uploadProgress}
+        isAdminViewing={isAdminViewing}
         onUploadPhoto={onUploadPhoto}
         onCancelUpload={onCancelUpload}
       />
@@ -152,6 +155,7 @@ const PhotoBankPhotoGrid = ({
                 selectionMode={selectionMode}
                 isSelected={selectedPhotos.has(photo.id)}
                 emailVerified={emailVerified}
+                isAdminViewing={isAdminViewing}
                 onPhotoClick={handlePhotoClick}
                 onDownload={handleDownload}
                 onDeletePhoto={onDeletePhoto}

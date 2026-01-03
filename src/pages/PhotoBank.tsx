@@ -418,8 +418,11 @@ const PhotoBank = () => {
           photos={photos}
           selectionMode={selectionMode}
           selectedPhotos={selectedPhotos}
+          isAdminViewing={isAdminViewing}
           onNavigateBack={() => {
-            if (selectedFolder) {
+            if (isAdminViewing) {
+              handleExitAdminView();
+            } else if (selectedFolder) {
               setSelectedFolder(null);
               setPhotos([]);
             } else {
@@ -446,6 +449,7 @@ const PhotoBank = () => {
             folders={folders}
             selectedFolder={selectedFolder}
             loading={loading}
+            isAdminViewing={isAdminViewing}
             onSelectFolder={setSelectedFolder}
             onDeleteFolder={handleDeleteFolder}
             onCreateFolder={() => setShowCreateFolder(true)}
@@ -460,6 +464,7 @@ const PhotoBank = () => {
             selectionMode={selectionMode}
             selectedPhotos={selectedPhotos}
             emailVerified={emailVerified}
+            isAdminViewing={isAdminViewing}
             onUploadPhoto={handleUploadPhoto}
             onDeletePhoto={handleDeletePhoto}
             onTogglePhotoSelection={togglePhotoSelection}

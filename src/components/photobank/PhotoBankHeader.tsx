@@ -37,6 +37,7 @@ interface PhotoBankHeaderProps {
   canGoForward?: boolean;
   onGoBack?: () => void;
   onGoForward?: () => void;
+  isAdminViewing?: boolean;
 }
 
 const PhotoBankHeader = ({
@@ -56,6 +57,7 @@ const PhotoBankHeader = ({
   canGoForward = false,
   onGoBack,
   onGoForward,
+  isAdminViewing = false,
 }: PhotoBankHeaderProps) => {
   const navigate = useNavigate();
   
@@ -100,59 +102,61 @@ const PhotoBankHeader = ({
           </div>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
-        {selectionMode && (
-          <>
-            <Button 
-              variant="default"
-              onClick={onAddToPhotobook}
-              disabled={selectedPhotos.size === 0}
-            >
-              <Icon name="Plus" className="mr-2" size={18} />
-              Добавить в макет ({selectedPhotos.size})
-            </Button>
+      {!isAdminViewing && (
+        <div className="flex flex-wrap gap-2">
+          {selectionMode && (
+            <>
+              <Button 
+                variant="default"
+                onClick={onAddToPhotobook}
+                disabled={selectedPhotos.size === 0}
+              >
+                <Icon name="Plus" className="mr-2" size={18} />
+                Добавить в макет ({selectedPhotos.size})
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={onCancelSelection}
+              >
+                Отмена
+              </Button>
+            </>
+          )}
+          {!selectionMode && selectedFolder && photos.length > 0 && (
             <Button 
               variant="outline"
-              onClick={onCancelSelection}
+              onClick={onStartSelection}
             >
-              Отмена
+              <Icon name="CheckSquare" className="mr-2" size={18} />
+              Выбрать фото
             </Button>
-          </>
-        )}
-        {!selectionMode && selectedFolder && photos.length > 0 && (
+          )}
           <Button 
             variant="outline"
-            onClick={onStartSelection}
+            onClick={onShowCreateFolder}
           >
-            <Icon name="CheckSquare" className="mr-2" size={18} />
-            Выбрать фото
+            <Icon name="FolderPlus" className="mr-2" size={18} />
+            Новая папка
           </Button>
-        )}
-        <Button 
-          variant="outline"
-          onClick={onShowCreateFolder}
-        >
-          <Icon name="FolderPlus" className="mr-2" size={18} />
-          Новая папка
-        </Button>
-        {onShowCameraUpload && (
+          {onShowCameraUpload && (
+            <Button 
+              variant="outline"
+              onClick={onShowCameraUpload}
+              className="bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-900 hover:text-green-950 dark:text-green-950 dark:hover:text-green-950"
+            >
+              <Icon name="Camera" className="mr-2" size={18} />
+              Загрузить с камеры
+            </Button>
+          )}
           <Button 
             variant="outline"
-            onClick={onShowCameraUpload}
-            className="bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-900 hover:text-green-950 dark:text-green-950 dark:hover:text-green-950"
+            onClick={() => navigate('/photo-bank/trash')}
           >
-            <Icon name="Camera" className="mr-2" size={18} />
-            Загрузить с камеры
+            <Icon name="Trash2" className="mr-2" size={18} />
+            Корзина
           </Button>
-        )}
-        <Button 
-          variant="outline"
-          onClick={() => navigate('/photo-bank/trash')}
-        >
-          <Icon name="Trash2" className="mr-2" size={18} />
-          Корзина
-        </Button>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
