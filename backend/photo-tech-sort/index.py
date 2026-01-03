@@ -318,25 +318,37 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             # Фото в S3 - копируем файл
                             new_s3_key = f"{tech_rejects_s3_prefix}{photo['file_name']}"
                             
-                            s3_client.copy_object(
-                                Bucket=bucket,
-                                CopySource={'Bucket': bucket, 'Key': photo['s3_key']},
-                                Key=new_s3_key
-                            )
-                            
-                            # Удаляем старый файл из S3
-                            s3_client.delete_object(Bucket=bucket, Key=photo['s3_key'])
-                            
-                            # Обновляем запись в БД
-                            cur.execute('''
-                                UPDATE t_p28211681_photo_secure_web.photo_bank
-                                SET folder_id = %s,
-                                    s3_key = %s,
-                                    tech_reject_reason = %s,
-                                    tech_analyzed = TRUE,
-                                    updated_at = NOW()
-                                WHERE id = %s
-                            ''', (tech_rejects_folder_id, new_s3_key, reason, photo['id']))
+                            try:
+                                s3_client.copy_object(
+                                    Bucket=bucket,
+                                    CopySource={'Bucket': bucket, 'Key': photo['s3_key']},
+                                    Key=new_s3_key
+                                )
+                                
+                                # Удаляем старый файл из S3
+                                s3_client.delete_object(Bucket=bucket, Key=photo['s3_key'])
+                                
+                                # Обновляем запись в БД
+                                cur.execute('''
+                                    UPDATE t_p28211681_photo_secure_web.photo_bank
+                                    SET folder_id = %s,
+                                        s3_key = %s,
+                                        tech_reject_reason = %s,
+                                        tech_analyzed = TRUE,
+                                        updated_at = NOW()
+                                    WHERE id = %s
+                                ''', (tech_rejects_folder_id, new_s3_key, reason, photo['id']))
+                            except Exception as copy_err:
+                                # Ошибка при копировании - помечаем как ошибку
+                                print(f'[TECH_SORT] S3 copy error for photo {photo["id"]}: {str(copy_err)}')
+                                cur.execute('''
+                                    UPDATE t_p28211681_photo_secure_web.photo_bank
+                                    SET tech_analyzed = TRUE,
+                                        tech_reject_reason = 's3_copy_error',
+                                        updated_at = NOW()
+                                    WHERE id = %s
+                                ''', (photo['id'],))
+                                continue
                         else:
                             # Фото в data_url - просто меняем папку
                             cur.execute('''
