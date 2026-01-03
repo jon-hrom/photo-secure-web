@@ -6,6 +6,7 @@ import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
 import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
 import CameraUploadDialog from '@/components/photobank/CameraUploadDialog';
+import TechSortProgressDialog from '@/components/photobank/TechSortProgressDialog';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
@@ -22,6 +23,15 @@ const PhotoBank = () => {
   const { authChecking } = usePhotoBankAuth();
   const { emailVerified } = useEmailVerification(userId, authChecking);
   const [showCameraUpload, setShowCameraUpload] = useState(false);
+  const [techSortProgress, setTechSortProgress] = useState({
+    open: false,
+    progress: 0,
+    currentFile: '',
+    processedCount: 0,
+    totalCount: 0,
+    status: 'analyzing' as 'analyzing' | 'completed' | 'error',
+    errorMessage: ''
+  });
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -129,14 +139,91 @@ const PhotoBank = () => {
       return;
     }
 
-    setLoading(true);
+    // Получаем количество фото в папке
+    const folder = folders.find(f => f.id === folderId);
+    const totalPhotos = folder?.photo_count || 0;
+
+    if (totalPhotos === 0) {
+      return;
+    }
+
+    // Показываем диалог прогресса
+    setTechSortProgress({
+      open: true,
+      progress: 0,
+      currentFile: 'Подготовка...',
+      processedCount: 0,
+      totalCount: totalPhotos,
+      status: 'analyzing',
+      errorMessage: ''
+    });
+
+    // Симулируем прогресс (примерно 2 секунды на фото)
+    const estimatedTimeMs = totalPhotos * 2000;
+    const updateInterval = 100; // обновление каждые 100ms
+    const incrementPerUpdate = (100 / (estimatedTimeMs / updateInterval));
+    
+    let currentProgress = 0;
+    let processedFiles = 0;
+
+    const progressInterval = setInterval(() => {
+      currentProgress += incrementPerUpdate;
+      processedFiles = Math.floor((currentProgress / 100) * totalPhotos);
+      
+      if (currentProgress >= 95) {
+        clearInterval(progressInterval);
+        currentProgress = 95;
+      }
+
+      setTechSortProgress(prev => ({
+        ...prev,
+        progress: currentProgress,
+        processedCount: processedFiles,
+        currentFile: `Анализ фото ${processedFiles + 1} из ${totalPhotos}...`
+      }));
+    }, updateInterval);
+
     try {
-      await startTechSort(folderId);
+      const result = await startTechSort(folderId);
+      
+      clearInterval(progressInterval);
+      
+      // Показываем завершение
+      setTechSortProgress({
+        open: true,
+        progress: 100,
+        currentFile: '',
+        processedCount: result.processed || totalPhotos,
+        totalCount: totalPhotos,
+        status: 'completed',
+        errorMessage: ''
+      });
+
+      // Обновляем список папок
       await fetchFolders();
-    } catch (error) {
-      console.error('Failed to start tech sort:', error);
-    } finally {
-      setLoading(false);
+
+      // Закрываем диалог через 2 секунды
+      setTimeout(() => {
+        setTechSortProgress(prev => ({ ...prev, open: false }));
+      }, 2000);
+
+    } catch (error: any) {
+      clearInterval(progressInterval);
+      
+      setTechSortProgress({
+        open: true,
+        progress: 0,
+        currentFile: '',
+        processedCount: 0,
+        totalCount: totalPhotos,
+        status: 'error',
+        errorMessage: error.message || 'Произошла ошибка при анализе'
+      });
+
+      // Закрываем диалог через 3 секунды
+      setTimeout(() => {
+        setTechSortProgress(prev => ({ ...prev, open: false }));
+      }, 3000);
     }
   };
 
@@ -262,6 +349,16 @@ const PhotoBank = () => {
           />
         )}
       </div>
+
+      <TechSortProgressDialog
+        open={techSortProgress.open}
+        progress={techSortProgress.progress}
+        currentFile={techSortProgress.currentFile}
+        processedCount={techSortProgress.processedCount}
+        totalCount={techSortProgress.totalCount}
+        status={techSortProgress.status}
+        errorMessage={techSortProgress.errorMessage}
+      />
       
       <MobileNavigation />
     </div>
