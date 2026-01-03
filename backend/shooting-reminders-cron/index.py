@@ -233,14 +233,32 @@ def send_client_email_reminder(client_email: str, photographer_name: str, projec
             <li>Подготовьте реквизит (если нужен) 🎭</li>
             <li>Продумайте образы 💅</li>
         """
-    else:
-        subject = f'⏰ Напоминание: фотосессия сегодня — {project_name}'
+    elif hours_before == 5:
+        subject = f'⏰ Скоро съёмка! Осталось {hours_before} часов — {project_name}'
         time_text = 'сегодня'
         checklist = """
             <li>Проверьте наряды ✨</li>
             <li>Соберите аксессуары 💄</li>
             <li>Проверьте адрес 📍</li>
             <li>Рассчитайте время в пути 🚗</li>
+        """
+    elif hours_before == 3:
+        subject = f'🚀 Время собираться! Осталось {hours_before} часа — {project_name}'
+        time_text = 'сегодня'
+        checklist = """
+            <li>Оденьтесь и подготовьтесь ✨</li>
+            <li>Возьмите все необходимое 💼</li>
+            <li>Выезжайте с запасом времени 🚗</li>
+            <li>Зарядите телефон 📱</li>
+        """
+    else:  # 1 hour
+        subject = f'⏰ Выезжайте! Съёмка через час — {project_name}'
+        time_text = 'сегодня'
+        checklist = """
+            <li>Проверьте наряды ✨</li>
+            <li>Соберите аксессуары 💄</li>
+            <li>Проверьте адрес 📍</li>
+            <li>Хорошее настроение 😊</li>
             <li>Зарядите телефон 📱</li>
         """
     
@@ -586,11 +604,17 @@ def check_and_send_reminders():
                                 else:
                                     results['errors'] += 1
                             
+                            # Клиенту по MAX
                             if client_phone:
                                 if send_client_reminder(client_phone, photographer_name, project, 5):
                                     results['sent_5h_client'] += 1
                                 else:
                                     results['errors'] += 1
+                            
+                            # Клиенту по email
+                            if client_email:
+                                if send_client_email_reminder(client_email, photographer_name, project, 5):
+                                    results['sent_5h_client'] += 1
                         
                         # Отправляем напоминание за 3 часа (с окном ±30 минут)
                         elif 2.5 <= hours_until <= 3.5:
@@ -600,11 +624,17 @@ def check_and_send_reminders():
                                 else:
                                     results['errors'] += 1
                             
+                            # Клиенту по MAX
                             if client_phone:
                                 if send_client_reminder(client_phone, photographer_name, project, 3):
                                     results['sent_3h_client'] += 1
                                 else:
                                     results['errors'] += 1
+                            
+                            # Клиенту по email
+                            if client_email:
+                                if send_client_email_reminder(client_email, photographer_name, project, 3):
+                                    results['sent_3h_client'] += 1
                         
                         # Отправляем напоминание за 1 час (с окном ±15 минут)
                         elif 0.75 <= hours_until <= 1.25:
@@ -614,11 +644,17 @@ def check_and_send_reminders():
                                 else:
                                     results['errors'] += 1
                             
+                            # Клиенту по MAX
                             if client_phone:
                                 if send_client_reminder(client_phone, photographer_name, project, 1):
                                     results['sent_1h_client'] += 1
                                 else:
                                     results['errors'] += 1
+                            
+                            # Клиенту по email
+                            if client_email:
+                                if send_client_email_reminder(client_email, photographer_name, project, 1):
+                                    results['sent_1h_client'] += 1
                 
             except Exception as e:
                 print(f'[REMINDER] Error processing photographer {photographer_id}: {str(e)}')
