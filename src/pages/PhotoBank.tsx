@@ -18,11 +18,20 @@ const PhotoBank = () => {
   const navigate = useNavigate();
   
   const getAuthUserId = (): string | null => {
+    console.log('[PHOTO_BANK] getAuthUserId called');
     const adminViewingUserId = localStorage.getItem('admin_viewing_user_id');
+    console.log('[PHOTO_BANK] admin_viewing_user_id from localStorage:', adminViewingUserId);
+    
     if (adminViewingUserId) {
       const authSession = localStorage.getItem('authSession');
       const vkUser = localStorage.getItem('vk_user');
       const googleUser = localStorage.getItem('google_user');
+      
+      console.log('[PHOTO_BANK] Auth data check:', {
+        hasAuthSession: !!authSession,
+        hasVkUser: !!vkUser,
+        hasGoogleUser: !!googleUser
+      });
       
       let adminEmail = null;
       let adminVkData = null;
@@ -40,9 +49,14 @@ const PhotoBank = () => {
         } catch {}
       }
       
-      if (isAdminUser(adminEmail, adminVkData)) {
-        console.log('[PHOTO_BANK] Admin viewing user:', adminViewingUserId);
+      const isAdmin = isAdminUser(adminEmail, adminVkData);
+      console.log('[PHOTO_BANK] isAdminUser check:', isAdmin, 'adminEmail:', adminEmail);
+      
+      if (isAdmin) {
+        console.log('[PHOTO_BANK] Admin viewing user confirmed, using userId:', adminViewingUserId);
         return adminViewingUserId;
+      } else {
+        console.warn('[PHOTO_BANK] admin_viewing_user_id exists but user is not admin, ignoring');
       }
     }
     

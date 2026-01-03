@@ -281,7 +281,10 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
         <Card 
           className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 border-0 shadow-xl cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group w-full lg:w-1/2"
           onClick={() => {
-            console.log('[DASHBOARD] Clicking Photo Bank card, handler:', typeof onNavigateToPhotoBank);
+            console.log('[DASHBOARD] Clicking Photo Bank card');
+            console.log('[DASHBOARD] Handler type:', typeof onNavigateToPhotoBank);
+            console.log('[DASHBOARD] Current localStorage admin_viewing_user:', localStorage.getItem('admin_viewing_user'));
+            console.log('[DASHBOARD] Current localStorage admin_viewing_user_id:', localStorage.getItem('admin_viewing_user_id'));
             onNavigateToPhotoBank?.();
           }}
         >

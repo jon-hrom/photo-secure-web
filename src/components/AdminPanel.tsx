@@ -68,7 +68,11 @@ const AdminPanel = () => {
   };
 
   const handleOpenPhotoBank = (userId: string | number) => {
+    console.log('[ADMIN_PANEL] handleOpenPhotoBank called with userId:', userId);
+    console.log('[ADMIN_PANEL] Current localStorage admin_viewing_user:', localStorage.getItem('admin_viewing_user'));
     localStorage.setItem('admin_viewing_user_id', String(userId));
+    console.log('[ADMIN_PANEL] Set admin_viewing_user_id to:', userId);
+    console.log('[ADMIN_PANEL] Navigating to /photo-bank');
     navigate('/photo-bank');
   };
 

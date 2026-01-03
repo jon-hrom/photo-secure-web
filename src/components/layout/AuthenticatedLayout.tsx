@@ -168,7 +168,10 @@ const AuthenticatedLayout = ({
             onNavigateToClients={() => setCurrentPage('clients')}
             onNavigateToPhotobook={() => setCurrentPage('photobook')}
             onNavigateToPhotoBank={() => {
-              console.log('[AUTH_LAYOUT] Navigating to photo-bank');
+              console.log('[AUTH_LAYOUT] onNavigateToPhotoBank called');
+              console.log('[AUTH_LAYOUT] Current localStorage admin_viewing_user:', localStorage.getItem('admin_viewing_user'));
+              console.log('[AUTH_LAYOUT] Current localStorage admin_viewing_user_id:', localStorage.getItem('admin_viewing_user_id'));
+              
               // Проверяем, просматривает ли админ чужой кабинет
               const adminViewingUser = localStorage.getItem('admin_viewing_user');
               if (adminViewingUser) {
@@ -176,10 +179,12 @@ const AuthenticatedLayout = ({
                   const { userId: viewedUserId } = JSON.parse(adminViewingUser);
                   console.log('[AUTH_LAYOUT] Admin viewing user:', viewedUserId);
                   localStorage.setItem('admin_viewing_user_id', String(viewedUserId));
+                  console.log('[AUTH_LAYOUT] Set admin_viewing_user_id to:', viewedUserId);
                 } catch (e) {
                   console.error('[AUTH_LAYOUT] Failed to parse admin_viewing_user:', e);
                 }
               }
+              console.log('[AUTH_LAYOUT] Navigating to /photo-bank');
               navigate('/photo-bank');
             }}
             onOpenAddClient={() => {

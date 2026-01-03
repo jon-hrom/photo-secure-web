@@ -36,7 +36,10 @@ const UserManagementActions = ({
 
       <Button
         variant="outline"
-        onClick={() => onOpenPhotoBank(userId)}
+        onClick={() => {
+          console.log('[USER_MANAGEMENT_ACTIONS] Opening photo bank for userId:', userId);
+          onOpenPhotoBank(userId);
+        }}
         className="w-full gap-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
       >
         <Icon name="Images" size={18} />
