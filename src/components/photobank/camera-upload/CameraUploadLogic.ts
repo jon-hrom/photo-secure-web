@@ -18,6 +18,12 @@ export const useCameraUploadLogic = (
   setUploading: React.Dispatch<React.SetStateAction<boolean>>
 ) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [uploadStats, setUploadStats] = useState({
+    startTime: 0,
+    completedFiles: 0,
+    totalFiles: 0,
+    estimatedTimeRemaining: 0
+  });
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
   const uploadFile = async (fileStatus: FileUploadStatus, retryAttempt: number = 0): Promise<void> => {
@@ -105,6 +111,22 @@ export const useCameraUploadLogic = (
             : f
         );
         filesRef.current = updated;
+        
+        // Обновляем статистику для ETA
+        setUploadStats(stats => {
+          const completedFiles = stats.completedFiles + 1;
+          const elapsed = Date.now() - stats.startTime;
+          const avgTimePerFile = elapsed / completedFiles;
+          const remaining = stats.totalFiles - completedFiles;
+          const estimatedTimeRemaining = Math.round(avgTimePerFile * remaining / 1000);
+          
+          return {
+            ...stats,
+            completedFiles,
+            estimatedTimeRemaining
+          };
+        });
+        
         return updated;
       });
 
@@ -167,6 +189,14 @@ export const useCameraUploadLogic = (
     try {
       const pendingFiles = filesRef.current.filter(f => (f.status === 'pending' || f.status === 'error') && f.status !== 'skipped');
       console.log('[CAMERA_UPLOAD] Pending files to upload:', pendingFiles.length);
+      
+      // Инициализируем статистику
+      setUploadStats({
+        startTime: Date.now(),
+        completedFiles: 0,
+        totalFiles: pendingFiles.length,
+        estimatedTimeRemaining: 0
+      });
       
       for (let i = 0; i < pendingFiles.length; i += MAX_CONCURRENT_UPLOADS) {
         const batch = pendingFiles.slice(i, i + MAX_CONCURRENT_UPLOADS);
@@ -323,6 +353,7 @@ export const useCameraUploadLogic = (
     uploadFile,
     retryFailedUploads,
     handleUploadProcess,
-    abortControllersRef
+    abortControllersRef,
+    uploadStats
   };
 };

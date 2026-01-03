@@ -29,7 +29,8 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     isOnline,
     retryFailedUploads,
     handleUploadProcess,
-    abortControllersRef
+    abortControllersRef,
+    uploadStats
   } = useCameraUploadLogic(userId, uploading, setFiles, filesRef, setUploading);
 
   useEffect(() => {
@@ -334,6 +335,35 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
             onDeselectAll={handleDeselectAll}
             onDeleteSelected={handleDeleteSelected}
           />
+          
+          {uploading && uploadStats.totalFiles > 0 && (
+            <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Прогресс загрузки:</span>
+                <span className="font-medium">
+                  {uploadStats.completedFiles} / {uploadStats.totalFiles} файлов
+                </span>
+              </div>
+              
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ 
+                    width: `${(uploadStats.completedFiles / uploadStats.totalFiles) * 100}%` 
+                  }}
+                />
+              </div>
+              
+              {uploadStats.estimatedTimeRemaining > 0 && (
+                <div className="text-sm text-muted-foreground text-center">
+                  Осталось примерно: {uploadStats.estimatedTimeRemaining < 60 
+                    ? `${uploadStats.estimatedTimeRemaining} сек` 
+                    : `${Math.round(uploadStats.estimatedTimeRemaining / 60)} мин`
+                  }
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
