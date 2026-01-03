@@ -23,7 +23,7 @@ const TechSortProgressDialog = ({
 }: TechSortProgressDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" hideCloseButton>
+      <DialogContent className="sm:max-w-md max-w-[90vw] mx-4" hideCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {status === 'analyzing' && (

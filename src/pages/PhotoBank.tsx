@@ -135,7 +135,14 @@ const PhotoBank = () => {
   };
 
   const handleStartTechSort = async (folderId: number, folderName: string) => {
-    if (!window.confirm(`Запустить автоматическую сортировку фото в папке "${folderName}"?\n\nФото с техническим браком будут перемещены в отдельную подпапку.`)) {
+    // Используем нативный confirm для всех платформ (работает на web, iOS, Android)
+    const confirmed = window.confirm(
+      `Запустить автоматическую сортировку фото в папке "${folderName}"?\n\n` +
+      `Фото с техническим браком будут перемещены в отдельную подпапку.\n\n` +
+      `Это может занять несколько минут в зависимости от количества фото.`
+    );
+    
+    if (!confirmed) {
       return;
     }
 

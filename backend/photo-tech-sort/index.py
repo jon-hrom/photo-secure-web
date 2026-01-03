@@ -20,6 +20,7 @@ from PIL import Image
 def analyze_photo_quality(image_bytes: bytes) -> Tuple[bool, str]:
     """
     Анализирует качество фото и определяет является ли оно техническим браком
+    Оптимизирован для быстрой работы на облачных функциях
     Returns: (is_reject: bool, reason: str)
     """
     try:
@@ -29,6 +30,15 @@ def analyze_photo_quality(image_bytes: bytes) -> Tuple[bool, str]:
         
         if img is None:
             return True, 'corrupt_file'
+        
+        # Уменьшаем размер для ускорения анализа (макс 1000px по длинной стороне)
+        height, width = img.shape[:2]
+        max_dimension = 1000
+        if max(height, width) > max_dimension:
+            scale = max_dimension / max(height, width)
+            new_width = int(width * scale)
+            new_height = int(height * scale)
+            img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
         
         # Проверка 1: Размытие (Blur Detection) - используем Laplacian variance
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -52,14 +62,19 @@ def analyze_photo_quality(image_bytes: bytes) -> Tuple[bool, str]:
         if mean_brightness < 20:
             return True, 'underexposed'
         
-        # Проверка 3: Шум (Noise Detection) - используем стандартное отклонение
-        # В зашумленных фото высокое стандартное отклонение в однородных областях
-        noise_estimate = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
-        noise_level = np.std(gray.astype(float) - noise_estimate.astype(float))
-        
-        # Порог шума: если > 15, фото сильно зашумлено
-        if noise_level > 15:
-            return True, 'noise'
+        # Проверка 3: Шум (Noise Detection) - используем упрощённый метод
+        # Вычисляем стандартное отклонение в случайных областях
+        h, w = gray.shape
+        sample_size = min(100, h, w)
+        if h > sample_size and w > sample_size:
+            y = np.random.randint(0, h - sample_size)
+            x = np.random.randint(0, w - sample_size)
+            sample = gray[y:y+sample_size, x:x+sample_size]
+            noise_level = np.std(sample)
+            
+            # Порог шума: если > 50, фото сильно зашумлено
+            if noise_level > 50:
+                return True, 'noise'
         
         # Проверка 4: Контраст (Low Contrast)
         # Если стандартное отклонение яркости очень низкое, контраст плохой

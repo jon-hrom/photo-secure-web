@@ -127,12 +127,12 @@ const PhotoBankFoldersList = ({
                           </div>
                         </td>
                         <td className="p-3">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1 flex-wrap">
                             {canStartTechSort(folder) && !isAdminViewing && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                className="h-8 px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 text-xs sm:text-sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onStartTechSort(folder.id, folder.folder_name);
@@ -140,7 +140,10 @@ const PhotoBankFoldersList = ({
                                 title="Отобрать фото на технический брак"
                               >
                                 <Icon name="SlidersHorizontal" size={14} className="mr-1" />
-                                Отобрать
+                                <span className="hidden sm:inline">Отобрать</span>
+                                <span className="sm:hidden">
+                                  <Icon name="SlidersHorizontal" size={14} />
+                                </span>
                               </Button>
                             )}
                             <Button
