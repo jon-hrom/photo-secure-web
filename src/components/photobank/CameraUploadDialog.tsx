@@ -184,11 +184,23 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
   };
 
   const handleCancel = () => {
+    console.log('[CAMERA_UPLOAD] Cancelling upload');
     abortControllersRef.current.forEach(controller => controller.abort());
     abortControllersRef.current.clear();
-    setFiles([]);
+    
+    // Помечаем uploading/retrying файлы как cancelled
+    setFiles(prev => {
+      const updated = prev.map(f => 
+        (f.status === 'uploading' || f.status === 'retrying') 
+          ? { ...f, status: 'error' as const, error: 'Отменено пользователем' } 
+          : f
+      );
+      filesRef.current = updated;
+      return updated;
+    });
+    
     setUploading(false);
-    onOpenChange(false);
+    toast.info('Загрузка отменена');
   };
 
   const totalFiles = files.length;
