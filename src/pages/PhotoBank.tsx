@@ -360,7 +360,12 @@ const PhotoBank = () => {
 
   const handleExitAdminView = () => {
     localStorage.removeItem('admin_viewing_user_id');
-    navigate('/');
+    const adminViewingUser = localStorage.getItem('admin_viewing_user');
+    if (adminViewingUser) {
+      navigate('/');
+    } else {
+      navigate('/');
+    }
   };
 
   return (

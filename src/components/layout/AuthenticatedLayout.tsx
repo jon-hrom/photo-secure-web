@@ -169,6 +169,17 @@ const AuthenticatedLayout = ({
             onNavigateToPhotobook={() => setCurrentPage('photobook')}
             onNavigateToPhotoBank={() => {
               console.log('[AUTH_LAYOUT] Navigating to photo-bank');
+              // Проверяем, просматривает ли админ чужой кабинет
+              const adminViewingUser = localStorage.getItem('admin_viewing_user');
+              if (adminViewingUser) {
+                try {
+                  const { userId: viewedUserId } = JSON.parse(adminViewingUser);
+                  console.log('[AUTH_LAYOUT] Admin viewing user:', viewedUserId);
+                  localStorage.setItem('admin_viewing_user_id', String(viewedUserId));
+                } catch (e) {
+                  console.error('[AUTH_LAYOUT] Failed to parse admin_viewing_user:', e);
+                }
+              }
               navigate('/photo-bank');
             }}
             onOpenAddClient={() => {
