@@ -4,8 +4,8 @@ import { isAdminUser } from '@/utils/adminCheck';
 import { isAdminViewingSessionValid } from '@/utils/sessionCleanup';
 
 // Кэш для userId чтобы не парсить localStorage сотни раз
-const cachedUserId: string | null | undefined = undefined;
-const cacheTimestamp = 0;
+let cachedUserId: string | null | undefined = undefined;
+let cacheTimestamp = 0;
 const CACHE_TTL = 1000; // 1 секунда
 
 export const getAuthUserId = (): string | null => {
