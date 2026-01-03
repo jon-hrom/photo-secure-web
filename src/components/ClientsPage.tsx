@@ -1,6 +1,5 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
 import ClientsHeader from '@/components/clients/ClientsHeader';
@@ -15,10 +14,12 @@ import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
 import LoadingProgressBar from '@/components/clients/LoadingProgressBar';
 import UnsavedDataDialog from '@/components/clients/UnsavedDataDialog';
 import UnsavedProjectDialog from '@/components/clients/UnsavedProjectDialog';
+import { ClientsPageEffects } from '@/components/clients/ClientsPageEffects';
+import { useClientsFilters } from '@/components/clients/ClientsPageFilters';
+import { useClientsPageNavigation } from '@/components/clients/ClientsPageNavigation';
 import { useClientsData } from '@/hooks/useClientsData';
 import { useClientsDialogs } from '@/hooks/useClientsDialogs';
 import { useClientsHandlers } from '@/hooks/useClientsHandlers';
-import { useNavigationHistory } from '@/hooks/useNavigationHistory';
 import { Client } from '@/components/clients/ClientsTypes';
 
 interface ClientsPageProps {
@@ -40,110 +41,6 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   
   // Хук для управления диалогами и состоянием
   const dialogsState = useClientsDialogs(userId, clients);
-  
-  // Открываем диалог добавления клиента при autoOpenAddDialog
-  useEffect(() => {
-    if (autoOpenAddDialog) {
-      dialogsState.setIsAddDialogOpen(true);
-      if (onAddDialogClose) {
-        onAddDialogClose();
-      }
-    }
-  }, [autoOpenAddDialog, onAddDialogClose]);
-
-  // Уведомление о статусе email при загрузке страницы
-  useEffect(() => {
-    if (!loading && userId) {
-      const hasSeenEmailNotification = sessionStorage.getItem(`email_status_notification_seen_${userId}`);
-      
-      if (!hasSeenEmailNotification) {
-        const googleUser = localStorage.getItem('google_user');
-        
-        if (googleUser) {
-          setTimeout(() => {
-            toast.success('Ваша почта подтверждена автоматически', {
-              description: 'Вы вошли через Google — email подтверждён',
-              duration: 5000,
-            });
-          }, 500);
-          sessionStorage.setItem(`email_status_notification_seen_${userId}`, 'true');
-        } else if (!emailVerified) {
-          setTimeout(() => {
-            toast.warning('Подтвердите вашу почту', {
-              description: 'Для полного доступа к функциям подтвердите email в настройках',
-              duration: 8000,
-              action: {
-                label: 'Настройки',
-                onClick: () => navigate('/settings')
-              }
-            });
-          }, 500);
-          sessionStorage.setItem(`email_status_notification_seen_${userId}`, 'true');
-        }
-      }
-    }
-  }, [loading, userId, emailVerified, navigate]);
-
-  // Проверка несохранённых данных при загрузке страницы
-  useEffect(() => {
-    if (!loading && clients.length > 0 && userId) {
-      const hasSeenUnsavedNotification = sessionStorage.getItem(`unsaved_notification_seen_${userId}`);
-      
-      if (!hasSeenUnsavedNotification) {
-        const savedClient = dialogsState.loadClientData();
-        const { hasUnsaved, clientId } = dialogsState.hasAnyUnsavedProject ? dialogsState.hasAnyUnsavedProject() : { hasUnsaved: false, clientId: null };
-        const { hasOpen, clientId: openCardClientId, clientName: openCardClientName } = dialogsState.hasAnyOpenCard();
-        
-        if (savedClient && (savedClient.name || savedClient.phone || savedClient.email)) {
-          setTimeout(() => {
-            toast.info('У вас есть несохранённые данные клиента', {
-              description: 'Нажмите на кнопку "Добавить клиента" чтобы продолжить',
-              duration: 8000,
-              action: {
-                label: 'Продолжить',
-                onClick: () => dialogsState.handleOpenAddDialog()
-              }
-            });
-          }, 1000);
-          sessionStorage.setItem(`unsaved_notification_seen_${userId}`, 'true');
-        } else if (hasOpen && openCardClientId && openCardClientName) {
-          setTimeout(() => {
-            toast.info(`У вас незавершённая работа с ${openCardClientName}`, {
-              description: 'Карточка клиента была закрыта без добавления проекта',
-              duration: 8000,
-              action: {
-                label: 'Продолжить',
-                onClick: () => {
-                  const client = clients.find(c => c.id === openCardClientId);
-                  if (client) {
-                    dialogsState.handleOpenClientWithProjectCheck(client);
-                  }
-                }
-              }
-            });
-          }, 1000);
-          sessionStorage.setItem(`unsaved_notification_seen_${userId}`, 'true');
-        } else if (hasUnsaved && clientId) {
-          setTimeout(() => {
-            const client = clients.find(c => c.id === clientId);
-            const clientName = client ? client.name : 'клиента';
-            toast.info(`У вас есть несохранённый проект для ${clientName}`, {
-              description: 'Нажмите на кнопку "Добавить клиента" чтобы продолжить',
-              duration: 8000,
-              action: {
-                label: 'Продолжить',
-                onClick: () => dialogsState.handleOpenAddDialog()
-              }
-            });
-          }, 1000);
-          sessionStorage.setItem(`unsaved_notification_seen_${userId}`, 'true');
-        }
-      }
-    }
-  }, [loading, clients, userId, dialogsState]);
-  
-  // Хук для навигации
-  const navigation = useNavigationHistory();
   
   // Хук для обработчиков событий
   const handlers = useClientsHandlers({
@@ -179,155 +76,26 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     saveOpenCardData: dialogsState.saveOpenCardData,
   });
 
-  // Фильтрация клиентов по поиску
-  const searchFilteredClients = clients.filter(client => {
-    const matchesSearch = client.name.toLowerCase().includes(dialogsState.searchQuery.toLowerCase()) ||
-                         client.phone.includes(dialogsState.searchQuery) ||
-                         client.email.toLowerCase().includes(dialogsState.searchQuery.toLowerCase());
-    
-    if (dialogsState.statusFilter === 'all') return matchesSearch;
-    
-    // Проверяем есть ли активные проекты (не "завершён" и не "отменён" и не "завершить")
-    const hasActiveProjects = (client.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled' && p.status !== 'finalize');
-    // Проверяем будущие бронирования
-    const hasActiveBookings = (client.bookings || []).some(b => {
-      const bookingDate = new Date(b.booking_date || b.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return bookingDate >= today;
-    });
-    const isActive = hasActiveProjects || hasActiveBookings;
-    
-    if (dialogsState.statusFilter === 'active') return matchesSearch && isActive;
-    if (dialogsState.statusFilter === 'inactive') return matchesSearch && !isActive;
-    
-    return matchesSearch;
+  // Фильтрация клиентов
+  const { searchFilteredClients, filteredClients, allBookedDates } = useClientsFilters({
+    clients,
+    searchQuery: dialogsState.searchQuery,
+    statusFilter: dialogsState.statusFilter,
+    activeFilter,
   });
 
-  // Применение фильтров из боковой панели
-  const applyAdvancedFilter = (clientsList: Client[]): Client[] => {
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    // Проверка фильтра по стилю съёмки
-    if (typeof activeFilter === 'object' && activeFilter.type === 'shooting-style') {
-      return clientsList.filter(c =>
-        (c.projects || []).some(p => p.shootingStyleId === activeFilter.styleId)
-      );
-    }
-
-    switch (activeFilter) {
-      case 'all':
-        return clientsList;
-      
-      case 'active-projects':
-        return clientsList.filter(c => 
-          (c.projects || []).some(p => p.status !== 'completed' && p.status !== 'cancelled' && p.status !== 'finalize')
-        );
-      
-      case 'upcoming-meetings':
-        return clientsList.filter(c =>
-          (c.bookings || []).some(b => {
-            const bookingDate = new Date(b.booking_date || b.date);
-            return bookingDate >= now;
-          })
-        );
-      
-      case 'new-clients':
-        return clientsList.filter(c => {
-          if (!c.created_at) return false;
-          const createdDate = new Date(c.created_at);
-          return createdDate >= sevenDaysAgo;
-        });
-      
-      case 'alphabetical':
-        return [...clientsList].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-      
-      case 'most-projects':
-        return [...clientsList].sort((a, b) => 
-          (b.projects?.length || 0) - (a.projects?.length || 0)
-        );
-      
-      default:
-        return clientsList;
-    }
-  };
-
-  const filteredClients = applyAdvancedFilter(searchFilteredClients);
-
-  // Все забронированные даты (бронирования + даты начала проектов)
-  const allBookedDates = [
-    ...clients.flatMap(c => c.bookings.map(b => {
-      const date = new Date(b.booking_date || b.date);
-      date.setHours(0, 0, 0, 0);
-      return date;
-    })),
-    ...clients.flatMap(c => 
-      (c.projects || [])
-        .filter(p => p.startDate && p.status !== 'cancelled')
-        .map(p => {
-          const date = new Date(p.startDate);
-          date.setHours(0, 0, 0, 0);
-          return date;
-        })
-    )
-  ];
-
-  // Автооткрытие клиента при передаче autoOpenClient
-  useEffect(() => {
-    if (autoOpenClient) {
-      const client = clients.find(c => c.name === autoOpenClient);
-      if (client) {
-        dialogsState.setSelectedClient(client);
-        dialogsState.setIsDetailDialogOpen(true);
-      } else {
-        toast.info(`Клиент "${autoOpenClient}" не найден в базе`);
-      }
-    }
-  }, [autoOpenClient, clients]);
-
-  // Сохранение состояния при изменениях
-  useEffect(() => {
-    if (clients.length > 0) {
-      navigation.pushState({
-        viewMode: dialogsState.viewMode,
-        searchQuery: dialogsState.searchQuery,
-        statusFilter: dialogsState.statusFilter,
-        selectedClientId: dialogsState.selectedClient?.id,
-      });
-    }
-  }, [dialogsState.viewMode, dialogsState.searchQuery, dialogsState.statusFilter, dialogsState.selectedClient?.id, clients.length, navigation]);
-
-  // Обработчики навигации
-  const handleGoBack = useCallback(() => {
-    const prevState = navigation.goBack();
-    if (prevState) {
-      dialogsState.setViewMode(prevState.viewMode);
-      dialogsState.setSearchQuery(prevState.searchQuery);
-      dialogsState.setStatusFilter(prevState.statusFilter);
-      if (prevState.selectedClientId) {
-        const client = clients.find(c => c.id === prevState.selectedClientId);
-        if (client) {
-          dialogsState.setSelectedClient(client);
-        }
-      }
-    }
-  }, [navigation, dialogsState, clients]);
-
-  const handleGoForward = useCallback(() => {
-    const nextState = navigation.goForward();
-    if (nextState) {
-      dialogsState.setViewMode(nextState.viewMode);
-      dialogsState.setSearchQuery(nextState.searchQuery);
-      dialogsState.setStatusFilter(nextState.statusFilter);
-      if (nextState.selectedClientId) {
-        const client = clients.find(c => c.id === nextState.selectedClientId);
-        if (client) {
-          dialogsState.setSelectedClient(client);
-        }
-      }
-    }
-  }, [navigation, dialogsState, clients]);
+  // Навигация (back/forward)
+  const { canGoBack, canGoForward, handleGoBack, handleGoForward } = useClientsPageNavigation({
+    viewMode: dialogsState.viewMode,
+    searchQuery: dialogsState.searchQuery,
+    statusFilter: dialogsState.statusFilter,
+    selectedClient: dialogsState.selectedClient,
+    clients,
+    setViewMode: dialogsState.setViewMode,
+    setSearchQuery: dialogsState.setSearchQuery,
+    setStatusFilter: dialogsState.setStatusFilter,
+    setSelectedClient: dialogsState.setSelectedClient,
+  });
 
   if (loading) {
     return (
@@ -339,6 +107,24 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <ClientsPageEffects
+        loading={loading}
+        userId={userId}
+        emailVerified={emailVerified}
+        clients={clients}
+        autoOpenAddDialog={autoOpenAddDialog}
+        autoOpenClient={autoOpenClient}
+        onAddDialogClose={onAddDialogClose}
+        setIsAddDialogOpen={dialogsState.setIsAddDialogOpen}
+        setSelectedClient={dialogsState.setSelectedClient}
+        setIsDetailDialogOpen={dialogsState.setIsDetailDialogOpen}
+        loadClientData={dialogsState.loadClientData}
+        hasAnyUnsavedProject={dialogsState.hasAnyUnsavedProject}
+        hasAnyOpenCard={dialogsState.hasAnyOpenCard}
+        handleOpenAddDialog={dialogsState.handleOpenAddDialog}
+        handleOpenClientWithProjectCheck={dialogsState.handleOpenClientWithProjectCheck}
+      />
+
       {!emailVerified && (
         <Alert className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
           <Icon name="AlertCircle" className="text-amber-600" />
@@ -371,8 +157,8 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         viewMode={dialogsState.viewMode}
         setViewMode={dialogsState.setViewMode}
         onExportClick={() => dialogsState.setIsExportDialogOpen(true)}
-        canGoBack={navigation.canGoBack}
-        canGoForward={navigation.canGoForward}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
         onGoBack={handleGoBack}
         onGoForward={handleGoForward}
         activeFilter={activeFilter}
