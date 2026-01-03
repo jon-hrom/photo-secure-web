@@ -6,7 +6,8 @@ import {
   PHOTOBANK_FOLDERS_API,
   MAX_CONCURRENT_UPLOADS,
   MAX_RETRIES,
-  RETRY_DELAY
+  RETRY_DELAY,
+  BATCH_SIZE
 } from './CameraUploadTypes';
 
 export const useCameraUploadLogic = (
@@ -205,33 +206,65 @@ export const useCameraUploadLogic = (
           targetFolderId = selectedFolderId!;
         }
 
-        console.log('[CAMERA_UPLOAD] Adding photos to folder:', targetFolderId);
-        for (const fileStatus of successfulUploads) {
-          if (fileStatus.s3_key) {
-            const s3Url = `https://storage.yandexcloud.net/foto-mix/${fileStatus.s3_key}`;
-            console.log('[CAMERA_UPLOAD] Adding photo:', fileStatus.file.name, 's3_key:', fileStatus.s3_key);
-            
-            const addPhotoResponse = await fetch(PHOTOBANK_FOLDERS_API, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-User-Id': userId,
-              },
-              body: JSON.stringify({
-                action: 'upload_photo',
-                folder_id: targetFolderId,
-                file_name: fileStatus.file.name,
-                s3_url: s3Url,
-                file_size: fileStatus.file.size,
-              }),
-            });
+        console.log('[CAMERA_UPLOAD] Adding photos to folder:', targetFolderId, 'count:', successfulUploads.length);
+        
+        // Используем batch API для ускорения добавления фото в БД
+        for (let i = 0; i < successfulUploads.length; i += BATCH_SIZE) {
+          const batch = successfulUploads.slice(i, i + BATCH_SIZE);
+          const photos = batch
+            .filter(f => f.s3_key)
+            .map(f => ({
+              file_name: f.file.name,
+              s3_url: `https://storage.yandexcloud.net/foto-mix/${f.s3_key}`,
+              file_size: f.file.size,
+              content_type: f.file.type
+            }));
+          
+          if (photos.length === 0) continue;
+          
+          console.log(`[CAMERA_UPLOAD] Sending batch ${i / BATCH_SIZE + 1}: ${photos.length} photos`);
+          
+          const batchResponse = await fetch(PHOTOBANK_FOLDERS_API, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': userId,
+            },
+            body: JSON.stringify({
+              action: 'upload_photos_batch',
+              folder_id: targetFolderId,
+              photos: photos,
+            }),
+          });
 
-            if (!addPhotoResponse.ok) {
-              const errorText = await addPhotoResponse.text();
-              console.error('[CAMERA_UPLOAD] Add photo error:', errorText);
-            } else {
-              console.log('[CAMERA_UPLOAD] Photo added successfully:', fileStatus.file.name);
+          if (!batchResponse.ok) {
+            const errorText = await batchResponse.text();
+            console.error('[CAMERA_UPLOAD] Batch add error:', errorText);
+            
+            // Fallback на поштучное добавление при ошибке batch
+            console.log('[CAMERA_UPLOAD] Falling back to individual uploads');
+            for (const fileStatus of batch) {
+              if (!fileStatus.s3_key) continue;
+              
+              const s3Url = `https://storage.yandexcloud.net/foto-mix/${fileStatus.s3_key}`;
+              await fetch(PHOTOBANK_FOLDERS_API, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-User-Id': userId,
+                },
+                body: JSON.stringify({
+                  action: 'upload_photo',
+                  folder_id: targetFolderId,
+                  file_name: fileStatus.file.name,
+                  s3_url: s3Url,
+                  file_size: fileStatus.file.size,
+                }),
+              }).catch(err => console.error('[CAMERA_UPLOAD] Fallback error:', err));
             }
+          } else {
+            const result = await batchResponse.json();
+            console.log(`[CAMERA_UPLOAD] Batch ${i / BATCH_SIZE + 1} added: ${result.inserted} photos`);
           }
         }
 

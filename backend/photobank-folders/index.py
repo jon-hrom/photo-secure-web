@@ -510,6 +510,82 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            elif action == 'upload_photos_batch':
+                # Batch upload для ускорения загрузки большого количества фото
+                folder_id = body_data.get('folder_id')
+                photos = body_data.get('photos', [])  # Массив {file_name, s3_url, file_size, content_type}
+                
+                if not folder_id or not photos:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id and photos array required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                print(f'[UPLOAD_PHOTOS_BATCH] folder_id={folder_id}, count={len(photos)}')
+                
+                inserted_ids = []
+                raw_photo_ids = []
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    for photo_data in photos:
+                        file_name = photo_data.get('file_name')
+                        s3_url = photo_data.get('s3_url')
+                        file_size = photo_data.get('file_size', 0)
+                        content_type = photo_data.get('content_type', 'application/octet-stream')
+                        
+                        if not all([file_name, s3_url]):
+                            continue
+                        
+                        # Extract s3_key from s3_url
+                        s3_key = s3_url.split('foto-mix/')[-1] if 'foto-mix/' in s3_url else None
+                        if not s3_key:
+                            continue
+                        
+                        is_video = content_type.startswith('video/') or file_name.lower().endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv'))
+                        
+                        # Быстрая вставка без извлечения размеров (будет фоновой задачей)
+                        cur.execute('''
+                            INSERT INTO photo_bank 
+                            (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            RETURNING id
+                        ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video))
+                        
+                        photo_id = cur.fetchone()['id']
+                        inserted_ids.append(photo_id)
+                        
+                        # Проверяем RAW для фоновой генерации thumbnail
+                        raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
+                        file_ext_lower = os.path.splitext(file_name.lower())[1]
+                        if file_ext_lower in raw_extensions:
+                            raw_photo_ids.append(photo_id)
+                    
+                    conn.commit()
+                
+                print(f'[UPLOAD_PHOTOS_BATCH] Inserted {len(inserted_ids)} photos, {len(raw_photo_ids)} RAW files')
+                
+                # Триггерим фоновую генерацию thumbnails для RAW (fire-and-forget)
+                if raw_photo_ids:
+                    try:
+                        generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
+                        requests.post(
+                            generate_thumbnail_url,
+                            json={'photo_ids': raw_photo_ids},  # Batch обработка
+                            timeout=5  # Короткий timeout т.к. fire-and-forget
+                        )
+                        print(f'[UPLOAD_PHOTOS_BATCH] Triggered thumbnail generation for {len(raw_photo_ids)} RAW files')
+                    except:
+                        pass  # Игнорируем ошибки фоновой задачи
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True, 'inserted': len(inserted_ids), 'photo_ids': inserted_ids}),
+                    'isBase64Encoded': False
+                }
+            
             elif action == 'upload_photo':
                 folder_id = body_data.get('folder_id')
                 file_name = body_data.get('file_name')
@@ -543,18 +619,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Determine if this is a video based on content_type or file extension
                 is_video = content_type.startswith('video/') or file_name.lower().endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv'))
                 
-                # Get image dimensions from S3 (only for non-video files)
+                # Skip dimensions extraction for faster upload (будет извлечено асинхронно)
+                # Для RAW файлов размером 25-28MB это занимает 2+ секунды на фото
                 width, height = None, None
-                if not is_video:
-                    try:
-                        image_response = s3_client.get_object(Bucket=bucket, Key=s3_key)
-                        image_data = image_response['Body'].read()
-                        image = Image.open(io.BytesIO(image_data))
-                        width = image.width
-                        height = image.height
-                        print(f'[UPLOAD_PHOTO] Extracted dimensions: {width}x{height}')
-                    except Exception as e:
-                        print(f'[UPLOAD_PHOTO] Failed to get dimensions: {str(e)}')
+                # Размеры будут извлечены фоновой задачей generate-thumbnail
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
