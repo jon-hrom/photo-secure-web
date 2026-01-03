@@ -255,7 +255,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Получаем все фото из папки originals, которые ещё не анализировались
             cur.execute('''
-                SELECT id, s3_key, file_name, content_type
+                SELECT id, s3_key, s3_url, data_url, file_name, content_type
                 FROM t_p28211681_photo_secure_web.photo_bank
                 WHERE folder_id = %s 
                   AND user_id = %s 
@@ -272,37 +272,81 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Обрабатываем каждое фото
             for photo in photos:
                 try:
-                    # Скачиваем фото из S3
-                    response = s3_client.get_object(Bucket=bucket, Key=photo['s3_key'])
-                    image_bytes = response['Body'].read()
+                    # Получаем байты изображения
+                    if photo['data_url']:
+                        # Фото хранится как base64 в data_url
+                        import base64
+                        import re
+                        data_url = photo['data_url']
+                        # Убираем префикс data:image/...;base64,
+                        base64_str = re.sub(r'^data:image/[^;]+;base64,', '', data_url)
+                        image_bytes = base64.b64decode(base64_str)
+                    elif photo['s3_key']:
+                        # Фото в S3
+                        try:
+                            response = s3_client.get_object(Bucket=bucket, Key=photo['s3_key'])
+                            image_bytes = response['Body'].read()
+                        except Exception as s3_err:
+                            # Файл не найден в S3 - пропускаем
+                            print(f'[TECH_SORT] S3 error for photo {photo["id"]}: {str(s3_err)}')
+                            cur.execute('''
+                                UPDATE t_p28211681_photo_secure_web.photo_bank
+                                SET tech_analyzed = TRUE,
+                                    tech_reject_reason = 's3_not_found',
+                                    updated_at = NOW()
+                                WHERE id = %s
+                            ''', (photo['id'],))
+                            continue
+                    else:
+                        # Нет ни data_url, ни s3_key - пропускаем
+                        print(f'[TECH_SORT] No storage for photo {photo["id"]}')
+                        cur.execute('''
+                            UPDATE t_p28211681_photo_secure_web.photo_bank
+                            SET tech_analyzed = TRUE,
+                                tech_reject_reason = 'no_storage',
+                                updated_at = NOW()
+                            WHERE id = %s
+                        ''', (photo['id'],))
+                        continue
                     
                     # Анализируем качество
                     is_reject, reason = analyze_photo_quality(image_bytes)
                     
                     if is_reject:
                         # Перемещаем фото в tech_rejects
-                        new_s3_key = f"{tech_rejects_s3_prefix}{photo['file_name']}"
-                        
-                        # Копируем в новое место
-                        s3_client.copy_object(
-                            Bucket=bucket,
-                            CopySource={'Bucket': bucket, 'Key': photo['s3_key']},
-                            Key=new_s3_key
-                        )
-                        
-                        # Обновляем запись в БД
-                        cur.execute('''
-                            UPDATE t_p28211681_photo_secure_web.photo_bank
-                            SET folder_id = %s,
-                                s3_key = %s,
-                                tech_reject_reason = %s,
-                                tech_analyzed = TRUE,
-                                updated_at = NOW()
-                            WHERE id = %s
-                        ''', (tech_rejects_folder_id, new_s3_key, reason, photo['id']))
-                        
-                        # Удаляем старый файл из S3
-                        s3_client.delete_object(Bucket=bucket, Key=photo['s3_key'])
+                        if photo['s3_key']:
+                            # Фото в S3 - копируем файл
+                            new_s3_key = f"{tech_rejects_s3_prefix}{photo['file_name']}"
+                            
+                            s3_client.copy_object(
+                                Bucket=bucket,
+                                CopySource={'Bucket': bucket, 'Key': photo['s3_key']},
+                                Key=new_s3_key
+                            )
+                            
+                            # Удаляем старый файл из S3
+                            s3_client.delete_object(Bucket=bucket, Key=photo['s3_key'])
+                            
+                            # Обновляем запись в БД
+                            cur.execute('''
+                                UPDATE t_p28211681_photo_secure_web.photo_bank
+                                SET folder_id = %s,
+                                    s3_key = %s,
+                                    tech_reject_reason = %s,
+                                    tech_analyzed = TRUE,
+                                    updated_at = NOW()
+                                WHERE id = %s
+                            ''', (tech_rejects_folder_id, new_s3_key, reason, photo['id']))
+                        else:
+                            # Фото в data_url - просто меняем папку
+                            cur.execute('''
+                                UPDATE t_p28211681_photo_secure_web.photo_bank
+                                SET folder_id = %s,
+                                    tech_reject_reason = %s,
+                                    tech_analyzed = TRUE,
+                                    updated_at = NOW()
+                                WHERE id = %s
+                            ''', (tech_rejects_folder_id, reason, photo['id']))
                         
                         rejected_count += 1
                     else:
