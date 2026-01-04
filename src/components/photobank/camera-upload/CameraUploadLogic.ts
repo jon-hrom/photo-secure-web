@@ -264,7 +264,8 @@ export const useCameraUploadLogic = (
       };
       
       // ПОСЛЕДОВАТЕЛЬНАЯ ЗАГРУЗКА: по одному файлу за раз для стабильной скорости
-      console.log('[CAMERA_UPLOAD] Using sequential upload (1 file at a time)');
+      console.log('[CAMERA_UPLOAD] 🚀 НОВАЯ ВЕРСИЯ - ПОСЛЕДОВАТЕЛЬНАЯ ЗАГРУЗКА (1 файл за раз)');
+      console.log('[CAMERA_UPLOAD] Version: 2025-01-04-SEQUENTIAL');
       
       for (let urlBatchStart = 0; urlBatchStart < pendingFiles.length; urlBatchStart += URL_BATCH_SIZE) {
         if (cancelledRef.current) break;
