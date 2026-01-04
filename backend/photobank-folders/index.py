@@ -705,7 +705,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute('''
                     SELECT s3_prefix 
-                    FROM photo_folders 
+                    FROM t_p28211681_photo_secure_web.photo_folders 
                     WHERE id = %s AND user_id = %s
                 ''', (folder_id, user_id))
                 folder = cur.fetchone()
@@ -718,20 +718,45 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                # Находим все дочерние папки (например, технический брак)
                 cur.execute('''
-                    UPDATE photo_folders
+                    SELECT id 
+                    FROM t_p28211681_photo_secure_web.photo_folders 
+                    WHERE parent_folder_id = %s
+                ''', (folder_id,))
+                child_folders = cur.fetchall()
+                child_folder_ids = [f['id'] for f in child_folders]
+                
+                # Удаляем основную папку
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.photo_folders
                     SET is_trashed = TRUE, trashed_at = NOW()
                     WHERE id = %s
                 ''', (folder_id,))
                 
                 cur.execute('''
-                    UPDATE photo_bank
+                    UPDATE t_p28211681_photo_secure_web.photo_bank
                     SET is_trashed = TRUE, trashed_at = NOW()
                     WHERE folder_id = %s
                 ''', (folder_id,))
                 
+                # Удаляем дочерние папки и их файлы
+                if child_folder_ids:
+                    cur.execute(f'''
+                        UPDATE t_p28211681_photo_secure_web.photo_folders
+                        SET is_trashed = TRUE, trashed_at = NOW()
+                        WHERE id IN ({','.join(map(str, child_folder_ids))})
+                    ''')
+                    
+                    cur.execute(f'''
+                        UPDATE t_p28211681_photo_secure_web.photo_bank
+                        SET is_trashed = TRUE, trashed_at = NOW()
+                        WHERE folder_id IN ({','.join(map(str, child_folder_ids))})
+                    ''')
+                
                 conn.commit()
             
+            # Переносим файлы основной папки в trash
             prefix = folder['s3_prefix']
             paginator = s3_client.get_paginator('list_objects_v2')
             pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
@@ -752,6 +777,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         moved_count += 1
                     except Exception as e:
                         print(f'Failed to move {src_key} to trash: {e}')
+            
+            # Переносим файлы дочерних папок в trash
+            if child_folder_ids:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(f'''
+                        SELECT s3_prefix 
+                        FROM t_p28211681_photo_secure_web.photo_folders 
+                        WHERE id IN ({','.join(map(str, child_folder_ids))})
+                    ''')
+                    child_prefixes = [row['s3_prefix'] for row in cur.fetchall() if row['s3_prefix']]
+                
+                for child_prefix in child_prefixes:
+                    child_pages = paginator.paginate(Bucket=bucket, Prefix=child_prefix)
+                    for page in child_pages:
+                        for obj in page.get('Contents', []):
+                            src_key = obj['Key']
+                            dst_key = f'trash/{src_key}'
+                            
+                            try:
+                                s3_client.copy_object(
+                                    Bucket=bucket,
+                                    CopySource={'Bucket': bucket, 'Key': src_key},
+                                    Key=dst_key
+                                )
+                                s3_client.delete_object(Bucket=bucket, Key=src_key)
+                                moved_count += 1
+                            except Exception as e:
+                                print(f'Failed to move child {src_key} to trash: {e}')
             
             return {
                 'statusCode': 200,
