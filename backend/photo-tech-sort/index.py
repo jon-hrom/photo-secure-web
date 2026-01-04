@@ -220,7 +220,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Проверяем что папка принадлежит пользователю и это папка "originals"
             cur.execute(f'''
                 SELECT id, folder_name, s3_prefix, folder_type, parent_folder_id
-                FROM photo_folders
+                FROM t_p28211681_photo_secure_web.photo_folders
                 WHERE id = {folder_id} AND user_id = {user_id} AND is_trashed = FALSE
             ''')
             print('[TECH_SORT] Folder query executed')
@@ -237,7 +237,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Проверяем - нет ли уже папки tech_rejects для этой папки
             cur.execute(f'''
                 SELECT id, s3_prefix
-                FROM photo_folders
+                FROM t_p28211681_photo_secure_web.photo_folders
                 WHERE parent_folder_id = {folder_id} 
                   AND folder_type = 'tech_rejects' 
                   AND user_id = {user_id} 
@@ -252,7 +252,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 tech_rejects_prefix = f"{folder['s3_prefix']}tech_rejects/"
                 
                 cur.execute(f'''
-                    INSERT INTO photo_folders 
+                    INSERT INTO t_p28211681_photo_secure_web.photo_folders 
                     (user_id, folder_name, s3_prefix, folder_type, parent_folder_id, created_at, updated_at)
                     VALUES ({user_id}, '{tech_rejects_name}', '{tech_rejects_prefix}', 'tech_rejects', {folder_id}, NOW(), NOW())
                     RETURNING id, s3_prefix
@@ -267,7 +267,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Получаем все фото из папки originals, которые ещё не анализировались
             cur.execute(f'''
                 SELECT id, s3_key, s3_url, data_url, file_name, content_type
-                FROM photo_bank
+                FROM t_p28211681_photo_secure_web.photo_bank
                 WHERE folder_id = {folder_id} 
                   AND user_id = {user_id} 
                   AND is_trashed = FALSE
@@ -310,7 +310,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             # Файл не найден в S3 - пропускаем
                             print(f'[TECH_SORT] S3 error for photo {photo["id"]}, key={s3_key}: {str(s3_err)}')
                             cur.execute(f'''
-                                UPDATE photo_bank
+                                UPDATE t_p28211681_photo_secure_web.photo_bank
                                 SET tech_analyzed = TRUE,
                                     tech_reject_reason = 's3_not_found',
                                     updated_at = NOW()
@@ -321,7 +321,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         # Нет ни data_url, ни s3_key, ни s3_url - пропускаем
                         print(f'[TECH_SORT] No storage for photo {photo["id"]}')
                         cur.execute(f'''
-                            UPDATE photo_bank
+                            UPDATE t_p28211681_photo_secure_web.photo_bank
                             SET tech_analyzed = TRUE,
                                 tech_reject_reason = 'no_storage',
                                 updated_at = NOW()
@@ -363,7 +363,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 
                                 # Обновляем запись в БД
                                 cur.execute(f'''
-                                    UPDATE photo_bank
+                                    UPDATE t_p28211681_photo_secure_web.photo_bank
                                     SET folder_id = {tech_rejects_folder_id},
                                         s3_key = '{new_s3_key}',
                                         tech_reject_reason = '{reason}',
@@ -375,7 +375,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 # Ошибка при копировании - помечаем как ошибку
                                 print(f'[TECH_SORT] S3 copy error for photo {photo["id"]}: {str(copy_err)}')
                                 cur.execute(f'''
-                                    UPDATE photo_bank
+                                    UPDATE t_p28211681_photo_secure_web.photo_bank
                                     SET tech_analyzed = TRUE,
                                         tech_reject_reason = 's3_copy_error',
                                         updated_at = NOW()
@@ -385,7 +385,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         else:
                             # Фото в data_url - просто меняем папку
                             cur.execute(f'''
-                                UPDATE photo_bank
+                                UPDATE t_p28211681_photo_secure_web.photo_bank
                                 SET folder_id = {tech_rejects_folder_id},
                                     tech_reject_reason = '{reason}',
                                     tech_analyzed = TRUE,
@@ -397,7 +397,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     else:
                         # Фото ОК - просто помечаем как проанализированное
                         cur.execute(f'''
-                            UPDATE photo_bank
+                            UPDATE t_p28211681_photo_secure_web.photo_bank
                             SET tech_analyzed = TRUE,
                                 tech_reject_reason = 'ok',
                                 updated_at = NOW()
@@ -410,7 +410,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     print(f'[TECH_SORT] Error processing photo {photo["id"]}: {str(e)}')
                     # Помечаем фото как проанализированное с ошибкой
                     cur.execute(f'''
-                        UPDATE photo_bank
+                        UPDATE t_p28211681_photo_secure_web.photo_bank
                         SET tech_analyzed = TRUE,
                             tech_reject_reason = 'analysis_error',
                             updated_at = NOW()
