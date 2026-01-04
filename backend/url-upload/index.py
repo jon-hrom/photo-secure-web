@@ -187,55 +187,60 @@ def handler(event: dict, context) -> dict:
             aws_key_id = os.environ['AWS_ACCESS_KEY_ID']
             s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{s3_key}'
             
-            # Генерируем превью
+            # Генерируем превью только для небольших изображений (не RAW)
             thumbnail_s3_key = None
             thumbnail_s3_url = None
             width = None
             height = None
+            is_raw = filename.lower().endswith(('.cr2', '.nef', '.arw', '.dng', '.raw'))
             
-            try:
-                img = Image.open(BytesIO(file_content))
-                width, height = img.size
-                
-                # Создаём превью (макс 1920px)
-                img.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
-                
-                # Конвертируем в JPEG если нужно
-                if img.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    background.paste(img, mask=img.getchannel('A') if 'A' in img.getbands() else None)
-                    img = background
-                elif img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                # Сохраняем в буфер
-                thumb_buffer = BytesIO()
-                img.save(thumb_buffer, format='JPEG', quality=85, optimize=True)
-                thumb_buffer.seek(0)
-                
-                # Загружаем превью в S3
-                thumbnail_s3_key = f'{s3_prefix}thumbnails/{filename}.jpg'
-                s3.put_object(
-                    Bucket=bucket,
-                    Key=thumbnail_s3_key,
-                    Body=thumb_buffer.getvalue(),
-                    ContentType='image/jpeg'
-                )
-                thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{thumbnail_s3_key}'
-                
-                print(f'[URL_UPLOAD] Generated thumbnail: {thumbnail_s3_key}')
-            except Exception as thumb_error:
-                print(f'[URL_UPLOAD] Could not generate thumbnail: {str(thumb_error)}')
+            # Пропускаем превью для RAW файлов и больших файлов (>10MB)
+            if not is_raw and file_size < 10 * 1024 * 1024:
+                try:
+                    img = Image.open(BytesIO(file_content))
+                    width, height = img.size
+                    
+                    # Создаём превью (макс 800px для экономии памяти)
+                    img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                    
+                    # Конвертируем в JPEG если нужно
+                    if img.mode in ('RGBA', 'LA', 'P'):
+                        background = Image.new('RGB', img.size, (255, 255, 255))
+                        if img.mode == 'P':
+                            img = img.convert('RGBA')
+                        background.paste(img, mask=img.getchannel('A') if 'A' in img.getbands() else None)
+                        img = background
+                    elif img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    
+                    # Сохраняем в буфер с меньшим качеством
+                    thumb_buffer = BytesIO()
+                    img.save(thumb_buffer, format='JPEG', quality=75, optimize=True)
+                    thumb_buffer.seek(0)
+                    
+                    # Загружаем превью в S3
+                    thumbnail_s3_key = f'{s3_prefix}thumbnails/{filename}.jpg'
+                    s3.put_object(
+                        Bucket=bucket,
+                        Key=thumbnail_s3_key,
+                        Body=thumb_buffer.getvalue(),
+                        ContentType='image/jpeg'
+                    )
+                    thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{thumbnail_s3_key}'
+                    
+                    print(f'[URL_UPLOAD] Generated thumbnail: {thumbnail_s3_key}')
+                except Exception as thumb_error:
+                    print(f'[URL_UPLOAD] Could not generate thumbnail: {str(thumb_error)}')
+            else:
+                print(f'[URL_UPLOAD] Skipping thumbnail for RAW/large file: {filename}')
             
             # Сохраняем в БД
             cursor.execute(
                 '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
-                   (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    RETURNING id''',
-                (user_id, folder_id, filename, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url)
+                (user_id, folder_id, filename, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
             )
             photo_id = cursor.fetchone()['id']
             conn.commit()
