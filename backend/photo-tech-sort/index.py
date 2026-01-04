@@ -215,6 +215,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     try:
         print(f'[TECH_SORT] Starting analysis for folder_id={folder_id}, user_id={user_id}')
+        print(f'[TECH_SORT] S3 config: bucket={bucket}, endpoint=https://storage.yandexcloud.net')
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Проверяем что папка принадлежит пользователю и это папка "originals"
             cur.execute('''
@@ -432,7 +433,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
             
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         print(f'[TECH_SORT] Error: {str(e)}')
+        print(f'[TECH_SORT] Traceback: {error_details}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
