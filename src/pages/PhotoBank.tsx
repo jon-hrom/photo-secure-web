@@ -301,16 +301,14 @@ const PhotoBank = () => {
         open={showUrlUpload}
         onClose={() => setShowUrlUpload(false)}
         onUpload={async (url: string) => {
-          const sessionToken = localStorage.getItem('session_token');
-          if (!sessionToken) throw new Error('Требуется авторизация');
+          if (!userId) throw new Error('Требуется авторизация');
 
           const response = await fetch('https://functions.poehali.dev/f0385237-b64f-49d6-8491-e534ca5056f7', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${sessionToken}`
+              'X-User-Id': userId
             },
-            credentials: 'include',
             body: JSON.stringify({
               url,
               folder_id: selectedFolder?.id || null

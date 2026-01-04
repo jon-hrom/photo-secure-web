@@ -19,7 +19,7 @@
       "method": "POST",
       "path": "/",
       "headers": {
-        "X-Authorization": "Bearer test_token"
+        "X-User-Id": "12"
       },
       "body": {},
       "expectedStatus": 400,

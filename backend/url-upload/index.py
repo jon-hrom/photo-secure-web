@@ -19,7 +19,7 @@ def handler(event: dict, context) -> dict:
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-Authorization'
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
             },
             'body': ''
         }
@@ -31,44 +31,18 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'Method not allowed'})
         }
     
-    # Проверка авторизации
-    auth_header = event.get('headers', {}).get('X-Authorization', '')
-    if not auth_header.startswith('Bearer '):
+    # Получаем user_id из заголовка
+    user_id = event.get('headers', {}).get('X-User-Id', '')
+    if not user_id:
         return {
             'statusCode': 401,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
             'body': json.dumps({'error': 'Unauthorized'})
         }
     
-    session_token = auth_header.replace('Bearer ', '')
-    
-    # Получаем user_id из сессии
-    try:
-        conn = psycopg2.connect(os.environ['DATABASE_URL'])
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
-        cursor.execute(
-            "SELECT user_id FROM t_p28211681_photo_secure_web.sessions WHERE session_token = %s AND expires_at > NOW()",
-            (session_token,)
-        )
-        session = cursor.fetchone()
-        
-        if not session:
-            cursor.close()
-            conn.close()
-            return {
-                'statusCode': 401,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Invalid or expired session'})
-            }
-        
-        user_id = session['user_id']
-    except Exception as e:
-        return {
-            'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Database error'})
-        }
+    # Подключаемся к БД
+    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     # Парсим тело запроса
     try:
