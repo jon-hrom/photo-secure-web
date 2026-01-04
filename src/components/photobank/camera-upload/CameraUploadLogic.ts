@@ -72,7 +72,7 @@ export const useCameraUploadLogic = (
     const abortController = new AbortController();
     abortControllersRef.current.set(file.name, abortController);
 
-    const lastProgressUpdate = 0;
+    let lastProgressUpdate = 0;
     const PROGRESS_THROTTLE = 200; // обновляем прогресс раз в 200мс
 
     try {
