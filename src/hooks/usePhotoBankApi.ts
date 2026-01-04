@@ -178,6 +178,23 @@ export const usePhotoBankApi = (
 
       if (!res.ok) {
         const errorText = await res.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+
+        // Обработка случая когда файл удалён из базы (автоочистка)
+        if (res.status === 404 && errorData.cleaned) {
+          toast({
+            title: 'Запись удалена',
+            description: 'Файл не найден в хранилище и удалён из базы данных',
+            duration: 3000
+          });
+          return { cleaned: true, photo_id: photoId };
+        }
+
         throw new Error(`API returned ${res.status}: ${errorText}`);
       }
 
