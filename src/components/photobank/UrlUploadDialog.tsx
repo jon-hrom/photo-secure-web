@@ -8,12 +8,13 @@ interface UploadResult {
   total_found: number;
   uploaded: number;
   failed: number;
+  folder_id?: number;
 }
 
 interface UrlUploadDialogProps {
   open: boolean;
   onClose: () => void;
-  onUpload: (url: string) => Promise<UploadResult>;
+  onUpload: (url: string, folderId?: number) => Promise<UploadResult>;
 }
 
 const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
@@ -31,6 +32,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
   } | null>(null);
   const [totalUploaded, setTotalUploaded] = useState(0);
   const [cancelled, setCancelled] = useState(false);
+  const [createdFolderId, setCreatedFolderId] = useState<number | null>(null);
 
   const handleUpload = async () => {
     if (!url.trim()) {
@@ -51,12 +53,14 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     setProgress(null);
     setTotalUploaded(0);
     setCancelled(false);
+    setCreatedFolderId(null);
     setUploadingProgress({ current: 0, total: 5 });
 
     try {
       let totalFound = 0;
       let totalUploadedCount = 0;
       let batchNumber = 0;
+      const targetFolderId: number | null = null;
 
       // Загружаем по 5 фото, пока не загрузим все
       while (!cancelled) {
@@ -70,13 +74,28 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
           });
         }, 2000);
 
-        const result = await onUpload(url);
+        const result = await onUpload(url, targetFolderId || undefined);
         
         clearInterval(progressInterval);
+        
+        // Сохраняем folder_id из первого запроса
+        if (result.folder_id && !targetFolderId) {
+          targetFolderId = result.folder_id;
+          setCreatedFolderId(result.folder_id);
+        }
         
         totalFound = result.total_found;
         totalUploadedCount += result.uploaded;
         setTotalUploaded(totalUploadedCount);
+        
+        // Показываем количество найденных фото после первого запроса
+        if (batchNumber === 1 && totalFound > 0) {
+          setProgress({
+            found: totalFound,
+            uploaded: totalUploadedCount,
+            total: totalFound
+          });
+        }
         
         // Если загрузили меньше 5 или все файлы — выходим
         if (result.uploaded < 5 || totalUploadedCount >= totalFound) {
@@ -156,6 +175,22 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
                 {error}
               </p>
             )}
+            {progress && progress.found > 0 && loading && (
+              <div className="p-3 bg-purple-50 dark:bg-purple-950 rounded-lg space-y-2">
+                <div className="text-purple-700 dark:text-purple-300">
+                  <div className="font-semibold text-lg">📁 Обнаружено: {progress.found} фото</div>
+                  <div className="text-sm mt-1">✅ Загружено: {progress.uploaded} из {progress.found}</div>
+                  {progress.found > 0 && (
+                    <div className="w-full bg-purple-200 dark:bg-purple-900 rounded-full h-2 overflow-hidden mt-2">
+                      <div 
+                        className="bg-purple-600 dark:bg-purple-400 h-full transition-all duration-300 ease-out"
+                        style={{ width: `${(progress.uploaded / progress.found) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {uploadingProgress && (
               <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg space-y-2">
                 <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
@@ -169,11 +204,6 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
                     <div className="text-sm text-blue-600 dark:text-blue-400">
                       Текущая порция: {uploadingProgress.current} из {uploadingProgress.total}
                     </div>
-                    {totalUploaded > 0 && (
-                      <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-                        Всего загружено: {totalUploaded}
-                      </div>
-                    )}
                     <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2 overflow-hidden">
                       <div 
                         className="bg-blue-600 dark:bg-blue-400 h-full transition-all duration-300 ease-out"

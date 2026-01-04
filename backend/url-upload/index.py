@@ -225,6 +225,7 @@ def handler(event: dict, context) -> dict:
             'failed': len(failed_files),
             'files': uploaded_files,
             'errors': failed_files,
+            'folder_id': folder_id,
             'message': f'Загружено {len(uploaded_files)} из {total_found} фото' if total_found > max_files else None
         })
     }
