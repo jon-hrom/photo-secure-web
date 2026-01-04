@@ -29,6 +29,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     current: number;
     total: number;
   } | null>(null);
+  const [totalUploaded, setTotalUploaded] = useState(0);
+  const [cancelled, setCancelled] = useState(false);
 
   const handleUpload = async () => {
     if (!url.trim()) {
@@ -47,36 +49,65 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     setLoading(true);
     setError('');
     setProgress(null);
+    setTotalUploaded(0);
+    setCancelled(false);
     setUploadingProgress({ current: 0, total: 5 });
 
-    // Симулируем прогресс (примерно 2 секунды на файл)
-    const progressInterval = setInterval(() => {
-      setUploadingProgress(prev => {
-        if (!prev || prev.current >= prev.total) return prev;
-        return { ...prev, current: Math.min(prev.current + 1, prev.total) };
-      });
-    }, 2000);
-
     try {
-      const result = await onUpload(url);
-      
-      clearInterval(progressInterval);
-      setUploadingProgress(null);
-      
-      setProgress({
-        found: result.total_found,
-        uploaded: result.uploaded,
-        total: result.total_found
-      });
+      let totalFound = 0;
+      let totalUploadedCount = 0;
+      let batchNumber = 0;
 
-      // Автоматически закрываем через 2 секунды после успеха
-      setTimeout(() => {
-        setUrl('');
-        setProgress(null);
-        onClose();
-      }, 2000);
+      // Загружаем по 5 фото, пока не загрузим все
+      while (!cancelled) {
+        batchNumber++;
+        
+        // Симулируем прогресс для текущей порции
+        const progressInterval = setInterval(() => {
+          setUploadingProgress(prev => {
+            if (!prev || prev.current >= prev.total) return prev;
+            return { ...prev, current: Math.min(prev.current + 1, prev.total) };
+          });
+        }, 2000);
+
+        const result = await onUpload(url);
+        
+        clearInterval(progressInterval);
+        
+        totalFound = result.total_found;
+        totalUploadedCount += result.uploaded;
+        setTotalUploaded(totalUploadedCount);
+        
+        // Если загрузили меньше 5 или все файлы — выходим
+        if (result.uploaded < 5 || totalUploadedCount >= totalFound) {
+          setUploadingProgress(null);
+          setProgress({
+            found: totalFound,
+            uploaded: totalUploadedCount,
+            total: totalFound
+          });
+          setLoading(false);
+          
+          // Автоматически закрываем через 2 секунды
+          setTimeout(() => {
+            setUrl('');
+            setProgress(null);
+            setTotalUploaded(0);
+            onClose();
+          }, 2000);
+          break;
+        }
+        
+        // Сбрасываем прогресс для следующей порции
+        setUploadingProgress({ current: 0, total: 5 });
+      }
+      
+      if (cancelled) {
+        setLoading(false);
+        setUploadingProgress(null);
+      }
+      
     } catch (err: any) {
-      clearInterval(progressInterval);
       setUploadingProgress(null);
       setError(err.message || 'Ошибка при загрузке файлов');
       setLoading(false);
@@ -84,11 +115,14 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
   };
 
   const handleClose = () => {
-    if (!loading) {
+    if (loading) {
+      setCancelled(true);
+    } else {
       setUrl('');
       setError('');
       setProgress(null);
       setUploadingProgress(null);
+      setTotalUploaded(0);
       onClose();
     }
   };
@@ -133,8 +167,13 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
                 {uploadingProgress.current > 0 && (
                   <>
                     <div className="text-sm text-blue-600 dark:text-blue-400">
-                      Загружено: {uploadingProgress.current} из {uploadingProgress.total}
+                      Текущая порция: {uploadingProgress.current} из {uploadingProgress.total}
                     </div>
+                    {totalUploaded > 0 && (
+                      <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                        Всего загружено: {totalUploaded}
+                      </div>
+                    )}
                     <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2 overflow-hidden">
                       <div 
                         className="bg-blue-600 dark:bg-blue-400 h-full transition-all duration-300 ease-out"
@@ -154,20 +193,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
                 <div className="text-sm space-y-1">
                   <div className="text-green-600 dark:text-green-400">
                     <div>📁 Найдено фото по ссылке: <span className="font-semibold">{progress.found}</span></div>
-                    <div>✅ Загружено в этот раз: <span className="font-semibold">{progress.uploaded}</span></div>
+                    <div>✅ Загружено всего: <span className="font-semibold">{progress.uploaded}</span></div>
                   </div>
-                  {progress.found > progress.uploaded && (
-                    <div className="text-orange-600 dark:text-orange-400">
-                      ⚠️ Не удалось: {progress.found - progress.uploaded}
-                    </div>
-                  )}
-                  {progress.found > 5 && (
-                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded mt-2 text-blue-700 dark:text-blue-300">
-                      <div className="font-medium">🔄 Загружается по 5 фото за раз</div>
-                      <div className="text-xs mt-1">Осталось ещё: {progress.found - progress.uploaded} фото</div>
-                      <div className="text-xs">Вставьте ссылку ещё раз, чтобы продолжить</div>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -177,9 +204,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
             <Button
               variant="outline"
               onClick={handleClose}
-              disabled={loading}
             >
-              Отмена
+              {loading ? 'Остановить' : 'Отмена'}
             </Button>
             <Button
               onClick={handleUpload}
