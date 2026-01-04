@@ -266,7 +266,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Получаем все фото из папки originals, которые ещё не анализировались
             cur.execute('''
-                SELECT id, s3_key, s3_url, data_url, file_name, content_type
+                SELECT id, s3_key, s3_url, file_name, content_type
                 FROM photo_bank
                 WHERE folder_id = %s 
                   AND user_id = %s 
@@ -285,45 +285,37 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             for photo in photos:
                 print(f'[TECH_SORT] Processing photo id={photo["id"]}, s3_key={photo.get("s3_key", "none")}')
                 try:
-                    # Получаем байты изображения
-                    if photo['data_url']:
-                        # Фото хранится как base64 в data_url
-                        import base64
-                        import re
-                        data_url = photo['data_url']
-                        # Убираем префикс data:image/...;base64,
-                        base64_str = re.sub(r'^data:image/[^;]+;base64,', '', data_url)
-                        image_bytes = base64.b64decode(base64_str)
-                    elif photo['s3_key'] or photo['s3_url']:
-                        # Фото в S3 - извлекаем ключ из s3_key или s3_url
-                        s3_key = photo['s3_key']
-                        if not s3_key and photo['s3_url']:
-                            # Извлекаем ключ из URL вида https://storage.yandexcloud.net/foto-mix/path/file.jpg
-                            s3_key = photo['s3_url'].replace('https://storage.yandexcloud.net/foto-mix/', '')
-                        
-                        print(f'[TECH_SORT] Reading S3: bucket={bucket}, key={s3_key}')
-                        try:
-                            response = s3_client.get_object(Bucket=bucket, Key=s3_key)
-                            image_bytes = response['Body'].read()
-                            print(f'[TECH_SORT] S3 read success: {len(image_bytes)} bytes')
-                        except Exception as s3_err:
-                            # Файл не найден в S3 - пропускаем
-                            print(f'[TECH_SORT] S3 error for photo {photo["id"]}, key={s3_key}: {str(s3_err)}')
-                            cur.execute('''
-                                UPDATE photo_bank
-                                SET tech_analyzed = TRUE,
-                                    tech_reject_reason = 's3_not_found',
-                                    updated_at = NOW()
-                                WHERE id = %s
-                            ''', (photo['id'],))
-                            continue
-                    else:
-                        # Нет ни data_url, ни s3_key, ни s3_url - пропускаем
-                        print(f'[TECH_SORT] No storage for photo {photo["id"]}')
+                    # Получаем байты изображения из S3
+                    if not photo['s3_key'] and not photo['s3_url']:
+                        # Нет s3_key и s3_url - пропускаем
+                        print(f'[TECH_SORT] No S3 storage for photo {photo["id"]}')
                         cur.execute('''
                             UPDATE photo_bank
                             SET tech_analyzed = TRUE,
                                 tech_reject_reason = 'no_storage',
+                                updated_at = NOW()
+                            WHERE id = %s
+                        ''', (photo['id'],))
+                        continue
+                    
+                    # Извлекаем ключ из s3_key или s3_url
+                    s3_key = photo['s3_key']
+                    if not s3_key and photo['s3_url']:
+                        # Извлекаем ключ из URL вида https://storage.yandexcloud.net/foto-mix/path/file.jpg
+                        s3_key = photo['s3_url'].replace('https://storage.yandexcloud.net/foto-mix/', '')
+                    
+                    print(f'[TECH_SORT] Reading S3: bucket={bucket}, key={s3_key}')
+                    try:
+                        response = s3_client.get_object(Bucket=bucket, Key=s3_key)
+                        image_bytes = response['Body'].read()
+                        print(f'[TECH_SORT] S3 read success: {len(image_bytes)} bytes')
+                    except Exception as s3_err:
+                        # Файл не найден в S3 - пропускаем
+                        print(f'[TECH_SORT] S3 error for photo {photo["id"]}, key={s3_key}: {str(s3_err)}')
+                        cur.execute('''
+                            UPDATE photo_bank
+                            SET tech_analyzed = TRUE,
+                                tech_reject_reason = 's3_not_found',
                                 updated_at = NOW()
                             WHERE id = %s
                         ''', (photo['id'],))
@@ -345,55 +337,44 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     if is_reject:
                         # Перемещаем фото в tech_rejects
-                        if current_s3_key:
-                            # Фото в S3 - копируем файл
-                            new_s3_key = f"{tech_rejects_s3_prefix}{photo['file_name']}"
+                        # Копируем файл в S3
+                        new_s3_key = f"{tech_rejects_s3_prefix}{photo['file_name']}"
+                        
+                        print(f'[TECH_SORT] Copying photo {photo["id"]}: {current_s3_key} → {new_s3_key}')
+                        
+                        try:
+                            s3_client.copy_object(
+                                Bucket=bucket,
+                                CopySource={'Bucket': bucket, 'Key': current_s3_key},
+                                Key=new_s3_key
+                            )
                             
-                            print(f'[TECH_SORT] Copying photo {photo["id"]}: {current_s3_key} → {new_s3_key}')
+                            # Удаляем старый файл из S3
+                            s3_client.delete_object(Bucket=bucket, Key=current_s3_key)
                             
-                            try:
-                                s3_client.copy_object(
-                                    Bucket=bucket,
-                                    CopySource={'Bucket': bucket, 'Key': current_s3_key},
-                                    Key=new_s3_key
-                                )
-                                
-                                # Удаляем старый файл из S3
-                                s3_client.delete_object(Bucket=bucket, Key=current_s3_key)
-                                
-                                # Обновляем запись в БД
-                                cur.execute('''
-                                    UPDATE photo_bank
-                                    SET folder_id = %s,
-                                        s3_key = %s,
-                                        tech_reject_reason = %s,
-                                        tech_analyzed = TRUE,
-                                        updated_at = NOW()
-                                    WHERE id = %s
-                                ''', (tech_rejects_folder_id, new_s3_key, reason, photo['id']))
-                            except Exception as copy_err:
-                                # Ошибка при копировании - помечаем как ошибку
-                                print(f'[TECH_SORT] S3 copy error for photo {photo["id"]}: {str(copy_err)}')
-                                cur.execute('''
-                                    UPDATE photo_bank
-                                    SET tech_analyzed = TRUE,
-                                        tech_reject_reason = 's3_copy_error',
-                                        updated_at = NOW()
-                                    WHERE id = %s
-                                ''', (photo['id'],))
-                                continue
-                        else:
-                            # Фото в data_url - просто меняем папку
+                            # Обновляем запись в БД
                             cur.execute('''
                                 UPDATE photo_bank
                                 SET folder_id = %s,
+                                    s3_key = %s,
                                     tech_reject_reason = %s,
                                     tech_analyzed = TRUE,
                                     updated_at = NOW()
                                 WHERE id = %s
-                            ''', (tech_rejects_folder_id, reason, photo['id']))
-                        
-                        rejected_count += 1
+                            ''', (tech_rejects_folder_id, new_s3_key, reason, photo['id']))
+                            
+                            rejected_count += 1
+                        except Exception as copy_err:
+                            # Ошибка при копировании - помечаем как ошибку
+                            print(f'[TECH_SORT] S3 copy error for photo {photo["id"]}: {str(copy_err)}')
+                            cur.execute('''
+                                UPDATE photo_bank
+                                SET tech_analyzed = TRUE,
+                                    tech_reject_reason = 's3_copy_error',
+                                    updated_at = NOW()
+                                WHERE id = %s
+                            ''', (photo['id'],))
+                            continue
                     else:
                         # Фото ОК - просто помечаем как проанализированное
                         cur.execute('''
