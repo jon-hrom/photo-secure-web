@@ -70,7 +70,7 @@ def get_user_from_token(event: Dict[str, Any]) -> Dict[str, Any]:
             cur.execute(f'''
                 SELECT COALESCE(SUM(file_size), 0) as photo_bytes
                 FROM {SCHEMA}.photo_bank
-                WHERE user_id = %s
+                WHERE user_id = %s AND is_trashed = FALSE
             ''', (user_id,))
             photo_usage = cur.fetchone()
             
