@@ -60,7 +60,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       let totalFound = 0;
       let totalUploadedCount = 0;
       let batchNumber = 0;
-      const targetFolderId: number | null = null;
+      let targetFolderId: number | null = null;
 
       // Загружаем по 5 фото, пока не загрузим все
       while (!cancelled) {
