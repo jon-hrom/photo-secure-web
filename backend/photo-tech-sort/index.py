@@ -216,6 +216,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         print(f'[TECH_SORT] Starting analysis for folder_id={folder_id}, user_id={user_id}')
         print(f'[TECH_SORT] S3 config: bucket={bucket}, endpoint=https://storage.yandexcloud.net')
+        
+        # Проверяем текущего пользователя БД
+        with conn.cursor() as cur:
+            cur.execute("SELECT current_user, current_schema()")
+            db_user_info = cur.fetchone()
+            print(f'[TECH_SORT] DB user: {db_user_info[0]}, schema: {db_user_info[1]}')
+        
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Проверяем что папка принадлежит пользователю и это папка "originals"
             cur.execute(f'''
