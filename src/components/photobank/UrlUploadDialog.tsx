@@ -126,17 +126,23 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
               <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg space-y-2">
                 <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                   <Icon name="Loader2" className="animate-spin" size={18} />
-                  <span className="font-medium">Загружаем фото...</span>
+                  <span className="font-medium">
+                    {uploadingProgress.current === 0 ? 'Анализируем ссылку...' : 'Загружаем фото...'}
+                  </span>
                 </div>
-                <div className="text-sm text-blue-600 dark:text-blue-400">
-                  Загружено: {uploadingProgress.current} из {uploadingProgress.total}
-                </div>
-                <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2 overflow-hidden">
-                  <div 
-                    className="bg-blue-600 dark:bg-blue-400 h-full transition-all duration-300 ease-out"
-                    style={{ width: `${(uploadingProgress.current / uploadingProgress.total) * 100}%` }}
-                  />
-                </div>
+                {uploadingProgress.current > 0 && (
+                  <>
+                    <div className="text-sm text-blue-600 dark:text-blue-400">
+                      Загружено: {uploadingProgress.current} из {uploadingProgress.total}
+                    </div>
+                    <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-blue-600 dark:bg-blue-400 h-full transition-all duration-300 ease-out"
+                        style={{ width: `${(uploadingProgress.current / uploadingProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             )}
             {progress && (
@@ -145,17 +151,21 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
                   <Icon name="CheckCircle" size={18} />
                   <span className="font-medium">Загрузка завершена!</span>
                 </div>
-                <div className="text-sm text-green-600 dark:text-green-400">
-                  <div>Найдено фото: {progress.found}</div>
-                  <div>Загружено: {progress.uploaded}</div>
+                <div className="text-sm space-y-1">
+                  <div className="text-green-600 dark:text-green-400">
+                    <div>📁 Найдено фото по ссылке: <span className="font-semibold">{progress.found}</span></div>
+                    <div>✅ Загружено в этот раз: <span className="font-semibold">{progress.uploaded}</span></div>
+                  </div>
                   {progress.found > progress.uploaded && (
                     <div className="text-orange-600 dark:text-orange-400">
-                      Не удалось: {progress.found - progress.uploaded}
+                      ⚠️ Не удалось: {progress.found - progress.uploaded}
                     </div>
                   )}
                   {progress.found > 5 && (
-                    <div className="text-blue-600 dark:text-blue-400 mt-2">
-                      ℹ️ Загружается по 5 фото за раз. Повторите для следующей порции.
+                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded mt-2 text-blue-700 dark:text-blue-300">
+                      <div className="font-medium">🔄 Загружается по 5 фото за раз</div>
+                      <div className="text-xs mt-1">Осталось ещё: {progress.found - progress.uploaded} фото</div>
+                      <div className="text-xs">Вставьте ссылку ещё раз, чтобы продолжить</div>
                     </div>
                   )}
                 </div>
