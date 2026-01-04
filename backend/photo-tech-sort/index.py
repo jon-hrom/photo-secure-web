@@ -293,16 +293,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         # Убираем префикс data:image/...;base64,
                         base64_str = re.sub(r'^data:image/[^;]+;base64,', '', data_url)
                         image_bytes = base64.b64decode(base64_str)
-                    elif photo['s3_key']:
-                        # Фото в S3
-                        print(f'[TECH_SORT] Reading S3: bucket={bucket}, key={photo["s3_key"]}')
+                    elif photo['s3_key'] or photo['s3_url']:
+                        # Фото в S3 - извлекаем ключ из s3_key или s3_url
+                        s3_key = photo['s3_key']
+                        if not s3_key and photo['s3_url']:
+                            # Извлекаем ключ из URL вида https://storage.yandexcloud.net/foto-mix/path/file.jpg
+                            s3_key = photo['s3_url'].replace('https://storage.yandexcloud.net/foto-mix/', '')
+                        
+                        print(f'[TECH_SORT] Reading S3: bucket={bucket}, key={s3_key}')
                         try:
-                            response = s3_client.get_object(Bucket=bucket, Key=photo['s3_key'])
+                            response = s3_client.get_object(Bucket=bucket, Key=s3_key)
                             image_bytes = response['Body'].read()
                             print(f'[TECH_SORT] S3 read success: {len(image_bytes)} bytes')
                         except Exception as s3_err:
                             # Файл не найден в S3 - пропускаем
-                            print(f'[TECH_SORT] S3 error for photo {photo["id"]}, key={photo["s3_key"]}: {str(s3_err)}')
+                            print(f'[TECH_SORT] S3 error for photo {photo["id"]}, key={s3_key}: {str(s3_err)}')
                             cur.execute('''
                                 UPDATE t_p28211681_photo_secure_web.photo_bank
                                 SET tech_analyzed = TRUE,
@@ -312,7 +317,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             ''', (photo['id'],))
                             continue
                     else:
-                        # Нет ни data_url, ни s3_key - пропускаем
+                        # Нет ни data_url, ни s3_key, ни s3_url - пропускаем
                         print(f'[TECH_SORT] No storage for photo {photo["id"]}')
                         cur.execute('''
                             UPDATE t_p28211681_photo_secure_web.photo_bank
@@ -327,26 +332,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     raw_extensions = ['.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw']
                     is_raw = any(photo['file_name'].lower().endswith(ext) for ext in raw_extensions)
                     
+                    # Сохраняем s3_key для дальнейшего использования
+                    current_s3_key = None
+                    if photo['s3_key'] or photo['s3_url']:
+                        current_s3_key = photo['s3_key']
+                        if not current_s3_key and photo['s3_url']:
+                            current_s3_key = photo['s3_url'].replace('https://storage.yandexcloud.net/foto-mix/', '')
+                    
                     # Анализируем качество
                     is_reject, reason = analyze_photo_quality(image_bytes, is_raw=is_raw)
                     
                     if is_reject:
                         # Перемещаем фото в tech_rejects
-                        if photo['s3_key']:
+                        if current_s3_key:
                             # Фото в S3 - копируем файл
                             new_s3_key = f"{tech_rejects_s3_prefix}{photo['file_name']}"
                             
-                            print(f'[TECH_SORT] Copying photo {photo["id"]}: {photo["s3_key"]} → {new_s3_key}')
+                            print(f'[TECH_SORT] Copying photo {photo["id"]}: {current_s3_key} → {new_s3_key}')
                             
                             try:
                                 s3_client.copy_object(
                                     Bucket=bucket,
-                                    CopySource={'Bucket': bucket, 'Key': photo['s3_key']},
+                                    CopySource={'Bucket': bucket, 'Key': current_s3_key},
                                     Key=new_s3_key
                                 )
                                 
                                 # Удаляем старый файл из S3
-                                s3_client.delete_object(Bucket=bucket, Key=photo['s3_key'])
+                                s3_client.delete_object(Bucket=bucket, Key=current_s3_key)
                                 
                                 # Обновляем запись в БД
                                 cur.execute('''
