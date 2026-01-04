@@ -90,7 +90,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Получаем информацию о фото
             cur.execute('''
-                SELECT pb.id, pb.s3_key, pb.file_name, pb.folder_id,
+                SELECT pb.id, pb.s3_key, pb.s3_url, pb.file_name, pb.folder_id,
                        pf.parent_folder_id, pf.folder_type
                 FROM t_p28211681_photo_secure_web.photo_bank pb
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pb.folder_id = pf.id
@@ -98,6 +98,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             ''', (photo_id, user_id))
             
             photo = cur.fetchone()
+            
+            print(f'[PHOTO_RESTORE] Photo data: id={photo_id}, s3_key={photo.get("s3_key") if photo else None}, folder_type={photo.get("folder_type") if photo else None}')
             
             if not photo:
                 return {
@@ -142,15 +144,51 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            # Извлекаем актуальный s3_key
+            current_s3_key = photo['s3_key']
+            if not current_s3_key and photo['s3_url']:
+                # Извлекаем ключ из URL вида https://storage.yandexcloud.net/foto-mix/path/file.jpg
+                current_s3_key = photo['s3_url'].replace('https://storage.yandexcloud.net/foto-mix/', '')
+            
+            print(f'[PHOTO_RESTORE] Current S3 key: {current_s3_key}')
+            
+            if not current_s3_key:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Photo has no S3 storage reference'}),
+                    'isBase64Encoded': False
+                }
+            
             # Формируем новый s3_key в папке originals
             new_s3_key = f"{parent_folder['s3_prefix']}{photo['file_name']}"
             
+            print(f'[PHOTO_RESTORE] Copying: {current_s3_key} -> {new_s3_key}')
+            
+            # Проверяем существование файла в S3
+            try:
+                s3_client.head_object(Bucket=bucket, Key=current_s3_key)
+                print(f'[PHOTO_RESTORE] S3 object exists')
+            except Exception as head_err:
+                print(f'[PHOTO_RESTORE] S3 object not found: {str(head_err)}')
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': f'File not found in S3: {current_s3_key}'}),
+                    'isBase64Encoded': False
+                }
+            
             # Копируем фото обратно в originals
-            s3_client.copy_object(
-                Bucket=bucket,
-                CopySource={'Bucket': bucket, 'Key': photo['s3_key']},
-                Key=new_s3_key
-            )
+            try:
+                s3_client.copy_object(
+                    Bucket=bucket,
+                    CopySource={'Bucket': bucket, 'Key': current_s3_key},
+                    Key=new_s3_key
+                )
+                print(f'[PHOTO_RESTORE] S3 copy successful')
+            except Exception as copy_err:
+                print(f'[PHOTO_RESTORE] S3 copy failed: {str(copy_err)}')
+                raise
             
             # Обновляем запись в БД
             cur.execute('''
@@ -164,9 +202,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             ''', (parent_folder_id, new_s3_key, photo_id))
             
             # Удаляем старый файл из S3
-            s3_client.delete_object(Bucket=bucket, Key=photo['s3_key'])
+            try:
+                s3_client.delete_object(Bucket=bucket, Key=current_s3_key)
+                print(f'[PHOTO_RESTORE] Old S3 file deleted')
+            except Exception as del_err:
+                print(f'[PHOTO_RESTORE] Failed to delete old file: {str(del_err)}')
+                # Не критичная ошибка, продолжаем
             
             conn.commit()
+            
+            print(f'[PHOTO_RESTORE] Success! Photo {photo_id} restored to folder {parent_folder_id}')
             
             return {
                 'statusCode': 200,
