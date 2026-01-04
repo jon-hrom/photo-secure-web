@@ -107,6 +107,11 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'По ссылке не найдено фото'})
         }
     
+    # Ограничиваем до 20 файлов за раз
+    max_files = 20
+    total_found = len(filtered_urls)
+    filtered_urls = filtered_urls[:max_files]
+    
     # Настройка S3
     s3 = boto3.client('s3',
         endpoint_url='https://storage.yandexcloud.net',
@@ -124,8 +129,8 @@ def handler(event: dict, context) -> dict:
             download_url = url_info['url']
             filename = url_info['name']
             
-            # Скачиваем файл
-            response = requests.get(download_url, timeout=30, stream=True)
+            # Скачиваем файл (снижаем timeout)
+            response = requests.get(download_url, timeout=10, stream=True)
             response.raise_for_status()
             
             file_size = int(response.headers.get('content-length', 0))
@@ -182,11 +187,12 @@ def handler(event: dict, context) -> dict:
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
         'body': json.dumps({
             'success': True,
-            'total_found': len(filtered_urls),
+            'total_found': total_found,
             'uploaded': len(uploaded_files),
             'failed': len(failed_files),
             'files': uploaded_files,
-            'errors': failed_files
+            'errors': failed_files,
+            'message': f'Загружено {len(uploaded_files)} из {total_found} фото' if total_found > max_files else None
         })
     }
 
