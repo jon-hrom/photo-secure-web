@@ -19,38 +19,72 @@ from PIL import Image
 
 def detect_closed_eyes(img: np.ndarray) -> bool:
     """
-    Детекция закрытых глаз на фото
+    Улучшенная детекция закрытых глаз через анализ белков
+    Проверяет наличие белых областей (склер) в области глаз
+    Закрытые глаза = нет белых областей, только тёмная кожа век
     Returns: True если глаза закрыты, False если открыты или лиц не найдено
     """
     try:
-        # Используем встроенный каскад Хаара для детекции лиц
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
         
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
         
-        # Если лиц не найдено - не считаем браком (может быть пейзаж или объект)
+        # Если лиц не найдено - не считаем браком
         if len(faces) == 0:
             return False
         
-        # Проверяем глаза на каждом найденном лице
+        # Проверяем каждое лицо
         for (x, y, w, h) in faces:
-            roi_gray = gray[y:y+h, x:x+w]
-            roi_color = img[y:y+h, x:x+w]
+            # Область глаз находится примерно на 25-50% высоты лица от верха
+            eye_region_y = y + int(h * 0.25)
+            eye_region_h = int(h * 0.25)
+            eye_region = gray[eye_region_y:eye_region_y + eye_region_h, x:x+w]
             
-            # Ищем глаза в области лица
-            eyes = eye_cascade.detectMultiScale(roi_gray, scaleFactor=1.1, minNeighbors=10, minSize=(15, 15))
+            if eye_region.size == 0:
+                continue
             
-            # Если нашли меньше 2 глаз - считаем что глаза закрыты
-            if len(eyes) < 2:
-                print(f'[TECH_SORT] Closed eyes detected: found {len(eyes)} eyes')
+            # Применяем адаптивную бинаризацию для лучшего выделения белков
+            # Используем Otsu метод для автоматического определения порога
+            _, binary = cv2.threshold(eye_region, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            # Считаем долю белых пикселей (это белки глаз + светлые области)
+            white_pixels_ratio = np.sum(binary == 255) / binary.size
+            
+            print(f'[TECH_SORT] Face detected at ({x},{y}) size {w}x{h}')
+            print(f'[TECH_SORT] Eye region white pixels ratio: {white_pixels_ratio:.3f}')
+            
+            # Дополнительно: детектируем глаза каскадом Хаара
+            eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+            eyes_detected = eye_cascade.detectMultiScale(
+                eye_region, 
+                scaleFactor=1.05, 
+                minNeighbors=3, 
+                minSize=(int(w*0.1), int(h*0.15))
+            )
+            
+            print(f'[TECH_SORT] Eyes detected by cascade: {len(eyes_detected)}')
+            
+            # Логика определения: 
+            # 1. Если нашли < 2 глаз каскадом И мало белых пикселей → закрыты
+            # 2. Если очень мало белых пикселей (< 0.12) → закрыты независимо от каскада
+            if len(eyes_detected) < 2 and white_pixels_ratio < 0.18:
+                print(f'[TECH_SORT] ❌ Closed eyes detected: few eyes ({len(eyes_detected)}) + low brightness ({white_pixels_ratio:.3f})')
                 return True
+            
+            if white_pixels_ratio < 0.12:
+                print(f'[TECH_SORT] ❌ Closed eyes detected: very low brightness ({white_pixels_ratio:.3f})')
+                return True
+            
+            # Если нашли 2+ глаза или достаточно белых пикселей - глаза открыты
+            print(f'[TECH_SORT] ✅ Eyes appear open: {len(eyes_detected)} eyes, brightness {white_pixels_ratio:.3f}')
         
         return False
         
     except Exception as e:
         print(f'[TECH_SORT] Error in eye detection: {str(e)}')
+        import traceback
+        print(traceback.format_exc())
         return False
 
 
