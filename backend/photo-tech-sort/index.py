@@ -204,11 +204,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     )
     
     try:
-        conn = psycopg2.connect(db_url)
-        # Устанавливаем search_path для доступа к схеме
-        with conn.cursor() as cur:
-            cur.execute("SET search_path TO t_p28211681_photo_secure_web, public")
-        conn.commit()
+        conn = psycopg2.connect(db_url, options="-c search_path=t_p28211681_photo_secure_web,public")
     except Exception as e:
         return {
             'statusCode': 500,
