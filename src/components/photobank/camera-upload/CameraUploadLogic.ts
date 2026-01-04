@@ -25,6 +25,9 @@ export const useCameraUploadLogic = (
     estimatedTimeRemaining: 0
   });
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const statsUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingStatsRef = useRef({ completedFiles: 0, totalFiles: 0, startTime: 0 });
+  const cancelledRef = useRef(false);
 
   const uploadFile = async (fileStatus: FileUploadStatus, retryAttempt: number = 0): Promise<void> => {
     const { file } = fileStatus;
@@ -112,22 +115,32 @@ export const useCameraUploadLogic = (
         );
         filesRef.current = updated;
         
-        // Обновляем статистику для ETA на основе реального количества success файлов
-        setUploadStats(stats => {
-          const actualCompleted = updated.filter(f => f.status === 'success').length;
-          const elapsed = Date.now() - stats.startTime;
-          const avgTimePerFile = actualCompleted > 0 ? elapsed / actualCompleted : 0;
-          const remaining = stats.totalFiles - actualCompleted;
-          const estimatedTimeRemaining = remaining > 0 && avgTimePerFile > 0 
-            ? Math.round(avgTimePerFile * remaining / 1000) 
-            : 0;
-          
-          return {
-            ...stats,
-            completedFiles: actualCompleted,
-            estimatedTimeRemaining
-          };
-        });
+        // Обновляем статистику с debounce (300ms) чтобы избежать дергания
+        const actualCompleted = updated.filter(f => f.status === 'success').length;
+        pendingStatsRef.current.completedFiles = actualCompleted;
+        
+        if (statsUpdateTimerRef.current) {
+          clearTimeout(statsUpdateTimerRef.current);
+        }
+        
+        statsUpdateTimerRef.current = setTimeout(() => {
+          setUploadStats(stats => {
+            const elapsed = Date.now() - stats.startTime;
+            const avgTimePerFile = pendingStatsRef.current.completedFiles > 0 
+              ? elapsed / pendingStatsRef.current.completedFiles 
+              : 0;
+            const remaining = stats.totalFiles - pendingStatsRef.current.completedFiles;
+            const estimatedTimeRemaining = remaining > 0 && avgTimePerFile > 0 
+              ? Math.round(avgTimePerFile * remaining / 1000) 
+              : 0;
+            
+            return {
+              ...stats,
+              completedFiles: pendingStatsRef.current.completedFiles,
+              estimatedTimeRemaining
+            };
+          });
+        }, 300);
         
         return updated;
       });
@@ -189,6 +202,7 @@ export const useCameraUploadLogic = (
     onOpenChange?: (open: boolean) => void
   ) => {
     try {
+      cancelledRef.current = false;
       const pendingFiles = filesRef.current.filter(f => (f.status === 'pending' || f.status === 'error') && f.status !== 'skipped');
       console.log('[CAMERA_UPLOAD] Pending files to upload:', pendingFiles.length);
       
@@ -199,10 +213,24 @@ export const useCameraUploadLogic = (
         totalFiles: pendingFiles.length,
         estimatedTimeRemaining: 0
       });
+      pendingStatsRef.current = {
+        completedFiles: 0,
+        totalFiles: pendingFiles.length,
+        startTime: Date.now()
+      };
       
       for (let i = 0; i < pendingFiles.length; i += MAX_CONCURRENT_UPLOADS) {
+        if (cancelledRef.current) {
+          console.log('[CAMERA_UPLOAD] Upload cancelled by user');
+          break;
+        }
         const batch = pendingFiles.slice(i, i + MAX_CONCURRENT_UPLOADS);
         await Promise.all(batch.map(uploadFile));
+      }
+      
+      if (cancelledRef.current) {
+        console.log('[CAMERA_UPLOAD] Upload process stopped due to cancellation');
+        return;
       }
 
       const successfulUploads = filesRef.current.filter(f => f.status === 'success');
@@ -350,12 +378,24 @@ export const useCameraUploadLogic = (
     };
   }, [uploading]);
 
+  const cancelUpload = () => {
+    cancelledRef.current = true;
+    abortControllersRef.current.forEach(controller => controller.abort());
+    abortControllersRef.current.clear();
+    
+    if (statsUpdateTimerRef.current) {
+      clearTimeout(statsUpdateTimerRef.current);
+      statsUpdateTimerRef.current = null;
+    }
+  };
+  
   return {
     isOnline,
     uploadFile,
     retryFailedUploads,
     handleUploadProcess,
     abortControllersRef,
-    uploadStats
+    uploadStats,
+    cancelUpload
   };
 };

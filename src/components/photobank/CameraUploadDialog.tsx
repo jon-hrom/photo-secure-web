@@ -30,7 +30,8 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     retryFailedUploads,
     handleUploadProcess,
     abortControllersRef,
-    uploadStats
+    uploadStats,
+    cancelUpload
   } = useCameraUploadLogic(userId, uploading, setFiles, filesRef, setUploading);
 
   useEffect(() => {
@@ -186,8 +187,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
 
   const handleCancel = () => {
     console.log('[CAMERA_UPLOAD] Cancelling upload');
-    abortControllersRef.current.forEach(controller => controller.abort());
-    abortControllersRef.current.clear();
+    cancelUpload();
     
     // Помечаем uploading/retrying файлы как cancelled
     setFiles(prev => {
@@ -201,7 +201,7 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
     });
     
     setUploading(false);
-    toast.info('Загрузка отменена');
+    toast.success('Загрузка файлов прервана');
   };
 
   const totalFiles = files.length;
@@ -314,26 +314,26 @@ const CameraUploadDialog = ({ open, onOpenChange, userId, folders, onUploadCompl
 
           <CameraUploadFileList
             files={files}
-            uploading={uploading}
-            selectedDate={selectedDate}
-            onToggleFile={handleToggleFile}
-          />
-
-          <UploadControls
-            uploading={uploading}
-            isOnline={isOnline}
             totalFiles={totalFiles}
             successCount={successCount}
             errorCount={errorCount}
             pendingCount={pendingCount}
             selectedCount={selectedCount}
             skippedCount={skippedCount}
-            onUpload={handleUpload}
-            onCancel={handleCancel}
-            onRetryFailed={retryFailedUploads}
+            onToggleFile={handleToggleFile}
             onSelectAll={handleSelectAll}
             onDeselectAll={handleDeselectAll}
             onDeleteSelected={handleDeleteSelected}
+          />
+
+          <UploadControls
+            uploading={uploading}
+            isOnline={isOnline}
+            totalFiles={totalFiles}
+            errorCount={errorCount}
+            onUpload={handleUpload}
+            onCancel={handleCancel}
+            onRetryFailed={retryFailedUploads}
           />
           
           {uploading && uploadStats.totalFiles > 0 && (

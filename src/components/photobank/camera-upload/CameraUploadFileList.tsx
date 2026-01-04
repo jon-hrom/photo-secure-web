@@ -2,6 +2,7 @@ import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { FileUploadStatus, MAX_RETRIES } from './CameraUploadTypes';
+import { memo, useMemo } from 'react';
 
 interface CameraUploadFileListProps {
   files: FileUploadStatus[];
@@ -37,7 +38,7 @@ const CameraUploadFileList = ({
 }: CameraUploadFileListProps) => {
   if (totalFiles === 0) return null;
 
-  const groupFilesByDate = (files: FileUploadStatus[]): FileGroup[] => {
+  const groupedFiles = useMemo(() => {
     const groups = new Map<string, { file: FileUploadStatus; index: number }[]>();
 
     files.forEach((file, index) => {
@@ -61,9 +62,7 @@ const CameraUploadFileList = ({
         const dateB = b.files[0].file.captureDate || new Date(b.files[0].file.file.lastModified);
         return dateB.getTime() - dateA.getTime();
       });
-  };
-
-  const fileGroups = groupFilesByDate(files);
+  }, [files]);
 
   return (
     <div className="space-y-2">
@@ -100,7 +99,7 @@ const CameraUploadFileList = ({
       </div>
 
       <div className="max-h-96 overflow-y-auto space-y-3 border rounded-lg p-3">
-        {fileGroups.map((group, groupIndex) => (
+        {groupedFiles.map((group, groupIndex) => (
           <div key={groupIndex} className="space-y-2">
             <div className="flex items-center gap-2 sticky top-0 bg-background/95 backdrop-blur py-1 z-10">
               <Icon name="Calendar" size={16} className="text-muted-foreground" />
@@ -170,4 +169,4 @@ const CameraUploadFileList = ({
   );
 };
 
-export default CameraUploadFileList;
+export default memo(CameraUploadFileList);
