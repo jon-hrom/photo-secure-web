@@ -228,6 +228,14 @@ def get_download_urls(url: str) -> list:
     elif 'drive.google.com' in url:
         return get_google_drive_urls(url)
     
+    # Dropbox
+    elif 'dropbox.com' in url:
+        return get_dropbox_urls(url)
+    
+    # OneDrive / SharePoint
+    elif '1drv.ms' in url or 'onedrive.live.com' in url or 'sharepoint.com' in url:
+        return get_onedrive_urls(url)
+    
     # Прямая ссылка на файл
     else:
         filename = os.path.basename(urlparse(url).path) or 'file.jpg'
@@ -295,3 +303,93 @@ def get_google_drive_urls(url: str) -> list:
         filename = f'{file_id}.jpg'
     
     return [{'url': download_url, 'name': filename}]
+
+
+def get_dropbox_urls(url: str) -> list:
+    '''Получает файлы с Dropbox'''
+    
+    # Преобразуем ссылку для просмотра в ссылку для скачивания
+    # www.dropbox.com/s/xxx/file.jpg?dl=0 → dl.dropboxusercontent.com/s/xxx/file.jpg
+    # www.dropbox.com/sh/xxx → папка (требует API)
+    
+    files = []
+    
+    # Если это прямая ссылка на файл
+    if '/s/' in url or '/scl/fi/' in url:
+        # Заменяем параметр dl=0 на dl=1 для прямого скачивания
+        download_url = url.replace('dl=0', 'dl=1').replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+        
+        # Если параметра dl нет, добавляем
+        if 'dl=' not in download_url:
+            separator = '&' if '?' in download_url else '?'
+            download_url = f"{download_url}{separator}dl=1"
+        
+        # Извлекаем имя файла из URL
+        path_parts = urlparse(url).path.split('/')
+        filename = path_parts[-1].split('?')[0] if path_parts else 'file.jpg'
+        
+        files.append({
+            'url': download_url,
+            'name': filename
+        })
+    
+    # Папки Dropbox не поддерживаются без API токена
+    elif '/sh/' in url:
+        raise ValueError('Ссылки на папки Dropbox не поддерживаются. Используйте прямую ссылку на файл.')
+    
+    return files
+
+
+def get_onedrive_urls(url: str) -> list:
+    '''Получает файлы с OneDrive'''
+    
+    files = []
+    
+    # OneDrive имеет несколько форматов ссылок:
+    # 1drv.ms/i/xxx (короткая ссылка)
+    # onedrive.live.com/redir?resid=xxx
+    # onedrive.live.com/embed?resid=xxx
+    
+    # Для коротких ссылок (1drv.ms) - пытаемся получить прямую ссылку
+    if '1drv.ms' in url:
+        try:
+            # Следуем за редиректом
+            response = requests.head(url, allow_redirects=True, timeout=10)
+            final_url = response.url
+            
+            # Преобразуем в ссылку для скачивания
+            if 'onedrive.live.com' in final_url:
+                # Заменяем embed/view на download
+                download_url = final_url.replace('/embed?', '/download?').replace('/view.aspx?', '/download.aspx?')
+                
+                # Пытаемся извлечь имя файла
+                filename_match = re.search(r'resid=([^&]+)', final_url)
+                filename = filename_match.group(1) + '.jpg' if filename_match else 'file.jpg'
+                
+                files.append({
+                    'url': download_url,
+                    'name': filename
+                })
+            else:
+                raise ValueError('Не удалось обработать ссылку OneDrive')
+        except Exception as e:
+            raise ValueError(f'Ошибка обработки ссылки OneDrive: {str(e)}')
+    
+    # Прямые ссылки на onedrive.live.com или sharepoint.com
+    elif 'onedrive.live.com' in url or 'sharepoint.com' in url:
+        # Преобразуем в download URL
+        download_url = url.replace('/embed?', '/download?').replace('/view.aspx?', '/download.aspx?')
+        
+        # Если это уже download URL, оставляем как есть
+        if '/download' not in download_url and '?download=1' not in download_url:
+            separator = '&' if '?' in download_url else '?'
+            download_url = f"{download_url}{separator}download=1"
+        
+        filename = 'file.jpg'  # OneDrive не всегда предоставляет имя в URL
+        
+        files.append({
+            'url': download_url,
+            'name': filename
+        })
+    
+    return files

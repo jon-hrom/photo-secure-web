@@ -80,7 +80,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
         <DialogHeader>
           <DialogTitle>Загрузить по ссылке</DialogTitle>
           <DialogDescription>
-            Укажите ссылку на файлы (Яндекс Диск, Google Drive и др.)
+            Укажите ссылку на файлы (Яндекс Диск, Google Drive, Dropbox, OneDrive)
           </DialogDescription>
         </DialogHeader>
         
