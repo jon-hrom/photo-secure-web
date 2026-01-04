@@ -310,6 +310,7 @@ const PhotoBank = () => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${sessionToken}`
             },
+            credentials: 'include',
             body: JSON.stringify({
               url,
               folder_id: selectedFolder?.id || null
