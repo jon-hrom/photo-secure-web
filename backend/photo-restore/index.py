@@ -175,10 +175,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 print(f'[PHOTO_RESTORE] S3 object exists')
             except Exception as head_err:
                 print(f'[PHOTO_RESTORE] S3 object not found: {str(head_err)}')
+                # Автоматически удаляем "мёртвую" запись из базы
+                print(f'[PHOTO_RESTORE] Cleaning up orphaned DB record for photo_id={photo_id}')
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.photo_bank
+                    WHERE id = %s
+                ''', (photo_id,))
+                conn.commit()
+                print(f'[PHOTO_RESTORE] Orphaned record deleted')
+                
                 return {
                     'statusCode': 404,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': f'File not found in S3: {current_s3_key}'}),
+                    'body': json.dumps({'error': f'File not found in S3 and removed from database', 'cleaned': True}),
                     'isBase64Encoded': False
                 }
             
