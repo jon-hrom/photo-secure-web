@@ -22,7 +22,8 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
     Улучшенная детекция закрытых глаз через анализ круглых форм
     Открытые глаза = круглые тёмные области (зрачки) в светлых областях (белки)
     Закрытые глаза = горизонтальные линии без круглых форм
-    Returns: True если глаза закрыты, False если открыты или лиц не найдено
+    ВАЖНО: Если хотя бы у ОДНОГО человека глаза открыты → фото OK
+    Returns: True если ВСЕ лица с закрытыми глазами, False если хотя бы одно лицо с открытыми
     """
     try:
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -33,6 +34,10 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
         # Если лиц не найдено - не считаем браком
         if len(faces) == 0:
             return False
+        
+        # Счётчик лиц с закрытыми глазами
+        faces_with_closed_eyes = 0
+        faces_with_open_eyes = 0
         
         # Проверяем каждое лицо
         for (x, y, w, h) in faces:
@@ -96,21 +101,30 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
             
             print(f'[TECH_SORT] Circular contours found (pupils): {circular_contours}')
             
-            # Логика определения:
+            # Логика определения для ЭТОГО лица:
             # 1. Если нашли 0 глаз каскадом И нет круглых контуров → закрыты
             # 2. Если нашли 1 глаз но нет круглых контуров → тоже закрыты
             if len(eyes_detected) == 0 and circular_contours == 0:
-                print(f'[TECH_SORT] ❌ Closed eyes: no eyes detected and no circular pupils')
-                return True
-            
-            if len(eyes_detected) < 2 and circular_contours < 1:
-                print(f'[TECH_SORT] ❌ Closed eyes: {len(eyes_detected)} eyes, {circular_contours} pupils')
-                return True
-            
-            # Если нашли 2+ глаза или есть круглые контуры - глаза открыты
-            print(f'[TECH_SORT] ✅ Eyes appear open: {len(eyes_detected)} eyes, {circular_contours} pupils')
+                print(f'[TECH_SORT] ❌ This face: closed eyes (no eyes, no pupils)')
+                faces_with_closed_eyes += 1
+            elif len(eyes_detected) < 2 and circular_contours < 1:
+                print(f'[TECH_SORT] ❌ This face: closed eyes ({len(eyes_detected)} eyes, {circular_contours} pupils)')
+                faces_with_closed_eyes += 1
+            else:
+                # Если нашли 2+ глаза или есть круглые контуры - глаза открыты
+                print(f'[TECH_SORT] ✅ This face: eyes open ({len(eyes_detected)} eyes, {circular_contours} pupils)')
+                faces_with_open_eyes += 1
         
-        return False
+        # Финальное решение: если хотя бы ОДНО лицо с открытыми глазами → фото ОК
+        print(f'[TECH_SORT] Summary: {faces_with_open_eyes} faces with open eyes, {faces_with_closed_eyes} with closed')
+        
+        if faces_with_open_eyes > 0:
+            print(f'[TECH_SORT] ✅ Photo OK: at least one person with open eyes')
+            return False
+        
+        # Все лица с закрытыми глазами → брак
+        print(f'[TECH_SORT] ❌ Photo rejected: all faces have closed eyes')
+        return True
         
     except Exception as e:
         print(f'[TECH_SORT] Error in eye detection: {str(e)}')
@@ -182,10 +196,10 @@ def analyze_photo_quality(image_bytes: bytes, is_raw: bool = False) -> Tuple[boo
             sample = gray[y:y+sample_size, x:x+sample_size]
             noise_level = np.std(sample)
             
-            # Порог шума: если > 65, фото ОЧЕНЬ сильно зашумлено
-            # Повышен с 50 до 65 чтобы не отбраковывать нормальные фото с лёгким шумом
+            # Порог шума: если > 80, фото ОЧЕНЬ сильно зашумлено
+            # Повышен до 80 чтобы не отбраковывать улыбающихся людей (прищур даёт шум)
             print(f'[TECH_SORT] Noise level: {noise_level:.2f}')
-            if noise_level > 65:
+            if noise_level > 80:
                 return True, 'noise'
         
         # Проверка 4: Контраст (Low Contrast)
