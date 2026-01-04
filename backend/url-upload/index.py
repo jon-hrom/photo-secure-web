@@ -132,11 +132,11 @@ def handler(event: dict, context) -> dict:
     
     # Настройка S3
     s3 = boto3.client('s3',
-        endpoint_url='https://storage.yandexcloud.net',
+        endpoint_url='https://bucket.poehali.dev',
         aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
         aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
     )
-    bucket = 'foto-mix'
+    bucket = 'files'
     
     # Загружаем файлы
     uploaded_files = []

@@ -25,6 +25,10 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     uploaded: number;
     total: number;
   } | null>(null);
+  const [uploadingProgress, setUploadingProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   const handleUpload = async () => {
     if (!url.trim()) {
@@ -43,9 +47,21 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     setLoading(true);
     setError('');
     setProgress(null);
+    setUploadingProgress({ current: 0, total: 5 });
+
+    // Симулируем прогресс (примерно 2 секунды на файл)
+    const progressInterval = setInterval(() => {
+      setUploadingProgress(prev => {
+        if (!prev || prev.current >= prev.total) return prev;
+        return { ...prev, current: Math.min(prev.current + 1, prev.total) };
+      });
+    }, 2000);
 
     try {
       const result = await onUpload(url);
+      
+      clearInterval(progressInterval);
+      setUploadingProgress(null);
       
       setProgress({
         found: result.total_found,
@@ -60,6 +76,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
         onClose();
       }, 2000);
     } catch (err: any) {
+      clearInterval(progressInterval);
+      setUploadingProgress(null);
       setError(err.message || 'Ошибка при загрузке файлов');
       setLoading(false);
     }
@@ -70,6 +88,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       setUrl('');
       setError('');
       setProgress(null);
+      setUploadingProgress(null);
       onClose();
     }
   };
@@ -102,6 +121,23 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
                 <Icon name="AlertCircle" size={14} />
                 {error}
               </p>
+            )}
+            {uploadingProgress && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                  <Icon name="Loader2" className="animate-spin" size={18} />
+                  <span className="font-medium">Загружаем фото...</span>
+                </div>
+                <div className="text-sm text-blue-600 dark:text-blue-400">
+                  Загружено: {uploadingProgress.current} из {uploadingProgress.total}
+                </div>
+                <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-blue-600 dark:bg-blue-400 h-full transition-all duration-300 ease-out"
+                    style={{ width: `${(uploadingProgress.current / uploadingProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
             )}
             {progress && (
               <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg space-y-2">
