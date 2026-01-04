@@ -6,7 +6,7 @@ import { isAdminViewingSessionValid } from '@/utils/sessionCleanup';
 // Кэш для userId чтобы не парсить localStorage сотни раз
 let cachedUserId: string | null | undefined = undefined;
 let cacheTimestamp = 0;
-const CACHE_TTL = 1000; // 1 секунда
+const CACHE_TTL = 5000; // 5 секунд - увеличено для снижения нагрузки
 
 export const getAuthUserId = (): string | null => {
   // Проверяем кэш
@@ -15,26 +15,34 @@ export const getAuthUserId = (): string | null => {
     return cachedUserId;
   }
   
-  console.log('[PHOTO_BANK] getAuthUserId called');
+  // Логируем только если прошло >10 секунд с последнего лога
+  const shouldLog = (now - cacheTimestamp) > 10000;
+  if (shouldLog) {
+    console.log('[PHOTO_BANK] getAuthUserId called (cache expired)');
+  }
   
   // Проверяем валидность сессии просмотра админом
   if (!isAdminViewingSessionValid()) {
-    console.warn('[PHOTO_BANK] Admin viewing session invalid, cleared');
+    if (shouldLog) console.warn('[PHOTO_BANK] Admin viewing session invalid, cleared');
   }
   
   const adminViewingUserId = localStorage.getItem('admin_viewing_user_id');
-  console.log('[PHOTO_BANK] admin_viewing_user_id from localStorage:', adminViewingUserId);
+  if (shouldLog) {
+    console.log('[PHOTO_BANK] admin_viewing_user_id from localStorage:', adminViewingUserId);
+  }
   
   if (adminViewingUserId) {
     const authSession = localStorage.getItem('authSession');
     const vkUser = localStorage.getItem('vk_user');
     const googleUser = localStorage.getItem('google_user');
     
-    console.log('[PHOTO_BANK] Auth data check:', {
-      hasAuthSession: !!authSession,
-      hasVkUser: !!vkUser,
-      hasGoogleUser: !!googleUser
-    });
+    if (shouldLog) {
+      console.log('[PHOTO_BANK] Auth data check:', {
+        hasAuthSession: !!authSession,
+        hasVkUser: !!vkUser,
+        hasGoogleUser: !!googleUser
+      });
+    }
     
     let adminEmail = null;
     let adminVkData = null;
@@ -53,10 +61,11 @@ export const getAuthUserId = (): string | null => {
     }
     
     const isAdmin = isAdminUser(adminEmail, adminVkData);
-    console.log('[PHOTO_BANK] isAdminUser check:', isAdmin, 'adminEmail:', adminEmail);
     
     if (isAdmin) {
-      console.log('[PHOTO_BANK] Admin viewing user confirmed, using userId:', adminViewingUserId);
+      if (shouldLog) {
+        console.log('[PHOTO_BANK] Admin viewing user confirmed, using userId:', adminViewingUserId);
+      }
       cachedUserId = adminViewingUserId;
       cacheTimestamp = Date.now();
       return adminViewingUserId;

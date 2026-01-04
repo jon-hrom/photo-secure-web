@@ -19,6 +19,8 @@ export const useFastUploadLogic = (
     uploadSpeed: 0 // байт/сек
   });
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const statsUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastStatsUpdateRef = useRef(0);
 
   // Получаем presigned URLs пачкой
   const getBatchPresignedUrls = async (files: FileUploadStatus[]): Promise<Map<string, {url: string, key: string}>> => {
@@ -64,7 +66,8 @@ export const useFastUploadLogic = (
     abortControllersRef.current.set(file.name, abortController);
 
     const startTime = Date.now();
-    let uploadedBytes = 0;
+    let lastProgressUpdate = 0;
+    const PROGRESS_THROTTLE = 200; // обновляем прогресс раз в 200мс
 
     try {
       setFiles(prev => {
@@ -83,11 +86,15 @@ export const useFastUploadLogic = (
 
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
-            const progress = (e.loaded / e.total) * 100;
-            uploadedBytes = e.loaded;
+            const now = Date.now();
+            // Throttling: обновляем не чаще раза в 200мс
+            if (now - lastProgressUpdate < PROGRESS_THROTTLE && e.loaded < e.total) {
+              return;
+            }
+            lastProgressUpdate = now;
             
-            // Вычисляем скорость загрузки
-            const elapsed = (Date.now() - startTime) / 1000; // секунды
+            const progress = Math.min(99, (e.loaded / e.total) * 100); // макс 99% до завершения
+            const elapsed = Math.max(0.1, (now - startTime) / 1000); // минимум 0.1с
             const speed = e.loaded / elapsed; // байт/сек
             
             setFiles(prev => {
@@ -183,26 +190,33 @@ export const useFastUploadLogic = (
             try {
               await uploadFileToS3(fileStatus, uploadInfo);
               
-              // Обновляем статистику
-              setUploadStats(prev => {
-                const newCompleted = prev.completedFiles + 1;
-                const elapsed = (Date.now() - startTime) / 1000;
-                const avgTimePerFile = elapsed / newCompleted;
-                const remaining = prev.totalFiles - newCompleted;
-                const estimatedTimeRemaining = Math.round(avgTimePerFile * remaining);
+              // Обновляем статистику с throttling (раз в 500мс)
+              const now = Date.now();
+              if (now - lastStatsUpdateRef.current >= 500) {
+                lastStatsUpdateRef.current = now;
                 
-                // Средняя скорость всех файлов
-                const avgSpeed = filesRef.current
-                  .filter(f => f.uploadSpeed && f.uploadSpeed > 0)
-                  .reduce((sum, f) => sum + (f.uploadSpeed || 0), 0) / newCompleted;
+                setUploadStats(prev => {
+                  const newCompleted = filesRef.current.filter(f => f.status === 'success').length;
+                  const elapsed = (now - startTime) / 1000;
+                  const avgTimePerFile = newCompleted > 0 ? elapsed / newCompleted : 0;
+                  const remaining = prev.totalFiles - newCompleted;
+                  const estimatedTimeRemaining = avgTimePerFile > 0 ? Math.round(avgTimePerFile * remaining) : 0;
+                  
+                  // Средняя скорость активных загрузок
+                  const activeSpeeds = filesRef.current
+                    .filter(f => f.uploadSpeed && f.uploadSpeed > 0);
+                  const avgSpeed = activeSpeeds.length > 0
+                    ? activeSpeeds.reduce((sum, f) => sum + (f.uploadSpeed || 0), 0) / activeSpeeds.length
+                    : 0;
 
-                return {
-                  ...prev,
-                  completedFiles: newCompleted,
-                  estimatedTimeRemaining,
-                  uploadSpeed: avgSpeed
-                };
-              });
+                  return {
+                    ...prev,
+                    completedFiles: newCompleted,
+                    estimatedTimeRemaining,
+                    uploadSpeed: avgSpeed
+                  };
+                });
+              }
             } catch (error) {
               console.error(`[FAST_UPLOAD] Failed to upload ${fileStatus.file.name}:`, error);
             }
