@@ -19,9 +19,9 @@ from PIL import Image
 
 def detect_closed_eyes(img: np.ndarray) -> bool:
     """
-    Улучшенная детекция закрытых глаз через анализ белков
-    Проверяет наличие белых областей (склер) в области глаз
-    Закрытые глаза = нет белых областей, только тёмная кожа век
+    Улучшенная детекция закрытых глаз через анализ круглых форм
+    Открытые глаза = круглые тёмные области (зрачки) в светлых областях (белки)
+    Закрытые глаза = горизонтальные линии без круглых форм
     Returns: True если глаза закрыты, False если открыты или лиц не найдено
     """
     try:
@@ -36,6 +36,11 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
         
         # Проверяем каждое лицо
         for (x, y, w, h) in faces:
+            # Пропускаем маленькие лица (< 60px) - невозможно точно определить
+            if w < 60 or h < 60:
+                print(f'[TECH_SORT] Face too small ({w}x{h}), skipping eye detection')
+                continue
+            
             # Область глаз находится примерно на 25-50% высоты лица от верха
             eye_region_y = y + int(h * 0.25)
             eye_region_h = int(h * 0.25)
@@ -44,17 +49,9 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
             if eye_region.size == 0:
                 continue
             
-            # Применяем адаптивную бинаризацию для лучшего выделения белков
-            # Используем Otsu метод для автоматического определения порога
-            _, binary = cv2.threshold(eye_region, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            
-            # Считаем долю белых пикселей (это белки глаз + светлые области)
-            white_pixels_ratio = np.sum(binary == 255) / binary.size
-            
             print(f'[TECH_SORT] Face detected at ({x},{y}) size {w}x{h}')
-            print(f'[TECH_SORT] Eye region white pixels ratio: {white_pixels_ratio:.3f}')
             
-            # Дополнительно: детектируем глаза каскадом Хаара
+            # Детектируем глаза каскадом Хаара
             eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
             eyes_detected = eye_cascade.detectMultiScale(
                 eye_region, 
@@ -65,19 +62,43 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
             
             print(f'[TECH_SORT] Eyes detected by cascade: {len(eyes_detected)}')
             
-            # Логика определения: 
-            # 1. Если нашли < 2 глаз каскадом И мало белых пикселей → закрыты
-            # 2. Если очень мало белых пикселей (< 0.12) → закрыты независимо от каскада
-            if len(eyes_detected) < 2 and white_pixels_ratio < 0.18:
-                print(f'[TECH_SORT] ❌ Closed eyes detected: few eyes ({len(eyes_detected)}) + low brightness ({white_pixels_ratio:.3f})')
+            # Применяем бинаризацию для поиска тёмных областей (зрачков)
+            # Закрытые глаза: нет тёмных круглых областей
+            _, binary_dark = cv2.threshold(eye_region, 50, 255, cv2.THRESH_BINARY_INV)
+            
+            # Ищем круглые контуры (зрачки)
+            contours, _ = cv2.findContours(binary_dark, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            circular_contours = 0
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area < 10:  # Слишком маленький
+                    continue
+                
+                # Проверяем круглость через соотношение площади к периметру
+                perimeter = cv2.arcLength(contour, True)
+                if perimeter == 0:
+                    continue
+                
+                circularity = 4 * np.pi * area / (perimeter * perimeter)
+                if circularity > 0.5:  # Достаточно круглый
+                    circular_contours += 1
+            
+            print(f'[TECH_SORT] Circular contours found (pupils): {circular_contours}')
+            
+            # Логика определения:
+            # 1. Если нашли 0 глаз каскадом И нет круглых контуров → закрыты
+            # 2. Если нашли 1 глаз но нет круглых контуров → тоже закрыты
+            if len(eyes_detected) == 0 and circular_contours == 0:
+                print(f'[TECH_SORT] ❌ Closed eyes: no eyes detected and no circular pupils')
                 return True
             
-            if white_pixels_ratio < 0.12:
-                print(f'[TECH_SORT] ❌ Closed eyes detected: very low brightness ({white_pixels_ratio:.3f})')
+            if len(eyes_detected) < 2 and circular_contours < 1:
+                print(f'[TECH_SORT] ❌ Closed eyes: {len(eyes_detected)} eyes, {circular_contours} pupils')
                 return True
             
-            # Если нашли 2+ глаза или достаточно белых пикселей - глаза открыты
-            print(f'[TECH_SORT] ✅ Eyes appear open: {len(eyes_detected)} eyes, brightness {white_pixels_ratio:.3f}')
+            # Если нашли 2+ глаза или есть круглые контуры - глаза открыты
+            print(f'[TECH_SORT] ✅ Eyes appear open: {len(eyes_detected)} eyes, {circular_contours} pupils')
         
         return False
         
@@ -151,8 +172,10 @@ def analyze_photo_quality(image_bytes: bytes, is_raw: bool = False) -> Tuple[boo
             sample = gray[y:y+sample_size, x:x+sample_size]
             noise_level = np.std(sample)
             
-            # Порог шума: если > 50, фото сильно зашумлено
-            if noise_level > 50:
+            # Порог шума: если > 65, фото ОЧЕНЬ сильно зашумлено
+            # Повышен с 50 до 65 чтобы не отбраковывать нормальные фото с лёгким шумом
+            print(f'[TECH_SORT] Noise level: {noise_level:.2f}')
+            if noise_level > 65:
                 return True, 'noise'
         
         # Проверка 4: Контраст (Low Contrast)
