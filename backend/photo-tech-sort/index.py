@@ -77,9 +77,18 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
             
             print(f'[TECH_SORT] Eyes detected by cascade: {len(eyes_detected)}')
             
-            # Применяем бинаризацию для поиска тёмных областей (зрачков)
-            # Закрытые глаза: нет тёмных круглых областей
-            _, binary_dark = cv2.threshold(eye_region, 50, 255, cv2.THRESH_BINARY_INV)
+            # Применяем несколько методов бинаризации для надёжности
+            # Метод 1: Жёсткий порог для очень тёмных зрачков
+            _, binary_dark_strict = cv2.threshold(eye_region, 40, 255, cv2.THRESH_BINARY_INV)
+            
+            # Метод 2: Адаптивная бинаризация (лучше работает при разном освещении)
+            binary_dark_adaptive = cv2.adaptiveThreshold(
+                eye_region, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                cv2.THRESH_BINARY_INV, 11, 2
+            )
+            
+            # Объединяем оба метода (логическое ИЛИ)
+            binary_dark = cv2.bitwise_or(binary_dark_strict, binary_dark_adaptive)
             
             # Ищем круглые контуры (зрачки)
             contours, _ = cv2.findContours(binary_dark, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -87,7 +96,9 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
             circular_contours = 0
             for contour in contours:
                 area = cv2.contourArea(contour)
-                if area < 10:  # Слишком маленький
+                # Минимальная площадь зависит от размера лица
+                min_area = max(10, (w * h) / 2000)
+                if area < min_area:
                     continue
                 
                 # Проверяем круглость через соотношение площади к периметру
@@ -96,35 +107,47 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
                     continue
                 
                 circularity = 4 * np.pi * area / (perimeter * perimeter)
-                if circularity > 0.5:  # Достаточно круглый
+                # Более строгая проверка круглости для надёжности
+                if circularity > 0.6:
                     circular_contours += 1
             
             print(f'[TECH_SORT] Circular contours found (pupils): {circular_contours}')
             
-            # Логика определения для ЭТОГО лица:
-            # 1. Если нашли 0 глаз каскадом И нет круглых контуров → закрыты
-            # 2. Если нашли 1 глаз но нет круглых контуров → тоже закрыты
-            if len(eyes_detected) == 0 and circular_contours == 0:
-                print(f'[TECH_SORT] ❌ This face: closed eyes (no eyes, no pupils)')
-                faces_with_closed_eyes += 1
-            elif len(eyes_detected) < 2 and circular_contours < 1:
-                print(f'[TECH_SORT] ❌ This face: closed eyes ({len(eyes_detected)} eyes, {circular_contours} pupils)')
-                faces_with_closed_eyes += 1
+            # Строгая логика определения:
+            # Глаза ОТКРЫТЫ если:
+            # 1. Каскад нашёл 2 глаза ИЛИ
+            # 2. Найдено минимум 2 круглых зрачка ИЛИ  
+            # 3. Найден 1 глаз каскадом И есть хотя бы 1 зрачок
+            
+            eyes_open = False
+            
+            if len(eyes_detected) >= 2:
+                eyes_open = True
+                print(f'[TECH_SORT] ✅ Eyes open: cascade detected 2+ eyes')
+            elif circular_contours >= 2:
+                eyes_open = True
+                print(f'[TECH_SORT] ✅ Eyes open: found 2+ circular pupils')
+            elif len(eyes_detected) >= 1 and circular_contours >= 1:
+                eyes_open = True
+                print(f'[TECH_SORT] ✅ Eyes open: 1 eye by cascade + 1 pupil detected')
             else:
-                # Если нашли 2+ глаза или есть круглые контуры - глаза открыты
-                print(f'[TECH_SORT] ✅ This face: eyes open ({len(eyes_detected)} eyes, {circular_contours} pupils)')
+                print(f'[TECH_SORT] ❌ Eyes closed: {len(eyes_detected)} eyes by cascade, {circular_contours} pupils')
+            
+            if eyes_open:
                 faces_with_open_eyes += 1
+            else:
+                faces_with_closed_eyes += 1
         
-        # Финальное решение: если хотя бы ОДНО лицо с открытыми глазами → фото ОК
+        # Финальное решение: если хотя бы ОДНО лицо с ЗАКРЫТЫМИ глазами → БРАК
         print(f'[TECH_SORT] Summary: {faces_with_open_eyes} faces with open eyes, {faces_with_closed_eyes} with closed')
         
-        if faces_with_open_eyes > 0:
-            print(f'[TECH_SORT] ✅ Photo OK: at least one person with open eyes')
-            return False
+        if faces_with_closed_eyes > 0:
+            print(f'[TECH_SORT] ❌ Photo rejected: at least one person with closed eyes')
+            return True
         
-        # Все лица с закрытыми глазами → брак
-        print(f'[TECH_SORT] ❌ Photo rejected: all faces have closed eyes')
-        return True
+        # Все лица с открытыми глазами → ОК
+        print(f'[TECH_SORT] ✅ Photo OK: all faces have open eyes')
+        return False
         
     except Exception as e:
         print(f'[TECH_SORT] Error in eye detection: {str(e)}')
