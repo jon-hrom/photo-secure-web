@@ -292,8 +292,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         cur.execute('''
                             UPDATE photo_bank
                             SET tech_analyzed = TRUE,
-                                tech_reject_reason = 'no_storage',
-                                updated_at = NOW()
+                                tech_reject_reason = 'no_storage'
                             WHERE id = %s
                         ''', (photo['id'],))
                         continue
@@ -315,8 +314,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         cur.execute('''
                             UPDATE photo_bank
                             SET tech_analyzed = TRUE,
-                                tech_reject_reason = 's3_not_found',
-                                updated_at = NOW()
+                                tech_reject_reason = 's3_not_found'
                             WHERE id = %s
                         ''', (photo['id'],))
                         continue
@@ -358,8 +356,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 SET folder_id = %s,
                                     s3_key = %s,
                                     tech_reject_reason = %s,
-                                    tech_analyzed = TRUE,
-                                    updated_at = NOW()
+                                    tech_analyzed = TRUE
                                 WHERE id = %s
                             ''', (tech_rejects_folder_id, new_s3_key, reason, photo['id']))
                             
@@ -370,8 +367,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             cur.execute('''
                                 UPDATE photo_bank
                                 SET tech_analyzed = TRUE,
-                                    tech_reject_reason = 's3_copy_error',
-                                    updated_at = NOW()
+                                    tech_reject_reason = 's3_copy_error'
                                 WHERE id = %s
                             ''', (photo['id'],))
                             continue
@@ -380,8 +376,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         cur.execute('''
                             UPDATE photo_bank
                             SET tech_analyzed = TRUE,
-                                tech_reject_reason = 'ok',
-                                updated_at = NOW()
+                                tech_reject_reason = 'ok'
                             WHERE id = %s
                         ''', (photo['id'],))
                     
@@ -393,8 +388,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     cur.execute('''
                         UPDATE photo_bank
                         SET tech_analyzed = TRUE,
-                            tech_reject_reason = 'analysis_error',
-                            updated_at = NOW()
+                            tech_reject_reason = 'analysis_error'
                         WHERE id = %s
                     ''', (photo['id'],))
             
