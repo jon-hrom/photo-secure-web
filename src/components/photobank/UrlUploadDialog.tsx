@@ -4,16 +4,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 
+interface UploadResult {
+  total_found: number;
+  uploaded: number;
+  failed: number;
+}
+
 interface UrlUploadDialogProps {
   open: boolean;
   onClose: () => void;
-  onUpload: (url: string) => Promise<void>;
+  onUpload: (url: string) => Promise<UploadResult>;
 }
 
 const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState<{
+    found: number;
+    uploaded: number;
+    total: number;
+  } | null>(null);
 
   const handleUpload = async () => {
     if (!url.trim()) {
@@ -31,14 +42,25 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
 
     setLoading(true);
     setError('');
+    setProgress(null);
 
     try {
-      await onUpload(url);
-      setUrl('');
-      onClose();
+      const result = await onUpload(url);
+      
+      setProgress({
+        found: result.total_found,
+        uploaded: result.uploaded,
+        total: result.total_found
+      });
+
+      // Автоматически закрываем через 2 секунды после успеха
+      setTimeout(() => {
+        setUrl('');
+        setProgress(null);
+        onClose();
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Ошибка при загрузке файлов');
-    } finally {
       setLoading(false);
     }
   };
@@ -47,6 +69,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     if (!loading) {
       setUrl('');
       setError('');
+      setProgress(null);
       onClose();
     }
   };
@@ -80,6 +103,23 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
                 {error}
               </p>
             )}
+            {progress && (
+              <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <Icon name="CheckCircle" size={18} />
+                  <span className="font-medium">Загрузка завершена!</span>
+                </div>
+                <div className="text-sm text-green-600 dark:text-green-400">
+                  <div>Найдено фото: {progress.found}</div>
+                  <div>Загружено: {progress.uploaded}</div>
+                  {progress.found > progress.uploaded && (
+                    <div className="text-orange-600 dark:text-orange-400">
+                      Не удалось: {progress.found - progress.uploaded}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 justify-end">
@@ -97,7 +137,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
               {loading ? (
                 <>
                   <Icon name="Loader2" className="mr-2 animate-spin" size={18} />
-                  Загрузка...
+                  {progress ? 'Загружаем...' : 'Анализируем ссылку...'}
                 </>
               ) : (
                 <>
