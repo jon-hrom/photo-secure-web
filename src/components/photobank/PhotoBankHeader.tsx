@@ -33,6 +33,7 @@ interface PhotoBankHeaderProps {
   onShowCreateFolder: () => void;
   onShowClearConfirm: () => void;
   onShowCameraUpload?: () => void;
+  onShowUrlUpload?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
   onGoBack?: () => void;
@@ -53,6 +54,7 @@ const PhotoBankHeader = ({
   onShowCreateFolder,
   onShowClearConfirm,
   onShowCameraUpload,
+  onShowUrlUpload,
   canGoBack = false,
   canGoForward = false,
   onGoBack,
@@ -145,6 +147,15 @@ const PhotoBankHeader = ({
             >
               <Icon name="Camera" className="mr-2" size={18} />
               Загрузить с камеры
+            </Button>
+          )}
+          {onShowUrlUpload && (
+            <Button 
+              variant="outline"
+              onClick={onShowUrlUpload}
+            >
+              <Icon name="Link" className="mr-2" size={18} />
+              Загрузить по ссылке
             </Button>
           )}
           <Button 

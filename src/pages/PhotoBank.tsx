@@ -6,6 +6,7 @@ import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
 import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
 import CameraUploadDialog from '@/components/photobank/CameraUploadDialog';
+import UrlUploadDialog from '@/components/photobank/UrlUploadDialog';
 import TechSortProgressDialog from '@/components/photobank/TechSortProgressDialog';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
@@ -27,6 +28,7 @@ const PhotoBank = () => {
   const { authChecking } = usePhotoBankAuth();
   const { emailVerified } = useEmailVerification(userId, authChecking);
   const [showCameraUpload, setShowCameraUpload] = useState(false);
+  const [showUrlUpload, setShowUrlUpload] = useState(false);
   const [techSortProgress, setTechSortProgress] = useState({
     open: false,
     progress: 0,
@@ -295,6 +297,15 @@ const PhotoBank = () => {
         }}
       />
 
+      <UrlUploadDialog
+        open={showUrlUpload}
+        onClose={() => setShowUrlUpload(false)}
+        onUpload={async (url: string) => {
+          // TODO: Реализовать загрузку по URL
+          console.log('Upload from URL:', url);
+        }}
+      />
+
       <div className="max-w-7xl mx-auto space-y-6">
         <PhotoBankStorageIndicator storageUsage={storageUsage} />
 
@@ -324,6 +335,7 @@ const PhotoBank = () => {
           onShowCreateFolder={() => setShowCreateFolder(true)}
           onShowClearConfirm={() => setShowClearConfirm(true)}
           onShowCameraUpload={() => setShowCameraUpload(true)}
+          onShowUrlUpload={() => setShowUrlUpload(true)}
           canGoBack={navigation.canGoBack}
           canGoForward={navigation.canGoForward}
           onGoBack={handleGoBack}
