@@ -36,20 +36,30 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
         
         # Проверяем каждое лицо
         for (x, y, w, h) in faces:
-            # Пропускаем маленькие лица (< 60px) - невозможно точно определить
-            if w < 60 or h < 60:
-                print(f'[TECH_SORT] Face too small ({w}x{h}), skipping eye detection')
+            print(f'[TECH_SORT] Face detected at ({x},{y}) size {w}x{h}')
+            
+            # Вырезаем область лица
+            face_roi = gray[y:y+h, x:x+w]
+            
+            if face_roi.size == 0:
                 continue
             
+            # Если лицо маленькое (< 80px) - увеличиваем его для точного анализа
+            if w < 80 or h < 80:
+                scale_factor = 120 / min(w, h)  # Масштабируем до минимум 120px
+                new_w = int(w * scale_factor)
+                new_h = int(h * scale_factor)
+                face_roi = cv2.resize(face_roi, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+                print(f'[TECH_SORT] Face upscaled from {w}x{h} to {new_w}x{new_h} (scale={scale_factor:.2f}x)')
+                w, h = new_w, new_h
+            
             # Область глаз находится примерно на 25-50% высоты лица от верха
-            eye_region_y = y + int(h * 0.25)
+            eye_region_y = int(h * 0.25)
             eye_region_h = int(h * 0.25)
-            eye_region = gray[eye_region_y:eye_region_y + eye_region_h, x:x+w]
+            eye_region = face_roi[eye_region_y:eye_region_y + eye_region_h, 0:w]
             
             if eye_region.size == 0:
                 continue
-            
-            print(f'[TECH_SORT] Face detected at ({x},{y}) size {w}x{h}')
             
             # Детектируем глаза каскадом Хаара
             eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
