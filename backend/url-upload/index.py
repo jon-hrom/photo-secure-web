@@ -68,6 +68,22 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'URL is required'})
         }
     
+    # Если folder_id не указан, создаём новую папку с датой и временем
+    if not folder_id:
+        folder_name = datetime.now().strftime('Загрузка %d.%m.%Y %H:%M')
+        s3_prefix = f'uploads/{user_id}/{int(datetime.now().timestamp())}/'
+        
+        cursor.execute(
+            '''INSERT INTO t_p28211681_photo_secure_web.photo_folders
+               (user_id, folder_name, s3_prefix, folder_type, created_at, updated_at)
+               VALUES (%s, %s, %s, %s, NOW(), NOW())
+               RETURNING id''',
+            (user_id, folder_name, s3_prefix, 'originals')
+        )
+        folder_id = cursor.fetchone()['id']
+        conn.commit()
+        print(f'[URL_UPLOAD] Created new folder: {folder_name} (id={folder_id})')
+    
     # Определяем тип URL и получаем прямую ссылку на скачивание
     try:
         download_urls = get_download_urls(url)
