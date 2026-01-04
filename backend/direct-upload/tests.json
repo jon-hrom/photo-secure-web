@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Batch URLs without auth",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "batch-urls",
+        "files": [{"name": "test.jpg", "type": "image/jpeg", "size": 1000}]
+      },
+      "expectedStatus": 401
+    }
+  ]
+}
