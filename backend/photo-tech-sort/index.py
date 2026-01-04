@@ -218,11 +218,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(f'[TECH_SORT] S3 config: bucket={bucket}, endpoint=https://storage.yandexcloud.net')
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Проверяем что папка принадлежит пользователю и это папка "originals"
-            cur.execute(f'''
+            cur.execute('''
                 SELECT id, folder_name, s3_prefix, folder_type, parent_folder_id
-                FROM t_p28211681_photo_secure_web.photo_folders
-                WHERE id = {folder_id} AND user_id = {user_id} AND is_trashed = FALSE
-            ''')
+                FROM photo_folders
+                WHERE id = %s AND user_id = %s AND is_trashed = FALSE
+            ''', (folder_id, user_id))
             print('[TECH_SORT] Folder query executed')
             
             folder = cur.fetchone()
@@ -235,14 +235,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Проверяем - нет ли уже папки tech_rejects для этой папки
-            cur.execute(f'''
+            cur.execute('''
                 SELECT id, s3_prefix
-                FROM t_p28211681_photo_secure_web.photo_folders
-                WHERE parent_folder_id = {folder_id} 
+                FROM photo_folders
+                WHERE parent_folder_id = %s 
                   AND folder_type = 'tech_rejects' 
-                  AND user_id = {user_id} 
+                  AND user_id = %s 
                   AND is_trashed = FALSE
-            ''')
+            ''', (folder_id, user_id))
             
             tech_rejects_folder = cur.fetchone()
             
@@ -251,12 +251,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 tech_rejects_name = f"{folder['folder_name']} - Технический брак"
                 tech_rejects_prefix = f"{folder['s3_prefix']}tech_rejects/"
                 
-                cur.execute(f'''
-                    INSERT INTO t_p28211681_photo_secure_web.photo_folders 
+                cur.execute('''
+                    INSERT INTO photo_folders 
                     (user_id, folder_name, s3_prefix, folder_type, parent_folder_id, created_at, updated_at)
-                    VALUES ({user_id}, '{tech_rejects_name}', '{tech_rejects_prefix}', 'tech_rejects', {folder_id}, NOW(), NOW())
+                    VALUES (%s, %s, %s, 'tech_rejects', %s, NOW(), NOW())
                     RETURNING id, s3_prefix
-                ''')
+                ''', (user_id, tech_rejects_name, tech_rejects_prefix, folder_id))
                 
                 tech_rejects_folder = cur.fetchone()
                 conn.commit()
@@ -265,15 +265,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             tech_rejects_s3_prefix = tech_rejects_folder['s3_prefix']
             
             # Получаем все фото из папки originals, которые ещё не анализировались
-            cur.execute(f'''
+            cur.execute('''
                 SELECT id, s3_key, s3_url, data_url, file_name, content_type
-                FROM t_p28211681_photo_secure_web.photo_bank
-                WHERE folder_id = {folder_id} 
-                  AND user_id = {user_id} 
+                FROM photo_bank
+                WHERE folder_id = %s 
+                  AND user_id = %s 
                   AND is_trashed = FALSE
                   AND (tech_analyzed = FALSE OR tech_analyzed IS NULL)
                   AND is_video = FALSE
-            ''')
+            ''', (folder_id, user_id))
             
             photos = cur.fetchall()
             print(f'[TECH_SORT] Found {len(photos)} photos to analyze')
@@ -309,24 +309,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         except Exception as s3_err:
                             # Файл не найден в S3 - пропускаем
                             print(f'[TECH_SORT] S3 error for photo {photo["id"]}, key={s3_key}: {str(s3_err)}')
-                            cur.execute(f'''
-                                UPDATE t_p28211681_photo_secure_web.photo_bank
+                            cur.execute('''
+                                UPDATE photo_bank
                                 SET tech_analyzed = TRUE,
                                     tech_reject_reason = 's3_not_found',
                                     updated_at = NOW()
-                                WHERE id = {photo['id']}
-                            ''')
+                                WHERE id = %s
+                            ''', (photo['id'],))
                             continue
                     else:
                         # Нет ни data_url, ни s3_key, ни s3_url - пропускаем
                         print(f'[TECH_SORT] No storage for photo {photo["id"]}')
-                        cur.execute(f'''
-                            UPDATE t_p28211681_photo_secure_web.photo_bank
+                        cur.execute('''
+                            UPDATE photo_bank
                             SET tech_analyzed = TRUE,
                                 tech_reject_reason = 'no_storage',
                                 updated_at = NOW()
-                            WHERE id = {photo['id']}
-                        ''')
+                            WHERE id = %s
+                        ''', (photo['id'],))
                         continue
                     
                     # Определяем является ли файл RAW форматом
@@ -362,60 +362,60 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 s3_client.delete_object(Bucket=bucket, Key=current_s3_key)
                                 
                                 # Обновляем запись в БД
-                                cur.execute(f'''
-                                    UPDATE t_p28211681_photo_secure_web.photo_bank
-                                    SET folder_id = {tech_rejects_folder_id},
-                                        s3_key = '{new_s3_key}',
-                                        tech_reject_reason = '{reason}',
+                                cur.execute('''
+                                    UPDATE photo_bank
+                                    SET folder_id = %s,
+                                        s3_key = %s,
+                                        tech_reject_reason = %s,
                                         tech_analyzed = TRUE,
                                         updated_at = NOW()
-                                    WHERE id = {photo['id']}
-                                ''')
+                                    WHERE id = %s
+                                ''', (tech_rejects_folder_id, new_s3_key, reason, photo['id']))
                             except Exception as copy_err:
                                 # Ошибка при копировании - помечаем как ошибку
                                 print(f'[TECH_SORT] S3 copy error for photo {photo["id"]}: {str(copy_err)}')
-                                cur.execute(f'''
-                                    UPDATE t_p28211681_photo_secure_web.photo_bank
+                                cur.execute('''
+                                    UPDATE photo_bank
                                     SET tech_analyzed = TRUE,
                                         tech_reject_reason = 's3_copy_error',
                                         updated_at = NOW()
-                                    WHERE id = {photo['id']}
-                                ''')
+                                    WHERE id = %s
+                                ''', (photo['id'],))
                                 continue
                         else:
                             # Фото в data_url - просто меняем папку
-                            cur.execute(f'''
-                                UPDATE t_p28211681_photo_secure_web.photo_bank
-                                SET folder_id = {tech_rejects_folder_id},
-                                    tech_reject_reason = '{reason}',
+                            cur.execute('''
+                                UPDATE photo_bank
+                                SET folder_id = %s,
+                                    tech_reject_reason = %s,
                                     tech_analyzed = TRUE,
                                     updated_at = NOW()
-                                WHERE id = {photo['id']}
-                            ''')
+                                WHERE id = %s
+                            ''', (tech_rejects_folder_id, reason, photo['id']))
                         
                         rejected_count += 1
                     else:
                         # Фото ОК - просто помечаем как проанализированное
-                        cur.execute(f'''
-                            UPDATE t_p28211681_photo_secure_web.photo_bank
+                        cur.execute('''
+                            UPDATE photo_bank
                             SET tech_analyzed = TRUE,
                                 tech_reject_reason = 'ok',
                                 updated_at = NOW()
-                            WHERE id = {photo['id']}
-                        ''')
+                            WHERE id = %s
+                        ''', (photo['id'],))
                     
                     processed_count += 1
                     
                 except Exception as e:
                     print(f'[TECH_SORT] Error processing photo {photo["id"]}: {str(e)}')
                     # Помечаем фото как проанализированное с ошибкой
-                    cur.execute(f'''
-                        UPDATE t_p28211681_photo_secure_web.photo_bank
+                    cur.execute('''
+                        UPDATE photo_bank
                         SET tech_analyzed = TRUE,
                             tech_reject_reason = 'analysis_error',
                             updated_at = NOW()
-                        WHERE id = {photo['id']}
-                    ''')
+                        WHERE id = %s
+                    ''', (photo['id'],))
             
             conn.commit()
             
