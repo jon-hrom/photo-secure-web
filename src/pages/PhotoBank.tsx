@@ -301,8 +301,39 @@ const PhotoBank = () => {
         open={showUrlUpload}
         onClose={() => setShowUrlUpload(false)}
         onUpload={async (url: string) => {
-          // TODO: Реализовать загрузку по URL
-          console.log('Upload from URL:', url);
+          const sessionToken = localStorage.getItem('session_token');
+          if (!sessionToken) throw new Error('Требуется авторизация');
+
+          const response = await fetch('https://functions.poehali.dev/f0385237-b64f-49d6-8491-e534ca5056f7', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+              url,
+              folder_id: selectedFolder?.id || null
+            })
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Ошибка загрузки');
+          }
+
+          const result = await response.json();
+          
+          if (result.failed > 0) {
+            console.warn('Некоторые файлы не удалось загрузить:', result.errors);
+          }
+
+          await fetchFolders();
+          await fetchStorageUsage();
+          if (selectedFolder) {
+            await fetchPhotos(selectedFolder.id);
+          }
+
+          return result;
         }}
       />
 

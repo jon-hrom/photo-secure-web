@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Missing authorization",
+      "method": "POST",
+      "path": "/",
+      "headers": {},
+      "body": {
+        "url": "https://example.com/photo.jpg"
+      },
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "Unauthorized"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Missing URL parameter",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-Authorization": "Bearer test_token"
+      },
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
