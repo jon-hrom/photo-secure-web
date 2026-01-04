@@ -197,8 +197,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 SET folder_id = %s,
                     s3_key = %s,
                     tech_reject_reason = NULL,
-                    tech_analyzed = TRUE,
-                    updated_at = NOW()
+                    tech_analyzed = TRUE
                 WHERE id = %s
             ''', (parent_folder_id, new_s3_key, photo_id))
             
