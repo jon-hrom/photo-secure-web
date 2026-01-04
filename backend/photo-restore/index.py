@@ -179,16 +179,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             # Копируем фото обратно в originals
-            try:
-                s3_client.copy_object(
-                    Bucket=bucket,
-                    CopySource={'Bucket': bucket, 'Key': current_s3_key},
-                    Key=new_s3_key
-                )
-                print(f'[PHOTO_RESTORE] S3 copy successful')
-            except Exception as copy_err:
-                print(f'[PHOTO_RESTORE] S3 copy failed: {str(copy_err)}')
-                raise
+            s3_client.copy_object(
+                Bucket=bucket,
+                CopySource={'Bucket': bucket, 'Key': current_s3_key},
+                Key=new_s3_key
+            )
+            print(f'[PHOTO_RESTORE] S3 copy successful')
             
             # Обновляем запись в БД
             cur.execute('''
@@ -201,15 +197,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 WHERE id = %s
             ''', (parent_folder_id, new_s3_key, photo_id))
             
-            # Удаляем старый файл из S3
+            conn.commit()
+            
+            # Удаляем старый файл из S3 (не критично если не получится)
             try:
                 s3_client.delete_object(Bucket=bucket, Key=current_s3_key)
                 print(f'[PHOTO_RESTORE] Old S3 file deleted')
             except Exception as del_err:
-                print(f'[PHOTO_RESTORE] Failed to delete old file: {str(del_err)}')
-                # Не критичная ошибка, продолжаем
-            
-            conn.commit()
+                print(f'[PHOTO_RESTORE] Failed to delete old file (non-critical): {str(del_err)}')
             
             print(f'[PHOTO_RESTORE] Success! Photo {photo_id} restored to folder {parent_folder_id}')
             
