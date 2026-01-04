@@ -107,10 +107,12 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'По ссылке не найдено фото'})
         }
     
-    # Ограничиваем до 20 файлов за раз
-    max_files = 20
+    # Ограничиваем до 5 файлов за раз (чтобы уложиться в 30 сек)
+    max_files = 5
     total_found = len(filtered_urls)
     filtered_urls = filtered_urls[:max_files]
+    
+    print(f'[URL_UPLOAD] Found {total_found} images, will process first {len(filtered_urls)}')
     
     # Настройка S3
     s3 = boto3.client('s3',
@@ -124,14 +126,18 @@ def handler(event: dict, context) -> dict:
     uploaded_files = []
     failed_files = []
     
-    for url_info in filtered_urls:
+    for idx, url_info in enumerate(filtered_urls):
         try:
             download_url = url_info['url']
             filename = url_info['name']
             
+            print(f'[URL_UPLOAD] Processing {idx+1}/{len(filtered_urls)}: {filename}')
+            
             # Скачиваем файл (снижаем timeout)
-            response = requests.get(download_url, timeout=10, stream=True)
+            response = requests.get(download_url, timeout=8, stream=True)
             response.raise_for_status()
+            
+            print(f'[URL_UPLOAD] Downloaded {filename}, size: {response.headers.get("content-length", "unknown")}')
             
             file_size = int(response.headers.get('content-length', 0))
             
@@ -145,6 +151,8 @@ def handler(event: dict, context) -> dict:
             timestamp = int(datetime.now().timestamp() * 1000)
             s3_key = f'uploads/{user_id}/{timestamp}_{filename}'
             
+            print(f'[URL_UPLOAD] Uploading to S3: {s3_key}')
+            
             with open(temp_path, 'rb') as f:
                 s3.put_object(
                     Bucket=bucket,
@@ -152,6 +160,8 @@ def handler(event: dict, context) -> dict:
                     Body=f,
                     ContentType=response.headers.get('content-type', 'application/octet-stream')
                 )
+            
+            print(f'[URL_UPLOAD] Uploaded to S3 successfully')
             
             # Удаляем временный файл
             os.unlink(temp_path)
@@ -173,7 +183,10 @@ def handler(event: dict, context) -> dict:
                 'size': file_size
             })
             
+            print(f'[URL_UPLOAD] Saved to DB with id={photo_id}')
+            
         except Exception as e:
+            print(f'[URL_UPLOAD] Error processing {url_info["name"]}: {str(e)}')
             failed_files.append({
                 'filename': url_info['name'],
                 'error': str(e)

@@ -117,9 +117,9 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
                       Не удалось: {progress.found - progress.uploaded}
                     </div>
                   )}
-                  {progress.found > 20 && (
+                  {progress.found > 5 && (
                     <div className="text-blue-600 dark:text-blue-400 mt-2">
-                      ℹ️ Загружено первые 20 фото. Повторите для следующей порции.
+                      ℹ️ Загружается по 5 фото за раз. Повторите для следующей порции.
                     </div>
                   )}
                 </div>
