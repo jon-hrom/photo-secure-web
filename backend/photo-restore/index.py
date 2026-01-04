@@ -87,6 +87,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
+        # Сохраняем переменные для использования вне блока курсора
+        current_s3_key = None
+        parent_folder_id = None
+        
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Получаем информацию о фото
             cur.execute('''
@@ -187,6 +191,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print(f'[PHOTO_RESTORE] S3 copy successful')
             
             # Обновляем запись в БД
+            print(f'[PHOTO_RESTORE] Updating database record...')
             cur.execute('''
                 UPDATE t_p28211681_photo_secure_web.photo_bank
                 SET folder_id = %s,
@@ -197,28 +202,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 WHERE id = %s
             ''', (parent_folder_id, new_s3_key, photo_id))
             
+            print(f'[PHOTO_RESTORE] Committing transaction...')
             conn.commit()
-            
-            # Удаляем старый файл из S3 (не критично если не получится)
-            try:
-                s3_client.delete_object(Bucket=bucket, Key=current_s3_key)
-                print(f'[PHOTO_RESTORE] Old S3 file deleted')
-            except Exception as del_err:
-                print(f'[PHOTO_RESTORE] Failed to delete old file (non-critical): {str(del_err)}')
-            
-            print(f'[PHOTO_RESTORE] Success! Photo {photo_id} restored to folder {parent_folder_id}')
-            
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({
-                    'success': True,
-                    'message': 'Фото восстановлено в оригиналы',
-                    'photo_id': photo_id,
-                    'new_folder_id': parent_folder_id
-                }),
-                'isBase64Encoded': False
-            }
+            print(f'[PHOTO_RESTORE] Transaction committed successfully')
+        
+        # Удаляем старый файл из S3 (не критично если не получится)
+        # Делаем вне контекста курсора чтобы не влиять на транзакцию
+        try:
+            print(f'[PHOTO_RESTORE] Attempting to delete old S3 file: {current_s3_key}')
+            s3_client.delete_object(Bucket=bucket, Key=current_s3_key)
+            print(f'[PHOTO_RESTORE] Old S3 file deleted successfully')
+        except Exception as del_err:
+            print(f'[PHOTO_RESTORE] Failed to delete old file (non-critical): {str(del_err)}')
+        
+        print(f'[PHOTO_RESTORE] Success! Photo {photo_id} restored to folder {parent_folder_id}')
+        
+        return {
+            'statusCode': 200,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({
+                'success': True,
+                'message': 'Фото восстановлено в оригиналы',
+                'photo_id': photo_id,
+                'new_folder_id': parent_folder_id
+            }),
+            'isBase64Encoded': False
+        }
             
     except Exception as e:
         print(f'[PHOTO_RESTORE] Error: {str(e)}')
