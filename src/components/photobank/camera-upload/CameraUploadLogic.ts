@@ -10,6 +10,9 @@ import {
   BATCH_SIZE
 } from './CameraUploadTypes';
 
+const DIRECT_UPLOAD_API = 'https://functions.poehali.dev/145813d2-d8f3-4a2b-b38e-08583a3153da';
+const URL_BATCH_SIZE = 50; // Получаем URLs пачками по 50 файлов
+
 export const useCameraUploadLogic = (
   userId: string,
   uploading: boolean,
@@ -29,10 +32,48 @@ export const useCameraUploadLogic = (
   const pendingStatsRef = useRef({ completedFiles: 0, totalFiles: 0, startTime: 0 });
   const cancelledRef = useRef(false);
 
-  const uploadFile = async (fileStatus: FileUploadStatus, retryAttempt: number = 0): Promise<void> => {
+  // Получаем presigned URLs пачкой для ускорения
+  const getBatchUrls = async (files: FileUploadStatus[]): Promise<Map<string, {url: string, key: string}>> => {
+    const filesData = files.map(f => ({
+      name: f.file.name,
+      type: f.file.type,
+      size: f.file.size
+    }));
+
+    const response = await fetch(DIRECT_UPLOAD_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': userId
+      },
+      body: JSON.stringify({
+        action: 'batch-urls',
+        files: filesData
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to get upload URLs');
+
+    const data = await response.json();
+    const urlMap = new Map<string, {url: string, key: string}>();
+    
+    data.uploads.forEach((upload: any) => {
+      urlMap.set(upload.filename, {
+        url: upload.url,
+        key: upload.key
+      });
+    });
+
+    return urlMap;
+  };
+
+  const uploadFile = async (fileStatus: FileUploadStatus, uploadUrl?: string, s3Key?: string, retryAttempt: number = 0): Promise<void> => {
     const { file } = fileStatus;
     const abortController = new AbortController();
     abortControllersRef.current.set(file.name, abortController);
+
+    const lastProgressUpdate = 0;
+    const PROGRESS_THROTTLE = 200; // обновляем прогресс раз в 200мс
 
     try {
       setFiles(prev => {
@@ -49,23 +90,39 @@ export const useCameraUploadLogic = (
         throw new Error('Нет подключения к интернету');
       }
 
-      const urlResponse = await fetch(
-        `${MOBILE_UPLOAD_API}?action=get-url&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
-        {
-          headers: { 'X-User-Id': userId },
-          signal: abortController.signal,
-        }
-      );
-
-      if (!urlResponse.ok) throw new Error('Failed to get upload URL');
+      // Если URL не передан, получаем его (fallback на старую систему)
+      let url = uploadUrl;
+      let key = s3Key;
       
-      const { url, key } = await urlResponse.json();
+      if (!url || !key) {
+        const urlResponse = await fetch(
+          `${MOBILE_UPLOAD_API}?action=get-url&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
+          {
+            headers: { 'X-User-Id': userId },
+            signal: abortController.signal,
+          }
+        );
+
+        if (!urlResponse.ok) throw new Error('Failed to get upload URL');
+        
+        const urlData = await urlResponse.json();
+        url = urlData.url;
+        key = urlData.key;
+      }
 
       const xhr = new XMLHttpRequest();
       
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
-          const progress = (e.loaded / e.total) * 100;
+          const now = Date.now();
+          // Throttling: обновляем не чаще раза в 200мс
+          if (now - lastProgressUpdate < PROGRESS_THROTTLE && e.loaded < e.total) {
+            return;
+          }
+          lastProgressUpdate = now;
+          
+          const progress = Math.min(99, (e.loaded / e.total) * 100); // макс 99% до завершения
+          
           setFiles(prev => {
             const updated = prev.map(f => 
               f.file.name === file.name ? { ...f, progress } : f
@@ -87,25 +144,12 @@ export const useCameraUploadLogic = (
         xhr.onerror = () => reject(new Error('Network error'));
         xhr.onabort = () => reject(new Error('Upload cancelled'));
 
-        xhr.open('PUT', url);
+        xhr.open('PUT', url!);
         xhr.setRequestHeader('Content-Type', file.type);
         xhr.send(file);
       });
 
-      await fetch(MOBILE_UPLOAD_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId,
-        },
-        body: JSON.stringify({
-          action: 'confirm',
-          s3_key: key,
-          orig_filename: file.name,
-          size_bytes: file.size,
-          content_type: file.type,
-        }),
-      });
+      // Confirm запрос НЕ нужен при использовании новой системы - файлы добавляются в БД пачкой после всех загрузок
 
       setFiles(prev => {
         const updated = prev.map(f => 
@@ -115,7 +159,7 @@ export const useCameraUploadLogic = (
         );
         filesRef.current = updated;
         
-        // Обновляем статистику с debounce (300ms) чтобы избежать дергания
+        // Обновляем статистику с debounce (500ms) чтобы избежать дергания
         const actualCompleted = updated.filter(f => f.status === 'success').length;
         pendingStatsRef.current.completedFiles = actualCompleted;
         
@@ -140,7 +184,7 @@ export const useCameraUploadLogic = (
               estimatedTimeRemaining
             };
           });
-        }, 300);
+        }, 500); // Увеличено с 300 до 500мс для плавности
         
         return updated;
       });
@@ -219,13 +263,44 @@ export const useCameraUploadLogic = (
         startTime: Date.now()
       };
       
-      for (let i = 0; i < pendingFiles.length; i += MAX_CONCURRENT_UPLOADS) {
-        if (cancelledRef.current) {
-          console.log('[CAMERA_UPLOAD] Upload cancelled by user');
-          break;
+      // НОВАЯ ОПТИМИЗАЦИЯ: Получаем URLs пачками по 50 файлов
+      console.log('[CAMERA_UPLOAD] Using batch URL fetching for faster upload');
+      
+      for (let urlBatchStart = 0; urlBatchStart < pendingFiles.length; urlBatchStart += URL_BATCH_SIZE) {
+        if (cancelledRef.current) break;
+        
+        const urlBatch = pendingFiles.slice(urlBatchStart, urlBatchStart + URL_BATCH_SIZE);
+        console.log(`[CAMERA_UPLOAD] Fetching URLs for ${urlBatch.length} files...`);
+        
+        let urlMap: Map<string, {url: string, key: string}>;
+        try {
+          urlMap = await getBatchUrls(urlBatch);
+          console.log(`[CAMERA_UPLOAD] Got ${urlMap.size} URLs`);
+        } catch (error) {
+          console.error('[CAMERA_UPLOAD] Batch URL fetch failed, falling back to individual requests:', error);
+          // Fallback: загружаем без batch URLs
+          for (let i = 0; i < urlBatch.length; i += MAX_CONCURRENT_UPLOADS) {
+            if (cancelledRef.current) break;
+            const batch = urlBatch.slice(i, i + MAX_CONCURRENT_UPLOADS);
+            await Promise.all(batch.map(f => uploadFile(f)));
+          }
+          continue;
         }
-        const batch = pendingFiles.slice(i, i + MAX_CONCURRENT_UPLOADS);
-        await Promise.all(batch.map(uploadFile));
+        
+        // Загружаем файлы параллельно по MAX_CONCURRENT_UPLOADS
+        for (let i = 0; i < urlBatch.length; i += MAX_CONCURRENT_UPLOADS) {
+          if (cancelledRef.current) break;
+          
+          const batch = urlBatch.slice(i, i + MAX_CONCURRENT_UPLOADS);
+          await Promise.all(batch.map(fileStatus => {
+            const urlInfo = urlMap.get(fileStatus.file.name);
+            if (!urlInfo) {
+              console.error(`[CAMERA_UPLOAD] No URL for ${fileStatus.file.name}, skipping`);
+              return Promise.resolve();
+            }
+            return uploadFile(fileStatus, urlInfo.url, urlInfo.key);
+          }));
+        }
       }
       
       if (cancelledRef.current) {
