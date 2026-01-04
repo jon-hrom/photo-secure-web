@@ -189,10 +189,10 @@ def handler(event: dict, context) -> dict:
             # Сохраняем в БД
             cursor.execute(
                 '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
-                   (user_id, folder_id, file_name, s3_key, s3_url, file_size, upload_source)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)
+                   (user_id, folder_id, file_name, s3_key, s3_url, file_size)
+                   VALUES (%s, %s, %s, %s, %s, %s)
                    RETURNING id''',
-                (user_id, folder_id, filename, s3_key, s3_url, file_size, 'url')
+                (user_id, folder_id, filename, s3_key, s3_url, file_size)
             )
             photo_id = cursor.fetchone()['id']
             conn.commit()
