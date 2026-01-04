@@ -19,14 +19,14 @@ from PIL import Image
 
 def detect_closed_eyes(img: np.ndarray) -> bool:
     """
-    Улучшенная детекция закрытых глаз через анализ круглых форм
-    Открытые глаза = круглые тёмные области (зрачки) в светлых областях (белки)
-    Закрытые глаза = горизонтальные линии без круглых форм
-    ВАЖНО: Если хотя бы у ОДНОГО человека глаза открыты → фото OK
-    Returns: True если ВСЕ лица с закрытыми глазами, False если хотя бы одно лицо с открытыми
+    Улучшенная детекция закрытых глаз с учётом улыбки
+    ВАЖНО: Если человек улыбается (видны зубы) → прикрытые глаза это НОРМАЛЬНО (не брак)
+    Логика: Если хотя бы ОДНО лицо с закрытыми глазами БЕЗ улыбки → фото БРАК
+    Returns: True если есть лица с закрытыми глазами БЕЗ улыбки, False если все ОК
     """
     try:
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
         
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
@@ -35,9 +35,9 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
         if len(faces) == 0:
             return False
         
-        # Счётчик лиц с закрытыми глазами
-        faces_with_closed_eyes = 0
-        faces_with_open_eyes = 0
+        # Счётчик лиц с закрытыми глазами БЕЗ улыбки (это брак)
+        faces_with_closed_eyes_no_smile = 0
+        faces_ok = 0
         
         # Проверяем каждое лицо
         for (x, y, w, h) in faces:
@@ -50,6 +50,7 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
                 continue
             
             # Если лицо маленькое (< 80px) - увеличиваем его для точного анализа
+            original_w, original_h = w, h
             if w < 80 or h < 80:
                 scale_factor = 120 / min(w, h)  # Масштабируем до минимум 120px
                 new_w = int(w * scale_factor)
@@ -58,6 +59,22 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
                 print(f'[TECH_SORT] Face upscaled from {w}x{h} to {new_w}x{new_h} (scale={scale_factor:.2f}x)')
                 w, h = new_w, new_h
             
+            # ШАГ 1: Проверяем УЛЫБКУ на оригинальном лице (до масштабирования глаз)
+            # Область рта находится в нижней половине лица
+            mouth_region_y = int(h * 0.5)
+            mouth_region = face_roi[mouth_region_y:h, 0:w]
+            
+            smiles_detected = smile_cascade.detectMultiScale(
+                mouth_region,
+                scaleFactor=1.3,
+                minNeighbors=20,  # Высокий порог чтобы избежать ложных срабатываний
+                minSize=(int(w*0.25), int(h*0.15))
+            )
+            
+            is_smiling = len(smiles_detected) > 0
+            print(f'[TECH_SORT] Smile detection: {len(smiles_detected)} smiles found → {"😊 SMILING" if is_smiling else "neutral"}')
+            
+            # ШАГ 2: Проверяем ГЛАЗА
             # Область глаз находится примерно на 25-50% высоты лица от верха
             eye_region_y = int(h * 0.25)
             eye_region_h = int(h * 0.25)
@@ -133,20 +150,26 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
             else:
                 print(f'[TECH_SORT] ❌ Eyes closed: {len(eyes_detected)} eyes by cascade, {circular_contours} pupils')
             
+            # ШАГ 3: ФИНАЛЬНОЕ РЕШЕНИЕ ДЛЯ ЭТОГО ЛИЦА
             if eyes_open:
-                faces_with_open_eyes += 1
+                faces_ok += 1
+                print(f'[TECH_SORT] ✅ Face OK: eyes open')
+            elif is_smiling:
+                faces_ok += 1
+                print(f'[TECH_SORT] ✅ Face OK: eyes closed but SMILING (прищур при улыбке)')
             else:
-                faces_with_closed_eyes += 1
+                faces_with_closed_eyes_no_smile += 1
+                print(f'[TECH_SORT] ❌ Face REJECT: eyes closed and NO smile')
         
-        # Финальное решение: если хотя бы ОДНО лицо с ЗАКРЫТЫМИ глазами → БРАК
-        print(f'[TECH_SORT] Summary: {faces_with_open_eyes} faces with open eyes, {faces_with_closed_eyes} with closed')
+        # Финальное решение: если хотя бы ОДНО лицо с закрытыми глазами БЕЗ улыбки → БРАК
+        print(f'[TECH_SORT] Summary: {faces_ok} faces OK, {faces_with_closed_eyes_no_smile} with closed eyes (no smile)')
         
-        if faces_with_closed_eyes > 0:
-            print(f'[TECH_SORT] ❌ Photo rejected: at least one person with closed eyes')
+        if faces_with_closed_eyes_no_smile > 0:
+            print(f'[TECH_SORT] ❌ Photo REJECTED: at least one person with closed eyes WITHOUT smile')
             return True
         
-        # Все лица с открытыми глазами → ОК
-        print(f'[TECH_SORT] ✅ Photo OK: all faces have open eyes')
+        # Все лица в порядке → ОК
+        print(f'[TECH_SORT] ✅ Photo OK: all faces have open eyes OR smiling')
         return False
         
     except Exception as e:
