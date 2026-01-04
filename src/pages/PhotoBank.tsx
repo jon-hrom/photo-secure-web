@@ -328,7 +328,17 @@ const PhotoBank = () => {
 
           await fetchFolders();
           await fetchStorageUsage();
-          if (selectedFolder) {
+          
+          // Если загрузка была в новую папку, обновляем её список фото
+          if (result.folder_id) {
+            await fetchPhotos(result.folder_id);
+            // Выбираем эту папку автоматически
+            const updatedFolders = await fetchFolders();
+            const newFolder = updatedFolders?.find(f => f.id === result.folder_id);
+            if (newFolder) {
+              setSelectedFolder(newFolder);
+            }
+          } else if (selectedFolder) {
             await fetchPhotos(selectedFolder.id);
           }
 

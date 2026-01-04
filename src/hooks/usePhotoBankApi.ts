@@ -66,6 +66,7 @@ export const usePhotoBankApi = (
       console.log('[FETCH_FOLDERS] Folders count:', data.folders?.length || 0);
       
       setFolders(data.folders || []);
+      return data.folders || [];
     } catch (error: any) {
       console.error('[FETCH_FOLDERS] Error:', error);
       toast({
@@ -73,6 +74,7 @@ export const usePhotoBankApi = (
         description: `Не удалось загрузить папки: ${error.message}`,
         variant: 'destructive'
       });
+      return [];
     } finally {
       setLoading(false);
     }

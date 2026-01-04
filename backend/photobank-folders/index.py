@@ -207,12 +207,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         config=Config(signature_version='s3v4')
                     )
                     
+                    # Получаем дополнительно s3_url и thumbnail_s3_url из БД (прямые CDN ссылки)
+                    cur.execute('''
+                        SELECT 
+                            id,
+                            s3_url as direct_s3_url,
+                            thumbnail_s3_url as direct_thumbnail_url
+                        FROM t_p28211681_photo_secure_web.photo_bank
+                        WHERE folder_id = %s AND user_id = %s AND is_trashed = FALSE
+                    ''', (folder_id, user_id))
+                    direct_urls = {row['id']: row for row in cur.fetchall()}
+                    
                     for photo in photos:
                         if photo['created_at']:
                             photo['created_at'] = photo['created_at'].isoformat()
                         
-                        # Генерируем URL для оригинала
-                        if photo['s3_key']:
+                        photo_id = photo['id']
+                        direct_data = direct_urls.get(photo_id, {})
+                        
+                        # Используем прямые CDN URL если есть, иначе генерируем presigned
+                        if direct_data.get('direct_s3_url'):
+                            photo['s3_url'] = direct_data['direct_s3_url']
+                        elif photo['s3_key']:
                             try:
                                 photo['s3_url'] = s3_client.generate_presigned_url(
                                     'get_object',
@@ -229,8 +245,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 except Exception:
                                     photo['s3_url'] = None
                         
-                        # Генерируем URL для превью (если есть)
-                        if photo.get('thumbnail_s3_key'):
+                        # Используем прямые CDN URL для превью если есть
+                        if direct_data.get('direct_thumbnail_url'):
+                            photo['thumbnail_s3_url'] = direct_data['direct_thumbnail_url']
+                        elif photo.get('thumbnail_s3_key'):
                             try:
                                 photo['thumbnail_s3_url'] = s3_client.generate_presigned_url(
                                     'get_object',

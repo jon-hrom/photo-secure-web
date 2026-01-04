@@ -8,6 +8,8 @@ import boto3
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from PIL import Image
+from io import BytesIO
 
 def handler(event: dict, context) -> dict:
     '''API для загрузки фото по URL (Яндекс Диск, Google Drive и др.)'''
@@ -156,26 +158,28 @@ def handler(event: dict, context) -> dict:
             print(f'[URL_UPLOAD] Downloaded {filename}, size: {response.headers.get("content-length", "unknown")}')
             
             file_size = int(response.headers.get('content-length', 0))
+            file_content = response.content
             
-            # Сохраняем во временный файл
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    temp_file.write(chunk)
-                temp_path = temp_file.name
+            # Получаем folder s3_prefix из БД
+            cursor.execute(
+                '''SELECT s3_prefix FROM t_p28211681_photo_secure_web.photo_folders
+                   WHERE id = %s''',
+                (folder_id,)
+            )
+            folder_result = cursor.fetchone()
+            s3_prefix = folder_result['s3_prefix'] if folder_result else f'uploads/{user_id}/{int(datetime.now().timestamp())}/'
             
-            # Загружаем в S3
-            timestamp = int(datetime.now().timestamp() * 1000)
-            s3_key = f'uploads/{user_id}/{timestamp}_{filename}'
+            # Загружаем в S3 с оригинальным именем
+            s3_key = f'{s3_prefix}{filename}'
             
             print(f'[URL_UPLOAD] Uploading to S3: {s3_key}')
             
-            with open(temp_path, 'rb') as f:
-                s3.put_object(
-                    Bucket=bucket,
-                    Key=s3_key,
-                    Body=f,
-                    ContentType=response.headers.get('content-type', 'application/octet-stream')
-                )
+            s3.put_object(
+                Bucket=bucket,
+                Key=s3_key,
+                Body=file_content,
+                ContentType=response.headers.get('content-type', 'application/octet-stream')
+            )
             
             print(f'[URL_UPLOAD] Uploaded to S3 successfully')
             
@@ -183,16 +187,55 @@ def handler(event: dict, context) -> dict:
             aws_key_id = os.environ['AWS_ACCESS_KEY_ID']
             s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{s3_key}'
             
-            # Удаляем временный файл
-            os.unlink(temp_path)
+            # Генерируем превью
+            thumbnail_s3_key = None
+            thumbnail_s3_url = None
+            width = None
+            height = None
+            
+            try:
+                img = Image.open(BytesIO(file_content))
+                width, height = img.size
+                
+                # Создаём превью (макс 1920px)
+                img.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
+                
+                # Конвертируем в JPEG если нужно
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.getchannel('A') if 'A' in img.getbands() else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Сохраняем в буфер
+                thumb_buffer = BytesIO()
+                img.save(thumb_buffer, format='JPEG', quality=85, optimize=True)
+                thumb_buffer.seek(0)
+                
+                # Загружаем превью в S3
+                thumbnail_s3_key = f'{s3_prefix}thumbnails/{filename}.jpg'
+                s3.put_object(
+                    Bucket=bucket,
+                    Key=thumbnail_s3_key,
+                    Body=thumb_buffer.getvalue(),
+                    ContentType='image/jpeg'
+                )
+                thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{thumbnail_s3_key}'
+                
+                print(f'[URL_UPLOAD] Generated thumbnail: {thumbnail_s3_key}')
+            except Exception as thumb_error:
+                print(f'[URL_UPLOAD] Could not generate thumbnail: {str(thumb_error)}')
             
             # Сохраняем в БД
             cursor.execute(
                 '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
-                   (user_id, folder_id, file_name, s3_key, s3_url, file_size)
-                   VALUES (%s, %s, %s, %s, %s, %s)
+                   (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    RETURNING id''',
-                (user_id, folder_id, filename, s3_key, s3_url, file_size)
+                (user_id, folder_id, filename, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url)
             )
             photo_id = cursor.fetchone()['id']
             conn.commit()
@@ -200,7 +243,9 @@ def handler(event: dict, context) -> dict:
             uploaded_files.append({
                 'id': photo_id,
                 'filename': filename,
-                'size': file_size
+                'size': file_size,
+                's3_url': s3_url,
+                'thumbnail_s3_url': thumbnail_s3_url
             })
             
             print(f'[URL_UPLOAD] Saved to DB with id={photo_id}')

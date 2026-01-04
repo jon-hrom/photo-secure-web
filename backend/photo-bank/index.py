@@ -103,7 +103,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         SELECT id, file_name, file_data, file_size, width, height, created_at,
-                               is_video, content_type, thumbnail_s3_url
+                               is_video, content_type, thumbnail_s3_url, s3_url, s3_key, is_raw
                         FROM photo_bank
                         WHERE folder_id = %s AND user_id = %s
                         ORDER BY created_at DESC
