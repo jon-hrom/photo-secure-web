@@ -220,7 +220,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Проверяем что папка принадлежит пользователю и это папка "originals"
             cur.execute('''
                 SELECT id, folder_name, s3_prefix, folder_type, parent_folder_id
-                FROM t_p28211681_photo_secure_web.photo_folders
+                FROM photo_folders
                 WHERE id = %s AND user_id = %s AND is_trashed = FALSE
             ''', (folder_id, user_id))
             print('[TECH_SORT] Folder query executed')
@@ -237,7 +237,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Проверяем - нет ли уже папки tech_rejects для этой папки
             cur.execute('''
                 SELECT id, s3_prefix
-                FROM t_p28211681_photo_secure_web.photo_folders
+                FROM photo_folders
                 WHERE parent_folder_id = %s 
                   AND folder_type = 'tech_rejects' 
                   AND user_id = %s 
@@ -252,7 +252,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 tech_rejects_prefix = f"{folder['s3_prefix']}tech_rejects/"
                 
                 cur.execute('''
-                    INSERT INTO t_p28211681_photo_secure_web.photo_folders 
+                    INSERT INTO photo_folders 
                     (user_id, folder_name, s3_prefix, folder_type, parent_folder_id, created_at, updated_at)
                     VALUES (%s, %s, %s, 'tech_rejects', %s, NOW(), NOW())
                     RETURNING id, s3_prefix
@@ -267,7 +267,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Получаем все фото из папки originals, которые ещё не анализировались
             cur.execute('''
                 SELECT id, s3_key, s3_url, data_url, file_name, content_type
-                FROM t_p28211681_photo_secure_web.photo_bank
+                FROM photo_bank
                 WHERE folder_id = %s 
                   AND user_id = %s 
                   AND is_trashed = FALSE
@@ -321,7 +321,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         # Нет ни data_url, ни s3_key, ни s3_url - пропускаем
                         print(f'[TECH_SORT] No storage for photo {photo["id"]}')
                         cur.execute('''
-                            UPDATE t_p28211681_photo_secure_web.photo_bank
+                            UPDATE photo_bank
                             SET tech_analyzed = TRUE,
                                 tech_reject_reason = 'no_storage',
                                 updated_at = NOW()
@@ -363,7 +363,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 
                                 # Обновляем запись в БД
                                 cur.execute('''
-                                    UPDATE t_p28211681_photo_secure_web.photo_bank
+                                    UPDATE photo_bank
                                     SET folder_id = %s,
                                         s3_key = %s,
                                         tech_reject_reason = %s,
@@ -375,7 +375,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 # Ошибка при копировании - помечаем как ошибку
                                 print(f'[TECH_SORT] S3 copy error for photo {photo["id"]}: {str(copy_err)}')
                                 cur.execute('''
-                                    UPDATE t_p28211681_photo_secure_web.photo_bank
+                                    UPDATE photo_bank
                                     SET tech_analyzed = TRUE,
                                         tech_reject_reason = 's3_copy_error',
                                         updated_at = NOW()
@@ -385,7 +385,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         else:
                             # Фото в data_url - просто меняем папку
                             cur.execute('''
-                                UPDATE t_p28211681_photo_secure_web.photo_bank
+                                UPDATE photo_bank
                                 SET folder_id = %s,
                                     tech_reject_reason = %s,
                                     tech_analyzed = TRUE,
@@ -397,7 +397,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     else:
                         # Фото ОК - просто помечаем как проанализированное
                         cur.execute('''
-                            UPDATE t_p28211681_photo_secure_web.photo_bank
+                            UPDATE photo_bank
                             SET tech_analyzed = TRUE,
                                 tech_reject_reason = 'ok',
                                 updated_at = NOW()
@@ -410,7 +410,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     print(f'[TECH_SORT] Error processing photo {photo["id"]}: {str(e)}')
                     # Помечаем фото как проанализированное с ошибкой
                     cur.execute('''
-                        UPDATE t_p28211681_photo_secure_web.photo_bank
+                        UPDATE photo_bank
                         SET tech_analyzed = TRUE,
                             tech_reject_reason = 'analysis_error',
                             updated_at = NOW()
