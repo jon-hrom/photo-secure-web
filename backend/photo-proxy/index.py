@@ -1,9 +1,7 @@
 import json
-import urllib.request
-import urllib.parse
 
 def handler(event: dict, context) -> dict:
-    '''Прокси для скачивания файлов из Yandex Object Storage (обход CORS)'''
+    '''Редирект для скачивания файлов из Yandex Object Storage (обход CORS через редирект)'''
     
     method = event.get('httpMethod', 'GET')
     
@@ -59,34 +57,14 @@ def handler(event: dict, context) -> dict:
             'isBase64Encoded': False
         }
     
-    try:
-        # Скачиваем файл с сервера (без CORS проверок)
-        req = urllib.request.Request(file_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=30) as response:
-            file_data = response.read()
-            content_type = response.headers.get('Content-Type', 'application/octet-stream')
-        
-        import base64
-        encoded_data = base64.b64encode(file_data).decode('utf-8')
-        
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': content_type,
-                'Access-Control-Allow-Origin': '*',
-                'Content-Disposition': 'attachment'
-            },
-            'body': encoded_data,
-            'isBase64Encoded': True
-        }
-        
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps({'error': f'Proxy failed: {str(e)}'}),
-            'isBase64Encoded': False
-        }
+    # Возвращаем 302 редирект на оригинальный файл
+    # Браузер скачает файл напрямую (обходит CORS для download атрибута)
+    return {
+        'statusCode': 302,
+        'headers': {
+            'Location': file_url,
+            'Access-Control-Allow-Origin': '*'
+        },
+        'body': '',
+        'isBase64Encoded': False
+    }
