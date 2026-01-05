@@ -7,9 +7,7 @@ from botocore.client import Config
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: Generate pre-signed GET URL for downloading files (owner verification required)
-    Args: event with httpMethod, queryStringParameters (key, userId)
-    Returns: JSON with presigned download URL
+    Генерирует pre-signed URL для скачивания файла (с проверкой владельца)
     '''
     method: str = event.get('httpMethod', 'GET')
     
@@ -22,14 +20,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
                 'Access-Control-Max-Age': '86400'
             },
-            'body': ''
+            'body': '',
+            'isBase64Encoded': False
         }
     
     if method != 'GET':
         return {
             'statusCode': 405,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Method not allowed'})
+            'body': json.dumps({'error': 'Method not allowed'}),
+            'isBase64Encoded': False
         }
     
     query_params = event.get('queryStringParameters') or {}
@@ -40,7 +40,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'key and userId are required'})
+            'body': json.dumps({'error': 'key and userId are required'}),
+            'isBase64Encoded': False
         }
     
     try:
@@ -49,15 +50,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'userId must be a number'})
+            'body': json.dumps({'error': 'userId must be a number'}),
+            'isBase64Encoded': False
         }
     
     dsn = os.environ.get('DATABASE_URL')
     conn = psycopg2.connect(dsn)
     try:
         cur = conn.cursor()
+        
+        # Проверяем владельца файла в photo_bank
         cur.execute(
-            "SELECT owner_user_id FROM user_files WHERE s3_key = %s",
+            "SELECT user_id FROM t_p28211681_photo_secure_web.photo_bank WHERE s3_key = %s",
             (s3_key,)
         )
         result = cur.fetchone()
@@ -66,7 +70,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return {
                 'statusCode': 404,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'File not found'})
+                'body': json.dumps({'error': 'File not found'}),
+                'isBase64Encoded': False
             }
         
         owner_id = result[0]
@@ -75,7 +80,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return {
                 'statusCode': 403,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Access denied. You do not own this file.'})
+                'body': json.dumps({'error': 'Access denied'}),
+                'isBase64Encoded': False
             }
     finally:
         conn.close()
@@ -95,7 +101,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'Bucket': 'foto-mix',
             'Key': s3_key
         },
-        ExpiresIn=600
+        ExpiresIn=3600
     )
     
     return {
@@ -107,6 +113,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'isBase64Encoded': False,
         'body': json.dumps({
             'url': presigned_url,
-            'expiresIn': 600
+            'expiresIn': 3600
         })
     }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import JSZip from 'jszip';
 
 interface TechSortProgress {
   open: boolean;
@@ -167,8 +168,8 @@ export const usePhotoBankHandlersExtended = (
 
   const handleDownloadFolder = async (folderId: number, folderName: string) => {
     const confirmed = window.confirm(
-      `Скачать все фотографии из папки "${folderName}"?\n\n` +
-      `Файлы будут скачаны по очереди. Это может занять некоторое время.`
+      `Скачать все фотографии из папки "${folderName}" архивом?\n\n` +
+      `Файлы будут упакованы в ZIP-архив. Это может занять некоторое время.`
     );
     
     if (!confirmed) {
@@ -209,6 +210,8 @@ export const usePhotoBankHandlersExtended = (
         totalFiles
       }));
 
+      const zip = new JSZip();
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
@@ -216,22 +219,66 @@ export const usePhotoBankHandlersExtended = (
           ...prev,
           currentFile: file.filename,
           downloadedFiles: i,
-          progress: (i / totalFiles) * 100
+          progress: (i / totalFiles) * 90
         }));
 
         try {
-          const link = document.createElement('a');
-          link.href = file.url;
-          link.download = file.filename;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          await new Promise(resolve => setTimeout(resolve, 300));
+          const fileResponse = await fetch(file.url);
+          if (!fileResponse.ok) {
+            console.error(`Failed to fetch ${file.filename}`);
+            continue;
+          }
+          const blob = await fileResponse.blob();
+          zip.file(file.filename, blob);
         } catch (err) {
           console.error(`Failed to download ${file.filename}:`, err);
         }
+      }
+
+      setDownloadProgress(prev => ({
+        ...prev,
+        currentFile: 'Создание архива...',
+        progress: 95
+      }));
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+      setDownloadProgress(prev => ({
+        ...prev,
+        currentFile: 'Сохранение файла...',
+        progress: 98
+      }));
+
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: `${folderName}.zip`,
+            types: [{
+              description: 'ZIP Archive',
+              accept: {
+                'application/zip': ['.zip']
+              }
+            }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(zipBlob);
+          await writable.close();
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            setDownloadProgress(prev => ({ ...prev, open: false }));
+            return;
+          }
+          throw err;
+        }
+      } else {
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${folderName}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       }
 
       setDownloadProgress(prev => ({
@@ -250,7 +297,7 @@ export const usePhotoBankHandlersExtended = (
       setDownloadProgress(prev => ({
         ...prev,
         status: 'error',
-        errorMessage: error.message || 'Ошибка при скачивании'
+        errorMessage: error.message || 'Ошибка при создании архива'
       }));
 
       setTimeout(() => {

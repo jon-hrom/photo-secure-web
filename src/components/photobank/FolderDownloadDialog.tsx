@@ -32,9 +32,9 @@ const FolderDownloadDialog = ({
         aria-describedby="download-progress-description"
       >
         <VisuallyHidden>
-          <DialogTitle>Скачивание папки {folderName}</DialogTitle>
+          <DialogTitle>Создание архива {folderName}</DialogTitle>
           <div id="download-progress-description">
-            Отображение прогресса скачивания файлов из папки
+            Отображение прогресса создания ZIP-архива с файлами из папки
           </div>
         </VisuallyHidden>
         
@@ -56,18 +56,18 @@ const FolderDownloadDialog = ({
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-lg truncate">{folderName}</h3>
               {status === 'preparing' && (
-                <p className="text-sm text-muted-foreground">Подготовка списка файлов...</p>
+                <p className="text-sm text-muted-foreground">Получение списка файлов...</p>
               )}
               {status === 'downloading' && (
                 <p className="text-sm text-muted-foreground">
-                  Скачано: {downloadedFiles} из {totalFiles}
+                  Добавлено в архив: {downloadedFiles} из {totalFiles}
                 </p>
               )}
               {status === 'completed' && (
-                <p className="text-sm text-green-600">Файлы успешно скачаны!</p>
+                <p className="text-sm text-green-600">Архив успешно создан!</p>
               )}
               {status === 'error' && (
-                <p className="text-sm text-red-600">{errorMessage || 'Ошибка при скачивании'}</p>
+                <p className="text-sm text-red-600">{errorMessage || 'Ошибка при создании архива'}</p>
               )}
             </div>
           </div>
