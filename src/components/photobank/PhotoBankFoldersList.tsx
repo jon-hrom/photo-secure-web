@@ -36,7 +36,13 @@ const PhotoBankFoldersList = ({
   onDownloadFolder,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
-  const [collapsedFolders, setCollapsedFolders] = React.useState<Set<number>>(new Set());
+  // Находим все папки с подпапками и изначально сворачиваем их
+  const foldersWithSubfolders = React.useMemo(() => {
+    const parentIds = new Set(folders.filter(f => f.parent_folder_id).map(f => f.parent_folder_id));
+    return parentIds;
+  }, [folders]);
+
+  const [collapsedFolders, setCollapsedFolders] = React.useState<Set<number>>(() => new Set(foldersWithSubfolders));
 
   const toggleCollapse = (folderId: number) => {
     setCollapsedFolders(prev => {
