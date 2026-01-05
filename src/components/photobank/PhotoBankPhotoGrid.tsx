@@ -52,29 +52,17 @@ interface PhotoBankPhotoGridProps {
   isAdminViewing?: boolean;
 }
 
-const handleDownload = async (url: string, fileName: string) => {
-  try {
-    // Используем прокси для обхода CORS
-    const proxyUrl = `https://functions.poehali.dev/ad795db1-ca4b-4254-b2e3-1b1debfbc1b8?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl);
-    
-    if (!response.ok) {
-      throw new Error(`Download failed: ${response.status}`);
-    }
-    
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(downloadUrl);
-  } catch (error) {
-    console.error('Download failed:', error);
-    alert('Ошибка при скачивании файла. Попробуйте позже.');
-  }
+const handleDownload = (url: string, fileName: string) => {
+  // Прокси делает редирект на оригинальный файл
+  const proxyUrl = `https://functions.poehali.dev/ad795db1-ca4b-4254-b2e3-1b1debfbc1b8?url=${encodeURIComponent(url)}`;
+  
+  const link = document.createElement('a');
+  link.href = proxyUrl;
+  link.download = fileName;
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 const PhotoBankPhotoGrid = ({
