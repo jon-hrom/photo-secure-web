@@ -152,7 +152,14 @@ export const usePhotoBankApi = (
 
       while (hasMore) {
         batchCount++;
-        console.log(`[TECH_SORT] Starting batch ${batchCount}...`);
+        const shouldReset = resetAnalysis && batchCount === 1;
+        console.log(`[TECH_SORT] Starting batch ${batchCount}, resetAnalysis=${resetAnalysis}, shouldReset=${shouldReset}`);
+
+        const requestBody = { 
+          folder_id: folderId,
+          reset_analysis: shouldReset
+        };
+        console.log('[TECH_SORT] Request body:', JSON.stringify(requestBody));
 
         const res = await fetch(PHOTO_TECH_SORT_API, {
           method: 'POST',
@@ -160,10 +167,7 @@ export const usePhotoBankApi = (
             'Content-Type': 'application/json',
             'X-User-Id': userId
           },
-          body: JSON.stringify({ 
-            folder_id: folderId,
-            reset_analysis: resetAnalysis && batchCount === 1  // Сбрасываем только в первом батче
-          })
+          body: JSON.stringify(requestBody)
         });
 
         if (!res.ok) {
