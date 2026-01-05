@@ -41,6 +41,9 @@ const PhotoGridViewer = ({
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showExif, setShowExif] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
 
   const currentPhotoIndex = viewPhoto ? photos.findIndex(p => p.id === viewPhoto.id) : -1;
   const hasPrev = currentPhotoIndex > 0;
@@ -53,12 +56,15 @@ const PhotoGridViewer = ({
       if (e.key === 'Escape') {
         onClose();
         setZoom(0);
+        setPanOffset({ x: 0, y: 0 });
       } else if (e.key === 'ArrowLeft' && hasPrev) {
         onNavigate('prev');
         setZoom(0);
+        setPanOffset({ x: 0, y: 0 });
       } else if (e.key === 'ArrowRight' && hasNext) {
         onNavigate('next');
         setZoom(0);
+        setPanOffset({ x: 0, y: 0 });
       }
     };
 
@@ -68,9 +74,15 @@ const PhotoGridViewer = ({
       
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
       setZoom(prev => {
-        if (prev === 0) return delta > 0 ? 1.1 : 0;
+        if (prev === 0) {
+          setPanOffset({ x: 0, y: 0 });
+          return delta > 0 ? 1.1 : 0;
+        }
         const newZoom = prev + delta;
-        if (newZoom < 0.5) return 0;
+        if (newZoom < 0.5) {
+          setPanOffset({ x: 0, y: 0 });
+          return 0;
+        }
         return Math.max(0, Math.min(2, newZoom));
       });
     };
@@ -101,6 +113,14 @@ const PhotoGridViewer = ({
         time: Date.now(),
         touches: touchCount
       });
+      if (zoom > 0) {
+        setDragStart({
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          offsetX: panOffset.x,
+          offsetY: panOffset.y
+        });
+      }
     } else if (touchCount > 1) {
       setTouchStart({
         x: 0,
@@ -116,6 +136,7 @@ const PhotoGridViewer = ({
 
     if (touchStart.touches > 1) {
       setTouchStart(null);
+      setDragStart(null);
       return;
     }
 
@@ -133,44 +154,101 @@ const PhotoGridViewer = ({
 
     if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
       setTouchStart(null);
+      setDragStart(null);
       return;
     }
 
-    if (absDeltaX > absDeltaY && absDeltaX > 50) {
+    if (zoom > 0) {
+      setTouchStart(null);
+      setDragStart(null);
+      return;
+    }
+
+    if (absDeltaX > absDeltaY && absDeltaX > 50 && zoom === 0) {
       if (deltaX > 0 && hasPrev) {
         onNavigate('prev');
         setZoom(0);
+        setPanOffset({ x: 0, y: 0 });
       } else if (deltaX < 0 && hasNext) {
         onNavigate('next');
         setZoom(0);
+        setPanOffset({ x: 0, y: 0 });
       }
-    } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
+    } else if (absDeltaY > absDeltaX && absDeltaY > 50 && zoom === 0) {
       const zoomSteps = Math.floor(absDeltaY / 50);
       if (deltaY < 0) {
         setZoom(prev => {
           const newZoom = prev === 0 ? 1.15 : Math.min(2, prev + (zoomSteps * 0.15));
+          if (prev === 0) setPanOffset({ x: 0, y: 0 });
           return newZoom;
         });
       } else {
         setZoom(prev => {
           if (prev === 0) return 0;
           const newZoom = Math.max(0, prev - (zoomSteps * 0.15));
-          return newZoom < 0.5 ? 0 : newZoom;
+          if (newZoom < 0.5) {
+            setPanOffset({ x: 0, y: 0 });
+            return 0;
+          }
+          return newZoom;
         });
       }
     }
 
     setTouchStart(null);
+    setDragStart(null);
   };
 
   const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
     setZoom(0);
+    setPanOffset({ x: 0, y: 0 });
   };
 
   const handleCloseDialog = () => {
     onClose();
     setZoom(0);
+    setPanOffset({ x: 0, y: 0 });
+    setIsDragging(false);
+    setDragStart(null);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 0) return;
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX,
+      y: e.clientY,
+      offsetX: panOffset.x,
+      offsetY: panOffset.y
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !dragStart || zoom <= 0) return;
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    setPanOffset({
+      x: dragStart.offsetX + deltaX,
+      y: dragStart.offsetY + deltaY
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setDragStart(null);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart || touchStart.touches > 1 || zoom <= 0 || !dragStart) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - dragStart.x;
+    const deltaY = touch.clientY - dragStart.y;
+    setPanOffset({
+      x: dragStart.offsetX + deltaX,
+      y: dragStart.offsetY + deltaY
+    });
   };
 
   if (!viewPhoto) return null;
@@ -235,7 +313,7 @@ const PhotoGridViewer = ({
 
           {hasPrev && (
             <button
-              onClick={() => { onNavigate('prev'); setZoom(0); }}
+              onClick={() => { onNavigate('prev'); setZoom(0); setPanOffset({ x: 0, y: 0 }); }}
               className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
             >
               <Icon name="ChevronLeft" size={28} className="text-white" />
@@ -244,7 +322,7 @@ const PhotoGridViewer = ({
 
           {hasNext && (
             <button
-              onClick={() => { onNavigate('next'); setZoom(0); }}
+              onClick={() => { onNavigate('next'); setZoom(0); setPanOffset({ x: 0, y: 0 }); }}
               className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
             >
               <Icon name="ChevronRight" size={28} className="text-white" />
@@ -253,8 +331,6 @@ const PhotoGridViewer = ({
           
           <div 
             className="relative w-full h-full flex items-center justify-center overflow-auto"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
           >
             {viewPhoto.is_raw && !viewPhoto.thumbnail_s3_url ? (
               <div className="flex flex-col items-center justify-center text-white/60 p-8">
@@ -268,16 +344,27 @@ const PhotoGridViewer = ({
                 alt={viewPhoto.file_name}
                 className="object-contain cursor-move transition-transform duration-200 select-none"
                 style={{
-                  transform: zoom > 0 ? `scale(${zoom})` : 'none',
+                  transform: zoom > 0 
+                    ? `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)` 
+                    : 'none',
                   maxWidth: zoom === 0 ? '90vw' : '100%',
-                  maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)')
+                  maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
+                  cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
+                  transition: isDragging ? 'none' : 'transform 0.2s ease-out'
                 }}
-                onDoubleClick={handleDoubleTap}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
                 onTouchEnd={(e) => {
+                  handleTouchEnd(e);
                   if (e.timeStamp - (touchStart?.time || 0) < 300) {
                     handleDoubleTap(e);
                   }
                 }}
+                onDoubleClick={handleDoubleTap}
                 draggable={false}
               />
             )}
