@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import React from 'react';
 
 interface PhotoFolder {
   id: number;
@@ -35,6 +36,19 @@ const PhotoBankFoldersList = ({
   onDownloadFolder,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
+  const [collapsedFolders, setCollapsedFolders] = React.useState<Set<number>>(new Set());
+
+  const toggleCollapse = (folderId: number) => {
+    setCollapsedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId);
+      } else {
+        newSet.add(folderId);
+      }
+      return newSet;
+    });
+  };
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ru-RU', {
       day: '2-digit',
@@ -102,7 +116,25 @@ const PhotoBankFoldersList = ({
                         onClick={() => onSelectFolder(folder)}
                       >
                         <td className="p-3">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            {subfolders.length > 0 ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCollapse(folder.id);
+                                }}
+                                className="w-6 h-6 flex items-center justify-center hover:bg-accent rounded transition-colors flex-shrink-0"
+                                title={collapsedFolders.has(folder.id) ? 'Развернуть' : 'Свернуть'}
+                              >
+                                <Icon 
+                                  name={collapsedFolders.has(folder.id) ? 'ChevronRight' : 'ChevronDown'} 
+                                  size={16} 
+                                  className="text-muted-foreground"
+                                />
+                              </button>
+                            ) : (
+                              <div className="w-6 flex-shrink-0" />
+                            )}
                             <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
                               <Icon name="Folder" size={20} className="text-orange-600" />
                             </div>
@@ -189,7 +221,7 @@ const PhotoBankFoldersList = ({
                           </div>
                         </td>
                       </tr>
-                      {subfolders.map((subfolder) => (
+                      {!collapsedFolders.has(folder.id) && subfolders.map((subfolder) => (
                         <tr
                           key={subfolder.id}
                           className={`border-b hover:bg-accent/50 transition-colors cursor-pointer bg-muted/30 ${
