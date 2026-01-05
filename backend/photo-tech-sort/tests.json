@@ -4,21 +4,23 @@
       "name": "Missing folder_id",
       "method": "POST",
       "headers": {
-        "X-User-Id": "1"
+        "X-User-Id": "1",
+        "Content-Type": "application/json"
       },
-      "body": {},
+      "body": "{}",
       "expectedStatus": 400,
       "expectedBody": {
-        "error": "string"
+        "error": "folder_id is required"
       },
       "bodyMatcher": "partial"
     },
     {
       "name": "Unauthorized request",
       "method": "POST",
-      "body": {
-        "folder_id": 1
+      "headers": {
+        "Content-Type": "application/json"
       },
+      "body": "{\"folder_id\": 1}",
       "expectedStatus": 401,
       "expectedBody": {
         "error": "User not authenticated"
