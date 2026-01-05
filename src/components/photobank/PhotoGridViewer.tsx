@@ -4,6 +4,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import PhotoExifDialog from './PhotoExifDialog';
+import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 
 interface Photo {
   id: number;
@@ -194,8 +195,11 @@ const PhotoGridViewer = ({
                 <button
                   onClick={async () => {
                     if (viewPhoto.s3_key) {
-                      const userId = parseInt(localStorage.getItem('photobank_user_id') || '0', 10);
-                      await onDownload(viewPhoto.s3_key, viewPhoto.file_name, userId);
+                      const userIdStr = getAuthUserId();
+                      const userId = userIdStr ? parseInt(userIdStr, 10) : 0;
+                      if (userId) {
+                        await onDownload(viewPhoto.s3_key, viewPhoto.file_name, userId);
+                      }
                     }
                   }}
                   className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
