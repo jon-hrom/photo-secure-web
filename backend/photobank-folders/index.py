@@ -91,9 +91,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ''', (user_id,))
                     all_folders = cur.fetchall()
                     
-                    # Фильтруем: удаляем пустые tech_rejects папки
+                    # Оставляем все папки, включая пустые tech_rejects
+                    # Пустые tech_rejects нужны как маркеры завершённого анализа для повторного запуска
                     folders = []
-                    empty_tech_rejects = []
                     
                     for folder in all_folders:
                         if folder['created_at']:
@@ -101,22 +101,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         if folder['updated_at']:
                             folder['updated_at'] = folder['updated_at'].isoformat()
                         
-                        # Если это пустая tech_rejects папка - помечаем на удаление
-                        if folder['folder_type'] == 'tech_rejects' and folder['photo_count'] == 0:
-                            empty_tech_rejects.append(folder['id'])
-                            print(f'[FOLDERS] Empty tech_rejects folder found: {folder["id"]} - will be deleted')
-                        else:
-                            folders.append(folder)
-                    
-                    # Удаляем пустые tech_rejects папки из БД
-                    if empty_tech_rejects:
-                        cur.execute('''
-                            UPDATE t_p28211681_photo_secure_web.photo_folders
-                            SET is_trashed = TRUE
-                            WHERE id = ANY(%s)
-                        ''', (empty_tech_rejects,))
-                        conn.commit()
-                        print(f'[FOLDERS] Deleted {len(empty_tech_rejects)} empty tech_rejects folders')
+                        folders.append(folder)
                 
                 return {
                     'statusCode': 200,
