@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
+import { useState, useEffect } from 'react';
 
 interface Photo {
   id: number;
@@ -42,15 +43,40 @@ const PhotoGridCard = ({
   isAdminViewing = false
 }: PhotoGridCardProps) => {
   const isVertical = (photo.height || 0) > (photo.width || 0);
+  const [showButtons, setShowButtons] = useState(false);
+  const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimeout) clearTimeout(clickTimeout);
+    };
+  }, [clickTimeout]);
+
+  const handleClick = () => {
+    if (selectionMode) {
+      onPhotoClick(photo);
+      return;
+    }
+
+    if (showButtons) {
+      onPhotoClick(photo);
+    } else {
+      setShowButtons(true);
+      const timeout = setTimeout(() => setShowButtons(false), 5000);
+      setClickTimeout(timeout);
+    }
+  };
 
   return (
     <div
       className={`relative group rounded-lg overflow-hidden border-2 transition-colors ${
         isSelected 
           ? 'border-primary ring-2 ring-primary' 
+          : showButtons
+          ? 'border-primary'
           : 'border-muted hover:border-muted-foreground/20'
       } ${isVertical ? 'aspect-[3/4]' : 'aspect-[4/3]'}`}
-      onClick={() => onPhotoClick(photo)}
+      onClick={handleClick}
       style={{ touchAction: 'manipulation', WebkitTouchCallout: 'none' } as React.CSSProperties}
     >
       {selectionMode && (
@@ -66,13 +92,13 @@ const PhotoGridCard = ({
           </div>
         </div>
       )}
-      {!selectionMode && onShowExif && (photo.thumbnail_s3_url || photo.s3_url) && (
+      {!selectionMode && onShowExif && (photo.thumbnail_s3_url || photo.s3_url) && showButtons && (
         <button
           onClick={(e) => {
             e.stopPropagation();
             onShowExif(photo);
           }}
-          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
           title="Информация о фото"
         >
           <Icon name="Info" size={16} className="text-white" />
@@ -129,14 +155,14 @@ const PhotoGridCard = ({
           </div>
         )}
       </div>
-      {!selectionMode && (
+      {!selectionMode && showButtons && (
         <>
           <button
             onClick={(e) => {
               e.stopPropagation();
               onDeletePhoto(photo.id, photo.file_name);
             }}
-            className="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 backdrop-blur-sm flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+            className="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 backdrop-blur-sm flex items-center justify-center transition-all"
             title="Удалить файл"
           >
             <Icon name="Trash2" size={16} className="text-white" />
@@ -152,7 +178,7 @@ const PhotoGridCard = ({
                   onDownload(photo.s3_key!, photo.file_name, userId);
                 }
               }}
-              className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+              className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all"
               title="Скачать"
             >
               <Icon name="Download" size={16} className="text-white" />
