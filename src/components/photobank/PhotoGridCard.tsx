@@ -23,7 +23,7 @@ interface PhotoGridCardProps {
   isSelected: boolean;
   emailVerified: boolean;
   onPhotoClick: (photo: Photo) => void;
-  onDownload: (url: string, fileName: string) => void;
+  onDownload: (s3Key: string, fileName: string, userId: number) => Promise<void>;
   onDeletePhoto: (photoId: number, fileName: string) => void;
   onShowExif?: (photo: Photo) => void;
   isAdminViewing?: boolean;
@@ -140,11 +140,14 @@ const PhotoGridCard = ({
           >
             <Icon name="Trash2" size={16} className="text-white" />
           </button>
-          {emailVerified && photo.s3_url && (
+          {emailVerified && photo.s3_key && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDownload(photo.s3_url!, photo.file_name);
+                const userId = Number(localStorage.getItem('authUserId'));
+                if (userId) {
+                  onDownload(photo.s3_key!, photo.file_name, userId);
+                }
               }}
               className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
               title="Скачать"
