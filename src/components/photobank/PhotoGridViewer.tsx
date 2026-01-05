@@ -375,7 +375,7 @@ const PhotoGridViewer = ({
                   onDoubleClick={handleDoubleTap}
                   draggable={false}
                 />
-                {zoom > 0 && !imageError && viewPhoto.s3_url && (
+                {zoom > 0 && !imageError && viewPhoto.s3_url && !viewPhoto.is_raw && (
                   <img
                     src={viewPhoto.s3_url}
                     alt={viewPhoto.file_name}
