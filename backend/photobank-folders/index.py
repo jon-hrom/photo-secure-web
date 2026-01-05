@@ -92,7 +92,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     all_folders = cur.fetchall()
                     
                     # Оставляем все папки, включая пустые tech_rejects
-                    # Пустые tech_rejects нужны как маркеры завершённого анализа для повторного запуска
+                    # Пустые tech_rejects нужны как маркеры завершённого анализа
                     folders = []
                     
                     for folder in all_folders:
@@ -102,6 +102,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             folder['updated_at'] = folder['updated_at'].isoformat()
                         
                         folders.append(folder)
+                    
+                    print(f'[FOLDERS] Returning {len(folders)} folders (including {sum(1 for f in folders if f["folder_type"] == "tech_rejects")} tech_rejects)')
                 
                 return {
                     'statusCode': 200,
