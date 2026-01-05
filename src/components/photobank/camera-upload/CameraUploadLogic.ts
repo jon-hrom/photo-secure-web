@@ -149,7 +149,44 @@ export const useCameraUploadLogic = (
         xhr.send(file);
       });
 
-      // Confirm запрос НЕ нужен при использовании новой системы - файлы добавляются в БД пачкой после всех загрузок
+      // Сразу добавляем файл в БД после успешной загрузки (НЕБЛОКИРУЮЩИЙ запрос)
+      const folderId = (window as any).__photobankTargetFolderId;
+      if (folderId && key) {
+        const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
+        // Fire-and-forget: не блокируем загрузку следующего файла
+        fetch(PHOTOBANK_FOLDERS_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId,
+          },
+          body: JSON.stringify({
+            action: 'upload_photo',
+            folder_id: folderId,
+            file_name: file.name,
+            s3_url: s3Url,
+            file_size: file.size,
+            content_type: file.type
+          }),
+        })
+          .then(async res => {
+            if (res.ok) {
+              const data = await res.json();
+              if (!data.skipped) {
+                console.log(`[CAMERA_UPLOAD] Photo ${file.name} added to folder ${folderId}`);
+                // Обновляем галерею после добавления каждого фото
+                if (onPhotoAdded) {
+                  onPhotoAdded();
+                }
+              } else {
+                console.log(`[CAMERA_UPLOAD] Photo ${file.name} skipped - already exists`);
+              }
+            } else {
+              console.error(`[CAMERA_UPLOAD] Failed to add photo ${file.name} to DB`);
+            }
+          })
+          .catch(err => console.error('[CAMERA_UPLOAD] DB add error:', err));
+      }
 
       setFiles(prev => {
         const updated = prev.map(f => 
@@ -158,44 +195,6 @@ export const useCameraUploadLogic = (
             : f
         );
         filesRef.current = updated;
-
-        // Сразу добавляем файл в БД после успешной загрузки
-        const folderId = (window as any).__photobankTargetFolderId;
-        if (folderId && key) {
-          const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
-          fetch(PHOTOBANK_FOLDERS_API, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-User-Id': userId,
-            },
-            body: JSON.stringify({
-              action: 'upload_photo',
-              folder_id: folderId,
-              file_name: file.name,
-              s3_url: s3Url,
-              file_size: file.size,
-              content_type: file.type
-            }),
-          })
-            .then(async res => {
-              if (res.ok) {
-                const data = await res.json();
-                if (!data.skipped) {
-                  console.log(`[CAMERA_UPLOAD] Photo ${file.name} added to folder ${folderId}`);
-                  // Обновляем галерею после добавления каждого фото
-                  if (onPhotoAdded) {
-                    onPhotoAdded();
-                  }
-                } else {
-                  console.log(`[CAMERA_UPLOAD] Photo ${file.name} skipped - already exists`);
-                }
-              } else {
-                console.error(`[CAMERA_UPLOAD] Failed to add photo ${file.name} to DB`);
-              }
-            })
-            .catch(err => console.error('[CAMERA_UPLOAD] DB add error:', err));
-        }
         
         // Обновляем статистику с debounce (500ms) чтобы избежать дергания
         const actualCompleted = updated.filter(f => f.status === 'success').length;
