@@ -8,6 +8,7 @@ import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
 import CameraUploadDialog from '@/components/photobank/CameraUploadDialog';
 import UrlUploadDialog from '@/components/photobank/UrlUploadDialog';
 import TechSortProgressDialog from '@/components/photobank/TechSortProgressDialog';
+import FolderDownloadDialog from '@/components/photobank/FolderDownloadDialog';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
@@ -36,6 +37,16 @@ const PhotoBank = () => {
     processedCount: 0,
     totalCount: 0,
     status: 'analyzing' as 'analyzing' | 'completed' | 'error',
+    errorMessage: ''
+  });
+
+  const [downloadProgress, setDownloadProgress] = useState({
+    open: false,
+    folderName: '',
+    progress: 0,
+    downloadedBytes: 0,
+    totalBytes: 0,
+    status: 'preparing' as 'preparing' | 'downloading' | 'completed' | 'error',
     errorMessage: ''
   });
 
@@ -265,7 +276,19 @@ const PhotoBank = () => {
       return;
     }
 
+    // Показываем диалог подготовки
+    setDownloadProgress({
+      open: true,
+      folderName,
+      progress: 0,
+      downloadedBytes: 0,
+      totalBytes: 0,
+      status: 'preparing',
+      errorMessage: ''
+    });
+
     try {
+      // Запрашиваем создание архива
       const response = await fetch(
         `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?folderId=${folderId}&userId=${userId}`
       );
@@ -276,9 +299,46 @@ const PhotoBank = () => {
       
       const data = await response.json();
       
-      // Скачиваем архив
+      // Скачиваем архив с отслеживанием прогресса
       const fileResponse = await fetch(data.url);
-      const blob = await fileResponse.blob();
+      
+      if (!fileResponse.ok || !fileResponse.body) {
+        throw new Error('Failed to download archive');
+      }
+
+      const contentLength = parseInt(fileResponse.headers.get('content-length') || '0');
+      
+      // Читаем поток с отслеживанием прогресса
+      const reader = fileResponse.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let downloadedBytes = 0;
+
+      setDownloadProgress(prev => ({
+        ...prev,
+        status: 'downloading',
+        totalBytes: contentLength
+      }));
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        chunks.push(value);
+        downloadedBytes += value.length;
+        
+        const progress = contentLength > 0 ? (downloadedBytes / contentLength) * 100 : 0;
+        
+        setDownloadProgress(prev => ({
+          ...prev,
+          progress,
+          downloadedBytes,
+          totalBytes: contentLength
+        }));
+      }
+
+      // Создаем blob из скачанных данных
+      const blob = new Blob(chunks, { type: 'application/zip' });
       
       // Проверяем поддержку File System Access API
       if ('showSaveFilePicker' in window) {
@@ -296,9 +356,11 @@ const PhotoBank = () => {
           await writable.write(blob);
           await writable.close();
         } catch (err: any) {
-          if (err.name !== 'AbortError') {
-            throw err;
+          if (err.name === 'AbortError') {
+            setDownloadProgress(prev => ({ ...prev, open: false }));
+            return;
           }
+          throw err;
         }
       } else {
         // Fallback для старых браузеров
@@ -311,9 +373,31 @@ const PhotoBank = () => {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       }
-    } catch (error) {
+
+      // Показываем успешное завершение
+      setDownloadProgress(prev => ({
+        ...prev,
+        status: 'completed',
+        progress: 100
+      }));
+
+      // Автоматически закрываем через 2 секунды
+      setTimeout(() => {
+        setDownloadProgress(prev => ({ ...prev, open: false }));
+      }, 2000);
+
+    } catch (error: any) {
       console.error('Failed to download folder:', error);
-      alert('Ошибка при создании архива. Попробуйте позже.');
+      setDownloadProgress(prev => ({
+        ...prev,
+        status: 'error',
+        errorMessage: error.message || 'Ошибка при скачивании архива'
+      }));
+
+      // Закрываем диалог через 3 секунды
+      setTimeout(() => {
+        setDownloadProgress(prev => ({ ...prev, open: false }));
+      }, 3000);
     }
   };
 
@@ -406,6 +490,16 @@ const PhotoBank = () => {
 
           return result;
         }}
+      />
+
+      <FolderDownloadDialog
+        open={downloadProgress.open}
+        folderName={downloadProgress.folderName}
+        progress={downloadProgress.progress}
+        downloadedBytes={downloadProgress.downloadedBytes}
+        totalBytes={downloadProgress.totalBytes}
+        status={downloadProgress.status}
+        errorMessage={downloadProgress.errorMessage}
       />
 
       <div className="max-w-7xl mx-auto space-y-6">
