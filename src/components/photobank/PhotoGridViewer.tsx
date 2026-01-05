@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import PhotoExifDialog from './PhotoExifDialog';
@@ -173,7 +174,11 @@ const PhotoGridViewer = ({
 
   return (
     <Dialog open={!!viewPhoto} onOpenChange={handleCloseDialog}>
-      <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none">
+      <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none" aria-describedby="photo-viewer-description">
+        <VisuallyHidden>
+          <DialogTitle>Просмотр фото {viewPhoto.file_name}</DialogTitle>
+          <div id="photo-viewer-description">Галерея для просмотра изображений с возможностью масштабирования и навигации</div>
+        </VisuallyHidden>
         <div className="relative w-full h-full flex items-center justify-center">
           {!isLandscape && (
             <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
