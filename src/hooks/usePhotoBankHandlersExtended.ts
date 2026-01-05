@@ -154,11 +154,16 @@ export const usePhotoBankHandlersExtended = (
   const handleRestorePhoto = async (photoId: number) => {
     setLoading(true);
     try {
-      await restorePhoto(photoId);
+      const result = await restorePhoto(photoId);
+      
       if (selectedFolder) {
         await fetchPhotos(selectedFolder.id);
       }
       await fetchFolders();
+
+      if (result?.cleaned) {
+        console.log('[RESTORE] Photo was cleaned from database');
+      }
     } catch (error) {
       console.error('Failed to restore photo:', error);
     } finally {

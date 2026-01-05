@@ -8,6 +8,8 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
+  folder_type?: 'originals' | 'tech_rejects';
+  parent_folder_id?: number | null;
 }
 
 interface Photo {
@@ -39,6 +41,7 @@ interface PhotoBankHeaderProps {
   onGoBack?: () => void;
   onGoForward?: () => void;
   isAdminViewing?: boolean;
+  onDeleteSelectedPhotos?: () => void;
 }
 
 const PhotoBankHeader = ({
@@ -60,8 +63,10 @@ const PhotoBankHeader = ({
   onGoBack,
   onGoForward,
   isAdminViewing = false,
+  onDeleteSelectedPhotos,
 }: PhotoBankHeaderProps) => {
   const navigate = useNavigate();
+  const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
   
   return (
     <div className="flex flex-col gap-4">
@@ -107,14 +112,25 @@ const PhotoBankHeader = ({
       <div className="flex flex-wrap gap-2">
           {selectionMode && (
             <>
-              <Button 
-                variant="default"
-                onClick={onAddToPhotobook}
-                disabled={selectedPhotos.size === 0}
-              >
-                <Icon name="Plus" className="mr-2" size={18} />
-                Добавить в макет ({selectedPhotos.size})
-              </Button>
+              {isTechRejectsFolder ? (
+                <Button 
+                  variant="destructive"
+                  onClick={onDeleteSelectedPhotos}
+                  disabled={selectedPhotos.size === 0}
+                >
+                  <Icon name="Trash2" className="mr-2" size={18} />
+                  Удалить в корзину ({selectedPhotos.size})
+                </Button>
+              ) : (
+                <Button 
+                  variant="default"
+                  onClick={onAddToPhotobook}
+                  disabled={selectedPhotos.size === 0}
+                >
+                  <Icon name="Plus" className="mr-2" size={18} />
+                  Добавить в макет ({selectedPhotos.size})
+                </Button>
+              )}
               <Button 
                 variant="outline"
                 onClick={onCancelSelection}

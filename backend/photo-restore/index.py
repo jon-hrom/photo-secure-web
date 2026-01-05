@@ -210,6 +210,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 WHERE id = %s
             ''', (parent_folder_id, new_s3_key, photo_id))
             
+            # Проверяем осталось ли ещё фото в папке tech_rejects
+            cur.execute('''
+                SELECT COUNT(*) as photo_count
+                FROM t_p28211681_photo_secure_web.photo_bank
+                WHERE folder_id = %s AND is_trashed = FALSE
+            ''', (photo['folder_id'],))
+            
+            remaining_photos = cur.fetchone()['photo_count']
+            print(f'[PHOTO_RESTORE] Remaining photos in tech_rejects folder: {remaining_photos}')
+            
+            tech_rejects_folder_id = photo['folder_id']
+            
             print(f'[PHOTO_RESTORE] Committing transaction...')
             conn.commit()
             print(f'[PHOTO_RESTORE] Transaction committed successfully')
@@ -222,6 +234,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print(f'[PHOTO_RESTORE] Old S3 file deleted successfully')
         except Exception as del_err:
             print(f'[PHOTO_RESTORE] Failed to delete old file (non-critical): {str(del_err)}')
+        
+        # Если в папке tech_rejects не осталось фото - удаляем её
+        if remaining_photos == 0:
+            print(f'[PHOTO_RESTORE] Tech rejects folder is empty, deleting folder {tech_rejects_folder_id}')
+            try:
+                with conn.cursor() as cur:
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.photo_folders
+                        SET is_trashed = TRUE
+                        WHERE id = %s
+                    ''', (tech_rejects_folder_id,))
+                    conn.commit()
+                    print(f'[PHOTO_RESTORE] Empty tech_rejects folder deleted')
+            except Exception as folder_del_err:
+                print(f'[PHOTO_RESTORE] Failed to delete empty folder (non-critical): {str(folder_del_err)}')
         
         print(f'[PHOTO_RESTORE] Success! Photo {photo_id} restored to folder {parent_folder_id}')
         

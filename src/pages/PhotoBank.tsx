@@ -145,6 +145,36 @@ const PhotoBank = () => {
     }
   };
 
+  const handleDeleteSelectedPhotos = async () => {
+    if (selectedPhotos.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Удалить выбранные фото (${selectedPhotos.size}) в корзину?`
+    );
+
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      for (const photoId of selectedPhotos) {
+        const photo = photos.find(p => p.id === photoId);
+        if (photo) {
+          await handleDeletePhoto(photoId, photo.file_name);
+        }
+      }
+      setSelectedPhotos(new Set());
+      setSelectionMode(false);
+      if (selectedFolder) {
+        await fetchPhotos(selectedFolder.id);
+      }
+      await fetchFolders();
+    } catch (error) {
+      console.error('Failed to delete photos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (authChecking || !userId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -222,6 +252,7 @@ const PhotoBank = () => {
           canGoForward={navigation.canGoForward}
           onGoBack={handleGoBack}
           onGoForward={handleGoForward}
+          onDeleteSelectedPhotos={handleDeleteSelectedPhotos}
         />
 
         {!selectedFolder ? (
