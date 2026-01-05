@@ -42,6 +42,7 @@ interface PhotoBankHeaderProps {
   onGoForward?: () => void;
   isAdminViewing?: boolean;
   onDeleteSelectedPhotos?: () => void;
+  onRestoreSelectedPhotos?: () => void;
 }
 
 const PhotoBankHeader = ({
@@ -64,6 +65,7 @@ const PhotoBankHeader = ({
   onGoForward,
   isAdminViewing = false,
   onDeleteSelectedPhotos,
+  onRestoreSelectedPhotos,
 }: PhotoBankHeaderProps) => {
   const navigate = useNavigate();
   const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
@@ -113,14 +115,25 @@ const PhotoBankHeader = ({
           {selectionMode && (
             <>
               {isTechRejectsFolder ? (
-                <Button 
-                  variant="destructive"
-                  onClick={onDeleteSelectedPhotos}
-                  disabled={selectedPhotos.size === 0}
-                >
-                  <Icon name="Trash2" className="mr-2" size={18} />
-                  Удалить в корзину ({selectedPhotos.size})
-                </Button>
+                <>
+                  <Button 
+                    variant="default"
+                    onClick={onRestoreSelectedPhotos}
+                    disabled={selectedPhotos.size === 0}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Icon name="RotateCcw" className="mr-2" size={18} />
+                    Вернуть в оригиналы ({selectedPhotos.size})
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={onDeleteSelectedPhotos}
+                    disabled={selectedPhotos.size === 0}
+                  >
+                    <Icon name="Trash2" className="mr-2" size={18} />
+                    Удалить в корзину ({selectedPhotos.size})
+                  </Button>
+                </>
               ) : (
                 <Button 
                   variant="default"

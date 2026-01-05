@@ -19,16 +19,24 @@ from PIL import Image
 
 def detect_closed_eyes(img: np.ndarray) -> bool:
     """
-    Улучшенная детекция закрытых глаз с учётом улыбки
+    Улучшенная детекция закрытых глаз с учётом улыбки + медианный блюр для шумоподавления
     ВАЖНО: Если человек улыбается (видны зубы) → прикрытые глаза это НОРМАЛЬНО (не брак)
     Логика: Если хотя бы ОДНО лицо с закрытыми глазами БЕЗ улыбки → фото БРАК
     Returns: True если есть лица с закрытыми глазами БЕЗ улыбки, False если все ОК
     """
     try:
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
         smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
         
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # Применяем медианный блюр для уменьшения шума (улучшает детекцию)
+        img_filtered = cv2.medianBlur(img, 5)
+        gray = cv2.cvtColor(img_filtered, cv2.COLOR_BGR2GRAY)
+        
+        # Улучшаем контраст через CLAHE (адаптивное выравнивание гистограммы)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+        
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
         
         # Если лиц не найдено - не считаем браком
@@ -83,29 +91,36 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
             if eye_region.size == 0:
                 continue
             
-            # Детектируем глаза каскадом Хаара
-            eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+            # Детектируем глаза каскадом Хаара с более строгими параметрами
             eyes_detected = eye_cascade.detectMultiScale(
                 eye_region, 
-                scaleFactor=1.05, 
-                minNeighbors=3, 
+                scaleFactor=1.03,  # Более точный поиск
+                minNeighbors=4,    # Строже фильтруем ложные срабатывания 
                 minSize=(int(w*0.1), int(h*0.15))
             )
             
             print(f'[TECH_SORT] Eyes detected by cascade: {len(eyes_detected)}')
             
             # Применяем несколько методов бинаризации для надёжности
-            # Метод 1: Жёсткий порог для очень тёмных зрачков
-            _, binary_dark_strict = cv2.threshold(eye_region, 40, 255, cv2.THRESH_BINARY_INV)
+            # Метод 1: Жёсткий порог для очень тёмных зрачков (зрачки обычно < 50)
+            _, binary_dark_strict = cv2.threshold(eye_region, 45, 255, cv2.THRESH_BINARY_INV)
             
             # Метод 2: Адаптивная бинаризация (лучше работает при разном освещении)
             binary_dark_adaptive = cv2.adaptiveThreshold(
                 eye_region, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                cv2.THRESH_BINARY_INV, 11, 2
+                cv2.THRESH_BINARY_INV, 13, 3  # Увеличены параметры для точности
             )
             
-            # Объединяем оба метода (логическое ИЛИ)
+            # Метод 3: Otsu threshold для автоматического определения порога
+            _, binary_dark_otsu = cv2.threshold(eye_region, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            
+            # Объединяем все три метода (логическое ИЛИ) для максимальной надёжности
             binary_dark = cv2.bitwise_or(binary_dark_strict, binary_dark_adaptive)
+            binary_dark = cv2.bitwise_or(binary_dark, binary_dark_otsu)
+            
+            # Применяем морфологическое закрытие для удаления мелких шумов
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            binary_dark = cv2.morphologyEx(binary_dark, cv2.MORPH_CLOSE, kernel)
             
             # Ищем круглые контуры (зрачки)
             contours, _ = cv2.findContours(binary_dark, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -113,9 +128,11 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
             circular_contours = 0
             for contour in contours:
                 area = cv2.contourArea(contour)
-                # Минимальная площадь зависит от размера лица
-                min_area = max(10, (w * h) / 2000)
-                if area < min_area:
+                # Минимальная площадь зависит от размера лица (строже)
+                min_area = max(15, (w * h) / 1800)
+                max_area = (w * h) / 8  # Максимальная площадь (не должен быть слишком большим)
+                
+                if area < min_area or area > max_area:
                     continue
                 
                 # Проверяем круглость через соотношение площади к периметру
@@ -124,31 +141,43 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
                     continue
                 
                 circularity = 4 * np.pi * area / (perimeter * perimeter)
-                # Более строгая проверка круглости для надёжности
-                if circularity > 0.6:
+                
+                # Проверяем соотношение сторон bounding rect (должно быть близко к квадрату)
+                x_cnt, y_cnt, w_cnt, h_cnt = cv2.boundingRect(contour)
+                aspect_ratio = w_cnt / float(h_cnt) if h_cnt > 0 else 0
+                
+                # Строгая проверка: круглость > 0.65 И соотношение сторон близко к 1
+                if circularity > 0.65 and 0.7 <= aspect_ratio <= 1.4:
                     circular_contours += 1
+                    print(f'[TECH_SORT] Pupil found: area={area:.1f}, circularity={circularity:.2f}, aspect={aspect_ratio:.2f}')
             
             print(f'[TECH_SORT] Circular contours found (pupils): {circular_contours}')
             
+            # Расширенная логика определения открытых глаз с учётом яркости белка
+            # Дополнительная проверка: если глаза открыты, должны быть светлые области (белки глаз)
+            # Анализируем яркость в области глаз
+            mean_brightness = np.mean(eye_region)
+            print(f'[TECH_SORT] Eye region mean brightness: {mean_brightness:.1f}')
+            
             # Строгая логика определения:
             # Глаза ОТКРЫТЫ если:
-            # 1. Каскад нашёл 2 глаза ИЛИ
-            # 2. Найдено минимум 2 круглых зрачка ИЛИ  
-            # 3. Найден 1 глаз каскадом И есть хотя бы 1 зрачок
+            # 1. Каскад нашёл 2+ глаза И средняя яркость > 60 (есть белки) ИЛИ
+            # 2. Найдено 2+ круглых зрачка И яркость > 55 ИЛИ  
+            # 3. Найден 1 глаз каскадом И 1+ зрачок И яркость > 60
             
             eyes_open = False
             
-            if len(eyes_detected) >= 2:
+            if len(eyes_detected) >= 2 and mean_brightness > 60:
                 eyes_open = True
-                print(f'[TECH_SORT] ✅ Eyes open: cascade detected 2+ eyes')
-            elif circular_contours >= 2:
+                print(f'[TECH_SORT] ✅ Eyes open: cascade detected 2+ eyes + bright region')
+            elif circular_contours >= 2 and mean_brightness > 55:
                 eyes_open = True
-                print(f'[TECH_SORT] ✅ Eyes open: found 2+ circular pupils')
-            elif len(eyes_detected) >= 1 and circular_contours >= 1:
+                print(f'[TECH_SORT] ✅ Eyes open: found 2+ circular pupils + bright region')
+            elif len(eyes_detected) >= 1 and circular_contours >= 1 and mean_brightness > 60:
                 eyes_open = True
-                print(f'[TECH_SORT] ✅ Eyes open: 1 eye by cascade + 1 pupil detected')
+                print(f'[TECH_SORT] ✅ Eyes open: 1 eye + 1 pupil + bright region')
             else:
-                print(f'[TECH_SORT] ❌ Eyes closed: {len(eyes_detected)} eyes by cascade, {circular_contours} pupils')
+                print(f'[TECH_SORT] ❌ Eyes closed: cascade={len(eyes_detected)}, pupils={circular_contours}, brightness={mean_brightness:.1f}')
             
             # ШАГ 3: ФИНАЛЬНОЕ РЕШЕНИЕ ДЛЯ ЭТОГО ЛИЦА
             if eyes_open:

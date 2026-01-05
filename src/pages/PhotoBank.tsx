@@ -175,6 +175,54 @@ const PhotoBank = () => {
     }
   };
 
+  const handleRestoreSelectedPhotos = async () => {
+    if (selectedPhotos.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Вернуть выбранные фото (${selectedPhotos.size}) обратно в оригиналы?`
+    );
+
+    if (!confirmed) return;
+
+    setLoading(true);
+    let restoredCount = 0;
+    let cleanedCount = 0;
+
+    try {
+      for (const photoId of selectedPhotos) {
+        try {
+          const result = await handleRestorePhoto(photoId);
+          if (result?.cleaned) {
+            cleanedCount++;
+          } else {
+            restoredCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to restore photo ${photoId}:`, error);
+        }
+      }
+
+      setSelectedPhotos(new Set());
+      setSelectionMode(false);
+      
+      if (selectedFolder) {
+        await fetchPhotos(selectedFolder.id);
+      }
+      await fetchFolders();
+
+      const message = cleanedCount > 0 
+        ? `Восстановлено: ${restoredCount}, удалено из базы (файл отсутствует): ${cleanedCount}`
+        : `Успешно восстановлено ${restoredCount} фото`;
+      
+      alert(message);
+    } catch (error) {
+      console.error('Failed to restore photos:', error);
+      alert('Произошла ошибка при восстановлении фото');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (authChecking || !userId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -253,6 +301,7 @@ const PhotoBank = () => {
           onGoBack={handleGoBack}
           onGoForward={handleGoForward}
           onDeleteSelectedPhotos={handleDeleteSelectedPhotos}
+          onRestoreSelectedPhotos={handleRestoreSelectedPhotos}
         />
 
         {!selectedFolder ? (
