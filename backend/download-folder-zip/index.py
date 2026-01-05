@@ -61,7 +61,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Проверяем владельца папки
         cur.execute(
-            "SELECT folder_name, user_id FROM photobank_folders WHERE id = %s",
+            "SELECT folder_name, user_id FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s",
             (folder_id,)
         )
         folder_result = cur.fetchone()
@@ -86,8 +86,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cur.execute(
             """
             SELECT s3_key, file_name 
-            FROM user_files 
-            WHERE folder_id = %s AND s3_key IS NOT NULL
+            FROM t_p28211681_photo_secure_web.photo_bank 
+            WHERE folder_id = %s AND s3_key IS NOT NULL AND is_trashed = false
             ORDER BY file_name
             """,
             (folder_id,)
