@@ -421,9 +421,52 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             tech_rejects_folder_id = tech_rejects_folder['id']
             tech_rejects_s3_prefix = tech_rejects_folder['s3_prefix']
             
-            # Если включён режим повторного анализа - сбрасываем флаг tech_analyzed
+            # Если включён режим повторного анализа - возвращаем фото из tech_rejects и сбрасываем флаги
             if reset_analysis:
-                print(f'[TECH_SORT] Reset analysis mode enabled - clearing tech_analyzed flags')
+                print(f'[TECH_SORT] Reset analysis mode enabled - restoring photos from tech_rejects')
+                
+                # Шаг 1: Возвращаем все фото из tech_rejects обратно в originals
+                if tech_rejects_folder_id:
+                    # Перемещаем файлы в S3 обратно
+                    cur.execute('''
+                        SELECT id, s3_key, file_name
+                        FROM photo_bank
+                        WHERE folder_id = %s 
+                          AND user_id = %s 
+                          AND is_trashed = FALSE
+                    ''', (tech_rejects_folder_id, user_id))
+                    
+                    photos_to_restore = cur.fetchall()
+                    print(f'[TECH_SORT] Found {len(photos_to_restore)} photos in tech_rejects to restore')
+                    
+                    for photo_restore in photos_to_restore:
+                        old_s3_key = photo_restore['s3_key']
+                        # Новый путь: из tech_rejects/ убираем подпапку
+                        new_s3_key = old_s3_key.replace('/tech_rejects/', '/')
+                        
+                        try:
+                            # Копируем файл обратно
+                            s3_client.copy_object(
+                                Bucket=bucket,
+                                CopySource={'Bucket': bucket, 'Key': old_s3_key},
+                                Key=new_s3_key
+                            )
+                            
+                            # Удаляем старый файл
+                            s3_client.delete_object(Bucket=bucket, Key=old_s3_key)
+                            
+                            # Обновляем запись в БД
+                            cur.execute('''
+                                UPDATE photo_bank
+                                SET folder_id = %s, s3_key = %s
+                                WHERE id = %s
+                            ''', (folder_id, new_s3_key, photo_restore['id']))
+                            
+                            print(f'[TECH_SORT] Restored photo {photo_restore["id"]}: {old_s3_key} → {new_s3_key}')
+                        except Exception as e:
+                            print(f'[TECH_SORT] Failed to restore photo {photo_restore["id"]}: {e}')
+                
+                # Шаг 2: Сбрасываем флаги анализа для всех фото в originals
                 cur.execute('''
                     UPDATE photo_bank
                     SET tech_analyzed = FALSE, tech_reject_reason = NULL
