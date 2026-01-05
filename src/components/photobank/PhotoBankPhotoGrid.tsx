@@ -64,13 +64,42 @@ const handleDownload = async (s3Key: string, fileName: string, userId: number) =
     
     const data = await response.json();
     
-    const link = document.createElement('a');
-    link.href = data.url;
-    link.download = fileName;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Скачиваем файл и сохраняем через File System Access API
+    const fileResponse = await fetch(data.url);
+    const blob = await fileResponse.blob();
+    
+    // Проверяем поддержку File System Access API
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{
+            description: 'Images',
+            accept: {
+              'image/*': ['.jpg', '.jpeg', '.png', '.cr2', '.nef', '.arw', '.dng'],
+              'video/*': ['.mp4', '.mov', '.avi']
+            }
+          }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          throw err;
+        }
+      }
+    } else {
+      // Fallback для старых браузеров
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   } catch (error) {
     console.error('Download failed:', error);
     alert('Ошибка при скачивании файла. Попробуйте позже.');

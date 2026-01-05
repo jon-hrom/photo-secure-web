@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "Missing parameters",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "folderId and userId are required"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

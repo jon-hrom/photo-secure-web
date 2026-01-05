@@ -255,6 +255,68 @@ const PhotoBank = () => {
     }
   };
 
+  const handleDownloadFolder = async (folderId: number, folderName: string) => {
+    const confirmed = window.confirm(
+      `Скачать все фотографии из папки "${folderName}" архивом?\n\n` +
+      `Это может занять некоторое время в зависимости от размера папки.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?folderId=${folderId}&userId=${userId}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to create archive');
+      }
+      
+      const data = await response.json();
+      
+      // Скачиваем архив
+      const fileResponse = await fetch(data.url);
+      const blob = await fileResponse.blob();
+      
+      // Проверяем поддержку File System Access API
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: data.filename,
+            types: [{
+              description: 'ZIP Archive',
+              accept: {
+                'application/zip': ['.zip']
+              }
+            }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            throw err;
+          }
+        }
+      } else {
+        // Fallback для старых браузеров
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = data.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Failed to download folder:', error);
+      alert('Ошибка при создании архива. Попробуйте позже.');
+    }
+  };
+
   if (authChecking || !userId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -392,6 +454,7 @@ const PhotoBank = () => {
             onDeleteFolder={handleDeleteFolder}
             onCreateFolder={() => setShowCreateFolder(true)}
             onStartTechSort={handleStartTechSort}
+            onDownloadFolder={handleDownloadFolder}
           />
         ) : (
           <PhotoBankPhotoGrid

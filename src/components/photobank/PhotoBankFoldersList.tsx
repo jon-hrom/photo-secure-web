@@ -20,6 +20,7 @@ interface PhotoBankFoldersListProps {
   onDeleteFolder: (folderId: number, folderName: string) => void;
   onCreateFolder: () => void;
   onStartTechSort: (folderId: number, folderName: string) => void;
+  onDownloadFolder?: (folderId: number, folderName: string) => void;
   isAdminViewing?: boolean;
 }
 
@@ -31,6 +32,7 @@ const PhotoBankFoldersList = ({
   onDeleteFolder,
   onCreateFolder,
   onStartTechSort,
+  onDownloadFolder,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
   const formatDate = (dateStr: string) => {
@@ -144,6 +146,20 @@ const PhotoBankFoldersList = ({
                                 <span className="sm:hidden">
                                   <Icon name="SlidersHorizontal" size={14} />
                                 </span>
+                              </Button>
+                            )}
+                            {onDownloadFolder && folder.photo_count > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDownloadFolder(folder.id, folder.folder_name);
+                                }}
+                                title="Скачать архивом"
+                              >
+                                <Icon name="Download" size={16} />
                               </Button>
                             )}
                             <Button
