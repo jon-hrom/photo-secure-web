@@ -338,6 +338,12 @@ export const useCameraUploadLogic = (
       console.log('[CAMERA_UPLOAD] 🚀 НОВАЯ ВЕРСИЯ - ПОСЛЕДОВАТЕЛЬНАЯ ЗАГРУЗКА (1 файл за раз)');
       console.log('[CAMERA_UPLOAD] Version: 2025-01-04-SEQUENTIAL');
       
+      // Создаём отдельный колбэк для обновления галереи после каждого фото
+      const refreshGallery = onUploadComplete ? () => {
+        console.log('[CAMERA_UPLOAD] Refreshing gallery after photo added');
+        onUploadComplete();
+      } : undefined;
+
       for (let urlBatchStart = 0; urlBatchStart < pendingFiles.length; urlBatchStart += URL_BATCH_SIZE) {
         if (cancelledRef.current) break;
         
@@ -353,7 +359,7 @@ export const useCameraUploadLogic = (
           // Fallback: загружаем последовательно без batch URLs
           for (const fileStatus of urlBatch) {
             if (cancelledRef.current) break;
-            await uploadFile(fileStatus, undefined, undefined, 0, onUploadComplete);
+            await uploadFile(fileStatus, undefined, undefined, 0, refreshGallery);
           }
           continue;
         }
@@ -367,7 +373,7 @@ export const useCameraUploadLogic = (
             console.error(`[CAMERA_UPLOAD] No URL for ${fileStatus.file.name}, skipping`);
             continue;
           }
-          await uploadFile(fileStatus, urlInfo.url, urlInfo.key, 0, onUploadComplete);
+          await uploadFile(fileStatus, urlInfo.url, urlInfo.key, 0, refreshGallery);
         }
       }
       
@@ -386,6 +392,7 @@ export const useCameraUploadLogic = (
         console.log('[CAMERA_UPLOAD] Upload complete!');
         toast.success(`Загружено ${successfulUploads.length} файлов`);
         
+        // Финальное обновление галереи перед закрытием
         if (onUploadComplete) {
           onUploadComplete();
         }
