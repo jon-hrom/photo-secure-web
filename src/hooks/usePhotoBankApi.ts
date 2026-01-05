@@ -134,28 +134,48 @@ export const usePhotoBankApi = (
 
   const startTechSort = async (folderId: number) => {
     try {
-      const res = await fetch(PHOTO_TECH_SORT_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId
-        },
-        body: JSON.stringify({ folder_id: folderId })
-      });
+      let totalProcessed = 0;
+      let totalRejected = 0;
+      let batchCount = 0;
+      let hasMore = true;
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`API returned ${res.status}: ${errorText}`);
+      while (hasMore) {
+        batchCount++;
+        console.log(`[TECH_SORT] Starting batch ${batchCount}...`);
+
+        const res = await fetch(PHOTO_TECH_SORT_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId
+          },
+          body: JSON.stringify({ folder_id: folderId })
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`API returned ${res.status}: ${errorText}`);
+        }
+
+        const data = await res.json();
+        totalProcessed += data.processed || 0;
+        totalRejected += data.rejected || 0;
+        hasMore = data.has_more || false;
+
+        console.log(`[TECH_SORT] Batch ${batchCount}: processed=${data.processed}, rejected=${data.rejected}, remaining=${data.remaining}`);
+
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
 
-      const data = await res.json();
       toast({
         title: 'Сортировка завершена',
-        description: `Обработано ${data.processed} фото, найдено ${data.rejected} технических браков`,
+        description: `Обработано ${totalProcessed} фото за ${batchCount} пакетов, найдено ${totalRejected} технических браков`,
         duration: 5000
       });
 
-      return data;
+      return { processed: totalProcessed, rejected: totalRejected };
     } catch (error: any) {
       console.error('[TECH_SORT] Error:', error);
       toast({

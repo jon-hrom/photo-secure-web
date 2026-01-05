@@ -391,7 +391,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             tech_rejects_folder_id = tech_rejects_folder['id']
             tech_rejects_s3_prefix = tech_rejects_folder['s3_prefix']
             
-            # Получаем все фото из папки originals, которые ещё не анализировались
+            # ВАЖНО: Обрабатываем только 5 фото за раз чтобы не превысить таймаут
+            # Пользователь должен вызвать функцию несколько раз для большой папки
+            BATCH_SIZE = 5
+            
+            # Получаем первые 5 фото из папки originals, которые ещё не анализировались
             cur.execute('''
                 SELECT id, s3_key, s3_url, file_name, content_type
                 FROM photo_bank
@@ -400,10 +404,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                   AND is_trashed = FALSE
                   AND (tech_analyzed = FALSE OR tech_analyzed IS NULL)
                   AND is_video = FALSE
-            ''', (folder_id, user_id))
+                ORDER BY id ASC
+                LIMIT %s
+            ''', (folder_id, user_id, BATCH_SIZE))
             
             photos = cur.fetchall()
-            print(f'[TECH_SORT] Found {len(photos)} photos to analyze')
+            
+            # Также проверяем сколько всего осталось
+            cur.execute('''
+                SELECT COUNT(*) as total
+                FROM photo_bank
+                WHERE folder_id = %s 
+                  AND user_id = %s 
+                  AND is_trashed = FALSE
+                  AND (tech_analyzed = FALSE OR tech_analyzed IS NULL)
+                  AND is_video = FALSE
+            ''', (folder_id, user_id))
+            
+            total_remaining = cur.fetchone()['total']
+            print(f'[TECH_SORT] Found {len(photos)} photos to analyze in this batch (total remaining: {total_remaining})')
             
             rejected_count = 0
             processed_count = 0
@@ -521,6 +540,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             conn.commit()
             
+            # Проверяем осталось ли ещё что анализировать
+            cur.execute('''
+                SELECT COUNT(*) as remaining
+                FROM photo_bank
+                WHERE folder_id = %s 
+                  AND user_id = %s 
+                  AND is_trashed = FALSE
+                  AND (tech_analyzed = FALSE OR tech_analyzed IS NULL)
+                  AND is_video = FALSE
+            ''', (folder_id, user_id))
+            
+            remaining = cur.fetchone()['remaining']
+            
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -528,8 +560,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'success': True,
                     'processed': processed_count,
                     'rejected': rejected_count,
+                    'remaining': remaining,
+                    'has_more': remaining > 0,
                     'tech_rejects_folder_id': tech_rejects_folder_id,
-                    'message': f'Обработано {processed_count} фото, найдено {rejected_count} технических браков'
+                    'message': f'Обработано {processed_count} фото, найдено {rejected_count} технических браков. Осталось обработать: {remaining}'
                 }),
                 'isBase64Encoded': False
             }
