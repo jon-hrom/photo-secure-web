@@ -236,6 +236,7 @@ const PhotoBankPhotoGrid = ({
         photos={photos}
         onClose={() => setViewPhoto(null)}
         onNavigate={handleNavigate}
+        onDownload={handleDownload}
         formatBytes={formatBytes}
       />
 

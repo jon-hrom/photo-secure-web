@@ -24,6 +24,7 @@ interface PhotoGridViewerProps {
   photos: Photo[];
   onClose: () => void;
   onNavigate: (direction: 'prev' | 'next') => void;
+  onDownload: (s3Key: string, fileName: string, userId: number) => Promise<void>;
   formatBytes: (bytes: number) => string;
 }
 
@@ -32,6 +33,7 @@ const PhotoGridViewer = ({
   photos,
   onClose,
   onNavigate,
+  onDownload,
   formatBytes
 }: PhotoGridViewerProps) => {
   const [zoom, setZoom] = useState(0);
@@ -189,6 +191,18 @@ const PhotoGridViewer = ({
                 <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
                   {zoom === 0 ? 'Fit' : `${Math.round(zoom * 100)}%`}
                 </div>
+                <button
+                  onClick={async () => {
+                    if (viewPhoto.s3_key) {
+                      const userId = parseInt(localStorage.getItem('photobank_user_id') || '0', 10);
+                      await onDownload(viewPhoto.s3_key, viewPhoto.file_name, userId);
+                    }
+                  }}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                  title="Скачать фото"
+                >
+                  <Icon name="Download" size={20} className="text-white" />
+                </button>
                 <button
                   onClick={() => setShowExif(true)}
                   className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
