@@ -340,7 +340,7 @@ const PhotoGridViewer = ({
               </div>
             ) : (
               <img
-                src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
+                src={zoom > 0 ? (viewPhoto.s3_url || viewPhoto.data_url || '') : (viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || '')}
                 alt={viewPhoto.file_name}
                 className="object-contain cursor-move transition-transform duration-200 select-none"
                 style={{
@@ -350,7 +350,8 @@ const PhotoGridViewer = ({
                   maxWidth: zoom === 0 ? '90vw' : '100%',
                   maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
                   cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
-                  transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+                  transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                  imageRendering: zoom > 1.5 ? 'high-quality' : 'auto'
                 }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
