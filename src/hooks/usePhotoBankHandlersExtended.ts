@@ -26,6 +26,8 @@ interface PhotoFolder {
   id: number;
   folder_name: string;
   photo_count: number;
+  folder_type?: 'originals' | 'tech_rejects';
+  parent_folder_id?: number | null;
 }
 
 export const usePhotoBankHandlersExtended = (
@@ -33,7 +35,7 @@ export const usePhotoBankHandlersExtended = (
   folders: PhotoFolder[],
   selectedFolder: PhotoFolder | null,
   setLoading: (loading: boolean) => void,
-  startTechSort: (folderId: number) => Promise<any>,
+  startTechSort: (folderId: number, resetAnalysis?: boolean) => Promise<any>,
   restorePhoto: (photoId: number) => Promise<void>,
   fetchFolders: () => Promise<any>,
   fetchPhotos: (folderId: number) => Promise<void>
@@ -60,18 +62,35 @@ export const usePhotoBankHandlersExtended = (
   });
 
   const handleStartTechSort = async (folderId: number, folderName: string) => {
-    const confirmed = window.confirm(
+    // Проверяем, есть ли уже результаты анализа (все фото проанализированы)
+    const folder = folders.find(f => f.id === folderId);
+    const totalPhotos = folder?.photo_count || 0;
+    
+    // Ищем папку tech_rejects для проверки, был ли уже анализ
+    const techRejectsFolder = folders.find(
+      f => f.parent_folder_id === folderId && f.folder_type === 'tech_rejects'
+    );
+    
+    let resetAnalysis = false;
+    let confirmMessage = 
       `Запустить автоматическую сортировку фото в папке "${folderName}"?\n\n` +
       `Фото с техническим браком будут перемещены в отдельную подпапку.\n\n` +
-      `Это может занять несколько минут в зависимости от количества фото.`
-    );
+      `Это может занять несколько минут в зависимости от количества фото.`;
+    
+    // Если есть папка tech_rejects - предлагаем повторный анализ
+    if (techRejectsFolder && techRejectsFolder.photo_count > 0) {
+      confirmMessage = 
+        `Анализ уже выполнялся для этой папки (найдено ${techRejectsFolder.photo_count} браков).\n\n` +
+        `Запустить повторный анализ всех фото?\n\n` +
+        `ВНИМАНИЕ: Все фото будут заново проанализированы с учётом улучшенного алгоритма детекции глаз.`;
+      resetAnalysis = true;
+    }
+    
+    const confirmed = window.confirm(confirmMessage);
     
     if (!confirmed) {
       return;
     }
-
-    const folder = folders.find(f => f.id === folderId);
-    const totalPhotos = folder?.photo_count || 0;
 
     if (totalPhotos === 0) {
       return;
@@ -112,7 +131,7 @@ export const usePhotoBankHandlersExtended = (
     }, updateInterval);
 
     try {
-      const result = await startTechSort(folderId);
+      const result = await startTechSort(folderId, resetAnalysis);
       
       clearInterval(progressInterval);
       

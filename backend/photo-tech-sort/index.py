@@ -329,6 +329,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         body = json.loads(event.get('body', '{}'))
         folder_id = body.get('folder_id')
+        reset_analysis = body.get('reset_analysis', False)  # Флаг для повторного анализа
     except:
         return {
             'statusCode': 400,
@@ -419,6 +420,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             tech_rejects_folder_id = tech_rejects_folder['id']
             tech_rejects_s3_prefix = tech_rejects_folder['s3_prefix']
+            
+            # Если включён режим повторного анализа - сбрасываем флаг tech_analyzed
+            if reset_analysis:
+                print(f'[TECH_SORT] Reset analysis mode enabled - clearing tech_analyzed flags')
+                cur.execute('''
+                    UPDATE photo_bank
+                    SET tech_analyzed = FALSE, tech_reject_reason = NULL
+                    WHERE folder_id = %s 
+                      AND user_id = %s 
+                      AND is_trashed = FALSE
+                      AND is_video = FALSE
+                ''', (folder_id, user_id))
+                conn.commit()
+                print(f'[TECH_SORT] Reset {cur.rowcount} photos for re-analysis')
             
             # ВАЖНО: Обрабатываем только 5 фото за раз чтобы не превысить таймаут
             # Пользователь должен вызвать функцию несколько раз для большой папки

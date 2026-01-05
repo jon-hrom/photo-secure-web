@@ -143,7 +143,7 @@ export const usePhotoBankApi = (
     }
   }, [userId, setStorageUsage]);
 
-  const startTechSort = async (folderId: number) => {
+  const startTechSort = async (folderId: number, resetAnalysis: boolean = false) => {
     try {
       let totalProcessed = 0;
       let totalRejected = 0;
@@ -160,7 +160,10 @@ export const usePhotoBankApi = (
             'Content-Type': 'application/json',
             'X-User-Id': userId
           },
-          body: JSON.stringify({ folder_id: folderId })
+          body: JSON.stringify({ 
+            folder_id: folderId,
+            reset_analysis: resetAnalysis && batchCount === 1  // Сбрасываем только в первом батче
+          })
         });
 
         if (!res.ok) {
