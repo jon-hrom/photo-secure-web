@@ -36,13 +36,25 @@ const PhotoBankFoldersList = ({
   onDownloadFolder,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
-  // Находим все папки с подпапками и изначально сворачиваем их
-  const foldersWithSubfolders = React.useMemo(() => {
-    const parentIds = new Set(folders.filter(f => f.parent_folder_id).map(f => f.parent_folder_id));
-    return parentIds;
-  }, [folders]);
-
-  const [collapsedFolders, setCollapsedFolders] = React.useState<Set<number>>(() => new Set(foldersWithSubfolders));
+  // Используем sessionStorage для хранения состояния сворачивания
+  const STORAGE_KEY = 'photobank_collapsed_folders';
+  
+  const [collapsedFolders, setCollapsedFolders] = React.useState<Set<number>>(() => {
+    // Пытаемся загрузить из sessionStorage
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return new Set(parsed);
+      } catch (e) {
+        // Если ошибка парсинга, сворачиваем все
+      }
+    }
+    
+    // По умолчанию все папки с подпапками свёрнуты
+    const parentIds = folders.filter(f => f.parent_folder_id).map(f => f.parent_folder_id);
+    return new Set(parentIds);
+  });
 
   const toggleCollapse = (folderId: number) => {
     setCollapsedFolders(prev => {
@@ -52,6 +64,10 @@ const PhotoBankFoldersList = ({
       } else {
         newSet.add(folderId);
       }
+      
+      // Сохраняем в sessionStorage
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(newSet)));
+      
       return newSet;
     });
   };
