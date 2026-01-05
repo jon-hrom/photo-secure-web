@@ -4,16 +4,13 @@ import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIn
 import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
 import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
 import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
-import PhotoBankDialogs from '@/components/photobank/PhotoBankDialogs';
-import CameraUploadDialog from '@/components/photobank/CameraUploadDialog';
-import UrlUploadDialog from '@/components/photobank/UrlUploadDialog';
-import TechSortProgressDialog from '@/components/photobank/TechSortProgressDialog';
-import FolderDownloadDialog from '@/components/photobank/FolderDownloadDialog';
+import PhotoBankDialogsContainer from '@/components/photobank/PhotoBankDialogsContainer';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
+import { usePhotoBankHandlersExtended } from '@/hooks/usePhotoBankHandlersExtended';
 import { usePhotoBankNavigationHistory } from '@/hooks/usePhotoBankNavigationHistory';
 import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewing } from '@/pages/photobank/PhotoBankAuth';
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
@@ -22,7 +19,6 @@ import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 const PhotoBank = () => {
   const navigate = useNavigate();
   
-  // Отслеживаем изменения сессии для автоматической очистки admin viewing
   useSessionWatcher();
   
   const userId = getAuthUserId();
@@ -30,25 +26,6 @@ const PhotoBank = () => {
   const { emailVerified } = useEmailVerification(userId, authChecking);
   const [showCameraUpload, setShowCameraUpload] = useState(false);
   const [showUrlUpload, setShowUrlUpload] = useState(false);
-  const [techSortProgress, setTechSortProgress] = useState({
-    open: false,
-    progress: 0,
-    currentFile: '',
-    processedCount: 0,
-    totalCount: 0,
-    status: 'analyzing' as 'analyzing' | 'completed' | 'error',
-    errorMessage: ''
-  });
-
-  const [downloadProgress, setDownloadProgress] = useState({
-    open: false,
-    folderName: '',
-    progress: 0,
-    downloadedBytes: 0,
-    totalBytes: 0,
-    status: 'preparing' as 'preparing' | 'downloading' | 'completed' | 'error',
-    errorMessage: ''
-  });
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -124,6 +101,23 @@ const PhotoBank = () => {
     fetchStorageUsage
   );
 
+  const {
+    techSortProgress,
+    downloadProgress,
+    handleStartTechSort,
+    handleRestorePhoto,
+    handleDownloadFolder
+  } = usePhotoBankHandlersExtended(
+    userId,
+    folders,
+    selectedFolder,
+    setLoading,
+    startTechSort,
+    restorePhoto,
+    fetchFolders,
+    fetchPhotos
+  );
+
   const { handleGoBack, handleGoForward } = usePhotoBankEffects({
     userId,
     authChecking,
@@ -151,256 +145,6 @@ const PhotoBank = () => {
     }
   };
 
-  const handleStartTechSort = async (folderId: number, folderName: string) => {
-    // Используем нативный confirm для всех платформ (работает на web, iOS, Android)
-    const confirmed = window.confirm(
-      `Запустить автоматическую сортировку фото в папке "${folderName}"?\n\n` +
-      `Фото с техническим браком будут перемещены в отдельную подпапку.\n\n` +
-      `Это может занять несколько минут в зависимости от количества фото.`
-    );
-    
-    if (!confirmed) {
-      return;
-    }
-
-    // Получаем количество фото в папке
-    const folder = folders.find(f => f.id === folderId);
-    const totalPhotos = folder?.photo_count || 0;
-
-    if (totalPhotos === 0) {
-      return;
-    }
-
-    // Показываем диалог прогресса
-    setTechSortProgress({
-      open: true,
-      progress: 0,
-      currentFile: 'Подготовка...',
-      processedCount: 0,
-      totalCount: totalPhotos,
-      status: 'analyzing',
-      errorMessage: ''
-    });
-
-    // Симулируем прогресс (примерно 2 секунды на фото)
-    const estimatedTimeMs = totalPhotos * 2000;
-    const updateInterval = 100; // обновление каждые 100ms
-    const incrementPerUpdate = (100 / (estimatedTimeMs / updateInterval));
-    
-    let currentProgress = 0;
-    let processedFiles = 0;
-
-    const progressInterval = setInterval(() => {
-      currentProgress += incrementPerUpdate;
-      processedFiles = Math.floor((currentProgress / 100) * totalPhotos);
-      
-      if (currentProgress >= 95) {
-        clearInterval(progressInterval);
-        currentProgress = 95;
-      }
-
-      setTechSortProgress(prev => ({
-        ...prev,
-        progress: currentProgress,
-        processedCount: processedFiles,
-        currentFile: `Анализ фото ${processedFiles + 1} из ${totalPhotos}...`
-      }));
-    }, updateInterval);
-
-    try {
-      const result = await startTechSort(folderId);
-      
-      clearInterval(progressInterval);
-      
-      // Показываем завершение
-      setTechSortProgress({
-        open: true,
-        progress: 100,
-        currentFile: '',
-        processedCount: result.processed || totalPhotos,
-        totalCount: totalPhotos,
-        status: 'completed',
-        errorMessage: ''
-      });
-
-      // Обновляем список папок
-      await fetchFolders();
-
-      // Закрываем диалог через 2 секунды
-      setTimeout(() => {
-        setTechSortProgress(prev => ({ ...prev, open: false }));
-      }, 2000);
-
-    } catch (error: any) {
-      clearInterval(progressInterval);
-      
-      setTechSortProgress({
-        open: true,
-        progress: 0,
-        currentFile: '',
-        processedCount: 0,
-        totalCount: totalPhotos,
-        status: 'error',
-        errorMessage: error.message || 'Произошла ошибка при анализе'
-      });
-
-      // Закрываем диалог через 3 секунды
-      setTimeout(() => {
-        setTechSortProgress(prev => ({ ...prev, open: false }));
-      }, 3000);
-    }
-  };
-
-  const handleRestorePhoto = async (photoId: number) => {
-    setLoading(true);
-    try {
-      await restorePhoto(photoId);
-      if (selectedFolder) {
-        await fetchPhotos(selectedFolder.id);
-      }
-      await fetchFolders();
-    } catch (error) {
-      console.error('Failed to restore photo:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDownloadFolder = async (folderId: number, folderName: string) => {
-    const confirmed = window.confirm(
-      `Скачать все фотографии из папки "${folderName}" архивом?\n\n` +
-      `Это может занять некоторое время в зависимости от размера папки.`
-    );
-    
-    if (!confirmed) {
-      return;
-    }
-
-    // Показываем диалог подготовки
-    setDownloadProgress({
-      open: true,
-      folderName,
-      progress: 0,
-      downloadedBytes: 0,
-      totalBytes: 0,
-      status: 'preparing',
-      errorMessage: ''
-    });
-
-    try {
-      // Запрашиваем создание архива
-      const response = await fetch(
-        `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?folderId=${folderId}&userId=${userId}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to create archive');
-      }
-      
-      const data = await response.json();
-      
-      // Скачиваем архив с отслеживанием прогресса
-      const fileResponse = await fetch(data.url);
-      
-      if (!fileResponse.ok || !fileResponse.body) {
-        throw new Error('Failed to download archive');
-      }
-
-      const contentLength = parseInt(fileResponse.headers.get('content-length') || '0');
-      
-      // Читаем поток с отслеживанием прогресса
-      const reader = fileResponse.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let downloadedBytes = 0;
-
-      setDownloadProgress(prev => ({
-        ...prev,
-        status: 'downloading',
-        totalBytes: contentLength
-      }));
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
-        
-        chunks.push(value);
-        downloadedBytes += value.length;
-        
-        const progress = contentLength > 0 ? (downloadedBytes / contentLength) * 100 : 0;
-        
-        setDownloadProgress(prev => ({
-          ...prev,
-          progress,
-          downloadedBytes,
-          totalBytes: contentLength
-        }));
-      }
-
-      // Создаем blob из скачанных данных
-      const blob = new Blob(chunks, { type: 'application/zip' });
-      
-      // Проверяем поддержку File System Access API
-      if ('showSaveFilePicker' in window) {
-        try {
-          const handle = await (window as any).showSaveFilePicker({
-            suggestedName: data.filename,
-            types: [{
-              description: 'ZIP Archive',
-              accept: {
-                'application/zip': ['.zip']
-              }
-            }]
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-        } catch (err: any) {
-          if (err.name === 'AbortError') {
-            setDownloadProgress(prev => ({ ...prev, open: false }));
-            return;
-          }
-          throw err;
-        }
-      } else {
-        // Fallback для старых браузеров
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = data.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-
-      // Показываем успешное завершение
-      setDownloadProgress(prev => ({
-        ...prev,
-        status: 'completed',
-        progress: 100
-      }));
-
-      // Автоматически закрываем через 2 секунды
-      setTimeout(() => {
-        setDownloadProgress(prev => ({ ...prev, open: false }));
-      }, 2000);
-
-    } catch (error: any) {
-      console.error('Failed to download folder:', error);
-      setDownloadProgress(prev => ({
-        ...prev,
-        status: 'error',
-        errorMessage: error.message || 'Ошибка при скачивании архива'
-      }));
-
-      // Закрываем диалог через 3 секунды
-      setTimeout(() => {
-        setDownloadProgress(prev => ({ ...prev, open: false }));
-      }, 3000);
-    }
-  };
-
   if (authChecking || !userId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -420,86 +164,28 @@ const PhotoBank = () => {
         onExitAdminView={handleExitAdminView}
       />
       
-      <PhotoBankDialogs
+      <PhotoBankDialogsContainer
+        userId={userId}
+        folders={folders}
+        selectedFolder={selectedFolder}
         showCreateFolder={showCreateFolder}
         showClearConfirm={showClearConfirm}
+        showCameraUpload={showCameraUpload}
+        showUrlUpload={showUrlUpload}
         folderName={folderName}
-        foldersCount={folders.length}
-        onSetShowCreateFolder={setShowCreateFolder}
-        onSetShowClearConfirm={setShowClearConfirm}
-        onSetFolderName={setFolderName}
-        onCreateFolder={handleCreateFolder}
-        onClearAll={handleClearAll}
-      />
-
-      <CameraUploadDialog
-        open={showCameraUpload}
-        onOpenChange={setShowCameraUpload}
-        userId={userId || ''}
-        folders={folders}
-        onUploadComplete={() => {
-          fetchFolders();
-          fetchStorageUsage();
-        }}
-      />
-
-      <UrlUploadDialog
-        open={showUrlUpload}
-        onClose={() => setShowUrlUpload(false)}
-        onUpload={async (url: string, folderId?: number) => {
-          if (!userId) throw new Error('Требуется авторизация');
-
-          const response = await fetch('https://functions.poehali.dev/f0385237-b64f-49d6-8491-e534ca5056f7', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-User-Id': userId
-            },
-            body: JSON.stringify({
-              url,
-              folder_id: folderId || selectedFolder?.id || null
-            })
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Ошибка загрузки');
-          }
-
-          const result = await response.json();
-          
-          if (result.failed > 0) {
-            console.warn('Некоторые файлы не удалось загрузить:', result.errors);
-          }
-
-          await fetchFolders();
-          await fetchStorageUsage();
-          
-          // Если загрузка была в новую папку, обновляем её список фото
-          if (result.folder_id) {
-            await fetchPhotos(result.folder_id);
-            // Выбираем эту папку автоматически
-            const updatedFolders = await fetchFolders();
-            const newFolder = updatedFolders?.find(f => f.id === result.folder_id);
-            if (newFolder) {
-              setSelectedFolder(newFolder);
-            }
-          } else if (selectedFolder) {
-            await fetchPhotos(selectedFolder.id);
-          }
-
-          return result;
-        }}
-      />
-
-      <FolderDownloadDialog
-        open={downloadProgress.open}
-        folderName={downloadProgress.folderName}
-        progress={downloadProgress.progress}
-        downloadedBytes={downloadProgress.downloadedBytes}
-        totalBytes={downloadProgress.totalBytes}
-        status={downloadProgress.status}
-        errorMessage={downloadProgress.errorMessage}
+        techSortProgress={techSortProgress}
+        downloadProgress={downloadProgress}
+        setShowCreateFolder={setShowCreateFolder}
+        setShowClearConfirm={setShowClearConfirm}
+        setShowCameraUpload={setShowCameraUpload}
+        setShowUrlUpload={setShowUrlUpload}
+        setFolderName={setFolderName}
+        setSelectedFolder={setSelectedFolder}
+        handleCreateFolder={handleCreateFolder}
+        handleClearAll={handleClearAll}
+        fetchFolders={fetchFolders}
+        fetchPhotos={fetchPhotos}
+        fetchStorageUsage={fetchStorageUsage}
       />
 
       <div className="max-w-7xl mx-auto space-y-6">
@@ -560,26 +246,16 @@ const PhotoBank = () => {
             selectionMode={selectionMode}
             selectedPhotos={selectedPhotos}
             emailVerified={emailVerified}
-            isAdminViewing={isAdminViewing}
             onUploadPhoto={handleUploadPhoto}
             onDeletePhoto={handleDeletePhoto}
             onTogglePhotoSelection={togglePhotoSelection}
             onCancelUpload={handleCancelUpload}
             onRestorePhoto={handleRestorePhoto}
+            isAdminViewing={isAdminViewing}
           />
         )}
       </div>
 
-      <TechSortProgressDialog
-        open={techSortProgress.open}
-        progress={techSortProgress.progress}
-        currentFile={techSortProgress.currentFile}
-        processedCount={techSortProgress.processedCount}
-        totalCount={techSortProgress.totalCount}
-        status={techSortProgress.status}
-        errorMessage={techSortProgress.errorMessage}
-      />
-      
       <MobileNavigation />
     </div>
   );
