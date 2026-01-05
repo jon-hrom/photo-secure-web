@@ -346,40 +346,44 @@ const PhotoGridViewer = ({
               </div>
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">
-                <img
-                  src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
-                  alt={viewPhoto.file_name}
-                  className="object-contain cursor-move select-none"
-                  style={{
-                    transform: zoom > 0 
-                      ? `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)` 
-                      : 'none',
-                    maxWidth: zoom === 0 ? '90vw' : '100%',
-                    maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
-                    cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
-                    transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-                    imageRendering: zoom > 1.5 ? 'high-quality' : 'auto'
-                  }}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={(e) => {
-                    handleTouchEnd(e);
-                    if (e.timeStamp - (touchStart?.time || 0) < 300) {
-                      handleDoubleTap(e);
-                    }
-                  }}
-                  onDoubleClick={handleDoubleTap}
-                  draggable={false}
-                />
+                {/* Превью изображение - показывается только при zoom === 0 или как fallback при загрузке full-res */}
+                {(zoom === 0 || isLoadingFullRes || imageError || !viewPhoto.s3_url) && (
+                  <img
+                    src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
+                    alt={viewPhoto.file_name}
+                    className="object-contain cursor-move select-none"
+                    style={{
+                      transform: zoom > 0 
+                        ? `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)` 
+                        : 'none',
+                      maxWidth: zoom === 0 ? '90vw' : '100%',
+                      maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
+                      cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
+                      transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                      imageRendering: zoom > 1.5 ? 'high-quality' : 'auto'
+                    }}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={(e) => {
+                      handleTouchEnd(e);
+                      if (e.timeStamp - (touchStart?.time || 0) < 300) {
+                        handleDoubleTap(e);
+                      }
+                    }}
+                    onDoubleClick={handleDoubleTap}
+                    draggable={false}
+                  />
+                )}
+                {/* Full-res изображение - показывается ВМЕСТО превью при zoom > 0 */}
                 {zoom > 0 && !imageError && viewPhoto.s3_url && !viewPhoto.is_raw && (
                   <img
                     src={viewPhoto.s3_url}
                     alt={viewPhoto.file_name}
-                    className="absolute inset-0 object-contain cursor-move select-none"
+                    className="object-contain cursor-move select-none"
                     style={{
                       transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
                       maxWidth: '100%',
@@ -387,8 +391,19 @@ const PhotoGridViewer = ({
                       cursor: isDragging ? 'grabbing' : 'grab',
                       transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                       imageRendering: zoom > 1.5 ? 'high-quality' : 'auto',
-                      opacity: isLoadingFullRes ? 0 : 1,
-                      pointerEvents: 'none'
+                      opacity: isLoadingFullRes ? 0 : 1
+                    }}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={(e) => {
+                      handleTouchEnd(e);
+                      if (e.timeStamp - (touchStart?.time || 0) < 300) {
+                        handleDoubleTap(e);
+                      }
                     }}
                     onLoad={() => setIsLoadingFullRes(false)}
                     onError={() => {
