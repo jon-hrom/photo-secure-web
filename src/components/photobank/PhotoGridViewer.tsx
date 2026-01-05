@@ -345,21 +345,11 @@ const PhotoGridViewer = ({
                 <p className="text-sm text-white/40">Это может занять до минуты</p>
               </div>
             ) : (
-              <>
-                {isLoadingFullRes && zoom > 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                    <div className="flex flex-col items-center text-white/80">
-                      <Icon name="Loader2" size={32} className="animate-spin mb-2" />
-                      <p className="text-sm">Загрузка оригинала...</p>
-                    </div>
-                  </div>
-                )}
+              <div className="relative w-full h-full flex items-center justify-center">
                 <img
-                  src={imageError || zoom === 0 
-                    ? (viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || '') 
-                    : (viewPhoto.s3_url || viewPhoto.data_url || '')}
+                  src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
                   alt={viewPhoto.file_name}
-                  className="object-contain cursor-move transition-transform duration-200 select-none"
+                  className="object-contain cursor-move select-none"
                   style={{
                     transform: zoom > 0 
                       ? `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)` 
@@ -369,13 +359,6 @@ const PhotoGridViewer = ({
                     cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
                     transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                     imageRendering: zoom > 1.5 ? 'high-quality' : 'auto'
-                  }}
-                  onLoadStart={() => zoom > 0 && setIsLoadingFullRes(true)}
-                  onLoad={() => setIsLoadingFullRes(false)}
-                  onError={(e) => {
-                    console.error('[PHOTO_VIEWER] Image load error:', viewPhoto.file_name);
-                    setImageError(true);
-                    setIsLoadingFullRes(false);
                   }}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -392,7 +375,38 @@ const PhotoGridViewer = ({
                   onDoubleClick={handleDoubleTap}
                   draggable={false}
                 />
-              </>
+                {zoom > 0 && !imageError && viewPhoto.s3_url && (
+                  <img
+                    src={viewPhoto.s3_url}
+                    alt={viewPhoto.file_name}
+                    className="absolute inset-0 object-contain cursor-move select-none"
+                    style={{
+                      transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
+                      maxWidth: '100%',
+                      maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
+                      cursor: isDragging ? 'grabbing' : 'grab',
+                      transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                      imageRendering: zoom > 1.5 ? 'high-quality' : 'auto',
+                      opacity: isLoadingFullRes ? 0 : 1,
+                      pointerEvents: 'none'
+                    }}
+                    onLoad={() => setIsLoadingFullRes(false)}
+                    onError={() => {
+                      console.error('[PHOTO_VIEWER] Full-res image load error:', viewPhoto.file_name);
+                      setImageError(true);
+                      setIsLoadingFullRes(false);
+                    }}
+                    onLoadStart={() => setIsLoadingFullRes(true)}
+                    draggable={false}
+                  />
+                )}
+                {isLoadingFullRes && zoom > 0 && (
+                  <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm px-3 py-2 rounded-full flex items-center gap-2">
+                    <Icon name="Loader2" size={16} className="animate-spin text-white/80" />
+                    <span className="text-xs text-white/80">Загрузка...</span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
