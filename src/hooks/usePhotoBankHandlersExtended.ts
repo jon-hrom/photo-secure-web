@@ -62,6 +62,9 @@ export const usePhotoBankHandlersExtended = (
   });
 
   const handleStartTechSort = async (folderId: number, folderName: string) => {
+    console.log('[TECH_SORT_HANDLER] Starting for folder:', folderId, folderName);
+    console.log('[TECH_SORT_HANDLER] Available folders:', folders);
+    
     // Проверяем, есть ли уже результаты анализа (все фото проанализированы)
     const folder = folders.find(f => f.id === folderId);
     const totalPhotos = folder?.photo_count || 0;
@@ -70,6 +73,8 @@ export const usePhotoBankHandlersExtended = (
     const techRejectsFolder = folders.find(
       f => f.parent_folder_id === folderId && f.folder_type === 'tech_rejects'
     );
+    
+    console.log('[TECH_SORT_HANDLER] Tech rejects folder found:', techRejectsFolder);
     
     let resetAnalysis = false;
     let confirmMessage = 
