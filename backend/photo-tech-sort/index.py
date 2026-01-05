@@ -330,6 +330,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body = json.loads(event.get('body', '{}'))
         folder_id = body.get('folder_id')
         reset_analysis = body.get('reset_analysis', False)  # Флаг для повторного анализа
+        print(f'[TECH_SORT] Request body parsed: folder_id={folder_id}, reset_analysis={reset_analysis}')
     except:
         return {
             'statusCode': 400,
