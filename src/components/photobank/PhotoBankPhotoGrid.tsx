@@ -54,7 +54,14 @@ interface PhotoBankPhotoGridProps {
 
 const handleDownload = async (url: string, fileName: string) => {
   try {
-    const response = await fetch(url);
+    // Используем прокси для обхода CORS
+    const proxyUrl = `https://functions.poehali.dev/ad795db1-ca4b-4254-b2e3-1b1debfbc1b8?url=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+    
     const blob = await response.blob();
     const downloadUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -66,6 +73,7 @@ const handleDownload = async (url: string, fileName: string) => {
     window.URL.revokeObjectURL(downloadUrl);
   } catch (error) {
     console.error('Download failed:', error);
+    alert('Ошибка при скачивании файла. Попробуйте позже.');
   }
 };
 
