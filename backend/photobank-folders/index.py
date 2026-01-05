@@ -228,62 +228,51 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         config=Config(signature_version='s3v4')
                     )
                     
-                    # Получаем дополнительно s3_url и thumbnail_s3_url из БД (прямые CDN ссылки)
-                    cur.execute('''
-                        SELECT 
-                            id,
-                            s3_url as direct_s3_url,
-                            thumbnail_s3_url as direct_thumbnail_url
-                        FROM t_p28211681_photo_secure_web.photo_bank
-                        WHERE folder_id = %s AND user_id = %s AND is_trashed = FALSE
-                    ''', (folder_id, user_id))
-                    direct_urls = {row['id']: row for row in cur.fetchall()}
-                    
+                    # ВСЕГДА генерируем presigned URLs, т.к. bucket приватный
                     for photo in photos:
                         if photo['created_at']:
                             photo['created_at'] = photo['created_at'].isoformat()
                         
-                        photo_id = photo['id']
-                        direct_data = direct_urls.get(photo_id, {})
-                        
-                        # Используем прямые CDN URL если есть, иначе генерируем presigned
-                        if direct_data.get('direct_s3_url'):
-                            photo['s3_url'] = direct_data['direct_s3_url']
-                        elif photo['s3_key']:
+                        # Генерируем presigned URL для основного фото
+                        if photo['s3_key']:
                             try:
                                 photo['s3_url'] = s3_client.generate_presigned_url(
                                     'get_object',
                                     Params={'Bucket': bucket, 'Key': photo['s3_key']},
-                                    ExpiresIn=600
+                                    ExpiresIn=3600
                                 )
-                            except Exception:
+                            except Exception as e:
+                                print(f'[LIST_PHOTOS] Failed to generate presigned URL for {photo["s3_key"]}: {e}')
                                 try:
                                     photo['s3_url'] = old_s3_client.generate_presigned_url(
                                         'get_object',
                                         Params={'Bucket': 'foto-mix', 'Key': photo['s3_key']},
-                                        ExpiresIn=600
+                                        ExpiresIn=3600
                                     )
-                                except Exception:
+                                except Exception as e2:
+                                    print(f'[LIST_PHOTOS] Fallback also failed: {e2}')
                                     photo['s3_url'] = None
+                        else:
+                            photo['s3_url'] = None
                         
-                        # Используем прямые CDN URL для превью если есть
-                        if direct_data.get('direct_thumbnail_url'):
-                            photo['thumbnail_s3_url'] = direct_data['direct_thumbnail_url']
-                        elif photo.get('thumbnail_s3_key'):
+                        # Генерируем presigned URL для thumbnail
+                        if photo.get('thumbnail_s3_key'):
                             try:
                                 photo['thumbnail_s3_url'] = s3_client.generate_presigned_url(
                                     'get_object',
                                     Params={'Bucket': bucket, 'Key': photo['thumbnail_s3_key']},
-                                    ExpiresIn=600
+                                    ExpiresIn=3600
                                 )
-                            except Exception:
+                            except Exception as e:
+                                print(f'[LIST_PHOTOS] Failed to generate thumbnail presigned URL for {photo["thumbnail_s3_key"]}: {e}')
                                 try:
                                     photo['thumbnail_s3_url'] = old_s3_client.generate_presigned_url(
                                         'get_object',
                                         Params={'Bucket': 'foto-mix', 'Key': photo['thumbnail_s3_key']},
-                                        ExpiresIn=600
+                                        ExpiresIn=3600
                                     )
-                                except Exception:
+                                except Exception as e2:
+                                    print(f'[LIST_PHOTOS] Thumbnail fallback also failed: {e2}')
                                     photo['thumbnail_s3_url'] = None
                         else:
                             photo['thumbnail_s3_url'] = None
