@@ -59,12 +59,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         cur = conn.cursor()
         
+        print(f"[DEBUG] Checking folder {folder_id} for user {user_id}")
+        
         # Проверяем владельца папки
         cur.execute(
             "SELECT folder_name, user_id FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s",
             (folder_id,)
         )
+        print(f"[DEBUG] Query executed successfully")
         folder_result = cur.fetchone()
+        print(f"[DEBUG] Folder result: {folder_result}")
         
         if not folder_result:
             return {

@@ -54,18 +54,22 @@ interface PhotoBankPhotoGridProps {
 
 const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
   try {
+    console.log('[DOWNLOAD] Starting download:', { s3Key, fileName, userId });
     const response = await fetch(
       `https://functions.poehali.dev/8a60ca41-e494-417e-b881-2ce4f1f4247e?key=${encodeURIComponent(s3Key)}&userId=${userId}`
     );
+    console.log('[DOWNLOAD] Download URL response:', response.status);
     
     if (!response.ok) {
       throw new Error('Failed to get download URL');
     }
     
     const data = await response.json();
+    console.log('[DOWNLOAD] Pre-signed URL received:', data.url ? 'yes' : 'no');
     
     // Скачиваем файл и сохраняем через File System Access API
     const fileResponse = await fetch(data.url);
+    console.log('[DOWNLOAD] File fetch response:', fileResponse.status);
     const blob = await fileResponse.blob();
     
     // Проверяем поддержку File System Access API
@@ -101,7 +105,7 @@ const handleDownload = async (s3Key: string, fileName: string, userId: number) =
       URL.revokeObjectURL(url);
     }
   } catch (error) {
-    console.error('Download failed:', error);
+    console.error('[DOWNLOAD] Download failed:', error);
     alert('Ошибка при скачивании файла. Попробуйте позже.');
   }
 };

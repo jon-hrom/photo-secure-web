@@ -144,7 +144,9 @@ const PhotoGridCard = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                const userId = Number(localStorage.getItem('authUserId'));
+                const userIdStr = localStorage.getItem('authUserId');
+                const userId = userIdStr ? parseInt(userIdStr, 10) : 0;
+                console.log('[PHOTO_CARD] Download clicked:', { userId, s3_key: photo.s3_key });
                 if (userId) {
                   onDownload(photo.s3_key!, photo.file_name, userId);
                 }

@@ -23,7 +23,7 @@ const TechSortProgressDialog = ({
 }: TechSortProgressDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md max-w-[90vw] mx-4" hideCloseButton>
+      <DialogContent className="sm:max-w-md max-w-[90vw] mx-4" hideCloseButton aria-describedby="tech-sort-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {status === 'analyzing' && (
@@ -47,7 +47,7 @@ const TechSortProgressDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div id="tech-sort-description" className="space-y-4 py-4">
           {status === 'analyzing' && (
             <>
               <div className="space-y-2">
