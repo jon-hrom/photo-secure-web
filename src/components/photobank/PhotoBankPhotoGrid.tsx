@@ -67,21 +67,13 @@ const handleDownload = async (s3Key: string, fileName: string, userId: number) =
     const data = await response.json();
     console.log('[DOWNLOAD] Pre-signed URL received:', data.url ? 'yes' : 'no');
     
-    const fileResponse = await fetch(data.url);
-    console.log('[DOWNLOAD] File fetch response:', fileResponse.status);
-    const blob = await fileResponse.blob();
-    
-    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
+    link.href = data.url;
     link.download = fileName;
+    link.target = '_blank';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 100);
   } catch (error) {
     console.error('[DOWNLOAD] Download failed:', error);
     alert('Ошибка при скачивании файла. Попробуйте позже.');
