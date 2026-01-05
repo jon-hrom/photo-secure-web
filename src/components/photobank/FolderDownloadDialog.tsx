@@ -7,8 +7,9 @@ interface FolderDownloadDialogProps {
   open: boolean;
   folderName: string;
   progress: number;
-  downloadedBytes: number;
-  totalBytes: number;
+  currentFile: string;
+  downloadedFiles: number;
+  totalFiles: number;
   status: 'preparing' | 'downloading' | 'completed' | 'error';
   errorMessage?: string;
 }
@@ -17,19 +18,12 @@ const FolderDownloadDialog = ({
   open,
   folderName,
   progress,
-  downloadedBytes,
-  totalBytes,
+  currentFile,
+  downloadedFiles,
+  totalFiles,
   status,
   errorMessage
 }: FolderDownloadDialogProps) => {
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Б';
-    const k = 1024;
-    const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
-
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
@@ -40,7 +34,7 @@ const FolderDownloadDialog = ({
         <VisuallyHidden>
           <DialogTitle>Скачивание папки {folderName}</DialogTitle>
           <div id="download-progress-description">
-            Отображение прогресса скачивания архива папки
+            Отображение прогресса скачивания файлов из папки
           </div>
         </VisuallyHidden>
         
@@ -62,15 +56,15 @@ const FolderDownloadDialog = ({
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-lg truncate">{folderName}</h3>
               {status === 'preparing' && (
-                <p className="text-sm text-muted-foreground">Подготовка архива...</p>
+                <p className="text-sm text-muted-foreground">Подготовка списка файлов...</p>
               )}
               {status === 'downloading' && (
                 <p className="text-sm text-muted-foreground">
-                  Скачивание: {formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}
+                  Скачано: {downloadedFiles} из {totalFiles}
                 </p>
               )}
               {status === 'completed' && (
-                <p className="text-sm text-green-600">Архив успешно скачан!</p>
+                <p className="text-sm text-green-600">Файлы успешно скачаны!</p>
               )}
               {status === 'error' && (
                 <p className="text-sm text-red-600">{errorMessage || 'Ошибка при скачивании'}</p>
@@ -83,10 +77,15 @@ const FolderDownloadDialog = ({
               <Progress value={progress} className="h-2" />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{Math.round(progress)}%</span>
-                {status === 'downloading' && totalBytes > 0 && (
-                  <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}</span>
+                {status === 'downloading' && totalFiles > 0 && (
+                  <span>{downloadedFiles} / {totalFiles}</span>
                 )}
               </div>
+              {currentFile && (
+                <div className="mt-2 p-2 bg-muted rounded-md">
+                  <p className="text-xs text-muted-foreground truncate">{currentFile}</p>
+                </div>
+              )}
             </div>
           )}
         </div>

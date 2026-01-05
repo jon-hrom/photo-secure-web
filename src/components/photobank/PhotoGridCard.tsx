@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 
 interface Photo {
   id: number;
@@ -144,7 +145,7 @@ const PhotoGridCard = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                const userIdStr = localStorage.getItem('authUserId');
+                const userIdStr = getAuthUserId();
                 const userId = userIdStr ? parseInt(userIdStr, 10) : 0;
                 console.log('[PHOTO_CARD] Download clicked:', { userId, s3_key: photo.s3_key });
                 if (userId) {

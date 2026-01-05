@@ -14,8 +14,9 @@ interface DownloadProgress {
   open: boolean;
   folderName: string;
   progress: number;
-  downloadedBytes: number;
-  totalBytes: number;
+  currentFile: string;
+  downloadedFiles: number;
+  totalFiles: number;
   status: 'preparing' | 'downloading' | 'completed' | 'error';
   errorMessage: string;
 }
@@ -50,8 +51,9 @@ export const usePhotoBankHandlersExtended = (
     open: false,
     folderName: '',
     progress: 0,
-    downloadedBytes: 0,
-    totalBytes: 0,
+    currentFile: '',
+    downloadedFiles: 0,
+    totalFiles: 0,
     status: 'preparing',
     errorMessage: ''
   });
@@ -165,8 +167,8 @@ export const usePhotoBankHandlersExtended = (
 
   const handleDownloadFolder = async (folderId: number, folderName: string) => {
     const confirmed = window.confirm(
-      `Скачать все фотографии из папки "${folderName}" архивом?\n\n` +
-      `Это может занять некоторое время в зависимости от размера папки.`
+      `Скачать все фотографии из папки "${folderName}"?\n\n` +
+      `Файлы будут скачаны по очереди. Это может занять некоторое время.`
     );
     
     if (!confirmed) {
@@ -177,8 +179,9 @@ export const usePhotoBankHandlersExtended = (
       open: true,
       folderName,
       progress: 0,
-      downloadedBytes: 0,
-      totalBytes: 0,
+      currentFile: '',
+      downloadedFiles: 0,
+      totalFiles: 0,
       status: 'preparing',
       errorMessage: ''
     });
@@ -189,85 +192,53 @@ export const usePhotoBankHandlersExtended = (
       );
       
       if (!response.ok) {
-        throw new Error('Failed to create archive');
+        throw new Error('Failed to get file list');
       }
       
       const data = await response.json();
-      
-      const fileResponse = await fetch(data.url);
-      
-      if (!fileResponse.ok || !fileResponse.body) {
-        throw new Error('Failed to download archive');
-      }
+      const files = data.files || [];
+      const totalFiles = files.length;
 
-      const contentLength = parseInt(fileResponse.headers.get('content-length') || '0');
-      
-      const reader = fileResponse.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let downloadedBytes = 0;
+      if (totalFiles === 0) {
+        throw new Error('No files to download');
+      }
 
       setDownloadProgress(prev => ({
         ...prev,
         status: 'downloading',
-        totalBytes: contentLength
+        totalFiles
       }));
 
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
-        
-        chunks.push(value);
-        downloadedBytes += value.length;
-        
-        const progress = contentLength > 0 ? (downloadedBytes / contentLength) * 100 : 0;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         
         setDownloadProgress(prev => ({
           ...prev,
-          progress,
-          downloadedBytes,
-          totalBytes: contentLength
+          currentFile: file.filename,
+          downloadedFiles: i,
+          progress: (i / totalFiles) * 100
         }));
-      }
 
-      const blob = new Blob(chunks, { type: 'application/zip' });
-      
-      if ('showSaveFilePicker' in window) {
         try {
-          const handle = await (window as any).showSaveFilePicker({
-            suggestedName: data.filename,
-            types: [{
-              description: 'ZIP Archive',
-              accept: {
-                'application/zip': ['.zip']
-              }
-            }]
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-        } catch (err: any) {
-          if (err.name === 'AbortError') {
-            setDownloadProgress(prev => ({ ...prev, open: false }));
-            return;
-          }
-          throw err;
+          const link = document.createElement('a');
+          link.href = file.url;
+          link.download = file.filename;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (err) {
+          console.error(`Failed to download ${file.filename}:`, err);
         }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = data.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
       }
 
       setDownloadProgress(prev => ({
         ...prev,
         status: 'completed',
-        progress: 100
+        progress: 100,
+        downloadedFiles: totalFiles
       }));
 
       setTimeout(() => {
@@ -279,7 +250,7 @@ export const usePhotoBankHandlersExtended = (
       setDownloadProgress(prev => ({
         ...prev,
         status: 'error',
-        errorMessage: error.message || 'Ошибка при скачивании архива'
+        errorMessage: error.message || 'Ошибка при скачивании'
       }));
 
       setTimeout(() => {

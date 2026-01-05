@@ -325,9 +325,9 @@ const PhotoBankTab = ({
       </div>
 
       <Dialog open={!!viewPhoto} onOpenChange={() => { setViewPhoto(null); setZoom(1); }}>
-        <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none">
+        <DialogContent hideCloseButton aria-describedby="photobank-photo-viewer" className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none">
           {viewPhoto && (
-            <div className="relative w-full h-full flex items-center justify-center">
+            <div id="photobank-photo-viewer" className="relative w-full h-full flex items-center justify-center">
               {!isLandscape && (
                 <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
                   <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">

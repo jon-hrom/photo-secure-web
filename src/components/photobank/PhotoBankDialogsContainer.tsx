@@ -24,8 +24,9 @@ interface DownloadProgress {
   open: boolean;
   folderName: string;
   progress: number;
-  downloadedBytes: number;
-  totalBytes: number;
+  currentFile: string;
+  downloadedFiles: number;
+  totalFiles: number;
   status: 'preparing' | 'downloading' | 'completed' | 'error';
   errorMessage: string;
 }
@@ -127,8 +128,9 @@ const PhotoBankDialogsContainer = ({
         open={downloadProgress.open}
         folderName={downloadProgress.folderName}
         progress={downloadProgress.progress}
-        downloadedBytes={downloadProgress.downloadedBytes}
-        totalBytes={downloadProgress.totalBytes}
+        currentFile={downloadProgress.currentFile}
+        downloadedFiles={downloadProgress.downloadedFiles}
+        totalFiles={downloadProgress.totalFiles}
         status={downloadProgress.status}
         errorMessage={downloadProgress.errorMessage}
       />
