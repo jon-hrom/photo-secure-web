@@ -249,37 +249,17 @@ export const usePhotoBankHandlersExtended = (
         progress: 98
       }));
 
-      if ('showSaveFilePicker' in window) {
-        try {
-          const handle = await (window as any).showSaveFilePicker({
-            suggestedName: `${folderName}.zip`,
-            types: [{
-              description: 'ZIP Archive',
-              accept: {
-                'application/zip': ['.zip']
-              }
-            }]
-          });
-          const writable = await handle.createWritable();
-          await writable.write(zipBlob);
-          await writable.close();
-        } catch (err: any) {
-          if (err.name === 'AbortError') {
-            setDownloadProgress(prev => ({ ...prev, open: false }));
-            return;
-          }
-          throw err;
-        }
-      } else {
-        const url = URL.createObjectURL(zipBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${folderName}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${folderName}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setTimeout(() => {
         URL.revokeObjectURL(url);
-      }
+      }, 100);
 
       setDownloadProgress(prev => ({
         ...prev,
