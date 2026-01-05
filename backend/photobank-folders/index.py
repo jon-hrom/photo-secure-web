@@ -658,6 +658,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Determine if this is a video based on content_type or file extension
                 is_video = content_type.startswith('video/') or file_name.lower().endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv'))
                 
+                # Проверяем, существует ли уже файл с таким именем в этой папке
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        SELECT id, file_name FROM photo_bank
+                        WHERE folder_id = %s AND file_name = %s AND is_trashed = FALSE
+                    ''', (folder_id, file_name))
+                    existing = cur.fetchone()
+                    
+                    if existing:
+                        print(f'[UPLOAD_PHOTO] File {file_name} already exists in folder {folder_id}, skipping')
+                        return {
+                            'statusCode': 200,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'skipped': True, 'reason': 'File already exists', 'file_name': file_name}),
+                            'isBase64Encoded': False
+                        }
+                
                 # Skip dimensions extraction for faster upload (будет извлечено асинхронно)
                 # Для RAW файлов размером 25-28MB это занимает 2+ секунды на фото
                 width, height = None, None

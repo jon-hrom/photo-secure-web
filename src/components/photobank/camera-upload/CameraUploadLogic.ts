@@ -67,7 +67,7 @@ export const useCameraUploadLogic = (
     return urlMap;
   };
 
-  const uploadFile = async (fileStatus: FileUploadStatus, uploadUrl?: string, s3Key?: string, retryAttempt: number = 0): Promise<void> => {
+  const uploadFile = async (fileStatus: FileUploadStatus, uploadUrl?: string, s3Key?: string, retryAttempt: number = 0, onPhotoAdded?: () => void): Promise<void> => {
     const { file } = fileStatus;
     const abortController = new AbortController();
     abortControllersRef.current.set(file.name, abortController);
@@ -158,6 +158,44 @@ export const useCameraUploadLogic = (
             : f
         );
         filesRef.current = updated;
+
+        // Сразу добавляем файл в БД после успешной загрузки
+        const folderId = (window as any).__photobankTargetFolderId;
+        if (folderId && key) {
+          const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
+          fetch(PHOTOBANK_FOLDERS_API, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': userId,
+            },
+            body: JSON.stringify({
+              action: 'upload_photo',
+              folder_id: folderId,
+              file_name: file.name,
+              s3_url: s3Url,
+              file_size: file.size,
+              content_type: file.type
+            }),
+          })
+            .then(async res => {
+              if (res.ok) {
+                const data = await res.json();
+                if (!data.skipped) {
+                  console.log(`[CAMERA_UPLOAD] Photo ${file.name} added to folder ${folderId}`);
+                  // Обновляем галерею после добавления каждого фото
+                  if (onPhotoAdded) {
+                    onPhotoAdded();
+                  }
+                } else {
+                  console.log(`[CAMERA_UPLOAD] Photo ${file.name} skipped - already exists`);
+                }
+              } else {
+                console.error(`[CAMERA_UPLOAD] Failed to add photo ${file.name} to DB`);
+              }
+            })
+            .catch(err => console.error('[CAMERA_UPLOAD] DB add error:', err));
+        }
         
         // Обновляем статистику с debounce (500ms) чтобы избежать дергания
         const actualCompleted = updated.filter(f => f.status === 'success').length;
@@ -208,7 +246,7 @@ export const useCameraUploadLogic = (
         if (isNetworkError && retryAttempt < MAX_RETRIES) {
           console.log(`[CAMERA_UPLOAD] Retry ${retryAttempt + 1}/${MAX_RETRIES} for ${file.name}`);
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-          await uploadFile(fileStatus, retryAttempt + 1);
+          await uploadFile(fileStatus, uploadUrl, s3Key, retryAttempt + 1, onPhotoAdded);
         } else {
           setFiles(prev => {
             const updated = prev.map(f => 
@@ -249,7 +287,40 @@ export const useCameraUploadLogic = (
       cancelledRef.current = false;
       const pendingFiles = filesRef.current.filter(f => (f.status === 'pending' || f.status === 'error') && f.status !== 'skipped');
       console.log('[CAMERA_UPLOAD] Pending files to upload:', pendingFiles.length);
+
+      // Создаем папку ДО начала загрузки, чтобы сразу добавлять файлы
+      let targetFolderId: number;
+
+      if (folderMode === 'new') {
+        console.log('[CAMERA_UPLOAD] Creating folder:', folderName.trim());
+        const createFolderResponse = await fetch(PHOTOBANK_FOLDERS_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId,
+          },
+          body: JSON.stringify({
+            action: 'create_folder',
+            folder_name: folderName.trim(),
+          }),
+        });
+
+        if (!createFolderResponse.ok) {
+          const errorText = await createFolderResponse.text();
+          console.error('[CAMERA_UPLOAD] Create folder error:', errorText);
+          throw new Error('Не удалось создать папку');
+        }
+
+        const folderData = await createFolderResponse.json();
+        console.log('[CAMERA_UPLOAD] Folder created:', folderData);
+        targetFolderId = folderData.folder.id;
+      } else {
+        targetFolderId = selectedFolderId!;
+      }
       
+      // Сохраняем ID папки для использования в uploadFile
+      (window as any).__photobankTargetFolderId = targetFolderId;
+
       // Инициализируем статистику
       setUploadStats({
         startTime: Date.now(),
@@ -282,7 +353,7 @@ export const useCameraUploadLogic = (
           // Fallback: загружаем последовательно без batch URLs
           for (const fileStatus of urlBatch) {
             if (cancelledRef.current) break;
-            await uploadFile(fileStatus);
+            await uploadFile(fileStatus, undefined, undefined, 0, onUploadComplete);
           }
           continue;
         }
@@ -296,7 +367,7 @@ export const useCameraUploadLogic = (
             console.error(`[CAMERA_UPLOAD] No URL for ${fileStatus.file.name}, skipping`);
             continue;
           }
-          await uploadFile(fileStatus, urlInfo.url, urlInfo.key);
+          await uploadFile(fileStatus, urlInfo.url, urlInfo.key, 0, onUploadComplete);
         }
       }
       
@@ -305,103 +376,15 @@ export const useCameraUploadLogic = (
         return;
       }
 
+      // Очищаем временный ID папки
+      delete (window as any).__photobankTargetFolderId;
+
       const successfulUploads = filesRef.current.filter(f => f.status === 'success');
-      console.log('[CAMERA_UPLOAD] Successful uploads:', successfulUploads.length, successfulUploads);
+      console.log('[CAMERA_UPLOAD] Upload process finished. Successful uploads:', successfulUploads.length);
 
       if (successfulUploads.length > 0) {
-        let targetFolderId: number;
-
-        if (folderMode === 'new') {
-          console.log('[CAMERA_UPLOAD] Creating folder:', folderName.trim());
-          const createFolderResponse = await fetch(PHOTOBANK_FOLDERS_API, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-User-Id': userId,
-            },
-            body: JSON.stringify({
-              action: 'create_folder',
-              folder_name: folderName.trim(),
-            }),
-          });
-
-          if (!createFolderResponse.ok) {
-            const errorText = await createFolderResponse.text();
-            console.error('[CAMERA_UPLOAD] Create folder error:', errorText);
-            throw new Error('Не удалось создать папку');
-          }
-
-          const folderData = await createFolderResponse.json();
-          console.log('[CAMERA_UPLOAD] Folder created:', folderData);
-          targetFolderId = folderData.folder.id;
-        } else {
-          targetFolderId = selectedFolderId!;
-        }
-
-        console.log('[CAMERA_UPLOAD] Adding photos to folder:', targetFolderId, 'count:', successfulUploads.length);
-        
-        // Используем batch API для ускорения добавления фото в БД
-        for (let i = 0; i < successfulUploads.length; i += BATCH_SIZE) {
-          const batch = successfulUploads.slice(i, i + BATCH_SIZE);
-          const photos = batch
-            .filter(f => f.s3_key)
-            .map(f => ({
-              file_name: f.file.name,
-              s3_url: `https://storage.yandexcloud.net/foto-mix/${f.s3_key}`,
-              file_size: f.file.size,
-              content_type: f.file.type
-            }));
-          
-          if (photos.length === 0) continue;
-          
-          console.log(`[CAMERA_UPLOAD] Sending batch ${i / BATCH_SIZE + 1}: ${photos.length} photos`);
-          
-          const batchResponse = await fetch(PHOTOBANK_FOLDERS_API, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-User-Id': userId,
-            },
-            body: JSON.stringify({
-              action: 'upload_photos_batch',
-              folder_id: targetFolderId,
-              photos: photos,
-            }),
-          });
-
-          if (!batchResponse.ok) {
-            const errorText = await batchResponse.text();
-            console.error('[CAMERA_UPLOAD] Batch add error:', errorText);
-            
-            // Fallback на поштучное добавление при ошибке batch
-            console.log('[CAMERA_UPLOAD] Falling back to individual uploads');
-            for (const fileStatus of batch) {
-              if (!fileStatus.s3_key) continue;
-              
-              const s3Url = `https://storage.yandexcloud.net/foto-mix/${fileStatus.s3_key}`;
-              await fetch(PHOTOBANK_FOLDERS_API, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-User-Id': userId,
-                },
-                body: JSON.stringify({
-                  action: 'upload_photo',
-                  folder_id: targetFolderId,
-                  file_name: fileStatus.file.name,
-                  s3_url: s3Url,
-                  file_size: fileStatus.file.size,
-                }),
-              }).catch(err => console.error('[CAMERA_UPLOAD] Fallback error:', err));
-            }
-          } else {
-            const result = await batchResponse.json();
-            console.log(`[CAMERA_UPLOAD] Batch ${i / BATCH_SIZE + 1} added: ${result.inserted} photos`);
-          }
-        }
-
         console.log('[CAMERA_UPLOAD] Upload complete!');
-        toast.success(`Загружено ${successfulUploads.length} файлов в папку "${folderName}"`);
+        toast.success(`Загружено ${successfulUploads.length} файлов`);
         
         if (onUploadComplete) {
           onUploadComplete();
