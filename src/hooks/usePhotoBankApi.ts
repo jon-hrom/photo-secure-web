@@ -65,8 +65,19 @@ export const usePhotoBankApi = (
       console.log('[FETCH_FOLDERS] Received data:', data);
       console.log('[FETCH_FOLDERS] Folders count:', data.folders?.length || 0);
       
-      setFolders(data.folders || []);
-      return data.folders || [];
+      // Дополнительная фильтрация: убираем пустые tech_rejects папки на фронте
+      const filteredFolders = (data.folders || []).filter((folder: PhotoFolder) => {
+        if (folder.folder_type === 'tech_rejects' && folder.photo_count === 0) {
+          console.log('[FETCH_FOLDERS] Filtering out empty tech_rejects folder:', folder.id);
+          return false;
+        }
+        return true;
+      });
+      
+      console.log('[FETCH_FOLDERS] After filtering:', filteredFolders.length);
+      
+      setFolders(filteredFolders);
+      return filteredFolders;
     } catch (error: any) {
       console.error('[FETCH_FOLDERS] Error:', error);
       toast({

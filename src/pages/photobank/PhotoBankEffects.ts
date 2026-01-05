@@ -45,6 +45,15 @@ export const usePhotoBankEffects = ({
     }
   }, [selectedFolder?.id]);
 
+  // Автозакрытие пустых tech_rejects папок
+  useEffect(() => {
+    if (selectedFolder?.folder_type === 'tech_rejects' && photos.length === 0) {
+      console.log('[PHOTO_BANK] Tech rejects folder is empty, closing it');
+      setSelectedFolder(null);
+      fetchFolders();
+    }
+  }, [selectedFolder?.folder_type, photos.length]);
+
   // Автообновление для RAW файлов (проверка превью каждые 10 сек)
   useEffect(() => {
     if (!selectedFolder || !photos.length) return;
