@@ -44,6 +44,8 @@ const PhotoGridViewer = ({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const [imageError, setImageError] = useState(false);
+  const [isLoadingFullRes, setIsLoadingFullRes] = useState(false);
 
   const currentPhotoIndex = viewPhoto ? photos.findIndex(p => p.id === viewPhoto.id) : -1;
   const hasPrev = currentPhotoIndex > 0;
@@ -76,11 +78,13 @@ const PhotoGridViewer = ({
       setZoom(prev => {
         if (prev === 0) {
           setPanOffset({ x: 0, y: 0 });
+          setImageError(false);
           return delta > 0 ? 1.1 : 0;
         }
         const newZoom = prev + delta;
         if (newZoom < 0.5) {
           setPanOffset({ x: 0, y: 0 });
+          setImageError(false);
           return 0;
         }
         return Math.max(0, Math.min(2, newZoom));
@@ -211,6 +215,8 @@ const PhotoGridViewer = ({
     setPanOffset({ x: 0, y: 0 });
     setIsDragging(false);
     setDragStart(null);
+    setImageError(false);
+    setIsLoadingFullRes(false);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -339,35 +345,54 @@ const PhotoGridViewer = ({
                 <p className="text-sm text-white/40">Это может занять до минуты</p>
               </div>
             ) : (
-              <img
-                src={zoom > 0 ? (viewPhoto.s3_url || viewPhoto.data_url || '') : (viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || '')}
-                alt={viewPhoto.file_name}
-                className="object-contain cursor-move transition-transform duration-200 select-none"
-                style={{
-                  transform: zoom > 0 
-                    ? `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)` 
-                    : 'none',
-                  maxWidth: zoom === 0 ? '90vw' : '100%',
-                  maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
-                  cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
-                  transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-                  imageRendering: zoom > 1.5 ? 'high-quality' : 'auto'
-                }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={(e) => {
-                  handleTouchEnd(e);
-                  if (e.timeStamp - (touchStart?.time || 0) < 300) {
-                    handleDoubleTap(e);
-                  }
-                }}
-                onDoubleClick={handleDoubleTap}
-                draggable={false}
-              />
+              <>
+                {isLoadingFullRes && zoom > 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                    <div className="flex flex-col items-center text-white/80">
+                      <Icon name="Loader2" size={32} className="animate-spin mb-2" />
+                      <p className="text-sm">Загрузка оригинала...</p>
+                    </div>
+                  </div>
+                )}
+                <img
+                  src={imageError || zoom === 0 
+                    ? (viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || '') 
+                    : (viewPhoto.s3_url || viewPhoto.data_url || '')}
+                  alt={viewPhoto.file_name}
+                  className="object-contain cursor-move transition-transform duration-200 select-none"
+                  style={{
+                    transform: zoom > 0 
+                      ? `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)` 
+                      : 'none',
+                    maxWidth: zoom === 0 ? '90vw' : '100%',
+                    maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
+                    cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
+                    transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                    imageRendering: zoom > 1.5 ? 'high-quality' : 'auto'
+                  }}
+                  onLoadStart={() => zoom > 0 && setIsLoadingFullRes(true)}
+                  onLoad={() => setIsLoadingFullRes(false)}
+                  onError={(e) => {
+                    console.error('[PHOTO_VIEWER] Image load error:', viewPhoto.file_name);
+                    setImageError(true);
+                    setIsLoadingFullRes(false);
+                  }}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={(e) => {
+                    handleTouchEnd(e);
+                    if (e.timeStamp - (touchStart?.time || 0) < 300) {
+                      handleDoubleTap(e);
+                    }
+                  }}
+                  onDoubleClick={handleDoubleTap}
+                  draggable={false}
+                />
+              </>
             )}
           </div>
 
