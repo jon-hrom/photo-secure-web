@@ -380,10 +380,11 @@ const PhotoGridViewer = ({
                     draggable={false}
                   />
                 )}
-                {/* Full-res изображение - показывается ВМЕСТО превью при zoom > 0 */}
-                {zoom > 0 && !imageError && viewPhoto.s3_url && !viewPhoto.is_raw && (
+                {/* Full-res изображение - показывается ВМЕСТО превью при zoom > 0 
+                    Для RAW используем thumbnail, для обычных - s3_url */}
+                {zoom > 0 && !imageError && (viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url) && (
                   <img
-                    src={viewPhoto.s3_url}
+                    src={viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url}
                     alt={viewPhoto.file_name}
                     className="object-contain cursor-move select-none"
                     style={{
@@ -408,13 +409,15 @@ const PhotoGridViewer = ({
                       }
                     }}
                     onLoad={() => {
-                      console.log('[PHOTO_VIEWER] Full-res loaded:', viewPhoto.file_name);
+                      console.log('[PHOTO_VIEWER] Full-res loaded:', viewPhoto.file_name, 'isRAW:', viewPhoto.is_raw);
                       setIsLoadingFullRes(false);
                     }}
                     onError={(e) => {
                       console.error('[PHOTO_VIEWER] Full-res image load error:', {
                         fileName: viewPhoto.file_name,
+                        isRAW: viewPhoto.is_raw,
                         s3Url: viewPhoto.s3_url,
+                        thumbnailUrl: viewPhoto.thumbnail_s3_url,
                         s3Key: viewPhoto.s3_key,
                         error: e
                       });
@@ -422,7 +425,7 @@ const PhotoGridViewer = ({
                       setIsLoadingFullRes(false);
                     }}
                     onLoadStart={() => {
-                      console.log('[PHOTO_VIEWER] Full-res loading started:', viewPhoto.s3_url);
+                      console.log('[PHOTO_VIEWER] Full-res loading started:', viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url);
                       setIsLoadingFullRes(true);
                     }}
                     draggable={false}
