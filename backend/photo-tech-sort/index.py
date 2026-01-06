@@ -271,18 +271,41 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
         response = s3_client.get_object(Bucket=bucket, Key=s3_key)
         img_data = response['Body'].read()
         
-        # Пробуем декодировать через PIL (поддержка RAW через rawpy)
-        try:
-            pil_img = Image.open(io.BytesIO(img_data))
-            # Конвертируем в RGB если нужно
-            if pil_img.mode != 'RGB':
-                pil_img = pil_img.convert('RGB')
-            # Конвертируем в numpy array для OpenCV (BGR)
-            img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-        except Exception as decode_err:
-            print(f'[TECH_SORT] PIL decode failed: {str(decode_err)}, trying direct OpenCV decode')
-            # Если PIL не смог - пробуем напрямую через OpenCV
-            img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
+        # Для RAW файлов используем встроенный thumbnail (экономия памяти)
+        is_raw = s3_key.lower().endswith(('.cr2', '.nef', '.arw', '.raw', '.dng'))
+        
+        if is_raw:
+            print(f'[TECH_SORT] RAW file detected, extracting thumbnail')
+            try:
+                import rawpy
+                with rawpy.imread(io.BytesIO(img_data)) as raw:
+                    # Используем встроенный JPEG preview вместо полного RAW (в 10x меньше памяти)
+                    thumb = raw.extract_thumb()
+                    if thumb.format == rawpy.ThumbFormat.JPEG:
+                        pil_img = Image.open(io.BytesIO(thumb.data))
+                        img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+                        print(f'[TECH_SORT] Used embedded JPEG thumbnail from RAW')
+                    else:
+                        # Если thumbnail нет, используем быстрый demosaic с уменьшением
+                        rgb = raw.postprocess(half_size=True, use_camera_wb=True, no_auto_bright=True)
+                        img = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                        print(f'[TECH_SORT] Used half-size RAW decode')
+            except Exception as raw_err:
+                print(f'[TECH_SORT] RAW decode failed: {str(raw_err)}, trying PIL')
+                img = None
+        else:
+            img = None
+        
+        # Если RAW не обработался или это не RAW - пробуем обычные методы
+        if img is None:
+            try:
+                pil_img = Image.open(io.BytesIO(img_data))
+                if pil_img.mode != 'RGB':
+                    pil_img = pil_img.convert('RGB')
+                img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+            except Exception as decode_err:
+                print(f'[TECH_SORT] PIL decode failed: {str(decode_err)}, trying OpenCV')
+                img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
         
         if img is None:
             print(f'[TECH_SORT] ⚠️ Failed to decode image')
