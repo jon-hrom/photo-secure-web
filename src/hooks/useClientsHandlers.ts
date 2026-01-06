@@ -79,10 +79,10 @@ export const useClientsHandlers = ({
 }: UseClientsHandlersProps) => {
   
   const handleAddClient = async () => {
-    console.log('[CLIENT_ADD] userId:', userId, 'type:', typeof userId);
+
     
     if (!userId || userId === 'null' || userId === 'undefined') {
-      console.error('[CLIENT_ADD] Invalid userId:', userId);
+
       toast.error('Не удалось определить пользователя', {
         description: 'Попробуйте перезагрузить страницу и войти заново'
       });
@@ -130,7 +130,7 @@ export const useClientsHandlers = ({
         }
       }
     } catch (error) {
-      console.error('[CLIENT_ADD] Failed to check city (non-critical):', error);
+
       // Не прерываем создание клиента при ошибке проверки города
     }
     
@@ -179,20 +179,20 @@ export const useClientsHandlers = ({
           const result = await res.json();
           createdClientId = result?.id || null;
           isDuplicate = result?.duplicate || false;
-          console.log('[CLIENT_ADD] Server response:', { createdClientId, isDuplicate, result });
+
         } catch (err) {
-          console.error('[CLIENT_ADD] Failed to parse response:', err);
+
         }
         
         if (isDuplicate) {
-          console.log('[CLIENT_ADD] Duplicate client detected, ID:', createdClientId);
+
           toast.info('Клиент с такими данными уже существует', {
             description: 'Открываю карточку существующего клиента'
           });
           // Очищаем форму сразу, чтобы при последующем UPDATE не перезаписать данные клиента
           setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
         } else {
-          console.log('[CLIENT_ADD] New client created, ID:', createdClientId);
+
           toast.success('Клиент успешно добавлен');
           
           // Очищаем форму и localStorage ТОЛЬКО для новых клиентов
@@ -213,7 +213,7 @@ export const useClientsHandlers = ({
           
           // Если дубликат - загружаем свежий список и ищем клиента
           if (isDuplicate) {
-            console.log('[CLIENT_ADD] Duplicate detected, loading fresh client list');
+
             
             // Загружаем обновлённый список клиентов напрямую из API
             const freshRes = await fetch(CLIENTS_API, {
@@ -230,7 +230,7 @@ export const useClientsHandlers = ({
             const existingClientRaw = freshData.find((c: any) => c.id === createdClientId);
             
             if (existingClientRaw) {
-              console.log('[CLIENT_ADD] Found existing client:', existingClientRaw.id);
+
               
               // Парсим данные клиента в нужный формат
               const existingClient: Client = {
@@ -401,7 +401,7 @@ export const useClientsHandlers = ({
         await loadClients();
       }
     } catch (error) {
-      console.error('Failed to add client:', error);
+
       if (setIsCountdownOpen) {
         setIsCountdownOpen(false);
       }

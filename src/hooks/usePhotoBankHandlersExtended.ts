@@ -64,14 +64,7 @@ export const usePhotoBankHandlersExtended = (
   });
 
   const handleStartTechSort = async (folderId: number, folderName: string) => {
-    console.log('[TECH_SORT_HANDLER] Starting for folder:', folderId, folderName);
-    console.log('[TECH_SORT_HANDLER] Available folders:', folders);
-    console.log('[TECH_SORT_HANDLER] Folders details:', folders.map(f => ({
-      id: f.id,
-      name: f.folder_name,
-      parent_id: f.parent_folder_id,
-      type: f.folder_type
-    })));
+
     
     // Проверяем, есть ли уже результаты анализа (все фото проанализированы)
     const folder = folders.find(f => f.id === folderId);
@@ -82,8 +75,7 @@ export const usePhotoBankHandlersExtended = (
       f => f.parent_folder_id === folderId && f.folder_type === 'tech_rejects'
     );
     
-    console.log('[TECH_SORT_HANDLER] Looking for: parent_folder_id=', folderId, ', folder_type="tech_rejects"');
-    console.log('[TECH_SORT_HANDLER] Tech rejects folder found:', techRejectsFolder);
+
     
     let resetAnalysis = false;
     let confirmMessage = 
@@ -195,10 +187,10 @@ export const usePhotoBankHandlersExtended = (
       await fetchFolders();
 
       if (result?.cleaned) {
-        console.log('[RESTORE] Photo was cleaned from database');
+
       }
     } catch (error) {
-      console.error('Failed to restore photo:', error);
+
     } finally {
       setLoading(false);
     }
@@ -263,13 +255,13 @@ export const usePhotoBankHandlersExtended = (
         try {
           const fileResponse = await fetch(file.url);
           if (!fileResponse.ok) {
-            console.error(`Failed to fetch ${file.filename}`);
+  
             continue;
           }
           const blob = await fileResponse.blob();
           zip.file(file.filename, blob);
         } catch (err) {
-          console.error(`Failed to download ${file.filename}:`, err);
+
         }
       }
 
