@@ -376,15 +376,16 @@ def handler(event: dict, context) -> dict:
         dsn = os.environ.get('DATABASE_URL')
         conn = psycopg2.connect(dsn)
         
-        # Настраиваем S3 клиент
+        # Настраиваем S3 клиент (используем Yandex Cloud S3 как в photo-restore)
         s3_client = boto3.client(
             's3',
-            endpoint_url='https://bucket.poehali.dev',
-            aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-            aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+            endpoint_url='https://storage.yandexcloud.net',
+            region_name='ru-central1',
+            aws_access_key_id=os.environ['YC_S3_KEY_ID'],
+            aws_secret_access_key=os.environ['YC_S3_SECRET'],
             config=Config(signature_version='s3v4')
         )
-        bucket = 'files'
+        bucket = 'foto-mix'
         
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Если reset_analysis=True - восстанавливаем все фото из tech_rejects и сбрасываем флаги
