@@ -309,8 +309,8 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
                             print(f'[TECH_SORT] JPEG thumbnail size: {pil_img.size}')
                             
                             # КРИТИЧНО: Уменьшаем thumbnail ДО конвертации в numpy (экономия памяти)
-                            # Понижено до 800px для предотвращения OOM в Cloud Functions
-                            max_dim = 800
+                            # Понижено до 640px для предотвращения OOM в Cloud Functions (256MB RAM)
+                            max_dim = 640
                             if max(pil_img.size) > max_dim:
                                 scale = max_dim / max(pil_img.size)
                                 new_size = (int(pil_img.size[0] * scale), int(pil_img.size[1] * scale))
@@ -372,8 +372,8 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
         original_height, original_width = img.shape[:2]
         print(f'[TECH_SORT] Image loaded: {original_width}x{original_height}')
         
-        # Уменьшаем размер до 1280px по длинной стороне (экономия памяти для Cloud Functions)
-        max_dimension = 1280
+        # Уменьшаем размер до 800px по длинной стороне (экономия памяти для Cloud Functions 256MB)
+        max_dimension = 800
         if max(original_width, original_height) > max_dimension:
             scale = max_dimension / max(original_width, original_height)
             new_width = int(original_width * scale)
@@ -416,7 +416,7 @@ def handler(event: dict, context) -> dict:
     '''
     Анализирует фото в папке на технический брак и сортирует в tech_rejects
     Улучшенный алгоритм с фокусом на уменьшение ложных срабатываний
-    Batch processing по 10 фото (быстрая обработка без таймаутов)
+    Batch processing по 5 фото (оптимизация памяти для RAW + высокое разрешение)
     '''
     try:
         print('[TECH_SORT] Handler started')
@@ -567,7 +567,7 @@ def handler(event: dict, context) -> dict:
                 tech_rejects_id = tech_rejects_folder['id']
                 print(f'[TECH_SORT] Using existing tech_rejects folder: {tech_rejects_id}')
             
-            # Находим фото которые ещё не анализировались (batch по 10 фото для быстрой обработки)
+            # Находим фото которые ещё не анализировались (batch по 5 фото для оптимизации памяти)
             cur.execute('''
                 SELECT id, s3_key, file_name
                 FROM t_p28211681_photo_secure_web.photo_bank
@@ -575,7 +575,7 @@ def handler(event: dict, context) -> dict:
                   AND is_trashed = FALSE
                   AND (tech_analyzed = FALSE OR tech_analyzed IS NULL)
                 ORDER BY created_at
-                LIMIT 10
+                LIMIT 5
             ''', (folder_id, user_id))
             
             photos = cur.fetchall()
