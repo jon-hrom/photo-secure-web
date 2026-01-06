@@ -320,6 +320,53 @@ export const useCameraUploadLogic = (
       // Сохраняем ID папки для использования в uploadFile
       (window as any).__photobankTargetFolderId = targetFolderId;
 
+      // Проверяем дубликаты
+      try {
+        const checkResponse = await fetch(
+          `${PHOTOBANK_FOLDERS_API}?action=check_duplicates&folder_id=${targetFolderId}`,
+          { headers: { 'X-User-Id': userId } }
+        );
+        
+        if (checkResponse.ok) {
+          const { existing_files } = await checkResponse.json();
+          const existingSet = new Set(existing_files);
+          
+          // Фильтруем дубликаты
+          const filesToUpload = pendingFiles.filter(f => !existingSet.has(f.file.name));
+          const skippedCount = pendingFiles.length - filesToUpload.length;
+          
+          if (skippedCount > 0) {
+            console.log(`[CAMERA_UPLOAD] Skipping ${skippedCount} duplicates`);
+            toast.info(`Пропущено ${skippedCount} дубликатов`);
+            
+            // Помечаем дубликаты как skipped
+            setFiles(prev => {
+              const updated = prev.map(f => {
+                if (existingSet.has(f.file.name)) {
+                  return { ...f, status: 'skipped' as const };
+                }
+                return f;
+              });
+              filesRef.current = updated;
+              return updated;
+            });
+          }
+          
+          if (filesToUpload.length === 0) {
+            toast.success('Все файлы уже загружены');
+            if (onUploadComplete) onUploadComplete();
+            if (onOpenChange) onOpenChange(false);
+            return;
+          }
+          
+          // Обновляем список файлов для загрузки
+          pendingFiles.splice(0, pendingFiles.length, ...filesToUpload);
+        }
+      } catch (error) {
+        console.error('[CAMERA_UPLOAD] Failed to check duplicates:', error);
+        // Продолжаем без проверки дубликатов
+      }
+
       // Инициализируем статистику
       setUploadStats({
         startTime: Date.now(),

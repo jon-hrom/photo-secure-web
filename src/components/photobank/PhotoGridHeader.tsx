@@ -48,7 +48,7 @@ const PhotoGridHeader = ({
             <Button asChild disabled={uploading} size="sm">
               <label htmlFor="photo-upload" className="cursor-pointer">
                 <Icon name="Upload" className="mr-2" size={16} />
-                {uploading ? 'Загрузка...' : 'Загрузить медиа'}
+                {uploading ? 'Загрузка...' : 'Загрузить фото'}
               </label>
             </Button>
           </div>

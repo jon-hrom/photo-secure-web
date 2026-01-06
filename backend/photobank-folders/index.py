@@ -272,6 +272,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({'photos': result_photos}),
                     'isBase64Encoded': False
                 }
+            
+            elif action == 'check_duplicates':
+                folder_id = event.get('queryStringParameters', {}).get('folder_id')
+                if not folder_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        SELECT file_name
+                        FROM t_p28211681_photo_secure_web.photo_bank
+                        WHERE folder_id = %s 
+                          AND user_id = %s 
+                          AND is_trashed = FALSE
+                    ''', (folder_id, user_id))
+                    existing_files = [row['file_name'] for row in cur.fetchall()]
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'existing_files': existing_files}),
+                    'isBase64Encoded': False
+                }
         
         elif method == 'POST':
             body_data = json.loads(event.get('body', '{}'))

@@ -123,6 +123,44 @@ export const usePhotoBankHandlers = (
       return;
     }
 
+    // Проверяем дубликаты
+    try {
+      const checkResponse = await fetch(
+        `${PHOTOBANK_FOLDERS_API}?action=check_duplicates&folder_id=${selectedFolder.id}`,
+        { headers: { 'X-User-Id': userId } }
+      );
+      
+      if (checkResponse.ok) {
+        const { existing_files } = await checkResponse.json();
+        const existingSet = new Set(existing_files);
+        
+        const filesToUpload = mediaFiles.filter(file => !existingSet.has(file.name));
+        const skippedCount = mediaFiles.length - filesToUpload.length;
+        
+        if (filesToUpload.length === 0) {
+          toast({
+            title: 'Все файлы уже загружены',
+            description: `Пропущено ${skippedCount} дубликатов`,
+            variant: 'default'
+          });
+          return;
+        }
+        
+        if (skippedCount > 0) {
+          toast({
+            title: `Загрузка ${filesToUpload.length} новых файлов`,
+            description: `Пропущено ${skippedCount} дубликатов`
+          });
+        }
+        
+        // Продолжаем загрузку только уникальных файлов
+        mediaFiles.splice(0, mediaFiles.length, ...filesToUpload);
+      }
+    } catch (error) {
+      console.error('Failed to check duplicates:', error);
+      // Продолжаем без проверки дубликатов
+    }
+
     // Check file size limit (50 MB for images, 100 MB for videos)
     const MAX_FILE_SIZE = 50 * 1024 * 1024;
     const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
