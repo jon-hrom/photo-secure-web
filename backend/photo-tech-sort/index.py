@@ -434,6 +434,40 @@ def handler(event: dict, context) -> dict:
                 conn.commit()
                 print(f'[TECH_SORT] Reset tech_analyzed flag for {reset_count} photos')
             
+            # Создаём папку tech_rejects если её нет (до выборки фото, чтобы она была маркером)
+            cur.execute('''
+                SELECT id FROM t_p28211681_photo_secure_web.photo_folders
+                WHERE user_id = %s AND parent_folder_id = %s 
+                  AND folder_type = 'tech_rejects' AND is_trashed = FALSE
+            ''', (user_id, folder_id))
+            
+            tech_rejects_folder = cur.fetchone()
+            
+            if not tech_rejects_folder:
+                # Получаем имя родительской папки
+                cur.execute('''
+                    SELECT folder_name FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE id = %s AND user_id = %s
+                ''', (folder_id, user_id))
+                
+                parent_folder = cur.fetchone()
+                parent_name = parent_folder['folder_name'] if parent_folder else 'Загрузка'
+                tech_rejects_name = f'{parent_name} - Технический брак'
+                
+                cur.execute('''
+                    INSERT INTO t_p28211681_photo_secure_web.photo_folders 
+                    (user_id, parent_folder_id, folder_name, folder_type, created_at)
+                    VALUES (%s, %s, %s, 'tech_rejects', NOW())
+                    RETURNING id
+                ''', (user_id, folder_id, tech_rejects_name))
+                
+                tech_rejects_id = cur.fetchone()['id']
+                conn.commit()
+                print(f'[TECH_SORT] Created tech_rejects folder: {tech_rejects_id}')
+            else:
+                tech_rejects_id = tech_rejects_folder['id']
+                print(f'[TECH_SORT] Using existing tech_rejects folder: {tech_rejects_id}')
+            
             # Находим фото которые ещё не анализировались (batch по 100 фото)
             cur.execute('''
                 SELECT id, s3_key, file_name
@@ -470,44 +504,6 @@ def handler(event: dict, context) -> dict:
                         'message': 'No photos to analyze'
                     })
                 }
-            
-            # Создаём папку tech_rejects если её нет
-            cur.execute('''
-                SELECT id FROM t_p28211681_photo_secure_web.photo_folders
-                WHERE user_id = %s AND parent_folder_id = %s 
-                  AND folder_type = 'tech_rejects' AND is_trashed = FALSE
-            ''', (user_id, folder_id))
-            
-            tech_rejects_folder = cur.fetchone()
-            
-            if not tech_rejects_folder:
-                # Получаем имя родительской папки для формирования имени tech_rejects
-                cur.execute('''
-                    SELECT folder_name FROM t_p28211681_photo_secure_web.photo_folders
-                    WHERE id = %s AND user_id = %s
-                ''', (folder_id, user_id))
-                
-                parent_folder = cur.fetchone()
-                parent_name = parent_folder['folder_name'] if parent_folder else 'Загрузка'
-                
-                # Формируем имя tech_rejects папки
-                from datetime import datetime
-                now = datetime.now().strftime('%d.%m.%Y %H:%M')
-                tech_rejects_name = f'{parent_name} - Технический брак'
-                
-                cur.execute('''
-                    INSERT INTO t_p28211681_photo_secure_web.photo_folders 
-                    (user_id, parent_folder_id, folder_name, folder_type, created_at)
-                    VALUES (%s, %s, %s, 'tech_rejects', NOW())
-                    RETURNING id
-                ''', (user_id, folder_id, tech_rejects_name))
-                
-                tech_rejects_id = cur.fetchone()['id']
-                conn.commit()
-                print(f'[TECH_SORT] Created tech_rejects folder: {tech_rejects_id}')
-            else:
-                tech_rejects_id = tech_rejects_folder['id']
-                print(f'[TECH_SORT] Using existing tech_rejects folder: {tech_rejects_id}')
             
             # Анализируем каждое фото
             rejected_count = 0
