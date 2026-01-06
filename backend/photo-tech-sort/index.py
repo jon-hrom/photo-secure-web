@@ -267,9 +267,20 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
     try:
         print(f'[TECH_SORT] Analyzing photo: {s3_key}')
         
+        # КРИТИЧНО: Проверяем размер файла ПЕРЕД загрузкой (предотвращение OOM)
+        head_response = s3_client.head_object(Bucket=bucket, Key=s3_key)
+        file_size_mb = head_response['ContentLength'] / (1024 * 1024)
+        print(f'[TECH_SORT] File size: {file_size_mb:.1f} MB')
+        
+        # Пропускаем файлы > 35 МБ (нехватка памяти в Cloud Functions 256MB)
+        if file_size_mb > 35:
+            print(f'[TECH_SORT] ⚠️ File too large ({file_size_mb:.1f} MB), skipping to prevent OOM')
+            return False, ''  # Не браковать, просто пропустить
+        
         # Скачиваем фото из S3
         response = s3_client.get_object(Bucket=bucket, Key=s3_key)
         img_data = response['Body'].read()
+        print(f'[TECH_SORT] Downloaded {len(img_data)} bytes')
         
         # Для RAW файлов используем встроенный thumbnail (экономия памяти)
         is_raw = s3_key.lower().endswith(('.cr2', '.nef', '.arw', '.raw', '.dng'))
