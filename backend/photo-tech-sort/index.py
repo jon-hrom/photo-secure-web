@@ -296,6 +296,15 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
                             thumb_data = io.BytesIO(thumb.data)
                             pil_img = Image.open(thumb_data)
                             print(f'[TECH_SORT] JPEG thumbnail size: {pil_img.size}')
+                            
+                            # КРИТИЧНО: Уменьшаем thumbnail ДО конвертации в numpy (экономия памяти)
+                            max_dim = 1280
+                            if max(pil_img.size) > max_dim:
+                                scale = max_dim / max(pil_img.size)
+                                new_size = (int(pil_img.size[0] * scale), int(pil_img.size[1] * scale))
+                                pil_img = pil_img.resize(new_size, Image.Resampling.LANCZOS)
+                                print(f'[TECH_SORT] Resized thumbnail to: {pil_img.size}')
+                            
                             img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
                             print(f'[TECH_SORT] ✅ Used embedded JPEG thumbnail from RAW')
                             # Очищаем промежуточные объекты
