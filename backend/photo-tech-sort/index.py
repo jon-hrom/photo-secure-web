@@ -288,7 +288,17 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
             print(f'[TECH_SORT] ⚠️ Failed to decode image')
             return False, ''
         
-        print(f'[TECH_SORT] Image loaded: {img.shape[1]}x{img.shape[0]}')
+        original_height, original_width = img.shape[:2]
+        print(f'[TECH_SORT] Image loaded: {original_width}x{original_height}')
+        
+        # Уменьшаем размер если больше 1920px по длинной стороне (экономия памяти)
+        max_dimension = 1920
+        if max(original_width, original_height) > max_dimension:
+            scale = max_dimension / max(original_width, original_height)
+            new_width = int(original_width * scale)
+            new_height = int(original_height * scale)
+            img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+            print(f'[TECH_SORT] Resized to: {new_width}x{new_height} (scale={scale:.2f})')
         
         # Проверяем технические параметры в порядке приоритета
         
