@@ -114,10 +114,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if expired_folders:
                 expired_folder_ids = [f['id'] for f in expired_folders]
+                # Сначала удаляем все фото из этих папок (включая неудалённые)
                 cur.execute(f'''
                     DELETE FROM photo_bank 
                     WHERE folder_id IN ({','.join(map(str, expired_folder_ids))})
                 ''')
+                # Теперь можно безопасно удалить папки
                 cur.execute(f'''
                     DELETE FROM photo_folders 
                     WHERE id IN ({','.join(map(str, expired_folder_ids))})
@@ -400,11 +402,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     folder_ids = [f['id'] for f in folders]
                     
                     if folder_ids:
+                        # Сначала удаляем ВСЕ фото из удалённых папок (включая неудалённые фото)
                         cur.execute('''
                             DELETE FROM photo_bank 
-                            WHERE folder_id = ANY(%s) AND is_trashed = TRUE
+                            WHERE folder_id = ANY(%s)
                         ''', (folder_ids,))
                         
+                        # Теперь можно безопасно удалить папки
                         cur.execute('''
                             DELETE FROM photo_folders 
                             WHERE id = ANY(%s) AND is_trashed = TRUE
