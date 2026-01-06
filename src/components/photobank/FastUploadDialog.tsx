@@ -17,6 +17,7 @@ interface FastUploadDialogProps {
 const FastUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: FastUploadDialogProps) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<FileUploadStatus[]>([]);
 
@@ -108,8 +109,34 @@ const FastUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Fast
     : 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+    <>
+      {/* Minimized notification */}
+      {minimized && uploading && (
+        <div className="fixed bottom-4 right-4 z-50 bg-background border rounded-lg shadow-lg p-4 w-80">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Icon name="Upload" className="animate-pulse" size={16} />
+                <span className="font-medium text-sm">Загрузка в фоне</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setMinimized(false)}
+              >
+                <Icon name="Maximize2" size={14} />
+              </Button>
+            </div>
+            <Progress value={overallProgress} className="h-1" />
+            <div className="text-xs text-muted-foreground">
+              {successCount} / {files.length} файлов
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={open && !minimized} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Быстрая загрузка файлов</DialogTitle>
         </DialogHeader>
@@ -252,10 +279,19 @@ const FastUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Fast
             {uploading ? 'Закрыть после загрузки' : 'Отмена'}
           </Button>
           {uploading ? (
-            <Button onClick={handleCancel} variant="destructive">
-              <Icon name="X" className="mr-2" />
-              Прервать загрузку
-            </Button>
+            <>
+              <Button onClick={handleCancel} variant="destructive">
+                <Icon name="X" className="mr-2" />
+                Прервать загрузку
+              </Button>
+              <Button 
+                onClick={() => setMinimized(true)} 
+                variant="outline"
+              >
+                <Icon name="Minimize2" className="mr-2" />
+                Свернуть
+              </Button>
+            </>
           ) : (
             <Button
               onClick={handleUpload}
@@ -266,8 +302,9 @@ const FastUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Fast
             </Button>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
