@@ -261,10 +261,12 @@ const PhotoGridViewer = ({
 
   return (
     <Dialog open={!!viewPhoto} onOpenChange={handleCloseDialog}>
-      <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none" aria-describedby="photo-viewer-description">
+      <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none">
         <VisuallyHidden>
           <DialogTitle>Просмотр фото {viewPhoto.file_name}</DialogTitle>
-          <div id="photo-viewer-description">Галерея для просмотра изображений с возможностью масштабирования и навигации</div>
+        </VisuallyHidden>
+        <VisuallyHidden>
+          <p id="photo-viewer-description">Галерея для просмотра изображений с возможностью масштабирования и навигации</p>
         </VisuallyHidden>
         <div className="relative w-full h-full flex items-center justify-center">
           {!isLandscape && (
