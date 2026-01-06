@@ -357,10 +357,31 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
         # Если RAW не обработался или это не RAW - пробуем обычные методы
         if img is None:
             try:
+                # КРИТИЧНО: Уменьшаем изображение В PIL ПЕРЕД конвертацией в numpy/OpenCV
+                # Это предотвращает OOM при обработке больших JPEG (9+ МБ сжатых = 50+ МБ в памяти)
                 pil_img = Image.open(io.BytesIO(img_data))
+                
+                # Узнаём размер ДО загрузки полного изображения
+                original_width, original_height = pil_img.size
+                print(f'[TECH_SORT] JPEG size: {original_width}x{original_height}')
+                
+                # Уменьшаем в PIL сразу (в 10х экономичнее по памяти чем в OpenCV)
+                max_dimension = 800
+                if max(original_width, original_height) > max_dimension:
+                    scale = max_dimension / max(original_width, original_height)
+                    new_width = int(original_width * scale)
+                    new_height = int(original_height * scale)
+                    pil_img = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    print(f'[TECH_SORT] Resized in PIL: {original_width}x{original_height} → {new_width}x{new_height}')
+                
                 if pil_img.mode != 'RGB':
                     pil_img = pil_img.convert('RGB')
+                
+                # Теперь конвертируем УМЕНЬШЕННОЕ изображение в OpenCV
                 img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+                del pil_img  # Освобождаем PIL объект
+                print(f'[TECH_SORT] Converted to OpenCV: {img.shape[1]}x{img.shape[0]}')
+                
             except Exception as decode_err:
                 print(f'[TECH_SORT] PIL decode failed: {str(decode_err)}, trying OpenCV')
                 img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
@@ -368,18 +389,6 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
         if img is None:
             print(f'[TECH_SORT] ⚠️ Failed to decode image')
             return False, ''
-        
-        original_height, original_width = img.shape[:2]
-        print(f'[TECH_SORT] Image loaded: {original_width}x{original_height}')
-        
-        # Уменьшаем размер до 800px по длинной стороне (экономия памяти для Cloud Functions 256MB)
-        max_dimension = 800
-        if max(original_width, original_height) > max_dimension:
-            scale = max_dimension / max(original_width, original_height)
-            new_width = int(original_width * scale)
-            new_height = int(original_height * scale)
-            img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
-            print(f'[TECH_SORT] Resized to: {new_width}x{new_height} (scale={scale:.2f})')
         
         # Освобождаем память от оригинального изображения если было уменьшение
         import gc
