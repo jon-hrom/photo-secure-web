@@ -404,7 +404,7 @@ def handler(event: dict, context) -> dict:
     '''
     Анализирует фото в папке на технический брак и сортирует в tech_rejects
     Улучшенный алгоритм с фокусом на уменьшение ложных срабатываний
-    Batch processing по 100 фото
+    Batch processing по 10 фото (быстрая обработка без таймаутов)
     '''
     try:
         print('[TECH_SORT] Handler started')
@@ -555,7 +555,7 @@ def handler(event: dict, context) -> dict:
                 tech_rejects_id = tech_rejects_folder['id']
                 print(f'[TECH_SORT] Using existing tech_rejects folder: {tech_rejects_id}')
             
-            # Находим фото которые ещё не анализировались (batch по 100 фото)
+            # Находим фото которые ещё не анализировались (batch по 10 фото для быстрой обработки)
             cur.execute('''
                 SELECT id, s3_key, file_name
                 FROM t_p28211681_photo_secure_web.photo_bank
@@ -563,7 +563,7 @@ def handler(event: dict, context) -> dict:
                   AND is_trashed = FALSE
                   AND (tech_analyzed = FALSE OR tech_analyzed IS NULL)
                 ORDER BY created_at
-                LIMIT 100
+                LIMIT 10
             ''', (folder_id, user_id))
             
             photos = cur.fetchall()
