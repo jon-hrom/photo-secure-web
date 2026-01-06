@@ -275,23 +275,60 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
         is_raw = s3_key.lower().endswith(('.cr2', '.nef', '.arw', '.raw', '.dng'))
         
         if is_raw:
-            print(f'[TECH_SORT] RAW file detected, extracting thumbnail')
+            print(f'[TECH_SORT] RAW file detected ({len(img_data)} bytes), extracting thumbnail')
             try:
                 import rawpy
-                with rawpy.imread(io.BytesIO(img_data)) as raw:
+                import gc
+                
+                # Освобождаем память перед работой с RAW
+                gc.collect()
+                print(f'[TECH_SORT] Memory cleared, opening RAW stream')
+                
+                raw_stream = io.BytesIO(img_data)
+                with rawpy.imread(raw_stream) as raw:
+                    print(f'[TECH_SORT] RAW opened, extracting thumbnail')
                     # Используем встроенный JPEG preview вместо полного RAW (в 10x меньше памяти)
-                    thumb = raw.extract_thumb()
-                    if thumb.format == rawpy.ThumbFormat.JPEG:
-                        pil_img = Image.open(io.BytesIO(thumb.data))
-                        img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-                        print(f'[TECH_SORT] Used embedded JPEG thumbnail from RAW')
-                    else:
-                        # Если thumbnail нет, используем быстрый demosaic с уменьшением
+                    try:
+                        thumb = raw.extract_thumb()
+                        print(f'[TECH_SORT] Thumbnail extracted, format={thumb.format}')
+                        
+                        if thumb.format == rawpy.ThumbFormat.JPEG:
+                            thumb_data = io.BytesIO(thumb.data)
+                            pil_img = Image.open(thumb_data)
+                            print(f'[TECH_SORT] JPEG thumbnail size: {pil_img.size}')
+                            img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+                            print(f'[TECH_SORT] ✅ Used embedded JPEG thumbnail from RAW')
+                            # Очищаем промежуточные объекты
+                            del thumb_data, pil_img, thumb
+                            gc.collect()
+                        else:
+                            print(f'[TECH_SORT] No JPEG thumbnail, using half-size decode')
+                            # Если thumbnail нет, используем быстрый demosaic с уменьшением
+                            rgb = raw.postprocess(half_size=True, use_camera_wb=True, no_auto_bright=True)
+                            img = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                            print(f'[TECH_SORT] ✅ Used half-size RAW decode')
+                            del rgb
+                            gc.collect()
+                    except Exception as thumb_err:
+                        print(f'[TECH_SORT] Thumbnail extraction failed: {str(thumb_err)}')
+                        # Пробуем fallback на half_size decode
+                        print(f'[TECH_SORT] Trying half_size decode as fallback')
                         rgb = raw.postprocess(half_size=True, use_camera_wb=True, no_auto_bright=True)
                         img = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-                        print(f'[TECH_SORT] Used half-size RAW decode')
+                        print(f'[TECH_SORT] ✅ Used half-size RAW decode (fallback)')
+                        del rgb
+                        gc.collect()
+                
+                # Освобождаем исходные данные RAW
+                del raw_stream
+                del img_data
+                gc.collect()
+                print(f'[TECH_SORT] RAW processing completed, memory cleaned')
+                
             except Exception as raw_err:
-                print(f'[TECH_SORT] RAW decode failed: {str(raw_err)}, trying PIL')
+                print(f'[TECH_SORT] ❌ RAW decode failed: {str(raw_err)}')
+                import traceback
+                traceback.print_exc()
                 img = None
         else:
             img = None
@@ -380,12 +417,15 @@ def handler(event: dict, context) -> dict:
         # Парсим тело запроса
         body_raw = event.get('body', '{}')
         if isinstance(body_raw, str):
-            body = json.loads(body_raw)
+            try:
+                body = json.loads(body_raw) if body_raw else {}
+            except json.JSONDecodeError:
+                body = {}
         else:
-            body = body_raw
+            body = body_raw if isinstance(body_raw, dict) else {}
         
-        folder_id = body.get('folder_id')
-        reset_analysis = body.get('reset_analysis', False)
+        folder_id = body.get('folder_id') if isinstance(body, dict) else None
+        reset_analysis = body.get('reset_analysis', False) if isinstance(body, dict) else False
         
         if not folder_id:
             return {
