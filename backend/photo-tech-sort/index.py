@@ -298,7 +298,8 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
                             print(f'[TECH_SORT] JPEG thumbnail size: {pil_img.size}')
                             
                             # КРИТИЧНО: Уменьшаем thumbnail ДО конвертации в numpy (экономия памяти)
-                            max_dim = 1280
+                            # Понижено до 800px для предотвращения OOM в Cloud Functions
+                            max_dim = 800
                             if max(pil_img.size) > max_dim:
                                 scale = max_dim / max(pil_img.size)
                                 new_size = (int(pil_img.size[0] * scale), int(pil_img.size[1] * scale))
@@ -603,31 +604,46 @@ def handler(event: dict, context) -> dict:
                 
                 print(f'[TECH_SORT] Processing photo {photo_id}: {file_name}')
                 
-                # Анализируем фото
-                is_rejected, reject_reason = analyze_photo(s3_client, bucket, s3_key)
-                
-                if is_rejected:
-                    # Перемещаем в tech_rejects
-                    cur.execute('''
-                        UPDATE t_p28211681_photo_secure_web.photo_bank
-                        SET folder_id = %s, tech_analyzed = TRUE, tech_reject_reason = %s
-                        WHERE id = %s
-                    ''', (tech_rejects_id, reject_reason, photo_id))
+                # Анализируем фото с защитой от краша
+                try:
+                    is_rejected, reject_reason = analyze_photo(s3_client, bucket, s3_key)
                     
-                    rejected_count += 1
-                    print(f'[TECH_SORT] ❌ Photo {photo_id} rejected: {reject_reason}')
-                else:
-                    # Помечаем как проанализированное
+                    if is_rejected:
+                        # Перемещаем в tech_rejects
+                        cur.execute('''
+                            UPDATE t_p28211681_photo_secure_web.photo_bank
+                            SET folder_id = %s, tech_analyzed = TRUE, tech_reject_reason = %s
+                            WHERE id = %s
+                        ''', (tech_rejects_id, reject_reason, photo_id))
+                        
+                        rejected_count += 1
+                        print(f'[TECH_SORT] ❌ Photo {photo_id} rejected: {reject_reason}')
+                    else:
+                        # Помечаем как проанализированное
+                        cur.execute('''
+                            UPDATE t_p28211681_photo_secure_web.photo_bank
+                            SET tech_analyzed = TRUE
+                            WHERE id = %s
+                        ''', (photo_id,))
+                        
+                        print(f'[TECH_SORT] ✅ Photo {photo_id} accepted')
+                    
+                    processed_count += 1
+                    
+                except Exception as photo_err:
+                    # Если фото не удалось обработать - помечаем как проанализированное (пропускаем)
+                    print(f'[TECH_SORT] ⚠️ Failed to analyze photo {photo_id}: {str(photo_err)}')
                     cur.execute('''
                         UPDATE t_p28211681_photo_secure_web.photo_bank
                         SET tech_analyzed = TRUE
                         WHERE id = %s
                     ''', (photo_id,))
-                    
-                    print(f'[TECH_SORT] ✅ Photo {photo_id} accepted')
+                    processed_count += 1
                 
-                processed_count += 1
+                # Коммитим после каждого фото + принудительная очистка памяти
                 conn.commit()
+                import gc
+                gc.collect()
             
             # Проверяем сколько ещё осталось необработанных
             cur.execute('''
