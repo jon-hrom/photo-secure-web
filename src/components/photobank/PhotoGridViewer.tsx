@@ -405,13 +405,24 @@ const PhotoGridViewer = ({
                         handleDoubleTap(e);
                       }
                     }}
-                    onLoad={() => setIsLoadingFullRes(false)}
-                    onError={() => {
-                      console.error('[PHOTO_VIEWER] Full-res image load error:', viewPhoto.file_name);
+                    onLoad={() => {
+                      console.log('[PHOTO_VIEWER] Full-res loaded:', viewPhoto.file_name);
+                      setIsLoadingFullRes(false);
+                    }}
+                    onError={(e) => {
+                      console.error('[PHOTO_VIEWER] Full-res image load error:', {
+                        fileName: viewPhoto.file_name,
+                        s3Url: viewPhoto.s3_url,
+                        s3Key: viewPhoto.s3_key,
+                        error: e
+                      });
                       setImageError(true);
                       setIsLoadingFullRes(false);
                     }}
-                    onLoadStart={() => setIsLoadingFullRes(true)}
+                    onLoadStart={() => {
+                      console.log('[PHOTO_VIEWER] Full-res loading started:', viewPhoto.s3_url);
+                      setIsLoadingFullRes(true);
+                    }}
                     draggable={false}
                   />
                 )}
