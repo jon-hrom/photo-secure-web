@@ -8,6 +8,7 @@ interface TechSortProgressDialogProps {
   currentFile: string;
   processedCount: number;
   totalCount: number;
+  rejectedCount: number;
   status: 'analyzing' | 'completed' | 'error';
   errorMessage?: string;
 }
@@ -18,6 +19,7 @@ const TechSortProgressDialog = ({
   currentFile,
   processedCount,
   totalCount,
+  rejectedCount,
   status,
   errorMessage
 }: TechSortProgressDialogProps) => {
@@ -59,6 +61,17 @@ const TechSortProgressDialog = ({
                 <p className="text-xs text-muted-foreground text-center">{progress.toFixed(1)}%</p>
               </div>
 
+              {rejectedCount > 0 && (
+                <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
+                  <div className="flex items-center gap-2">
+                    <Icon name="AlertTriangle" size={16} className="text-orange-600" />
+                    <p className="text-sm font-medium text-orange-900">
+                      Найдено браков: {rejectedCount}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-lg bg-muted p-3">
                 <p className="text-xs text-muted-foreground mb-1">Текущий файл:</p>
                 <p className="text-sm font-medium truncate">{currentFile}</p>
@@ -66,9 +79,8 @@ const TechSortProgressDialog = ({
 
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>• Проверка на размытие</p>
-                <p>• Анализ экспозиции</p>
-                <p>• Оценка уровня шума</p>
-                <p>• Проверка контраста</p>
+                <p>• Анализ экспозиции (пересвет/недосвет)</p>
+                <p>• Детекция закрытых глаз</p>
               </div>
             </>
           )}
@@ -78,11 +90,22 @@ const TechSortProgressDialog = ({
               <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
                 <Icon name="CheckCircle2" size={32} className="text-green-600" />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm font-medium text-foreground mb-2">
                 Обработано {processedCount} фотографий
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Фото с техническим браком перемещены в отдельную папку
+              {rejectedCount > 0 ? (
+                <p className="text-sm text-orange-600 font-medium">
+                  Найдено {rejectedCount} технических браков
+                </p>
+              ) : (
+                <p className="text-sm text-green-600 font-medium">
+                  Технических браков не найдено ✓
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {rejectedCount > 0 
+                  ? 'Фото с браком перемещены в отдельную папку' 
+                  : 'Все фотографии прошли проверку качества'}
               </p>
             </div>
           )}

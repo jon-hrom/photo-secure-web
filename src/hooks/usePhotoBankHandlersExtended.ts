@@ -7,6 +7,7 @@ interface TechSortProgress {
   currentFile: string;
   processedCount: number;
   totalCount: number;
+  rejectedCount: number;
   status: 'analyzing' | 'completed' | 'error';
   errorMessage: string;
 }
@@ -35,7 +36,7 @@ export const usePhotoBankHandlersExtended = (
   folders: PhotoFolder[],
   selectedFolder: PhotoFolder | null,
   setLoading: (loading: boolean) => void,
-  startTechSort: (folderId: number, resetAnalysis?: boolean) => Promise<any>,
+  startTechSort: (folderId: number, resetAnalysis?: boolean, onProgress?: (processed: number, total: number, rejected: number) => void) => Promise<any>,
   restorePhoto: (photoId: number) => Promise<void>,
   fetchFolders: () => Promise<any>,
   fetchPhotos: (folderId: number) => Promise<void>
@@ -46,6 +47,7 @@ export const usePhotoBankHandlersExtended = (
     currentFile: '',
     processedCount: 0,
     totalCount: 0,
+    rejectedCount: 0,
     status: 'analyzing',
     errorMessage: ''
   });
@@ -119,45 +121,41 @@ export const usePhotoBankHandlersExtended = (
       currentFile: 'Подготовка...',
       processedCount: 0,
       totalCount: totalPhotos,
+      rejectedCount: 0,
       status: 'analyzing',
       errorMessage: ''
     });
 
-    const estimatedTimeMs = totalPhotos * 2000;
-    const updateInterval = 100;
-    const incrementPerUpdate = (100 / (estimatedTimeMs / updateInterval));
-    
-    let currentProgress = 0;
-    let processedFiles = 0;
-
-    const progressInterval = setInterval(() => {
-      currentProgress += incrementPerUpdate;
-      processedFiles = Math.floor((currentProgress / 100) * totalPhotos);
-      
-      if (currentProgress >= 95) {
-        clearInterval(progressInterval);
-        currentProgress = 95;
-      }
-
-      setTechSortProgress(prev => ({
-        ...prev,
-        progress: currentProgress,
-        processedCount: processedFiles,
-        currentFile: `Анализ фото ${processedFiles + 1} из ${totalPhotos}...`
-      }));
-    }, updateInterval);
-
     try {
-      const result = await startTechSort(folderId, resetAnalysis);
-      
-      clearInterval(progressInterval);
+      const result = await startTechSort(
+        folderId, 
+        resetAnalysis,
+        (processed, total, rejected) => {
+          // Реальный прогресс от backend
+          const progressPercent = total > 0 ? Math.round((processed / total) * 100) : 0;
+          
+          setTechSortProgress({
+            open: true,
+            progress: progressPercent,
+            currentFile: processed < total 
+              ? `Анализ фото ${processed + 1} из ${total}...` 
+              : 'Завершение...',
+            processedCount: processed,
+            totalCount: total,
+            rejectedCount: rejected,
+            status: 'analyzing',
+            errorMessage: ''
+          });
+        }
+      );
       
       setTechSortProgress({
         open: true,
         progress: 100,
         currentFile: '',
-        processedCount: result.processed || totalPhotos,
-        totalCount: totalPhotos,
+        processedCount: result.processed,
+        totalCount: result.processed,
+        rejectedCount: result.rejected,
         status: 'completed',
         errorMessage: ''
       });
@@ -169,14 +167,13 @@ export const usePhotoBankHandlersExtended = (
       }, 2000);
 
     } catch (error: any) {
-      clearInterval(progressInterval);
-      
       setTechSortProgress({
         open: true,
         progress: 0,
         currentFile: '',
         processedCount: 0,
         totalCount: totalPhotos,
+        rejectedCount: 0,
         status: 'error',
         errorMessage: error.message || 'Произошла ошибка при анализе'
       });

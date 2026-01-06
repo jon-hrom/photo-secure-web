@@ -16,6 +16,7 @@ interface TechSortProgress {
   currentFile: string;
   processedCount: number;
   totalCount: number;
+  rejectedCount: number;
   status: 'analyzing' | 'completed' | 'error';
   errorMessage: string;
 }
@@ -120,6 +121,7 @@ const PhotoBankDialogsContainer = ({
         currentFile={techSortProgress.currentFile}
         processedCount={techSortProgress.processedCount}
         totalCount={techSortProgress.totalCount}
+        rejectedCount={techSortProgress.rejectedCount}
         status={techSortProgress.status}
         errorMessage={techSortProgress.errorMessage}
       />

@@ -33,6 +33,10 @@ interface Photo {
   tech_analyzed?: boolean;
 }
 
+interface TechSortProgressCallback {
+  (processed: number, total: number, rejected: number): void;
+}
+
 export const usePhotoBankApi = (
   userId: string,
   setFolders: (folders: PhotoFolder[]) => void,
@@ -133,12 +137,17 @@ export const usePhotoBankApi = (
     }
   }, [userId, setStorageUsage]);
 
-  const startTechSort = async (folderId: number, resetAnalysis: boolean = false) => {
+  const startTechSort = async (
+    folderId: number, 
+    resetAnalysis: boolean = false,
+    onProgress?: TechSortProgressCallback
+  ) => {
     try {
       let totalProcessed = 0;
       let totalRejected = 0;
       let batchCount = 0;
       let hasMore = true;
+      let totalPhotos = 0;
 
       while (hasMore) {
         batchCount++;
@@ -169,8 +178,18 @@ export const usePhotoBankApi = (
         totalProcessed += data.processed || 0;
         totalRejected += data.rejected || 0;
         hasMore = (data.remaining || 0) > 0;
+        
+        // Вычисляем общее количество фото (первый batch даёт точное число)
+        if (batchCount === 1) {
+          totalPhotos = totalProcessed + (data.remaining || 0);
+        }
 
-        console.log(`[TECH_SORT] Batch ${batchCount}: processed=${data.processed}, rejected=${data.rejected}, remaining=${data.remaining}, hasMore=${hasMore}`);
+        console.log(`[TECH_SORT] Batch ${batchCount}: processed=${data.processed}, rejected=${data.rejected}, remaining=${data.remaining}, total=${totalPhotos}, hasMore=${hasMore}`);
+
+        // Вызываем callback с реальным прогрессом
+        if (onProgress) {
+          onProgress(totalProcessed, totalPhotos, totalRejected);
+        }
 
         if (hasMore) {
           await new Promise(resolve => setTimeout(resolve, 1000));
