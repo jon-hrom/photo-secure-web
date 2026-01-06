@@ -93,12 +93,12 @@ def detect_closed_eyes(img: np.ndarray) -> bool:
                 faces_ok += 1  # Не можем проверить - считаем OK
                 continue
             
-            # Детекция глаз каскадом
+            # Детекция глаз каскадом (оптимизировано для экономии памяти)
             eyes_detected = eye_cascade.detectMultiScale(
                 eye_region, 
-                scaleFactor=1.03,
-                minNeighbors=4,
-                minSize=(int(w*0.1), int(h*0.15))
+                scaleFactor=1.1,  # Увеличено с 1.03 (меньше масштабов = меньше памяти)
+                minNeighbors=3,   # Снижено с 4 (меньше проходов)
+                minSize=(int(w*0.15), int(h*0.2))  # Увеличен минимальный размер
             )
             
             print(f'[TECH_SORT] Eyes detected by cascade: {len(eyes_detected)}')
@@ -291,14 +291,18 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
         original_height, original_width = img.shape[:2]
         print(f'[TECH_SORT] Image loaded: {original_width}x{original_height}')
         
-        # Уменьшаем размер если больше 1920px по длинной стороне (экономия памяти)
-        max_dimension = 1920
+        # Уменьшаем размер до 1280px по длинной стороне (экономия памяти для Cloud Functions)
+        max_dimension = 1280
         if max(original_width, original_height) > max_dimension:
             scale = max_dimension / max(original_width, original_height)
             new_width = int(original_width * scale)
             new_height = int(original_height * scale)
             img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
             print(f'[TECH_SORT] Resized to: {new_width}x{new_height} (scale={scale:.2f})')
+        
+        # Освобождаем память от оригинального изображения если было уменьшение
+        import gc
+        gc.collect()
         
         # Проверяем технические параметры в порядке приоритета
         
