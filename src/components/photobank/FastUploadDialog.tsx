@@ -75,6 +75,19 @@ const FastUploadDialog = ({ open, onOpenChange, userId, onUploadComplete }: Fast
   const handleCancel = () => {
     cancelUpload();
     setUploading(false);
+    setMinimized(false);
+    
+    // Сбрасываем файлы в исходное состояние (все pending кроме success)
+    setFiles(prev => {
+      const updated = prev.map(f => 
+        f.status === 'uploading' || f.status === 'error' 
+          ? { ...f, status: 'pending' as const, progress: 0, error: undefined }
+          : f
+      );
+      filesRef.current = updated;
+      return updated;
+    });
+    
     toast.success('Загрузка прервана');
   };
 
