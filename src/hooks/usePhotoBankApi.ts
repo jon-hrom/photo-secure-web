@@ -168,12 +168,12 @@ export const usePhotoBankApi = (
         const data = await res.json();
         totalProcessed += data.processed || 0;
         totalRejected += data.rejected || 0;
-        hasMore = data.has_more || false;
+        hasMore = (data.remaining || 0) > 0;
 
-        console.log(`[TECH_SORT] Batch ${batchCount}: processed=${data.processed}, rejected=${data.rejected}, remaining=${data.remaining}`);
+        console.log(`[TECH_SORT] Batch ${batchCount}: processed=${data.processed}, rejected=${data.rejected}, remaining=${data.remaining}, hasMore=${hasMore}`);
 
         if (hasMore) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
