@@ -293,7 +293,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if action == 'list':
                 # Оптимизированный запрос: сначала получаем всех клиентов
                 cur.execute('''
-                    SELECT id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
+                    SELECT id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, created_at, updated_at
                     FROM t_p28211681_photo_secure_web.clients 
                     WHERE photographer_id = %s
                     ORDER BY created_at DESC
@@ -469,6 +469,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     result.append({
                         **dict(client),
                         'vkProfile': client['vk_profile'],
+                        'vk_username': client.get('vk_username'),
+                        'birthdate': str(client['birthdate']) if client.get('birthdate') else None,
                         'created_at': str(client['created_at']) if client['created_at'] else None,
                         'updated_at': str(client['updated_at']) if client['updated_at'] else None,
                         'bookings': [
@@ -549,9 +551,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Если дубликата нет - создаём нового клиента
                 cur.execute('''
-                    INSERT INTO t_p28211681_photo_secure_web.clients (user_id, photographer_id, name, phone, email, address, vk_profile)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
+                    INSERT INTO t_p28211681_photo_secure_web.clients (user_id, photographer_id, name, phone, email, address, vk_profile, vk_username, birthdate)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, created_at, updated_at
                 ''', (
                     photographer_id,
                     photographer_id,
@@ -559,7 +561,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     body.get('phone'),
                     body.get('email'),
                     body.get('address'),
-                    body.get('vkProfile')
+                    body.get('vkProfile'),
+                    body.get('vkUsername'),
+                    body.get('birthdate')
                 ))
                 client = cur.fetchone()
                 conn.commit()
@@ -844,15 +848,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             cur.execute('''
                 UPDATE t_p28211681_photo_secure_web.clients 
-                SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, updated_at = CURRENT_TIMESTAMP
+                SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, vk_username = %s, birthdate = %s, updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s AND photographer_id = %s
-                RETURNING id, user_id, name, phone, email, address, vk_profile, created_at, updated_at
+                RETURNING id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, created_at, updated_at
             ''', (
                 body.get('name'),
                 body.get('phone'),
                 body.get('email'),
                 body.get('address'),
                 body.get('vkProfile'),
+                body.get('vk_username'),
+                body.get('birthdate'),
                 client_id,
                 photographer_id
             ))

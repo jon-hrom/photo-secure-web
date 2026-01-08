@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Check upcoming birthdays",
+      "method": "GET",
+      "path": "/?action=check",
+      "headers": {
+        "X-User-Id": "22"
+      },
+      "expectedStatus": 200,
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get birthday notification settings",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "22",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "action": "get_settings"
+      },
+      "expectedStatus": 200,
+      "expectedStatus": 200
+    }
+  ]
+}

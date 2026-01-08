@@ -15,6 +15,7 @@ import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
 import GoogleCalendarConnect from '@/components/settings/GoogleCalendarConnect';
+import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificationsCard';
 import { useSettingsData } from '@/hooks/useSettingsData';
 import { useThemeManager } from '@/hooks/useThemeManager';
 import { useContactManager } from '@/hooks/useContactManager';
@@ -274,6 +275,10 @@ const Settings = () => {
             )}
 
             <GoogleCalendarConnect />
+
+            {settings && (
+              <BirthdayNotificationsCard userId={settings.id?.toString() || null} />
+            )}
 
             <div className="pt-2 sm:pt-4">
               <Button 

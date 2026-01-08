@@ -19,6 +19,8 @@ interface ClientDialogsProps {
     email: string;
     address: string;
     vkProfile: string;
+    vkUsername: string;
+    birthdate: string;
   };
   setNewClient: (client: any) => void;
   editingClient: Client | null;
@@ -159,13 +161,33 @@ const ClientDialogs = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="vk">ВКонтакте</Label>
+              <Label htmlFor="vk">ВКонтакте (ссылка)</Label>
               <Input
                 id="vk"
                 value={newClient.vkProfile}
                 onChange={(e) => setNewClient({ ...newClient, vkProfile: e.target.value })}
-                placeholder="username"
+                placeholder="https://vk.com/username"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vk-username">ВКонтакте username</Label>
+              <Input
+                id="vk-username"
+                value={newClient.vkUsername}
+                onChange={(e) => setNewClient({ ...newClient, vkUsername: e.target.value })}
+                placeholder="@username"
+              />
+              <p className="text-xs text-muted-foreground">Для отправки поздравлений в ЛС</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="birthdate">Дата рождения</Label>
+              <Input
+                id="birthdate"
+                type="date"
+                value={newClient.birthdate}
+                onChange={(e) => setNewClient({ ...newClient, birthdate: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Для автоматических поздравлений</p>
             </div>
           </div>
           <div className="pt-4 pb-2 border-t mt-4 sticky bottom-0 bg-background">
@@ -231,12 +253,33 @@ const ClientDialogs = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-vk">ВКонтакте</Label>
+                  <Label htmlFor="edit-vk">ВКонтакте (ссылка)</Label>
                   <Input
                     id="edit-vk"
                     value={editingClient.vkProfile || ''}
                     onChange={(e) => setEditingClient({ ...editingClient, vkProfile: e.target.value })}
+                    placeholder="https://vk.com/username"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vk-username">ВКонтакте username</Label>
+                  <Input
+                    id="edit-vk-username"
+                    value={editingClient.vk_username || ''}
+                    onChange={(e) => setEditingClient({ ...editingClient, vk_username: e.target.value })}
+                    placeholder="@username"
+                  />
+                  <p className="text-xs text-muted-foreground">Для отправки поздравлений в ЛС</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-birthdate">Дата рождения</Label>
+                  <Input
+                    id="edit-birthdate"
+                    type="date"
+                    value={editingClient.birthdate || ''}
+                    onChange={(e) => setEditingClient({ ...editingClient, birthdate: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">Для автоматических поздравлений</p>
                 </div>
               </div>
               <div className="pt-4 pb-2 border-t mt-4 sticky bottom-0 bg-background">

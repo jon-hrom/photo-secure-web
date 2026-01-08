@@ -33,6 +33,8 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
     email: '',
     address: '',
     vkProfile: '',
+    vkUsername: '',
+    birthdate: '',
   });
 
   useEffect(() => {
@@ -45,6 +47,8 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
           email: saved.email || '',
           address: saved.address || '',
           vkProfile: saved.vkProfile || '',
+          vkUsername: saved.vkUsername || '',
+          birthdate: saved.birthdate || '',
         });
       }
     }

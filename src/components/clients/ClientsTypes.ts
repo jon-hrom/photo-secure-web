@@ -82,6 +82,8 @@ export interface Client {
   email: string;
   address: string;
   vkProfile?: string;
+  vk_username?: string;
+  birthdate?: string;
   bookings: Booking[];
   projects?: Project[];
   documents?: Document[];

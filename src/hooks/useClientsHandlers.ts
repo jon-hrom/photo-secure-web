@@ -164,7 +164,9 @@ export const useClientsHandlers = ({
             phone: clientPhoneForSearch,
             email: newClient.email,
             address: newClient.address,
-            vkProfile: newClient.vkProfile
+            vkProfile: newClient.vkProfile,
+            vkUsername: newClient.vkUsername,
+            birthdate: newClient.birthdate
           })
         });
         
@@ -190,7 +192,7 @@ export const useClientsHandlers = ({
             description: 'Открываю карточку существующего клиента'
           });
           // Очищаем форму сразу, чтобы при последующем UPDATE не перезаписать данные клиента
-          setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
+          setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '', vkUsername: '', birthdate: '' });
         } else {
 
           toast.success('Клиент успешно добавлен');
@@ -425,7 +427,11 @@ export const useClientsHandlers = ({
           'Content-Type': 'application/json',
           'X-User-Id': userId!
         },
-        body: JSON.stringify(editingClient)
+        body: JSON.stringify({
+          ...editingClient,
+          vk_username: editingClient.vk_username,
+          birthdate: editingClient.birthdate
+        })
       });
       
       if (!res.ok) throw new Error('Failed to update client');
