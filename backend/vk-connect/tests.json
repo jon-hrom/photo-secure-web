@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "name": "Redirect to VK OAuth",
+      "method": "GET",
+      "path": "/?userId=123&redirect=https://foto-mix.ru/settings",
+      "expectedStatus": 302,
+      "headers": {
+        "Location": "string"
+      }
+    }
+  ]
+}

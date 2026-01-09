@@ -1,33 +1,31 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
 const VK_SETTINGS_API = 'https://functions.poehali.dev/f19f02aa-569b-49f2-b9d6-3036bffb9e73';
 
-interface VKSettingsData {
-  vk_user_token?: string;
-  vk_group_token?: string;
-  vk_group_id?: string;
+interface VKConnectionStatus {
+  connected: boolean;
+  vk_user_name?: string;
+  vk_user_id?: string;
 }
 
 const VKSettings = ({ userId }: { userId: string | null }) => {
-  const [settings, setSettings] = useState<VKSettingsData>({
-    vk_user_token: '',
-    vk_group_token: '',
-    vk_group_id: '',
-  });
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<VKConnectionStatus>({ connected: false });
+  const [loading, setLoading] = useState(true);
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [token, setToken] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadSettings();
+    checkConnection();
   }, [userId]);
 
-  const loadSettings = async () => {
+  const checkConnection = async () => {
     const effectiveUserId = userId || localStorage.getItem('userId');
     if (!effectiveUserId) return;
 
@@ -43,18 +41,37 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setSettings(data);
+        const hasToken = data.vk_user_token && data.vk_user_token.length > 0;
+        setStatus({
+          connected: hasToken,
+          vk_user_name: data.vk_user_name,
+          vk_user_id: data.vk_user_id
+        });
       }
     } catch (error) {
-      console.error('Error loading VK settings:', error);
+      console.error('Error checking VK connection:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const saveSettings = async () => {
+  const handleConnect = () => {
+    const vkHostUrl = 'https://vkhost.github.io/';
+    window.open(vkHostUrl, '_blank', 'width=800,height=600');
+    setShowTokenInput(true);
+  };
+
+  const handleSaveToken = async () => {
+    if (!token.trim()) {
+      toast.error('Введите токен');
+      return;
+    }
+
     const effectiveUserId = userId || localStorage.getItem('userId');
-    if (!effectiveUserId) return;
+    if (!effectiveUserId) {
+      toast.error('Не удалось определить пользователя');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -64,18 +81,50 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
           'Content-Type': 'application/json',
           'X-User-Id': effectiveUserId,
         },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          vk_user_token: token.trim()
+        }),
       });
 
       if (response.ok) {
-        toast.success('Настройки ВКонтакте сохранены');
+        await checkConnection();
+        setShowTokenInput(false);
+        setToken('');
+        toast.success('ВКонтакте подключен!');
       } else {
-        toast.error('Не удалось сохранить настройки');
+        toast.error('Не удалось сохранить токен');
       }
     } catch (error) {
       toast.error('Ошибка при сохранении');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    const effectiveUserId = userId || localStorage.getItem('userId');
+    if (!effectiveUserId) return;
+
+    try {
+      const response = await fetch(VK_SETTINGS_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': effectiveUserId,
+        },
+        body: JSON.stringify({
+          vk_user_token: ''
+        }),
+      });
+
+      if (response.ok) {
+        setStatus({ connected: false });
+        toast.success('ВКонтакте отключен');
+      } else {
+        toast.error('Не удалось отключить ВКонтакте');
+      }
+    } catch (error) {
+      toast.error('Ошибка при отключении');
     }
   };
 
@@ -89,7 +138,9 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-center text-gray-500">Загрузка...</div>
+          <div className="flex items-center justify-center py-8">
+            <Icon name="Loader2" size={32} className="animate-spin text-gray-400" />
+          </div>
         </CardContent>
       </Card>
     );
@@ -103,101 +154,124 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
           <div>
             <CardTitle>Подключение ВКонтакте</CardTitle>
             <CardDescription>
-              Настройте отправку уведомлений клиентам через ВКонтакте
+              Отправляйте уведомления о съёмках клиентам в ВК одной кнопкой
             </CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex gap-3">
-            <Icon name="Info" className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
-            <div className="space-y-2 text-sm">
-              <p className="font-semibold text-blue-900 dark:text-blue-100">
-                Как получить токен ВКонтакте:
-              </p>
-              <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200">
-                <li>Создайте сообщество ВК или используйте личный токен</li>
-                <li>
-                  Для сообщества: Настройки → Работа с API → Создать ключ → Выберите права "Сообщения
-                  сообщества"
-                </li>
-                <li>
-                  Для личного токена:{' '}
-                  <a
-                    href="https://vkhost.github.io/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 dark:text-blue-400 underline hover:no-underline"
+      <CardContent className="space-y-4">
+        {status.connected ? (
+          <div className="space-y-4">
+            <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="flex gap-3">
+                <Icon name="CheckCircle2" className="text-green-600 flex-shrink-0 mt-0.5" size={20} />
+                <div className="space-y-1">
+                  <p className="font-semibold text-green-900 dark:text-green-100">
+                    ВКонтакте подключен
+                  </p>
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    Ваши клиенты будут получать уведомления в личные сообщения ВК
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              onClick={handleDisconnect} 
+              className="w-full border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/20"
+            >
+              <Icon name="Unplug" size={20} className="mr-2" />
+              Отключить ВКонтакте
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {!showTokenInput ? (
+              <>
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <Icon name="Info" className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
+                    <div className="space-y-2 text-sm">
+                      <p className="text-blue-900 dark:text-blue-100">
+                        Подключите ВКонтакте для автоматической отправки объявлений о съёмках клиентам в личные сообщения.
+                      </p>
+                      <p className="text-blue-800 dark:text-blue-200">
+                        Нажмите кнопку ниже — откроется страница для получения токена доступа.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleConnect} 
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  <Icon name="MessageCircle" size={20} className="mr-2" />
+                  Подключить ВКонтакте
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <Icon name="AlertCircle" className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
+                    <div className="space-y-2 text-sm">
+                      <p className="font-semibold text-amber-900 dark:text-amber-100">
+                        Инструкция:
+                      </p>
+                      <ol className="list-decimal list-inside space-y-1 text-amber-800 dark:text-amber-200">
+                        <li>В открывшемся окне выберите права <strong>messages</strong> и <strong>offline</strong></li>
+                        <li>Нажмите «Получить токен»</li>
+                        <li>Скопируйте токен и вставьте в поле ниже</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="vk-token">Токен ВКонтакте</Label>
+                  <Input
+                    id="vk-token"
+                    type="password"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    placeholder="vk1.a.xxxxxxxxxxxxxxxxxxxxx"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleSaveToken} 
+                    disabled={saving || !token.trim()}
+                    className="flex-1"
                   >
-                    vkhost.github.io
-                  </a>{' '}
-                  → Права: messages, offline
-                </li>
-              </ol>
-            </div>
+                    {saving ? (
+                      <>
+                        <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                        Сохранение...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="Check" size={20} className="mr-2" />
+                        Сохранить
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowTokenInput(false);
+                      setToken('');
+                    }}
+                  >
+                    <Icon name="X" size={20} />
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="vk-user-token">Токен пользователя (для личных сообщений)</Label>
-            <Input
-              id="vk-user-token"
-              type="password"
-              value={settings.vk_user_token || ''}
-              onChange={(e) => setSettings({ ...settings, vk_user_token: e.target.value })}
-              placeholder="vk1.a.xxxxxxxxxxxxxxxxxxxxx"
-            />
-            <p className="text-xs text-muted-foreground">
-              Используется для отправки сообщений от вашего имени
-            </p>
-          </div>
-
-          <div className="border-t pt-4">
-            <p className="text-sm font-semibold mb-3">Или используйте токен сообщества:</p>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="vk-group-token">Токен сообщества</Label>
-                <Input
-                  id="vk-group-token"
-                  type="password"
-                  value={settings.vk_group_token || ''}
-                  onChange={(e) => setSettings({ ...settings, vk_group_token: e.target.value })}
-                  placeholder="vk1.a.xxxxxxxxxxxxxxxxxxxxx"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="vk-group-id">ID сообщества (необязательно)</Label>
-                <Input
-                  id="vk-group-id"
-                  value={settings.vk_group_id || ''}
-                  onChange={(e) => setSettings({ ...settings, vk_group_id: e.target.value })}
-                  placeholder="123456789"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Цифровой ID вашего сообщества (можно найти в настройках группы)
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <Button onClick={saveSettings} disabled={saving} className="w-full">
-          {saving ? (
-            <>
-              <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
-              Сохранение...
-            </>
-          ) : (
-            <>
-              <Icon name="Save" size={20} className="mr-2" />
-              Сохранить настройки
-            </>
-          )}
-        </Button>
+        )}
       </CardContent>
     </Card>
   );

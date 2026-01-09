@@ -46,7 +46,7 @@ def handler(event: dict, context):
     try:
         if method == 'GET':
             cur.execute(f'''
-                SELECT vk_user_token, vk_group_token, vk_group_id
+                SELECT vk_user_token, vk_group_token, vk_group_id, vk_user_name, vk_user_id
                 FROM {schema}.vk_settings
                 WHERE user_id = %s
             ''', (user_id,))
@@ -67,7 +67,9 @@ def handler(event: dict, context):
                     'body': json.dumps({
                         'vk_user_token': '',
                         'vk_group_token': '',
-                        'vk_group_id': ''
+                        'vk_group_id': '',
+                        'vk_user_name': '',
+                        'vk_user_id': ''
                     }),
                     'isBase64Encoded': False
                 }
@@ -78,18 +80,22 @@ def handler(event: dict, context):
             vk_user_token = body.get('vk_user_token', '')
             vk_group_token = body.get('vk_group_token', '')
             vk_group_id = body.get('vk_group_id', '')
+            vk_user_name = body.get('vk_user_name', '')
+            vk_user_id_value = body.get('vk_user_id', '')
             
             cur.execute(f'''
                 INSERT INTO {schema}.vk_settings 
-                (user_id, vk_user_token, vk_group_token, vk_group_id, updated_at)
-                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                (user_id, vk_user_token, vk_group_token, vk_group_id, vk_user_name, vk_user_id, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT (user_id)
                 DO UPDATE SET
                     vk_user_token = EXCLUDED.vk_user_token,
                     vk_group_token = EXCLUDED.vk_group_token,
                     vk_group_id = EXCLUDED.vk_group_id,
+                    vk_user_name = EXCLUDED.vk_user_name,
+                    vk_user_id = EXCLUDED.vk_user_id,
                     updated_at = CURRENT_TIMESTAMP
-            ''', (user_id, vk_user_token, vk_group_token, vk_group_id))
+            ''', (user_id, vk_user_token, vk_group_token, vk_group_id, vk_user_name, vk_user_id_value))
             conn.commit()
             
             return {
