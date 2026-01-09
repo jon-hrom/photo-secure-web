@@ -36,8 +36,8 @@ def get_ip_geolocation(ip: str) -> str:
         return ip
     
     try:
-        # Используем 2ip.io (резолвится лучше в Cloud Functions)
-        url = f"https://api.2ip.io/geo.json?ip={ip}&key={api_key}"
+        # 2ip.io использует параметр token, а не key
+        url = f"https://api.2ip.io/geo.json?ip={ip}&token={api_key}"
         print(f"[GEOLOCATION] Requesting geo for IP {ip} via 2ip.io")
         
         req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
