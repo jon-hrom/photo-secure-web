@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "Run birthday check cron",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "timestamp": "string",
+        "users_checked": "number",
+        "notifications_sent": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

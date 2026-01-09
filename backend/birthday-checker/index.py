@@ -5,6 +5,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
 import re
+from shared_email import send_email
 
 def extract_vk_id(vk_profile: str) -> str:
     '''Извлекает VK ID или username из ссылки или @username'''
@@ -179,7 +180,25 @@ def handler(event: dict, context):
                 
                 # Отправка через Email
                 if send_to_email and email:
-                    results['email'] = False  # TODO: implement email sending
+                    try:
+                        html_body = f'''
+                        <html>
+                        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                                <h2 style="color: #4F46E5;">🎉 {message.split('!')[0]}!</h2>
+                                <p style="font-size: 16px;">{message}</p>
+                                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                                <p style="font-size: 14px; color: #6b7280;">
+                                    С наилучшими пожеланиями,<br>
+                                    Ваш фотограф
+                                </p>
+                            </div>
+                        </body>
+                        </html>
+                        '''
+                        results['email'] = send_email(email, '🎂 Поздравление с Днём Рождения!', html_body)
+                    except Exception as e:
+                        results['email'] = False
                 
                 # Отправка через VK
                 if send_to_vk and vk_profile:
