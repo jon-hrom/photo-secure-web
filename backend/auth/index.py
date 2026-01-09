@@ -36,11 +36,19 @@ def get_ip_geolocation(ip: str) -> str:
         return ip
     
     try:
-        url = f"https://api.2ip.io/geo.json?ip={ip}&token={api_key}"
+        # Используем api.2ip.ru с параметром key вместо token
+        url = f"https://api.2ip.ru/geo.json?ip={ip}&key={api_key}"
+        print(f"[GEOLOCATION] Requesting geo for IP {ip}")
+        
         req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
-        with urllib.request.urlopen(req, timeout=3) as response:
+        with urllib.request.urlopen(req, timeout=5) as response:
             data = json.loads(response.read().decode('utf-8'))
+            print(f"[GEOLOCATION] Success: {data.get('country_rus', 'Unknown')}, {data.get('city_rus', 'Unknown')}")
             return json.dumps(data, ensure_ascii=False)
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8') if e.fp else 'No error details'
+        print(f"[GEOLOCATION] HTTP Error {e.code} for {ip}: {error_body}")
+        return ip
     except Exception as e:
         print(f"[GEOLOCATION] Error fetching geo for {ip}: {e}")
         return ip

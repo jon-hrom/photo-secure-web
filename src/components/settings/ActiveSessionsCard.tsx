@@ -175,13 +175,24 @@ export const ActiveSessionsCard = ({ userId }: ActiveSessionsCardProps) => {
     
     try {
       const geo = JSON.parse(ipAddress);
-      if (geo.city && geo.country) {
-        const flag = geo.emoji || '';
-        return `${flag} ${geo.city}, ${geo.region || geo.country}`;
+      
+      // Поддержка формата 2ip.ru API
+      const city = geo.city_rus || geo.city || '';
+      const region = geo.region_rus || geo.region || '';
+      const country = geo.country_rus || geo.country || '';
+      const countryCode = geo.country_code || '';
+      
+      // Получаем флаг через country_code
+      const flag = countryCode ? String.fromCodePoint(...countryCode.toUpperCase().split('').map(c => 0x1F1E6 - 65 + c.charCodeAt(0))) : '';
+      
+      if (city && region) {
+        return `${flag} ${city}, ${region}`;
       }
-      if (geo.country) {
-        const flag = geo.emoji || '';
-        return `${flag} ${geo.country}`;
+      if (city && country) {
+        return `${flag} ${city}, ${country}`;
+      }
+      if (country) {
+        return `${flag} ${country}`;
       }
     } catch {
       // Если не JSON, значит это просто IP
