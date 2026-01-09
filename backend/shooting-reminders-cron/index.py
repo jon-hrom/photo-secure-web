@@ -572,8 +572,8 @@ def check_and_send_reminders():
                         
                         # Отправляем напоминания за 24 часа (с окном ±1 час)
                         if 23 <= hours_until <= 25:
-                            # Фотографу
-                            if photographer_phone and photographer_phone_verified:
+                            # Фотографу по MAX (если есть телефон)
+                            if photographer_phone:
                                 if send_photographer_reminder(photographer_phone, photographer_name, project, client, 24):
                                     results['sent_24h_photographer'] += 1
                                 else:
@@ -598,7 +598,8 @@ def check_and_send_reminders():
                         
                         # Отправляем напоминание за 5 часов (с окном ±30 минут)
                         elif 4.5 <= hours_until <= 5.5:
-                            if photographer_phone and photographer_phone_verified:
+                            # Фотографу по MAX
+                            if photographer_phone:
                                 if send_photographer_reminder(photographer_phone, photographer_name, project, client, 5):
                                     results['sent_5h_photographer'] += 1
                                 else:
@@ -618,7 +619,8 @@ def check_and_send_reminders():
                         
                         # Отправляем напоминание за 3 часа (с окном ±30 минут)
                         elif 2.5 <= hours_until <= 3.5:
-                            if photographer_phone and photographer_phone_verified:
+                            # Фотографу по MAX
+                            if photographer_phone:
                                 if send_photographer_reminder(photographer_phone, photographer_name, project, client, 3):
                                     results['sent_3h_photographer'] += 1
                                 else:
@@ -638,7 +640,8 @@ def check_and_send_reminders():
                         
                         # Отправляем напоминание за 1 час (с окном ±15 минут)
                         elif 0.75 <= hours_until <= 1.25:
-                            if photographer_phone and photographer_phone_verified:
+                            # Фотографу по MAX
+                            if photographer_phone:
                                 if send_photographer_reminder(photographer_phone, photographer_name, project, client, 1):
                                     results['sent_1h_photographer'] += 1
                                 else:
