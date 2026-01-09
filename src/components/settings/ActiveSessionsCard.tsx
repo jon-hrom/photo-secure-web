@@ -270,8 +270,9 @@ export const ActiveSessionsCard = ({ userId }: ActiveSessionsCardProps) => {
                           {getBrowserInfo(session.user_agent)} на {getDeviceType(session.user_agent)}
                         </p>
                         {session.is_current && (
-                          <Badge variant="default" className="text-xs">
-                            Текущая
+                          <Badge variant="default" className="text-xs flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                            Вы здесь
                           </Badge>
                         )}
                       </div>

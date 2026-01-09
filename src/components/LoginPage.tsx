@@ -179,10 +179,29 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     }
 
     try {
+      // Получаем GPS геолокацию на мобильных устройствах
+      let gpsLocation = null;
+      try {
+        const { getUserGeolocation, formatGeolocationForBackend } = await import('@/utils/geolocation');
+        const location = await getUserGeolocation();
+        gpsLocation = formatGeolocationForBackend(location);
+        
+        if (gpsLocation) {
+          console.log('[LOGIN] GPS location obtained, sending to backend');
+        }
+      } catch (gpsError) {
+        console.log('[LOGIN] GPS unavailable, backend will use IP geolocation');
+      }
+
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', email, password }),
+        body: JSON.stringify({ 
+          action: 'login', 
+          email, 
+          password,
+          gps_location: gpsLocation
+        }),
       });
 
       const data = await response.json();
