@@ -12,6 +12,7 @@ import MaxSettings from '@/components/admin/MaxSettings';
 import AdminClientsTab from '@/components/admin/AdminClientsTab';
 import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificationsCard';
 import VKSettings from '@/components/settings/VKSettings';
+import NotificationMonitor from '@/components/admin/NotificationMonitor';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -129,6 +130,13 @@ const AdminPanelTabs = ({
         <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Звук уведомлений</AccordionTrigger>
         <AccordionContent>
           <NotificationSoundSettings />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="notification-monitor">
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Мониторинг уведомлений</AccordionTrigger>
+        <AccordionContent>
+          <NotificationMonitor />
         </AccordionContent>
       </AccordionItem>
 

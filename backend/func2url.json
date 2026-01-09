@@ -1,4 +1,6 @@
 {
+  "notification-monitor": "https://functions.poehali.dev/09fe6ba4-a87d-41a9-a051-643c91e7ab1a",
+  "ios-push-tokens": "https://functions.poehali.dev/60d92afd-edcb-4e9a-8943-6af4c5c2433d",
   "vk-connect": "https://functions.poehali.dev/c5bca52f-3b6d-4b03-ac7c-95c2a961554f",
   "birthday-cron": "https://functions.poehali.dev/51591e90-6dc7-4bdd-8049-81ebf7a859a2",
   "vk-settings": "https://functions.poehali.dev/f19f02aa-569b-49f2-b9d6-3036bffb9e73",

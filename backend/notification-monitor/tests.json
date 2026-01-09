@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "name": "Get push notification logs",
+      "method": "GET",
+      "path": "/?action=get-push-logs&limit=50",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "logs": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get all iOS devices",
+      "method": "GET",
+      "path": "/?action=get-all-ios-devices",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "devices": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get notification stats",
+      "method": "GET",
+      "path": "/?action=get-stats",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "stats": "object"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

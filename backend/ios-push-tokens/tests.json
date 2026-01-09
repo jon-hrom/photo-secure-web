@@ -1,0 +1,56 @@
+{
+  "tests": [
+    {
+      "name": "Register new iOS device token",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "22"
+      },
+      "body": {
+        "deviceToken": "test_token_12345",
+        "deviceName": "iPhone 14 Pro",
+        "deviceModel": "iPhone15,2",
+        "osVersion": "17.2",
+        "appVersion": "1.0.0"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "tokenId": "number",
+        "message": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get user's iOS tokens",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "22"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "tokens": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Update token status",
+      "method": "PUT",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "22"
+      },
+      "body": {
+        "tokenId": 2,
+        "isActive": false
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
