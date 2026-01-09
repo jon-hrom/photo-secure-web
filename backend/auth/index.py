@@ -378,6 +378,24 @@ def send_2fa_code(conn, user_id: int, code: str, code_type: str):
     elif code_type == 'sms' and user and user['phone']:
         send_2fa_sms(user['phone'], code)
 
+def get_real_ip(event: Dict[str, Any]) -> str:
+    """Получение реального IP клиента (не Cloud Function)"""
+    headers = event.get('headers', {})
+    
+    # Пробуем получить реальный IP из заголовков (в порядке приоритета)
+    forwarded_for = headers.get('X-Forwarded-For') or headers.get('x-forwarded-for')
+    if forwarded_for:
+        # X-Forwarded-For может содержать список IP: "client, proxy1, proxy2"
+        # Берем первый (реальный IP клиента)
+        real_ip = forwarded_for.split(',')[0].strip()
+        print(f"[IP] Real client IP from X-Forwarded-For: {real_ip}")
+        return real_ip
+    
+    # Fallback на стандартный sourceIp (IP Cloud Function)
+    fallback_ip = event.get('requestContext', {}).get('identity', {}).get('sourceIp', 'unknown')
+    print(f"[IP] Fallback to sourceIp: {fallback_ip}")
+    return fallback_ip
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
     body_str = event.get('body', '{}')
@@ -400,7 +418,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     try:
         conn = get_db_connection()
-        ip_address = event.get('requestContext', {}).get('identity', {}).get('sourceIp', 'unknown')
+        ip_address = get_real_ip(event)
         
         if method == 'POST':
             body = json.loads(body_str)
