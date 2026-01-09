@@ -10,6 +10,7 @@ import SmsBalanceManager from '@/components/admin/SmsBalanceManager';
 import MaxTemplates from '@/components/admin/MaxTemplates';
 import MaxSettings from '@/components/admin/MaxSettings';
 import AdminClientsTab from '@/components/admin/AdminClientsTab';
+import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificationsCard';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -208,6 +209,18 @@ const AdminPanelTabs = ({
         </AccordionTrigger>
         <AccordionContent>
           <MaxSettings />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="birthday-notifications">
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="flex items-center gap-2">
+            <Icon name="Cake" size={20} />
+            Поздравления с Днём Рождения
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          <BirthdayNotificationsCard userId={null} />
         </AccordionContent>
       </AccordionItem>
     </Accordion>

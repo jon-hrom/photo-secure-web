@@ -35,7 +35,8 @@ const BirthdayNotificationsCard = ({ userId }: { userId: string | null }) => {
   }, [userId]);
 
   const loadSettings = async () => {
-    if (!userId) return;
+    const effectiveUserId = userId || localStorage.getItem('userId');
+    if (!effectiveUserId) return;
 
     setLoading(true);
     try {
@@ -43,7 +44,7 @@ const BirthdayNotificationsCard = ({ userId }: { userId: string | null }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Id': userId,
+          'X-User-Id': effectiveUserId,
         },
         body: JSON.stringify({ action: 'get_settings' }),
       });
@@ -60,7 +61,8 @@ const BirthdayNotificationsCard = ({ userId }: { userId: string | null }) => {
   };
 
   const saveSettings = async () => {
-    if (!userId) return;
+    const effectiveUserId = userId || localStorage.getItem('userId');
+    if (!effectiveUserId) return;
 
     setSaving(true);
     try {
@@ -68,7 +70,7 @@ const BirthdayNotificationsCard = ({ userId }: { userId: string | null }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Id': userId,
+          'X-User-Id': effectiveUserId,
         },
         body: JSON.stringify({
           action: 'update_settings',
