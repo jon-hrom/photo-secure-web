@@ -236,9 +236,11 @@ export const ActiveSessionsCard = ({ userId }: ActiveSessionsCardProps) => {
                   setRevokeAll(true);
                   setShowRevokeDialog(true);
                 }}
+                className="text-xs sm:text-sm whitespace-nowrap"
               >
-                <Icon name="LogOut" size={16} className="mr-2" />
-                Завершить другие
+                <Icon name="LogOut" size={14} className="mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Завершить другие</span>
+                <span className="sm:hidden">Выйти</span>
               </Button>
             )}
           </div>
