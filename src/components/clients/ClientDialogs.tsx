@@ -110,8 +110,8 @@ const ClientDialogs = ({
             </Tooltip>
           </TooltipProvider>
         )}
-        <DialogContent className="max-w-md flex flex-col max-h-[90vh] sm:max-h-[85vh] p-0" data-tour="client-form" aria-describedby="add-client-description">
-          <div className="p-4 sm:p-6 pb-0">
+        <DialogContent className="max-w-md flex flex-col max-h-[90vh] sm:max-h-[85vh] p-0 gap-0" data-tour="client-form" aria-describedby="add-client-description">
+          <div className="flex-shrink-0 p-4 sm:p-6 pb-3">
             <DialogHeader>
               <DialogTitle>Новый клиент</DialogTitle>
             </DialogHeader>
@@ -119,7 +119,7 @@ const ClientDialogs = ({
               Форма для добавления нового клиента в базу
             </div>
           </div>
-          <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 px-4 sm:px-6 overflow-y-auto flex-1 pb-2">
+          <div className="space-y-3 sm:space-y-4 px-4 sm:px-6 overflow-y-auto flex-1 min-h-0 pb-4">
             <div className="space-y-1.5 sm:space-y-2">
               <Label htmlFor="name" className="text-sm">ФИО *</Label>
               <Input
@@ -199,10 +199,10 @@ const ClientDialogs = ({
               <p className="text-[11px] sm:text-xs text-muted-foreground">Для автоматических поздравлений</p>
             </div>
           </div>
-          <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+          <div className="flex-shrink-0 p-3 sm:p-4 border-t bg-background">
             <Button 
               onClick={handleAddClientWithCheck} 
-              className="w-full h-11 sm:h-12 text-sm sm:text-base font-semibold shadow-lg active:scale-[0.98] transition-transform cursor-pointer touch-manipulation"
+              className="w-full h-11 sm:h-12 text-sm sm:text-base font-semibold shadow-md active:scale-[0.98] transition-transform"
               type="button"
             >
               <Icon name="UserPlus" size={18} className="mr-1.5 sm:mr-2" />
@@ -213,8 +213,8 @@ const ClientDialogs = ({
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md flex flex-col max-h-[90vh] sm:max-h-[85vh] p-0" aria-describedby="edit-client-description">
-          <div className="p-4 sm:p-6 pb-0">
+        <DialogContent className="max-w-md flex flex-col max-h-[90vh] sm:max-h-[85vh] p-0 gap-0" aria-describedby="edit-client-description">
+          <div className="flex-shrink-0 p-4 sm:p-6 pb-3">
             <DialogHeader>
               <DialogTitle>Редактирование клиента</DialogTitle>
             </DialogHeader>
@@ -224,7 +224,7 @@ const ClientDialogs = ({
           </div>
           {editingClient && (
             <>
-              <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 px-4 sm:px-6 overflow-y-auto flex-1 pb-2">
+              <div className="space-y-3 sm:space-y-4 px-4 sm:px-6 overflow-y-auto flex-1 min-h-0 pb-4">
                 <div className="space-y-1.5 sm:space-y-2">
                   <Label htmlFor="edit-name" className="text-sm">ФИО *</Label>
                   <Input
@@ -300,10 +300,10 @@ const ClientDialogs = ({
                   <p className="text-[11px] sm:text-xs text-muted-foreground">Для автоматических поздравлений</p>
                 </div>
               </div>
-              <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+              <div className="flex-shrink-0 p-3 sm:p-4 border-t bg-background">
                 <Button 
                   onClick={handleUpdateClient} 
-                  className="w-full h-11 sm:h-12 text-sm sm:text-base font-semibold shadow-lg active:scale-[0.98] transition-transform cursor-pointer touch-manipulation"
+                  className="w-full h-11 sm:h-12 text-sm sm:text-base font-semibold shadow-md active:scale-[0.98] transition-transform"
                   type="button"
                 >
                   <Icon name="Save" size={18} className="mr-1.5 sm:mr-2" />
