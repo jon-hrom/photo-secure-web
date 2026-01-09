@@ -110,25 +110,28 @@ const ClientDialogs = ({
             </Tooltip>
           </TooltipProvider>
         )}
-        <DialogContent className="max-w-md flex flex-col max-h-[85vh]" data-tour="client-form" aria-describedby="add-client-description">
-          <DialogHeader>
-            <DialogTitle>Новый клиент</DialogTitle>
-          </DialogHeader>
-          <div id="add-client-description" className="sr-only">
-            Форма для добавления нового клиента в базу
+        <DialogContent className="max-w-md flex flex-col max-h-[90vh] sm:max-h-[85vh] p-0" data-tour="client-form" aria-describedby="add-client-description">
+          <div className="p-4 sm:p-6 pb-0">
+            <DialogHeader>
+              <DialogTitle>Новый клиент</DialogTitle>
+            </DialogHeader>
+            <div id="add-client-description" className="sr-only">
+              Форма для добавления нового клиента в базу
+            </div>
           </div>
-          <div className="space-y-4 pt-4 overflow-y-auto flex-1">
-            <div className="space-y-2">
-              <Label htmlFor="name">ФИО *</Label>
+          <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 px-4 sm:px-6 overflow-y-auto flex-1 pb-2">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="name" className="text-sm">ФИО *</Label>
               <Input
                 id="name"
                 value={newClient.name}
                 onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
                 placeholder="Иванов Иван Иванович"
+                className="h-10 text-sm sm:text-base"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Телефон *</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="phone" className="text-sm">Телефон *</Label>
               <Input
                 id="phone"
                 value={newClient.phone}
@@ -138,65 +141,71 @@ const ClientDialogs = ({
                 }}
                 placeholder="+7 (999) 123-45-67"
                 maxLength={18}
+                className="h-10 text-sm sm:text-base"
               />
-              <p className="text-xs text-muted-foreground">Формат: +7 (999) 123-45-67</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground">Формат: +7 (999) 123-45-67</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="email" className="text-sm">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={newClient.email}
                 onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
                 placeholder="example@mail.ru"
+                className="h-10 text-sm sm:text-base"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">Адрес</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="address" className="text-sm">Адрес</Label>
               <Input
                 id="address"
                 value={newClient.address}
                 onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
                 placeholder="г. Москва, ул. Ленина, д. 1"
+                className="h-10 text-sm sm:text-base"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="vk">ВКонтакте (ссылка)</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="vk" className="text-sm">ВКонтакте (ссылка)</Label>
               <Input
                 id="vk"
                 value={newClient.vkProfile}
                 onChange={(e) => setNewClient({ ...newClient, vkProfile: e.target.value })}
                 placeholder="https://vk.com/username"
+                className="h-10 text-sm sm:text-base"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="vk-username">ВКонтакте username</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="vk-username" className="text-sm">ВКонтакте username</Label>
               <Input
                 id="vk-username"
                 value={newClient.vkUsername}
                 onChange={(e) => setNewClient({ ...newClient, vkUsername: e.target.value })}
                 placeholder="@username"
+                className="h-10 text-sm sm:text-base"
               />
-              <p className="text-xs text-muted-foreground">Для отправки поздравлений в ЛС</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground">Для отправки поздравлений в ЛС</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="birthdate">Дата рождения</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="birthdate" className="text-sm">Дата рождения</Label>
               <Input
                 id="birthdate"
                 type="date"
                 value={newClient.birthdate}
                 onChange={(e) => setNewClient({ ...newClient, birthdate: e.target.value })}
+                className="h-10 text-sm sm:text-base"
               />
-              <p className="text-xs text-muted-foreground">Для автоматических поздравлений</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground">Для автоматических поздравлений</p>
             </div>
           </div>
-          <div className="pt-4 pb-2 border-t mt-4 sticky bottom-0 bg-background">
+          <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
             <Button 
               onClick={handleAddClientWithCheck} 
-              className="w-full h-12 text-base font-semibold shadow-lg active:scale-95 transition-transform cursor-pointer touch-manipulation"
+              className="w-full h-11 sm:h-12 text-sm sm:text-base font-semibold shadow-lg active:scale-[0.98] transition-transform cursor-pointer touch-manipulation"
               type="button"
             >
-              <Icon name="UserPlus" size={20} className="mr-2" />
+              <Icon name="UserPlus" size={18} className="mr-1.5 sm:mr-2" />
               Добавить карточку клиента
             </Button>
           </div>
@@ -204,26 +213,29 @@ const ClientDialogs = ({
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md flex flex-col max-h-[85vh]" aria-describedby="edit-client-description">
-          <DialogHeader>
-            <DialogTitle>Редактирование клиента</DialogTitle>
-          </DialogHeader>
-          <div id="edit-client-description" className="sr-only">
-            Форма для редактирования данных клиента
+        <DialogContent className="max-w-md flex flex-col max-h-[90vh] sm:max-h-[85vh] p-0" aria-describedby="edit-client-description">
+          <div className="p-4 sm:p-6 pb-0">
+            <DialogHeader>
+              <DialogTitle>Редактирование клиента</DialogTitle>
+            </DialogHeader>
+            <div id="edit-client-description" className="sr-only">
+              Форма для редактирования данных клиента
+            </div>
           </div>
           {editingClient && (
             <>
-              <div className="space-y-4 pt-4 overflow-y-auto flex-1">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-name">ФИО *</Label>
+              <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 px-4 sm:px-6 overflow-y-auto flex-1 pb-2">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="edit-name" className="text-sm">ФИО *</Label>
                   <Input
                     id="edit-name"
                     value={editingClient.name}
                     onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })}
+                    className="h-10 text-sm sm:text-base"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-phone">Телефон *</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="edit-phone" className="text-sm">Телефон *</Label>
                   <Input
                     id="edit-phone"
                     value={editingClient.phone}
@@ -232,63 +244,69 @@ const ClientDialogs = ({
                       setEditingClient({ ...editingClient, phone: formatted });
                     }}
                     maxLength={18}
+                    className="h-10 text-sm sm:text-base"
                   />
-                  <p className="text-xs text-muted-foreground">Формат: +7 (999) 123-45-67</p>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">Формат: +7 (999) 123-45-67</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-email">Email</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="edit-email" className="text-sm">Email</Label>
                   <Input
                     id="edit-email"
                     type="email"
                     value={editingClient.email}
                     onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })}
+                    className="h-10 text-sm sm:text-base"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-address">Адрес</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="edit-address" className="text-sm">Адрес</Label>
                   <Input
                     id="edit-address"
                     value={editingClient.address}
                     onChange={(e) => setEditingClient({ ...editingClient, address: e.target.value })}
+                    className="h-10 text-sm sm:text-base"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-vk">ВКонтакте (ссылка)</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="edit-vk" className="text-sm">ВКонтакте (ссылка)</Label>
                   <Input
                     id="edit-vk"
                     value={editingClient.vkProfile || ''}
                     onChange={(e) => setEditingClient({ ...editingClient, vkProfile: e.target.value })}
                     placeholder="https://vk.com/username"
+                    className="h-10 text-sm sm:text-base"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-vk-username">ВКонтакте username</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="edit-vk-username" className="text-sm">ВКонтакте username</Label>
                   <Input
                     id="edit-vk-username"
                     value={editingClient.vk_username || ''}
                     onChange={(e) => setEditingClient({ ...editingClient, vk_username: e.target.value })}
                     placeholder="@username"
+                    className="h-10 text-sm sm:text-base"
                   />
-                  <p className="text-xs text-muted-foreground">Для отправки поздравлений в ЛС</p>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">Для отправки поздравлений в ЛС</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-birthdate">Дата рождения</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="edit-birthdate" className="text-sm">Дата рождения</Label>
                   <Input
                     id="edit-birthdate"
                     type="date"
                     value={editingClient.birthdate || ''}
                     onChange={(e) => setEditingClient({ ...editingClient, birthdate: e.target.value })}
+                    className="h-10 text-sm sm:text-base"
                   />
-                  <p className="text-xs text-muted-foreground">Для автоматических поздравлений</p>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">Для автоматических поздравлений</p>
                 </div>
               </div>
-              <div className="pt-4 pb-2 border-t mt-4 sticky bottom-0 bg-background">
+              <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
                 <Button 
                   onClick={handleUpdateClient} 
-                  className="w-full h-12 text-base font-semibold shadow-lg active:scale-95 transition-transform cursor-pointer touch-manipulation"
+                  className="w-full h-11 sm:h-12 text-sm sm:text-base font-semibold shadow-lg active:scale-[0.98] transition-transform cursor-pointer touch-manipulation"
                   type="button"
                 >
-                  <Icon name="Save" size={20} className="mr-2" />
+                  <Icon name="Save" size={18} className="mr-1.5 sm:mr-2" />
                   Сохранить изменения
                 </Button>
               </div>
