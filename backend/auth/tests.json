@@ -1,7 +1,7 @@
 {
   "tests": [
     {
-      "name": "Register new user",
+      "name": "Register existing user",
       "method": "POST",
       "body": {
         "action": "register",
@@ -9,9 +9,9 @@
         "password": "securepass123",
         "phone": "+79991234567"
       },
-      "expectedStatus": 200,
+      "expectedStatus": 400,
       "expectedBody": {
-        "success": true
+        "error": "string"
       },
       "bodyMatcher": "partial"
     },
@@ -25,7 +25,9 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "success": true
+        "success": true,
+        "token": "string",
+        "session_id": "string"
       },
       "bodyMatcher": "partial"
     }

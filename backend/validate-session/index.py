@@ -8,7 +8,7 @@ import json
 import os
 import hashlib
 import hmac
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -103,9 +103,11 @@ def check_session_in_db(token: str, user_id: int, session_id: str) -> Optional[D
                 print(f"[VALIDATE] User is inactive: user_id={user_id}")
                 return None
             
+            new_expires_at = datetime.now() + timedelta(minutes=30)
             cur.execute(f"""
                 UPDATE {SCHEMA}.active_sessions
-                SET last_activity = CURRENT_TIMESTAMP
+                SET last_activity = CURRENT_TIMESTAMP,
+                    expires_at = {escape_sql(new_expires_at.isoformat())}
                 WHERE session_id = {escape_sql(session_id)}
             """)
             conn.commit()

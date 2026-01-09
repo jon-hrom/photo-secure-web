@@ -9,6 +9,8 @@ import json
 import os
 import hashlib
 import secrets
+import hmac
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import psycopg2
@@ -19,6 +21,35 @@ import urllib.error
 import re
 import boto3
 from botocore.exceptions import ClientError
+
+JWT_SECRET = os.environ.get('JWT_SECRET', 'fallback-secret-change-me')
+SCHEMA = 't_p28211681_photo_secure_web'
+
+def generate_access_token(user_id: int, ip_address: str, user_agent: str) -> tuple[str, str]:
+    """Генерация Access Token и создание сессии"""
+    session_id = str(uuid.uuid4())
+    issued_at = datetime.now()
+    expires_at = issued_at + timedelta(minutes=30)
+    
+    payload = f"{user_id}:{session_id}:{int(issued_at.timestamp())}:{int(expires_at.timestamp())}"
+    signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    token = f"{payload}:{signature}"
+    
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.active_sessions 
+                (session_id, user_id, token_hash, created_at, expires_at, last_activity, ip_address, user_agent)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (session_id, user_id, token_hash, issued_at, expires_at, issued_at, ip_address, user_agent))
+        conn.commit()
+    finally:
+        conn.close()
+    
+    return token, session_id
 
 def send_email(to_email: str, subject: str, html_body: str, from_name: str = 'FotoMix') -> bool:
     """Отправить email через Yandex Cloud Postbox"""
@@ -464,10 +495,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                token, session_id = generate_access_token(user['id'], ip_address, user_agent)
+                
                 return {
                     'statusCode': 200,
                     'headers': headers,
-                    'body': json.dumps({'success': True, 'userId': user['id']}),
+                    'body': json.dumps({
+                        'success': True, 
+                        'userId': user['id'],
+                        'token': token,
+                        'session_id': session_id
+                    }),
                     'isBase64Encoded': False
                 }
             
@@ -504,10 +542,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 )
                 conn.commit()
                 
+                user_agent = event.get('headers', {}).get('User-Agent', '')
+                token, session_id = generate_access_token(user_id, ip_address, user_agent)
+                
                 return {
                     'statusCode': 200,
                     'headers': headers,
-                    'body': json.dumps({'success': True}),
+                    'body': json.dumps({
+                        'success': True,
+                        'token': token,
+                        'session_id': session_id
+                    }),
                     'isBase64Encoded': False
                 }
             

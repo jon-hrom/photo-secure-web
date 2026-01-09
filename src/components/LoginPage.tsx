@@ -12,7 +12,7 @@ import OAuthProviders from '@/components/login/OAuthProviders';
 import NewYearDecorations from '@/components/NewYearDecorations';
 
 interface LoginPageProps {
-  onLoginSuccess: (userId: number, email?: string) => void;
+  onLoginSuccess: (userId: number, email?: string, token?: string) => void;
 }
 
 const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
@@ -197,8 +197,14 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         } else {
           setRemainingAttempts(5);
           localStorage.removeItem('loginBlock');
+          
+          if (data.token) {
+            localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('auth_session_id', data.session_id);
+          }
+          
           toast.success('Вход выполнен успешно!');
-          onLoginSuccess(data.userId, email);
+          onLoginSuccess(data.userId, email, data.token);
         }
       } else {
         if (response.status === 403 && data.blocked) {

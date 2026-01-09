@@ -57,7 +57,7 @@ export const useAuth = () => {
   const [accessDeniedMessage, setAccessDeniedMessage] = useState('Доступ на вход временно недоступен по техническим причинам');
   const lastActivityRef = useRef<number>(Date.now());
 
-  const handleLoginSuccess = async (uid: number, email?: string) => {
+  const handleLoginSuccess = async (uid: number, email?: string, token?: string) => {
     const isUserAdmin = isAdminUser(email || null, null);
     
     // Проверяем настройку блокировки входа для не-админов
@@ -90,6 +90,11 @@ export const useAuth = () => {
     lastActivityRef.current = Date.now();
     
     localStorage.setItem('userId', uid.toString());
+    
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      console.log('[AUTH] Token saved to localStorage');
+    }
     
     localStorage.setItem('authSession', JSON.stringify({
       isAuthenticated: true,
