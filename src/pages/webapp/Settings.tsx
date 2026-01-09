@@ -285,10 +285,6 @@ const Settings = () => {
               <VKSettings userId={settings.id?.toString() || null} />
             )}
 
-            {settings?.id && (
-              <ActiveSessionsCard userId={settings.id} />
-            )}
-
             <div className="pt-2 sm:pt-4">
               <Button 
                 onClick={saveSettings} 

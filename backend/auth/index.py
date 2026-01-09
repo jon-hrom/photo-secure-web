@@ -25,6 +25,21 @@ from botocore.exceptions import ClientError
 JWT_SECRET = os.environ.get('JWT_SECRET', 'fallback-secret-change-me')
 SCHEMA = 't_p28211681_photo_secure_web'
 
+def get_ip_geolocation(ip: str) -> str:
+    """Получение геолокации по IP через 2ip.io API"""
+    if not ip or ip == 'unknown':
+        return ip
+    
+    try:
+        url = f"https://api.2ip.io/geo.json?ip={ip}"
+        req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
+        with urllib.request.urlopen(req, timeout=3) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            return json.dumps(data, ensure_ascii=False)
+    except Exception as e:
+        print(f"[GEOLOCATION] Error fetching geo for {ip}: {e}")
+        return ip
+
 def generate_access_token(user_id: int, ip_address: str, user_agent: str) -> tuple[str, str]:
     """Генерация Access Token и создание сессии"""
     session_id = str(uuid.uuid4())
@@ -37,6 +52,8 @@ def generate_access_token(user_id: int, ip_address: str, user_agent: str) -> tup
     
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     
+    ip_with_geo = get_ip_geolocation(ip_address)
+    
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -44,7 +61,7 @@ def generate_access_token(user_id: int, ip_address: str, user_agent: str) -> tup
                 INSERT INTO {SCHEMA}.active_sessions 
                 (session_id, user_id, token_hash, created_at, expires_at, last_activity, ip_address, user_agent)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (session_id, user_id, token_hash, issued_at, expires_at, issued_at, ip_address, user_agent))
+            """, (session_id, user_id, token_hash, issued_at, expires_at, issued_at, ip_with_geo, user_agent))
         conn.commit()
     finally:
         conn.close()
