@@ -26,7 +26,7 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'fallback-secret-change-me')
 SCHEMA = 't_p28211681_photo_secure_web'
 
 def get_ip_geolocation(ip: str) -> str:
-    """Получение геолокации по IP через 2ip.ru API"""
+    """Получение геолокации по IP через 2ip.io API"""
     if not ip or ip == 'unknown':
         return ip
     
@@ -36,21 +36,23 @@ def get_ip_geolocation(ip: str) -> str:
         return ip
     
     try:
-        # Используем api.2ip.ru с параметром key вместо token
-        url = f"https://api.2ip.ru/geo.json?ip={ip}&key={api_key}"
-        print(f"[GEOLOCATION] Requesting geo for IP {ip}")
+        # Используем 2ip.io (резолвится лучше в Cloud Functions)
+        url = f"https://api.2ip.io/geo.json?ip={ip}&key={api_key}"
+        print(f"[GEOLOCATION] Requesting geo for IP {ip} via 2ip.io")
         
         req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
         with urllib.request.urlopen(req, timeout=5) as response:
-            data = json.loads(response.read().decode('utf-8'))
-            print(f"[GEOLOCATION] Success: {data.get('country_rus', 'Unknown')}, {data.get('city_rus', 'Unknown')}")
+            raw_data = response.read().decode('utf-8')
+            print(f"[GEOLOCATION] Raw response: {raw_data[:200]}")
+            data = json.loads(raw_data)
+            print(f"[GEOLOCATION] Success: {data.get('country_rus', data.get('country', 'Unknown'))}, {data.get('city_rus', data.get('city', 'Unknown'))}")
             return json.dumps(data, ensure_ascii=False)
     except urllib.error.HTTPError as e:
         error_body = e.read().decode('utf-8') if e.fp else 'No error details'
         print(f"[GEOLOCATION] HTTP Error {e.code} for {ip}: {error_body}")
         return ip
     except Exception as e:
-        print(f"[GEOLOCATION] Error fetching geo for {ip}: {e}")
+        print(f"[GEOLOCATION] Error fetching geo for {ip}: {type(e).__name__} - {e}")
         return ip
 
 def generate_access_token(user_id: int, ip_address: str, user_agent: str) -> tuple[str, str]:
