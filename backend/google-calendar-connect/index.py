@@ -217,8 +217,6 @@ def handler(event, context):
                         'body': json.dumps({'connected': False})
                     }
                 
-                is_connected = result['calendar_enabled'] and result['token_expires_at']
-                
                 expires_at = None
                 if result.get('token_expires_at'):
                     try:
@@ -226,13 +224,16 @@ def handler(event, context):
                     except:
                         expires_at = None
                 
+                is_connected = bool(result['calendar_enabled'] and expires_at)
+                
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({
                         'connected': is_connected,
                         'expires_at': expires_at
-                    })
+                    }),
+                    'isBase64Encoded': False
                 }
         finally:
             conn.close()
