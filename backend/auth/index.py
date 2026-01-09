@@ -36,8 +36,8 @@ def get_ip_geolocation(ip: str) -> str:
         return ip
     
     try:
-        # 2ip.io использует параметр token, а не key
-        url = f"https://api.2ip.io/geo.json?ip={ip}&token={api_key}"
+        # 2ip.io API: https://api.2ip.io/{IP}?token={TOKEN}&lang=ru
+        url = f"https://api.2ip.io/{ip}?token={api_key}&lang=ru"
         print(f"[GEOLOCATION] Requesting geo for IP {ip} via 2ip.io")
         
         req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
@@ -45,8 +45,27 @@ def get_ip_geolocation(ip: str) -> str:
             raw_data = response.read().decode('utf-8')
             print(f"[GEOLOCATION] Raw response: {raw_data[:200]}")
             data = json.loads(raw_data)
-            print(f"[GEOLOCATION] Success: {data.get('country_rus', data.get('country', 'Unknown'))}, {data.get('city_rus', data.get('city', 'Unknown'))}")
-            return json.dumps(data, ensure_ascii=False)
+            
+            # API возвращает: ip, city, country, code, emoji, lat, lon, timezone, asn
+            city = data.get('city', '')
+            country = data.get('country', '')
+            country_code = data.get('code', '')
+            
+            print(f"[GEOLOCATION] Success: {country} ({country_code}), {city}")
+            
+            # Преобразуем в формат совместимый с форматтером фронтенда
+            geo_data = {
+                'city': city,
+                'country': country,
+                'country_code': country_code,
+                'emoji': data.get('emoji', ''),
+                'lat': data.get('lat', ''),
+                'lon': data.get('lon', ''),
+                'timezone': data.get('timezone', ''),
+                'asn': data.get('asn', {})
+            }
+            
+            return json.dumps(geo_data, ensure_ascii=False)
     except urllib.error.HTTPError as e:
         error_body = e.read().decode('utf-8') if e.fp else 'No error details'
         print(f"[GEOLOCATION] HTTP Error {e.code} for {ip}: {error_body}")

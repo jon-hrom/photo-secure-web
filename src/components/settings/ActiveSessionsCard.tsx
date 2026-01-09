@@ -176,18 +176,15 @@ export const ActiveSessionsCard = ({ userId }: ActiveSessionsCardProps) => {
     try {
       const geo = JSON.parse(ipAddress);
       
-      // Поддержка формата 2ip.ru API
-      const city = geo.city_rus || geo.city || '';
-      const region = geo.region_rus || geo.region || '';
-      const country = geo.country_rus || geo.country || '';
-      const countryCode = geo.country_code || '';
+      // Новый формат 2ip.io API (с lang=ru)
+      const city = geo.city || '';
+      const country = geo.country || '';
+      const countryCode = geo.country_code || geo.code || '';
+      const emoji = geo.emoji || '';
       
-      // Получаем флаг через country_code
-      const flag = countryCode ? String.fromCodePoint(...countryCode.toUpperCase().split('').map(c => 0x1F1E6 - 65 + c.charCodeAt(0))) : '';
+      // Используем emoji из API или генерируем из country_code
+      const flag = emoji || (countryCode ? String.fromCodePoint(...countryCode.toUpperCase().split('').map(c => 0x1F1E6 - 65 + c.charCodeAt(0))) : '');
       
-      if (city && region) {
-        return `${flag} ${city}, ${region}`;
-      }
       if (city && country) {
         return `${flag} ${city}, ${country}`;
       }
