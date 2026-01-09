@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import type { PhotobookData } from './PhotobookCreator';
+import { formatLocalDate } from '@/utils/dateFormat';
 
 interface SavedDesignsProps {
   designs: PhotobookData[];
@@ -68,7 +69,7 @@ const SavedDesigns = ({ designs, onOpen, onDelete }: SavedDesignsProps) => {
               </div>
               
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Создано: {new Date(design.createdAt).toLocaleDateString('ru-RU')}</span>
+                <span>Создано: {formatLocalDate(design.createdAt, 'date')}</span>
                 {design.enableClientLink && (
                   <Badge variant="default" className="bg-green-100 text-green-700">
                     <Icon name="Link" size={12} className="mr-1" />

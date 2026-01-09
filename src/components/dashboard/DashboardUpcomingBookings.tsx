@@ -2,6 +2,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Client, Booking } from '@/components/clients/ClientsTypes';
+import { formatLocalDate } from '@/utils/dateFormat';
 
 interface BookingWithClient extends Booking {
   client: Client;
@@ -17,7 +18,7 @@ const DashboardUpcomingBookings = ({
   onBookingClick 
 }: DashboardUpcomingBookingsProps) => {
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    return formatLocalDate(date.toISOString(), 'date');
   };
 
   const getDaysUntil = (date: Date) => {

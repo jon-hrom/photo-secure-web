@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import { formatLocalDate } from '@/utils/dateFormat';
 
 interface BookingWithClient {
   id: number;
@@ -32,7 +33,7 @@ const UpcomingBookingsList = ({
 }: UpcomingBookingsListProps) => {
   const formatDate = (booking: BookingWithClient) => {
     const date = booking.normalizedDate || new Date(booking.date);
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    return formatLocalDate(date.toISOString(), 'date');
   };
 
   const getDaysUntil = (booking: BookingWithClient) => {
@@ -57,7 +58,7 @@ const UpcomingBookingsList = ({
               <div className="text-base sm:text-lg font-bold">Предстоящие встречи</div>
               {selectedDate && (
                 <div className="text-[10px] sm:text-xs text-blue-600/70 font-normal mt-0.5">
-                  {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {formatLocalDate(selectedDate.toISOString(), 'date')}
                 </div>
               )}
             </div>

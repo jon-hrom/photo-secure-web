@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { formatLocalDate } from '@/utils/dateFormat';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -137,20 +138,7 @@ export const ActiveSessionsCard = ({ userId }: ActiveSessionsCardProps) => {
     setRevokeAll(false);
   };
 
-  const formatDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+
 
   const getBrowserInfo = (userAgent: string) => {
     if (!userAgent) return 'Неизвестный браузер';
@@ -280,10 +268,10 @@ export const ActiveSessionsCard = ({ userId }: ActiveSessionsCardProps) => {
                         {formatLocation(session.ip_address)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Создана: {formatDate(session.created_at)}
+                        Создана: {formatLocalDate(session.created_at, 'short')}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Последняя активность: {formatDate(session.last_activity)}
+                        Последняя активность: {formatLocalDate(session.last_activity, 'short')}
                       </p>
                     </div>
                   </div>

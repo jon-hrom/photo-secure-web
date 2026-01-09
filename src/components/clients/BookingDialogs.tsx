@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import Icon from '@/components/ui/icon';
 import { Client, Booking } from '@/components/clients/ClientsTypes';
+import { formatLocalDate } from '@/utils/dateFormat';
 
 interface BookingDialogsProps {
   isBookingDialogOpen: boolean;
@@ -240,9 +241,9 @@ const BookingDialogs = ({
                     </div>
                     <p className="font-bold text-gray-900 dark:text-gray-100">
                       {selectedBooking.booking_date 
-                        ? new Date(selectedBooking.booking_date).toLocaleDateString('ru-RU')
+                        ? formatLocalDate(selectedBooking.booking_date, 'date')
                         : selectedBooking.date instanceof Date 
-                          ? selectedBooking.date.toLocaleDateString('ru-RU') 
+                          ? formatLocalDate(selectedBooking.date.toISOString(), 'date') 
                           : selectedBooking.date
                       }
                     </p>

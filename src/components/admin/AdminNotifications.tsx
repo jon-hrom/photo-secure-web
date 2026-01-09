@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { formatLocalDate } from '@/utils/dateFormat';
 
 interface AdminMessage {
   id: number;
@@ -90,7 +91,7 @@ const AdminNotifications = () => {
             <div className="flex-1 min-w-0">
               <p className="text-sm text-gray-800 dark:text-gray-200 break-words">{msg.message_text}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {new Date(msg.created_at).toLocaleString('ru-RU')}
+                {formatLocalDate(msg.created_at, 'short')}
               </p>
             </div>
             <Button

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Message, Booking, Project, Payment, Client } from '@/components/clients/ClientsTypes';
 import ProjectArchiveDialog from '@/components/clients/ProjectArchiveDialog';
+import { formatLocalDate } from '@/utils/dateFormat';
 
 interface MessageHistoryProps {
   messages: Message[];
@@ -103,19 +104,11 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                             )}
                           </td>
                           <td className="hidden md:table-cell py-3 px-3 text-sm">
-                            {new Date(project.startDate).toLocaleDateString('ru-RU', { 
-                              day: 'numeric', 
-                              month: 'short', 
-                              year: 'numeric' 
-                            })}
+                            {formatLocalDate(project.startDate, 'date')}
                           </td>
                           <td className="hidden md:table-cell py-3 px-3 text-sm">
                             {project.endDate 
-                              ? new Date(project.endDate).toLocaleDateString('ru-RU', { 
-                                  day: 'numeric', 
-                                  month: 'short', 
-                                  year: 'numeric' 
-                                })
+                              ? formatLocalDate(project.endDate, 'date')
                               : '—'
                             }
                           </td>

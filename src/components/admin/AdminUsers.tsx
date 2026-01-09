@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
+import { formatLocalDate } from '@/utils/dateFormat';
 
 interface User {
   id: number;
@@ -56,13 +57,7 @@ const AdminUsers = ({ users, onDelete }: AdminUsersProps) => {
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                     <Icon name="Calendar" size={14} />
                     <span>
-                      Регистрация: {new Date(user.created_at).toLocaleDateString('ru-RU', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      Регистрация: {formatLocalDate(user.created_at, 'short')}
                     </span>
                   </div>
                 </div>

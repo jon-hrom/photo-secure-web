@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { formatLocalDate } from '@/utils/dateFormat';
 import {
   Dialog,
   DialogContent,
@@ -125,13 +126,7 @@ const AdminPanelHistory = ({ history, showHistory, onRollback }: AdminPanelHisto
                   </div>
                   <p className="text-xs text-muted-foreground dark:text-gray-400 flex items-center gap-2">
                     <Icon name="Clock" size={12} />
-                    {new Date(item.createdAt || item.changed_at).toLocaleString('ru-RU', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {formatLocalDate(item.createdAt || item.changed_at, 'short')}
                   </p>
                   {item.description && (
                     <p className="text-xs text-muted-foreground mt-1">
@@ -181,14 +176,7 @@ const AdminPanelHistory = ({ history, showHistory, onRollback }: AdminPanelHisto
                 <div>
                   <p className="text-muted-foreground">Дата и время</p>
                   <p className="font-medium">
-                    {new Date(selectedItem.createdAt || selectedItem.changed_at).toLocaleString('ru-RU', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit'
-                    })}
+                    {formatLocalDate(selectedItem.createdAt || selectedItem.changed_at, 'full')}
                   </p>
                 </div>
                 
