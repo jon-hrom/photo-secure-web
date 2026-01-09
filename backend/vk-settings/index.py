@@ -78,6 +78,7 @@ def handler(event: dict, context):
             body = json.loads(event.get('body', '{}'))
             
             vk_user_token_raw = body.get('vk_user_token', '').strip()
+            print(f'[VK_SETTINGS] Raw token input: {vk_user_token_raw[:50]}...')
             
             # Извлекаем access_token из разных форматов
             vk_user_token = vk_user_token_raw
@@ -85,38 +86,46 @@ def handler(event: dict, context):
             
             # Формат 1: https://oauth.vk.com/blank.html#access_token=vk1.a.xxx&expires_in=0&user_id=123
             if '#access_token=' in vk_user_token_raw:
-                # Извлекаем всё после #
+                print('[VK_SETTINGS] Format 1 detected: URL with #access_token')
                 fragment = vk_user_token_raw.split('#', 1)[1]
                 params = fragment.split('&')
                 
                 for param in params:
                     if param.startswith('access_token='):
                         vk_user_token = param.split('=', 1)[1]
+                        print(f'[VK_SETTINGS] Extracted token: {vk_user_token[:30]}...')
                     elif param.startswith('user_id='):
                         vk_user_id_value = param.split('=', 1)[1]
+                        print(f'[VK_SETTINGS] Extracted user_id: {vk_user_id_value}')
             
             # Формат 2: vk1.a.xxx&expires_in=0&user_id=123
             elif '&expires_in=' in vk_user_token_raw:
+                print('[VK_SETTINGS] Format 2 detected: token with &expires_in')
                 parts = vk_user_token_raw.split('&')
-                vk_user_token = parts[0]  # Берём только access_token
+                vk_user_token = parts[0]
+                print(f'[VK_SETTINGS] Extracted token: {vk_user_token[:30]}...')
                 
                 for part in parts:
                     if part.startswith('user_id='):
                         vk_user_id_value = part.split('=', 1)[1]
-            
-            # Формат 3: просто vk1.a.xxx (уже чистый токен)
+                        print(f'[VK_SETTINGS] Extracted user_id: {vk_user_id_value}')
+            else:
+                print('[VK_SETTINGS] Format 3 detected: clean token')
             
             vk_group_token = body.get('vk_group_token', '')
             vk_group_id = body.get('vk_group_id', '')
             vk_user_name = body.get('vk_user_name', '')
             
-            if not vk_user_token:
+            if not vk_user_token or not vk_user_token.startswith('vk1.'):
+                print(f'[VK_SETTINGS] ERROR: Invalid token format: {vk_user_token[:20]}')
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Токен не может быть пустым'}),
+                    'body': json.dumps({'error': 'Некорректный формат токена'}),
                     'isBase64Encoded': False
                 }
+            
+            print(f'[VK_SETTINGS] Saving token for user_id={user_id}, vk_user_id={vk_user_id_value}')
             
             cur.execute(f'''
                 INSERT INTO {schema}.vk_settings 
