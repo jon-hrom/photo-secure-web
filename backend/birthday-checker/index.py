@@ -4,6 +4,26 @@ from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
+import re
+
+def extract_vk_id(vk_profile: str) -> str:
+    '''Извлекает VK ID или username из ссылки или @username'''
+    if not vk_profile:
+        return None
+    
+    vk_profile = vk_profile.strip()
+    
+    # Если начинается с @, убираем @
+    if vk_profile.startswith('@'):
+        return vk_profile[1:]
+    
+    # Если это ссылка vk.com/...
+    match = re.search(r'vk\.com/([a-zA-Z0-9_]+)', vk_profile)
+    if match:
+        return match.group(1)
+    
+    # Иначе возвращаем как есть
+    return vk_profile
 
 def handler(event: dict, context):
     '''Проверяет дни рождения клиентов и отправляет уведомления за N дней до даты'''
@@ -54,7 +74,7 @@ def handler(event: dict, context):
                 upcoming_birthdays = []
                 
                 cur.execute(f'''
-                    SELECT c.id, c.name, c.email, c.phone, c.birthdate, c.vk_username,
+                    SELECT c.id, c.name, c.email, c.phone, c.birthdate, c.vk_profile,
                            s.notification_days_before, s.greeting_message,
                            s.send_to_max, s.send_to_email, s.send_to_vk
                     FROM {schema}.clients c
@@ -92,7 +112,7 @@ def handler(event: dict, context):
                                 'name': client['name'],
                                 'email': client['email'],
                                 'phone': client['phone'],
-                                'vk_username': client['vk_username'],
+                                'vk_profile': client['vk_profile'],
                                 'birthdate': str(birthdate),
                                 'days_until': days_until,
                                 'greeting_message': client['greeting_message'] or 'Дорогой {name}, поздравляю тебя с Днём Рождения! Желаю здоровья, счастья и ярких моментов! С уважением, твой фотограф.',
@@ -126,7 +146,7 @@ def handler(event: dict, context):
                 name = body.get('name')
                 email = body.get('email')
                 phone = body.get('phone')
-                vk_username = body.get('vk_username')
+                vk_profile = body.get('vk_profile')
                 message = body.get('greeting_message', '').replace('{name}', name)
                 send_to_max = body.get('send_to_max', True)
                 send_to_email = body.get('send_to_email', True)
@@ -134,16 +154,21 @@ def handler(event: dict, context):
                 
                 results = {'max': None, 'email': None, 'vk': None}
                 
+                # Отправка через MAX (WhatsApp)
                 if send_to_max and phone:
                     try:
-                        max_instance = os.environ.get('MAX_INSTANCE_ID')
-                        max_token = os.environ.get('MAX_TOKEN')
+                        cur.execute(f'''
+                            SELECT max_instance_id, max_token 
+                            FROM {schema}.user_settings 
+                            WHERE user_id = %s
+                        ''', (user_id,))
+                        max_settings = cur.fetchone()
                         
-                        if max_instance and max_token:
+                        if max_settings and max_settings['max_instance_id'] and max_settings['max_token']:
                             response = requests.post(
-                                f'https://api.green-api.com/waInstance{max_instance}/sendMessage/{max_token}',
+                                f'https://api.green-api.com/waInstance{max_settings["max_instance_id"]}/sendMessage/{max_settings["max_token"]}',
                                 json={
-                                    'chatId': f'{phone.replace("+", "")}@c.us',
+                                    'chatId': f'{phone.replace("+", "").replace(" ", "").replace("(", "").replace(")", "").replace("-", "")}@c.us',
                                     'message': message
                                 },
                                 timeout=10
@@ -152,22 +177,54 @@ def handler(event: dict, context):
                     except Exception as e:
                         results['max'] = False
                 
+                # Отправка через Email
                 if send_to_email and email:
-                    try:
-                        postbox_key = os.environ.get('POSTBOX_ACCESS_KEY_ID')
-                        postbox_secret = os.environ.get('POSTBOX_SECRET_ACCESS_KEY')
-                        
-                        if postbox_key and postbox_secret:
-                            results['email'] = False
-                    except Exception as e:
-                        results['email'] = False
+                    results['email'] = False  # TODO: implement email sending
                 
-                if send_to_vk and vk_username:
+                # Отправка через VK
+                if send_to_vk and vk_profile:
                     try:
-                        vk_token = os.environ.get('VK_SERVICE_TOKEN')
+                        vk_id = extract_vk_id(vk_profile)
                         
-                        if vk_token:
-                            results['vk'] = False
+                        cur.execute(f'''
+                            SELECT vk_user_token, vk_group_token, vk_group_id
+                            FROM {schema}.vk_settings
+                            WHERE user_id = %s
+                        ''', (user_id,))
+                        vk_settings = cur.fetchone()
+                        
+                        if vk_settings and (vk_settings['vk_user_token'] or vk_settings['vk_group_token']):
+                            token = vk_settings['vk_user_token'] or vk_settings['vk_group_token']
+                            
+                            # Получаем user_id по screen_name
+                            user_response = requests.get(
+                                'https://api.vk.com/method/users.get',
+                                params={
+                                    'user_ids': vk_id,
+                                    'access_token': token,
+                                    'v': '5.131'
+                                },
+                                timeout=10
+                            )
+                            user_data = user_response.json()
+                            
+                            if 'response' in user_data and len(user_data['response']) > 0:
+                                vk_user_id = user_data['response'][0]['id']
+                                
+                                # Отправляем сообщение
+                                send_response = requests.post(
+                                    'https://api.vk.com/method/messages.send',
+                                    data={
+                                        'user_id': vk_user_id,
+                                        'message': message,
+                                        'random_id': 0,
+                                        'access_token': token,
+                                        'v': '5.131'
+                                    },
+                                    timeout=10
+                                )
+                                send_data = send_response.json()
+                                results['vk'] = 'response' in send_data
                     except Exception as e:
                         results['vk'] = False
                 
@@ -197,14 +254,14 @@ def handler(event: dict, context):
                     INSERT INTO {schema}.birthday_notification_settings 
                     (user_id, notification_days_before, greeting_message, send_to_max, send_to_email, send_to_vk, enabled)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (user_id) DO UPDATE SET
+                    ON CONFLICT (user_id)
+                    DO UPDATE SET
                         notification_days_before = EXCLUDED.notification_days_before,
                         greeting_message = EXCLUDED.greeting_message,
                         send_to_max = EXCLUDED.send_to_max,
                         send_to_email = EXCLUDED.send_to_email,
                         send_to_vk = EXCLUDED.send_to_vk,
-                        enabled = EXCLUDED.enabled,
-                        updated_at = CURRENT_TIMESTAMP
+                        enabled = EXCLUDED.enabled
                 ''', (user_id, notification_days_before, greeting_message, send_to_max, send_to_email, send_to_vk, enabled))
                 conn.commit()
                 
@@ -224,30 +281,35 @@ def handler(event: dict, context):
                 
                 settings = cur.fetchone()
                 
-                if not settings:
-                    settings = {
-                        'notification_days_before': 10,
-                        'greeting_message': 'Дорогой {name}, поздравляю тебя с Днём Рождения! Желаю здоровья, счастья и ярких моментов! С уважением, твой фотограф.',
-                        'send_to_max': True,
-                        'send_to_email': True,
-                        'send_to_vk': True,
-                        'enabled': True
+                if settings:
+                    return {
+                        'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps(dict(settings)),
+                        'isBase64Encoded': False
                     }
-                
-                return {
-                    'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps(dict(settings)),
-                    'isBase64Encoded': False
-                }
+                else:
+                    return {
+                        'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({
+                            'notification_days_before': 10,
+                            'greeting_message': 'Дорогой {name}, поздравляю тебя с Днём Рождения! Желаю здоровья, счастья и ярких моментов! С уважением, твой фотограф.',
+                            'send_to_max': True,
+                            'send_to_email': True,
+                            'send_to_vk': True,
+                            'enabled': True
+                        }),
+                        'isBase64Encoded': False
+                    }
         
         return {
-            'statusCode': 400,
+            'statusCode': 405,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Invalid action'}),
+            'body': json.dumps({'error': 'Method not allowed'}),
             'isBase64Encoded': False
         }
-    
+        
     except Exception as e:
         return {
             'statusCode': 500,

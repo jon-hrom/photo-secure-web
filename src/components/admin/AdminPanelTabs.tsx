@@ -11,6 +11,7 @@ import MaxTemplates from '@/components/admin/MaxTemplates';
 import MaxSettings from '@/components/admin/MaxSettings';
 import AdminClientsTab from '@/components/admin/AdminClientsTab';
 import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificationsCard';
+import VKSettings from '@/components/settings/VKSettings';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
@@ -221,6 +222,18 @@ const AdminPanelTabs = ({
         </AccordionTrigger>
         <AccordionContent>
           <BirthdayNotificationsCard userId={null} />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="vk-settings">
+        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="flex items-center gap-2">
+            <Icon name="MessageCircle" size={20} />
+            Подключение ВКонтакте
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          <VKSettings userId={null} />
         </AccordionContent>
       </AccordionItem>
     </Accordion>

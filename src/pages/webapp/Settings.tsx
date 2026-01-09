@@ -16,6 +16,7 @@ import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
 import GoogleCalendarConnect from '@/components/settings/GoogleCalendarConnect';
 import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificationsCard';
+import VKSettings from '@/components/settings/VKSettings';
 import { useSettingsData } from '@/hooks/useSettingsData';
 import { useThemeManager } from '@/hooks/useThemeManager';
 import { useContactManager } from '@/hooks/useContactManager';
@@ -278,6 +279,10 @@ const Settings = () => {
 
             {settings && (
               <BirthdayNotificationsCard userId={settings.id?.toString() || null} />
+            )}
+
+            {settings && (
+              <VKSettings userId={settings.id?.toString() || null} />
             )}
 
             <div className="pt-2 sm:pt-4">

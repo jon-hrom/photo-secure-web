@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Get VK settings",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "vk_user_token": "string",
+        "vk_group_token": "string",
+        "vk_group_id": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Update VK settings",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "vk_user_token": "test_token",
+        "vk_group_token": "test_group_token",
+        "vk_group_id": "123456"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      }
+    }
+  ]
+}
