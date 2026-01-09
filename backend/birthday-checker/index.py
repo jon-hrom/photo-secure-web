@@ -5,7 +5,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
 import re
-from shared_email import send_email
+import boto3
+from botocore.exceptions import ClientError
 
 def extract_vk_id(vk_profile: str) -> str:
     '''Извлекает VK ID или username из ссылки или @username'''
@@ -25,6 +26,46 @@ def extract_vk_id(vk_profile: str) -> str:
     
     # Иначе возвращаем как есть
     return vk_profile
+
+def send_email_postbox(to_email: str, subject: str, html_body: str, from_name: str = 'FotoMix') -> bool:
+    '''Отправить email через Yandex Cloud Postbox'''
+    try:
+        access_key_id = os.environ.get('POSTBOX_ACCESS_KEY_ID')
+        secret_access_key = os.environ.get('POSTBOX_SECRET_ACCESS_KEY')
+        
+        if not access_key_id or not secret_access_key:
+            print('Error: POSTBOX credentials not set')
+            return False
+        
+        client = boto3.client(
+            'sesv2',
+            region_name='ru-central1',
+            endpoint_url='https://postbox.cloud.yandex.net',
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key
+        )
+        
+        from_email = f'{from_name} <info@foto-mix.ru>'
+        
+        response = client.send_email(
+            FromEmailAddress=from_email,
+            Destination={'ToAddresses': [to_email]},
+            Content={
+                'Simple': {
+                    'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                    'Body': {'Html': {'Data': html_body, 'Charset': 'UTF-8'}}
+                }
+            }
+        )
+        
+        print(f'Email sent to {to_email}. MessageId: {response.get("MessageId")}')
+        return True
+    except ClientError as e:
+        print(f'ClientError: {e.response["Error"]["Code"]} - {e.response["Error"]["Message"]}')
+        return False
+    except Exception as e:
+        print(f'Email error: {str(e)}')
+        return False
 
 def handler(event: dict, context):
     '''Проверяет дни рождения клиентов и отправляет уведомления за N дней до даты'''
@@ -178,14 +219,14 @@ def handler(event: dict, context):
                     except Exception as e:
                         results['max'] = False
                 
-                # Отправка через Email
+                # Отправка через Email (Postbox)
                 if send_to_email and email:
                     try:
                         html_body = f'''
                         <html>
                         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                                <h2 style="color: #4F46E5;">🎉 {message.split('!')[0]}!</h2>
+                                <h2 style="color: #4F46E5;">🎉 Поздравление с Днём Рождения!</h2>
                                 <p style="font-size: 16px;">{message}</p>
                                 <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
                                 <p style="font-size: 14px; color: #6b7280;">
@@ -196,7 +237,7 @@ def handler(event: dict, context):
                         </body>
                         </html>
                         '''
-                        results['email'] = send_email(email, '🎂 Поздравление с Днём Рождения!', html_body)
+                        results['email'] = send_email_postbox(email, '🎂 Поздравление с Днём Рождения!', html_body)
                     except Exception as e:
                         results['email'] = False
                 
