@@ -65,6 +65,36 @@ export interface PromoCode {
   description: string;
 }
 
+export interface StorageInvoice {
+  id: number;
+  user_id: number;
+  email: string;
+  period: string;
+  avg_gb: number;
+  rate_rub_per_gb_month: number;
+  amount_rub: number;
+  status: 'pending' | 'paid' | 'cancelled';
+  created_at: string;
+  paid_at: string | null;
+}
+
+export interface DailyUsage {
+  date: string;
+  user_id: number;
+  email?: string;
+  used_gb_end_of_day: number;
+}
+
+export interface TrashFolder {
+  id: number;
+  user_id: number;
+  folder_name: string;
+  s3_prefix: string;
+  trashed_at: string;
+  photos_count: number;
+  total_size_mb: number;
+}
+
 export const useAdminStorageAPI = (adminKey: string) => {
   const { toast } = useToast();
 
@@ -384,6 +414,135 @@ export const useAdminStorageAPI = (adminKey: string) => {
     }
   };
 
+  const fetchStorageInvoices = async (
+    filters: { userId?: number; period?: string; status?: string; limit?: number; offset?: number },
+    setInvoices: (invoices: StorageInvoice[]) => void,
+    setTotal: (total: number) => void,
+    setLoading: (loading: boolean) => void
+  ) => {
+    setLoading(true);
+    try {
+      const STORAGE_CRON_API = 'https://functions.poehali.dev/58924057-0ad9-432d-8d31-c0ec8bcd0ef4';
+      const params = new URLSearchParams();
+      if (filters.userId) params.append('userId', filters.userId.toString());
+      if (filters.period) params.append('period', filters.period);
+      if (filters.status) params.append('status', filters.status);
+      params.append('limit', (filters.limit || 50).toString());
+      params.append('offset', (filters.offset || 0).toString());
+
+      const res = await fetch(`${STORAGE_CRON_API}?action=get-invoices&${params.toString()}`);
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch invoices');
+      
+      setInvoices(data.invoices || []);
+      setTotal(data.total || 0);
+    } catch (error: any) {
+      toast({ title: 'Ошибка', description: `Не удалось загрузить счета: ${error.message}`, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateInvoiceStatus = async (invoiceId: number, status: string, refetch: () => void) => {
+    try {
+      const STORAGE_CRON_API = 'https://functions.poehali.dev/58924057-0ad9-432d-8d31-c0ec8bcd0ef4';
+      const res = await fetch(`${STORAGE_CRON_API}?action=update-invoice-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId, status })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to update invoice');
+      
+      toast({ title: 'Успешно', description: 'Статус счёта обновлён' });
+      refetch();
+    } catch (error: any) {
+      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const fetchDailyUsage = async (
+    filters: { userId?: number; days?: number },
+    setUsage: (usage: DailyUsage[]) => void,
+    setLoading: (loading: boolean) => void
+  ) => {
+    setLoading(true);
+    try {
+      const STORAGE_CRON_API = 'https://functions.poehali.dev/58924057-0ad9-432d-8d31-c0ec8bcd0ef4';
+      const params = new URLSearchParams();
+      if (filters.userId) params.append('userId', filters.userId.toString());
+      params.append('days', (filters.days || 30).toString());
+
+      const res = await fetch(`${STORAGE_CRON_API}?action=get-daily-usage&${params.toString()}`);
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch usage');
+      
+      setUsage(data.usage || []);
+    } catch (error: any) {
+      toast({ title: 'Ошибка', description: `Не удалось загрузить статистику: ${error.message}`, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTrashFolders = async (
+    setFolders: (folders: TrashFolder[]) => void,
+    setLoading: (loading: boolean) => void
+  ) => {
+    setLoading(true);
+    try {
+      const PHOTOBANK_CRON_API = 'https://functions.poehali.dev/f9358728-7a16-4276-8ca2-d24939d69b39';
+      const res = await fetch(`${PHOTOBANK_CRON_API}?action=list-trash`);
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch trash folders');
+      
+      setFolders(data.folders || []);
+    } catch (error: any) {
+      toast({ title: 'Ошибка', description: `Не удалось загрузить корзину: ${error.message}`, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runDailySnapshot = async () => {
+    try {
+      const STORAGE_CRON_API = 'https://functions.poehali.dev/58924057-0ad9-432d-8d31-c0ec8bcd0ef4';
+      const res = await fetch(`${STORAGE_CRON_API}?action=daily-snapshot`, { method: 'POST' });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to run snapshot');
+      
+      toast({ title: 'Успешно', description: `Обработано пользователей: ${data.usersProcessed}` });
+    } catch (error: any) {
+      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const runMonthlyBilling = async (period?: string) => {
+    try {
+      const STORAGE_CRON_API = 'https://functions.poehali.dev/58924057-0ad9-432d-8d31-c0ec8bcd0ef4';
+      const res = await fetch(`${STORAGE_CRON_API}?action=monthly-billing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to run billing');
+      
+      toast({ 
+        title: 'Успешно', 
+        description: `Выставлено счетов: ${data.invoicesCreated} за период ${data.period}` 
+      });
+    } catch (error: any) {
+      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+    }
+  };
+
   return {
     fetchPlans,
     fetchUsers,
@@ -397,5 +556,11 @@ export const useAdminStorageAPI = (adminKey: string) => {
     handleCreatePromoCode,
     handleTogglePromoCode,
     handleDeletePromoCode,
+    fetchStorageInvoices,
+    updateInvoiceStatus,
+    fetchDailyUsage,
+    fetchTrashFolders,
+    runDailySnapshot,
+    runMonthlyBilling,
   };
 };

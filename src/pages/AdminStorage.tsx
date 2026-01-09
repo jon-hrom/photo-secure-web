@@ -8,6 +8,8 @@ import { FinancialTab } from '@/components/admin/FinancialTab';
 import { PromoCodesTab } from '@/components/admin/PromoCodesTab';
 import { AdminStorageAuth } from '@/components/admin/AdminStorageAuth';
 import { AdminStorageStats } from '@/components/admin/AdminStorageStats';
+import { StorageBillingTab } from '@/components/admin/StorageBillingTab';
+import { StorageTrashTab } from '@/components/admin/StorageTrashTab';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import {
   useAdminStorageAPI,
@@ -209,7 +211,7 @@ const AdminStorage = () => {
         />
 
         <Tabs defaultValue="plans" className="space-y-4">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full">
             <TabsTrigger value="plans" className="text-xs sm:text-sm">
               <Icon name="Package" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Тарифы</span>
@@ -234,6 +236,16 @@ const AdminStorage = () => {
               <Icon name="DollarSign" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Финансы</span>
               <span className="sm:hidden">₽</span>
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="text-xs sm:text-sm">
+              <Icon name="Receipt" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Биллинг</span>
+              <span className="sm:hidden">Счёт</span>
+            </TabsTrigger>
+            <TabsTrigger value="trash" className="text-xs sm:text-sm">
+              <Icon name="Trash2" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Корзина</span>
+              <span className="sm:hidden">🗑️</span>
             </TabsTrigger>
           </TabsList>
 
@@ -279,6 +291,14 @@ const AdminStorage = () => {
               financialPeriod={financialPeriod}
               onPeriodChange={setFinancialPeriod}
             />
+          </TabsContent>
+
+          <TabsContent value="billing" className="space-y-4">
+            <StorageBillingTab adminKey={adminKey} users={users} />
+          </TabsContent>
+
+          <TabsContent value="trash" className="space-y-4">
+            <StorageTrashTab adminKey={adminKey} />
           </TabsContent>
         </Tabs>
       </div>
