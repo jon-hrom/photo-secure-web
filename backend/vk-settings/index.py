@@ -77,11 +77,34 @@ def handler(event: dict, context):
         elif method == 'POST':
             body = json.loads(event.get('body', '{}'))
             
-            vk_user_token = body.get('vk_user_token', '')
+            vk_user_token_raw = body.get('vk_user_token', '')
+            
+            # Если токен содержит &expires_in и &user_id, извлекаем только access_token
+            vk_user_token = vk_user_token_raw
+            vk_user_id_value = body.get('vk_user_id', '')
+            
+            if '&expires_in=' in vk_user_token_raw:
+                # Токен в формате: vk1.a.xxx&expires_in=0&user_id=123
+                parts = vk_user_token_raw.split('&')
+                vk_user_token = parts[0]  # Берём только access_token
+                
+                # Извлекаем user_id из строки
+                for part in parts:
+                    if part.startswith('user_id='):
+                        vk_user_id_value = part.split('=')[1]
+                        break
+            
             vk_group_token = body.get('vk_group_token', '')
             vk_group_id = body.get('vk_group_id', '')
             vk_user_name = body.get('vk_user_name', '')
-            vk_user_id_value = body.get('vk_user_id', '')
+            
+            if not vk_user_token:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Токен не может быть пустым'}),
+                    'isBase64Encoded': False
+                }
             
             cur.execute(f'''
                 INSERT INTO {schema}.vk_settings 
