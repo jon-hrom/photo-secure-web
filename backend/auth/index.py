@@ -26,12 +26,17 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'fallback-secret-change-me')
 SCHEMA = 't_p28211681_photo_secure_web'
 
 def get_ip_geolocation(ip: str) -> str:
-    """Получение геолокации по IP через 2ip.io API"""
+    """Получение геолокации по IP через 2ip.ru API"""
     if not ip or ip == 'unknown':
         return ip
     
+    api_key = os.environ.get('TWOIP_API_KEY', '')
+    if not api_key:
+        print("[GEOLOCATION] TWOIP_API_KEY not configured, returning plain IP")
+        return ip
+    
     try:
-        url = f"https://api.2ip.io/geo.json?ip={ip}"
+        url = f"https://api.2ip.io/geo.json?ip={ip}&token={api_key}"
         req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
         with urllib.request.urlopen(req, timeout=3) as response:
             data = json.loads(response.read().decode('utf-8'))
