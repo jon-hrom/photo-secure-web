@@ -216,14 +216,35 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                   <div className="flex gap-3">
                     <Icon name="AlertCircle" className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-3 text-sm">
                       <p className="font-semibold text-amber-900 dark:text-amber-100">
-                        Инструкция:
+                        Пошаговая инструкция:
                       </p>
-                      <ol className="list-decimal list-inside space-y-1 text-amber-800 dark:text-amber-200">
-                        <li>В открывшемся окне выберите права <strong>messages</strong> и <strong>offline</strong></li>
-                        <li>Нажмите «Получить токен»</li>
-                        <li>Скопируйте токен и вставьте в поле ниже</li>
+                      <ol className="list-decimal list-inside space-y-2 text-amber-800 dark:text-amber-200 leading-relaxed">
+                        <li>
+                          В открывшемся окне нажмите кнопку <strong>«Получить токен»</strong>
+                        </li>
+                        <li>
+                          Нажмите на иконку <strong>«Настройки»</strong> (шестерёнка справа сверху)
+                        </li>
+                        <li>
+                          Нажмите кнопку <strong>«Снять всё»</strong> чтобы убрать лишние права
+                        </li>
+                        <li>
+                          Выберите <strong>только 3 права</strong>: <br />
+                          • Уведомления<br />
+                          • Сообщения<br />
+                          • Доступ в любое время
+                        </li>
+                        <li>
+                          Нажмите кнопку <strong>«Получить»</strong>
+                        </li>
+                        <li>
+                          Скопируйте <strong>весь текст</strong> из поля (от <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">vk1.a...</code> до <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">...user_id=</code>)
+                        </li>
+                        <li>
+                          Вставьте токен в поле ниже и нажмите «Сохранить»
+                        </li>
                       </ol>
                     </div>
                   </div>
