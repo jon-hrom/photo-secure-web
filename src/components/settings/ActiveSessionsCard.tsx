@@ -170,6 +170,26 @@ export const ActiveSessionsCard = ({ userId }: ActiveSessionsCardProps) => {
     return 'Desktop';
   };
 
+  const formatLocation = (ipAddress: string) => {
+    if (!ipAddress || ipAddress === 'unknown') return 'Неизвестное местоположение';
+    
+    try {
+      const geo = JSON.parse(ipAddress);
+      if (geo.city && geo.country) {
+        const flag = geo.emoji || '';
+        return `${flag} ${geo.city}, ${geo.region || geo.country}`;
+      }
+      if (geo.country) {
+        const flag = geo.emoji || '';
+        return `${flag} ${geo.country}`;
+      }
+    } catch {
+      // Если не JSON, значит это просто IP
+    }
+    
+    return `IP: ${ipAddress}`;
+  };
+
   if (loading) {
     return (
       <Card>
@@ -246,7 +266,7 @@ export const ActiveSessionsCard = ({ userId }: ActiveSessionsCardProps) => {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        IP: {session.ip_address}
+                        {formatLocation(session.ip_address)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Создана: {formatDate(session.created_at)}
