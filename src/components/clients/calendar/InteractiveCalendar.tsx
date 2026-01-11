@@ -49,10 +49,6 @@ const InteractiveCalendar = ({
                 const checkDate = new Date(date);
                 checkDate.setHours(0, 0, 0, 0);
                 
-                if (checkDate < today) {
-                  return false;
-                }
-                
                 return allBookedDates.some(bookedDate => {
                   const d1 = new Date(date);
                   const d2 = new Date(bookedDate);

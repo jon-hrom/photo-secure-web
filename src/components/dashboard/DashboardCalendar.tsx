@@ -114,10 +114,6 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
                   const checkDate = new Date(date);
                   checkDate.setHours(0, 0, 0, 0);
                   
-                  if (checkDate < today) {
-                    return false;
-                  }
-                  
                   return bookedDates.some(bookedDate => {
                     const d1 = new Date(date);
                     const d2 = new Date(bookedDate);
@@ -129,10 +125,6 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
                 project: (date) => {
                   const checkDate = new Date(date);
                   checkDate.setHours(0, 0, 0, 0);
-                  
-                  if (checkDate < today) {
-                    return false;
-                  }
                   
                   return projectDates.some(projectDate => {
                     const d1 = new Date(date);
