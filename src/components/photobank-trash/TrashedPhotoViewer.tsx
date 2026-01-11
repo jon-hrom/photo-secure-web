@@ -149,9 +149,17 @@ const TrashedPhotoViewer = ({
       deltaTime,
       zoom,
       isUpperHalf,
+      isDrag: deltaTime > 150,
       touchStartY: touchStart.y,
       screenHeight: window.innerHeight
     });
+
+    // Если это был drag (долгое удержание) - просто завершаем, не меняем zoom
+    if (deltaTime > 150 && zoom > 1) {
+      setTouchStart(null);
+      setDragStart(null);
+      return;
+    }
 
     // Обработка двойного тапа
     const now = Date.now();
@@ -279,8 +287,24 @@ const TrashedPhotoViewer = ({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStart || touchStart.touches > 1) return;
     
-    if (zoom > 1 && dragStart) {
+    const now = Date.now();
+    const holdTime = now - touchStart.time;
+    
+    // Если увеличено и держим больше 150ms - это drag для перемещения
+    if (zoom > 1 && holdTime > 150) {
       e.preventDefault();
+      
+      // Инициализируем dragStart если его нет
+      if (!dragStart) {
+        setDragStart({
+          x: touchStart.x,
+          y: touchStart.y,
+          offsetX: panOffset.x,
+          offsetY: panOffset.y
+        });
+        return;
+      }
+      
       const touch = e.touches[0];
       const deltaX = touch.clientX - dragStart.x;
       const deltaY = touch.clientY - dragStart.y;
