@@ -232,9 +232,12 @@ const TrashedPhotoViewer = ({
     } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
       // Вертикальный свайп вверх - приближение
       if (deltaY < 0) {
-        const zoomSteps = Math.floor(absDeltaY / 100);
         setZoom(prev => {
-          const newZoom = prev === 1 ? 1.3 : Math.min(2.5, prev + (zoomSteps * 0.3));
+          // Первый свайп - сразу 200% (zoom = 2.0)
+          if (prev === 1) return 2.0;
+          // Дальше докручиваем до 250% (zoom = 2.5)
+          const zoomSteps = Math.floor(absDeltaY / 100);
+          const newZoom = Math.min(2.5, prev + (zoomSteps * 0.3));
           return newZoom;
         });
       }
