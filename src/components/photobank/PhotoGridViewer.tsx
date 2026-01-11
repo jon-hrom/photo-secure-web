@@ -265,8 +265,8 @@ const PhotoGridViewer = ({
       if (deltaY < 0) {
         setIsZooming(true);
         setZoom(prev => {
-          // Первый свайп - сразу 200% (zoom = 1.0)
-          if (prev === 0) return 1.0;
+          // Первый свайп - сразу 300% (zoom = 2.0)
+          if (prev === 0) return 2.0;
           // Дальше докручиваем до 250% (zoom = 1.5)
           const zoomSteps = Math.floor(absDeltaY / 100);
           const newZoom = Math.min(1.5, prev + (zoomSteps * 0.3));

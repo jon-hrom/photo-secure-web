@@ -239,8 +239,8 @@ const TrashedPhotoViewer = ({
       if (deltaY < 0) {
         setIsZooming(true);
         setZoom(prev => {
-          // Первый свайп - сразу 200% (zoom = 2.0)
-          if (prev === 1) return 2.0;
+          // Первый свайп - сразу 300% (zoom = 3.0)
+          if (prev === 1) return 3.0;
           // Дальше докручиваем до 250% (zoom = 2.5)
           const zoomSteps = Math.floor(absDeltaY / 100);
           const newZoom = Math.min(2.5, prev + (zoomSteps * 0.3));
