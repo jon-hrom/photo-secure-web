@@ -35,6 +35,7 @@ const TrashedPhotoViewer = ({
   const [zoom, setZoom] = useState(1);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
   const [lastTapTime, setLastTapTime] = useState(0);
+  const [isZooming, setIsZooming] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -185,6 +186,7 @@ const TrashedPhotoViewer = ({
       
       // Свайп вниз с верхней половины экрана - уменьшение
       if (deltaY > 0 && isUpperHalf) {
+        setIsZooming(true);
         setZoom(prev => {
           const newZoom = Math.max(1, prev - (zoomSteps * 0.3));
           if (newZoom <= 1.3) {
@@ -193,6 +195,7 @@ const TrashedPhotoViewer = ({
           }
           return newZoom;
         });
+        setTimeout(() => setIsZooming(false), 500);
         setTouchStart(null);
         setDragStart(null);
         return;
@@ -200,10 +203,12 @@ const TrashedPhotoViewer = ({
       
       // Свайп вверх - увеличение
       if (deltaY < 0) {
+        setIsZooming(true);
         setZoom(prev => {
           const newZoom = Math.min(2.5, prev + (zoomSteps * 0.3));
           return newZoom;
         });
+        setTimeout(() => setIsZooming(false), 500);
         setTouchStart(null);
         setDragStart(null);
         return;
@@ -232,6 +237,7 @@ const TrashedPhotoViewer = ({
     } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
       // Вертикальный свайп вверх - приближение
       if (deltaY < 0) {
+        setIsZooming(true);
         setZoom(prev => {
           // Первый свайп - сразу 200% (zoom = 2.0)
           if (prev === 1) return 2.0;
@@ -240,6 +246,7 @@ const TrashedPhotoViewer = ({
           const newZoom = Math.min(2.5, prev + (zoomSteps * 0.3));
           return newZoom;
         });
+        setTimeout(() => setIsZooming(false), 500);
       }
     }
 
@@ -249,8 +256,10 @@ const TrashedPhotoViewer = ({
 
   const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
+    setIsZooming(true);
     setZoom(1);
     setPanOffset({ x: 0, y: 0 });
+    setTimeout(() => setIsZooming(false), 500);
   };
 
   const handleCloseDialog = () => {
@@ -383,13 +392,14 @@ const TrashedPhotoViewer = ({
             <img
               src={viewPhoto.s3_url || ''}
               alt={viewPhoto.file_name}
-              className="object-contain transition-transform duration-200 select-none touch-manipulation"
+              className="object-contain select-none touch-manipulation"
               style={{
                 transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
                 maxWidth: '100%',
                 maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
                 cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
-                touchAction: 'none'
+                touchAction: 'none',
+                transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out')
               }}
               draggable={false}
             />

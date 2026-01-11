@@ -40,6 +40,7 @@ const PhotoGridViewer = ({
   const [zoom, setZoom] = useState(0);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
   const [lastTapTime, setLastTapTime] = useState(0);
+  const [isZooming, setIsZooming] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showExif, setShowExif] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -211,6 +212,7 @@ const PhotoGridViewer = ({
       
       // Свайп вниз с верхней половины экрана - уменьшение
       if (deltaY > 0 && isUpperHalf) {
+        setIsZooming(true);
         setZoom(prev => {
           const newZoom = Math.max(0, prev - (zoomSteps * 0.3));
           if (newZoom < 0.3) {
@@ -219,6 +221,7 @@ const PhotoGridViewer = ({
           }
           return newZoom;
         });
+        setTimeout(() => setIsZooming(false), 500);
         setTouchStart(null);
         setDragStart(null);
         return;
@@ -226,10 +229,12 @@ const PhotoGridViewer = ({
       
       // Свайп вверх - увеличение
       if (deltaY < 0) {
+        setIsZooming(true);
         setZoom(prev => {
           const newZoom = Math.min(1.5, prev + (zoomSteps * 0.3));
           return newZoom;
         });
+        setTimeout(() => setIsZooming(false), 500);
         setTouchStart(null);
         setDragStart(null);
         return;
@@ -258,6 +263,7 @@ const PhotoGridViewer = ({
     } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
       // Вертикальный свайп вверх - приближение
       if (deltaY < 0) {
+        setIsZooming(true);
         setZoom(prev => {
           // Первый свайп - сразу 200% (zoom = 1.0)
           if (prev === 0) return 1.0;
@@ -266,6 +272,7 @@ const PhotoGridViewer = ({
           const newZoom = Math.min(1.5, prev + (zoomSteps * 0.3));
           return newZoom;
         });
+        setTimeout(() => setIsZooming(false), 500);
       }
     }
 
@@ -275,8 +282,10 @@ const PhotoGridViewer = ({
 
   const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
+    setIsZooming(true);
     setZoom(0);
     setPanOffset({ x: 0, y: 0 });
+    setTimeout(() => setIsZooming(false), 500);
   };
 
   const handleCloseDialog = () => {
@@ -450,7 +459,7 @@ const PhotoGridViewer = ({
                       maxWidth: zoom === 0 ? '90vw' : '100%',
                       maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
                       cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
-                      transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                      transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
                       imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
                       touchAction: 'none'
                     }}
@@ -476,7 +485,7 @@ const PhotoGridViewer = ({
                       maxWidth: '100%',
                       maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
                       cursor: isDragging ? 'grabbing' : 'grab',
-                      transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                      transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
                       imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
                       opacity: isLoadingFullRes ? 0 : 1,
                       touchAction: 'none'
