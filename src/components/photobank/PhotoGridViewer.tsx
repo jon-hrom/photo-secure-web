@@ -62,6 +62,14 @@ const PhotoGridViewer = ({
     }
   }, [viewPhoto?.id]);
 
+  // Автоматическая загрузка оригинала при достижении 300% (zoom >= 2.0)
+  useEffect(() => {
+    if (zoom >= 2.0 && viewPhoto && !viewPhoto.is_raw && viewPhoto.s3_url) {
+      console.log('[PHOTO_VIEWER] Auto-loading original at 300% zoom:', viewPhoto.file_name);
+      setIsLoadingFullRes(true);
+    }
+  }, [zoom, viewPhoto]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!viewPhoto) return;
@@ -373,8 +381,11 @@ const PhotoGridViewer = ({
                 {currentPhotoIndex + 1} / {photos.length}
               </div>
               <div className="flex items-center gap-2">
-                <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  {zoom === 0 ? '100%' : `${Math.round((1 + zoom) * 100)}%`}
+                <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2">
+                  <span>{zoom === 0 ? '100%' : `${Math.round((1 + zoom) * 100)}%`}</span>
+                  {zoom >= 2.0 && !viewPhoto.is_raw && (
+                    <span className="text-xs font-bold text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded">HD</span>
+                  )}
                 </div>
                 <button
                   onClick={async () => {
@@ -446,8 +457,8 @@ const PhotoGridViewer = ({
               </div>
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">
-                {/* Превью изображение - показывается только при zoom === 0 или как fallback при загрузке full-res */}
-                {(zoom === 0 || isLoadingFullRes || imageError || !viewPhoto.s3_url) && (
+                {/* Превью изображение - показывается при zoom < 2.0 (до 300%) или как fallback при загрузке full-res */}
+                {(zoom < 2.0 || isLoadingFullRes || imageError || !viewPhoto.s3_url) && (
                   <img
                     src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
                     alt={viewPhoto.file_name}
@@ -473,9 +484,9 @@ const PhotoGridViewer = ({
                     draggable={false}
                   />
                 )}
-                {/* Full-res изображение - показывается ВМЕСТО превью при zoom > 0 
-                    Для RAW используем thumbnail, для обычных - s3_url */}
-                {zoom > 0 && !imageError && (viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url) && (
+                {/* Full-res изображение - показывается ВМЕСТО превью при zoom >= 2.0 (300% и выше)
+                    Для RAW используем thumbnail, для обычных - s3_url (оригинал) */}
+                {zoom >= 2.0 && !imageError && (viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url) && (
                   <img
                     src={viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url}
                     alt={viewPhoto.file_name}
@@ -486,7 +497,7 @@ const PhotoGridViewer = ({
                       maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
                       cursor: isDragging ? 'grabbing' : 'grab',
                       transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
-                      imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
+                      imageRendering: 'high-quality',
                       opacity: isLoadingFullRes ? 0 : 1,
                       touchAction: 'none'
                     }}
@@ -520,7 +531,7 @@ const PhotoGridViewer = ({
                     draggable={false}
                   />
                 )}
-                {isLoadingFullRes && zoom > 0 && (
+                {isLoadingFullRes && zoom >= 2.0 && (
                   <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm px-3 py-2 rounded-full flex items-center gap-2">
                     <Icon name="Loader2" size={16} className="animate-spin text-white/80" />
                     <span className="text-xs text-white/80">Загрузка...</span>

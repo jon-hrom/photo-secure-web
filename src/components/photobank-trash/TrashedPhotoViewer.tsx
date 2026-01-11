@@ -52,6 +52,13 @@ const TrashedPhotoViewer = ({
     }
   }, [viewPhoto?.id]);
 
+  // Автоматическая загрузка оригинала при достижении 300% (zoom >= 3.0)
+  useEffect(() => {
+    if (zoom >= 3.0 && viewPhoto && viewPhoto.s3_url) {
+      console.log('[TRASH_VIEWER] Auto-loading original at 300% zoom:', viewPhoto.file_name);
+    }
+  }, [zoom, viewPhoto]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!viewPhoto) return;
@@ -339,8 +346,11 @@ const TrashedPhotoViewer = ({
                 {currentPhotoIndex + 1} / {photos.length}
               </div>
               <div className="flex items-center gap-2">
-                <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  {Math.round(zoom * 100)}%
+                <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2">
+                  <span>{Math.round(zoom * 100)}%</span>
+                  {zoom >= 3.0 && (
+                    <span className="text-xs font-bold text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded">HD</span>
+                  )}
                 </div>
                 <button
                   onClick={handleCloseDialog}
@@ -399,7 +409,8 @@ const TrashedPhotoViewer = ({
                 maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
                 cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
                 touchAction: 'none',
-                transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out')
+                transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
+                imageRendering: zoom >= 3.0 ? 'high-quality' : 'auto'
               }}
               draggable={false}
             />
