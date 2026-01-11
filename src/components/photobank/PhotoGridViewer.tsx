@@ -448,6 +448,14 @@ const PhotoGridViewer = ({
           
           <div 
             className="relative w-full h-full flex items-center justify-center overflow-auto"
+            style={{ cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab') }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
           >
             {viewPhoto.is_raw && !viewPhoto.thumbnail_s3_url ? (
               <div className="flex flex-col items-center justify-center text-white/60 p-8">
@@ -469,18 +477,11 @@ const PhotoGridViewer = ({
                         : 'none',
                       maxWidth: zoom === 0 ? '90vw' : '100%',
                       maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
-                      cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
                       transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
                       imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
-                      touchAction: 'none'
+                      touchAction: 'none',
+                      pointerEvents: 'none'
                     }}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
                     draggable={false}
                   />
                 )}
@@ -495,19 +496,12 @@ const PhotoGridViewer = ({
                       transform: `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`,
                       maxWidth: '100%',
                       maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
-                      cursor: isDragging ? 'grabbing' : 'grab',
                       transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
                       imageRendering: 'high-quality',
                       opacity: isLoadingFullRes ? 0 : 1,
-                      touchAction: 'none'
+                      touchAction: 'none',
+                      pointerEvents: 'none'
                     }}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
                     onLoad={() => {
                       console.log('[PHOTO_VIEWER] Full-res loaded:', viewPhoto.file_name, 'isRAW:', viewPhoto.is_raw);
                       setIsLoadingFullRes(false);

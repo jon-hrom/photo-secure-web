@@ -391,6 +391,7 @@ const TrashedPhotoViewer = ({
           
           <div 
             className="relative w-full h-full flex items-center justify-center overflow-auto"
+            style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in' }}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
             onTouchMove={handleTouchMove}
@@ -407,10 +408,10 @@ const TrashedPhotoViewer = ({
                 transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
                 maxWidth: '100%',
                 maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
-                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
                 touchAction: 'none',
                 transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
-                imageRendering: zoom >= 3.0 ? 'high-quality' : 'auto'
+                imageRendering: zoom >= 3.0 ? 'high-quality' : 'auto',
+                pointerEvents: 'none'
               }}
               draggable={false}
             />
