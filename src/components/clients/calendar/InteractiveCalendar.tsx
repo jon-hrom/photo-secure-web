@@ -3,9 +3,16 @@ import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 
+interface BookingWithTime {
+  date: Date;
+  time?: string;
+  fullDateTime: Date;
+}
+
 interface InteractiveCalendarProps {
   selectedDate: Date | undefined;
   allBookedDates: Date[];
+  allBookingsWithTime?: BookingWithTime[];
   onDateClick: (date: Date | undefined) => void;
   today: Date;
   clients: Client[];
@@ -15,6 +22,7 @@ interface InteractiveCalendarProps {
 const InteractiveCalendar = ({
   selectedDate,
   allBookedDates,
+  allBookingsWithTime,
   onDateClick,
   today,
   clients,
@@ -25,6 +33,34 @@ const InteractiveCalendar = ({
     // Просто передаём выбранную дату наверх для отображения
     onDateClick(date);
   };
+
+  // Функция проверки, есть ли на эту дату активные (не прошедшие) события
+  const hasActiveBookingsOnDate = (date: Date): boolean => {
+    if (!allBookingsWithTime || allBookingsWithTime.length === 0) {
+      return allBookedDates.some(bookedDate => {
+        const d1 = new Date(date);
+        const d2 = new Date(bookedDate);
+        return d1.getDate() === d2.getDate() &&
+               d1.getMonth() === d2.getMonth() &&
+               d1.getFullYear() === d2.getFullYear();
+      });
+    }
+
+    const now = new Date();
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+
+    return allBookingsWithTime.some(booking => {
+      const bookingDate = new Date(booking.date);
+      bookingDate.setHours(0, 0, 0, 0);
+      
+      const isSameDate = checkDate.getTime() === bookingDate.getTime();
+      const isNotPassed = booking.fullDateTime >= now;
+      
+      return isSameDate && isNotPassed;
+    });
+  };
+
   return (
     <Card className="overflow-hidden border border-purple-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
       <div className="bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 p-4 sm:p-6">
@@ -45,18 +81,7 @@ const InteractiveCalendar = ({
             selected={selectedDate}
             onSelect={handleDateClick}
             modifiers={{
-              booked: (date) => {
-                const checkDate = new Date(date);
-                checkDate.setHours(0, 0, 0, 0);
-                
-                return allBookedDates.some(bookedDate => {
-                  const d1 = new Date(date);
-                  const d2 = new Date(bookedDate);
-                  return d1.getDate() === d2.getDate() &&
-                         d1.getMonth() === d2.getMonth() &&
-                         d1.getFullYear() === d2.getFullYear();
-                });
-              },
+              booked: (date) => hasActiveBookingsOnDate(date),
             }}
             modifiersStyles={{
               booked: {

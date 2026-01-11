@@ -15,32 +15,44 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const now = new Date();
 
-  // Все забронированные даты (бронирования)
-  const bookedDates = clients.flatMap(c => 
-    (c.bookings || []).filter(b => {
-      const bookingDate = new Date(b.booking_date || b.date);
-      bookingDate.setHours(0, 0, 0, 0);
-      return bookingDate >= today;
-    }).map(b => {
+  // Все забронированные даты с учётом времени (бронирования)
+  const bookedDatesWithTime = clients.flatMap(c => 
+    (c.bookings || []).map(b => {
       const date = new Date(b.booking_date || b.date);
       date.setHours(0, 0, 0, 0);
-      return date;
+      
+      const fullDateTime = new Date(b.booking_date || b.date);
+      if (b.time) {
+        const [hours, minutes] = b.time.split(':').map(Number);
+        fullDateTime.setHours(hours, minutes, 0, 0);
+      } else {
+        fullDateTime.setHours(23, 59, 59, 999);
+      }
+      
+      return { date, fullDateTime, isActive: fullDateTime >= now };
     })
   );
 
-  // Даты съёмок из проектов
-  const projectDates = clients.flatMap(c => 
-    (c.projects || []).filter(p => {
-      if (!p.startDate) return false;
-      const projectDate = new Date(p.startDate);
-      projectDate.setHours(0, 0, 0, 0);
-      return projectDate >= today;
-    }).map(p => {
-      const date = new Date(p.startDate);
-      date.setHours(0, 0, 0, 0);
-      return date;
-    })
+  // Даты съёмок из проектов с учётом времени
+  const projectDatesWithTime = clients.flatMap(c => 
+    (c.projects || [])
+      .filter(p => p.startDate && p.status !== 'cancelled')
+      .map(p => {
+        const date = new Date(p.startDate);
+        date.setHours(0, 0, 0, 0);
+        
+        const fullDateTime = new Date(p.startDate);
+        if (p.shooting_time) {
+          const [hours, minutes] = p.shooting_time.split(':').map(Number);
+          fullDateTime.setHours(hours, minutes, 0, 0);
+        } else {
+          fullDateTime.setHours(23, 59, 59, 999);
+        }
+        
+        return { date, fullDateTime, isActive: fullDateTime >= now };
+      })
   );
 
   const handleDateClick = (date: Date | undefined) => {
@@ -114,24 +126,16 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
                   const checkDate = new Date(date);
                   checkDate.setHours(0, 0, 0, 0);
                   
-                  return bookedDates.some(bookedDate => {
-                    const d1 = new Date(date);
-                    const d2 = new Date(bookedDate);
-                    return d1.getDate() === d2.getDate() &&
-                           d1.getMonth() === d2.getMonth() &&
-                           d1.getFullYear() === d2.getFullYear();
+                  return bookedDatesWithTime.some(b => {
+                    return b.isActive && b.date.getTime() === checkDate.getTime();
                   });
                 },
                 project: (date) => {
                   const checkDate = new Date(date);
                   checkDate.setHours(0, 0, 0, 0);
                   
-                  return projectDates.some(projectDate => {
-                    const d1 = new Date(date);
-                    const d2 = new Date(projectDate);
-                    return d1.getDate() === d2.getDate() &&
-                           d1.getMonth() === d2.getMonth() &&
-                           d1.getFullYear() === d2.getFullYear();
+                  return projectDatesWithTime.some(p => {
+                    return p.isActive && p.date.getTime() === checkDate.getTime();
                   });
                 },
               }}

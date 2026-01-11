@@ -52,8 +52,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
   }, []);
 
   useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
     
     const projectBookings = propClients
       .flatMap((client: Client) => 
@@ -63,9 +62,15 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
           const shootingDate = new Date(project.startDate);
           shootingDate.setHours(0, 0, 0, 0);
           
+          // Создаём полную дату со временем
+          const [hours, minutes] = project.shooting_time.split(':').map(Number);
+          const fullDateTime = new Date(project.startDate);
+          fullDateTime.setHours(hours, minutes, 0, 0);
+          
           return {
             id: project.id,
             date: shootingDate,
+            fullDateTime: fullDateTime,
             time: project.shooting_time,
             description: project.name,
             client,
@@ -75,9 +80,10 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
       )
       .filter((b: any) => {
         if (!b) return false;
-        return b.date >= today;
+        // Проверяем, что событие ещё не прошло по времени
+        return b.fullDateTime >= now;
       })
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .sort((a: any, b: any) => a.fullDateTime.getTime() - b.fullDateTime.getTime())
       .slice(0, 5);
 
     setUpcomingBookings(projectBookings);

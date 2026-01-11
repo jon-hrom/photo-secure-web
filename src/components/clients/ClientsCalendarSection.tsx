@@ -3,9 +3,16 @@ import InteractiveCalendar from './calendar/InteractiveCalendar';
 import UpcomingBookingsList from './calendar/UpcomingBookingsList';
 import { useRef } from 'react';
 
+interface BookingWithTime {
+  date: Date;
+  time?: string;
+  fullDateTime: Date;
+}
+
 interface ClientsCalendarSectionProps {
   selectedDate: Date | undefined;
   allBookedDates: Date[];
+  allBookingsWithTime?: BookingWithTime[];
   onDateClick: (date: Date | undefined) => void;
   selectedClient: Client | null;
   onMessageClient: (client: Client) => void;
@@ -16,6 +23,7 @@ interface ClientsCalendarSectionProps {
 const ClientsCalendarSection = ({
   selectedDate,
   allBookedDates,
+  allBookingsWithTime,
   onDateClick,
   selectedClient,
   onMessageClient,
@@ -33,18 +41,29 @@ const ClientsCalendarSection = ({
       const shootingDate = new Date(project.startDate);
       shootingDate.setHours(0, 0, 0, 0);
       
+      // Парсим время съёмки и создаём полную дату с временем
+      const [hours, minutes] = project.shooting_time.split(':').map(Number);
+      const fullDateTime = new Date(project.startDate);
+      fullDateTime.setHours(hours, minutes, 0, 0);
+      
       return {
         id: project.id,
         date: shootingDate,
         normalizedDate: shootingDate,
+        fullDateTime: fullDateTime,
         time: project.shooting_time,
         description: project.name,
         client: c,
         project
       };
     }))
-    .filter((b): b is NonNullable<typeof b> => b !== null && b.normalizedDate >= today)
-    .sort((a, b) => a.normalizedDate.getTime() - b.normalizedDate.getTime());
+    .filter((b): b is NonNullable<typeof b> => {
+      if (!b) return false;
+      // Проверяем, что событие ещё не прошло (сравниваем с текущей датой и временем)
+      const now = new Date();
+      return b.fullDateTime >= now;
+    })
+    .sort((a, b) => a.fullDateTime.getTime() - b.fullDateTime.getTime());
 
   // Если выбрана дата - фильтруем только бронирования на эту дату
   if (selectedDate) {
@@ -63,6 +82,7 @@ const ClientsCalendarSection = ({
       <InteractiveCalendar
         selectedDate={selectedDate}
         allBookedDates={allBookedDates}
+        allBookingsWithTime={allBookingsWithTime}
         onDateClick={(date) => {
           onDateClick(date);
           if (date) {

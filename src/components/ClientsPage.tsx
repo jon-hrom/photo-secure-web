@@ -77,7 +77,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   });
 
   // Фильтрация клиентов
-  const { searchFilteredClients, filteredClients, allBookedDates } = useClientsFilters({
+  const { searchFilteredClients, filteredClients, allBookedDates, allBookingsWithTime } = useClientsFilters({
     clients,
     searchQuery: dialogsState.searchQuery,
     statusFilter: dialogsState.statusFilter,
@@ -200,6 +200,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
             <ClientsCalendarSection
               selectedDate={dialogsState.selectedDate}
               allBookedDates={allBookedDates}
+              allBookingsWithTime={allBookingsWithTime}
               onDateClick={dialogsState.setSelectedDate}
               selectedClient={dialogsState.selectedClient}
               onMessageClient={dialogsState.openMessageDialog}

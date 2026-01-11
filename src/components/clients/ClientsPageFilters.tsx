@@ -1,10 +1,17 @@
 import { Client } from '@/components/clients/ClientsTypes';
 import { FilterType } from '@/components/clients/ClientsFilterSidebar';
 
+interface BookingWithTime {
+  date: Date;
+  time?: string;
+  fullDateTime: Date;
+}
+
 interface FilterResult {
   searchFilteredClients: Client[];
   filteredClients: Client[];
   allBookedDates: Date[];
+  allBookingsWithTime: BookingWithTime[];
 }
 
 interface UseClientsFiltersProps {
@@ -116,9 +123,55 @@ export const useClientsFilters = ({
     )
   ];
 
+  // Все бронирования с учётом времени для фильтрации прошлых событий
+  const allBookingsWithTime: BookingWithTime[] = [
+    ...clients.flatMap(c => c.bookings.map(b => {
+      const date = new Date(b.booking_date || b.date);
+      date.setHours(0, 0, 0, 0);
+      
+      // Если есть время, создаём полную дату с временем
+      const fullDateTime = new Date(b.booking_date || b.date);
+      if (b.time) {
+        const [hours, minutes] = b.time.split(':').map(Number);
+        fullDateTime.setHours(hours, minutes, 0, 0);
+      } else {
+        fullDateTime.setHours(23, 59, 59, 999);
+      }
+      
+      return {
+        date,
+        time: b.time,
+        fullDateTime
+      };
+    })),
+    ...clients.flatMap(c => 
+      (c.projects || [])
+        .filter(p => p.startDate && p.status !== 'cancelled')
+        .map(p => {
+          const date = new Date(p.startDate);
+          date.setHours(0, 0, 0, 0);
+          
+          const fullDateTime = new Date(p.startDate);
+          if (p.shooting_time) {
+            const [hours, minutes] = p.shooting_time.split(':').map(Number);
+            fullDateTime.setHours(hours, minutes, 0, 0);
+          } else {
+            fullDateTime.setHours(23, 59, 59, 999);
+          }
+          
+          return {
+            date,
+            time: p.shooting_time,
+            fullDateTime
+          };
+        })
+    )
+  ];
+
   return {
     searchFilteredClients,
     filteredClients,
     allBookedDates,
+    allBookingsWithTime,
   };
 };
