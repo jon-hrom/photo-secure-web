@@ -44,6 +44,13 @@ const TrashedPhotoViewer = ({
   const hasNext = currentPhotoIndex >= 0 && currentPhotoIndex < photos.length - 1;
 
   useEffect(() => {
+    if (viewPhoto) {
+      setZoom(1);
+      setPanOffset({ x: 0, y: 0 });
+    }
+  }, [viewPhoto?.id]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!viewPhoto) return;
       
@@ -131,6 +138,17 @@ const TrashedPhotoViewer = ({
     const deltaTime = touchEnd.time - touchStart.time;
     const absDeltaX = Math.abs(deltaX);
     const absDeltaY = Math.abs(deltaY);
+
+    console.log('[TRASH_TOUCH] TouchEnd:', {
+      deltaX,
+      deltaY,
+      absDeltaX,
+      absDeltaY,
+      deltaTime,
+      zoom,
+      isVertical: absDeltaY > absDeltaX && absDeltaY > 50,
+      isHorizontal: absDeltaX > absDeltaY && absDeltaX > 50
+    });
 
     if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
       setTouchStart(null);
@@ -303,11 +321,6 @@ const TrashedPhotoViewer = ({
                 cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
               }}
               onDoubleClick={handleDoubleTap}
-              onTouchEnd={(e) => {
-                if (e.timeStamp - (touchStart?.time || 0) < 300) {
-                  handleDoubleTap(e);
-                }
-              }}
               draggable={false}
             />
           </div>
