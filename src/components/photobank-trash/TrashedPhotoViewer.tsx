@@ -34,6 +34,7 @@ const TrashedPhotoViewer = ({
 }: TrashedPhotoViewerProps) => {
   const [zoom, setZoom] = useState(1);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
+  const [lastTapTime, setLastTapTime] = useState(0);
   const [isLandscape, setIsLandscape] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -138,6 +139,7 @@ const TrashedPhotoViewer = ({
     const deltaTime = touchEnd.time - touchStart.time;
     const absDeltaX = Math.abs(deltaX);
     const absDeltaY = Math.abs(deltaY);
+    const isUpperHalf = touchStart.y < window.innerHeight / 2;
 
     console.log('[TRASH_TOUCH] TouchEnd:', {
       deltaX,
@@ -146,23 +148,55 @@ const TrashedPhotoViewer = ({
       absDeltaY,
       deltaTime,
       zoom,
-      isVertical: absDeltaY > absDeltaX && absDeltaY > 50,
-      isHorizontal: absDeltaX > absDeltaY && absDeltaX > 50
+      isUpperHalf,
+      touchStartY: touchStart.y,
+      screenHeight: window.innerHeight
     });
 
+    // Обработка двойного тапа
+    const now = Date.now();
     if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
+      if (now - lastTapTime < 300) {
+        // Двойной тап - сброс zoom
+        setZoom(1);
+        setPanOffset({ x: 0, y: 0 });
+        setLastTapTime(0);
+        setTouchStart(null);
+        setDragStart(null);
+        return;
+      }
+      setLastTapTime(now);
       setTouchStart(null);
       setDragStart(null);
       return;
     }
 
+    // Если фото увеличено и свайп вниз с верхней половины экрана - уменьшение
+    if (zoom > 1 && deltaY > 0 && absDeltaY > 50 && absDeltaY > absDeltaX && isUpperHalf) {
+      const zoomSteps = Math.floor(absDeltaY / 100);
+      setZoom(prev => {
+        const newZoom = Math.max(1, prev - (zoomSteps * 0.3));
+        if (newZoom <= 1.3) {
+          setPanOffset({ x: 0, y: 0 });
+          return 1;
+        }
+        return newZoom;
+      });
+      setTouchStart(null);
+      setDragStart(null);
+      return;
+    }
+
+    // Если фото увеличено и не уменьшение - это просто перемещение, ничего не делаем
     if (zoom > 1) {
       setTouchStart(null);
       setDragStart(null);
       return;
     }
 
-    if (absDeltaX > absDeltaY && absDeltaX > 50 && zoom === 1) {
+    // Фото не увеличено (zoom === 1)
+    if (absDeltaX > absDeltaY && absDeltaX > 50) {
+      // Горизонтальный свайп - переключение фото
       if (deltaX > 0 && hasPrev) {
         onNavigate('prev');
         setZoom(1);
@@ -172,18 +206,12 @@ const TrashedPhotoViewer = ({
         setZoom(1);
         setPanOffset({ x: 0, y: 0 });
       }
-    } else if (absDeltaY > absDeltaX && absDeltaY > 50 && zoom === 1) {
-      const zoomSteps = Math.floor(absDeltaY / 50);
+    } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
+      // Вертикальный свайп вверх - приближение
       if (deltaY < 0) {
+        const zoomSteps = Math.floor(absDeltaY / 100);
         setZoom(prev => {
-          const newZoom = Math.min(2, prev + (zoomSteps * 0.15));
-          if (prev === 1) setPanOffset({ x: 0, y: 0 });
-          return newZoom;
-        });
-      } else {
-        setZoom(prev => {
-          const newZoom = Math.max(1, prev - (zoomSteps * 0.15));
-          if (newZoom <= 1) setPanOffset({ x: 0, y: 0 });
+          const newZoom = prev === 1 ? 1.3 : Math.min(2.5, prev + (zoomSteps * 0.3));
           return newZoom;
         });
       }
@@ -318,7 +346,7 @@ const TrashedPhotoViewer = ({
                 transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
                 maxWidth: '100%',
                 maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
-                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in'
               }}
               onDoubleClick={handleDoubleTap}
               draggable={false}

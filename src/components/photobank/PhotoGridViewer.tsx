@@ -39,6 +39,7 @@ const PhotoGridViewer = ({
 }: PhotoGridViewerProps) => {
   const [zoom, setZoom] = useState(0);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
+  const [lastTapTime, setLastTapTime] = useState(0);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showExif, setShowExif] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -164,6 +165,7 @@ const PhotoGridViewer = ({
     const deltaTime = touchEnd.time - touchStart.time;
     const absDeltaX = Math.abs(deltaX);
     const absDeltaY = Math.abs(deltaY);
+    const isUpperHalf = touchStart.y < window.innerHeight / 2;
 
     console.log('[TOUCH] TouchEnd:', {
       deltaX,
@@ -172,23 +174,55 @@ const PhotoGridViewer = ({
       absDeltaY,
       deltaTime,
       zoom,
-      isVertical: absDeltaY > absDeltaX && absDeltaY > 50,
-      isHorizontal: absDeltaX > absDeltaY && absDeltaX > 50
+      isUpperHalf,
+      touchStartY: touchStart.y,
+      screenHeight: window.innerHeight
     });
 
+    // Обработка двойного тапа
+    const now = Date.now();
     if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
+      if (now - lastTapTime < 300) {
+        // Двойной тап - сброс zoom
+        setZoom(0);
+        setPanOffset({ x: 0, y: 0 });
+        setLastTapTime(0);
+        setTouchStart(null);
+        setDragStart(null);
+        return;
+      }
+      setLastTapTime(now);
       setTouchStart(null);
       setDragStart(null);
       return;
     }
 
+    // Если фото увеличено и свайп вниз с верхней половины экрана - уменьшение
+    if (zoom > 0 && deltaY > 0 && absDeltaY > 50 && absDeltaY > absDeltaX && isUpperHalf) {
+      const zoomSteps = Math.floor(absDeltaY / 100);
+      setZoom(prev => {
+        const newZoom = Math.max(0, prev - (zoomSteps * 0.3));
+        if (newZoom < 0.3) {
+          setPanOffset({ x: 0, y: 0 });
+          return 0;
+        }
+        return newZoom;
+      });
+      setTouchStart(null);
+      setDragStart(null);
+      return;
+    }
+
+    // Если фото увеличено и не уменьшение - это просто перемещение, ничего не делаем
     if (zoom > 0) {
       setTouchStart(null);
       setDragStart(null);
       return;
     }
 
-    if (absDeltaX > absDeltaY && absDeltaX > 50 && zoom === 0) {
+    // Фото не увеличено (zoom === 0)
+    if (absDeltaX > absDeltaY && absDeltaX > 50) {
+      // Горизонтальный свайп - переключение фото
       if (deltaX > 0 && hasPrev) {
         onNavigate('prev');
         setZoom(0);
@@ -198,22 +232,12 @@ const PhotoGridViewer = ({
         setZoom(0);
         setPanOffset({ x: 0, y: 0 });
       }
-    } else if (absDeltaY > absDeltaX && absDeltaY > 50 && zoom === 0) {
-      const zoomSteps = Math.floor(absDeltaY / 50);
+    } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
+      // Вертикальный свайп вверх - приближение
       if (deltaY < 0) {
+        const zoomSteps = Math.floor(absDeltaY / 100);
         setZoom(prev => {
-          const newZoom = prev === 0 ? 1.15 : Math.min(2, prev + (zoomSteps * 0.15));
-          if (prev === 0) setPanOffset({ x: 0, y: 0 });
-          return newZoom;
-        });
-      } else {
-        setZoom(prev => {
-          if (prev === 0) return 0;
-          const newZoom = Math.max(0, prev - (zoomSteps * 0.15));
-          if (newZoom < 0.5) {
-            setPanOffset({ x: 0, y: 0 });
-            return 0;
-          }
+          const newZoom = prev === 0 ? 0.3 : Math.min(2.5, prev + (zoomSteps * 0.3));
           return newZoom;
         });
       }
@@ -300,7 +324,7 @@ const PhotoGridViewer = ({
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  {zoom === 0 ? 'Fit' : `${Math.round(zoom * 100)}%`}
+                  {zoom === 0 ? '100%' : `${Math.round((1 + zoom) * 100)}%`}
                 </div>
                 <button
                   onClick={async () => {
@@ -380,13 +404,13 @@ const PhotoGridViewer = ({
                     className="object-contain cursor-move select-none"
                     style={{
                       transform: zoom > 0 
-                        ? `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)` 
+                        ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)` 
                         : 'none',
                       maxWidth: zoom === 0 ? '90vw' : '100%',
                       maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
                       cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
                       transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-                      imageRendering: zoom > 1.5 ? 'high-quality' : 'auto'
+                      imageRendering: zoom > 0.5 ? 'high-quality' : 'auto'
                     }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
@@ -407,12 +431,12 @@ const PhotoGridViewer = ({
                     alt={viewPhoto.file_name}
                     className="object-contain cursor-move select-none"
                     style={{
-                      transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
+                      transform: `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`,
                       maxWidth: '100%',
                       maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
                       cursor: isDragging ? 'grabbing' : 'grab',
                       transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-                      imageRendering: zoom > 1.5 ? 'high-quality' : 'auto',
+                      imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
                       opacity: isLoadingFullRes ? 0 : 1
                     }}
                     onMouseDown={handleMouseDown}
