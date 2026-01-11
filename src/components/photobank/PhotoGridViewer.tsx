@@ -246,15 +246,19 @@ const PhotoGridViewer = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStart || touchStart.touches > 1 || zoom <= 0 || !dragStart) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - dragStart.x;
-    const deltaY = touch.clientY - dragStart.y;
-    setPanOffset({
-      x: dragStart.offsetX + deltaX,
-      y: dragStart.offsetY + deltaY
-    });
+    if (!touchStart || touchStart.touches > 1) return;
+    
+    // Если увеличено - двигаем фото
+    if (zoom > 0 && dragStart) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - dragStart.x;
+      const deltaY = touch.clientY - dragStart.y;
+      setPanOffset({
+        x: dragStart.offsetX + deltaX,
+        y: dragStart.offsetY + deltaY
+      });
+    }
   };
 
   if (!viewPhoto) return null;

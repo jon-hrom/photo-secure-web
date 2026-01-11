@@ -35,6 +35,9 @@ const TrashedPhotoViewer = ({
   const [zoom, setZoom] = useState(1);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
   const [isLandscape, setIsLandscape] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
 
   const currentPhotoIndex = viewPhoto ? photos.findIndex(p => p.id === viewPhoto.id) : -1;
   const hasPrev = currentPhotoIndex > 0;
@@ -90,6 +93,14 @@ const TrashedPhotoViewer = ({
         time: Date.now(),
         touches: touchCount
       });
+      if (zoom > 1) {
+        setDragStart({
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          offsetX: panOffset.x,
+          offsetY: panOffset.y
+        });
+      }
     } else if (touchCount > 1) {
       setTouchStart({
         x: 0,
@@ -105,6 +116,7 @@ const TrashedPhotoViewer = ({
 
     if (touchStart.touches > 1) {
       setTouchStart(null);
+      setDragStart(null);
       return;
     }
 
@@ -122,37 +134,100 @@ const TrashedPhotoViewer = ({
 
     if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
       setTouchStart(null);
+      setDragStart(null);
       return;
     }
 
-    if (absDeltaX > absDeltaY && absDeltaX > 50) {
+    if (zoom > 1) {
+      setTouchStart(null);
+      setDragStart(null);
+      return;
+    }
+
+    if (absDeltaX > absDeltaY && absDeltaX > 50 && zoom === 1) {
       if (deltaX > 0 && hasPrev) {
         onNavigate('prev');
         setZoom(1);
+        setPanOffset({ x: 0, y: 0 });
       } else if (deltaX < 0 && hasNext) {
         onNavigate('next');
         setZoom(1);
+        setPanOffset({ x: 0, y: 0 });
       }
-    } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
+    } else if (absDeltaY > absDeltaX && absDeltaY > 50 && zoom === 1) {
       const zoomSteps = Math.floor(absDeltaY / 50);
       if (deltaY < 0) {
-        setZoom(prev => Math.min(2, prev + (zoomSteps * 0.15)));
+        setZoom(prev => {
+          const newZoom = Math.min(2, prev + (zoomSteps * 0.15));
+          if (prev === 1) setPanOffset({ x: 0, y: 0 });
+          return newZoom;
+        });
       } else {
-        setZoom(prev => Math.max(1, prev - (zoomSteps * 0.15)));
+        setZoom(prev => {
+          const newZoom = Math.max(1, prev - (zoomSteps * 0.15));
+          if (newZoom <= 1) setPanOffset({ x: 0, y: 0 });
+          return newZoom;
+        });
       }
     }
 
     setTouchStart(null);
+    setDragStart(null);
   };
 
   const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
     setZoom(1);
+    setPanOffset({ x: 0, y: 0 });
   };
 
   const handleCloseDialog = () => {
     onClose();
     setZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+    setIsDragging(false);
+    setDragStart(null);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX,
+      y: e.clientY,
+      offsetX: panOffset.x,
+      offsetY: panOffset.y
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !dragStart || zoom <= 1) return;
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    setPanOffset({
+      x: dragStart.offsetX + deltaX,
+      y: dragStart.offsetY + deltaY
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setDragStart(null);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart || touchStart.touches > 1) return;
+    
+    if (zoom > 1 && dragStart) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - dragStart.x;
+      const deltaY = touch.clientY - dragStart.y;
+      setPanOffset({
+        x: dragStart.offsetX + deltaX,
+        y: dragStart.offsetY + deltaY
+      });
+    }
   };
 
   if (!viewPhoto) return null;
@@ -211,15 +286,21 @@ const TrashedPhotoViewer = ({
             className="relative w-full h-full flex items-center justify-center overflow-auto"
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
           >
             <img
               src={viewPhoto.s3_url || ''}
               alt={viewPhoto.file_name}
-              className="object-contain cursor-move transition-transform duration-200 select-none"
+              className="object-contain transition-transform duration-200 select-none"
               style={{
-                transform: `scale(${zoom})`,
+                transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
                 maxWidth: '100%',
-                maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)'
+                maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
+                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
               }}
               onDoubleClick={handleDoubleTap}
               onTouchEnd={(e) => {
