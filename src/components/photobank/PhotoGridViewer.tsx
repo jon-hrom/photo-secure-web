@@ -48,6 +48,8 @@ const PhotoGridViewer = ({
   const [dragStart, setDragStart] = useState<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [imageError, setImageError] = useState(false);
   const [isLoadingFullRes, setIsLoadingFullRes] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuTimer, setContextMenuTimer] = useState<NodeJS.Timeout | null>(null);
 
   const currentPhotoIndex = viewPhoto ? photos.findIndex(p => p.id === viewPhoto.id) : -1;
   const hasPrev = currentPhotoIndex > 0;
@@ -144,6 +146,18 @@ const PhotoGridViewer = ({
           offsetY: panOffset.y
         });
       }
+      
+      // Таймер для контекстного меню - 800мс удержания
+      const timer = setTimeout(() => {
+        if (zoom === 0) { // Показываем меню только если не увеличено
+          setShowContextMenu(true);
+          // Вибрация для тактильной обратной связи
+          if (navigator.vibrate) {
+            navigator.vibrate(50);
+          }
+        }
+      }, 800);
+      setContextMenuTimer(timer);
     } else if (touchCount > 1) {
       setTouchStart({
         x: 0,
@@ -151,10 +165,21 @@ const PhotoGridViewer = ({
         time: Date.now(),
         touches: touchCount
       });
+      // Отменяем таймер при мультитач
+      if (contextMenuTimer) {
+        clearTimeout(contextMenuTimer);
+        setContextMenuTimer(null);
+      }
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    // Отменяем таймер контекстного меню
+    if (contextMenuTimer) {
+      clearTimeout(contextMenuTimer);
+      setContextMenuTimer(null);
+    }
+
     if (!touchStart || !viewPhoto) return;
 
     if (touchStart.touches > 1) {
@@ -338,6 +363,12 @@ const PhotoGridViewer = ({
     const now = Date.now();
     const holdTime = now - touchStart.time;
     
+    // Отменяем таймер контекстного меню при движении
+    if (contextMenuTimer) {
+      clearTimeout(contextMenuTimer);
+      setContextMenuTimer(null);
+    }
+    
     // Если увеличено и держим больше 150ms - это drag для перемещения
     if (zoom > 0 && holdTime > 150) {
       e.preventDefault();
@@ -361,6 +392,54 @@ const PhotoGridViewer = ({
         y: dragStart.offsetY + deltaY
       });
     }
+  };
+
+  const handleShare = async () => {
+    if (!viewPhoto) return;
+    
+    try {
+      const url = viewPhoto.s3_url || viewPhoto.thumbnail_s3_url || '';
+      if (navigator.share) {
+        await navigator.share({
+          title: viewPhoto.file_name,
+          text: `Фото: ${viewPhoto.file_name}`,
+          url: url
+        });
+      } else {
+        // Fallback - копируем ссылку
+        await navigator.clipboard.writeText(url);
+        alert('Ссылка скопирована в буфер обмена');
+      }
+    } catch (error) {
+      console.error('Share failed:', error);
+    }
+    setShowContextMenu(false);
+  };
+
+  const handleCopyLink = async () => {
+    if (!viewPhoto) return;
+    try {
+      const url = viewPhoto.s3_url || viewPhoto.thumbnail_s3_url || '';
+      await navigator.clipboard.writeText(url);
+      alert('Ссылка скопирована');
+    } catch (error) {
+      console.error('Copy failed:', error);
+    }
+    setShowContextMenu(false);
+  };
+
+  const handleSetWallpaper = async () => {
+    if (!viewPhoto) return;
+    const url = viewPhoto.s3_url || viewPhoto.thumbnail_s3_url || '';
+    window.open(url, '_blank');
+    alert('Откройте изображение и установите как обои через меню браузера');
+    setShowContextMenu(false);
+  };
+
+  const handleRotate = () => {
+    // TODO: Implement rotation
+    alert('Функция поворота в разработке');
+    setShowContextMenu(false);
   };
 
   if (!viewPhoto) return null;
@@ -543,6 +622,111 @@ const PhotoGridViewer = ({
                 {viewPhoto.width && viewPhoto.height && (
                   <span>{viewPhoto.width} × {viewPhoto.height}</span>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Контекстное меню при долгом удержании */}
+          {showContextMenu && (
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center"
+              onClick={() => setShowContextMenu(false)}
+            >
+              <div 
+                className="bg-white/95 dark:bg-gray-900/95 rounded-2xl p-2 w-[90%] max-w-md shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="grid grid-cols-2 gap-2 p-2">
+                  <button
+                    onClick={async () => {
+                      const userIdStr = getAuthUserId();
+                      const userId = userIdStr ? parseInt(userIdStr, 10) : 0;
+                      if (userId && viewPhoto.s3_key) {
+                        await onDownload(viewPhoto.s3_key, viewPhoto.file_name, userId);
+                      }
+                      setShowContextMenu(false);
+                    }}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-blue-50 hover:bg-blue-100 active:bg-blue-200 transition-colors"
+                  >
+                    <Icon name="Download" size={28} className="text-blue-600" />
+                    <span className="text-sm font-medium text-blue-900">Скачать</span>
+                  </button>
+
+                  <button
+                    onClick={handleShare}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-50 hover:bg-green-100 active:bg-green-200 transition-colors"
+                  >
+                    <Icon name="Share2" size={28} className="text-green-600" />
+                    <span className="text-sm font-medium text-green-900">Поделиться</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowExif(true);
+                      setShowContextMenu(false);
+                    }}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-purple-50 hover:bg-purple-100 active:bg-purple-200 transition-colors"
+                  >
+                    <Icon name="Info" size={28} className="text-purple-600" />
+                    <span className="text-sm font-medium text-purple-900">Информация</span>
+                  </button>
+
+                  <button
+                    onClick={handleCopyLink}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-orange-50 hover:bg-orange-100 active:bg-orange-200 transition-colors"
+                  >
+                    <Icon name="Link" size={28} className="text-orange-600" />
+                    <span className="text-sm font-medium text-orange-900">Копировать</span>
+                  </button>
+
+                  <button
+                    onClick={handleSetWallpaper}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-pink-50 hover:bg-pink-100 active:bg-pink-200 transition-colors"
+                  >
+                    <Icon name="Image" size={28} className="text-pink-600" />
+                    <span className="text-sm font-medium text-pink-900">Обои</span>
+                  </button>
+
+                  <button
+                    onClick={handleRotate}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 transition-colors"
+                  >
+                    <Icon name="RotateCw" size={28} className="text-indigo-600" />
+                    <span className="text-sm font-medium text-indigo-900">Повернуть</span>
+                  </button>
+
+                  {viewPhoto.width && viewPhoto.height && (
+                    <button
+                      onClick={() => {
+                        alert(`Разрешение: ${viewPhoto.width}×${viewPhoto.height}\nРазмер: ${formatBytes(viewPhoto.file_size)}\nФормат: ${viewPhoto.is_raw ? 'RAW' : 'JPG/PNG'}`);
+                        setShowContextMenu(false);
+                      }}
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl bg-teal-50 hover:bg-teal-100 active:bg-teal-200 transition-colors"
+                    >
+                      <Icon name="Maximize2" size={28} className="text-teal-600" />
+                      <span className="text-sm font-medium text-teal-900">Детали</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(viewPhoto.file_name);
+                      alert('Имя файла скопировано');
+                      setShowContextMenu(false);
+                    }}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-amber-50 hover:bg-amber-100 active:bg-amber-200 transition-colors"
+                  >
+                    <Icon name="FileText" size={28} className="text-amber-600" />
+                    <span className="text-sm font-medium text-amber-900">Имя файла</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setShowContextMenu(false)}
+                  className="w-full mt-2 p-3 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors text-center font-medium text-gray-700"
+                >
+                  Закрыть
+                </button>
               </div>
             </div>
           )}
