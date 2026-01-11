@@ -197,23 +197,38 @@ const PhotoGridViewer = ({
       return;
     }
 
-    // Если фото увеличено и свайп вниз с верхней половины экрана - уменьшение
-    if (zoom > 0 && deltaY > 0 && absDeltaY > 50 && absDeltaY > absDeltaX && isUpperHalf) {
+    // Если фото увеличено - обработка вертикальных свайпов
+    if (zoom > 0 && absDeltaY > 50 && absDeltaY > absDeltaX) {
       const zoomSteps = Math.floor(absDeltaY / 100);
-      setZoom(prev => {
-        const newZoom = Math.max(0, prev - (zoomSteps * 0.3));
-        if (newZoom < 0.3) {
-          setPanOffset({ x: 0, y: 0 });
-          return 0;
-        }
-        return newZoom;
-      });
-      setTouchStart(null);
-      setDragStart(null);
-      return;
+      
+      // Свайп вниз с верхней половины экрана - уменьшение
+      if (deltaY > 0 && isUpperHalf) {
+        setZoom(prev => {
+          const newZoom = Math.max(0, prev - (zoomSteps * 0.3));
+          if (newZoom < 0.3) {
+            setPanOffset({ x: 0, y: 0 });
+            return 0;
+          }
+          return newZoom;
+        });
+        setTouchStart(null);
+        setDragStart(null);
+        return;
+      }
+      
+      // Свайп вверх - увеличение
+      if (deltaY < 0) {
+        setZoom(prev => {
+          const newZoom = Math.min(2.5, prev + (zoomSteps * 0.3));
+          return newZoom;
+        });
+        setTouchStart(null);
+        setDragStart(null);
+        return;
+      }
     }
 
-    // Если фото увеличено и не уменьшение - это просто перемещение, ничего не делаем
+    // Если фото увеличено и это не вертикальный свайп - это drag для перемещения
     if (zoom > 0) {
       setTouchStart(null);
       setDragStart(null);
@@ -309,14 +324,14 @@ const PhotoGridViewer = ({
 
   return (
     <Dialog open={!!viewPhoto} onOpenChange={handleCloseDialog}>
-      <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none">
+      <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none" style={{ touchAction: 'none' }}>
         <VisuallyHidden>
           <DialogTitle>Просмотр фото {viewPhoto.file_name}</DialogTitle>
         </VisuallyHidden>
         <VisuallyHidden>
           <p id="photo-viewer-description">Галерея для просмотра изображений с возможностью масштабирования и навигации</p>
         </VisuallyHidden>
-        <div className="relative w-full h-full flex items-center justify-center">
+        <div className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
           {!isLandscape && (
             <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
               <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
@@ -401,7 +416,7 @@ const PhotoGridViewer = ({
                   <img
                     src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
                     alt={viewPhoto.file_name}
-                    className="object-contain cursor-move select-none"
+                    className="object-contain cursor-move select-none touch-manipulation"
                     style={{
                       transform: zoom > 0 
                         ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)` 
@@ -410,7 +425,8 @@ const PhotoGridViewer = ({
                       maxHeight: zoom === 0 ? (isLandscape ? '85vh' : '70vh') : (isLandscape ? '100vh' : 'calc(100vh - 200px)'),
                       cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
                       transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-                      imageRendering: zoom > 0.5 ? 'high-quality' : 'auto'
+                      imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
+                      touchAction: 'none'
                     }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
@@ -419,7 +435,6 @@ const PhotoGridViewer = ({
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
-                    onDoubleClick={handleDoubleTap}
                     draggable={false}
                   />
                 )}
@@ -429,7 +444,7 @@ const PhotoGridViewer = ({
                   <img
                     src={viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url}
                     alt={viewPhoto.file_name}
-                    className="object-contain cursor-move select-none"
+                    className="object-contain cursor-move select-none touch-manipulation"
                     style={{
                       transform: `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`,
                       maxWidth: '100%',
@@ -437,7 +452,8 @@ const PhotoGridViewer = ({
                       cursor: isDragging ? 'grabbing' : 'grab',
                       transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                       imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
-                      opacity: isLoadingFullRes ? 0 : 1
+                      opacity: isLoadingFullRes ? 0 : 1,
+                      touchAction: 'none'
                     }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}

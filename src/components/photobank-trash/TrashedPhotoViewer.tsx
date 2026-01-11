@@ -171,23 +171,38 @@ const TrashedPhotoViewer = ({
       return;
     }
 
-    // Если фото увеличено и свайп вниз с верхней половины экрана - уменьшение
-    if (zoom > 1 && deltaY > 0 && absDeltaY > 50 && absDeltaY > absDeltaX && isUpperHalf) {
+    // Если фото увеличено - обработка вертикальных свайпов
+    if (zoom > 1 && absDeltaY > 50 && absDeltaY > absDeltaX) {
       const zoomSteps = Math.floor(absDeltaY / 100);
-      setZoom(prev => {
-        const newZoom = Math.max(1, prev - (zoomSteps * 0.3));
-        if (newZoom <= 1.3) {
-          setPanOffset({ x: 0, y: 0 });
-          return 1;
-        }
-        return newZoom;
-      });
-      setTouchStart(null);
-      setDragStart(null);
-      return;
+      
+      // Свайп вниз с верхней половины экрана - уменьшение
+      if (deltaY > 0 && isUpperHalf) {
+        setZoom(prev => {
+          const newZoom = Math.max(1, prev - (zoomSteps * 0.3));
+          if (newZoom <= 1.3) {
+            setPanOffset({ x: 0, y: 0 });
+            return 1;
+          }
+          return newZoom;
+        });
+        setTouchStart(null);
+        setDragStart(null);
+        return;
+      }
+      
+      // Свайп вверх - увеличение
+      if (deltaY < 0) {
+        setZoom(prev => {
+          const newZoom = Math.min(2.5, prev + (zoomSteps * 0.3));
+          return newZoom;
+        });
+        setTouchStart(null);
+        setDragStart(null);
+        return;
+      }
     }
 
-    // Если фото увеличено и не уменьшение - это просто перемещение, ничего не делаем
+    // Если фото увеличено и это не вертикальный свайп - это drag для перемещения
     if (zoom > 1) {
       setTouchStart(null);
       setDragStart(null);
@@ -280,8 +295,8 @@ const TrashedPhotoViewer = ({
 
   return (
     <Dialog open={!!viewPhoto} onOpenChange={handleCloseDialog}>
-      <DialogContent hideCloseButton aria-describedby="trash-photo-viewer" className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none">
-        <div id="trash-photo-viewer" className="relative w-full h-full flex items-center justify-center">
+      <DialogContent hideCloseButton aria-describedby="trash-photo-viewer" className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none" style={{ touchAction: 'none' }}>
+        <div id="trash-photo-viewer" className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
           {!isLandscape && (
             <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
               <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
@@ -341,14 +356,14 @@ const TrashedPhotoViewer = ({
             <img
               src={viewPhoto.s3_url || ''}
               alt={viewPhoto.file_name}
-              className="object-contain transition-transform duration-200 select-none"
+              className="object-contain transition-transform duration-200 select-none touch-manipulation"
               style={{
                 transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
                 maxWidth: '100%',
                 maxHeight: isLandscape ? '100vh' : 'calc(100vh - 200px)',
-                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in'
+                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                touchAction: 'none'
               }}
-              onDoubleClick={handleDoubleTap}
               draggable={false}
             />
           </div>
