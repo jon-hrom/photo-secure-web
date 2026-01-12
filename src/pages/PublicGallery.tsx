@@ -65,14 +65,15 @@ export default function PublicGallery() {
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
       setPasswordError('Введите пароль');
       return;
     }
     setLoading(true);
-    loadGallery(password);
+    setPasswordError('');
+    await loadGallery(password);
   };
 
   const downloadPhoto = async (photo: Photo) => {
