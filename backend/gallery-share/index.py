@@ -193,8 +193,6 @@ def handler(event: dict, context) -> dict:
             )
             
             photos = cur.fetchall()
-            cur.close()
-            conn.close()
             
             yc_s3 = boto3.client('s3',
                 endpoint_url='https://storage.yandexcloud.net',
@@ -246,6 +244,9 @@ def handler(event: dict, context) -> dict:
                 (short_code,)
             )
             conn.commit()
+            
+            cur.close()
+            conn.close()
             
             return {
                 'statusCode': 200,
