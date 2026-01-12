@@ -145,58 +145,72 @@ export default function PublicGallery() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {gallery?.photos.map((photo) => (
-            <div
-              key={photo.id}
-              className="group relative aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer"
-              onClick={() => setSelectedPhoto(photo)}
-            >
-              <img
-                src={photo.thumbnail_url || photo.photo_url}
-                alt={photo.file_name}
-                className="w-full h-full object-cover transition-transform group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    downloadPhoto(photo);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 p-3 bg-white rounded-full transition-opacity"
-                >
-                  <Icon name="Download" size={24} className="text-gray-900" />
-                </button>
+        <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+          {gallery?.photos.map((photo) => {
+            const aspectRatio = photo.width && photo.height ? photo.width / photo.height : 1;
+            const isLandscape = aspectRatio > 1;
+            const isPortrait = aspectRatio < 1;
+            
+            return (
+              <div
+                key={photo.id}
+                className="group relative bg-gray-100 rounded-lg overflow-hidden cursor-pointer break-inside-avoid mb-4"
+                onClick={() => setSelectedPhoto(photo)}
+              >
+                <img
+                  src={photo.thumbnail_url || photo.photo_url}
+                  alt={photo.file_name}
+                  className="w-full h-auto transition-transform group-hover:scale-105"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadPhoto(photo);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-3 bg-white rounded-full transition-opacity"
+                  >
+                    <Icon name="Download" size={24} className="text-gray-900" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {selectedPhoto && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black z-50 flex items-center justify-center"
           onClick={() => setSelectedPhoto(null)}
         >
           <button
-            className="absolute top-4 right-4 p-2 bg-white rounded-full hover:bg-gray-100"
+            className="absolute top-4 right-4 p-3 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
             onClick={() => setSelectedPhoto(null)}
           >
-            <Icon name="X" size={24} />
+            <Icon name="X" size={24} className="text-white" />
           </button>
+          
+          <div className="absolute top-4 left-4 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 z-10">
+            <p className="text-white text-sm">{selectedPhoto.file_name}</p>
+          </div>
+          
           <button
-            className="absolute bottom-4 right-4 p-3 bg-white rounded-full hover:bg-gray-100"
+            className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors z-10"
             onClick={(e) => {
               e.stopPropagation();
               downloadPhoto(selectedPhoto);
             }}
           >
-            <Icon name="Download" size={24} />
+            <Icon name="Download" size={20} />
+            Скачать
           </button>
+          
           <img
             src={selectedPhoto.photo_url}
             alt={selectedPhoto.file_name}
-            className="max-w-full max-h-full object-contain"
+            className="max-w-[95vw] max-h-[95vh] object-contain"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
