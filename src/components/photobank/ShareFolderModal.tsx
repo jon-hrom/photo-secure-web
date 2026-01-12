@@ -124,7 +124,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           'Content-Type': 'application/json',
           'X-User-Id': userId.toString()
         },
-        body: JSON.dumps({
+        body: JSON.stringify({
           folder_id: folderId,
           user_id: userId,
           expires_days: expiresInDays,
