@@ -167,7 +167,7 @@ export const usePhotoGridGestures = ({
         });
       }
       
-      // Таймер для контекстного меню - 800мс удержания
+      // Таймер для контекстного меню - 500мс удержания
       const timer = setTimeout(() => {
         console.log('[CONTEXT_MENU] Timer fired, currentZoom:', zoomRef.current);
         if (zoomRef.current === 0) { // Проверяем актуальное значение zoom через ref
@@ -180,7 +180,7 @@ export const usePhotoGridGestures = ({
         } else {
           console.log('[CONTEXT_MENU] Menu blocked - image is zoomed');
         }
-      }, 800);
+      }, 500);
       setContextMenuTimer(timer);
     } else if (touchCount > 1) {
       setTouchStart({

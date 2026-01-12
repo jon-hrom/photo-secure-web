@@ -36,15 +36,27 @@ const PhotoGridContextMenu = ({
 
   const handleShare = async () => {
     try {
-      const url = viewPhoto.s3_url || viewPhoto.thumbnail_s3_url || '';
+      const photoPath = viewPhoto.s3_key || '';
+      const response = await fetch('https://functions.poehali.dev/c7c9c0c2-b26f-442d-ad1c-dd7c3185ac44', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo_path: photoPath,
+          photo_name: viewPhoto.file_name
+        })
+      });
+      
+      const data = await response.json();
+      const shortUrl = data.short_url || viewPhoto.s3_url || '';
+      
       if (navigator.share) {
         await navigator.share({
           title: viewPhoto.file_name,
           text: `Фото: ${viewPhoto.file_name}`,
-          url: url
+          url: shortUrl
         });
       } else {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(shortUrl);
         alert('Ссылка скопирована в буфер обмена');
       }
     } catch (error) {
@@ -55,8 +67,20 @@ const PhotoGridContextMenu = ({
 
   const handleCopyLink = async () => {
     try {
-      const url = viewPhoto.s3_url || viewPhoto.thumbnail_s3_url || '';
-      await navigator.clipboard.writeText(url);
+      const photoPath = viewPhoto.s3_key || '';
+      const response = await fetch('https://functions.poehali.dev/c7c9c0c2-b26f-442d-ad1c-dd7c3185ac44', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo_path: photoPath,
+          photo_name: viewPhoto.file_name
+        })
+      });
+      
+      const data = await response.json();
+      const shortUrl = data.short_url || viewPhoto.s3_url || '';
+      
+      await navigator.clipboard.writeText(shortUrl);
       alert('Ссылка скопирована');
     } catch (error) {
       console.error('Copy failed:', error);

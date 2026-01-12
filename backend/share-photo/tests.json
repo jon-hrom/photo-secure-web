@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Create short link",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "photo_path": "photobank/12/111/test.jpg",
+        "photo_name": "test.jpg"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "short_url": "string",
+        "short_code": "string",
+        "expires_at": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get photo by invalid code",
+      "method": "GET",
+      "path": "/?code=invalid123",
+      "expectedStatus": 404,
+      "expectedBody": {
+        "error": "Link not found"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
