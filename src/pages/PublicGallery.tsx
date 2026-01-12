@@ -229,16 +229,12 @@ export default function PublicGallery() {
           </div>
         </div>
 
-        <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {gallery?.photos.map((photo) => {
-            const aspectRatio = photo.width && photo.height ? photo.width / photo.height : 1;
-            const isLandscape = aspectRatio > 1;
-            const isPortrait = aspectRatio < 1;
-            
             return (
               <div
                 key={photo.id}
-                className="group relative bg-gray-100 rounded-lg overflow-hidden cursor-pointer break-inside-avoid mb-4"
+                className="group relative bg-gray-100 rounded-lg overflow-hidden cursor-pointer aspect-square"
                 onClick={() => {
                 setImageError(false);
                 setSelectedPhoto(photo);
@@ -247,7 +243,7 @@ export default function PublicGallery() {
                 <img
                   src={photo.thumbnail_url || photo.photo_url}
                   alt={photo.file_name}
-                  className="w-full h-auto transition-transform group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
