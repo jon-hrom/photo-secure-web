@@ -176,16 +176,10 @@ def handler(event: dict, context) -> dict:
                 config=Config(signature_version='s3v4')
             )
             
-            # Извлекаем bucket и key из s3_url
-            # Формат: https://storage.yandexcloud.net/foto-mix/uploads/12/...
-            if s3_url and 'storage.yandexcloud.net' in s3_url:
-                parts = s3_url.replace('https://storage.yandexcloud.net/', '').split('/', 1)
-                bucket_name = parts[0]
-                object_key = parts[1] if len(parts) > 1 else photo_path
-            else:
-                # Fallback на стандартные значения
-                bucket_name = 'foto-mix'
-                object_key = photo_path
+            # Используем photo_path (s3_key) как реальный путь к файлу в S3
+            # s3_url из БД может быть устаревшим, а s3_key всегда актуален
+            bucket_name = 'foto-mix'
+            object_key = photo_path
             
             # Генерируем подписанный URL на 1 час
             signed_url = yc_s3.generate_presigned_url(
