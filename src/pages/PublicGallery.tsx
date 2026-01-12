@@ -26,26 +26,53 @@ export default function PublicGallery() {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [requiresPassword, setRequiresPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     loadGallery();
   }, [code]);
 
-  const loadGallery = async () => {
+  const loadGallery = async (enteredPassword?: string) => {
     try {
-      const response = await fetch(`https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}`);
+      const passwordParam = enteredPassword || password;
+      const url = passwordParam 
+        ? `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}&password=${encodeURIComponent(passwordParam)}`
+        : `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}`;
+      
+      const response = await fetch(url);
       const data = await response.json();
+      
+      if (response.status === 401 && data.requires_password) {
+        setRequiresPassword(true);
+        setPasswordError(enteredPassword ? 'Неверный пароль' : '');
+        setLoading(false);
+        return;
+      }
       
       if (!response.ok) {
         throw new Error(data.error || 'Галерея не найдена');
       }
       
       setGallery(data);
+      setRequiresPassword(false);
+      setPasswordError('');
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) {
+      setPasswordError('Введите пароль');
+      return;
+    }
+    setLoading(true);
+    loadGallery(password);
   };
 
   const downloadPhoto = async (photo: Photo) => {
@@ -68,7 +95,10 @@ export default function PublicGallery() {
   const downloadAll = async () => {
     setDownloadingAll(true);
     try {
-      const response = await fetch(`https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}`);
+      const url = password 
+        ? `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}&password=${encodeURIComponent(password)}`
+        : `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}`;
+      const response = await fetch(url);
       const data = await response.json();
       
       if (!response.ok || !data.files) {
@@ -112,13 +142,56 @@ export default function PublicGallery() {
     );
   }
 
+  if (requiresPassword && !gallery) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 max-w-md w-full">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Icon name="Lock" size={32} className="text-blue-600 dark:text-blue-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Галерея защищена</h1>
+            <p className="text-gray-600 dark:text-gray-400">Введите пароль для доступа</p>
+          </div>
+          
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setPasswordError('');
+                }}
+                placeholder="Пароль"
+                className="w-full px-4 py-3 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+              />
+              {passwordError && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">{passwordError}</p>
+              )}
+            </div>
+            
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Проверка...' : 'Войти'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <Icon name="AlertCircle" size={64} className="text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Ошибка</h1>
-          <p className="text-gray-600">{error}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Ошибка</h1>
+          <p className="text-gray-600 dark:text-gray-400">{error}</p>
         </div>
       </div>
     );
