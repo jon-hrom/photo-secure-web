@@ -166,19 +166,42 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             
-            # Используем оригинальный s3_url из БД или fallback на CDN
-            if s3_url:
-                photo_url = s3_url
+            # Генерируем временный подписанный URL для доступа к файлу
+            # Файлы хранятся в Yandex Cloud Storage (приватные)
+            yc_s3 = boto3.client('s3',
+                endpoint_url='https://storage.yandexcloud.net',
+                region_name='ru-central1',
+                aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+                aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+                config=Config(signature_version='s3v4')
+            )
+            
+            # Извлекаем bucket и key из s3_url
+            # Формат: https://storage.yandexcloud.net/foto-mix/uploads/12/...
+            if s3_url and 'storage.yandexcloud.net' in s3_url:
+                parts = s3_url.replace('https://storage.yandexcloud.net/', '').split('/', 1)
+                bucket_name = parts[0]
+                object_key = parts[1] if len(parts) > 1 else photo_path
             else:
-                # Fallback на CDN если s3_url не найден
-                aws_key = os.environ['AWS_ACCESS_KEY_ID']
-                photo_url = f"https://cdn.poehali.dev/projects/{aws_key}/bucket/{photo_path}"
+                # Fallback на стандартные значения
+                bucket_name = 'foto-mix'
+                object_key = photo_path
+            
+            # Генерируем подписанный URL на 1 час
+            signed_url = yc_s3.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': bucket_name,
+                    'Key': object_key
+                },
+                ExpiresIn=3600
+            )
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
-                    'photo_url': photo_url,
+                    'photo_url': signed_url,
                     'photo_name': photo_name,
                     'access_count': access_count + 1
                 })
