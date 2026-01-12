@@ -29,11 +29,10 @@ const ShortLink = () => {
 
         const data = await response.json();
         
-        if (data.photo_path) {
+        if (data.photo_url) {
           setStatus('redirecting');
-          // Редирект на оригинальную ссылку S3
-          const fullUrl = `https://storage.yandexcloud.net/foto-mix/${data.photo_path}`;
-          window.location.href = fullUrl;
+          // Редирект на подписанный URL
+          window.location.href = data.photo_url;
         } else {
           throw new Error('Некорректный ответ сервера');
         }

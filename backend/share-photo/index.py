@@ -3,6 +3,7 @@ import os
 import psycopg2
 import random
 import string
+import boto3
 from datetime import datetime, timedelta
 
 def generate_short_code(length=8):
@@ -163,11 +164,24 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             
+            # Генерируем подписанный URL для доступа к файлу
+            s3 = boto3.client('s3',
+                endpoint_url='https://bucket.poehali.dev',
+                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+            )
+            
+            signed_url = s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': 'files', 'Key': photo_path},
+                ExpiresIn=3600
+            )
+            
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
-                    'photo_path': photo_path,
+                    'photo_url': signed_url,
                     'photo_name': photo_name,
                     'access_count': access_count + 1
                 })
