@@ -196,8 +196,17 @@ const PhotoBank = () => {
         throw new Error(data.error || 'Ошибка создания ссылки');
       }
 
-      await navigator.clipboard.writeText(data.share_url);
-      alert(`Ссылка на папку "${folderName}" скопирована!\n\n${data.share_url}\n\nДействует 30 дней`);
+      // Пробуем скопировать в буфер обмена, если не получается — просто показываем
+      try {
+        await navigator.clipboard.writeText(data.share_url);
+        alert(`Ссылка скопирована в буфер обмена!\n\n${data.share_url}\n\nДействует 30 дней`);
+      } catch (clipboardError) {
+        // Если clipboard API заблокирован, показываем ссылку для ручного копирования
+        const copyText = prompt(
+          `Ссылка на папку "${folderName}" (Ctrl+C для копирования):\n\nДействует 30 дней`,
+          data.share_url
+        );
+      }
     } catch (error: any) {
       console.error('Failed to share folder:', error);
       alert('Ошибка: ' + error.message);

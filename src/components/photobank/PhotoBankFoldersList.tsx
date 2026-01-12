@@ -131,9 +131,8 @@ const PhotoBankFoldersList = ({
                 {mainFolders.map((folder) => {
                   const subfolders = getSubfolders(folder.id);
                   return (
-                    <>
+                    <React.Fragment key={folder.id}>
                       <tr
-                        key={folder.id}
                         className={`border-b hover:bg-accent/50 transition-colors cursor-pointer ${
                           selectedFolder?.id === folder.id ? 'bg-primary/5' : ''
                         }`}
@@ -312,7 +311,7 @@ const PhotoBankFoldersList = ({
                           </td>
                         </tr>
                       ))}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
