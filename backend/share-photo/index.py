@@ -4,6 +4,7 @@ import psycopg2
 import random
 import string
 import boto3
+from botocore.client import Config
 from datetime import datetime, timedelta
 
 def generate_short_code(length=8):
@@ -168,7 +169,8 @@ def handler(event: dict, context) -> dict:
             s3 = boto3.client('s3',
                 endpoint_url='https://bucket.poehali.dev',
                 aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+                config=Config(signature_version='s3v4')
             )
             
             signed_url = s3.generate_presigned_url(
