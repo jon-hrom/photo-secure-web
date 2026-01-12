@@ -210,34 +210,40 @@ def handler(event: dict, context) -> dict:
             photos_data = []
             total_size = 0
             
+            print(f'[GALLERY] Found {len(photos)} photos after filtering RAW files')
+            
             for photo in photos:
-                photo_id, file_name, s3_key, thumbnail_s3_key, width, height, file_size = photo
-                
-                photo_url = yc_s3.generate_presigned_url(
-                    'get_object',
-                    Params={'Bucket': bucket_name, 'Key': s3_key},
-                    ExpiresIn=3600
-                )
-                
-                thumbnail_url = None
-                if thumbnail_s3_key:
-                    thumbnail_url = yc_s3.generate_presigned_url(
+                try:
+                    photo_id, file_name, s3_key, thumbnail_s3_key, width, height, file_size = photo
+                    
+                    photo_url = yc_s3.generate_presigned_url(
                         'get_object',
-                        Params={'Bucket': bucket_name, 'Key': thumbnail_s3_key},
+                        Params={'Bucket': bucket_name, 'Key': s3_key},
                         ExpiresIn=3600
                     )
-                
-                photos_data.append({
-                    'id': photo_id,
-                    'file_name': file_name,
-                    'photo_url': photo_url,
-                    'thumbnail_url': thumbnail_url,
-                    'width': width,
-                    'height': height,
-                    'file_size': file_size
-                })
-                
-                total_size += file_size or 0
+                    
+                    thumbnail_url = None
+                    if thumbnail_s3_key:
+                        thumbnail_url = yc_s3.generate_presigned_url(
+                            'get_object',
+                            Params={'Bucket': bucket_name, 'Key': thumbnail_s3_key},
+                            ExpiresIn=3600
+                        )
+                    
+                    photos_data.append({
+                        'id': photo_id,
+                        'file_name': file_name,
+                        'photo_url': photo_url,
+                        'thumbnail_url': thumbnail_url,
+                        'width': width,
+                        'height': height,
+                        'file_size': file_size
+                    })
+                    
+                    total_size += file_size or 0
+                except Exception as e:
+                    print(f'[GALLERY] Error processing photo {photo}: {e}')
+                    continue
             
             cur.execute(
                 """
