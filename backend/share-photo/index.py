@@ -168,6 +168,7 @@ def handler(event: dict, context) -> dict:
             # Генерируем подписанный URL для доступа к файлу
             s3 = boto3.client('s3',
                 endpoint_url='https://bucket.poehali.dev',
+                region_name='ru-central1',
                 aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
                 aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
                 config=Config(signature_version='s3v4')
