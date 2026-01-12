@@ -48,6 +48,7 @@ export default function PublicGallery() {
     if (gallery?.screenshot_protection) {
       document.body.style.userSelect = 'none';
       document.body.style.webkitUserSelect = 'none';
+      
       const preventScreenshot = (e: Event) => {
         if ((e as KeyboardEvent).key === 'PrintScreen') {
           e.preventDefault();
@@ -57,11 +58,20 @@ export default function PublicGallery() {
           setTimeout(() => overlay.remove(), 100);
         }
       };
+      
+      const preventContextMenu = (e: Event) => {
+        e.preventDefault();
+        return false;
+      };
+      
       window.addEventListener('keyup', preventScreenshot);
+      document.addEventListener('contextmenu', preventContextMenu);
+      
       return () => {
         document.body.style.userSelect = '';
         document.body.style.webkitUserSelect = '';
         window.removeEventListener('keyup', preventScreenshot);
+        document.removeEventListener('contextmenu', preventContextMenu);
       };
     }
   }, [gallery?.screenshot_protection]);
@@ -333,6 +343,8 @@ export default function PublicGallery() {
                   alt={photo.file_name}
                   className="w-full h-auto transition-transform group-hover:scale-105"
                   loading="lazy"
+                  onContextMenu={(e) => gallery?.screenshot_protection && e.preventDefault()}
+                  draggable={false}
                 />
                 {gallery?.watermark?.enabled && Math.random() * 100 < (gallery.watermark.frequency || 50) && (
                   <div
@@ -438,6 +450,8 @@ export default function PublicGallery() {
                   className="max-w-[95vw] max-h-[95vh] object-contain"
                   onError={() => setImageError(true)}
                   onClick={(e) => e.stopPropagation()}
+                  onContextMenu={(e) => gallery?.screenshot_protection && e.preventDefault()}
+                  draggable={false}
                 />
                 {gallery?.watermark?.enabled && (
                   <div
