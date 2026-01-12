@@ -119,7 +119,7 @@ def handler(event: dict, context) -> dict:
             
             cur.execute(
                 """
-                SELECT fsl.folder_id, fsl.expires_at, pf.name
+                SELECT fsl.folder_id, fsl.expires_at, pf.folder_name
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
