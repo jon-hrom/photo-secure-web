@@ -46,7 +46,7 @@ def handler(event: dict, context) -> dict:
         if method == 'POST':
             data = json.loads(event.get('body', '{}'))
             folder_id = data.get('folder_id')
-            user_id = event.get('headers', {}).get('x-user-id')
+            user_id = data.get('user_id') or event.get('headers', {}).get('x-user-id')
             expires_days = data.get('expires_days', 30)
             
             if not folder_id or not user_id:
