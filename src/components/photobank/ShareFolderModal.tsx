@@ -33,7 +33,15 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     password: '',
     downloadDisabled: false,
     expiresIn: 'forever',
-    customDate: ''
+    customDate: '',
+    watermarkEnabled: false,
+    watermarkType: 'text',
+    watermarkText: '',
+    watermarkImageUrl: '',
+    watermarkFrequency: 50,
+    watermarkSize: 20,
+    watermarkOpacity: 50,
+    screenshotProtection: false
   });
   
   const [error, setError] = useState('');
@@ -129,7 +137,15 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           user_id: userId,
           expires_days: expiresInDays,
           password: linkSettings.password || null,
-          download_disabled: linkSettings.downloadDisabled
+          download_disabled: linkSettings.downloadDisabled,
+          watermark_enabled: linkSettings.watermarkEnabled,
+          watermark_type: linkSettings.watermarkType,
+          watermark_text: linkSettings.watermarkText,
+          watermark_image_url: linkSettings.watermarkImageUrl,
+          watermark_frequency: linkSettings.watermarkFrequency,
+          watermark_size: linkSettings.watermarkSize,
+          watermark_opacity: linkSettings.watermarkOpacity,
+          screenshot_protection: linkSettings.screenshotProtection
         })
       });
 
@@ -351,6 +367,121 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
                       onChange={(e) => setLinkSettings({ ...linkSettings, customDate: e.target.value })}
                       className="w-full px-3 py-2 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#FFB800] focus:border-transparent transition-all"
                     />
+                  )}
+                </div>
+
+                <div className="space-y-4 border-t dark:border-gray-800 pt-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <Icon name="Droplet" size={20} className="text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-white">Водяной знак</p>
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Защита от копирования</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={linkSettings.watermarkEnabled}
+                      onCheckedChange={(checked) => setLinkSettings({ ...linkSettings, watermarkEnabled: checked })}
+                      className="flex-shrink-0"
+                    />
+                  </div>
+
+                  {linkSettings.watermarkEnabled && (
+                    <div className="space-y-4 pl-8 border-l-2 border-gray-200 dark:border-gray-700">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-900 dark:text-white">Тип знака</label>
+                        <Select value={linkSettings.watermarkType} onValueChange={(value) => setLinkSettings({ ...linkSettings, watermarkType: value })}>
+                          <SelectTrigger className="w-full bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
+                            <SelectItem value="text" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">Текст</SelectItem>
+                            <SelectItem value="image" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">Картинка</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {linkSettings.watermarkType === 'text' ? (
+                        <input
+                          type="text"
+                          placeholder="Текст водяного знака"
+                          value={linkSettings.watermarkText}
+                          onChange={(e) => setLinkSettings({ ...linkSettings, watermarkText: e.target.value })}
+                          className="w-full px-3 py-2 border dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-[#FFB800] focus:border-transparent transition-all"
+                        />
+                      ) : (
+                        <input
+                          type="url"
+                          placeholder="URL картинки"
+                          value={linkSettings.watermarkImageUrl}
+                          onChange={(e) => setLinkSettings({ ...linkSettings, watermarkImageUrl: e.target.value })}
+                          className="w-full px-3 py-2 border dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-[#FFB800] focus:border-transparent transition-all"
+                        />
+                      )}
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-gray-900 dark:text-white">Частота показа</label>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{linkSettings.watermarkFrequency}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="100"
+                          step="10"
+                          value={linkSettings.watermarkFrequency}
+                          onChange={(e) => setLinkSettings({ ...linkSettings, watermarkFrequency: parseInt(e.target.value) })}
+                          className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-gray-900 dark:text-white">Размер</label>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{linkSettings.watermarkSize}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="50"
+                          step="5"
+                          value={linkSettings.watermarkSize}
+                          onChange={(e) => setLinkSettings({ ...linkSettings, watermarkSize: parseInt(e.target.value) })}
+                          className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-gray-900 dark:text-white">Прозрачность</label>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{linkSettings.watermarkOpacity}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="100"
+                          step="10"
+                          value={linkSettings.watermarkOpacity}
+                          onChange={(e) => setLinkSettings({ ...linkSettings, watermarkOpacity: parseInt(e.target.value) })}
+                          className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 pt-2">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <Icon name="ShieldAlert" size={20} className="text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white">Защита от скриншотов</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Чёрный экран при скрине</p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={linkSettings.screenshotProtection}
+                          onCheckedChange={(checked) => setLinkSettings({ ...linkSettings, screenshotProtection: checked })}
+                          className="flex-shrink-0"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

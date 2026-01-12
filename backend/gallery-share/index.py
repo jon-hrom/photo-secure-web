@@ -51,6 +51,15 @@ def handler(event: dict, context) -> dict:
             password = data.get('password')
             download_disabled = data.get('download_disabled', False)
             
+            watermark_enabled = data.get('watermark_enabled', False)
+            watermark_type = data.get('watermark_type', 'text')
+            watermark_text = data.get('watermark_text')
+            watermark_image_url = data.get('watermark_image_url')
+            watermark_frequency = data.get('watermark_frequency', 50)
+            watermark_size = data.get('watermark_size', 20)
+            watermark_opacity = data.get('watermark_opacity', 50)
+            screenshot_protection = data.get('screenshot_protection', False)
+            
             if not folder_id or not user_id:
                 cur.close()
                 conn.close()
@@ -88,11 +97,15 @@ def handler(event: dict, context) -> dict:
             cur.execute(
                 """
                 INSERT INTO t_p28211681_photo_secure_web.folder_short_links
-                (short_code, folder_id, user_id, expires_at, password_hash, download_disabled)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
+                 watermark_enabled, watermark_type, watermark_text, watermark_image_url,
+                 watermark_frequency, watermark_size, watermark_opacity, screenshot_protection)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING short_code
                 """,
-                (short_code, folder_id, user_id, expires_at, password_hash, download_disabled)
+                (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
+                 watermark_enabled, watermark_type, watermark_text, watermark_image_url,
+                 watermark_frequency, watermark_size, watermark_opacity, screenshot_protection)
             )
             conn.commit()
             
@@ -126,7 +139,9 @@ def handler(event: dict, context) -> dict:
             
             cur.execute(
                 """
-                SELECT fsl.folder_id, fsl.expires_at, pf.folder_name, fsl.password_hash, fsl.download_disabled
+                SELECT fsl.folder_id, fsl.expires_at, pf.folder_name, fsl.password_hash, fsl.download_disabled,
+                       fsl.watermark_enabled, fsl.watermark_type, fsl.watermark_text, fsl.watermark_image_url,
+                       fsl.watermark_frequency, fsl.watermark_size, fsl.watermark_opacity, fsl.screenshot_protection
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -144,7 +159,9 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Gallery not found'})
                 }
             
-            folder_id, expires_at, folder_name, password_hash, download_disabled = result
+            (folder_id, expires_at, folder_name, password_hash, download_disabled,
+             watermark_enabled, watermark_type, watermark_text, watermark_image_url,
+             watermark_frequency, watermark_size, watermark_opacity, screenshot_protection) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -269,7 +286,17 @@ def handler(event: dict, context) -> dict:
                     'folder_name': folder_name,
                     'photos': photos_data,
                     'total_size': total_size,
-                    'download_disabled': download_disabled
+                    'download_disabled': download_disabled,
+                    'watermark': {
+                        'enabled': watermark_enabled,
+                        'type': watermark_type,
+                        'text': watermark_text,
+                        'image_url': watermark_image_url,
+                        'frequency': watermark_frequency,
+                        'size': watermark_size,
+                        'opacity': watermark_opacity
+                    },
+                    'screenshot_protection': screenshot_protection
                 })
             }
         

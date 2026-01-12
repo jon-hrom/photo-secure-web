@@ -12,10 +12,22 @@ interface Photo {
   file_size: number;
 }
 
+interface WatermarkSettings {
+  enabled: boolean;
+  type: string;
+  text?: string;
+  image_url?: string;
+  frequency: number;
+  size: number;
+  opacity: number;
+}
+
 interface GalleryData {
   folder_name: string;
   photos: Photo[];
   total_size: number;
+  watermark?: WatermarkSettings;
+  screenshot_protection?: boolean;
 }
 
 export default function PublicGallery() {
@@ -31,6 +43,28 @@ export default function PublicGallery() {
   const [passwordError, setPasswordError] = useState('');
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (gallery?.screenshot_protection) {
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+      const preventScreenshot = (e: Event) => {
+        if ((e as KeyboardEvent).key === 'PrintScreen') {
+          e.preventDefault();
+          const overlay = document.createElement('div');
+          overlay.style.cssText = 'position:fixed;inset:0;background:black;z-index:999999';
+          document.body.appendChild(overlay);
+          setTimeout(() => overlay.remove(), 100);
+        }
+      };
+      window.addEventListener('keyup', preventScreenshot);
+      return () => {
+        document.body.style.userSelect = '';
+        document.body.style.webkitUserSelect = '';
+        window.removeEventListener('keyup', preventScreenshot);
+      };
+    }
+  }, [gallery?.screenshot_protection]);
 
   useEffect(() => {
     console.log('[PUBLIC_GALLERY] Component mounted, code:', code);
@@ -300,6 +334,23 @@ export default function PublicGallery() {
                   className="w-full h-auto transition-transform group-hover:scale-105"
                   loading="lazy"
                 />
+                {gallery?.watermark?.enabled && Math.random() * 100 < (gallery.watermark.frequency || 50) && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    style={{
+                      opacity: (gallery.watermark.opacity || 50) / 100,
+                      fontSize: `${gallery.watermark.size || 20}px`
+                    }}
+                  >
+                    {gallery.watermark.type === 'text' ? (
+                      <p className="text-white font-bold text-center px-4" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                        {gallery.watermark.text}
+                      </p>
+                    ) : (
+                      <img src={gallery.watermark.image_url} alt="Watermark" className="max-w-full max-h-full" />
+                    )}
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
                   <button
                     onClick={(e) => {
@@ -332,8 +383,14 @@ export default function PublicGallery() {
             <Icon name="X" size={24} className="text-white" />
           </button>
           
-          <div className="absolute top-4 left-4 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 z-10">
-            <p className="text-white text-sm">{selectedPhoto.file_name}</p>
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 z-10">
+            <p className="text-white text-sm text-center">
+              {gallery?.photos.findIndex(p => p.id === selectedPhoto.id)! + 1} из {gallery?.photos.length}
+            </p>
+          </div>
+          
+          <div className="absolute top-16 left-4 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 z-10 max-w-[calc(100%-2rem)]">
+            <p className="text-white text-xs truncate">{selectedPhoto.file_name}</p>
           </div>
 
           <button
@@ -374,13 +431,41 @@ export default function PublicGallery() {
             </div>
           ) : (
             <>
-              <img
-                src={selectedPhoto.photo_url}
-                alt={selectedPhoto.file_name}
-                className="max-w-[95vw] max-h-[95vh] object-contain"
-                onError={() => setImageError(true)}
-                onClick={(e) => e.stopPropagation()}
-              />
+              <div className="relative">
+                <img
+                  src={selectedPhoto.photo_url}
+                  alt={selectedPhoto.file_name}
+                  className="max-w-[95vw] max-h-[95vh] object-contain"
+                  onError={() => setImageError(true)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {gallery?.watermark?.enabled && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    style={{
+                      opacity: (gallery.watermark.opacity || 50) / 100
+                    }}
+                  >
+                    {gallery.watermark.type === 'text' ? (
+                      <p 
+                        className="text-white font-bold text-center px-4"
+                        style={{
+                          fontSize: `${gallery.watermark.size * 2}px`,
+                          textShadow: '3px 3px 6px rgba(0,0,0,0.9)'
+                        }}
+                      >
+                        {gallery.watermark.text}
+                      </p>
+                    ) : (
+                      <img 
+                        src={gallery.watermark.image_url} 
+                        alt="Watermark"
+                        style={{ maxWidth: `${gallery.watermark.size * 2}%`, maxHeight: `${gallery.watermark.size * 2}%` }}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors z-10"
                 onClick={(e) => {
