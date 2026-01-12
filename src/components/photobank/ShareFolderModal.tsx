@@ -22,6 +22,8 @@ const CLIENTS_URL = 'https://functions.poehali.dev/95efe27b-1ad9-49b5-a77b-1870a
 const FOLDER_CLIENT_URL = 'https://functions.poehali.dev/579eccc8-1cf2-4ef4-b5ad-d011a71ba393';
 
 export default function ShareFolderModal({ folderId, folderName, userId, onClose }: ShareFolderModalProps) {
+  console.log('[SHARE_MODAL] Component mounted with:', { folderId, folderName, userId });
+  
   const [loading, setLoading] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
