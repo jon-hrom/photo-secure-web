@@ -185,6 +185,7 @@ const PhotoBank = () => {
         },
         body: JSON.stringify({
           folder_id: folderId,
+          user_id: userId,
           expires_days: 30
         })
       });
