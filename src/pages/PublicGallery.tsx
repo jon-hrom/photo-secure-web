@@ -31,20 +31,26 @@ export default function PublicGallery() {
   const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
+    console.log('[PUBLIC_GALLERY] Component mounted, code:', code);
     loadGallery();
   }, [code]);
 
   const loadGallery = async (enteredPassword?: string) => {
+    console.log('[PUBLIC_GALLERY] Loading gallery, password provided:', !!enteredPassword);
     try {
       const passwordParam = enteredPassword || password;
       const url = passwordParam 
         ? `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}&password=${encodeURIComponent(passwordParam)}`
         : `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}`;
       
+      console.log('[PUBLIC_GALLERY] Fetching URL:', url);
       const response = await fetch(url);
       const data = await response.json();
       
+      console.log('[PUBLIC_GALLERY] Response status:', response.status, 'Data:', data);
+      
       if (response.status === 401 && data.requires_password) {
+        console.log('[PUBLIC_GALLERY] Password required');
         setRequiresPassword(true);
         setPasswordError(enteredPassword ? 'Неверный пароль' : '');
         setLoading(false);
@@ -55,10 +61,12 @@ export default function PublicGallery() {
         throw new Error(data.error || 'Галерея не найдена');
       }
       
+      console.log('[PUBLIC_GALLERY] Gallery loaded successfully, photos:', data.photos?.length);
       setGallery(data);
       setRequiresPassword(false);
       setPasswordError('');
     } catch (err: any) {
+      console.error('[PUBLIC_GALLERY] Error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -67,6 +75,7 @@ export default function PublicGallery() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[PUBLIC_GALLERY] Password submit, value:', password);
     if (!password.trim()) {
       setPasswordError('Введите пароль');
       return;
