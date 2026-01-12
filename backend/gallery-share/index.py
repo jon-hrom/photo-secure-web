@@ -184,13 +184,10 @@ def handler(event: dict, context) -> dict:
             
             cur.execute(
                 """
-                SELECT id, file_name, s3_key, thumbnail_s3_key, width, height, file_size
+                SELECT id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw
                 FROM t_p28211681_photo_secure_web.photo_bank
                 WHERE folder_id = %s AND is_trashed = false
-                  AND LOWER(file_name) NOT LIKE '%.cr2'
-                  AND LOWER(file_name) NOT LIKE '%.raw'
-                  AND LOWER(file_name) NOT LIKE '%.nef'
-                  AND LOWER(file_name) NOT LIKE '%.arw'
+                  AND (is_raw = false OR (is_raw = true AND thumbnail_s3_key IS NOT NULL))
                 ORDER BY created_at DESC
                 """,
                 (folder_id,)
@@ -210,25 +207,32 @@ def handler(event: dict, context) -> dict:
             photos_data = []
             total_size = 0
             
-            print(f'[GALLERY] Found {len(photos)} photos after filtering RAW files')
+            print(f'[GALLERY] Found {len(photos)} photos (including RAW with previews)')
             
             for photo in photos:
                 try:
-                    photo_id, file_name, s3_key, thumbnail_s3_key, width, height, file_size = photo
+                    photo_id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw = photo
                     
-                    photo_url = yc_s3.generate_presigned_url(
-                        'get_object',
-                        Params={'Bucket': bucket_name, 'Key': s3_key},
-                        ExpiresIn=3600
-                    )
-                    
-                    thumbnail_url = None
-                    if thumbnail_s3_key:
-                        thumbnail_url = yc_s3.generate_presigned_url(
+                    if is_raw and thumbnail_s3_key:
+                        photo_url = yc_s3.generate_presigned_url(
                             'get_object',
                             Params={'Bucket': bucket_name, 'Key': thumbnail_s3_key},
                             ExpiresIn=3600
                         )
+                        thumbnail_url = photo_url
+                    else:
+                        photo_url = yc_s3.generate_presigned_url(
+                            'get_object',
+                            Params={'Bucket': bucket_name, 'Key': s3_key},
+                            ExpiresIn=3600
+                        )
+                        thumbnail_url = None
+                        if thumbnail_s3_key:
+                            thumbnail_url = yc_s3.generate_presigned_url(
+                                'get_object',
+                                Params={'Bucket': bucket_name, 'Key': thumbnail_s3_key},
+                                ExpiresIn=3600
+                            )
                     
                     photos_data.append({
                         'id': photo_id,
