@@ -25,6 +25,7 @@ export default function PublicGallery() {
   const [error, setError] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     loadGallery();
@@ -155,7 +156,10 @@ export default function PublicGallery() {
               <div
                 key={photo.id}
                 className="group relative bg-gray-100 rounded-lg overflow-hidden cursor-pointer break-inside-avoid mb-4"
-                onClick={() => setSelectedPhoto(photo)}
+                onClick={() => {
+                setImageError(false);
+                setSelectedPhoto(photo);
+              }}
               >
                 <img
                   src={photo.thumbnail_url || photo.photo_url}
@@ -207,12 +211,30 @@ export default function PublicGallery() {
             Скачать
           </button>
           
-          <img
-            src={selectedPhoto.photo_url}
-            alt={selectedPhoto.file_name}
-            className="max-w-[95vw] max-h-[95vh] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
+          {imageError ? (
+            <div className="text-center text-white">
+              <Icon name="FileWarning" size={64} className="mx-auto mb-4" />
+              <p className="mb-4">CR2/RAW файлы не поддерживаются браузером для просмотра</p>
+              <button
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadPhoto(selectedPhoto);
+                }}
+              >
+                <Icon name="Download" size={20} className="inline mr-2" />
+                Скачать файл
+              </button>
+            </div>
+          ) : (
+            <img
+              src={selectedPhoto.photo_url}
+              alt={selectedPhoto.file_name}
+              className="max-w-[95vw] max-h-[95vh] object-contain"
+              onError={() => setImageError(true)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
         </div>
       )}
     </div>

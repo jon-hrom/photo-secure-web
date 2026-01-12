@@ -7,6 +7,7 @@ import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogsContainer from '@/components/photobank/PhotoBankDialogsContainer';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
+import ShareFolderModal from '@/components/photobank/ShareFolderModal';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
@@ -26,6 +27,7 @@ const PhotoBank = () => {
   const { emailVerified } = useEmailVerification(userId, authChecking);
   const [showCameraUpload, setShowCameraUpload] = useState(false);
   const [showUrlUpload, setShowUrlUpload] = useState(false);
+  const [shareModalFolder, setShareModalFolder] = useState<{ id: number; name: string } | null>(null);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -176,41 +178,7 @@ const PhotoBank = () => {
   };
 
   const handleShareFolder = async (folderId: number, folderName: string) => {
-    try {
-      const response = await fetch('https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId.toString()
-        },
-        body: JSON.stringify({
-          folder_id: folderId,
-          user_id: userId,
-          expires_days: 30
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Ошибка создания ссылки');
-      }
-
-      // Пробуем скопировать в буфер обмена, если не получается — просто показываем
-      try {
-        await navigator.clipboard.writeText(data.share_url);
-        alert(`Ссылка скопирована в буфер обмена!\n\n${data.share_url}\n\nДействует 30 дней`);
-      } catch (clipboardError) {
-        // Если clipboard API заблокирован, показываем ссылку для ручного копирования
-        const copyText = prompt(
-          `Ссылка на папку "${folderName}" (Ctrl+C для копирования):\n\nДействует 30 дней`,
-          data.share_url
-        );
-      }
-    } catch (error: any) {
-      console.error('Failed to share folder:', error);
-      alert('Ошибка: ' + error.message);
-    }
+    setShareModalFolder({ id: folderId, name: folderName });
   };
 
   const handleRestoreSelectedPhotos = async () => {
@@ -376,6 +344,15 @@ const PhotoBank = () => {
       </div>
 
       <MobileNavigation />
+
+      {shareModalFolder && (
+        <ShareFolderModal
+          folderId={shareModalFolder.id}
+          folderName={shareModalFolder.name}
+          userId={userId}
+          onClose={() => setShareModalFolder(null)}
+        />
+      )}
     </div>
   );
 };
