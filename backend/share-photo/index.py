@@ -119,12 +119,13 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'code parameter required'})
                 }
             
-            # Получаем данные из БД
+            # Получаем данные из БД с s3_url из photo_bank
             cur.execute(
                 """
-                SELECT photo_path, photo_name, expires_at, access_count
-                FROM t_p28211681_photo_secure_web.photo_short_links
-                WHERE short_code = %s
+                SELECT psl.photo_path, psl.photo_name, psl.expires_at, psl.access_count, pb.s3_url
+                FROM t_p28211681_photo_secure_web.photo_short_links psl
+                LEFT JOIN t_p28211681_photo_secure_web.photo_bank pb ON pb.s3_key = psl.photo_path
+                WHERE psl.short_code = %s
                 """,
                 (short_code,)
             )
@@ -139,7 +140,7 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Link not found'})
                 }
             
-            photo_path, photo_name, expires_at, access_count = result
+            photo_path, photo_name, expires_at, access_count, s3_url = result
             
             # Проверяем срок действия
             if expires_at and datetime.now() > expires_at:
@@ -165,15 +166,19 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             
-            # Формируем прямую CDN-ссылку (файлы публичные)
-            aws_key = os.environ['AWS_ACCESS_KEY_ID']
-            cdn_url = f"https://cdn.poehali.dev/projects/{aws_key}/bucket/{photo_path}"
+            # Используем оригинальный s3_url из БД или fallback на CDN
+            if s3_url:
+                photo_url = s3_url
+            else:
+                # Fallback на CDN если s3_url не найден
+                aws_key = os.environ['AWS_ACCESS_KEY_ID']
+                photo_url = f"https://cdn.poehali.dev/projects/{aws_key}/bucket/{photo_path}"
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
-                    'photo_url': cdn_url,
+                    'photo_url': photo_url,
                     'photo_name': photo_name,
                     'access_count': access_count + 1
                 })
