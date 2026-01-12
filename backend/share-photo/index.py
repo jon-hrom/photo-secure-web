@@ -165,26 +165,15 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             
-            # Генерируем подписанный URL для доступа к файлу
-            s3 = boto3.client('s3',
-                endpoint_url='https://bucket.poehali.dev',
-                region_name='ru-central1',
-                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
-                config=Config(signature_version='s3v4')
-            )
-            
-            signed_url = s3.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': 'files', 'Key': photo_path},
-                ExpiresIn=3600
-            )
+            # Формируем прямую CDN-ссылку (файлы публичные)
+            aws_key = os.environ['AWS_ACCESS_KEY_ID']
+            cdn_url = f"https://cdn.poehali.dev/projects/{aws_key}/bucket/{photo_path}"
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
-                    'photo_url': signed_url,
+                    'photo_url': cdn_url,
                     'photo_name': photo_name,
                     'access_count': access_count + 1
                 })
