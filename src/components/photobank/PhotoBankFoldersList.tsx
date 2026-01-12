@@ -22,6 +22,7 @@ interface PhotoBankFoldersListProps {
   onCreateFolder: () => void;
   onStartTechSort: (folderId: number, folderName: string) => void;
   onDownloadFolder?: (folderId: number, folderName: string) => void;
+  onShareFolder?: (folderId: number, folderName: string) => void;
   isAdminViewing?: boolean;
 }
 
@@ -34,6 +35,7 @@ const PhotoBankFoldersList = ({
   onCreateFolder,
   onStartTechSort,
   onDownloadFolder,
+  onShareFolder,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
   // Используем sessionStorage для хранения состояния сворачивания
@@ -200,6 +202,20 @@ const PhotoBankFoldersList = ({
                                 <span className="sm:hidden">
                                   <Icon name="SlidersHorizontal" size={14} />
                                 </span>
+                              </Button>
+                            )}
+                            {onShareFolder && folder.photo_count > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onShareFolder(folder.id, folder.folder_name);
+                                }}
+                                title="Поделиться галереей"
+                              >
+                                <Icon name="Share2" size={16} />
                               </Button>
                             )}
                             {onDownloadFolder && folder.photo_count > 0 && (

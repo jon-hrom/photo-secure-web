@@ -175,6 +175,34 @@ const PhotoBank = () => {
     }
   };
 
+  const handleShareFolder = async (folderId: number, folderName: string) => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
+        body: JSON.stringify({
+          folder_id: folderId,
+          expires_days: 30
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка создания ссылки');
+      }
+
+      await navigator.clipboard.writeText(data.share_url);
+      alert(`Ссылка на папку "${folderName}" скопирована!\n\n${data.share_url}\n\nДействует 30 дней`);
+    } catch (error: any) {
+      console.error('Failed to share folder:', error);
+      alert('Ошибка: ' + error.message);
+    }
+  };
+
   const handleRestoreSelectedPhotos = async () => {
     if (selectedPhotos.size === 0) return;
 
@@ -315,6 +343,7 @@ const PhotoBank = () => {
             onCreateFolder={() => setShowCreateFolder(true)}
             onStartTechSort={handleStartTechSort}
             onDownloadFolder={handleDownloadFolder}
+            onShareFolder={handleShareFolder}
           />
         ) : (
           <PhotoBankPhotoGrid

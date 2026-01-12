@@ -25,6 +25,7 @@ import AdminCleanup from "./pages/AdminCleanup";
 import NewYearDecorations from "./components/NewYearDecorations";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ShortLink from "./pages/ShortLink";
+import PublicGallery from "./pages/PublicGallery";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +104,7 @@ const App = () => {
           <Route path="/client/photobook/:id" element={<ClientPhotobook />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/s/:code" element={<ShortLink />} />
+          <Route path="/g/:code" element={<PublicGallery />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

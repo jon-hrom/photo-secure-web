@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "name": "Create gallery link without auth",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "folder_id": 1
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "folder_id and user_id required"
+      }
+    },
+    {
+      "name": "Get gallery with invalid code",
+      "method": "GET",
+      "path": "/?code=invalid123",
+      "expectedStatus": 404,
+      "expectedBody": {
+        "error": "Gallery not found"
+      }
+    }
+  ]
+}

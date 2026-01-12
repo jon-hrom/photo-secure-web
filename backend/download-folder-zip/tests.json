@@ -6,7 +6,7 @@
       "path": "/",
       "expectedStatus": 400,
       "expectedBody": {
-        "error": "folderId and userId are required"
+        "error": "Either code or (folderId and userId) are required"
       },
       "bodyMatcher": "partial"
     },

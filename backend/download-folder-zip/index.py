@@ -35,23 +35,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     query_params = event.get('queryStringParameters') or {}
     folder_id_str: str = query_params.get('folderId', '')
     user_id_str: str = query_params.get('userId', '')
+    share_code: str = query_params.get('code', '')
     
-    if not folder_id_str or not user_id_str:
+    if not share_code and (not folder_id_str or not user_id_str):
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'folderId and userId are required'}),
-            'isBase64Encoded': False
-        }
-    
-    try:
-        folder_id = int(folder_id_str)
-        user_id = int(user_id_str)
-    except ValueError:
-        return {
-            'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'folderId and userId must be numbers'}),
+            'body': json.dumps({'error': 'Either code or (folderId and userId) are required'}),
             'isBase64Encoded': False
         }
     
@@ -61,30 +51,65 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         cur = conn.cursor()
         
-        # Проверяем владельца папки
-        cur.execute(
-            "SELECT folder_name, user_id FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s",
-            (folder_id,)
-        )
-        folder_result = cur.fetchone()
-        
-        if not folder_result:
-            return {
-                'statusCode': 404,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Folder not found'}),
-                'isBase64Encoded': False
-            }
-        
-        folder_name, owner_id = folder_result
-        
-        if owner_id != user_id:
-            return {
-                'statusCode': 403,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Access denied'}),
-                'isBase64Encoded': False
-            }
+        if share_code:
+            # Публичный доступ через короткую ссылку
+            cur.execute(
+                """
+                SELECT fsl.folder_id, pf.folder_name
+                FROM t_p28211681_photo_secure_web.folder_short_links fsl
+                JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
+                WHERE fsl.short_code = %s
+                """,
+                (share_code,)
+            )
+            folder_result = cur.fetchone()
+            
+            if not folder_result:
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Gallery not found'}),
+                    'isBase64Encoded': False
+                }
+            
+            folder_id, folder_name = folder_result
+        else:
+            # Приватный доступ (авторизованный пользователь)
+            try:
+                folder_id = int(folder_id_str)
+                user_id = int(user_id_str)
+            except ValueError:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'folderId and userId must be numbers'}),
+                    'isBase64Encoded': False
+                }
+            
+            # Проверяем владельца папки
+            cur.execute(
+                "SELECT folder_name, user_id FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s",
+                (folder_id,)
+            )
+            folder_result = cur.fetchone()
+            
+            if not folder_result:
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Folder not found'}),
+                    'isBase64Encoded': False
+                }
+            
+            folder_name, owner_id = folder_result
+            
+            if owner_id != user_id:
+                return {
+                    'statusCode': 403,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Access denied'}),
+                    'isBase64Encoded': False
+                }
         
         # Получаем все фотографии из папки
         cur.execute(
