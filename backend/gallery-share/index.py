@@ -187,6 +187,10 @@ def handler(event: dict, context) -> dict:
                 SELECT id, file_name, s3_key, thumbnail_s3_key, width, height, file_size
                 FROM t_p28211681_photo_secure_web.photo_bank
                 WHERE folder_id = %s AND is_trashed = false
+                  AND LOWER(file_name) NOT LIKE '%.cr2'
+                  AND LOWER(file_name) NOT LIKE '%.raw'
+                  AND LOWER(file_name) NOT LIKE '%.nef'
+                  AND LOWER(file_name) NOT LIKE '%.arw'
                 ORDER BY created_at DESC
                 """,
                 (folder_id,)

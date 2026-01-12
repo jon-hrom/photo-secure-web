@@ -279,40 +279,42 @@ export default function PublicGallery() {
             <p className="text-white text-sm">{selectedPhoto.file_name}</p>
           </div>
           
-          <button
-            className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors z-10"
-            onClick={(e) => {
-              e.stopPropagation();
-              downloadPhoto(selectedPhoto);
-            }}
-          >
-            <Icon name="Download" size={20} />
-            Скачать
-          </button>
-          
           {imageError ? (
-            <div className="text-center text-white">
+            <div className="text-center text-white px-4">
               <Icon name="FileWarning" size={64} className="mx-auto mb-4" />
-              <p className="mb-4">CR2/RAW файлы не поддерживаются браузером для просмотра</p>
+              <p className="text-lg mb-2">CR2/RAW файлы не поддерживаются</p>
+              <p className="text-sm text-gray-300 mb-6">Браузер не может отобразить этот формат</p>
               <button
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
                 onClick={(e) => {
                   e.stopPropagation();
                   downloadPhoto(selectedPhoto);
                 }}
               >
-                <Icon name="Download" size={20} className="inline mr-2" />
+                <Icon name="Download" size={20} />
                 Скачать файл
               </button>
             </div>
           ) : (
-            <img
-              src={selectedPhoto.photo_url}
-              alt={selectedPhoto.file_name}
-              className="max-w-[95vw] max-h-[95vh] object-contain"
-              onError={() => setImageError(true)}
-              onClick={(e) => e.stopPropagation()}
-            />
+            <>
+              <img
+                src={selectedPhoto.photo_url}
+                alt={selectedPhoto.file_name}
+                className="max-w-[95vw] max-h-[95vh] object-contain"
+                onError={() => setImageError(true)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button
+                className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors z-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadPhoto(selectedPhoto);
+                }}
+              >
+                <Icon name="Download" size={20} />
+                Скачать
+              </button>
+            </>
           )}
         </div>
       )}
