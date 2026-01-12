@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface Photo {
   id: number;
@@ -63,6 +63,12 @@ export const usePhotoGridGestures = ({
   const [isLoadingFullRes, setIsLoadingFullRes] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuTimer, setContextMenuTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  // Ref для актуального значения zoom (исправление замыкания в таймере)
+  const zoomRef = useRef(zoom);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
 
   const currentPhotoIndex = viewPhoto ? photos.findIndex(p => p.id === viewPhoto.id) : -1;
   const hasPrev = currentPhotoIndex > 0;
@@ -145,13 +151,14 @@ export const usePhotoGridGestures = ({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touchCount = e.touches.length;
     if (touchCount === 1) {
+      const currentZoom = zoomRef.current; // Используем актуальное значение из ref
       setTouchStart({
         x: e.touches[0].clientX,
         y: e.touches[0].clientY,
         time: Date.now(),
         touches: touchCount
       });
-      if (zoom > 0) {
+      if (currentZoom > 0) {
         setDragStart({
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
@@ -162,12 +169,16 @@ export const usePhotoGridGestures = ({
       
       // Таймер для контекстного меню - 800мс удержания
       const timer = setTimeout(() => {
-        if (zoom === 0) { // Показываем меню только если не увеличено
+        console.log('[CONTEXT_MENU] Timer fired, currentZoom:', zoomRef.current);
+        if (zoomRef.current === 0) { // Проверяем актуальное значение zoom через ref
+          console.log('[CONTEXT_MENU] Showing context menu');
           setShowContextMenu(true);
           // Вибрация для тактильной обратной связи
           if (navigator.vibrate) {
             navigator.vibrate(50);
           }
+        } else {
+          console.log('[CONTEXT_MENU] Menu blocked - image is zoomed');
         }
       }, 800);
       setContextMenuTimer(timer);
@@ -184,7 +195,7 @@ export const usePhotoGridGestures = ({
         setContextMenuTimer(null);
       }
     }
-  }, [zoom, panOffset, contextMenuTimer]);
+  }, [panOffset, contextMenuTimer]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     // Отменяем таймер контекстного меню
@@ -345,7 +356,8 @@ export const usePhotoGridGestures = ({
   }, [onClose]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (zoom <= 0) return;
+    const currentZoom = zoomRef.current;
+    if (currentZoom <= 0) return;
     setIsDragging(true);
     setDragStart({
       x: e.clientX,
@@ -353,17 +365,17 @@ export const usePhotoGridGestures = ({
       offsetX: panOffset.x,
       offsetY: panOffset.y
     });
-  }, [zoom, panOffset]);
+  }, [panOffset]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging || !dragStart || zoom <= 0) return;
+    if (!isDragging || !dragStart || zoomRef.current <= 0) return;
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
     setPanOffset({
       x: dragStart.offsetX + deltaX,
       y: dragStart.offsetY + deltaY
     });
-  }, [isDragging, dragStart, zoom]);
+  }, [isDragging, dragStart]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -375,15 +387,17 @@ export const usePhotoGridGestures = ({
     
     const now = Date.now();
     const holdTime = now - touchStart.time;
+    const currentZoom = zoomRef.current;
     
     // Отменяем таймер контекстного меню при движении
     if (contextMenuTimer) {
+      console.log('[CONTEXT_MENU] Touch moved, cancelling timer');
       clearTimeout(contextMenuTimer);
       setContextMenuTimer(null);
     }
     
     // Если увеличено и держим больше 150ms - это drag для перемещения
-    if (zoom > 0 && holdTime > 150) {
+    if (currentZoom > 0 && holdTime > 150) {
       e.preventDefault();
       
       // Инициализируем dragStart если его нет
@@ -405,7 +419,7 @@ export const usePhotoGridGestures = ({
         y: dragStart.offsetY + deltaY
       });
     }
-  }, [touchStart, zoom, dragStart, panOffset, contextMenuTimer]);
+  }, [touchStart, dragStart, panOffset, contextMenuTimer]);
 
   const resetZoom = useCallback(() => {
     setZoom(0);
