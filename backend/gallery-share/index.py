@@ -48,6 +48,8 @@ def handler(event: dict, context) -> dict:
             folder_id = data.get('folder_id')
             user_id = data.get('user_id') or event.get('headers', {}).get('x-user-id')
             expires_days = data.get('expires_days', 30)
+            password = data.get('password')
+            download_disabled = data.get('download_disabled', False)
             
             if not folder_id or not user_id:
                 cur.close()
@@ -78,14 +80,19 @@ def handler(event: dict, context) -> dict:
             short_code = generate_short_code()
             expires_at = datetime.now() + timedelta(days=expires_days) if expires_days else None
             
+            password_hash = None
+            if password:
+                import hashlib
+                password_hash = hashlib.sha256(password.encode()).hexdigest()
+            
             cur.execute(
                 """
                 INSERT INTO t_p28211681_photo_secure_web.folder_short_links
-                (short_code, folder_id, user_id, expires_at)
-                VALUES (%s, %s, %s, %s)
+                (short_code, folder_id, user_id, expires_at, password_hash, download_disabled)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING short_code
                 """,
-                (short_code, folder_id, user_id, expires_at)
+                (short_code, folder_id, user_id, expires_at, password_hash, download_disabled)
             )
             conn.commit()
             
@@ -119,7 +126,7 @@ def handler(event: dict, context) -> dict:
             
             cur.execute(
                 """
-                SELECT fsl.folder_id, fsl.expires_at, pf.folder_name
+                SELECT fsl.folder_id, fsl.expires_at, pf.folder_name, fsl.password_hash, fsl.download_disabled
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -137,7 +144,20 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Gallery not found'})
                 }
             
-            folder_id, expires_at, folder_name = result
+            folder_id, expires_at, folder_name, password_hash, download_disabled = result
+            
+            if password_hash:
+                provided_password = event.get('queryStringParameters', {}).get('password', '')
+                import hashlib
+                provided_hash = hashlib.sha256(provided_password.encode()).hexdigest()
+                if provided_hash != password_hash:
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 401,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Invalid password', 'requires_password': True})
+                    }
             
             if expires_at and datetime.now() > expires_at:
                 cur.close()
@@ -213,13 +233,24 @@ def handler(event: dict, context) -> dict:
                 
                 total_size += file_size or 0
             
+            cur.execute(
+                """
+                UPDATE t_p28211681_photo_secure_web.folder_short_links
+                SET view_count = view_count + 1
+                WHERE short_code = %s
+                """,
+                (short_code,)
+            )
+            conn.commit()
+            
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
                     'folder_name': folder_name,
                     'photos': photos_data,
-                    'total_size': total_size
+                    'total_size': total_size,
+                    'download_disabled': download_disabled
                 })
             }
         
