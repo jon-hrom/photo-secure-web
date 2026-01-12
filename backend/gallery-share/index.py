@@ -148,9 +148,12 @@ def handler(event: dict, context) -> dict:
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
+                print(f'[PASSWORD_CHECK] Provided: {provided_password}, Hash stored: {password_hash[:16]}...')
                 import hashlib
                 provided_hash = hashlib.sha256(provided_password.encode()).hexdigest()
+                print(f'[PASSWORD_CHECK] Provided hash: {provided_hash[:16]}..., Expected: {password_hash[:16]}...')
                 if provided_hash != password_hash:
+                    print(f'[PASSWORD_CHECK] Password mismatch!')
                     cur.close()
                     conn.close()
                     return {
@@ -158,6 +161,7 @@ def handler(event: dict, context) -> dict:
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                         'body': json.dumps({'error': 'Invalid password', 'requires_password': True})
                     }
+                print(f'[PASSWORD_CHECK] Password correct!')
             
             if expires_at and datetime.now() > expires_at:
                 cur.close()
