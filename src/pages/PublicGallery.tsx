@@ -29,6 +29,8 @@ export default function PublicGallery() {
   const [requiresPassword, setRequiresPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   useEffect(() => {
     console.log('[PUBLIC_GALLERY] Component mounted, code:', code);
@@ -140,6 +142,58 @@ export default function PublicGallery() {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
     return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
   };
+
+  const navigatePhoto = (direction: 'prev' | 'next') => {
+    if (!gallery || !selectedPhoto) return;
+    const currentIndex = gallery.photos.findIndex(p => p.id === selectedPhoto.id);
+    if (currentIndex === -1) return;
+
+    let newIndex: number;
+    if (direction === 'prev') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : gallery.photos.length - 1;
+    } else {
+      newIndex = currentIndex < gallery.photos.length - 1 ? currentIndex + 1 : 0;
+    }
+
+    setSelectedPhoto(gallery.photos[newIndex]);
+    setImageError(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      navigatePhoto('next');
+    } else if (isRightSwipe) {
+      navigatePhoto('prev');
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (!selectedPhoto) return;
+    if (e.key === 'ArrowLeft') navigatePhoto('prev');
+    if (e.key === 'ArrowRight') navigatePhoto('next');
+    if (e.key === 'Escape') setSelectedPhoto(null);
+  };
+
+  useEffect(() => {
+    if (selectedPhoto) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [selectedPhoto, gallery]);
 
   if (loading) {
     return (
@@ -267,6 +321,9 @@ export default function PublicGallery() {
         <div
           className="fixed inset-0 bg-black z-50 flex items-center justify-center"
           onClick={() => setSelectedPhoto(null)}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <button
             className="absolute top-4 right-4 p-3 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
@@ -278,6 +335,26 @@ export default function PublicGallery() {
           <div className="absolute top-4 left-4 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 z-10">
             <p className="text-white text-sm">{selectedPhoto.file_name}</p>
           </div>
+
+          <button
+            className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigatePhoto('prev');
+            }}
+          >
+            <Icon name="ChevronLeft" size={32} className="text-white" />
+          </button>
+
+          <button
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigatePhoto('next');
+            }}
+          >
+            <Icon name="ChevronRight" size={32} className="text-white" />
+          </button>
           
           {imageError ? (
             <div className="text-center text-white px-4">
