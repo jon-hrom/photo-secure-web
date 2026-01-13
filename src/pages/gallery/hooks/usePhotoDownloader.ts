@@ -102,39 +102,35 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
 
       setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
 
-      const BATCH_SIZE = 5;
+      const BATCH_SIZE = 3;
       for (let i = 0; i < data.files.length; i += BATCH_SIZE) {
         if (abortController.signal.aborted) {
           break;
         }
 
         const batch = data.files.slice(i, i + BATCH_SIZE);
-        const batchPromises = batch.map(async (file: any) => {
+        
+        for (const file of batch) {
+          if (abortController.signal.aborted) break;
+          
           try {
             const fileResponse = await fetch(file.url, { signal: abortController.signal });
-            if (!fileResponse.ok) return null;
-            const blob = await fileResponse.blob();
-            return { filename: file.filename, blob };
+            if (fileResponse.ok) {
+              const arrayBuffer = await fileResponse.arrayBuffer();
+              zip.file(file.filename, arrayBuffer);
+            }
           } catch (err: any) {
-            if (err.name === 'AbortError') return null;
+            if (err.name === 'AbortError') break;
             console.error('Ошибка загрузки файла:', file.filename, err);
-            return null;
           }
-        });
 
-        const results = await Promise.all(batchPromises);
-        results.forEach(result => {
-          if (result) {
-            zip.file(result.filename, result.blob);
-          }
-        });
-
-        setDownloadProgress({ 
-          show: true, 
-          current: Math.min(i + BATCH_SIZE, totalFiles), 
-          total: totalFiles, 
-          status: 'downloading' 
-        });
+          setDownloadProgress({ 
+            show: true, 
+            current: i + batch.indexOf(file) + 1, 
+            total: totalFiles, 
+            status: 'downloading' 
+          });
+        }
       }
 
       if (abortController.signal.aborted) {
@@ -152,6 +148,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
 
       const zipBlob = await zip.generateAsync({ 
         type: 'blob',
+        compression: 'STORE',
         streamFiles: true
       });
 
