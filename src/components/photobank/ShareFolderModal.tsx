@@ -75,15 +75,20 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
       console.log('[SHARE_MODAL] Response status:', response.status);
       const data = await response.json();
       console.log('[SHARE_MODAL] Clients response:', JSON.stringify(data, null, 2));
-      if (data.clients && Array.isArray(data.clients)) {
-        console.log('[SHARE_MODAL] Setting clients:', data.clients.length, 'items');
+      
+      // Backend может вернуть массив напрямую или объект с полем clients
+      if (Array.isArray(data)) {
+        console.log('[SHARE_MODAL] ✅ Got array directly, setting', data.length, 'clients');
+        setClients(data);
+      } else if (data.clients && Array.isArray(data.clients)) {
+        console.log('[SHARE_MODAL] ✅ Got clients from object, setting', data.clients.length, 'clients');
         setClients(data.clients);
       } else {
-        console.warn('[SHARE_MODAL] No clients array in response, setting empty array');
+        console.warn('[SHARE_MODAL] ⚠️ No clients found in response, setting empty array');
         setClients([]);
       }
     } catch (err) {
-      console.error('[SHARE_MODAL] Error loading clients:', err);
+      console.error('[SHARE_MODAL] ❌ Error loading clients:', err);
       setClients([]);
     }
   };
