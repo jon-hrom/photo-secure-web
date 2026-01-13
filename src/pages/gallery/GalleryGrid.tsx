@@ -36,6 +36,8 @@ interface GalleryGridProps {
   onDownloadAll: () => void;
   onPhotoClick: (photo: Photo) => void;
   onDownloadPhoto: (photo: Photo) => void;
+  onAddToFavorites: (photo: Photo) => void;
+  onOpenFavoriteFolders: () => void;
   formatFileSize: (bytes: number) => string;
   onPhotoLoad?: () => void;
 }
@@ -46,6 +48,8 @@ export default function GalleryGrid({
   onDownloadAll, 
   onPhotoClick, 
   onDownloadPhoto,
+  onAddToFavorites,
+  onOpenFavoriteFolders,
   formatFileSize,
   onPhotoLoad
 }: GalleryGridProps) {
@@ -60,16 +64,25 @@ export default function GalleryGrid({
                 {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
               </p>
             </div>
-            {!gallery.download_disabled && (
+            <div className="flex gap-3">
               <button
-                onClick={onDownloadAll}
-                disabled={downloadingAll}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={onOpenFavoriteFolders}
+                className="flex items-center gap-2 px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
               >
-                <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
-                {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
+                <Icon name="FolderHeart" size={20} />
+                Мои папки
               </button>
-            )}
+              {!gallery.download_disabled && (
+                <button
+                  onClick={onDownloadAll}
+                  disabled={downloadingAll}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
+                  {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -138,19 +151,30 @@ export default function GalleryGrid({
                   
                   return watermarks;
                 })()}
-                {!gallery.download_disabled && (
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
+                <div className="absolute bottom-2 right-2 flex gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddToFavorites(photo);
+                    }}
+                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 hover:scale-110 transition-all shadow-lg group/btn"
+                    title="Добавить в избранное"
+                  >
+                    <Icon name="Star" size={16} className="text-gray-900 group-hover/btn:text-white" />
+                  </button>
+                  {!gallery.download_disabled && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onDownloadPhoto(photo);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-3 bg-white rounded-full transition-opacity"
+                      className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-blue-500 hover:scale-110 transition-all shadow-lg group/btn"
+                      title="Скачать фото"
                     >
-                      <Icon name="Download" size={24} className="text-gray-900" />
+                      <Icon name="Download" size={16} className="text-gray-900 group-hover/btn:text-white" />
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}

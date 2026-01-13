@@ -5,6 +5,9 @@ import PasswordForm from './gallery/PasswordForm';
 import GalleryGrid from './gallery/GalleryGrid';
 import PhotoViewer from './gallery/PhotoViewer';
 import LoadingIndicators from './gallery/LoadingIndicators';
+import FavoritesModal from '@/components/gallery/FavoritesModal';
+import FavoriteFoldersModal from '@/components/gallery/FavoriteFoldersModal';
+import FolderPhotosModal from '@/components/gallery/FolderPhotosModal';
 import { useGalleryProtection } from './gallery/hooks/useGalleryProtection';
 import { useGalleryLoader } from './gallery/hooks/useGalleryLoader';
 import { usePhotoDownloader } from './gallery/hooks/usePhotoDownloader';
@@ -19,12 +22,32 @@ interface Photo {
   file_size: number;
 }
 
+interface FavoriteFolder {
+  id: string;
+  name: string;
+  fields: {
+    fullName: boolean;
+    phone: boolean;
+    email: boolean;
+  };
+  photoCount: number;
+  photos: Photo[];
+}
+
 export default function PublicGallery() {
   const { code } = useParams<{ code: string }>();
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [imageError, setImageError] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
+  const [favoriteFolders, setFavoriteFolders] = useState<FavoriteFolder[]>([]);
+  const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
+  const [isFoldersModalOpen, setIsFoldersModalOpen] = useState(false);
+  const [isFolderPhotosModalOpen, setIsFolderPhotosModalOpen] = useState(false);
+  const [selectedFolderForAdd, setSelectedFolderForAdd] = useState<FavoriteFolder | null>(null);
+  const [selectedFolderForView, setSelectedFolderForView] = useState<FavoriteFolder | null>(null);
+  const [photoToAdd, setPhotoToAdd] = useState<Photo | null>(null);
 
   const {
     gallery,
@@ -49,6 +72,102 @@ export default function PublicGallery() {
     downloadAll,
     cancelDownload
   } = usePhotoDownloader(code, password, gallery?.folder_name);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`favorites_${code}`);
+    if (saved) {
+      setFavoriteFolders(JSON.parse(saved));
+    }
+  }, [code]);
+
+  const saveFolders = (folders: FavoriteFolder[]) => {
+    setFavoriteFolders(folders);
+    localStorage.setItem(`favorites_${code}`, JSON.stringify(folders));
+  };
+
+  const handleAddToFavorites = (photo: Photo) => {
+    if (favoriteFolders.length === 0) {
+      alert('Сначала создайте папку избранного');
+      setIsFoldersModalOpen(true);
+      return;
+    }
+    
+    if (favoriteFolders.length === 1) {
+      setSelectedFolderForAdd(favoriteFolders[0]);
+      setPhotoToAdd(photo);
+      setIsFavoritesModalOpen(true);
+    } else {
+      setPhotoToAdd(photo);
+      setIsFoldersModalOpen(true);
+    }
+  };
+
+  const handleCreateFolder = (name: string, fields: { fullName: boolean; phone: boolean; email: boolean }) => {
+    const newFolder: FavoriteFolder = {
+      id: Date.now().toString(),
+      name,
+      fields,
+      photoCount: 0,
+      photos: []
+    };
+    saveFolders([...favoriteFolders, newFolder]);
+  };
+
+  const handleDeleteFolder = (id: string) => {
+    saveFolders(favoriteFolders.filter(f => f.id !== id));
+  };
+
+  const handleOpenFolder = (folder: FavoriteFolder) => {
+    if (photoToAdd) {
+      setSelectedFolderForAdd(folder);
+      setIsFoldersModalOpen(false);
+      setIsFavoritesModalOpen(true);
+    } else {
+      setSelectedFolderForView(folder);
+      setIsFoldersModalOpen(false);
+      setIsFolderPhotosModalOpen(true);
+    }
+  };
+
+  const handleSubmitToFavorites = (data: { fullName: string; phone: string; email?: string }) => {
+    if (!selectedFolderForAdd || !photoToAdd) return;
+
+    const updatedFolders = favoriteFolders.map(folder => {
+      if (folder.id === selectedFolderForAdd.id) {
+        const photoExists = folder.photos.some(p => p.id === photoToAdd.id);
+        if (!photoExists) {
+          return {
+            ...folder,
+            photos: [...folder.photos, photoToAdd],
+            photoCount: folder.photoCount + 1
+          };
+        }
+      }
+      return folder;
+    });
+
+    saveFolders(updatedFolders);
+    setPhotoToAdd(null);
+    setSelectedFolderForAdd(null);
+  };
+
+  const handleRemovePhoto = (photoId: number) => {
+    if (!selectedFolderForView) return;
+
+    const updatedFolders = favoriteFolders.map(folder => {
+      if (folder.id === selectedFolderForView.id) {
+        return {
+          ...folder,
+          photos: folder.photos.filter(p => p.id !== photoId),
+          photoCount: folder.photoCount - 1
+        };
+      }
+      return folder;
+    });
+
+    saveFolders(updatedFolders);
+    setSelectedFolderForView(updatedFolders.find(f => f.id === selectedFolderForView.id) || null);
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' Б';
@@ -162,6 +281,11 @@ export default function PublicGallery() {
             setSelectedPhoto(photo);
           }}
           onDownloadPhoto={downloadPhoto}
+          onAddToFavorites={handleAddToFavorites}
+          onOpenFavoriteFolders={() => {
+            setPhotoToAdd(null);
+            setIsFoldersModalOpen(true);
+          }}
           formatFileSize={formatFileSize}
           onPhotoLoad={() => setPhotosLoaded(prev => prev + 1)}
         />
@@ -175,10 +299,53 @@ export default function PublicGallery() {
           onClose={() => setSelectedPhoto(null)}
           onNavigate={navigatePhoto}
           onDownloadPhoto={downloadPhoto}
+          onAddToFavorites={handleAddToFavorites}
           onImageError={() => setImageError(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+        />
+      )}
+
+      {selectedFolderForAdd && (
+        <FavoritesModal
+          isOpen={isFavoritesModalOpen}
+          onClose={() => {
+            setIsFavoritesModalOpen(false);
+            setSelectedFolderForAdd(null);
+            setPhotoToAdd(null);
+          }}
+          folder={selectedFolderForAdd}
+          onSubmit={handleSubmitToFavorites}
+        />
+      )}
+
+      <FavoriteFoldersModal
+        isOpen={isFoldersModalOpen}
+        onClose={() => {
+          setIsFoldersModalOpen(false);
+          setPhotoToAdd(null);
+        }}
+        folders={favoriteFolders}
+        onCreateFolder={handleCreateFolder}
+        onDeleteFolder={handleDeleteFolder}
+        onOpenFolder={handleOpenFolder}
+      />
+
+      {selectedFolderForView && (
+        <FolderPhotosModal
+          isOpen={isFolderPhotosModalOpen}
+          onClose={() => {
+            setIsFolderPhotosModalOpen(false);
+            setSelectedFolderForView(null);
+          }}
+          folderName={selectedFolderForView.name}
+          photos={selectedFolderForView.photos}
+          onRemovePhoto={handleRemovePhoto}
+          onViewPhoto={(photo) => {
+            setSelectedPhoto(photo);
+            setIsFolderPhotosModalOpen(false);
+          }}
         />
       )}
     </>

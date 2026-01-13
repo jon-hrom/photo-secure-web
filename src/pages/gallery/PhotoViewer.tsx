@@ -37,6 +37,7 @@ interface PhotoViewerProps {
   onClose: () => void;
   onNavigate: (direction: 'prev' | 'next') => void;
   onDownloadPhoto: (photo: Photo) => void;
+  onAddToFavorites: (photo: Photo) => void;
   onImageError: () => void;
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchMove: (e: React.TouchEvent) => void;
@@ -50,6 +51,7 @@ export default function PhotoViewer({
   onClose,
   onNavigate,
   onDownloadPhoto,
+  onAddToFavorites,
   onImageError,
   onTouchStart,
   onTouchMove,
@@ -179,18 +181,30 @@ export default function PhotoViewer({
               return watermarks;
             })()}
           </div>
-          {!gallery.download_disabled && (
+          <div className="absolute bottom-4 right-4 flex gap-3 z-10">
             <button
-              className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors z-10"
+              className="p-3 bg-white/20 backdrop-blur-sm rounded-full hover:bg-yellow-500 hover:scale-110 transition-all shadow-lg group/btn"
               onClick={(e) => {
                 e.stopPropagation();
-                onDownloadPhoto(selectedPhoto);
+                onAddToFavorites(selectedPhoto);
               }}
+              title="Добавить в избранное"
             >
-              <Icon name="Download" size={20} />
-              Скачать
+              <Icon name="Star" size={20} className="text-white" />
             </button>
-          )}
+            {!gallery.download_disabled && (
+              <button
+                className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownloadPhoto(selectedPhoto);
+                }}
+              >
+                <Icon name="Download" size={20} />
+                Скачать
+              </button>
+            )}
+          </div>
         </>
       )}
     </div>
