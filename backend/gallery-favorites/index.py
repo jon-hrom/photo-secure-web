@@ -113,33 +113,74 @@ def handler(event: dict, context) -> dict:
         elif method == 'GET':
             params = event.get('queryStringParameters') or {}
             client_id = params.get('client_id')
+            gallery_code = params.get('gallery_code')
             
-            if not client_id:
+            if gallery_code:
+                cur.execute('''
+                    SELECT 
+                        fc.id as client_id,
+                        fc.full_name,
+                        fc.phone,
+                        fc.email,
+                        fp.photo_id,
+                        fp.added_at
+                    FROM t_p28211681_photo_secure_web.favorite_clients fc
+                    LEFT JOIN t_p28211681_photo_secure_web.favorite_photos fp ON fc.id = fp.client_id
+                    WHERE fc.gallery_code = %s
+                    ORDER BY fc.full_name, fp.added_at DESC
+                ''', (gallery_code,))
+                
+                clients = {}
+                for row in cur.fetchall():
+                    client_id_row = row[0]
+                    if client_id_row not in clients:
+                        clients[client_id_row] = {
+                            'client_id': client_id_row,
+                            'full_name': row[1],
+                            'phone': row[2],
+                            'email': row[3],
+                            'photos': []
+                        }
+                    
+                    if row[4]:
+                        clients[client_id_row]['photos'].append({
+                            'photo_id': row[4],
+                            'added_at': row[5].isoformat() if row[5] else None
+                        })
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'clients': list(clients.values())})
+                }
+            
+            elif client_id:
+                cur.execute('''
+                    SELECT fp.photo_id, fp.added_at
+                    FROM t_p28211681_photo_secure_web.favorite_photos fp
+                    WHERE fp.client_id = %s
+                    ORDER BY fp.added_at DESC
+                ''', (client_id,))
+                
+                photos = []
+                for row in cur.fetchall():
+                    photos.append({
+                        'photo_id': row[0],
+                        'added_at': row[1].isoformat() if row[1] else None
+                    })
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'photos': photos})
+                }
+            
+            else:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'client_id required'})
+                    'body': json.dumps({'error': 'client_id or gallery_code required'})
                 }
-            
-            cur.execute('''
-                SELECT fp.photo_id, fp.added_at
-                FROM t_p28211681_photo_secure_web.favorite_photos fp
-                WHERE fp.client_id = %s
-                ORDER BY fp.added_at DESC
-            ''', (client_id,))
-            
-            photos = []
-            for row in cur.fetchall():
-                photos.append({
-                    'photo_id': row[0],
-                    'added_at': row[1].isoformat() if row[1] else None
-                })
-            
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'photos': photos})
-            }
         
         elif method == 'DELETE':
             params = event.get('queryStringParameters') or {}

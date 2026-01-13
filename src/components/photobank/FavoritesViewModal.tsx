@@ -2,23 +2,21 @@ import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 
-interface FavoriteItem {
-  photo: {
-    id: number;
-    file_name: string;
-    photo_url: string;
-    thumbnail_url?: string;
-  };
-  fullName: string;
-  phone: string;
-  email?: string;
-  timestamp: number;
-}
-
 interface FavoritesViewModalProps {
   folderId: number;
   folderName: string;
   onClose: () => void;
+}
+
+interface ClientData {
+  client_id: number;
+  full_name: string;
+  phone: string;
+  email?: string;
+  photos: Array<{
+    photo_id: number;
+    added_at?: string;
+  }>;
 }
 
 interface Photo {
@@ -29,40 +27,58 @@ interface Photo {
 }
 
 export default function FavoritesViewModal({ folderId, folderName, onClose }: FavoritesViewModalProps) {
-  const [groupedFavorites, setGroupedFavorites] = useState<Record<string, FavoriteItem[]>>({});
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [clients, setClients] = useState<ClientData[]>([]);
+  const [selectedClient, setSelectedClient] = useState<ClientData | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
 
   useEffect(() => {
     loadFavorites();
+    loadPhotos();
   }, [folderId]);
 
-  const loadFavorites = () => {
+  const loadPhotos = async () => {
+    try {
+      const response = await fetch(`https://functions.poehali.dev/39b8df7f-4d9d-49b4-b8d6-2b6cac7b08e7?folder_id=${folderId}`);
+      const result = await response.json();
+      if (response.ok) {
+        setAllPhotos(result.photos || []);
+      }
+    } catch (e) {
+      console.error('[FAVORITES] Failed to load photos:', e);
+    }
+  };
+
+  const loadFavorites = async () => {
+    setLoading(true);
+    setError('');
+    
     const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
     if (!galleryCode) {
       setLoading(false);
       return;
     }
 
-    const savedFavorites = localStorage.getItem(`favorites_${galleryCode}`);
-    if (savedFavorites) {
-      try {
-        const data: FavoriteItem[] = JSON.parse(savedFavorites);
-        
-        const grouped = data.reduce((acc: Record<string, FavoriteItem[]>, fav) => {
-          const key = fav.fullName;
-          if (!acc[key]) acc[key] = [];
-          acc[key].push(fav);
-          return acc;
-        }, {});
-        
-        setGroupedFavorites(grouped);
-      } catch (e) {
-        console.error('Failed to parse favorites:', e);
+    try {
+      const response = await fetch(
+        `https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?gallery_code=${galleryCode}`
+      );
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка загрузки избранного');
       }
+      
+      setClients(result.clients || []);
+    } catch (e) {
+      console.error('[FAVORITES] Failed to load favorites:', e);
+      setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (loading) {
@@ -75,11 +91,10 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
     );
   }
 
-  const clientNames = Object.keys(groupedFavorites);
-
   if (selectedClient) {
-    const clientPhotos = groupedFavorites[selectedClient] || [];
-    const clientInfo = clientPhotos[0];
+    const displayPhotos = selectedClient.photos
+      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
+      .filter((p): p is Photo => p !== undefined);
 
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -95,10 +110,10 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
                   <Icon name="ArrowLeft" size={18} />
                 </Button>
                 <Icon name="Star" size={24} className="text-yellow-500 fill-yellow-500" />
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedClient}</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedClient.full_name}</h2>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 ml-10">
-                {clientInfo.phone} {clientInfo.email && `· ${clientInfo.email}`} · {clientPhotos.length} фото
+                {selectedClient.phone} {selectedClient.email && `· ${selectedClient.email}`} · {displayPhotos.length} фото
               </p>
             </div>
             <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
@@ -108,15 +123,15 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
 
           <div className="flex-1 overflow-y-auto p-6">
             <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-              {clientPhotos.map((item, idx) => (
+              {displayPhotos.map((photo) => (
                 <div
-                  key={idx}
+                  key={photo.id}
                   className="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all aspect-square"
-                  onClick={() => setSelectedPhoto(item.photo)}
+                  onClick={() => setSelectedPhoto(photo)}
                 >
                   <img
-                    src={item.photo.thumbnail_url || item.photo.photo_url}
-                    alt={item.photo.file_name}
+                    src={photo.thumbnail_url || photo.photo_url}
+                    alt={photo.file_name}
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
@@ -166,7 +181,12 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {clientNames.length === 0 ? (
+          {error ? (
+            <div className="text-center py-12">
+              <Icon name="AlertCircle" size={48} className="text-red-500 mx-auto mb-4" />
+              <p className="text-red-600">{error}</p>
+            </div>
+          ) : clients.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <Icon name="ImageOff" size={48} className="mx-auto mb-3 opacity-50" />
               <p>Клиенты ещё не добавили фото в избранное</p>
@@ -174,35 +194,36 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clientNames.map((clientName) => {
-                const clientPhotos = groupedFavorites[clientName];
-                const clientInfo = clientPhotos[0];
+              {clients.map((client) => {
+                const clientPhotos = client.photos
+                  .map(fp => allPhotos.find(p => p.id === fp.photo_id))
+                  .filter((p): p is Photo => p !== undefined);
                 
                 return (
                   <div
-                    key={clientName}
-                    onClick={() => setSelectedClient(clientName)}
+                    key={client.client_id}
+                    onClick={() => setSelectedClient(client)}
                     className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start gap-3 mb-3">
                       <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                        {clientName.charAt(0).toUpperCase()}
+                        {client.full_name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">{clientName}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{clientInfo.phone}</p>
-                        {clientInfo.email && (
-                          <p className="text-xs text-gray-500 dark:text-gray-500 truncate">{clientInfo.email}</p>
+                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">{client.full_name}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{client.phone}</p>
+                        {client.email && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 truncate">{client.email}</p>
                         )}
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-3 gap-1 mb-2">
-                      {clientPhotos.slice(0, 3).map((item, idx) => (
+                      {clientPhotos.slice(0, 3).map((photo) => (
                         <img
-                          key={idx}
-                          src={item.photo.thumbnail_url || item.photo.photo_url}
-                          alt={item.photo.file_name}
+                          key={photo.id}
+                          src={photo.thumbnail_url || photo.photo_url}
+                          alt={photo.file_name}
                           className="w-full h-20 object-cover rounded"
                         />
                       ))}

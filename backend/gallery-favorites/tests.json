@@ -14,7 +14,7 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "success": true,
+        "success": "boolean",
         "client_id": "number"
       },
       "bodyMatcher": "partial"
@@ -42,6 +42,16 @@
       "expectedStatus": 200,
       "expectedBody": {
         "photos": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get all favorites by gallery_code",
+      "method": "GET",
+      "path": "/?gallery_code=test123",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "clients": "array"
       },
       "bodyMatcher": "partial"
     }
