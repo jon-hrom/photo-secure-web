@@ -130,37 +130,54 @@ export default function PhotoViewer({
               onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
               draggable={false}
             />
-            {gallery.watermark?.enabled && (
-              <div
-                className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                style={{
-                  opacity: (gallery.watermark.opacity || 50) / 100
-                }}
-              >
-                {gallery.watermark.type === 'text' ? (
-                  <p 
-                    className="text-white font-bold text-center px-4"
+            {gallery.watermark?.enabled && (() => {
+              const frequency = gallery.watermark.frequency || 50;
+              const count = Math.ceil(frequency / 10);
+              const watermarks = [];
+              
+              for (let i = 0; i < count; i++) {
+                const top = (i * (100 / count)) % 100;
+                const left = ((i * 37) % 100);
+                
+                watermarks.push(
+                  <div
+                    key={i}
+                    className="absolute pointer-events-none"
                     style={{
-                      fontSize: `${gallery.watermark.size * 2}px`,
-                      textShadow: '3px 3px 6px rgba(0,0,0,0.9)',
-                      transform: `rotate(${gallery.watermark.rotation || 0}deg)`
+                      top: `${top}%`,
+                      left: `${left}%`,
+                      transform: 'translate(-50%, -50%)',
+                      opacity: (gallery.watermark.opacity || 50) / 100
                     }}
                   >
-                    {gallery.watermark.text}
-                  </p>
-                ) : (
-                  <img 
-                    src={gallery.watermark.image_url} 
-                    alt="Watermark"
-                    style={{ 
-                      maxWidth: `${gallery.watermark.size * 2}%`, 
-                      maxHeight: `${gallery.watermark.size * 2}%`,
-                      transform: `rotate(${gallery.watermark.rotation || 0}deg)`
-                    }}
-                  />
-                )}
-              </div>
-            )}
+                    {gallery.watermark.type === 'text' ? (
+                      <p 
+                        className="text-white font-bold text-center px-2 whitespace-nowrap"
+                        style={{
+                          fontSize: `${gallery.watermark.size * 2}px`,
+                          textShadow: '3px 3px 6px rgba(0,0,0,0.9)',
+                          transform: `rotate(${gallery.watermark.rotation || 0}deg)`
+                        }}
+                      >
+                        {gallery.watermark.text}
+                      </p>
+                    ) : (
+                      <img 
+                        src={gallery.watermark.image_url} 
+                        alt="Watermark"
+                        style={{ 
+                          maxWidth: `${gallery.watermark.size * 2}px`,
+                          maxHeight: `${gallery.watermark.size * 2}px`,
+                          transform: `rotate(${gallery.watermark.rotation || 0}deg)`
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              }
+              
+              return watermarks;
+            })()}
           </div>
           {!gallery.download_disabled && (
             <button

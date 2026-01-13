@@ -87,34 +87,54 @@ export default function GalleryGrid({
                   onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
                   draggable={false}
                 />
-                {gallery.watermark?.enabled && Math.random() * 100 < (gallery.watermark.frequency || 50) && (
-                  <div
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                    style={{
-                      opacity: (gallery.watermark.opacity || 50) / 100,
-                      fontSize: `${gallery.watermark.size || 20}px`
-                    }}
-                  >
-                    {gallery.watermark.type === 'text' ? (
-                      <p 
-                        className="text-white font-bold text-center px-4" 
-                        style={{ 
-                          textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                          transform: `rotate(${gallery.watermark.rotation || 0}deg)`
+                {gallery.watermark?.enabled && (() => {
+                  const frequency = gallery.watermark.frequency || 50;
+                  const count = Math.ceil(frequency / 10);
+                  const watermarks = [];
+                  
+                  for (let i = 0; i < count; i++) {
+                    const top = (i * (100 / count)) % 100;
+                    const left = ((i * 37) % 100);
+                    
+                    watermarks.push(
+                      <div
+                        key={i}
+                        className="absolute pointer-events-none"
+                        style={{
+                          top: `${top}%`,
+                          left: `${left}%`,
+                          transform: 'translate(-50%, -50%)',
+                          opacity: (gallery.watermark.opacity || 50) / 100
                         }}
                       >
-                        {gallery.watermark.text}
-                      </p>
-                    ) : (
-                      <img 
-                        src={gallery.watermark.image_url} 
-                        alt="Watermark" 
-                        className="max-w-full max-h-full"
-                        style={{ transform: `rotate(${gallery.watermark.rotation || 0}deg)` }}
-                      />
-                    )}
-                  </div>
-                )}
+                        {gallery.watermark.type === 'text' ? (
+                          <p 
+                            className="text-white font-bold text-center px-2 whitespace-nowrap" 
+                            style={{ 
+                              fontSize: `${gallery.watermark.size || 20}px`,
+                              textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                              transform: `rotate(${gallery.watermark.rotation || 0}deg)`
+                            }}
+                          >
+                            {gallery.watermark.text}
+                          </p>
+                        ) : (
+                          <img 
+                            src={gallery.watermark.image_url} 
+                            alt="Watermark" 
+                            style={{ 
+                              maxWidth: `${gallery.watermark.size}px`,
+                              maxHeight: `${gallery.watermark.size}px`,
+                              transform: `rotate(${gallery.watermark.rotation || 0}deg)` 
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  }
+                  
+                  return watermarks;
+                })()}
                 {!gallery.download_disabled && (
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
                     <button
