@@ -5,7 +5,6 @@ import PasswordForm from './gallery/PasswordForm';
 import GalleryGrid from './gallery/GalleryGrid';
 import PhotoViewer from './gallery/PhotoViewer';
 import JSZip from 'jszip';
-import streamSaver from 'streamsaver';
 
 interface Photo {
   id: number;
@@ -183,6 +182,8 @@ export default function PublicGallery() {
     setDownloadProgress({ show: true, current: 0, total: 0, status: 'preparing' });
     
     try {
+      const supportsFileSystemAccess = 'showSaveFilePicker' in window;
+      
       const url = password 
         ? `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}&password=${encodeURIComponent(password)}`
         : `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}`;
@@ -195,13 +196,10 @@ export default function PublicGallery() {
 
       const totalFiles = data.files.length;
       const zip = new JSZip();
-      
-      const fileStream = streamSaver.createWriteStream(`${gallery?.folder_name || 'gallery'}.zip`);
-      const writer = fileStream.getWriter();
 
       setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
 
-      const BATCH_SIZE = 10;
+      const BATCH_SIZE = 5;
       for (let i = 0; i < data.files.length; i += BATCH_SIZE) {
         const batch = data.files.slice(i, i + BATCH_SIZE);
         const batchPromises = batch.map(async (file: any) => {
@@ -233,18 +231,43 @@ export default function PublicGallery() {
 
       setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
 
-      const readableStream = zip.generateInternalStream({ type: 'uint8array', streamFiles: true });
-      
-      readableStream.on('data', (chunk: any) => {
-        writer.write(chunk);
-      });
+      if (supportsFileSystemAccess) {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: `${gallery?.folder_name || 'gallery'}.zip`,
+          types: [{
+            description: 'ZIP Archive',
+            accept: { 'application/zip': ['.zip'] }
+          }]
+        });
 
-      await new Promise((resolve, reject) => {
-        readableStream.on('end', resolve);
-        readableStream.on('error', reject);
-      });
+        const writable = await handle.createWritable();
+        const stream = zip.generateInternalStream({ type: 'uint8array', streamFiles: true });
+        
+        stream.on('data', async (chunk: any) => {
+          await writable.write(chunk);
+        });
 
-      await writer.close();
+        await new Promise((resolve, reject) => {
+          stream.on('end', resolve);
+          stream.on('error', reject);
+        });
+
+        await writable.close();
+      } else {
+        const zipBlob = await zip.generateAsync({ 
+          type: 'blob',
+          streamFiles: true
+        });
+
+        const zipUrl = URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = zipUrl;
+        link.download = `${gallery?.folder_name || 'gallery'}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(zipUrl);
+      }
       
       setTimeout(() => {
         setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
