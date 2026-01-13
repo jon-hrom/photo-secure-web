@@ -28,13 +28,16 @@ export default function ClientSelector({ clients, selectedClient, onClientChange
               <p className="text-xs text-yellow-700 dark:text-yellow-300 mb-3">
                 Создайте карточку клиента в разделе "Клиенты", чтобы связать её с папкой и отправлять ссылки через MAX
               </p>
-              <a
-                href="/clients"
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = '/clients';
+                }}
                 className="inline-flex items-center gap-2 text-sm font-medium text-yellow-900 dark:text-yellow-200 hover:underline"
               >
                 <Icon name="UserPlus" size={16} />
                 Перейти к клиентам
-              </a>
+              </button>
             </div>
           </div>
         </div>

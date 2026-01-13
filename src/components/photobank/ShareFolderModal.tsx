@@ -60,21 +60,25 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   const loadClients = async () => {
     try {
       console.log('[SHARE_MODAL] Loading clients for userId:', userId);
+      console.log('[SHARE_MODAL] Fetching from:', CLIENTS_URL);
       const response = await fetch(CLIENTS_URL, {
         headers: {
           'X-User-Id': userId.toString()
         }
       });
+      console.log('[SHARE_MODAL] Response status:', response.status);
       const data = await response.json();
-      console.log('[SHARE_MODAL] Clients response:', data);
-      if (data.clients) {
+      console.log('[SHARE_MODAL] Clients response:', JSON.stringify(data, null, 2));
+      if (data.clients && Array.isArray(data.clients)) {
+        console.log('[SHARE_MODAL] Setting clients:', data.clients.length, 'items');
         setClients(data.clients);
-        console.log('[SHARE_MODAL] Loaded clients count:', data.clients.length);
       } else {
-        console.warn('[SHARE_MODAL] No clients in response');
+        console.warn('[SHARE_MODAL] No clients array in response, setting empty array');
+        setClients([]);
       }
     } catch (err) {
       console.error('[SHARE_MODAL] Error loading clients:', err);
+      setClients([]);
     }
   };
 
