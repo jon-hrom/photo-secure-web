@@ -34,15 +34,10 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
   const [groupedFavorites, setGroupedFavorites] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
-    loadFolder();
-    loadFavorites();
-  }, [folderId]);
-
-  const loadFolder = async () => {
-    try {
-      const response = await fetch(`/api/folders/${folderId}/favorite-config`);
-      if (response.ok) {
-        const data = await response.json();
+    const savedFolder = localStorage.getItem(`folder_${folderId}_favorite_config`);
+    if (savedFolder) {
+      try {
+        const data = JSON.parse(savedFolder);
         setFolder(data);
         setFormData({
           name: data.name || '',
@@ -50,53 +45,57 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
           phone: data.fields.phone,
           email: data.fields.email
         });
+      } catch (e) {
+        console.error('Failed to parse folder config:', e);
       }
-    } catch (err) {
-      console.error('Failed to load folder config:', err);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const loadFavorites = async () => {
-    try {
-      const response = await fetch(`/api/folders/${folderId}/favorites`);
-      if (response.ok) {
-        const data = await response.json();
-        setFavorites(data);
-        
-        const grouped = data.reduce((acc: Record<string, any[]>, fav: any) => {
-          const key = fav.full_name;
-          if (!acc[key]) acc[key] = [];
-          acc[key].push(fav);
-          return acc;
-        }, {});
-        setGroupedFavorites(grouped);
+    
+    const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
+    if (galleryCode) {
+      const savedFavorites = localStorage.getItem(`favorites_${galleryCode}`);
+      if (savedFavorites) {
+        try {
+          const data = JSON.parse(savedFavorites);
+          setFavorites(data);
+          
+          const grouped = data.reduce((acc: Record<string, any[]>, fav: any) => {
+            const key = fav.fullName;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(fav);
+            return acc;
+          }, {});
+          setGroupedFavorites(grouped);
+        } catch (e) {
+          console.error('Failed to parse favorites:', e);
+        }
       }
-    } catch (err) {
-      console.error('Failed to load favorites:', err);
     }
-  };
+    
+    setLoading(false);
+  }, [folderId]);
 
-  const handleSave = async () => {
-    try {
-      await fetch(`/api/folders/${folderId}/favorite-config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          fields: {
-            fullName: formData.fullName,
-            phone: formData.phone,
-            email: formData.email
-          }
-        })
-      });
-      await loadFolder();
-      setIsEditing(false);
-    } catch (err) {
-      alert('Ошибка при сохранении настроек');
+  const handleSave = () => {
+    const newFolder = {
+      id: folderId.toString(),
+      name: formData.name,
+      fields: {
+        fullName: formData.fullName,
+        phone: formData.phone,
+        email: formData.email
+      }
+    };
+    
+    localStorage.setItem(`folder_${folderId}_favorite_config`, JSON.stringify(newFolder));
+    
+    const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
+    if (galleryCode) {
+      localStorage.setItem(`favorite_folder_${galleryCode}`, JSON.stringify(newFolder));
     }
+    
+    setFolder(newFolder);
+    setIsEditing(false);
+    
+    alert('Настройки сохранены! Теперь клиенты смогут добавлять фото в избранное.');
   };
 
   if (loading) {
@@ -238,22 +237,28 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
             {Object.entries(groupedFavorites).map(([name, items]) => (
               <div key={name} className="bg-white dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-gray-900 dark:text-white">{name}</p>
                     <p className="text-sm text-gray-500">
                       {items.length} фото · {items[0].phone}
                       {items[0].email && ` · ${items[0].email}`}
                     </p>
+                    <div className="grid grid-cols-4 gap-1 mt-2">
+                      {items.slice(0, 4).map((item: any, idx: number) => (
+                        <img
+                          key={idx}
+                          src={item.photo.thumbnail_url || item.photo.photo_url}
+                          alt={item.photo.file_name}
+                          className="w-full h-16 object-cover rounded"
+                        />
+                      ))}
+                      {items.length > 4 && (
+                        <div className="w-full h-16 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center text-sm font-medium text-gray-600 dark:text-gray-400">
+                          +{items.length - 4}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      // TODO: Открыть просмотр фото из папки
-                    }}
-                  >
-                    <Icon name="Eye" size={16} />
-                  </Button>
                 </div>
               </div>
             ))}

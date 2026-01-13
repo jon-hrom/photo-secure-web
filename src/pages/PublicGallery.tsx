@@ -68,18 +68,14 @@ export default function PublicGallery() {
   } = usePhotoDownloader(code, password, gallery?.folder_name);
 
   useEffect(() => {
-    const loadFolderConfig = async () => {
+    const saved = localStorage.getItem(`favorite_folder_${code}`);
+    if (saved) {
       try {
-        const response = await fetch(`/api/galleries/${code}/favorite-folder`);
-        if (response.ok) {
-          const data = await response.json();
-          setFavoriteFolder(data);
-        }
-      } catch (err) {
-        console.error('Failed to load folder config:', err);
+        setFavoriteFolder(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse folder config:', e);
       }
-    };
-    if (code) loadFolderConfig();
+    }
   }, [code]);
 
   const handleAddToFavorites = (photo: Photo) => {
@@ -91,25 +87,20 @@ export default function PublicGallery() {
     setIsFavoritesModalOpen(true);
   };
 
-  const handleSubmitToFavorites = async (data: { fullName: string; phone: string; email?: string }) => {
+  const handleSubmitToFavorites = (data: { fullName: string; phone: string; email?: string }) => {
     if (!photoToAdd || !favoriteFolder) return;
 
-    try {
-      await fetch(`/api/galleries/${code}/favorites`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          photo_id: photoToAdd.id,
-          full_name: data.fullName,
-          phone: data.phone,
-          email: data.email
-        })
-      });
-      alert('Фото добавлено в избранное!');
-    } catch (err) {
-      alert('Ошибка при добавлении фото');
-    }
-
+    const favorites = JSON.parse(localStorage.getItem(`favorites_${code}`) || '[]');
+    favorites.push({
+      photo: photoToAdd,
+      fullName: data.fullName,
+      phone: data.phone,
+      email: data.email,
+      timestamp: Date.now()
+    });
+    localStorage.setItem(`favorites_${code}`, JSON.stringify(favorites));
+    
+    alert('Фото добавлено в избранное!');
     setPhotoToAdd(null);
   };
 

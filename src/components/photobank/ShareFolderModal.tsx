@@ -177,6 +177,11 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
       }
 
       setShareUrl(data.share_url);
+      
+      const galleryCode = data.share_url.split('/').pop();
+      if (galleryCode) {
+        localStorage.setItem(`folder_${folderId}_gallery_code`, galleryCode);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
