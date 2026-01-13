@@ -313,7 +313,7 @@ export default function LinkSettingsForm({
         ) : (
           <>
             <Icon name="Link" size={20} className="mr-2" />
-            Скопировать ссылку
+            Создать ссылку
           </>
         )}
       </Button>
