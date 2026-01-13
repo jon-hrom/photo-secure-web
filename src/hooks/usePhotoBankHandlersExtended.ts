@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import JSZip from 'jszip';
+import * as zip from '@zip.js/zip.js';
 
 interface TechSortProgress {
   open: boolean;
@@ -240,7 +240,8 @@ export const usePhotoBankHandlersExtended = (
         totalFiles
       }));
 
-      const zip = new JSZip();
+      const zipFileStream = new zip.BlobWriter();
+      const zipWriter = new zip.ZipWriter(zipFileStream);
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -258,8 +259,9 @@ export const usePhotoBankHandlersExtended = (
   
             continue;
           }
-          const blob = await fileResponse.blob();
-          zip.file(file.filename, blob);
+          if (fileResponse.body) {
+            await zipWriter.add(file.filename, fileResponse.body, { level: 0 });
+          }
         } catch (err) {
 
         }
@@ -271,7 +273,7 @@ export const usePhotoBankHandlersExtended = (
         progress: 95
       }));
 
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipBlob = await zipWriter.close();
 
       setDownloadProgress(prev => ({
         ...prev,
