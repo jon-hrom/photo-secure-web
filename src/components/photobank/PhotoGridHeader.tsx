@@ -17,6 +17,7 @@ interface PhotoGridHeaderProps {
   onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onCancelUpload: () => void;
   isAdminViewing?: boolean;
+  onRenameFolder?: () => void;
 }
 
 const PhotoGridHeader = ({
@@ -25,7 +26,8 @@ const PhotoGridHeader = ({
   uploadProgress,
   onUploadPhoto,
   onCancelUpload,
-  isAdminViewing = false
+  isAdminViewing = false,
+  onRenameFolder
 }: PhotoGridHeaderProps) => {
   return (
     <CardHeader>
@@ -33,6 +35,17 @@ const PhotoGridHeader = ({
         <CardTitle className="flex items-center gap-2">
           <Icon name="Image" size={20} />
           {selectedFolder ? selectedFolder.folder_name : 'Фотографии'}
+          {selectedFolder && onRenameFolder && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRenameFolder}
+              className="h-7 w-7 p-0 hover:bg-accent"
+              title="Переименовать папку"
+            >
+              <Icon name="Pencil" size={14} />
+            </Button>
+          )}
         </CardTitle>
         {selectedFolder && (
           <div className="relative">

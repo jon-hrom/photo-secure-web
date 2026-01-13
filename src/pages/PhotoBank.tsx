@@ -181,6 +181,27 @@ const PhotoBank = () => {
     setShareModalFolder({ id: folderId, name: folderName });
   };
 
+  const handleRenameFolder = () => {
+    if (!selectedFolder) return;
+    const newName = window.prompt('Введите новое название папки:', selectedFolder.folder_name);
+    if (!newName || newName.trim() === '' || newName === selectedFolder.folder_name) return;
+
+    fetch(`${PHOTOBANK_FOLDERS_API}/${selectedFolder.id}?userId=${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_name: newName.trim() })
+    })
+      .then(res => res.json())
+      .then(() => {
+        fetchFolders();
+        setSelectedFolder({ ...selectedFolder, folder_name: newName.trim() });
+      })
+      .catch(err => {
+        console.error('Failed to rename folder:', err);
+        alert('Ошибка переименования папки');
+      });
+  };
+
   const handleRestoreSelectedPhotos = async () => {
     if (selectedPhotos.size === 0) return;
 
@@ -339,6 +360,7 @@ const PhotoBank = () => {
             onCancelUpload={handleCancelUpload}
             onRestorePhoto={handleRestorePhoto}
             isAdminViewing={isAdminViewing}
+            onRenameFolder={handleRenameFolder}
           />
         )}
       </div>

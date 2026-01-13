@@ -50,6 +50,7 @@ interface PhotoBankPhotoGridProps {
   onCancelUpload: () => void;
   onRestorePhoto?: (photoId: number) => void;
   isAdminViewing?: boolean;
+  onRenameFolder?: () => void;
 }
 
 const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
@@ -94,7 +95,8 @@ const PhotoBankPhotoGrid = ({
   onTogglePhotoSelection,
   onCancelUpload,
   onRestorePhoto,
-  isAdminViewing = false
+  isAdminViewing = false,
+  onRenameFolder
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
@@ -156,6 +158,7 @@ const PhotoBankPhotoGrid = ({
         isAdminViewing={isAdminViewing}
         onUploadPhoto={onUploadPhoto}
         onCancelUpload={onCancelUpload}
+        onRenameFolder={onRenameFolder}
       />
       <CardContent>
         {isTechRejectsFolder && photos.length > 0 && (
