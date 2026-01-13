@@ -1,0 +1,126 @@
+import { useState, useEffect } from 'react';
+
+interface Photo {
+  id: number;
+  file_name: string;
+  photo_url: string;
+  thumbnail_url?: string;
+  width?: number;
+  height?: number;
+  file_size: number;
+}
+
+interface WatermarkSettings {
+  enabled: boolean;
+  type: string;
+  text?: string;
+  image_url?: string;
+  frequency: number;
+  size: number;
+  opacity: number;
+  rotation?: number;
+}
+
+interface GalleryData {
+  folder_name: string;
+  photos: Photo[];
+  total_size: number;
+  watermark?: WatermarkSettings;
+  screenshot_protection?: boolean;
+  download_disabled?: boolean;
+}
+
+export function useGalleryLoader(code?: string) {
+  const [gallery, setGallery] = useState<GalleryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [requiresPassword, setRequiresPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [photosLoaded, setPhotosLoaded] = useState(0);
+
+  const loadGallery = async (enteredPassword?: string) => {
+    console.log('[PUBLIC_GALLERY] Loading gallery, password provided:', !!enteredPassword);
+    try {
+      const passwordParam = enteredPassword || password;
+      const url = passwordParam 
+        ? `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}&password=${encodeURIComponent(passwordParam)}`
+        : `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}`;
+      
+      console.log('[PUBLIC_GALLERY] Fetching URL:', url);
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log('[PUBLIC_GALLERY] Response status:', response.status, 'Data:', data);
+      
+      if (response.status === 401 && data.requires_password) {
+        console.log('[PUBLIC_GALLERY] Password required');
+        setRequiresPassword(true);
+        setPasswordError(enteredPassword ? 'Неверный пароль' : '');
+        setLoading(false);
+        return;
+      }
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Галерея не найдена');
+      }
+      
+      console.log('[PUBLIC_GALLERY] Gallery loaded successfully, photos:', data.photos?.length);
+      setGallery(data);
+      setRequiresPassword(false);
+      setPasswordError('');
+      
+      if (data.photos && data.photos.length > 0) {
+        setPhotosLoaded(0);
+        setLoadingProgress(0);
+      }
+    } catch (err: any) {
+      console.error('[PUBLIC_GALLERY] Error:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log('[PUBLIC_GALLERY] Component mounted, code:', code);
+    loadGallery();
+  }, [code]);
+
+  useEffect(() => {
+    if (gallery && gallery.photos.length > 0 && photosLoaded < gallery.photos.length) {
+      const progressPercent = (photosLoaded / gallery.photos.length) * 100;
+      setLoadingProgress(progressPercent);
+    } else if (gallery && photosLoaded >= gallery.photos.length && photosLoaded > 0) {
+      setLoadingProgress(100);
+      setTimeout(() => setLoadingProgress(0), 500);
+    }
+  }, [photosLoaded, gallery]);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('[PUBLIC_GALLERY] Password submit, value:', password);
+    if (!password.trim()) {
+      setPasswordError('Введите пароль');
+      return;
+    }
+    setLoading(true);
+    setPasswordError('');
+    await loadGallery(password);
+  };
+
+  return {
+    gallery,
+    loading,
+    error,
+    requiresPassword,
+    password,
+    passwordError,
+    loadingProgress,
+    photosLoaded,
+    setPassword,
+    setPhotosLoaded,
+    handlePasswordSubmit
+  };
+}
