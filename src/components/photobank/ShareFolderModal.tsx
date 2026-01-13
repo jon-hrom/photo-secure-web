@@ -22,7 +22,13 @@ const CLIENTS_URL = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0de
 const FOLDER_CLIENT_URL = 'https://functions.poehali.dev/579eccc8-1cf2-4ef4-b5ad-d011a71ba393';
 
 export default function ShareFolderModal({ folderId, folderName, userId, onClose }: ShareFolderModalProps) {
-  console.log('[SHARE_MODAL] Component mounted with:', { folderId, folderName, userId });
+  console.log('═══════════════════════════════════════════');
+  console.log('[SHARE_MODAL] 🚀 MODAL OPENED');
+  console.log('[SHARE_MODAL] folderId:', folderId);
+  console.log('[SHARE_MODAL] folderName:', folderName);
+  console.log('[SHARE_MODAL] userId:', userId);
+  console.log('[SHARE_MODAL] userId type:', typeof userId);
+  console.log('═══════════════════════════════════════════');
   
   const [loading, setLoading] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
