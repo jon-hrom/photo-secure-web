@@ -18,7 +18,7 @@ interface ShareFolderModalProps {
 }
 
 const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
-const CLIENTS_URL = 'https://functions.poehali.dev/95efe27b-1ad9-49b5-a77b-1870a4cdd8e4';
+const CLIENTS_URL = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
 const FOLDER_CLIENT_URL = 'https://functions.poehali.dev/579eccc8-1cf2-4ef4-b5ad-d011a71ba393';
 
 export default function ShareFolderModal({ folderId, folderName, userId, onClose }: ShareFolderModalProps) {
