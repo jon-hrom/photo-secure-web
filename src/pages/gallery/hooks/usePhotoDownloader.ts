@@ -145,17 +145,12 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
 
       if (supportsFileSystemAccess && writable) {
-        const stream = zip.generateInternalStream({ type: 'uint8array', streamFiles: true });
+        const zipBlob = await zip.generateAsync({ 
+          type: 'blob',
+          streamFiles: true
+        });
         
-        stream.on('data', async (chunk: any) => {
-          await writable.write(chunk);
-        });
-
-        await new Promise((resolve, reject) => {
-          stream.on('end', resolve);
-          stream.on('error', reject);
-        });
-
+        await writable.write(zipBlob);
         await writable.close();
       } else {
         const zipBlob = await zip.generateAsync({ 
