@@ -146,6 +146,17 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
         expiresInDays = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       }
 
+      // Получаем настройки избранного из localStorage
+      const favoriteConfigStr = localStorage.getItem(`folder_${folderId}_favorite_config`);
+      let favoriteConfig = null;
+      if (favoriteConfigStr) {
+        try {
+          favoriteConfig = JSON.parse(favoriteConfigStr);
+        } catch (e) {
+          console.error('[SHARE_MODAL] Failed to parse favorite config:', e);
+        }
+      }
+
       const response = await fetch('https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab', {
         method: 'POST',
         headers: {
@@ -166,7 +177,8 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           watermark_size: linkSettings.watermarkSize,
           watermark_opacity: linkSettings.watermarkOpacity,
           watermark_rotation: linkSettings.watermarkRotation,
-          screenshot_protection: linkSettings.screenshotProtection
+          screenshot_protection: linkSettings.screenshotProtection,
+          favorite_config: favoriteConfig
         })
       });
 
@@ -181,13 +193,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
       const galleryCode = data.share_url.split('/').pop();
       if (galleryCode) {
         localStorage.setItem(`folder_${folderId}_gallery_code`, galleryCode);
-        
-        // Копируем настройки избранного для клиента
-        const favoriteConfig = localStorage.getItem(`folder_${folderId}_favorite_config`);
-        if (favoriteConfig) {
-          localStorage.setItem(`favorite_folder_${galleryCode}`, favoriteConfig);
-          console.log('[SHARE_MODAL] Скопированы настройки избранного для галереи:', galleryCode);
-        }
+        console.log('[SHARE_MODAL] Ссылка создана, настройки избранного отправлены на сервер');
       }
     } catch (err: any) {
       setError(err.message);

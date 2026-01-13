@@ -21,6 +21,16 @@ interface WatermarkSettings {
   rotation?: number;
 }
 
+interface FavoriteConfig {
+  id: string;
+  name: string;
+  fields: {
+    fullName: boolean;
+    phone: boolean;
+    email: boolean;
+  };
+}
+
 interface GalleryData {
   folder_name: string;
   photos: Photo[];
@@ -28,6 +38,7 @@ interface GalleryData {
   watermark?: WatermarkSettings;
   screenshot_protection?: boolean;
   download_disabled?: boolean;
+  favorite_config?: FavoriteConfig | null;
 }
 
 export function useGalleryLoader(code?: string) {

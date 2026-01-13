@@ -68,15 +68,12 @@ export default function PublicGallery() {
   } = usePhotoDownloader(code, password, gallery?.folder_name);
 
   useEffect(() => {
-    const saved = localStorage.getItem(`favorite_folder_${code}`);
-    if (saved) {
-      try {
-        setFavoriteFolder(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse folder config:', e);
-      }
+    // Читаем настройки избранного из данных галереи (приходят с сервера)
+    if (gallery?.favorite_config) {
+      console.log('[FAVORITES] Loaded favorite config from server:', gallery.favorite_config);
+      setFavoriteFolder(gallery.favorite_config);
     }
-  }, [code]);
+  }, [gallery]);
 
   const handleAddToFavorites = (photo: Photo) => {
     if (!favoriteFolder) {

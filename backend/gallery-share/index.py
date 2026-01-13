@@ -60,6 +60,7 @@ def handler(event: dict, context) -> dict:
             watermark_opacity = data.get('watermark_opacity', 50)
             watermark_rotation = data.get('watermark_rotation', 0)
             screenshot_protection = data.get('screenshot_protection', False)
+            favorite_config = data.get('favorite_config')
             
             if not folder_id or not user_id:
                 cur.close()
@@ -100,13 +101,14 @@ def handler(event: dict, context) -> dict:
                 INSERT INTO t_p28211681_photo_secure_web.folder_short_links
                 (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                  watermark_enabled, watermark_type, watermark_text, watermark_image_url,
-                 watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection, favorite_config)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING short_code
                 """,
                 (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                  watermark_enabled, watermark_type, watermark_text, watermark_image_url,
-                 watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection)
+                 watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
+                 json.dumps(favorite_config) if favorite_config else None)
             )
             conn.commit()
             
@@ -142,7 +144,8 @@ def handler(event: dict, context) -> dict:
                 """
                 SELECT fsl.folder_id, fsl.expires_at, pf.folder_name, fsl.password_hash, fsl.download_disabled,
                        fsl.watermark_enabled, fsl.watermark_type, fsl.watermark_text, fsl.watermark_image_url,
-                       fsl.watermark_frequency, fsl.watermark_size, fsl.watermark_opacity, fsl.watermark_rotation, fsl.screenshot_protection
+                       fsl.watermark_frequency, fsl.watermark_size, fsl.watermark_opacity, fsl.watermark_rotation, fsl.screenshot_protection,
+                       fsl.favorite_config
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -162,7 +165,8 @@ def handler(event: dict, context) -> dict:
             
             (folder_id, expires_at, folder_name, password_hash, download_disabled,
              watermark_enabled, watermark_type, watermark_text, watermark_image_url,
-             watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection) = result
+             watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
+             favorite_config_json) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -280,6 +284,13 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             
+            favorite_config = None
+            if favorite_config_json:
+                try:
+                    favorite_config = json.loads(favorite_config_json) if isinstance(favorite_config_json, str) else favorite_config_json
+                except:
+                    favorite_config = None
+            
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -298,7 +309,8 @@ def handler(event: dict, context) -> dict:
                         'opacity': watermark_opacity,
                         'rotation': watermark_rotation
                     },
-                    'screenshot_protection': screenshot_protection
+                    'screenshot_protection': screenshot_protection,
+                    'favorite_config': favorite_config
                 })
             }
         
