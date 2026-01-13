@@ -308,7 +308,7 @@ export default function PublicGallery() {
       
       setTimeout(() => {
         setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
-      }, 2000);
+      }, 5000);
       
     } catch (err: any) {
       if (err.name === 'AbortError') {
