@@ -24,6 +24,7 @@ interface MyFavoritesModalProps {
   clientName: string;
   galleryPhotos: Photo[];
   onPhotoClick: (photo: Photo) => void;
+  onPhotoRemoved?: (photoId: number) => void;
 }
 
 export default function MyFavoritesModal({ 
@@ -32,7 +33,8 @@ export default function MyFavoritesModal({
   clientId, 
   clientName,
   galleryPhotos,
-  onPhotoClick
+  onPhotoClick,
+  onPhotoRemoved
 }: MyFavoritesModalProps) {
   const [favoritePhotos, setFavoritePhotos] = useState<FavoritePhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,6 +85,10 @@ export default function MyFavoritesModal({
       }
 
       setFavoritePhotos(prev => prev.filter(p => p.photo_id !== photoId));
+      
+      if (onPhotoRemoved) {
+        onPhotoRemoved(photoId);
+      }
     } catch (error) {
       console.error('[MY_FAVORITES] Error removing:', error);
       alert(error instanceof Error ? error.message : 'Ошибка удаления');

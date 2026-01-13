@@ -48,6 +48,7 @@ export default function PublicGallery() {
   const [clientData, setClientData] = useState<{ client_id: number; full_name: string; phone: string; email?: string } | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isMyFavoritesOpen, setIsMyFavoritesOpen] = useState(false);
+  const [clientFavoritePhotoIds, setClientFavoritePhotoIds] = useState<number[]>([]);
 
   const {
     gallery,
@@ -81,6 +82,23 @@ export default function PublicGallery() {
     }
   }, [gallery]);
 
+  const loadClientFavorites = async (clientId: number) => {
+    try {
+      const response = await fetch(
+        `https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?client_id=${clientId}`
+      );
+      const result = await response.json();
+      
+      if (response.ok && result.photos) {
+        const photoIds = result.photos.map((p: { photo_id: number }) => p.photo_id);
+        setClientFavoritePhotoIds(photoIds);
+        console.log('[FAVORITES] Loaded client favorites:', photoIds);
+      }
+    } catch (error) {
+      console.error('[FAVORITES] Error loading client favorites:', error);
+    }
+  };
+
   const handleAddToFavorites = async (photo: Photo) => {
     if (!favoriteFolder) {
       alert('Фотограф ещё не настроил папку избранного');
@@ -108,6 +126,7 @@ export default function PublicGallery() {
           throw new Error(result.error || 'Ошибка при добавлении в избранное');
         }
         
+        setClientFavoritePhotoIds(prev => [...prev, photo.id]);
         alert('Фото добавлено в избранное!');
       } catch (error) {
         console.error('[FAVORITES] Error adding photo:', error);
@@ -122,12 +141,22 @@ export default function PublicGallery() {
   const handleSubmitToFavorites = async (data: { fullName: string; phone: string; email?: string; client_id?: number }) => {
     console.log('[FAVORITES] Photo added to favorites:', data);
     
-    setClientData({
+    const newClientData = {
       client_id: data.client_id || 0,
       full_name: data.fullName,
       phone: data.phone,
       email: data.email
-    });
+    };
+    
+    setClientData(newClientData);
+    
+    if (photoToAdd) {
+      setClientFavoritePhotoIds(prev => [...prev, photoToAdd.id]);
+    }
+    
+    if (data.client_id) {
+      await loadClientFavorites(data.client_id);
+    }
     
     alert('Фото добавлено в избранное!');
     setPhotoToAdd(null);
@@ -237,7 +266,10 @@ export default function PublicGallery() {
 
       {gallery && (
         <GalleryGrid
-          gallery={gallery}
+          gallery={{
+            ...gallery,
+            photos: gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id))
+          }}
           downloadingAll={downloadingAll}
           onDownloadAll={downloadAll}
           onPhotoClick={(photo) => {
@@ -290,6 +322,7 @@ export default function PublicGallery() {
         onClose={() => setIsLoginModalOpen(false)}
         onLogin={(data) => {
           setClientData(data);
+          loadClientFavorites(data.client_id);
           console.log('[CLIENT_LOGIN] Logged in:', data);
         }}
         galleryCode={code || ''}
@@ -306,6 +339,9 @@ export default function PublicGallery() {
             setIsMyFavoritesOpen(false);
             setSelectedPhoto(photo);
             setImageError(false);
+          }}
+          onPhotoRemoved={(photoId) => {
+            setClientFavoritePhotoIds(prev => prev.filter(id => id !== photoId));
           }}
         />
       )}
