@@ -127,7 +127,6 @@ export default function PublicGallery() {
         }
         
         setClientFavoritePhotoIds(prev => [...prev, photo.id]);
-        alert('Фото добавлено в избранное!');
       } catch (error) {
         console.error('[FAVORITES] Error adding photo:', error);
         alert(error instanceof Error ? error.message : 'Ошибка при добавлении в избранное');
@@ -158,7 +157,6 @@ export default function PublicGallery() {
       await loadClientFavorites(data.client_id);
     }
     
-    alert('Фото добавлено в избранное!');
     setPhotoToAdd(null);
   };
 
