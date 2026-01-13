@@ -224,36 +224,54 @@ export default function LinkSettingsForm({
                 <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Предпросмотр</p>
                 <div className="relative bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg h-32 flex items-center justify-center overflow-hidden">
                   <Icon name="Image" size={48} className="text-white/30" />
-                  {(linkSettings.watermarkType === 'text' && linkSettings.watermarkText) || (linkSettings.watermarkType === 'image' && linkSettings.watermarkImageUrl) ? (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                      style={{ opacity: linkSettings.watermarkOpacity / 100 }}
-                    >
-                      {linkSettings.watermarkType === 'text' ? (
-                        <p
-                          className="text-white font-bold text-center px-4"
+                  {(linkSettings.watermarkType === 'text' && linkSettings.watermarkText) || (linkSettings.watermarkType === 'image' && linkSettings.watermarkImageUrl) ? (() => {
+                    const count = Math.ceil((linkSettings.watermarkFrequency / 10) * 10);
+                    const watermarks = [];
+                    
+                    for (let i = 0; i < count; i++) {
+                      const top = (i * (100 / count)) % 100;
+                      const left = ((i * 37) % 100);
+                      
+                      watermarks.push(
+                        <div
+                          key={i}
+                          className="absolute pointer-events-none"
                           style={{
-                            fontSize: `${linkSettings.watermarkSize}px`,
-                            textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                            transform: `rotate(${linkSettings.watermarkRotation}deg)`
+                            top: `${top}%`,
+                            left: `${left}%`,
+                            transform: 'translate(-50%, -50%)',
+                            opacity: linkSettings.watermarkOpacity / 100
                           }}
                         >
-                          {linkSettings.watermarkText}
-                        </p>
-                      ) : (
-                        <img
-                          src={linkSettings.watermarkImageUrl}
-                          alt="Watermark preview"
-                          style={{ 
-                            maxWidth: `${linkSettings.watermarkSize * 2}%`, 
-                            maxHeight: `${linkSettings.watermarkSize * 2}%`,
-                            transform: `rotate(${linkSettings.watermarkRotation}deg)`
-                          }}
-                          onError={(e) => (e.currentTarget.style.display = 'none')}
-                        />
-                      )}
-                    </div>
-                  ) : null}
+                          {linkSettings.watermarkType === 'text' ? (
+                            <p
+                              className="text-white font-bold text-center px-1 whitespace-nowrap"
+                              style={{
+                                fontSize: `${linkSettings.watermarkSize / 2}px`,
+                                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                transform: `rotate(${linkSettings.watermarkRotation}deg)`
+                              }}
+                            >
+                              {linkSettings.watermarkText}
+                            </p>
+                          ) : (
+                            <img
+                              src={linkSettings.watermarkImageUrl}
+                              alt="Watermark preview"
+                              style={{ 
+                                maxWidth: `${linkSettings.watermarkSize / 2}px`,
+                                maxHeight: `${linkSettings.watermarkSize / 2}px`,
+                                transform: `rotate(${linkSettings.watermarkRotation}deg)`
+                              }}
+                              onError={(e) => (e.currentTarget.style.display = 'none')}
+                            />
+                          )}
+                        </div>
+                      );
+                    }
+                    
+                    return watermarks;
+                  })() : null}
                 </div>
               </div>
 
