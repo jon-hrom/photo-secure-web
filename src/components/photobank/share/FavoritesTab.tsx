@@ -24,7 +24,6 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
   const [loading, setLoading] = useState(true);
   
   const [formData, setFormData] = useState({
-    name: '',
     fullName: true,
     phone: true,
     email: false
@@ -40,7 +39,6 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
         const data = JSON.parse(savedFolder);
         setFolder(data);
         setFormData({
-          name: data.name || '',
           fullName: data.fields.fullName,
           phone: data.fields.phone,
           email: data.fields.email
@@ -77,7 +75,7 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
   const handleSave = () => {
     const newFolder = {
       id: folderId.toString(),
-      name: formData.name,
+      name: 'Избранное',
       fields: {
         fullName: formData.fullName,
         phone: formData.phone,
@@ -138,16 +136,10 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
           </div>
         ) : isEditing ? (
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="folderName">Название папки избранного</Label>
-              <input
-                id="folderName"
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Выпускной альбом 2024"
-                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-              />
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                💡 Клиенты будут создавать свои папки избранного по ФИО при добавлении фото
+              </p>
             </div>
 
             <div>
@@ -201,7 +193,6 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
                 setIsEditing(false);
                 if (folder) {
                   setFormData({
-                    name: folder.name,
                     fullName: folder.fields.fullName,
                     phone: folder.fields.phone,
                     email: folder.fields.email
@@ -214,8 +205,7 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
           </div>
         ) : (
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            <p className="mb-2"><strong>Название:</strong> {folder?.name}</p>
-            <p><strong>Поля:</strong> {[
+            <p><strong>Поля для клиентов:</strong> {[
               folder?.fields.fullName && 'ФИО',
               folder?.fields.phone && 'Телефон',
               folder?.fields.email && 'Email'
