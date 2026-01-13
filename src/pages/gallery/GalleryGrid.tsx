@@ -89,7 +89,7 @@ export default function GalleryGrid({
                 />
                 {gallery.watermark?.enabled && (() => {
                   const frequency = gallery.watermark.frequency || 50;
-                  const count = Math.ceil(frequency / 10);
+                  const count = Math.ceil((frequency / 10) * 10);
                   const watermarks = [];
                   
                   for (let i = 0; i < count; i++) {
