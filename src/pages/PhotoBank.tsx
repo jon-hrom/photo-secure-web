@@ -8,6 +8,7 @@ import PhotoBankDialogsContainer from '@/components/photobank/PhotoBankDialogsCo
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
 import ShareFolderModal from '@/components/photobank/ShareFolderModal';
+import FavoritesViewModal from '@/components/photobank/FavoritesViewModal';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
@@ -28,6 +29,7 @@ const PhotoBank = () => {
   const [showCameraUpload, setShowCameraUpload] = useState(false);
   const [showUrlUpload, setShowUrlUpload] = useState(false);
   const [shareModalFolder, setShareModalFolder] = useState<{ id: number; name: string } | null>(null);
+  const [showFavorites, setShowFavorites] = useState(false);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -323,6 +325,7 @@ const PhotoBank = () => {
           onShowClearConfirm={() => setShowClearConfirm(true)}
           onShowCameraUpload={() => setShowCameraUpload(true)}
           onShowUrlUpload={() => setShowUrlUpload(true)}
+          onShowFavorites={() => setShowFavorites(true)}
           canGoBack={navigation.canGoBack}
           canGoForward={navigation.canGoForward}
           onGoBack={handleGoBack}
@@ -373,6 +376,14 @@ const PhotoBank = () => {
           folderName={shareModalFolder.name}
           userId={userId}
           onClose={() => setShareModalFolder(null)}
+        />
+      )}
+
+      {showFavorites && selectedFolder && (
+        <FavoritesViewModal
+          folderId={selectedFolder.id}
+          folderName={selectedFolder.folder_name}
+          onClose={() => setShowFavorites(false)}
         />
       )}
     </div>

@@ -36,6 +36,7 @@ interface PhotoBankHeaderProps {
   onShowClearConfirm: () => void;
   onShowCameraUpload?: () => void;
   onShowUrlUpload?: () => void;
+  onShowFavorites?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
   onGoBack?: () => void;
@@ -59,6 +60,7 @@ const PhotoBankHeader = ({
   onShowClearConfirm,
   onShowCameraUpload,
   onShowUrlUpload,
+  onShowFavorites,
   canGoBack = false,
   canGoForward = false,
   onGoBack,
@@ -176,6 +178,16 @@ const PhotoBankHeader = ({
             >
               <Icon name="Camera" className="mr-2" size={18} />
               Загрузить с камеры
+            </Button>
+          )}
+          {onShowFavorites && selectedFolder && (
+            <Button 
+              variant="outline"
+              onClick={onShowFavorites}
+              className="bg-gradient-to-r from-yellow-50 to-amber-50 hover:from-yellow-100 hover:to-amber-100 border-yellow-200 text-yellow-900 hover:text-yellow-950"
+            >
+              <Icon name="Star" className="mr-2" size={18} />
+              Избранное
             </Button>
           )}
           {onShowUrlUpload && (
