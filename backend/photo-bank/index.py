@@ -19,7 +19,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
                 'Access-Control-Max-Age': '86400'
             },
@@ -302,6 +302,50 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+        
+        elif method == 'PATCH':
+            body_data = json.loads(event.get('body', '{}'))
+            action = body_data.get('action')
+            
+            if action == 'rename_folder':
+                folder_id = body_data.get('folder_id')
+                new_name = body_data.get('folder_name')
+                
+                if not folder_id or not new_name:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id and folder_name required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        UPDATE photo_folders 
+                        SET folder_name = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s AND user_id = %s
+                        RETURNING id, folder_name, updated_at
+                    ''', (new_name, folder_id, user_id))
+                    conn.commit()
+                    folder = cur.fetchone()
+                    
+                    if not folder:
+                        return {
+                            'statusCode': 404,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Folder not found'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    if folder['updated_at']:
+                        folder['updated_at'] = folder['updated_at'].isoformat()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'folder': folder}),
                     'isBase64Encoded': False
                 }
         
