@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+import * as zip from '@zip.js/zip.js';
 import html2canvas from 'html2canvas';
 import type { PhotoSlot, UploadedPhoto } from '@/components/photobook/PhotobookCreator';
 
@@ -14,10 +14,8 @@ export async function exportAsJPEG(
   canvasWidth: number = 2000,
   canvasHeight: number = 1000
 ): Promise<Blob> {
-  const zip = new JSZip();
-  const folder = zip.folder('photobook-jpeg');
-
-  if (!folder) throw new Error('Failed to create ZIP folder');
+  const zipFileStream = new zip.BlobWriter();
+  const zipWriter = new zip.ZipWriter(zipFileStream);
 
   for (let i = 0; i < spreads.length; i++) {
     const spread = spreads[i];
@@ -67,10 +65,10 @@ export async function exportAsJPEG(
     });
 
     const pageNumber = String(i + 1).padStart(3, '0');
-    folder.file(`spread_${pageNumber}.jpg`, jpegBlob);
+    await zipWriter.add(`photobook-jpeg/spread_${pageNumber}.jpg`, new zip.BlobReader(jpegBlob), { level: 0 });
   }
 
-  return await zip.generateAsync({ type: 'blob' });
+  return await zipWriter.close();
 }
 
 export async function exportAsPSD(
@@ -79,10 +77,8 @@ export async function exportAsPSD(
   canvasWidth: number = 2000,
   canvasHeight: number = 1000
 ): Promise<Blob> {
-  const zip = new JSZip();
-  const folder = zip.folder('photobook-psd');
-
-  if (!folder) throw new Error('Failed to create ZIP folder');
+  const zipFileStream = new zip.BlobWriter();
+  const zipWriter = new zip.ZipWriter(zipFileStream);
 
   for (let i = 0; i < spreads.length; i++) {
     const spread = spreads[i];
@@ -105,12 +101,13 @@ export async function exportAsPSD(
     }
 
     const psdData = generatePSDFile(layers, canvasWidth, canvasHeight);
+    const psdBlob = new Blob([psdData], { type: 'application/octet-stream' });
     
     const pageNumber = String(i + 1).padStart(3, '0');
-    folder.file(`spread_${pageNumber}.psd`, psdData);
+    await zipWriter.add(`photobook-psd/spread_${pageNumber}.psd`, new zip.BlobReader(psdBlob), { level: 0 });
   }
 
-  return await zip.generateAsync({ type: 'blob' });
+  return await zipWriter.close();
 }
 
 function generatePSDFile(
