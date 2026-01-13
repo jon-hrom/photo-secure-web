@@ -57,6 +57,7 @@ export default function PublicGallery() {
   });
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [photosLoaded, setPhotosLoaded] = useState(0);
+  const [downloadAbortController, setDownloadAbortController] = useState<AbortController | null>(null);
 
   useEffect(() => {
     if (gallery?.screenshot_protection) {
@@ -177,17 +178,52 @@ export default function PublicGallery() {
     }
   };
 
+  const cancelDownload = () => {
+    if (downloadAbortController) {
+      downloadAbortController.abort();
+      setDownloadAbortController(null);
+    }
+    setDownloadingAll(false);
+    setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+  };
+
   const downloadAll = async () => {
     setDownloadingAll(true);
     setDownloadProgress({ show: true, current: 0, total: 0, status: 'preparing' });
     
+    const abortController = new AbortController();
+    setDownloadAbortController(abortController);
+    
     try {
       const supportsFileSystemAccess = 'showSaveFilePicker' in window;
+      let fileHandle: any = null;
+      let writable: any = null;
+
+      if (supportsFileSystemAccess) {
+        try {
+          fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: `${gallery?.folder_name || 'gallery'}.zip`,
+            types: [{
+              description: 'ZIP Archive',
+              accept: { 'application/zip': ['.zip'] }
+            }]
+          });
+          writable = await fileHandle.createWritable();
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+            setDownloadingAll(false);
+            return;
+          }
+          throw err;
+        }
+      }
       
       const url = password 
         ? `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}&password=${encodeURIComponent(password)}`
         : `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}`;
-      const response = await fetch(url);
+      
+      const response = await fetch(url, { signal: abortController.signal });
       const data = await response.json();
       
       if (!response.ok || !data.files) {
@@ -201,14 +237,19 @@ export default function PublicGallery() {
 
       const BATCH_SIZE = 5;
       for (let i = 0; i < data.files.length; i += BATCH_SIZE) {
+        if (abortController.signal.aborted) {
+          break;
+        }
+
         const batch = data.files.slice(i, i + BATCH_SIZE);
         const batchPromises = batch.map(async (file: any) => {
           try {
-            const fileResponse = await fetch(file.url);
+            const fileResponse = await fetch(file.url, { signal: abortController.signal });
             if (!fileResponse.ok) return null;
             const blob = await fileResponse.blob();
             return { filename: file.filename, blob };
-          } catch (err) {
+          } catch (err: any) {
+            if (err.name === 'AbortError') return null;
             console.error('Ошибка загрузки файла:', file.filename, err);
             return null;
           }
@@ -229,18 +270,14 @@ export default function PublicGallery() {
         });
       }
 
+      if (abortController.signal.aborted) {
+        if (writable) await writable.close();
+        return;
+      }
+
       setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
 
-      if (supportsFileSystemAccess) {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: `${gallery?.folder_name || 'gallery'}.zip`,
-          types: [{
-            description: 'ZIP Archive',
-            accept: { 'application/zip': ['.zip'] }
-          }]
-        });
-
-        const writable = await handle.createWritable();
+      if (supportsFileSystemAccess && writable) {
         const stream = zip.generateInternalStream({ type: 'uint8array', streamFiles: true });
         
         stream.on('data', async (chunk: any) => {
@@ -274,11 +311,16 @@ export default function PublicGallery() {
       }, 2000);
       
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('Скачивание отменено пользователем');
+        return;
+      }
       console.error('Ошибка скачивания:', err);
       alert('Ошибка: ' + err.message);
       setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
     } finally {
       setDownloadingAll(false);
+      setDownloadAbortController(null);
     }
   };
 
@@ -445,6 +487,14 @@ export default function PublicGallery() {
                   {downloadProgress.status === 'preparing' && 'Получение списка файлов...'}
                   {downloadProgress.status === 'downloading' && `Загружено ${downloadProgress.current} из ${downloadProgress.total}`}
                 </p>
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={cancelDownload}
+                    className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    Отмена
+                  </button>
+                </div>
               </div>
             )}
           </div>
