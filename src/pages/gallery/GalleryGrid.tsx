@@ -64,25 +64,16 @@ export default function GalleryGrid({
                 {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
               </p>
             </div>
-            <div className="flex gap-3">
+            {!gallery.download_disabled && (
               <button
-                onClick={onOpenFavoriteFolders}
-                className="flex items-center gap-2 px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                onClick={onDownloadAll}
+                disabled={downloadingAll}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <Icon name="FolderHeart" size={20} />
-                Мои папки
+                <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
+                {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
               </button>
-              {!gallery.download_disabled && (
-                <button
-                  onClick={onDownloadAll}
-                  disabled={downloadingAll}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
-                  {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
@@ -151,7 +142,7 @@ export default function GalleryGrid({
                   
                   return watermarks;
                 })()}
-                <div className="absolute bottom-2 right-2 flex gap-2">
+                <div className="absolute bottom-2 right-2 flex gap-2 z-10">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -160,7 +151,7 @@ export default function GalleryGrid({
                     className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 hover:scale-110 transition-all shadow-lg group/btn"
                     title="Добавить в избранное"
                   >
-                    <Icon name="Star" size={16} className="text-gray-900 group-hover/btn:text-white" />
+                    <Icon name="Star" size={16} className="text-yellow-500 group-hover/btn:text-white" />
                   </button>
                   {!gallery.download_disabled && (
                     <button

@@ -4,6 +4,7 @@ import ClientSelector from './share/ClientSelector';
 import LinkSettingsForm from './share/LinkSettingsForm';
 import ShareLinkResult from './share/ShareLinkResult';
 import MaxMessageModal from './share/MaxMessageModal';
+import FavoritesTab from './share/FavoritesTab';
 
 interface Client {
   id: number;
@@ -36,6 +37,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [showMaxModal, setShowMaxModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'link' | 'favorites'>('link');
   
   const [linkSettings, setLinkSettings] = useState({
     password: '',
@@ -256,15 +258,42 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
         className="bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b dark:border-gray-800 px-4 sm:px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Ссылка на папку</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            aria-label="Закрыть"
-          >
-            <Icon name="X" size={20} className="text-gray-700 dark:text-gray-300" />
-          </button>
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b dark:border-gray-800 z-10">
+          <div className="px-4 sm:px-6 py-4 flex items-center justify-between">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Ссылка на папку</h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              aria-label="Закрыть"
+            >
+              <Icon name="X" size={20} className="text-gray-700 dark:text-gray-300" />
+            </button>
+          </div>
+          
+          <div className="flex border-t dark:border-gray-800">
+            <button
+              onClick={() => setActiveTab('link')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'link'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <Icon name="Link" size={16} className="inline mr-2" />
+              Ссылка
+            </button>
+            <button
+              onClick={() => setActiveTab('favorites')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'favorites'
+                  ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <Icon name="Star" size={16} className="inline mr-2" />
+              Избранное
+            </button>
+          </div>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4">
@@ -273,27 +302,33 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
             <p className="font-medium text-gray-900 dark:text-white break-words">{folderName}</p>
           </div>
 
-          <ClientSelector
-            clients={clients}
-            selectedClient={selectedClient}
-            onClientChange={handleClientChange}
-          />
+          {activeTab === 'link' ? (
+            <>
+              <ClientSelector
+                clients={clients}
+                selectedClient={selectedClient}
+                onClientChange={handleClientChange}
+              />
 
-          {!shareUrl ? (
-            <LinkSettingsForm
-              linkSettings={linkSettings}
-              setLinkSettings={setLinkSettings}
-              loading={loading}
-              error={error}
-              onGenerateLink={generateShareLink}
-            />
+              {!shareUrl ? (
+                <LinkSettingsForm
+                  linkSettings={linkSettings}
+                  setLinkSettings={setLinkSettings}
+                  loading={loading}
+                  error={error}
+                  onGenerateLink={generateShareLink}
+                />
+              ) : (
+                <ShareLinkResult
+                  shareUrl={shareUrl}
+                  selectedClient={selectedClient}
+                  onCopyLink={handleCopyLink}
+                  onSendViaMax={() => setShowMaxModal(true)}
+                />
+              )}
+            </>
           ) : (
-            <ShareLinkResult
-              shareUrl={shareUrl}
-              selectedClient={selectedClient}
-              onCopyLink={handleCopyLink}
-              onSendViaMax={() => setShowMaxModal(true)}
-            />
+            <FavoritesTab folderId={folderId} userId={userId} />
           )}
         </div>
 
