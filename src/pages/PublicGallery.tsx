@@ -49,6 +49,12 @@ export default function PublicGallery() {
   const [passwordError, setPasswordError] = useState('');
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState({
+    show: false,
+    current: 0,
+    total: 0,
+    status: 'preparing' as 'preparing' | 'downloading' | 'completed'
+  });
 
   useEffect(() => {
     if (gallery?.screenshot_protection) {
@@ -156,6 +162,8 @@ export default function PublicGallery() {
 
   const downloadAll = async () => {
     setDownloadingAll(true);
+    setDownloadProgress({ show: true, current: 0, total: 0, status: 'preparing' });
+    
     try {
       const url = password 
         ? `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}&password=${encodeURIComponent(password)}`
@@ -167,19 +175,25 @@ export default function PublicGallery() {
         throw new Error(data.error || 'Ошибка получения списка файлов');
       }
 
+      const totalFiles = data.files.length;
+      setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
+
       const zip = new JSZip();
 
-      for (const file of data.files) {
+      for (let i = 0; i < data.files.length; i++) {
+        const file = data.files[i];
         try {
           const fileResponse = await fetch(file.url);
           if (!fileResponse.ok) continue;
           const blob = await fileResponse.blob();
           zip.file(file.filename, blob);
+          setDownloadProgress({ show: true, current: i + 1, total: totalFiles, status: 'downloading' });
         } catch (err) {
           console.error('Ошибка загрузки файла:', file.filename, err);
         }
       }
 
+      setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
       const zipBlob = await zip.generateAsync({ type: 'blob' });
 
       const zipUrl = URL.createObjectURL(zipBlob);
@@ -192,11 +206,13 @@ export default function PublicGallery() {
       
       setTimeout(() => {
         URL.revokeObjectURL(zipUrl);
-      }, 100);
+        setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+      }, 2000);
       
     } catch (err: any) {
       console.error('Ошибка скачивания:', err);
       alert('Ошибка: ' + err.message);
+      setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
     } finally {
       setDownloadingAll(false);
     }
@@ -296,6 +312,51 @@ export default function PublicGallery() {
 
   return (
     <>
+      {downloadProgress.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#111111] rounded-lg shadow-lg p-8 max-w-md w-full mx-4 border border-gray-800">
+            <div className="flex items-center gap-3 mb-4">
+              {downloadProgress.status === 'preparing' && (
+                <Icon name="Loader2" size={24} className="text-[#4cc9f0] animate-spin" />
+              )}
+              {downloadProgress.status === 'downloading' && (
+                <Icon name="Download" size={24} className="text-[#4cc9f0]" />
+              )}
+              {downloadProgress.status === 'completed' && (
+                <Icon name="CheckCircle2" size={24} className="text-green-500" />
+              )}
+              <div className="flex-1">
+                <h3 className="font-semibold text-white text-lg">
+                  {downloadProgress.status === 'preparing' && 'Подготовка...'}
+                  {downloadProgress.status === 'downloading' && 'Создание архива...'}
+                  {downloadProgress.status === 'completed' && 'Готово!'}
+                </h3>
+                {downloadProgress.status === 'downloading' && (
+                  <p className="text-sm text-gray-400 mt-1">
+                    {downloadProgress.current} из {downloadProgress.total} фото
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {downloadProgress.status !== 'completed' && (
+              <div className="space-y-2">
+                <div className="w-full bg-[#1a1a1a] rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="h-full bg-[#4cc9f0] transition-all duration-300"
+                    style={{ width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="text-sm text-gray-400 text-center">
+                  {downloadProgress.status === 'preparing' && 'Получение списка файлов...'}
+                  {downloadProgress.status === 'downloading' && `Загружено ${downloadProgress.current} из ${downloadProgress.total}`}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {gallery && (
         <GalleryGrid
           gallery={gallery}
