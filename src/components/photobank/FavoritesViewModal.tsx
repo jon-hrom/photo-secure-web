@@ -21,9 +21,17 @@ interface FavoritesViewModalProps {
   onClose: () => void;
 }
 
+interface Photo {
+  id: number;
+  file_name: string;
+  photo_url: string;
+  thumbnail_url?: string;
+}
+
 export default function FavoritesViewModal({ folderId, folderName, onClose }: FavoritesViewModalProps) {
   const [groupedFavorites, setGroupedFavorites] = useState<Record<string, FavoriteItem[]>>({});
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -99,26 +107,44 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
-            <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
               {clientPhotos.map((item, idx) => (
                 <div
                   key={idx}
-                  className="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden break-inside-avoid mb-4"
+                  className="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all aspect-square"
+                  onClick={() => setSelectedPhoto(item.photo)}
                 >
                   <img
                     src={item.photo.thumbnail_url || item.photo.photo_url}
                     alt={item.photo.file_name}
-                    className="w-full h-auto"
+                    className="w-full h-full object-cover"
                     loading="lazy"
                   />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                    <p className="text-white text-xs truncate">{item.photo.file_name}</p>
-                  </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (selectedPhoto) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4" onClick={() => setSelectedPhoto(null)}>
+        <button
+          onClick={() => setSelectedPhoto(null)}
+          className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10"
+        >
+          <Icon name="X" size={24} className="text-white" />
+        </button>
+        <img
+          src={selectedPhoto.photo_url}
+          alt={selectedPhoto.file_name}
+          className="max-w-full max-h-full object-contain"
+          onClick={(e) => e.stopPropagation()}
+          style={{ cursor: 'zoom-in' }}
+        />
       </div>
     );
   }
