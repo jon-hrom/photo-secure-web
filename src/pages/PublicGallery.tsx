@@ -5,6 +5,7 @@ import PasswordForm from './gallery/PasswordForm';
 import GalleryGrid from './gallery/GalleryGrid';
 import PhotoViewer from './gallery/PhotoViewer';
 import JSZip from 'jszip';
+import streamSaver from 'streamsaver';
 
 interface Photo {
   id: number;
@@ -176,11 +177,14 @@ export default function PublicGallery() {
       }
 
       const totalFiles = data.files.length;
+      const zip = new JSZip();
+      
+      const fileStream = streamSaver.createWriteStream(`${gallery?.folder_name || 'gallery'}.zip`);
+      const writer = fileStream.getWriter();
+
       setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
 
-      const zip = new JSZip();
       const BATCH_SIZE = 10;
-
       for (let i = 0; i < data.files.length; i += BATCH_SIZE) {
         const batch = data.files.slice(i, i + BATCH_SIZE);
         const batchPromises = batch.map(async (file: any) => {
@@ -211,21 +215,21 @@ export default function PublicGallery() {
       }
 
       setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
-      const zipBlob = await zip.generateAsync({ 
-        type: 'blob',
-        streamFiles: true
+
+      const readableStream = zip.generateInternalStream({ type: 'uint8array', streamFiles: true });
+      
+      readableStream.on('data', (chunk: any) => {
+        writer.write(chunk);
       });
 
-      const zipUrl = URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = zipUrl;
-      link.download = `${gallery?.folder_name || 'gallery'}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await new Promise((resolve, reject) => {
+        readableStream.on('end', resolve);
+        readableStream.on('error', reject);
+      });
+
+      await writer.close();
       
       setTimeout(() => {
-        URL.revokeObjectURL(zipUrl);
         setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
       }, 2000);
       
