@@ -128,11 +128,14 @@ def handler(event: dict, context) -> dict:
                 
                 photos = []
                 for row in cur.fetchall():
+                    photo_url = row[2] if row[2] else ''
+                    thumbnail_url = row[3] if row[3] else photo_url
+                    
                     photos.append({
                         'id': row[0],
                         'file_name': row[1],
-                        'photo_url': row[2],
-                        'thumbnail_url': row[3],
+                        'photo_url': photo_url,
+                        'thumbnail_url': thumbnail_url,
                         'width': row[4],
                         'height': row[5],
                         'file_size': row[6]
