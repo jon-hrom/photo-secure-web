@@ -188,7 +188,9 @@ const PhotoBank = () => {
     const newName = window.prompt('Введите новое название папки:', selectedFolder.folder_name);
     if (!newName || newName.trim() === '' || newName === selectedFolder.folder_name) return;
 
-    fetch(PHOTOBANK_FOLDERS_API, {
+    const PHOTO_BANK_API = 'https://functions.poehali.dev/8aa39ae1-26f5-40c1-ad06-fe0d657f1310';
+    
+    fetch(PHOTO_BANK_API, {
       method: 'PATCH',
       headers: { 
         'Content-Type': 'application/json',
