@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import JSZip from 'jszip';
+import * as zip from '@zip.js/zip.js';
 
 interface Photo {
   id: number;
@@ -98,26 +98,24 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       }
 
       const totalFiles = data.files.length;
-      const zip = new JSZip();
 
       setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
 
-      const BATCH_SIZE = 3;
-      for (let i = 0; i < data.files.length; i += BATCH_SIZE) {
-        if (abortController.signal.aborted) {
-          break;
-        }
+      if (supportsFileSystemAccess && writable) {
+        const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true });
 
-        const batch = data.files.slice(i, i + BATCH_SIZE);
-        
-        for (const file of batch) {
-          if (abortController.signal.aborted) break;
+        for (let i = 0; i < data.files.length; i++) {
+          if (abortController.signal.aborted) {
+            await zipWriter.close();
+            return;
+          }
+
+          const file = data.files[i];
           
           try {
             const fileResponse = await fetch(file.url, { signal: abortController.signal });
-            if (fileResponse.ok) {
-              const arrayBuffer = await fileResponse.arrayBuffer();
-              zip.file(file.filename, arrayBuffer);
+            if (fileResponse.ok && fileResponse.body) {
+              await zipWriter.add(file.filename, fileResponse.body, { level: 0 });
             }
           } catch (err: any) {
             if (err.name === 'AbortError') break;
@@ -126,52 +124,67 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
 
           setDownloadProgress({ 
             show: true, 
-            current: i + batch.indexOf(file) + 1, 
+            current: i + 1, 
             total: totalFiles, 
             status: 'downloading' 
           });
         }
-      }
 
-      if (abortController.signal.aborted) {
-        if (writable) {
+        if (abortController.signal.aborted) {
           try {
-            await writable.abort();
+            await zipWriter.close();
           } catch {}
+          setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+          setDownloadingAll(false);
+          return;
         }
-        setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
-        setDownloadingAll(false);
-        return;
-      }
 
-      setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
-
-      const zipBlob = await zip.generateAsync({ 
-        type: 'blob',
-        compression: 'STORE',
-        streamFiles: true
-      });
-
-      if (supportsFileSystemAccess && writable) {
-        try {
-          await writable.write(zipBlob);
-          await writable.close();
-        } catch (err) {
-          console.error('Ошибка записи файла:', err);
-          try {
-            await writable.abort();
-          } catch {}
-          throw err;
-        }
+        await zipWriter.close();
+        setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
       } else {
-        const zipUrl = URL.createObjectURL(zipBlob);
-        const link = document.createElement('a');
-        link.href = zipUrl;
-        link.download = `${folderName || 'gallery'}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(zipUrl);
+        const zipFileStream = new zip.BlobWriter();
+        const zipWriter = new zip.ZipWriter(zipFileStream);
+
+        for (let i = 0; i < data.files.length; i++) {
+          if (abortController.signal.aborted) break;
+
+          const file = data.files[i];
+          
+          try {
+            const fileResponse = await fetch(file.url, { signal: abortController.signal });
+            if (fileResponse.ok && fileResponse.body) {
+              await zipWriter.add(file.filename, fileResponse.body, { level: 0 });
+            }
+          } catch (err: any) {
+            if (err.name === 'AbortError') break;
+            console.error('Ошибка загрузки файла:', file.filename, err);
+          }
+
+          setDownloadProgress({ 
+            show: true, 
+            current: i + 1, 
+            total: totalFiles, 
+            status: 'downloading' 
+          });
+        }
+
+        const zipBlob = await zipWriter.close();
+
+        if (!abortController.signal.aborted) {
+          const zipUrl = URL.createObjectURL(zipBlob);
+          const link = document.createElement('a');
+          link.href = zipUrl;
+          link.download = `${folderName || 'gallery'}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(zipUrl);
+          setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
+        } else {
+          setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+          setDownloadingAll(false);
+          return;
+        }
       }
       
       setTimeout(() => {
