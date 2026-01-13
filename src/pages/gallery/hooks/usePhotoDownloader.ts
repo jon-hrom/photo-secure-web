@@ -138,9 +138,17 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       }
 
       if (abortController.signal.aborted) {
-        if (writable) await writable.close();
+        if (writable) {
+          try {
+            await writable.abort();
+          } catch {}
+        }
+        setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+        setDownloadingAll(false);
         return;
       }
+
+      setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
 
       const zipBlob = await zip.generateAsync({ 
         type: 'blob',
@@ -148,8 +156,16 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       });
 
       if (supportsFileSystemAccess && writable) {
-        await writable.write(zipBlob);
-        await writable.close();
+        try {
+          await writable.write(zipBlob);
+          await writable.close();
+        } catch (err) {
+          console.error('Ошибка записи файла:', err);
+          try {
+            await writable.abort();
+          } catch {}
+          throw err;
+        }
       } else {
         const zipUrl = URL.createObjectURL(zipBlob);
         const link = document.createElement('a');
@@ -160,23 +176,25 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         document.body.removeChild(link);
         URL.revokeObjectURL(zipUrl);
       }
-
-      setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
       
       setTimeout(() => {
         setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
         setDownloadingAll(false);
+        setDownloadAbortController(null);
       }, 5000);
       
     } catch (err: any) {
       if (err.name === 'AbortError') {
         console.log('Скачивание отменено пользователем');
+        setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+        setDownloadingAll(false);
+        setDownloadAbortController(null);
         return;
       }
       console.error('Ошибка скачивания:', err);
       alert('Ошибка: ' + err.message);
       setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
-    } finally {
+      setDownloadingAll(false);
       setDownloadAbortController(null);
     }
   };
