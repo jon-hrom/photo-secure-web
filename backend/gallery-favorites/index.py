@@ -114,8 +114,37 @@ def handler(event: dict, context) -> dict:
             params = event.get('queryStringParameters') or {}
             client_id = params.get('client_id')
             gallery_code = params.get('gallery_code')
+            folder_id = params.get('folder_id')
             
-            if gallery_code:
+            if folder_id:
+                cur.execute('''
+                    SELECT 
+                        id, file_name, photo_url, thumbnail_url, 
+                        width, height, file_size, is_deleted
+                    FROM t_p28211681_photo_secure_web.photos
+                    WHERE folder_id = %s AND is_deleted = FALSE
+                    ORDER BY created_at DESC
+                ''', (folder_id,))
+                
+                photos = []
+                for row in cur.fetchall():
+                    photos.append({
+                        'id': row[0],
+                        'file_name': row[1],
+                        'photo_url': row[2],
+                        'thumbnail_url': row[3],
+                        'width': row[4],
+                        'height': row[5],
+                        'file_size': row[6]
+                    })
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'photos': photos})
+                }
+            
+            elif gallery_code:
                 cur.execute('''
                     SELECT 
                         fc.id as client_id,

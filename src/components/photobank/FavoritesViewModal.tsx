@@ -41,7 +41,7 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
 
   const loadPhotos = async () => {
     try {
-      const response = await fetch(`https://functions.poehali.dev/39b8df7f-4d9d-49b4-b8d6-2b6cac7b08e7?folder_id=${folderId}`);
+      const response = await fetch(`https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?folder_id=${folderId}`);
       const result = await response.json();
       if (response.ok) {
         setAllPhotos(result.photos || []);

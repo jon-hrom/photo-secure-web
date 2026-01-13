@@ -54,6 +54,16 @@
         "clients": "array"
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get photos by folder_id",
+      "method": "GET",
+      "path": "/?folder_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "photos": "array"
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }
