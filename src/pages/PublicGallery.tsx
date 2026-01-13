@@ -56,6 +56,8 @@ export default function PublicGallery() {
     total: 0,
     status: 'preparing' as 'preparing' | 'downloading' | 'completed'
   });
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [photosLoaded, setPhotosLoaded] = useState(0);
 
   useEffect(() => {
     if (gallery?.screenshot_protection) {
@@ -124,6 +126,11 @@ export default function PublicGallery() {
       setGallery(data);
       setRequiresPassword(false);
       setPasswordError('');
+      
+      if (data.photos && data.photos.length > 0) {
+        setPhotosLoaded(0);
+        setLoadingProgress(0);
+      }
     } catch (err: any) {
       console.error('[PUBLIC_GALLERY] Error:', err);
       setError(err.message);
@@ -131,6 +138,16 @@ export default function PublicGallery() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (gallery && gallery.photos.length > 0 && photosLoaded < gallery.photos.length) {
+      const progressPercent = (photosLoaded / gallery.photos.length) * 100;
+      setLoadingProgress(progressPercent);
+    } else if (gallery && photosLoaded >= gallery.photos.length && photosLoaded > 0) {
+      setLoadingProgress(100);
+      setTimeout(() => setLoadingProgress(0), 500);
+    }
+  }, [photosLoaded, gallery]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -336,6 +353,36 @@ export default function PublicGallery() {
 
   return (
     <>
+      {loadingProgress > 0 && loadingProgress < 100 && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+          <div className="bg-[#111111] rounded-lg shadow-lg p-8 max-w-md w-full mx-4 border border-gray-800">
+            <div className="flex items-center gap-3 mb-4">
+              <Icon name="ImageIcon" size={24} className="text-[#4cc9f0]" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-white text-lg">
+                  Подождите
+                </h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  Идёт размещение фото для удобного просмотра
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="w-full bg-[#1a1a1a] rounded-full h-2 overflow-hidden">
+                <div 
+                  className="h-full bg-[#4cc9f0] transition-all duration-300 ease-out"
+                  style={{ width: `${loadingProgress}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-400 text-center">
+                Загружено {photosLoaded} из {gallery?.photos.length || 0} фото
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {downloadProgress.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[#111111] rounded-lg shadow-lg p-8 max-w-md w-full mx-4 border border-gray-800">
@@ -392,6 +439,7 @@ export default function PublicGallery() {
           }}
           onDownloadPhoto={downloadPhoto}
           formatFileSize={formatFileSize}
+          onPhotoLoad={() => setPhotosLoaded(prev => prev + 1)}
         />
       )}
 

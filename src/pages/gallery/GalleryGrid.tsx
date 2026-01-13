@@ -37,6 +37,7 @@ interface GalleryGridProps {
   onPhotoClick: (photo: Photo) => void;
   onDownloadPhoto: (photo: Photo) => void;
   formatFileSize: (bytes: number) => string;
+  onPhotoLoad?: () => void;
 }
 
 export default function GalleryGrid({ 
@@ -45,7 +46,8 @@ export default function GalleryGrid({
   onDownloadAll, 
   onPhotoClick, 
   onDownloadPhoto,
-  formatFileSize 
+  formatFileSize,
+  onPhotoLoad
 }: GalleryGridProps) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,6 +88,7 @@ export default function GalleryGrid({
                   loading="lazy"
                   onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
                   draggable={false}
+                  onLoad={() => onPhotoLoad?.()}
                 />
                 {gallery.watermark?.enabled && (() => {
                   const frequency = gallery.watermark.frequency || 50;
