@@ -18,7 +18,7 @@ interface FavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
   folder: FavoriteFolder;
-  onSubmit: (data: { fullName: string; phone: string; email?: string }) => void;
+  onSubmit: (data: { fullName: string; phone: string; email?: string; client_id?: number }) => void;
   galleryCode: string;
   photoId: number;
 }
@@ -63,11 +63,27 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
     return !newErrors.fullName && !newErrors.phone && !newErrors.email;
   };
 
+  const normalizePhone = (phone: string): string => {
+    let cleaned = phone.replace(/[^\d\+]/g, '');
+    
+    if (cleaned.startsWith('8')) {
+      cleaned = '+7' + cleaned.substring(1);
+    } else if (cleaned.startsWith('7') && !cleaned.startsWith('+7')) {
+      cleaned = '+7' + cleaned.substring(1);
+    } else if (!cleaned.startsWith('+7') && cleaned.length >= 10) {
+      cleaned = '+7' + cleaned;
+    }
+    
+    return cleaned;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm() || isSubmitting) return;
     
     setIsSubmitting(true);
+    
+    const normalizedPhone = normalizePhone(formData.phone);
     
     try {
       const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
@@ -77,7 +93,7 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
           action: 'add_to_favorites',
           gallery_code: galleryCode,
           full_name: formData.fullName,
-          phone: formData.phone,
+          phone: normalizedPhone,
           email: formData.email || null,
           photo_id: photoId
         })
@@ -91,8 +107,9 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
       
       onSubmit({
         fullName: formData.fullName,
-        phone: formData.phone,
-        ...(folder.fields.email && formData.email ? { email: formData.email } : {})
+        phone: normalizedPhone,
+        email: formData.email || undefined,
+        client_id: result.client_id
       });
       
       setFormData({ fullName: '', phone: '', email: '' });

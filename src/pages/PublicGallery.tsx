@@ -81,26 +81,53 @@ export default function PublicGallery() {
     }
   }, [gallery]);
 
-  const handleAddToFavorites = (photo: Photo) => {
+  const handleAddToFavorites = async (photo: Photo) => {
     if (!favoriteFolder) {
       alert('Фотограф ещё не настроил папку избранного');
       return;
     }
-    setPhotoToAdd(photo);
-    setIsFavoritesModalOpen(true);
+    
+    if (clientData && clientData.client_id > 0) {
+      try {
+        const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'add_to_favorites',
+            gallery_code: code,
+            full_name: clientData.full_name,
+            phone: clientData.phone,
+            email: clientData.email || null,
+            photo_id: photo.id
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Ошибка при добавлении в избранное');
+        }
+        
+        alert('Фото добавлено в избранное!');
+      } catch (error) {
+        console.error('[FAVORITES] Error adding photo:', error);
+        alert(error instanceof Error ? error.message : 'Ошибка при добавлении в избранное');
+      }
+    } else {
+      setPhotoToAdd(photo);
+      setIsFavoritesModalOpen(true);
+    }
   };
 
-  const handleSubmitToFavorites = (data: { fullName: string; phone: string; email?: string }) => {
+  const handleSubmitToFavorites = async (data: { fullName: string; phone: string; email?: string; client_id?: number }) => {
     console.log('[FAVORITES] Photo added to favorites:', data);
     
-    if (!clientData || clientData.full_name.toLowerCase() !== data.fullName.toLowerCase()) {
-      setClientData({
-        client_id: 0,
-        full_name: data.fullName,
-        phone: data.phone,
-        email: data.email
-      });
-    }
+    setClientData({
+      client_id: data.client_id || 0,
+      full_name: data.fullName,
+      phone: data.phone,
+      email: data.email
+    });
     
     alert('Фото добавлено в избранное!');
     setPhotoToAdd(null);
