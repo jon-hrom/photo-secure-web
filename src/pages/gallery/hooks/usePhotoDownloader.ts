@@ -142,22 +142,15 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         return;
       }
 
-      setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        streamFiles: true
+      });
 
       if (supportsFileSystemAccess && writable) {
-        const zipBlob = await zip.generateAsync({ 
-          type: 'blob',
-          streamFiles: true
-        });
-        
         await writable.write(zipBlob);
         await writable.close();
       } else {
-        const zipBlob = await zip.generateAsync({ 
-          type: 'blob',
-          streamFiles: true
-        });
-
         const zipUrl = URL.createObjectURL(zipBlob);
         const link = document.createElement('a');
         link.href = zipUrl;
@@ -167,9 +160,12 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         document.body.removeChild(link);
         URL.revokeObjectURL(zipUrl);
       }
+
+      setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
       
       setTimeout(() => {
         setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+        setDownloadingAll(false);
       }, 5000);
       
     } catch (err: any) {
@@ -181,7 +177,6 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       alert('Ошибка: ' + err.message);
       setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
     } finally {
-      setDownloadingAll(false);
       setDownloadAbortController(null);
     }
   };
