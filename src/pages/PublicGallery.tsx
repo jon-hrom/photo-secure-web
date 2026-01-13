@@ -20,6 +20,7 @@ interface WatermarkSettings {
   frequency: number;
   size: number;
   opacity: number;
+  rotation?: number;
 }
 
 interface GalleryData {
@@ -28,6 +29,7 @@ interface GalleryData {
   total_size: number;
   watermark?: WatermarkSettings;
   screenshot_protection?: boolean;
+  download_disabled?: boolean;
 }
 
 export default function PublicGallery() {
@@ -316,14 +318,16 @@ export default function PublicGallery() {
                 {gallery?.photos.length} фото · {formatFileSize(gallery?.total_size || 0)}
               </p>
             </div>
-            <button
-              onClick={downloadAll}
-              disabled={downloadingAll}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
-              {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
-            </button>
+            {!gallery?.download_disabled && (
+              <button
+                onClick={downloadAll}
+                disabled={downloadingAll}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
+                {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -355,25 +359,38 @@ export default function PublicGallery() {
                     }}
                   >
                     {gallery.watermark.type === 'text' ? (
-                      <p className="text-white font-bold text-center px-4" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                      <p 
+                        className="text-white font-bold text-center px-4" 
+                        style={{ 
+                          textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                          transform: `rotate(${gallery.watermark.rotation || 0}deg)`
+                        }}
+                      >
                         {gallery.watermark.text}
                       </p>
                     ) : (
-                      <img src={gallery.watermark.image_url} alt="Watermark" className="max-w-full max-h-full" />
+                      <img 
+                        src={gallery.watermark.image_url} 
+                        alt="Watermark" 
+                        className="max-w-full max-h-full"
+                        style={{ transform: `rotate(${gallery.watermark.rotation || 0}deg)` }}
+                      />
                     )}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      downloadPhoto(photo);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-3 bg-white rounded-full transition-opacity"
-                  >
-                    <Icon name="Download" size={24} className="text-gray-900" />
-                  </button>
-                </div>
+                {!gallery?.download_disabled && (
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadPhoto(photo);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-3 bg-white rounded-full transition-opacity"
+                    >
+                      <Icon name="Download" size={24} className="text-gray-900" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -430,16 +447,18 @@ export default function PublicGallery() {
               <Icon name="FileWarning" size={64} className="mx-auto mb-4" />
               <p className="text-lg mb-2">CR2/RAW файлы не поддерживаются</p>
               <p className="text-sm text-gray-300 mb-6">Браузер не может отобразить этот формат</p>
-              <button
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  downloadPhoto(selectedPhoto);
-                }}
-              >
-                <Icon name="Download" size={20} />
-                Скачать файл
-              </button>
+              {!gallery?.download_disabled && (
+                <button
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadPhoto(selectedPhoto);
+                  }}
+                >
+                  <Icon name="Download" size={20} />
+                  Скачать файл
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -465,7 +484,8 @@ export default function PublicGallery() {
                         className="text-white font-bold text-center px-4"
                         style={{
                           fontSize: `${gallery.watermark.size * 2}px`,
-                          textShadow: '3px 3px 6px rgba(0,0,0,0.9)'
+                          textShadow: '3px 3px 6px rgba(0,0,0,0.9)',
+                          transform: `rotate(${gallery.watermark.rotation || 0}deg)`
                         }}
                       >
                         {gallery.watermark.text}
@@ -474,22 +494,28 @@ export default function PublicGallery() {
                       <img 
                         src={gallery.watermark.image_url} 
                         alt="Watermark"
-                        style={{ maxWidth: `${gallery.watermark.size * 2}%`, maxHeight: `${gallery.watermark.size * 2}%` }}
+                        style={{ 
+                          maxWidth: `${gallery.watermark.size * 2}%`, 
+                          maxHeight: `${gallery.watermark.size * 2}%`,
+                          transform: `rotate(${gallery.watermark.rotation || 0}deg)`
+                        }}
                       />
                     )}
                   </div>
                 )}
               </div>
-              <button
-                className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors z-10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  downloadPhoto(selectedPhoto);
-                }}
-              >
-                <Icon name="Download" size={20} />
-                Скачать
-              </button>
+              {!gallery?.download_disabled && (
+                <button
+                  className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadPhoto(selectedPhoto);
+                  }}
+                >
+                  <Icon name="Download" size={20} />
+                  Скачать
+                </button>
+              )}
             </>
           )}
         </div>

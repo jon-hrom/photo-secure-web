@@ -41,6 +41,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     watermarkFrequency: 50,
     watermarkSize: 20,
     watermarkOpacity: 50,
+    watermarkRotation: 0,
     screenshotProtection: false
   });
   
@@ -145,6 +146,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           watermark_frequency: linkSettings.watermarkFrequency,
           watermark_size: linkSettings.watermarkSize,
           watermark_opacity: linkSettings.watermarkOpacity,
+          watermark_rotation: linkSettings.watermarkRotation,
           screenshot_protection: linkSettings.screenshotProtection
         })
       });

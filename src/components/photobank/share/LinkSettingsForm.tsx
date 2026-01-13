@@ -15,6 +15,7 @@ interface LinkSettings {
   watermarkFrequency: number;
   watermarkSize: number;
   watermarkOpacity: number;
+  watermarkRotation: number;
   screenshotProtection: boolean;
 }
 
@@ -203,6 +204,22 @@ export default function LinkSettingsForm({
                 />
               </div>
 
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">Наклон</label>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{linkSettings.watermarkRotation}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="-45"
+                  max="45"
+                  step="5"
+                  value={linkSettings.watermarkRotation}
+                  onChange={(e) => setLinkSettings({ ...linkSettings, watermarkRotation: parseInt(e.target.value) })}
+                  className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
               <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
                 <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Предпросмотр</p>
                 <div className="relative bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg h-32 flex items-center justify-center overflow-hidden">
@@ -217,7 +234,8 @@ export default function LinkSettingsForm({
                           className="text-white font-bold text-center px-4"
                           style={{
                             fontSize: `${linkSettings.watermarkSize}px`,
-                            textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
+                            textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                            transform: `rotate(${linkSettings.watermarkRotation}deg)`
                           }}
                         >
                           {linkSettings.watermarkText}
@@ -226,7 +244,11 @@ export default function LinkSettingsForm({
                         <img
                           src={linkSettings.watermarkImageUrl}
                           alt="Watermark preview"
-                          style={{ maxWidth: `${linkSettings.watermarkSize * 2}%`, maxHeight: `${linkSettings.watermarkSize * 2}%` }}
+                          style={{ 
+                            maxWidth: `${linkSettings.watermarkSize * 2}%`, 
+                            maxHeight: `${linkSettings.watermarkSize * 2}%`,
+                            transform: `rotate(${linkSettings.watermarkRotation}deg)`
+                          }}
                           onError={(e) => (e.currentTarget.style.display = 'none')}
                         />
                       )}
