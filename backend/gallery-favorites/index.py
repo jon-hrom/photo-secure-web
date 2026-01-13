@@ -119,10 +119,10 @@ def handler(event: dict, context) -> dict:
             if folder_id:
                 cur.execute('''
                     SELECT 
-                        id, file_name, photo_url, thumbnail_url, 
-                        width, height, file_size, is_deleted
-                    FROM t_p28211681_photo_secure_web.photos
-                    WHERE folder_id = %s AND is_deleted = FALSE
+                        id, file_name, s3_url, thumbnail_s3_url, 
+                        width, height, file_size
+                    FROM t_p28211681_photo_secure_web.photo_bank
+                    WHERE folder_id = %s AND is_trashed = FALSE
                     ORDER BY created_at DESC
                 ''', (folder_id,))
                 
