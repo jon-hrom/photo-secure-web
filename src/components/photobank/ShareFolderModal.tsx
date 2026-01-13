@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import ClientSelector from './share/ClientSelector';
 import LinkSettingsForm from './share/LinkSettingsForm';
 import ShareLinkResult from './share/ShareLinkResult';
+import MaxMessageModal from './share/MaxMessageModal';
 
 interface Client {
   id: number;
@@ -34,6 +35,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   const [shareUrl, setShareUrl] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
+  const [showMaxModal, setShowMaxModal] = useState(false);
   
   const [linkSettings, setLinkSettings] = useState({
     password: '',
@@ -180,7 +182,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     }
   };
 
-  const handleSendViaMax = async () => {
+  const handleSendViaMax = async (message: string) => {
     if (!selectedClient) {
       alert('Выберите клиента');
       return;
@@ -196,14 +198,15 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
         body: JSON.stringify({
           action: 'send_message_to_client',
           client_id: selectedClient.id,
-          message: `Добрый день!\n\nВаши фотографии готовы.\nСсылка для просмотра: ${shareUrl}\n\nСсылка действует ${getExpiryText()}.`
+          message: message
         })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        alert('Сообщение отправлено через MAX');
+        alert('Сообщение отправлено через MAX ✅');
+        setShowMaxModal(false);
         onClose();
       } else {
         alert('Ошибка отправки: ' + (data.error || 'Неизвестная ошибка'));
@@ -289,13 +292,23 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
               shareUrl={shareUrl}
               selectedClient={selectedClient}
               onCopyLink={handleCopyLink}
-              onSendViaMax={handleSendViaMax}
+              onSendViaMax={() => setShowMaxModal(true)}
             />
           )}
         </div>
 
         <div className="h-safe-bottom sm:hidden" />
       </div>
+
+      {showMaxModal && selectedClient && (
+        <MaxMessageModal
+          client={selectedClient}
+          shareUrl={shareUrl}
+          expiryText={getExpiryText()}
+          onSend={handleSendViaMax}
+          onClose={() => setShowMaxModal(false)}
+        />
+      )}
     </div>
   );
 }
