@@ -179,22 +179,42 @@ export default function PublicGallery() {
       setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
 
       const zip = new JSZip();
+      const BATCH_SIZE = 10;
 
-      for (let i = 0; i < data.files.length; i++) {
-        const file = data.files[i];
-        try {
-          const fileResponse = await fetch(file.url);
-          if (!fileResponse.ok) continue;
-          const blob = await fileResponse.blob();
-          zip.file(file.filename, blob);
-          setDownloadProgress({ show: true, current: i + 1, total: totalFiles, status: 'downloading' });
-        } catch (err) {
-          console.error('Ошибка загрузки файла:', file.filename, err);
-        }
+      for (let i = 0; i < data.files.length; i += BATCH_SIZE) {
+        const batch = data.files.slice(i, i + BATCH_SIZE);
+        const batchPromises = batch.map(async (file: any) => {
+          try {
+            const fileResponse = await fetch(file.url);
+            if (!fileResponse.ok) return null;
+            const blob = await fileResponse.blob();
+            return { filename: file.filename, blob };
+          } catch (err) {
+            console.error('Ошибка загрузки файла:', file.filename, err);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(batchPromises);
+        results.forEach(result => {
+          if (result) {
+            zip.file(result.filename, result.blob);
+          }
+        });
+
+        setDownloadProgress({ 
+          show: true, 
+          current: Math.min(i + BATCH_SIZE, totalFiles), 
+          total: totalFiles, 
+          status: 'downloading' 
+        });
       }
 
       setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        streamFiles: true
+      });
 
       const zipUrl = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
