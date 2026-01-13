@@ -181,6 +181,13 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
       const galleryCode = data.share_url.split('/').pop();
       if (galleryCode) {
         localStorage.setItem(`folder_${folderId}_gallery_code`, galleryCode);
+        
+        // Копируем настройки избранного для клиента
+        const favoriteConfig = localStorage.getItem(`folder_${folderId}_favorite_config`);
+        if (favoriteConfig) {
+          localStorage.setItem(`favorite_folder_${galleryCode}`, favoriteConfig);
+          console.log('[SHARE_MODAL] Скопированы настройки избранного для галереи:', galleryCode);
+        }
       }
     } catch (err: any) {
       setError(err.message);

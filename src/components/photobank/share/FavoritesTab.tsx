@@ -88,12 +88,17 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
     const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
     if (galleryCode) {
       localStorage.setItem(`favorite_folder_${galleryCode}`, JSON.stringify(newFolder));
+      console.log('[FAVORITES_TAB] Настройки синхронизированы с галереей:', galleryCode);
+    } else {
+      console.log('[FAVORITES_TAB] Ссылка ещё не создана, настройки будут применены при генерации');
     }
     
     setFolder(newFolder);
     setIsEditing(false);
     
-    alert('Настройки сохранены! Теперь клиенты смогут добавлять фото в избранное.');
+    alert('Настройки сохранены! ' + (galleryCode 
+      ? 'Клиенты теперь могут добавлять фото в избранное.' 
+      : 'После создания ссылки клиенты смогут добавлять фото в избранное.'));
   };
 
   if (loading) {
