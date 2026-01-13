@@ -4,6 +4,7 @@ import Icon from '@/components/ui/icon';
 import PasswordForm from './gallery/PasswordForm';
 import GalleryGrid from './gallery/GalleryGrid';
 import PhotoViewer from './gallery/PhotoViewer';
+import JSZip from 'jszip';
 
 interface Photo {
   id: number;
@@ -166,18 +167,33 @@ export default function PublicGallery() {
         throw new Error(data.error || 'Ошибка получения списка файлов');
       }
 
+      const zip = new JSZip();
+
       for (const file of data.files) {
-        const a = document.createElement('a');
-        a.href = file.url;
-        a.download = file.filename;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        try {
+          const fileResponse = await fetch(file.url);
+          if (!fileResponse.ok) continue;
+          const blob = await fileResponse.blob();
+          zip.file(file.filename, blob);
+        } catch (err) {
+          console.error('Ошибка загрузки файла:', file.filename, err);
+        }
       }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+      const zipUrl = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = zipUrl;
+      link.download = `${gallery?.folder_name || 'gallery'}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
-      alert(`Начато скачивание ${data.files.length} фото`);
+      setTimeout(() => {
+        URL.revokeObjectURL(zipUrl);
+      }, 100);
+      
     } catch (err: any) {
       console.error('Ошибка скачивания:', err);
       alert('Ошибка: ' + err.message);
