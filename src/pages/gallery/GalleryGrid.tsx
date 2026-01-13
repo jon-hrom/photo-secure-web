@@ -88,7 +88,7 @@ export default function GalleryGrid({
                 <img
                   src={photo.thumbnail_url || photo.photo_url}
                   alt={photo.file_name}
-                  className="w-full h-auto transition-transform group-hover:scale-105 relative z-0"
+                  className="w-full h-auto transition-transform group-hover:scale-105"
                   loading="lazy"
                   onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
                   draggable={false}
