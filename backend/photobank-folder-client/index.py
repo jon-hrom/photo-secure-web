@@ -29,7 +29,8 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'Database not configured'})
         }
     
-    user_id = event.get('headers', {}).get('x-user-id')
+    headers = event.get('headers', {})
+    user_id = headers.get('X-User-Id') or headers.get('x-user-id')
     if not user_id:
         return {
             'statusCode': 401,
