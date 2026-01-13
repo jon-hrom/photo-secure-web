@@ -188,10 +188,17 @@ const PhotoBank = () => {
     const newName = window.prompt('Введите новое название папки:', selectedFolder.folder_name);
     if (!newName || newName.trim() === '' || newName === selectedFolder.folder_name) return;
 
-    fetch(`${PHOTOBANK_FOLDERS_API}/${selectedFolder.id}?userId=${userId}`, {
+    fetch(PHOTOBANK_FOLDERS_API, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folder_name: newName.trim() })
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-User-Id': userId
+      },
+      body: JSON.stringify({ 
+        action: 'rename_folder',
+        folder_id: selectedFolder.id,
+        folder_name: newName.trim() 
+      })
     })
       .then(res => res.json())
       .then(() => {

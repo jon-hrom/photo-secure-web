@@ -1,7 +1,7 @@
 import { useToast } from '@/hooks/use-toast';
 import { useCallback } from 'react';
 
-const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
+const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/8aa39ae1-26f5-40c1-ad06-fe0d657f1310';
 const PHOTOBANK_TRASH_API = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d';
 const STORAGE_API = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
 const PHOTO_TECH_SORT_API = 'https://functions.poehali.dev/85953b37-509d-4868-bf56-344c1be62404';
