@@ -1,0 +1,49 @@
+{
+  "tests": [
+    {
+      "name": "Add photo to favorites",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "add_to_favorites",
+        "gallery_code": "test123",
+        "full_name": "Иванов Иван Иванович",
+        "phone": "+7-999-123-45-67",
+        "email": "test@example.com",
+        "photo_id": 1
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "client_id": "number"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login client",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "login",
+        "gallery_code": "test123",
+        "full_name": "иванов иван иванович"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "client_id": "number",
+        "full_name": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get client favorites",
+      "method": "GET",
+      "path": "/?client_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "photos": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

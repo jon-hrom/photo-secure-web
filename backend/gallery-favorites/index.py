@@ -1,0 +1,184 @@
+import json
+import os
+import psycopg2
+
+def handler(event: dict, context) -> dict:
+    '''API для работы с избранными фото клиентов галереи'''
+    method = event.get('httpMethod', 'GET')
+    
+    if method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            },
+            'body': ''
+        }
+    
+    dsn = os.environ.get('DATABASE_URL')
+    if not dsn:
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'DATABASE_URL not configured'})
+        }
+    
+    conn = psycopg2.connect(dsn)
+    cur = conn.cursor()
+    
+    try:
+        if method == 'POST':
+            body = json.loads(event.get('body', '{}'))
+            action = body.get('action')
+            
+            if action == 'add_to_favorites':
+                gallery_code = body.get('gallery_code')
+                full_name = body.get('full_name')
+                phone = body.get('phone')
+                email = body.get('email')
+                photo_id = body.get('photo_id')
+                
+                if not all([gallery_code, full_name, phone, photo_id]):
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Missing required fields'})
+                    }
+                
+                cur.execute('''
+                    INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
+                    (gallery_code, full_name, phone, email)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (gallery_code, full_name, phone) 
+                    DO UPDATE SET email = EXCLUDED.email
+                    RETURNING id
+                ''', (gallery_code, full_name, phone, email))
+                
+                client_id = cur.fetchone()[0]
+                
+                cur.execute('''
+                    INSERT INTO t_p28211681_photo_secure_web.favorite_photos 
+                    (client_id, photo_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT (client_id, photo_id) DO NOTHING
+                ''', (client_id, photo_id))
+                
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True, 'client_id': client_id})
+                }
+            
+            elif action == 'login':
+                gallery_code = body.get('gallery_code')
+                full_name = body.get('full_name')
+                
+                if not all([gallery_code, full_name]):
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Missing required fields'})
+                    }
+                
+                cur.execute('''
+                    SELECT id, full_name, phone, email, created_at
+                    FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE gallery_code = %s AND LOWER(full_name) = LOWER(%s)
+                    LIMIT 1
+                ''', (gallery_code, full_name))
+                
+                client = cur.fetchone()
+                if not client:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Client not found'})
+                    }
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({
+                        'client_id': client[0],
+                        'full_name': client[1],
+                        'phone': client[2],
+                        'email': client[3]
+                    })
+                }
+        
+        elif method == 'GET':
+            params = event.get('queryStringParameters') or {}
+            client_id = params.get('client_id')
+            
+            if not client_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'client_id required'})
+                }
+            
+            cur.execute('''
+                SELECT fp.photo_id, fp.added_at
+                FROM t_p28211681_photo_secure_web.favorite_photos fp
+                WHERE fp.client_id = %s
+                ORDER BY fp.added_at DESC
+            ''', (client_id,))
+            
+            photos = []
+            for row in cur.fetchall():
+                photos.append({
+                    'photo_id': row[0],
+                    'added_at': row[1].isoformat() if row[1] else None
+                })
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'photos': photos})
+            }
+        
+        elif method == 'DELETE':
+            params = event.get('queryStringParameters') or {}
+            client_id = params.get('client_id')
+            photo_id = params.get('photo_id')
+            
+            if not all([client_id, photo_id]):
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'client_id and photo_id required'})
+                }
+            
+            cur.execute('''
+                DELETE FROM t_p28211681_photo_secure_web.favorite_photos
+                WHERE client_id = %s AND photo_id = %s
+            ''', (client_id, photo_id))
+            
+            conn.commit()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': True})
+            }
+        
+        return {
+            'statusCode': 405,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Method not allowed'})
+        }
+    
+    except Exception as e:
+        conn.rollback()
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': str(e)})
+        }
+    finally:
+        cur.close()
+        conn.close()

@@ -40,6 +40,9 @@ interface GalleryGridProps {
   onOpenFavoriteFolders: () => void;
   formatFileSize: (bytes: number) => string;
   onPhotoLoad?: () => void;
+  clientName?: string;
+  onClientLogin?: () => void;
+  onOpenMyFavorites?: () => void;
 }
 
 export default function GalleryGrid({ 
@@ -51,29 +54,57 @@ export default function GalleryGrid({
   onAddToFavorites,
   onOpenFavoriteFolders,
   formatFileSize,
-  onPhotoLoad
+  onPhotoLoad,
+  clientName,
+  onClientLogin,
+  onOpenMyFavorites
 }: GalleryGridProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{gallery.folder_name}</h1>
               <p className="text-gray-600">
                 {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
               </p>
             </div>
-            {!gallery.download_disabled && (
-              <button
-                onClick={onDownloadAll}
-                disabled={downloadingAll}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
-                {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {clientName ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onOpenMyFavorites}
+                    className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                  >
+                    <Icon name="Star" size={18} />
+                    Мой список избранного
+                  </button>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
+                    <Icon name="User" size={18} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">{clientName}</span>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={onClientLogin}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                >
+                  <Icon name="User" size={18} />
+                  Войти
+                </button>
+              )}
+              {!gallery.download_disabled && (
+                <button
+                  onClick={onDownloadAll}
+                  disabled={downloadingAll}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
+                  {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

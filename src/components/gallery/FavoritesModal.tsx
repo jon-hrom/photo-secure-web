@@ -19,9 +19,11 @@ interface FavoritesModalProps {
   onClose: () => void;
   folder: FavoriteFolder;
   onSubmit: (data: { fullName: string; phone: string; email?: string }) => void;
+  galleryCode: string;
+  photoId: number;
 }
 
-export default function FavoritesModal({ isOpen, onClose, folder, onSubmit }: FavoritesModalProps) {
+export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, galleryCode, photoId }: FavoritesModalProps) {
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -32,6 +34,7 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit }: Fa
     phone: '',
     email: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -60,17 +63,46 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit }: Fa
     return !newErrors.fullName && !newErrors.phone && !newErrors.email;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
+    if (!validateForm() || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_to_favorites',
+          gallery_code: galleryCode,
+          full_name: formData.fullName,
+          phone: formData.phone,
+          email: formData.email || null,
+          photo_id: photoId
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка при добавлении в избранное');
+      }
+      
       onSubmit({
         fullName: formData.fullName,
         phone: formData.phone,
         ...(folder.fields.email && formData.email ? { email: formData.email } : {})
       });
+      
       setFormData({ fullName: '', phone: '', email: '' });
       setErrors({ fullName: '', phone: '', email: '' });
       onClose();
+    } catch (error) {
+      console.error('[FAVORITES] Error adding to favorites:', error);
+      alert(error instanceof Error ? error.message : 'Ошибка при добавлении в избранное');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -139,8 +171,12 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit }: Fa
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Отмена
             </Button>
-            <Button type="submit" className="flex-1 bg-yellow-500 hover:bg-yellow-600">
-              Добавить
+            <Button 
+              type="submit" 
+              className="flex-1 bg-yellow-500 hover:bg-yellow-600"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Добавление...' : 'Добавить'}
             </Button>
           </div>
         </form>

@@ -6,6 +6,8 @@ import GalleryGrid from './gallery/GalleryGrid';
 import PhotoViewer from './gallery/PhotoViewer';
 import LoadingIndicators from './gallery/LoadingIndicators';
 import FavoritesModal from '@/components/gallery/FavoritesModal';
+import ClientLoginModal from '@/components/gallery/ClientLoginModal';
+import MyFavoritesModal from '@/components/gallery/MyFavoritesModal';
 import { useGalleryProtection } from './gallery/hooks/useGalleryProtection';
 import { useGalleryLoader } from './gallery/hooks/useGalleryLoader';
 import { usePhotoDownloader } from './gallery/hooks/usePhotoDownloader';
@@ -42,6 +44,10 @@ export default function PublicGallery() {
   const [favoriteFolder, setFavoriteFolder] = useState<FavoriteFolder | null>(null);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
   const [photoToAdd, setPhotoToAdd] = useState<Photo | null>(null);
+  
+  const [clientData, setClientData] = useState<{ client_id: number; full_name: string; phone: string; email?: string } | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isMyFavoritesOpen, setIsMyFavoritesOpen] = useState(false);
 
   const {
     gallery,
@@ -85,17 +91,16 @@ export default function PublicGallery() {
   };
 
   const handleSubmitToFavorites = (data: { fullName: string; phone: string; email?: string }) => {
-    if (!photoToAdd || !favoriteFolder) return;
-
-    const favorites = JSON.parse(localStorage.getItem(`favorites_${code}`) || '[]');
-    favorites.push({
-      photo: photoToAdd,
-      fullName: data.fullName,
-      phone: data.phone,
-      email: data.email,
-      timestamp: Date.now()
-    });
-    localStorage.setItem(`favorites_${code}`, JSON.stringify(favorites));
+    console.log('[FAVORITES] Photo added to favorites:', data);
+    
+    if (!clientData || clientData.full_name.toLowerCase() !== data.fullName.toLowerCase()) {
+      setClientData({
+        client_id: 0,
+        full_name: data.fullName,
+        phone: data.phone,
+        email: data.email
+      });
+    }
     
     alert('Фото добавлено в избранное!');
     setPhotoToAdd(null);
@@ -217,6 +222,9 @@ export default function PublicGallery() {
           onOpenFavoriteFolders={() => {}}
           formatFileSize={formatFileSize}
           onPhotoLoad={() => setPhotosLoaded(prev => prev + 1)}
+          clientName={clientData?.full_name}
+          onClientLogin={() => setIsLoginModalOpen(true)}
+          onOpenMyFavorites={() => setIsMyFavoritesOpen(true)}
         />
       )}
 
@@ -236,7 +244,7 @@ export default function PublicGallery() {
         />
       )}
 
-      {favoriteFolder && (
+      {favoriteFolder && photoToAdd && (
         <FavoritesModal
           isOpen={isFavoritesModalOpen}
           onClose={() => {
@@ -245,6 +253,33 @@ export default function PublicGallery() {
           }}
           folder={favoriteFolder}
           onSubmit={handleSubmitToFavorites}
+          galleryCode={code || ''}
+          photoId={photoToAdd.id}
+        />
+      )}
+
+      <ClientLoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLogin={(data) => {
+          setClientData(data);
+          console.log('[CLIENT_LOGIN] Logged in:', data);
+        }}
+        galleryCode={code || ''}
+      />
+
+      {clientData && gallery && (
+        <MyFavoritesModal
+          isOpen={isMyFavoritesOpen}
+          onClose={() => setIsMyFavoritesOpen(false)}
+          clientId={clientData.client_id}
+          clientName={clientData.full_name}
+          galleryPhotos={gallery.photos}
+          onPhotoClick={(photo) => {
+            setIsMyFavoritesOpen(false);
+            setSelectedPhoto(photo);
+            setImageError(false);
+          }}
         />
       )}
     </>
