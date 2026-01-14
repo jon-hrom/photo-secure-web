@@ -45,7 +45,7 @@ def handler(event: dict, context) -> dict:
         if action == 'list':
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
-                    f"SELECT id, name, created_at FROM {schema}.photo_folders WHERE user_id = %s ORDER BY created_at DESC",
+                    f"SELECT id, folder_name, created_at, folder_type, parent_folder_id FROM {schema}.photo_folders WHERE user_id = %s AND (is_trashed IS NULL OR is_trashed = false) ORDER BY created_at DESC",
                     (user_id,)
                 )
                 rows = cur.fetchall()

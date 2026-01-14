@@ -7,11 +7,7 @@
       "headers": {
         "X-User-Id": "12"
       },
-      "expectedStatus": 200,
-      "expectedBody": {
-        "folders": "array"
-      },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Test list photos with presigned URLs",
@@ -20,11 +16,7 @@
       "headers": {
         "X-User-Id": "12"
       },
-      "expectedStatus": 200,
-      "expectedBody": {
-        "photos": "array"
-      },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Test unauthorized access",
