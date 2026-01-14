@@ -45,13 +45,17 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
   }, [folderId]);
 
   const loadPhotos = async () => {
+    console.log('[FAVORITES] loadPhotos called for folder', folderId);
     const cached = getCachedPhotos(folderId);
     if (cached) {
+      console.log('[FAVORITES] Using cached photos:', cached.length);
+      console.log('[FAVORITES] Sample photo URL:', cached[0]?.photo_url?.substring(0, 100));
       setAllPhotos(cached);
       return;
     }
 
     try {
+      console.log('[FAVORITES] Fetching photos from API');
       const response = await fetch(
         `https://functions.poehali.dev/647801b3-1db8-4ded-bf80-1f278b3b5f94?action=list_photos&folder_id=${folderId}`,
         { headers: { 'X-User-Id': userId.toString() } }
@@ -64,9 +68,10 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
           thumbnail_url: photo.thumbnail_url || photo.photo_url
         }));
         
+        console.log('[FAVORITES] Loaded', photos.length, 'photos with presigned URLs');
+        console.log('[FAVORITES] Sample photo URL:', photos[0]?.photo_url?.substring(0, 100));
         setCachedPhotos(folderId, photos);
         setAllPhotos(photos);
-        console.log('[FAVORITES] Loaded', photos.length, 'photos with presigned URLs');
       }
     } catch (e) {
       console.error('[FAVORITES] Failed to load photos:', e);
