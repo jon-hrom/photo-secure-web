@@ -38,6 +38,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   const [clients, setClients] = useState<Client[]>([]);
   const [showMaxModal, setShowMaxModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'link' | 'favorites'>('link');
+  const [savedLinks, setSavedLinks] = useState<Array<{url: string, created: string}>>([]);
   
   const [linkSettings, setLinkSettings] = useState({
     password: '',
@@ -59,6 +60,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
 
   useEffect(() => {
     loadClients();
+    loadSavedLinks();
   }, []);
 
   useEffect(() => {
@@ -66,6 +68,26 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
       loadFolderClient();
     }
   }, [clients]);
+
+  const loadSavedLinks = () => {
+    const key = `folder_${folderId}_links`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        setSavedLinks(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse saved links:', e);
+      }
+    }
+  };
+
+  const saveLink = (url: string) => {
+    const key = `folder_${folderId}_links`;
+    const newLink = { url, created: new Date().toISOString() };
+    const updated = [newLink, ...savedLinks];
+    setSavedLinks(updated);
+    localStorage.setItem(key, JSON.stringify(updated));
+  };
 
   const loadClients = async () => {
     try {
@@ -189,6 +211,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
       }
 
       setShareUrl(data.share_url);
+      saveLink(data.share_url);
       
       const galleryCode = data.share_url.split('/').pop();
       if (galleryCode) {
@@ -327,6 +350,42 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
                 selectedClient={selectedClient}
                 onClientChange={handleClientChange}
               />
+
+              {savedLinks.length > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
+                    <Icon name="History" size={16} />
+                    Созданные ссылки
+                  </p>
+                  <div className="space-y-2">
+                    {savedLinks.slice(0, 5).map((link, idx) => (
+                      <div key={idx} className="bg-white dark:bg-gray-800 rounded p-3 flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                            {new Date(link.created).toLocaleString('ru-RU')}
+                          </p>
+                          <p className="text-xs font-mono text-gray-700 dark:text-gray-300 truncate">
+                            {link.url}
+                          </p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(link.url);
+                              alert('Ссылка скопирована!');
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }}
+                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
+                        >
+                          <Icon name="Copy" size={16} className="text-blue-600 dark:text-blue-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {!shareUrl ? (
                 <LinkSettingsForm
