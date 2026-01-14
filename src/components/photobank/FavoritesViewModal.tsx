@@ -48,18 +48,20 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
       const result = await response.json();
       if (response.ok) {
         const photos = (result.photos || []).map((photo: Photo) => {
-          let thumbnailUrl = photo.thumbnail_url || photo.photo_url;
-          
-          if (thumbnailUrl.includes('.CR2') && thumbnailUrl.includes('storage.yandexcloud.net')) {
-            const baseUrl = thumbnailUrl.split('?')[0];
-            const thumbUrl = baseUrl.replace('.CR2', '_thumb.jpg');
-            const params = thumbnailUrl.split('?')[1];
-            thumbnailUrl = params ? `${thumbUrl}?${params}` : thumbUrl;
-          }
+          const convertToThumb = (url: string) => {
+            if (url.includes('.CR2') && url.includes('storage.yandexcloud.net')) {
+              const baseUrl = url.split('?')[0];
+              const thumbUrl = baseUrl.replace('.CR2', '_thumb.jpg');
+              const params = url.split('?')[1];
+              return params ? `${thumbUrl}?${params}` : thumbUrl;
+            }
+            return url;
+          };
           
           return {
             ...photo,
-            thumbnail_url: thumbnailUrl
+            photo_url: convertToThumb(photo.photo_url),
+            thumbnail_url: convertToThumb(photo.thumbnail_url || photo.photo_url)
           };
         });
         
