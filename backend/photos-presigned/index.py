@@ -1,6 +1,5 @@
 import json
 import os
-import boto3
 from datetime import timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -64,6 +63,8 @@ def handler(event: dict, context) -> dict:
             }
 
         elif action == 'list_photos' and folder_id:
+            import boto3
+            
             s3 = boto3.client(
                 's3',
                 endpoint_url='https://storage.yandexcloud.net',
@@ -113,6 +114,13 @@ def handler(event: dict, context) -> dict:
         }
 
     except Exception as e:
+        import traceback
+        error_details = {
+            'error': str(e),
+            'type': type(e).__name__,
+            'traceback': traceback.format_exc()
+        }
+        print(f'[ERROR] Exception in photos-presigned: {error_details}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
