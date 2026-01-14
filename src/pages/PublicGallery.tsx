@@ -106,13 +106,21 @@ export default function PublicGallery() {
     }
     
     if (clientData && clientData.client_id > 0) {
+      const galleryCode = code;
+      console.log('[FAVORITES] Adding photo for logged-in client:', {
+        gallery_code: galleryCode,
+        full_name: clientData.full_name,
+        phone: clientData.phone,
+        photo_id: photo.id
+      });
+      
       try {
         const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'add_to_favorites',
-            gallery_code: code,
+            gallery_code: galleryCode,
             full_name: clientData.full_name,
             phone: clientData.phone,
             email: clientData.email || null,
@@ -121,6 +129,7 @@ export default function PublicGallery() {
         });
         
         const result = await response.json();
+        console.log('[FAVORITES] Add response:', result);
         
         if (!response.ok) {
           throw new Error(result.error || 'Ошибка при добавлении в избранное');
