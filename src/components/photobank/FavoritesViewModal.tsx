@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { getCachedPhotos, setCachedPhotos } from '@/utils/photoCache';
 
 interface FavoritesViewModalProps {
   folderId: number;
@@ -44,6 +45,12 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
   }, [folderId]);
 
   const loadPhotos = async () => {
+    const cached = getCachedPhotos(folderId);
+    if (cached) {
+      setAllPhotos(cached);
+      return;
+    }
+
     try {
       const response = await fetch(
         `https://functions.poehali.dev/647801b3-1db8-4ded-bf80-1f278b3b5f94?action=list_photos&folder_id=${folderId}`,
@@ -57,6 +64,7 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
           thumbnail_url: photo.thumbnail_url || photo.photo_url
         }));
         
+        setCachedPhotos(folderId, photos);
         setAllPhotos(photos);
         console.log('[FAVORITES] Loaded', photos.length, 'photos with presigned URLs');
       }

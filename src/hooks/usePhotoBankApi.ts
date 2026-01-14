@@ -1,7 +1,8 @@
 import { useToast } from '@/hooks/use-toast';
 import { useCallback } from 'react';
+import { getCachedPhotos, setCachedPhotos } from '@/utils/photoCache';
 
-const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
+const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/647801b3-1db8-4ded-bf80-1f278b3b5f94';
 const PHOTOBANK_TRASH_API = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d';
 const STORAGE_API = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
 const PHOTO_TECH_SORT_API = 'https://functions.poehali.dev/85953b37-509d-4868-bf56-344c1be62404';
@@ -87,6 +88,14 @@ export const usePhotoBankApi = (
 
   const fetchPhotos = useCallback(async (folderId: number) => {
     console.log('[FETCH_PHOTOS] Starting fetch for folder:', folderId);
+    
+    const cached = getCachedPhotos(folderId);
+    if (cached) {
+      setPhotos(cached);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const url = `${PHOTOBANK_FOLDERS_API}?action=list_photos&folder_id=${folderId}`;
@@ -108,7 +117,9 @@ export const usePhotoBankApi = (
       console.log('[FETCH_PHOTOS] Received data:', data);
       console.log('[FETCH_PHOTOS] Photos count:', data.photos?.length || 0);
       
-      setPhotos(data.photos || []);
+      const photos = data.photos || [];
+      setCachedPhotos(folderId, photos);
+      setPhotos(photos);
     } catch (error: any) {
       console.error('[FETCH_PHOTOS] Error:', error);
       toast({
