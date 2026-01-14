@@ -164,12 +164,17 @@ def handler(event: dict, context) -> dict:
                     s3_url = row[2] if row[2] else ''
                     thumbnail_s3_url = row[3] if row[3] else ''
                     
+                    print(f'[DEBUG] Photo {row[0]}: s3_url={s3_url[:80] if s3_url else "empty"}, thumbnail_s3_url={thumbnail_s3_url[:80] if thumbnail_s3_url else "empty"}')
+                    
                     # Если миниатюры нет или это .CR2, используем оригинальный URL
                     if not thumbnail_s3_url or thumbnail_s3_url.endswith('.CR2'):
                         thumbnail_s3_url = s3_url
+                        print(f'[DEBUG] Photo {row[0]}: Using original URL as thumbnail')
                     
                     photo_url = generate_presigned_url(s3_url) if s3_url else ''
                     thumbnail_url = generate_presigned_url(thumbnail_s3_url) if thumbnail_s3_url else photo_url
+                    
+                    print(f'[DEBUG] Photo {row[0]}: Final URLs - photo_url contains .CR2: {".CR2" in photo_url}, thumbnail_url contains .CR2: {".CR2" in thumbnail_url}')
                     
                     photos.append({
                         'id': row[0],
