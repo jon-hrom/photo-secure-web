@@ -115,6 +115,13 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
         const photo = allPhotos.find(p => p.id === fp.photo_id);
         if (!photo) {
           console.warn('[FAVORITES] Photo not found for id:', fp.photo_id);
+        } else {
+          console.log('[FAVORITES] Matched photo:', {
+            id: photo.id,
+            file_name: photo.file_name,
+            photo_url: photo.photo_url,
+            thumbnail_url: photo.thumbnail_url
+          });
         }
         return photo;
       })
