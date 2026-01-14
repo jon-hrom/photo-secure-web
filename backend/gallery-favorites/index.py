@@ -76,6 +76,8 @@ def handler(event: dict, context) -> dict:
             elif action == 'login':
                 gallery_code = body.get('gallery_code')
                 full_name = body.get('full_name')
+                phone = body.get('phone', '')
+                email = body.get('email', '')
                 
                 if not all([gallery_code, full_name]):
                     return {
@@ -85,19 +87,16 @@ def handler(event: dict, context) -> dict:
                     }
                 
                 cur.execute('''
-                    SELECT id, full_name, phone, email, created_at
-                    FROM t_p28211681_photo_secure_web.favorite_clients
-                    WHERE gallery_code = %s AND LOWER(full_name) = LOWER(%s)
-                    LIMIT 1
-                ''', (gallery_code, full_name))
+                    INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
+                    (gallery_code, full_name, phone, email)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (gallery_code, full_name, phone) 
+                    DO UPDATE SET email = EXCLUDED.email
+                    RETURNING id, full_name, phone, email
+                ''', (gallery_code, full_name, phone, email))
                 
                 client = cur.fetchone()
-                if not client:
-                    return {
-                        'statusCode': 404,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'Client not found'})
-                    }
+                conn.commit()
                 
                 return {
                     'statusCode': 200,
