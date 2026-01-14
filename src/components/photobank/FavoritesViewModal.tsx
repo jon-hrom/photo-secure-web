@@ -46,44 +46,13 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
     try {
       const response = await fetch(`https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?folder_id=${folderId}`);
       const result = await response.json();
-      console.log('[FAVORITES] Raw API response:', result);
       
       if (response.ok) {
-        const photos = (result.photos || []).map((photo: Photo) => {
-          console.log('[FAVORITES] Processing photo:', {
-            id: photo.id,
-            originalPhotoUrl: photo.photo_url,
-            originalThumbnailUrl: photo.thumbnail_url
-          });
-          
-          const convertToThumb = (url: string) => {
-            if (url.includes('.CR2') && url.includes('storage.yandexcloud.net')) {
-              const baseUrl = url.split('?')[0];
-              const thumbUrl = baseUrl.replace('.CR2', '_thumb.jpg');
-              const params = url.split('?')[1];
-              const result = params ? `${thumbUrl}?${params}` : thumbUrl;
-              console.log('[FAVORITES] Converted CR2:', { original: url.substring(0, 100), converted: result.substring(0, 100) });
-              return result;
-            }
-            return url;
-          };
-          
-          const finalPhoto = {
-            ...photo,
-            photo_url: convertToThumb(photo.photo_url),
-            thumbnail_url: convertToThumb(photo.thumbnail_url || photo.photo_url)
-          };
-          
-          console.log('[FAVORITES] Final photo URLs:', {
-            id: finalPhoto.id,
-            photo_url: finalPhoto.photo_url.substring(0, 100),
-            thumbnail_url: finalPhoto.thumbnail_url.substring(0, 100)
-          });
-          
-          return finalPhoto;
-        });
+        const photos = (result.photos || []).map((photo: Photo) => ({
+          ...photo,
+          thumbnail_url: photo.thumbnail_url || photo.photo_url
+        }));
         
-        console.log('[FAVORITES] Total photos loaded:', photos.length);
         setAllPhotos(photos);
       }
     } catch (e) {
@@ -186,7 +155,16 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
                     alt={photo.file_name}
                     className="w-full h-full object-cover"
                     loading="lazy"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const icon = target.nextElementSibling;
+                      if (icon) icon.classList.remove('hidden');
+                    }}
                   />
+                  <div className="hidden absolute inset-0 flex items-center justify-center">
+                    <Icon name="Camera" size={48} className="text-gray-400" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -272,12 +250,22 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
                     
                     <div className="grid grid-cols-3 gap-1 mb-2">
                       {clientPhotos.slice(0, 3).map((photo) => (
-                        <img
-                          key={photo.id}
-                          src={photo.thumbnail_url || photo.photo_url}
-                          alt={photo.file_name}
-                          className="w-full h-20 object-cover rounded"
-                        />
+                        <div key={photo.id} className="relative w-full h-20 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                          <img
+                            src={photo.thumbnail_url || photo.photo_url}
+                            alt={photo.file_name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.style.display = 'none';
+                              const icon = target.nextElementSibling;
+                              if (icon) icon.classList.remove('hidden');
+                            }}
+                          />
+                          <div className="hidden absolute inset-0 flex items-center justify-center">
+                            <Icon name="Camera" size={32} className="text-gray-400" />
+                          </div>
+                        </div>
                       ))}
                     </div>
                     
