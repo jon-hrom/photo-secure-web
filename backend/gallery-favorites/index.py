@@ -164,11 +164,9 @@ def handler(event: dict, context) -> dict:
                     s3_url = row[2] if row[2] else ''
                     thumbnail_s3_url = row[3] if row[3] else ''
                     
-                    # Конвертируем .CR2 → _thumb.jpg ДО генерации presigned URL
-                    if thumbnail_s3_url and thumbnail_s3_url.endswith('.CR2'):
-                        thumbnail_s3_url = thumbnail_s3_url.replace('.CR2', '_thumb.jpg')
-                    if not thumbnail_s3_url and s3_url and s3_url.endswith('.CR2'):
-                        thumbnail_s3_url = s3_url.replace('.CR2', '_thumb.jpg')
+                    # Если миниатюры нет или это .CR2, используем оригинальный URL
+                    if not thumbnail_s3_url or thumbnail_s3_url.endswith('.CR2'):
+                        thumbnail_s3_url = s3_url
                     
                     photo_url = generate_presigned_url(s3_url) if s3_url else ''
                     thumbnail_url = generate_presigned_url(thumbnail_s3_url) if thumbnail_s3_url else photo_url
