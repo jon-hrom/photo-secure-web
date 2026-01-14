@@ -2,9 +2,11 @@ import json
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import boto3
+from botocore.client import Config
 
 def handler(event: dict, context) -> dict:
-    '''Возвращает список папок и фотографий с публичными S3 URLs'''
+    '''Возвращает список папок и фотографий с presigned S3 URLs'''
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
@@ -35,6 +37,16 @@ def handler(event: dict, context) -> dict:
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
             'body': json.dumps({'error': 'User ID required'})
         }
+
+    # Инициализируем S3 клиент для presigned URLs
+    s3_client = boto3.client(
+        's3',
+        endpoint_url='https://storage.yandexcloud.net',
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4')
+    )
 
     conn = None
     try:
@@ -74,11 +86,26 @@ def handler(event: dict, context) -> dict:
                 photo = dict(row)
                 photo['created_at'] = photo['created_at'].isoformat() if photo['created_at'] else None
                 
-                # Используем публичные URLs через бакет (предполагаем что бакет публичный)
-                photo_url = f"https://storage.yandexcloud.net/foto-mix/{row['s3_key']}"
+                # Генерируем presigned URLs (срок действия 1 час)
+                photo_url = s3_client.generate_presigned_url(
+                    'get_object',
+                    Params={
+                        'Bucket': 'foto-mix',
+                        'Key': row['s3_key']
+                    },
+                    ExpiresIn=3600
+                )
+                
                 thumbnail_url = photo_url
                 if row['thumbnail_s3_key']:
-                    thumbnail_url = f"https://storage.yandexcloud.net/foto-mix/{row['thumbnail_s3_key']}"
+                    thumbnail_url = s3_client.generate_presigned_url(
+                        'get_object',
+                        Params={
+                            'Bucket': 'foto-mix',
+                            'Key': row['thumbnail_s3_key']
+                        },
+                        ExpiresIn=3600
+                    )
                 
                 photo['photo_url'] = photo_url
                 photo['thumbnail_url'] = thumbnail_url
