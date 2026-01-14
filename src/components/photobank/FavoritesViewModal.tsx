@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 interface FavoritesViewModalProps {
   folderId: number;
   folderName: string;
+  userId: number;
   onClose: () => void;
 }
 
@@ -26,7 +27,7 @@ interface Photo {
   thumbnail_url?: string;
 }
 
-export default function FavoritesViewModal({ folderId, folderName, onClose }: FavoritesViewModalProps) {
+export default function FavoritesViewModal({ folderId, folderName, userId, onClose }: FavoritesViewModalProps) {
   const [clients, setClients] = useState<ClientData[]>([]);
   const [selectedClient, setSelectedClient] = useState<ClientData | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
@@ -44,7 +45,10 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
 
   const loadPhotos = async () => {
     try {
-      const response = await fetch(`https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?folder_id=${folderId}`);
+      const response = await fetch(
+        `https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc?action=list_photos&folder_id=${folderId}`,
+        { headers: { 'X-User-Id': userId.toString() } }
+      );
       const result = await response.json();
       
       if (response.ok) {
@@ -54,6 +58,7 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
         }));
         
         setAllPhotos(photos);
+        console.log('[FAVORITES] Loaded', photos.length, 'photos from folder');
       }
     } catch (e) {
       console.error('[FAVORITES] Failed to load photos:', e);

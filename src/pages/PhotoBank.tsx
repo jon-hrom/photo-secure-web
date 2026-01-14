@@ -392,6 +392,7 @@ const PhotoBank = () => {
         <FavoritesViewModal
           folderId={selectedFolder.id}
           folderName={selectedFolder.folder_name}
+          userId={userId}
           onClose={() => setShowFavorites(false)}
         />
       )}
