@@ -46,25 +46,19 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
   const loadPhotos = async () => {
     try {
       const response = await fetch(
-        `https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc?action=list_photos&folder_id=${folderId}`,
+        `https://functions.poehali.dev/647801b3-1db8-4ded-bf80-1f278b3b5f94?action=list_photos&folder_id=${folderId}`,
         { headers: { 'X-User-Id': userId.toString() } }
       );
       const result = await response.json();
       
       if (response.ok) {
-        console.log('[FAVORITES] Raw API response sample:', result.photos?.slice(0, 2));
-        
         const photos = (result.photos || []).map((photo: Photo) => ({
           ...photo,
           thumbnail_url: photo.thumbnail_url || photo.photo_url
         }));
         
         setAllPhotos(photos);
-        console.log('[FAVORITES] Loaded', photos.length, 'photos from folder');
-        console.log('[FAVORITES] First photo URLs:', {
-          thumbnail: photos[0]?.thumbnail_url,
-          full: photos[0]?.photo_url
-        });
+        console.log('[FAVORITES] Loaded', photos.length, 'photos with presigned URLs');
       }
     } catch (e) {
       console.error('[FAVORITES] Failed to load photos:', e);

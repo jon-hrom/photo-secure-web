@@ -1,0 +1,40 @@
+{
+  "tests": [
+    {
+      "name": "Test list folders",
+      "method": "GET",
+      "path": "/?action=list",
+      "headers": {
+        "X-User-Id": "12"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "folders": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test list photos with presigned URLs",
+      "method": "GET",
+      "path": "/?action=list_photos&folder_id=111",
+      "headers": {
+        "X-User-Id": "12"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "photos": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test unauthorized access",
+      "method": "GET",
+      "path": "/?action=list",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "User ID required"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
