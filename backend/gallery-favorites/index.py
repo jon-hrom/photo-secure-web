@@ -36,11 +36,11 @@ def handler(event: dict, context) -> dict:
             if action == 'add_to_favorites':
                 gallery_code = body.get('gallery_code')
                 full_name = body.get('full_name')
-                phone = body.get('phone')
+                phone = body.get('phone', '')
                 email = body.get('email')
                 photo_id = body.get('photo_id')
                 
-                if not all([gallery_code, full_name, phone, photo_id]):
+                if not all([gallery_code, full_name, photo_id is not None]):
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
