@@ -46,25 +46,44 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
     try {
       const response = await fetch(`https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?folder_id=${folderId}`);
       const result = await response.json();
+      console.log('[FAVORITES] Raw API response:', result);
+      
       if (response.ok) {
         const photos = (result.photos || []).map((photo: Photo) => {
+          console.log('[FAVORITES] Processing photo:', {
+            id: photo.id,
+            originalPhotoUrl: photo.photo_url,
+            originalThumbnailUrl: photo.thumbnail_url
+          });
+          
           const convertToThumb = (url: string) => {
             if (url.includes('.CR2') && url.includes('storage.yandexcloud.net')) {
               const baseUrl = url.split('?')[0];
               const thumbUrl = baseUrl.replace('.CR2', '_thumb.jpg');
               const params = url.split('?')[1];
-              return params ? `${thumbUrl}?${params}` : thumbUrl;
+              const result = params ? `${thumbUrl}?${params}` : thumbUrl;
+              console.log('[FAVORITES] Converted CR2:', { original: url.substring(0, 100), converted: result.substring(0, 100) });
+              return result;
             }
             return url;
           };
           
-          return {
+          const finalPhoto = {
             ...photo,
             photo_url: convertToThumb(photo.photo_url),
             thumbnail_url: convertToThumb(photo.thumbnail_url || photo.photo_url)
           };
+          
+          console.log('[FAVORITES] Final photo URLs:', {
+            id: finalPhoto.id,
+            photo_url: finalPhoto.photo_url.substring(0, 100),
+            thumbnail_url: finalPhoto.thumbnail_url.substring(0, 100)
+          });
+          
+          return finalPhoto;
         });
         
+        console.log('[FAVORITES] Total photos loaded:', photos.length);
         setAllPhotos(photos);
       }
     } catch (e) {
@@ -77,6 +96,8 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
     setError('');
     
     const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
+    console.log('[FAVORITES] Gallery code:', galleryCode);
+    
     if (!galleryCode) {
       setLoading(false);
       return;
@@ -88,12 +109,21 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
       );
       
       const result = await response.json();
+      console.log('[FAVORITES] Clients API response:', result);
       
       if (!response.ok) {
         throw new Error(result.error || 'Ошибка загрузки избранного');
       }
       
       const clients = result.clients || [];
+      console.log('[FAVORITES] Loaded clients:', clients.length);
+      clients.forEach((client: ClientData) => {
+        console.log('[FAVORITES] Client:', {
+          name: client.full_name,
+          photoIds: client.photos.map(p => p.photo_id)
+        });
+      });
+      
       setClients(clients);
     } catch (e) {
       console.error('[FAVORITES] Failed to load favorites:', e);
