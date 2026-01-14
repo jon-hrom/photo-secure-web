@@ -35,8 +35,11 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
 
   useEffect(() => {
-    loadFavorites();
-    loadPhotos();
+    const init = async () => {
+      await loadPhotos();
+      await loadFavorites();
+    };
+    init();
   }, [folderId]);
 
   const loadPhotos = async () => {
