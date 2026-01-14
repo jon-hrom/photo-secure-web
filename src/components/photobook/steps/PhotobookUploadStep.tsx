@@ -69,7 +69,7 @@ const PhotobookUploadStep = ({ requiredPhotos, onComplete, onBack }: PhotobookUp
   };
   
   const userId = getAuthUserId();
-  const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/647801b3-1db8-4ded-bf80-1f278b3b5f94';
+  const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
 
   useEffect(() => {
     const savedPhotos = localStorage.getItem('photobank_selected_photos');

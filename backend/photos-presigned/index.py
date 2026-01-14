@@ -1,12 +1,12 @@
 import json
 import os
+import boto3
+from datetime import timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import boto3
-from botocore.client import Config
 
 def handler(event: dict, context) -> dict:
-    '''Возвращает список папок и фотографий с presigned S3 URLs'''
+    '''Генерирует presigned URLs для фотографий из S3-хранилища'''
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
@@ -38,25 +38,59 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'User ID required'})
         }
 
-    # Инициализируем S3 клиент для presigned URLs
-    s3_client = boto3.client(
-        's3',
-        endpoint_url='https://storage.yandexcloud.net',
-        region_name='ru-central1',
-        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
-        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
-        config=Config(signature_version='s3v4')
-    )
-
     conn = None
     try:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         schema = os.environ['MAIN_DB_SCHEMA']
+        
+        s3 = boto3.client(
+            's3',
+            endpoint_url='https://storage.yandexcloud.net',
+            aws_access_key_id=os.environ['YC_S3_KEY_ID'],
+            aws_secret_access_key=os.environ['YC_S3_SECRET']
+        )
 
-        if action == 'list':
+        if action == 'list_photos' and folder_id:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
-                    f"SELECT id, folder_name, created_at, folder_type, parent_folder_id FROM {schema}.photo_folders WHERE user_id = %s AND (is_trashed IS NULL OR is_trashed = false) ORDER BY created_at DESC",
+                    f"SELECT id, folder_id, file_name, s3_key, thumbnail_s3_key, file_size, width, height, created_at, is_video FROM {schema}.photo_bank WHERE folder_id = %s AND user_id = %s AND (is_trashed IS NULL OR is_trashed = false) ORDER BY created_at DESC",
+                    (folder_id, user_id)
+                )
+                rows = cur.fetchall()
+            
+            photos = []
+            for row in rows:
+                photo = dict(row)
+                photo['created_at'] = photo['created_at'].isoformat() if photo['created_at'] else None
+                
+                photo_url = s3.generate_presigned_url(
+                    'get_object',
+                    Params={'Bucket': 'foto-mix', 'Key': row['s3_key']},
+                    ExpiresIn=int(timedelta(hours=1).total_seconds())
+                )
+                
+                thumbnail_url = photo_url
+                if row['thumbnail_s3_key']:
+                    thumbnail_url = s3.generate_presigned_url(
+                        'get_object',
+                        Params={'Bucket': 'foto-mix', 'Key': row['thumbnail_s3_key']},
+                        ExpiresIn=int(timedelta(hours=1).total_seconds())
+                    )
+                
+                photo['photo_url'] = photo_url
+                photo['thumbnail_url'] = thumbnail_url
+                photos.append(photo)
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'photos': photos})
+            }
+
+        elif action == 'list':
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    f"SELECT id, name, created_at FROM {schema}.photo_folders WHERE user_id = %s ORDER BY created_at DESC",
                     (user_id,)
                 )
                 rows = cur.fetchall()
@@ -73,50 +107,6 @@ def handler(event: dict, context) -> dict:
                 'body': json.dumps({'folders': folders})
             }
 
-        elif action == 'list_photos' and folder_id:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    f"SELECT id, folder_id, file_name, s3_key, thumbnail_s3_key, file_size, width, height, created_at, is_video FROM {schema}.photo_bank WHERE folder_id = %s AND user_id = %s AND (is_trashed IS NULL OR is_trashed = false) ORDER BY created_at DESC",
-                    (folder_id, user_id)
-                )
-                rows = cur.fetchall()
-            
-            photos = []
-            for row in rows:
-                photo = dict(row)
-                photo['created_at'] = photo['created_at'].isoformat() if photo['created_at'] else None
-                
-                # Генерируем presigned URLs (срок действия 1 час)
-                photo_url = s3_client.generate_presigned_url(
-                    'get_object',
-                    Params={
-                        'Bucket': 'foto-mix',
-                        'Key': row['s3_key']
-                    },
-                    ExpiresIn=3600
-                )
-                
-                thumbnail_url = photo_url
-                if row['thumbnail_s3_key']:
-                    thumbnail_url = s3_client.generate_presigned_url(
-                        'get_object',
-                        Params={
-                            'Bucket': 'foto-mix',
-                            'Key': row['thumbnail_s3_key']
-                        },
-                        ExpiresIn=3600
-                    )
-                
-                photo['photo_url'] = photo_url
-                photo['thumbnail_url'] = thumbnail_url
-                photos.append(photo)
-            
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'photos': photos})
-            }
-
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -124,13 +114,6 @@ def handler(event: dict, context) -> dict:
         }
 
     except Exception as e:
-        import traceback
-        error_details = {
-            'error': str(e),
-            'type': type(e).__name__,
-            'traceback': traceback.format_exc()
-        }
-        print(f'[ERROR] Exception in photos-presigned: {error_details}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
