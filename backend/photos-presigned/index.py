@@ -42,15 +42,34 @@ def handler(event: dict, context) -> dict:
     try:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         schema = os.environ['MAIN_DB_SCHEMA']
-        
-        s3 = boto3.client(
-            's3',
-            endpoint_url='https://storage.yandexcloud.net',
-            aws_access_key_id=os.environ['YC_S3_KEY_ID'],
-            aws_secret_access_key=os.environ['YC_S3_SECRET']
-        )
 
-        if action == 'list_photos' and folder_id:
+        if action == 'list':
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    f"SELECT id, name, created_at FROM {schema}.photo_folders WHERE user_id = %s ORDER BY created_at DESC",
+                    (user_id,)
+                )
+                rows = cur.fetchall()
+            
+            folders = []
+            for row in rows:
+                folder = dict(row)
+                folder['created_at'] = folder['created_at'].isoformat() if folder['created_at'] else None
+                folders.append(folder)
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'folders': folders})
+            }
+
+        elif action == 'list_photos' and folder_id:
+            s3 = boto3.client(
+                's3',
+                endpoint_url='https://storage.yandexcloud.net',
+                aws_access_key_id=os.environ['YC_S3_KEY_ID'],
+                aws_secret_access_key=os.environ['YC_S3_SECRET']
+            )
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
                     f"SELECT id, folder_id, file_name, s3_key, thumbnail_s3_key, file_size, width, height, created_at, is_video FROM {schema}.photo_bank WHERE folder_id = %s AND user_id = %s AND (is_trashed IS NULL OR is_trashed = false) ORDER BY created_at DESC",
@@ -85,26 +104,6 @@ def handler(event: dict, context) -> dict:
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'photos': photos})
-            }
-
-        elif action == 'list':
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    f"SELECT id, name, created_at FROM {schema}.photo_folders WHERE user_id = %s ORDER BY created_at DESC",
-                    (user_id,)
-                )
-                rows = cur.fetchall()
-            
-            folders = []
-            for row in rows:
-                folder = dict(row)
-                folder['created_at'] = folder['created_at'].isoformat() if folder['created_at'] else None
-                folders.append(folder)
-            
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'folders': folders})
             }
 
         return {
