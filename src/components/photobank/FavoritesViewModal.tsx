@@ -52,6 +52,8 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
       const result = await response.json();
       
       if (response.ok) {
+        console.log('[FAVORITES] Raw API response sample:', result.photos?.slice(0, 2));
+        
         const photos = (result.photos || []).map((photo: Photo) => ({
           ...photo,
           thumbnail_url: photo.thumbnail_url || photo.photo_url
@@ -59,6 +61,10 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
         
         setAllPhotos(photos);
         console.log('[FAVORITES] Loaded', photos.length, 'photos from folder');
+        console.log('[FAVORITES] First photo URLs:', {
+          thumbnail: photos[0]?.thumbnail_url,
+          full: photos[0]?.photo_url
+        });
       }
     } catch (e) {
       console.error('[FAVORITES] Failed to load photos:', e);
