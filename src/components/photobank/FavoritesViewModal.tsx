@@ -46,10 +46,30 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
       const result = await response.json();
       console.log('[FAVORITES] Photos API response:', result);
       if (response.ok) {
-        const photos = result.photos || [];
+        const photos = (result.photos || []).map((photo: Photo) => {
+          let thumbnailUrl = photo.thumbnail_url || photo.photo_url;
+          
+          // Если это presigned URL на .CR2 файл, заменяем на _thumb.jpg
+          if (thumbnailUrl.includes('.CR2') && thumbnailUrl.includes('storage.yandexcloud.net')) {
+            // Извлекаем базовое имя файла до параметров
+            const baseUrl = thumbnailUrl.split('?')[0];
+            // Заменяем .CR2 на _thumb.jpg
+            const thumbUrl = baseUrl.replace('.CR2', '_thumb.jpg');
+            // Добавляем параметры обратно
+            const params = thumbnailUrl.split('?')[1];
+            thumbnailUrl = params ? `${thumbUrl}?${params}` : thumbUrl;
+            console.log('[FAVORITES] Converted CR2 to thumb:', { original: photo.thumbnail_url, converted: thumbnailUrl });
+          }
+          
+          return {
+            ...photo,
+            thumbnail_url: thumbnailUrl
+          };
+        });
+        
         console.log('[FAVORITES] Loaded photos count:', photos.length);
         if (photos.length > 0) {
-          console.log('[FAVORITES] Sample photo:', photos[0]);
+          console.log('[FAVORITES] Sample processed photo:', photos[0]);
         }
         setAllPhotos(photos);
       }
