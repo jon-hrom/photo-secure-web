@@ -44,24 +44,17 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
 
   const loadPhotos = async () => {
     try {
-      console.log('[FAVORITES] Loading photos for folder:', folderId);
       const response = await fetch(`https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?folder_id=${folderId}`);
       const result = await response.json();
-      console.log('[FAVORITES] Photos API response:', result);
       if (response.ok) {
         const photos = (result.photos || []).map((photo: Photo) => {
           let thumbnailUrl = photo.thumbnail_url || photo.photo_url;
           
-          // Если это presigned URL на .CR2 файл, заменяем на _thumb.jpg
           if (thumbnailUrl.includes('.CR2') && thumbnailUrl.includes('storage.yandexcloud.net')) {
-            // Извлекаем базовое имя файла до параметров
             const baseUrl = thumbnailUrl.split('?')[0];
-            // Заменяем .CR2 на _thumb.jpg
             const thumbUrl = baseUrl.replace('.CR2', '_thumb.jpg');
-            // Добавляем параметры обратно
             const params = thumbnailUrl.split('?')[1];
             thumbnailUrl = params ? `${thumbUrl}?${params}` : thumbUrl;
-            console.log('[FAVORITES] Converted CR2 to thumb:', { original: photo.thumbnail_url, converted: thumbnailUrl });
           }
           
           return {
@@ -70,10 +63,6 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
           };
         });
         
-        console.log('[FAVORITES] Loaded photos count:', photos.length);
-        if (photos.length > 0) {
-          console.log('[FAVORITES] Sample processed photo:', photos[0]);
-        }
         setAllPhotos(photos);
       }
     } catch (e) {
@@ -86,7 +75,6 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
     setError('');
     
     const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
-    console.log('[FAVORITES] Gallery code from localStorage:', galleryCode);
     if (!galleryCode) {
       setLoading(false);
       return;
@@ -98,17 +86,12 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
       );
       
       const result = await response.json();
-      console.log('[FAVORITES] Clients API response:', result);
       
       if (!response.ok) {
         throw new Error(result.error || 'Ошибка загрузки избранного');
       }
       
       const clients = result.clients || [];
-      console.log('[FAVORITES] Loaded clients count:', clients.length);
-      if (clients.length > 0) {
-        console.log('[FAVORITES] Sample client:', clients[0]);
-      }
       setClients(clients);
     } catch (e) {
       console.error('[FAVORITES] Failed to load favorites:', e);
@@ -129,28 +112,9 @@ export default function FavoritesViewModal({ folderId, folderName, onClose }: Fa
   }
 
   if (selectedClient) {
-    console.log('[FAVORITES] Selected client:', selectedClient);
-    console.log('[FAVORITES] All photos available:', allPhotos.length);
-    console.log('[FAVORITES] Client photos to match:', selectedClient.photos);
-    
     const displayPhotos = selectedClient.photos
-      .map(fp => {
-        const photo = allPhotos.find(p => p.id === fp.photo_id);
-        if (!photo) {
-          console.warn('[FAVORITES] Photo not found for id:', fp.photo_id);
-        } else {
-          console.log('[FAVORITES] Matched photo:', {
-            id: photo.id,
-            file_name: photo.file_name,
-            photo_url: photo.photo_url,
-            thumbnail_url: photo.thumbnail_url
-          });
-        }
-        return photo;
-      })
+      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
       .filter((p): p is Photo => p !== undefined);
-    
-    console.log('[FAVORITES] Matched photos:', displayPhotos.length);
 
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
