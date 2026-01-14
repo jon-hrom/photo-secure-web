@@ -1,11 +1,10 @@
 import json
 import os
-from datetime import timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 def handler(event: dict, context) -> dict:
-    '''Генерирует presigned URLs для фотографий из S3-хранилища'''
+    '''Возвращает список папок и фотографий с публичными S3 URLs'''
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
@@ -63,14 +62,6 @@ def handler(event: dict, context) -> dict:
             }
 
         elif action == 'list_photos' and folder_id:
-            import boto3
-            
-            s3 = boto3.client(
-                's3',
-                endpoint_url='https://storage.yandexcloud.net',
-                aws_access_key_id=os.environ['YC_S3_KEY_ID'],
-                aws_secret_access_key=os.environ['YC_S3_SECRET']
-            )
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
                     f"SELECT id, folder_id, file_name, s3_key, thumbnail_s3_key, file_size, width, height, created_at, is_video FROM {schema}.photo_bank WHERE folder_id = %s AND user_id = %s AND (is_trashed IS NULL OR is_trashed = false) ORDER BY created_at DESC",
@@ -83,19 +74,11 @@ def handler(event: dict, context) -> dict:
                 photo = dict(row)
                 photo['created_at'] = photo['created_at'].isoformat() if photo['created_at'] else None
                 
-                photo_url = s3.generate_presigned_url(
-                    'get_object',
-                    Params={'Bucket': 'foto-mix', 'Key': row['s3_key']},
-                    ExpiresIn=int(timedelta(hours=1).total_seconds())
-                )
-                
+                # Используем публичные URLs через бакет (предполагаем что бакет публичный)
+                photo_url = f"https://storage.yandexcloud.net/foto-mix/{row['s3_key']}"
                 thumbnail_url = photo_url
                 if row['thumbnail_s3_key']:
-                    thumbnail_url = s3.generate_presigned_url(
-                        'get_object',
-                        Params={'Bucket': 'foto-mix', 'Key': row['thumbnail_s3_key']},
-                        ExpiresIn=int(timedelta(hours=1).total_seconds())
-                    )
+                    thumbnail_url = f"https://storage.yandexcloud.net/foto-mix/{row['thumbnail_s3_key']}"
                 
                 photo['photo_url'] = photo_url
                 photo['thumbnail_url'] = thumbnail_url
