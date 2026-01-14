@@ -1,6 +1,40 @@
 import json
 import os
 import psycopg2
+import boto3
+from datetime import timedelta
+
+def generate_presigned_url(s3_url: str, expiration: int = 3600) -> str:
+    '''Генерирует presigned URL для S3 объекта'''
+    if not s3_url or 'storage.yandexcloud.net' not in s3_url:
+        return s3_url
+    
+    try:
+        parts = s3_url.replace('https://storage.yandexcloud.net/', '').split('/', 1)
+        if len(parts) != 2:
+            return s3_url
+        
+        bucket_name = parts[0]
+        object_key = parts[1]
+        
+        s3_client = boto3.client(
+            's3',
+            endpoint_url='https://storage.yandexcloud.net',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            region_name='ru-central1'
+        )
+        
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket_name, 'Key': object_key},
+            ExpiresIn=expiration
+        )
+        
+        return presigned_url
+    except Exception as e:
+        print(f'Error generating presigned URL: {e}')
+        return s3_url
 
 def handler(event: dict, context) -> dict:
     '''API для работы с избранными фото клиентов галереи'''
@@ -127,8 +161,11 @@ def handler(event: dict, context) -> dict:
                 
                 photos = []
                 for row in cur.fetchall():
-                    photo_url = row[2] if row[2] else ''
-                    thumbnail_url = row[3] if row[3] else photo_url
+                    s3_url = row[2] if row[2] else ''
+                    thumbnail_s3_url = row[3] if row[3] else ''
+                    
+                    photo_url = generate_presigned_url(s3_url) if s3_url else ''
+                    thumbnail_url = generate_presigned_url(thumbnail_s3_url) if thumbnail_s3_url else photo_url
                     
                     photos.append({
                         'id': row[0],
