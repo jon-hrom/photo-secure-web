@@ -247,7 +247,6 @@ export default function MyFavoritesModal({
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
                     onClick={() => {
                       setSelectedPhoto(photo);
-                      if (onPhotoClick) onPhotoClick(photo);
                     }}
                   />
                   <button
