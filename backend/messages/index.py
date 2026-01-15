@@ -8,7 +8,6 @@ from datetime import datetime
 
 def handler(event: dict, context) -> dict:
     '''API для работы с сообщениями между клиентом и фотографом'''
-    
     method = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':
