@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "name": "Missing s3_key",
+      "method": "GET",
+      "expectedStatus": 400
+    },
+    {
+      "name": "Valid s3_key",
+      "method": "GET",
+      "path": "/?s3_key=test/file.jpg",
+      "expectedStatus": 200
+    }
+  ]
+}

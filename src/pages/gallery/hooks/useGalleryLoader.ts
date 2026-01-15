@@ -8,6 +8,7 @@ interface Photo {
   width?: number;
   height?: number;
   file_size: number;
+  s3_key?: string;
 }
 
 interface WatermarkSettings {

@@ -263,7 +263,8 @@ def handler(event: dict, context) -> dict:
                         'thumbnail_url': thumbnail_url,
                         'width': width,
                         'height': height,
-                        'file_size': file_size
+                        'file_size': file_size,
+                        's3_key': s3_key
                     })
                     
                     total_size += file_size or 0

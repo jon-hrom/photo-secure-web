@@ -9,6 +9,7 @@ interface Photo {
   width?: number;
   height?: number;
   file_size: number;
+  s3_key?: string;
 }
 
 interface DownloadProgress {
@@ -30,8 +31,21 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
 
   const downloadPhoto = async (photo: Photo) => {
     try {
-      const response = await fetch(photo.photo_url);
-      const blob = await response.blob();
+      if (!photo.s3_key) {
+        throw new Error('Отсутствует информация о файле');
+      }
+
+      const apiUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(photo.s3_key)}`;
+      
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+      
+      if (!response.ok || !data.download_url) {
+        throw new Error(data.error || 'Ошибка получения ссылки на файл');
+      }
+
+      const fileResponse = await fetch(data.download_url);
+      const blob = await fileResponse.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -42,6 +56,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Ошибка скачивания:', err);
+      alert('Ошибка при скачивании файла. Попробуйте ещё раз.');
     }
   };
 
