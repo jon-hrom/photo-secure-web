@@ -117,6 +117,46 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     );
   }
 
+  const handleDownloadClientPhotos = async (client: ClientData) => {
+    const displayPhotos = client.photos
+      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
+      .filter((p): p is Photo => p !== undefined);
+
+    if (displayPhotos.length === 0) {
+      alert('Нет фото для скачивания');
+      return;
+    }
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/6e1b3b67-2e15-4eb2-a01c-c17a2b5bba42', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
+        body: JSON.stringify({
+          photo_urls: displayPhotos.map(p => p.photo_url),
+          archive_name: `${client.full_name}.zip`
+        })
+      });
+
+      if (!response.ok) throw new Error('Ошибка скачивания');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${client.full_name}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Download failed:', e);
+      alert('Ошибка при скачивании архива');
+    }
+  };
+
   if (selectedClient) {
     const displayPhotos = selectedClient.photos
       .map(fp => allPhotos.find(p => p.id === fp.photo_id))
@@ -199,14 +239,54 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     );
   }
 
+  const handleDownloadClientPhotos = async (client: ClientData) => {
+    const displayPhotos = client.photos
+      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
+      .filter((p): p is Photo => p !== undefined);
+
+    if (displayPhotos.length === 0) {
+      alert('Нет фото для скачивания');
+      return;
+    }
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/6e1b3b67-2e15-4eb2-a01c-c17a2b5bba42', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
+        body: JSON.stringify({
+          photo_urls: displayPhotos.map(p => p.photo_url),
+          archive_name: `${client.full_name}.zip`
+        })
+      });
+
+      if (!response.ok) throw new Error('Ошибка скачивания');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${client.full_name}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Download failed:', e);
+      alert('Ошибка при скачивании архива');
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-6xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b dark:border-gray-800">
           <div className="flex items-center gap-2">
             <Icon name="Star" size={24} className="text-yellow-500 fill-yellow-500" />
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Избранное</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Избранное клиентов</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">{folderName}</p>
             </div>
           </div>
@@ -222,13 +302,13 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
               <p className="text-red-600">{error}</p>
             </div>
           ) : clients.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Icon name="ImageOff" size={48} className="mx-auto mb-3 opacity-50" />
-              <p>Клиенты ещё не добавили фото в избранное</p>
-              <p className="text-sm mt-2">Настройте избранное в разделе "Ссылка на папку"</p>
+            <div className="text-center py-12">
+              <Icon name="Star" size={64} className="text-gray-300 dark:text-gray-700 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Пока нет избранного</h3>
+              <p className="text-gray-600 dark:text-gray-400">Клиенты смогут добавлять фото в избранное после получения ссылки на галерею</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {clients.map((client) => {
                 const clientPhotos = client.photos
                   .map(fp => allPhotos.find(p => p.id === fp.photo_id))
@@ -237,46 +317,44 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                 return (
                   <div
                     key={client.client_id}
+                    className="relative group cursor-pointer"
                     onClick={() => setSelectedClient(client)}
-                    className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                        {client.full_name.charAt(0).toUpperCase()}
+                    <div className="relative bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-200 hover:scale-105 aspect-[3/4] flex flex-col items-center justify-center border-2 border-yellow-200/50 dark:border-yellow-700/50">
+                      <div className="absolute top-3 right-3 z-10">
+                        <Icon name="Star" size={20} className="text-yellow-500 fill-yellow-500 drop-shadow-md" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">{client.full_name}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{client.phone}</p>
-                        {client.email && (
-                          <p className="text-xs text-gray-500 dark:text-gray-500 truncate">{client.email}</p>
-                        )}
+                      
+                      <div className="flex-1 flex items-center justify-center mb-3">
+                        <Icon name="Folder" size={72} className="text-yellow-600 dark:text-yellow-500 drop-shadow-sm" />
                       </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-1 mb-2">
-                      {clientPhotos.slice(0, 3).map((photo) => (
-                        <div key={photo.id} className="relative w-full h-20 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-                          <img
-                            src={photo.thumbnail_url || photo.photo_url}
-                            alt={photo.file_name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.currentTarget;
-                              target.style.display = 'none';
-                              const icon = target.nextElementSibling;
-                              if (icon) icon.classList.remove('hidden');
-                            }}
-                          />
-                          <div className="hidden absolute inset-0 flex items-center justify-center">
-                            <Icon name="Camera" size={32} className="text-gray-400" />
-                          </div>
+                      
+                      <div className="w-full text-center">
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-1 truncate px-2" title={client.full_name}>
+                          {client.full_name}
+                        </h3>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 truncate px-2" title={client.phone}>
+                          {client.phone}
+                        </p>
+                      </div>
+
+                      <div className="absolute bottom-3 left-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-1">
+                          <Icon name="Image" size={14} className="text-gray-600 dark:text-gray-400" />
+                          <span className="text-xs font-semibold text-gray-900 dark:text-white">{clientPhotos.length}</span>
                         </div>
-                      ))}
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">{clientPhotos.length} фото</span>
-                      <Icon name="ChevronRight" size={16} className="text-gray-400" />
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadClientPhotos(client);
+                        }}
+                        className="absolute bottom-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg shadow-md hover:shadow-lg transition-all z-10 hover:scale-110 active:scale-95"
+                        title="Скачать архив"
+                      >
+                        <Icon name="Download" size={16} />
+                      </button>
                     </div>
                   </div>
                 );
