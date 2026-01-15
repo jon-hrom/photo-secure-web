@@ -38,14 +38,13 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       const apiUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(photo.s3_key)}`;
       
       const response = await fetch(apiUrl);
-      const data = await response.json();
       
-      if (!response.ok || !data.download_url) {
-        throw new Error(data.error || 'Ошибка получения ссылки на файл');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка скачивания файла');
       }
 
-      const fileResponse = await fetch(data.download_url);
-      const blob = await fileResponse.blob();
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

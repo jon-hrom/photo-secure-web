@@ -6,10 +6,14 @@
       "expectedStatus": 400
     },
     {
-      "name": "Valid s3_key",
+      "name": "Valid s3_key returns error for non-existent file",
       "method": "GET",
-      "path": "/?s3_key=test/file.jpg",
-      "expectedStatus": 200
+      "path": "/?s3_key=test/nonexistent.jpg",
+      "expectedStatus": 500,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }

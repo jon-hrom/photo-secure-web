@@ -1,5 +1,6 @@
 import json
 import os
+import base64
 from typing import Dict, Any
 import boto3
 from botocore.client import Config
@@ -52,25 +53,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             config=Config(signature_version='s3v4')
         )
         
-        presigned_url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': 'foto-mix',
-                'Key': s3_key
-            },
-            ExpiresIn=3600
-        )
+        # Скачиваем файл из S3
+        response = s3_client.get_object(Bucket='foto-mix', Key=s3_key)
+        file_content = response['Body'].read()
+        content_type = response.get('ContentType', 'application/octet-stream')
         
+        # Извлекаем имя файла из s3_key
+        filename = s3_key.split('/')[-1] if '/' in s3_key else s3_key
+        
+        # Возвращаем файл как base64
         return {
             'statusCode': 200,
             'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
+                'Content-Type': content_type,
+                'Access-Control-Allow-Origin': '*',
+                'Content-Disposition': f'attachment; filename="{filename}"'
             },
-            'body': json.dumps({
-                'download_url': presigned_url
-            }),
-            'isBase64Encoded': False
+            'body': base64.b64encode(file_content).decode('utf-8'),
+            'isBase64Encoded': True
         }
     
     except Exception as e:
