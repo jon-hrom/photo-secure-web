@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { playNotificationSound, enableNotificationSound } from '@/utils/notificationSound';
 
 interface Message {
   id: number;
@@ -33,14 +34,16 @@ export default function ChatModal({
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef<number>(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadMessages = async () => {
+  const loadMessages = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
+      
       const response = await fetch(
         `https://functions.poehali.dev/53960ae3-2519-432d-85c8-395435f0f401?client_id=${clientId}&photographer_id=${photographerId}`
       );
@@ -48,13 +51,24 @@ export default function ChatModal({
       if (!response.ok) throw new Error('Ошибка загрузки сообщений');
       
       const data = await response.json();
-      setMessages(data.messages || []);
+      const newMessages = data.messages || [];
       
-      setTimeout(scrollToBottom, 100);
+      // Проверяем есть ли новые сообщения от собеседника
+      if (silent && previousMessageCountRef.current > 0 && newMessages.length > previousMessageCountRef.current) {
+        const latestMessage = newMessages[newMessages.length - 1];
+        if (latestMessage.sender_type !== senderType) {
+          playNotificationSound();
+        }
+      }
+      
+      previousMessageCountRef.current = newMessages.length;
+      setMessages(newMessages);
+      
+      if (!silent) setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -111,11 +125,12 @@ export default function ChatModal({
 
   useEffect(() => {
     if (isOpen) {
+      enableNotificationSound();
       loadMessages();
       markAsRead();
       
       const interval = setInterval(() => {
-        loadMessages();
+        loadMessages(true);
       }, 3000);
       
       return () => clearInterval(interval);
@@ -204,6 +219,7 @@ export default function ChatModal({
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
+              onFocus={enableNotificationSound}
               placeholder="Введите сообщение..."
               className="flex-1 px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               rows={2}
