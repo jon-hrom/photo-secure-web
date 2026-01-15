@@ -117,8 +117,13 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
       s3_key = s3_key.split('?')[0];
       console.log('[FAVORITES] Extracted s3_key:', s3_key);
       
+      // Для больших файлов (RAW > 3MB) используем presigned URL
+      const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') || 
+                         photo.file_name.toUpperCase().endsWith('.NEF') ||
+                         photo.file_name.toUpperCase().endsWith('.ARW');
+      
       const response = await fetch(
-        `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`
+        `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}${isLargeFile ? '&presigned=true' : ''}`
       );
 
       if (!response.ok) {
@@ -127,15 +132,26 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
         throw new Error(errorData.error || 'Ошибка скачивания');
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = photo.file_name;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      if (isLargeFile) {
+        const data = await response.json();
+        const a = document.createElement('a');
+        a.href = data.download_url;
+        a.download = photo.file_name;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = photo.file_name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
     } catch (e) {
       console.error('[FAVORITES] Download failed:', e);
       alert('Ошибка при скачивании фото: ' + (e instanceof Error ? e.message : 'Неизвестная ошибка'));
@@ -301,18 +317,24 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
       .map(fp => allPhotos.find(p => p.id === fp.photo_id))
       .filter((p): p is Photo => p !== undefined) || [];
 
-    const viewerPhotos = displayPhotos.map(p => ({
-      id: p.id,
-      file_name: p.file_name,
-      s3_url: p.photo_url,
-      s3_key: p.photo_url.split('/bucket/')[1] || p.photo_url.split('/').slice(-3).join('/'),
-      thumbnail_s3_url: p.thumbnail_url,
-      is_raw: false,
-      file_size: 0,
-      width: null,
-      height: null,
-      created_at: new Date().toISOString()
-    }));
+    const viewerPhotos = displayPhotos.map(p => {
+      let s3_key = p.photo_url.split('/bucket/')[1] || p.photo_url.split('/').slice(-3).join('/');
+      // Удаляем параметры presigned URL если есть
+      s3_key = s3_key.split('?')[0];
+      
+      return {
+        id: p.id,
+        file_name: p.file_name,
+        s3_url: p.photo_url,
+        s3_key: s3_key,
+        thumbnail_s3_url: p.thumbnail_url,
+        is_raw: false,
+        file_size: 0,
+        width: null,
+        height: null,
+        created_at: new Date().toISOString()
+      };
+    });
 
     const viewerPhoto = viewerPhotos.find(p => p.id === selectedPhoto.id) || null;
 
@@ -324,19 +346,35 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
         onNavigate={handleNavigate}
         onDownload={async (s3Key, fileName) => {
           try {
+            const isLargeFile = fileName.toUpperCase().endsWith('.CR2') || 
+                               fileName.toUpperCase().endsWith('.NEF') ||
+                               fileName.toUpperCase().endsWith('.ARW');
+            
             const response = await fetch(
-              `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3Key)}`
+              `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3Key)}${isLargeFile ? '&presigned=true' : ''}`
             );
             if (!response.ok) throw new Error('Ошибка скачивания');
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            
+            if (isLargeFile) {
+              const data = await response.json();
+              const a = document.createElement('a');
+              a.href = data.download_url;
+              a.download = fileName;
+              a.target = '_blank';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            } else {
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = fileName;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              document.body.removeChild(a);
+            }
           } catch (e) {
             console.error('Download failed:', e);
             alert('Ошибка при скачивании фото');

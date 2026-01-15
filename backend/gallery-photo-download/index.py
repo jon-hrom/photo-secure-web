@@ -79,30 +79,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             s3_client.head_object(Bucket=bucket, Key=s3_key)
         
         # Если запрашивается presigned URL (для больших файлов)
-        if use_presigned or method == 'HEAD':
+        if use_presigned:
             presigned_url = s3_client.generate_presigned_url(
                 'get_object',
                 Params={'Bucket': bucket, 'Key': s3_key},
                 ExpiresIn=3600
             )
             
-            if method == 'HEAD':
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Access-Control-Allow-Origin': '*',
-                        'X-Presigned-URL': presigned_url
-                    },
-                    'body': '',
-                    'isBase64Encoded': False
-                }
-            
-            # Для GET с presigned возвращаем редирект
+            # Возвращаем JSON с presigned URL (не редирект - из-за CORS)
             return {
-                'statusCode': 307,
+                'statusCode': 200,
                 'headers': {
-                    'Location': presigned_url,
+                    'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'download_url': presigned_url,
+                    'filename': filename
+                }),
+                'isBase64Encoded': False
+            }
+        
+        # Для HEAD запроса возвращаем метаданные
+        if method == 'HEAD':
+            metadata = s3_client.head_object(Bucket=bucket, Key=s3_key)
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': metadata.get('ContentType', 'application/octet-stream'),
+                    'Content-Length': str(metadata.get('ContentLength', 0))
                 },
                 'body': '',
                 'isBase64Encoded': False

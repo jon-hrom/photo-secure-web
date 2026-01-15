@@ -35,30 +35,43 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         throw new Error('Отсутствует информация о файле');
       }
 
-      // Для больших файлов (RAW) используем presigned URL (редирект)
+      // Для больших файлов (RAW > 3MB) используем presigned URL
       const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') || 
                          photo.file_name.toUpperCase().endsWith('.NEF') ||
                          photo.file_name.toUpperCase().endsWith('.ARW') ||
-                         photo.file_size > 10 * 1024 * 1024; // > 10MB
+                         photo.file_size > 3 * 1024 * 1024; // > 3MB
       
       const apiUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(photo.s3_key)}${isLargeFile ? '&presigned=true' : ''}`;
       
-      const response = await fetch(apiUrl, { redirect: 'follow' });
+      const response = await fetch(apiUrl);
       
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Ошибка скачивания файла');
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = photo.file_name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // Для presigned URL получаем JSON с ссылкой
+      if (isLargeFile) {
+        const data = await response.json();
+        const a = document.createElement('a');
+        a.href = data.download_url;
+        a.download = photo.file_name;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        // Для маленьких файлов получаем blob напрямую
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = photo.file_name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
     } catch (err) {
       console.error('Ошибка скачивания:', err);
       alert('Ошибка при скачивании файла. Попробуйте ещё раз.');
