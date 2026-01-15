@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import PhotoGridViewer from './PhotoGridViewer';
 
 interface FavoritesViewModalProps {
   folderId: number;
@@ -270,33 +271,76 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     }
   };
 
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    if (!selectedClient || !selectedPhoto) return;
+    
+    const displayPhotos = selectedClient.photos
+      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
+      .filter((p): p is Photo => p !== undefined);
+    
+    const currentIndex = displayPhotos.findIndex(p => p.id === selectedPhoto.id);
+    
+    if (direction === 'prev' && currentIndex > 0) {
+      setSelectedPhoto(displayPhotos[currentIndex - 1]);
+    } else if (direction === 'next' && currentIndex < displayPhotos.length - 1) {
+      setSelectedPhoto(displayPhotos[currentIndex + 1]);
+    }
+  };
+
   if (selectedPhoto) {
+    const displayPhotos = selectedClient?.photos
+      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
+      .filter((p): p is Photo => p !== undefined) || [];
+
+    const viewerPhotos = displayPhotos.map(p => ({
+      id: p.id,
+      file_name: p.file_name,
+      s3_url: p.photo_url,
+      s3_key: p.photo_url.split('/bucket/')[1] || p.photo_url.split('/').slice(-3).join('/'),
+      thumbnail_s3_url: p.thumbnail_url,
+      is_raw: false,
+      file_size: 0,
+      width: null,
+      height: null,
+      created_at: new Date().toISOString()
+    }));
+
+    const viewerPhoto = viewerPhotos.find(p => p.id === selectedPhoto.id) || null;
+
     return (
-      <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4" onClick={() => setSelectedPhoto(null)}>
-        <button
-          onClick={() => setSelectedPhoto(null)}
-          className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10"
-        >
-          <Icon name="X" size={24} className="text-white" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDownloadSinglePhoto(selectedPhoto);
-          }}
-          className="absolute top-4 right-20 p-2 bg-blue-500 hover:bg-blue-600 rounded-full transition-colors z-10"
-          title="Скачать фото"
-        >
-          <Icon name="Download" size={24} className="text-white" />
-        </button>
-        <img
-          src={selectedPhoto.photo_url}
-          alt={selectedPhoto.file_name}
-          className="max-w-full max-h-full object-contain"
-          onClick={(e) => e.stopPropagation()}
-          style={{ cursor: 'zoom-in' }}
-        />
-      </div>
+      <PhotoGridViewer
+        viewPhoto={viewerPhoto}
+        photos={viewerPhotos}
+        onClose={() => setSelectedPhoto(null)}
+        onNavigate={handleNavigate}
+        onDownload={async (s3Key, fileName) => {
+          try {
+            const response = await fetch(
+              `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3Key)}`
+            );
+            if (!response.ok) throw new Error('Ошибка скачивания');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+          } catch (e) {
+            console.error('Download failed:', e);
+            alert('Ошибка при скачивании фото');
+          }
+        }}
+        formatBytes={(bytes) => {
+          if (bytes === 0) return 'N/A';
+          const k = 1024;
+          const sizes = ['B', 'KB', 'MB', 'GB'];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+        }}
+      />
     );
   }
 
