@@ -1,7 +1,7 @@
 {
+  "messages": "https://functions.poehali.dev/4efc4114-28bb-4e58-820d-6275fe30e7c0",
   "photographer-chats": "https://functions.poehali.dev/5a4dec63-cfc7-46ad-b6dd-449909398c79",
   "messages-unread-count": "https://functions.poehali.dev/ac9cc03a-3a9c-4359-acca-5cf58252f6d1",
-  "messages": "https://functions.poehali.dev/53960ae3-2519-432d-85c8-395435f0f401",
   "gallery-photo-download": "https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215",
   "download-stats": "https://functions.poehali.dev/8f039074-fe37-4670-8ebf-945af5ffc925",
   "photos-presigned": "https://functions.poehali.dev/647801b3-1db8-4ded-bf80-1f278b3b5f94",

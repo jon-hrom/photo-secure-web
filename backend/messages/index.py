@@ -18,7 +18,8 @@ def handler(event: dict, context) -> dict:
                 'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-Client-Id'
             },
-            'body': ''
+            'body': '',
+            'isBase64Encoded': False
         }
     
     try:
@@ -35,7 +36,8 @@ def handler(event: dict, context) -> dict:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'client_id and photographer_id required'})
+                    'body': json.dumps({'error': 'client_id and photographer_id required'}),
+                    'isBase64Encoded': False
                 }
             
             cur.execute('''
@@ -65,7 +67,8 @@ def handler(event: dict, context) -> dict:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'messages': messages})
+                'body': json.dumps({'messages': messages}),
+                'isBase64Encoded': False
             }
         
         elif method == 'POST':
@@ -80,21 +83,24 @@ def handler(event: dict, context) -> dict:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'client_id, photographer_id and sender_type required'})
+                    'body': json.dumps({'error': 'client_id, photographer_id and sender_type required'}),
+                    'isBase64Encoded': False
                 }
             
             if not message and not image_base64:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'message or image required'})
+                    'body': json.dumps({'error': 'message or image required'}),
+                    'isBase64Encoded': False
                 }
             
             if sender_type not in ['client', 'photographer']:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Invalid sender_type'})
+                    'body': json.dumps({'error': 'Invalid sender_type'}),
+                    'isBase64Encoded': False
                 }
             
             # Проверяем существование клиента и фотографа
@@ -105,7 +111,8 @@ def handler(event: dict, context) -> dict:
                 return {
                     'statusCode': 404,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Client not found'})
+                    'body': json.dumps({'error': 'Client not found'}),
+                    'isBase64Encoded': False
                 }
             
             cur.execute('SELECT id FROM users WHERE id = %s', (photographer_id,))
@@ -115,7 +122,8 @@ def handler(event: dict, context) -> dict:
                 return {
                     'statusCode': 404,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Photographer not found'})
+                    'body': json.dumps({'error': 'Photographer not found'}),
+                    'isBase64Encoded': False
                 }
             
             # Загружаем изображение в S3 если есть
@@ -208,7 +216,8 @@ def handler(event: dict, context) -> dict:
                 'body': json.dumps({
                     'id': message_id,
                     'created_at': created_at.isoformat() if created_at else None
-                })
+                }),
+                'isBase64Encoded': False
             }
         
         elif method == 'PUT':
@@ -221,7 +230,8 @@ def handler(event: dict, context) -> dict:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'client_id and photographer_id required'})
+                    'body': json.dumps({'error': 'client_id and photographer_id required'}),
+                    'isBase64Encoded': False
                 }
             
             if mark_as_read:
@@ -238,13 +248,15 @@ def handler(event: dict, context) -> dict:
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'success': True})
+                'body': json.dumps({'success': True}),
+                'isBase64Encoded': False
             }
         
         return {
             'statusCode': 405,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Method not allowed'})
+            'body': json.dumps({'error': 'Method not allowed'}),
+            'isBase64Encoded': False
         }
         
     except Exception as e:
@@ -254,5 +266,6 @@ def handler(event: dict, context) -> dict:
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': str(e)})
+            'body': json.dumps({'error': str(e)}),
+            'isBase64Encoded': False
         }
