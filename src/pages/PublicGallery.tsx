@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import PasswordForm from './gallery/PasswordForm';
 import GalleryGrid from './gallery/GalleryGrid';
-import PhotoViewer from './gallery/PhotoViewer';
+import PhotoGridViewer from '@/components/photobank/PhotoGridViewer';
 import LoadingIndicators from './gallery/LoadingIndicators';
 import FavoritesModal from '@/components/gallery/FavoritesModal';
 import ClientLoginModal from '@/components/gallery/ClientLoginModal';
@@ -38,9 +38,6 @@ interface FavoriteFolder {
 export default function PublicGallery() {
   const { code } = useParams<{ code: string }>();
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [imageError, setImageError] = useState(false);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   
   const [favoriteFolder, setFavoriteFolder] = useState<FavoriteFolder | null>(null);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
@@ -195,44 +192,7 @@ export default function PublicGallery() {
     }
 
     setSelectedPhoto(photosToUse[newIndex]);
-    setImageError(false);
   };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
-
-    if (isLeftSwipe) {
-      navigatePhoto('next');
-    } else if (isRightSwipe) {
-      navigatePhoto('prev');
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (!selectedPhoto) return;
-    if (e.key === 'ArrowLeft') navigatePhoto('prev');
-    if (e.key === 'ArrowRight') navigatePhoto('next');
-    if (e.key === 'Escape') setSelectedPhoto(null);
-  };
-
-  useEffect(() => {
-    if (selectedPhoto) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [selectedPhoto, gallery]);
 
   if (loading) {
     return (
@@ -289,7 +249,6 @@ export default function PublicGallery() {
           downloadingAll={downloadingAll}
           onDownloadAll={downloadAll}
           onPhotoClick={(photo) => {
-            setImageError(false);
             setViewingFavorites(false);
             setSelectedPhoto(photo);
           }}
@@ -305,21 +264,43 @@ export default function PublicGallery() {
       )}
 
       {selectedPhoto && gallery && (
-        <PhotoViewer
-          selectedPhoto={selectedPhoto}
-          gallery={gallery}
-          imageError={imageError}
+        <PhotoGridViewer
+          viewPhoto={selectedPhoto ? {
+            id: selectedPhoto.id,
+            file_name: selectedPhoto.file_name,
+            s3_url: selectedPhoto.photo_url,
+            s3_key: selectedPhoto.s3_key || selectedPhoto.photo_url.split('/bucket/')[1] || selectedPhoto.photo_url.split('/').slice(-3).join('/'),
+            thumbnail_s3_url: selectedPhoto.thumbnail_url,
+            is_raw: false,
+            file_size: selectedPhoto.file_size,
+            width: selectedPhoto.width || null,
+            height: selectedPhoto.height || null,
+            created_at: new Date().toISOString()
+          } : null}
+          photos={(viewingFavorites ? gallery.photos.filter(p => clientFavoritePhotoIds.includes(p.id)) : gallery.photos).map(p => ({
+            id: p.id,
+            file_name: p.file_name,
+            s3_url: p.photo_url,
+            s3_key: p.s3_key || p.photo_url.split('/bucket/')[1] || p.photo_url.split('/').slice(-3).join('/'),
+            thumbnail_s3_url: p.thumbnail_url,
+            is_raw: false,
+            file_size: p.file_size,
+            width: p.width || null,
+            height: p.height || null,
+            created_at: new Date().toISOString()
+          }))}
           onClose={() => {
             setSelectedPhoto(null);
             setViewingFavorites(false);
           }}
           onNavigate={navigatePhoto}
-          onDownloadPhoto={downloadPhoto}
-          onAddToFavorites={handleAddToFavorites}
-          onImageError={() => setImageError(true)}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          onDownload={async (s3Key, fileName) => {
+            const photo = gallery.photos.find(p => (p.s3_key || p.photo_url.includes(s3Key)));
+            if (photo) {
+              await downloadPhoto(photo);
+            }
+          }}
+          formatBytes={formatFileSize}
         />
       )}
 

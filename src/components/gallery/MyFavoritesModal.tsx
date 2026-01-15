@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import PhotoGridViewer from '@/components/photobank/PhotoGridViewer';
 
 interface Photo {
   id: number;
@@ -24,7 +25,7 @@ interface MyFavoritesModalProps {
   clientId: number;
   clientName: string;
   galleryPhotos: Photo[];
-  onPhotoClick: (photo: Photo) => void;
+  onPhotoClick?: (photo: Photo) => void;
   onPhotoRemoved?: (photoId: number) => void;
 }
 
@@ -40,6 +41,7 @@ export default function MyFavoritesModal({
   const [favoritePhotos, setFavoritePhotos] = useState<FavoritePhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -96,11 +98,79 @@ export default function MyFavoritesModal({
     }
   };
 
-  if (!isOpen) return null;
-
   const displayPhotos = favoritePhotos
     .map(fp => galleryPhotos.find(gp => gp.id === fp.photo_id))
     .filter((p): p is Photo => p !== undefined);
+
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    if (!selectedPhoto) return;
+    const currentIndex = displayPhotos.findIndex(p => p.id === selectedPhoto.id);
+    if (currentIndex === -1) return;
+
+    let newIndex: number;
+    if (direction === 'prev') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : displayPhotos.length - 1;
+    } else {
+      newIndex = currentIndex < displayPhotos.length - 1 ? currentIndex + 1 : 0;
+    }
+
+    setSelectedPhoto(displayPhotos[newIndex]);
+  };
+
+  if (!isOpen) return null;
+
+  if (selectedPhoto) {
+    const viewerPhotos = displayPhotos.map(p => ({
+      id: p.id,
+      file_name: p.file_name,
+      s3_url: p.photo_url,
+      s3_key: p.s3_key || p.photo_url.split('/bucket/')[1] || p.photo_url.split('/').slice(-3).join('/'),
+      thumbnail_s3_url: p.thumbnail_url,
+      is_raw: false,
+      file_size: p.file_size,
+      width: p.width || null,
+      height: p.height || null,
+      created_at: new Date().toISOString()
+    }));
+
+    const viewerPhoto = viewerPhotos.find(p => p.id === selectedPhoto.id) || null;
+
+    return (
+      <PhotoGridViewer
+        viewPhoto={viewerPhoto}
+        photos={viewerPhotos}
+        onClose={() => setSelectedPhoto(null)}
+        onNavigate={handleNavigate}
+        onDownload={async (s3Key, fileName) => {
+          try {
+            const response = await fetch(
+              `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3Key)}`
+            );
+            if (!response.ok) throw new Error('Ошибка скачивания');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+          } catch (e) {
+            console.error('Download failed:', e);
+            alert('Ошибка при скачивании фото');
+          }
+        }}
+        formatBytes={(bytes) => {
+          if (bytes === 0) return 'N/A';
+          const k = 1024;
+          const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+        }}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -153,7 +223,10 @@ export default function MyFavoritesModal({
                     src={photo.thumbnail_url || photo.photo_url}
                     alt={photo.file_name}
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                    onClick={() => onPhotoClick(photo)}
+                    onClick={() => {
+                      setSelectedPhoto(photo);
+                      if (onPhotoClick) onPhotoClick(photo);
+                    }}
                   />
                   <button
                     onClick={(e) => {
