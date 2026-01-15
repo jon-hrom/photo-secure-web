@@ -85,6 +85,27 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Invalid sender_type'})
                 }
             
+            # Проверяем существование клиента и фотографа
+            cur.execute('SELECT id FROM clients WHERE id = %s', (client_id,))
+            if not cur.fetchone():
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Client not found'})
+                }
+            
+            cur.execute('SELECT id FROM users WHERE id = %s', (photographer_id,))
+            if not cur.fetchone():
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 404,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Photographer not found'})
+                }
+            
             cur.execute('''
                 INSERT INTO client_messages 
                 (client_id, photographer_id, content, sender_type, is_read, created_at, type, author)
