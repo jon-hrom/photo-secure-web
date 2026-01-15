@@ -34,6 +34,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     query_params = event.get('queryStringParameters') or {}
     s3_key: str = query_params.get('s3_key', '')
+    use_presigned: bool = query_params.get('presigned', 'false').lower() == 'true'
     
     if not s3_key:
         return {
@@ -44,10 +45,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
+        # Извлекаем имя файла из s3_key
+        filename = s3_key.split('/')[-1] if '/' in s3_key else s3_key
+        
         # Пробуем сначала из Yandex Cloud (foto-mix)
+        s3_client = None
+        bucket = None
         yc_error = None
+        
         try:
-            s3_client_yc = boto3.client(
+            s3_client = boto3.client(
                 's3',
                 endpoint_url='https://storage.yandexcloud.net',
                 region_name='ru-central1',
@@ -55,42 +62,57 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
                 config=Config(signature_version='s3v4')
             )
-            
-            response = s3_client_yc.get_object(Bucket='foto-mix', Key=s3_key)
-            file_content = response['Body'].read()
-            content_type = response.get('ContentType', 'application/octet-stream')
+            bucket = 'foto-mix'
+            # Проверяем существование файла
+            s3_client.head_object(Bucket=bucket, Key=s3_key)
         except Exception as e:
             yc_error = str(e)
             # Если не нашли в Yandex Cloud, пробуем проектный bucket
-            s3_client_project = boto3.client(
+            s3_client = boto3.client(
                 's3',
                 endpoint_url='https://bucket.poehali.dev',
                 aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
                 aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
             )
+            bucket = 'files'
+            # Проверяем существование файла
+            s3_client.head_object(Bucket=bucket, Key=s3_key)
+        
+        # Если запрашивается presigned URL (для больших файлов)
+        if use_presigned or method == 'HEAD':
+            presigned_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket, 'Key': s3_key},
+                ExpiresIn=3600
+            )
             
-            response = s3_client_project.get_object(Bucket='files', Key=s3_key)
-            file_content = response['Body'].read()
-            content_type = response.get('ContentType', 'application/octet-stream')
-        
-        # Извлекаем имя файла из s3_key
-        filename = s3_key.split('/')[-1] if '/' in s3_key else s3_key
-        
-        # Для HEAD запроса возвращаем только заголовки
-        if method == 'HEAD':
+            if method == 'HEAD':
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Access-Control-Allow-Origin': '*',
+                        'X-Presigned-URL': presigned_url
+                    },
+                    'body': '',
+                    'isBase64Encoded': False
+                }
+            
+            # Для GET с presigned возвращаем редирект
             return {
-                'statusCode': 200,
+                'statusCode': 307,
                 'headers': {
-                    'Content-Type': content_type,
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Length': str(len(file_content)),
-                    'Content-Disposition': f'attachment; filename="{filename}"'
+                    'Location': presigned_url,
+                    'Access-Control-Allow-Origin': '*'
                 },
                 'body': '',
                 'isBase64Encoded': False
             }
         
-        # Для GET возвращаем файл как base64
+        # Для обычного GET возвращаем файл (только для небольших файлов)
+        response = s3_client.get_object(Bucket=bucket, Key=s3_key)
+        file_content = response['Body'].read()
+        content_type = response.get('ContentType', 'application/octet-stream')
+        
         return {
             'statusCode': 200,
             'headers': {

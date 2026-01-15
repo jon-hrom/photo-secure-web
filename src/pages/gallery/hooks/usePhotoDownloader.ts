@@ -35,9 +35,15 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         throw new Error('Отсутствует информация о файле');
       }
 
-      const apiUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(photo.s3_key)}`;
+      // Для больших файлов (RAW) используем presigned URL (редирект)
+      const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') || 
+                         photo.file_name.toUpperCase().endsWith('.NEF') ||
+                         photo.file_name.toUpperCase().endsWith('.ARW') ||
+                         photo.file_size > 10 * 1024 * 1024; // > 10MB
       
-      const response = await fetch(apiUrl);
+      const apiUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(photo.s3_key)}${isLargeFile ? '&presigned=true' : ''}`;
+      
+      const response = await fetch(apiUrl, { redirect: 'follow' });
       
       if (!response.ok) {
         const errorData = await response.json();

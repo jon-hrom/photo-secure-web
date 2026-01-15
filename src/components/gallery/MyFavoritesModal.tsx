@@ -244,6 +244,42 @@ export default function MyFavoritesModal({
                   >
                     <Icon name="Trash2" size={16} />
                   </button>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        let s3_key = photo.s3_key || photo.photo_url.split('/bucket/')[1] || photo.photo_url.split('/').slice(-3).join('/');
+                        s3_key = s3_key.split('?')[0];
+                        
+                        const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') || 
+                                           photo.file_name.toUpperCase().endsWith('.NEF') ||
+                                           photo.file_name.toUpperCase().endsWith('.ARW') ||
+                                           photo.file_size > 10 * 1024 * 1024;
+                        
+                        const response = await fetch(
+                          `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}${isLargeFile ? '&presigned=true' : ''}`,
+                          { redirect: 'follow' }
+                        );
+                        if (!response.ok) throw new Error('Ошибка скачивания');
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = photo.file_name;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                      } catch (e) {
+                        console.error('Download failed:', e);
+                        alert('Ошибка при скачивании фото');
+                      }
+                    }}
+                    className="absolute bottom-2 right-2 p-2 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 shadow-lg"
+                    title="Скачать фото"
+                  >
+                    <Icon name="Download" size={16} />
+                  </button>
                 </div>
               ))}
             </div>

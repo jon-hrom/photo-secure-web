@@ -346,7 +346,6 @@ export default function PublicGallery() {
             setIsMyFavoritesOpen(false);
             setViewingFavorites(true);
             setSelectedPhoto(photo);
-            setImageError(false);
           }}
           onPhotoRemoved={(photoId) => {
             setClientFavoritePhotoIds(prev => prev.filter(id => id !== photoId));
