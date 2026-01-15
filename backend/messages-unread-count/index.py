@@ -25,7 +25,9 @@ def handler(event: dict, context) -> dict:
         }
     
     try:
-        photographer_id = event.get('queryStringParameters', {}).get('photographer_id')
+        params = event.get('queryStringParameters', {})
+        photographer_id = params.get('photographer_id')
+        client_id = params.get('client_id')
         
         if not photographer_id:
             return {
@@ -38,22 +40,53 @@ def handler(event: dict, context) -> dict:
         conn = psycopg2.connect(dsn)
         cur = conn.cursor()
         
+        # Если указан client_id - вернуть только для этого клиента
+        if client_id:
+            cur.execute('''
+                SELECT COUNT(*) as unread_count
+                FROM t_p28211681_photo_secure_web.client_messages
+                WHERE photographer_id = %s 
+                  AND client_id = %s
+                  AND is_read = FALSE 
+                  AND sender_type = 'client'
+            ''', (int(photographer_id), int(client_id)))
+            
+            row = cur.fetchone()
+            unread_count = row[0] if row else 0
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'unread_count': unread_count})
+            }
+        
+        # Иначе вернуть список всех клиентов с непрочитанными
         cur.execute('''
-            SELECT cm.client_id, c.full_name, COUNT(*) as unread_count
-            FROM t_p28211681_photo_secure_web.client_messages cm
-            JOIN t_p28211681_photo_secure_web.clients c ON c.id = cm.client_id
-            WHERE cm.photographer_id = %s 
-              AND cm.is_read = FALSE 
-              AND cm.sender_type = 'client'
-            GROUP BY cm.client_id, c.full_name
+            SELECT client_id, COUNT(*) as unread_count
+            FROM t_p28211681_photo_secure_web.client_messages
+            WHERE photographer_id = %s 
+              AND is_read = FALSE 
+              AND sender_type = 'client'
+            GROUP BY client_id
         ''', (int(photographer_id),))
         
         results = []
         for row in cur.fetchall():
+            client_id = row[0]
+            unread_count = row[1]
+            
+            # Получаем имя клиента отдельным запросом
+            cur.execute('SELECT full_name FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
+            client_row = cur.fetchone()
+            client_name = client_row[0] if client_row else 'Клиент'
+            
             results.append({
-                'client_id': row[0],
-                'client_name': row[1],
-                'unread_count': row[2]
+                'client_id': client_id,
+                'client_name': client_name,
+                'unread_count': unread_count
             })
         
         cur.close()

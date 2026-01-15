@@ -106,7 +106,7 @@ export default function PublicGallery() {
     
     try {
       const response = await fetch(
-        `https://functions.poehali.dev/4ddfbac1-ffe0-42c3-8a29-bcb2a48c7c73?client_id=${clientData.client_id}&photographer_id=${gallery.photographer_id}`
+        `https://functions.poehali.dev/ac9cc03a-3a9c-4359-acca-5cf58252f6d1?photographer_id=${gallery.photographer_id}&client_id=${clientData.client_id}`
       );
       const data = await response.json();
       
