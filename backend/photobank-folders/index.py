@@ -83,6 +83,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             parent_folder_id,
                             created_at, 
                             updated_at,
+                            archive_download_count,
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank 
                              WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as photo_count
                         FROM t_p28211681_photo_secure_web.photo_folders

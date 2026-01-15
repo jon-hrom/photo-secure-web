@@ -11,6 +11,7 @@ interface PhotoFolder {
   photo_count: number;
   folder_type?: 'originals' | 'tech_rejects';
   parent_folder_id?: number | null;
+  archive_download_count?: number;
 }
 
 interface PhotoBankFoldersListProps {
@@ -178,9 +179,17 @@ const PhotoBankFoldersList = ({
                           {formatDate(folder.created_at)}
                         </td>
                         <td className="p-3 text-center hidden lg:table-cell">
-                          <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
-                            <Icon name="Image" size={16} />
-                            <span>{folder.photo_count || 0}</span>
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
+                              <Icon name="Image" size={16} />
+                              <span>{folder.photo_count || 0}</span>
+                            </div>
+                            {(folder.archive_download_count ?? 0) > 0 && (
+                              <div className="inline-flex items-center gap-1 text-emerald-600 font-medium" title="Скачиваний архива клиентами">
+                                <Icon name="Download" size={16} />
+                                <span>{folder.archive_download_count}</span>
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="p-3">

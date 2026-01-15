@@ -17,6 +17,7 @@ interface Photo {
   width: number | null;
   height: number | null;
   created_at: string;
+  photo_download_count?: number;
 }
 
 interface PhotoGridCardProps {
@@ -127,6 +128,12 @@ const PhotoGridCard = ({
                 <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
                   <Icon name="Play" size={32} className="text-white" />
                 </div>
+              </div>
+            )}
+            {(photo.photo_download_count ?? 0) > 0 && (
+              <div className="absolute bottom-2 left-2 z-10 px-2 py-1 rounded-md bg-emerald-600/90 backdrop-blur-sm flex items-center gap-1.5" title="Скачиваний клиентами">
+                <Icon name="Download" size={14} className="text-white" />
+                <span className="text-white text-xs font-medium">{photo.photo_download_count}</span>
               </div>
             )}
           </>

@@ -130,6 +130,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({'error': 'No photos in folder'}),
                 'isBase64Encoded': False
             }
+        
+        # Инкрементируем счётчик скачиваний архива для папки
+        if share_code:  # Только для публичных скачиваний (клиенты)
+            cur.execute(
+                """
+                UPDATE t_p28211681_photo_secure_web.photo_folders 
+                SET archive_download_count = COALESCE(archive_download_count, 0) + 1 
+                WHERE id = %s
+                """,
+                (folder_id,)
+            )
+            conn.commit()
     finally:
         conn.close()
     

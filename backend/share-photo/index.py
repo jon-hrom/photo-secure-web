@@ -152,7 +152,7 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Link expired'})
                 }
             
-            # Увеличиваем счётчик доступов
+            # Увеличиваем счётчик доступов в photo_short_links
             cur.execute(
                 """
                 UPDATE t_p28211681_photo_secure_web.photo_short_links
@@ -160,6 +160,16 @@ def handler(event: dict, context) -> dict:
                 WHERE short_code = %s
                 """,
                 (short_code,)
+            )
+            
+            # Увеличиваем счётчик скачиваний в photo_bank (для статистики фотографа)
+            cur.execute(
+                """
+                UPDATE t_p28211681_photo_secure_web.photo_bank
+                SET photo_download_count = COALESCE(photo_download_count, 0) + 1
+                WHERE s3_key = %s
+                """,
+                (photo_path,)
             )
             conn.commit()
             
