@@ -46,8 +46,13 @@ const PhotoGridControls = ({
     <>
       {!isLandscape && (
         <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
-          <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-            {currentPhotoIndex + 1} / {photos.length}
+          <div className="flex items-center gap-2">
+            <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              {currentPhotoIndex + 1} / {photos.length}
+            </div>
+            <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full max-w-xs truncate">
+              {viewPhoto.file_name}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2">

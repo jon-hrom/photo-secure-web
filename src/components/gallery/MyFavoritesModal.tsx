@@ -241,6 +241,9 @@ export default function MyFavoritesModal({
                   key={photo.id}
                   className="relative group bg-gray-100 rounded-lg overflow-hidden cursor-pointer aspect-square"
                 >
+                  <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded max-w-[calc(100%-1rem)] truncate">
+                    {photo.file_name}
+                  </div>
                   <img
                     src={photo.thumbnail_url || photo.photo_url}
                     alt={photo.file_name}
