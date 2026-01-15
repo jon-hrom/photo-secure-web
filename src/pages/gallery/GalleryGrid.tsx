@@ -44,6 +44,7 @@ interface GalleryGridProps {
   clientName?: string;
   onClientLogin?: () => void;
   onOpenMyFavorites?: () => void;
+  onOpenChat?: () => void;
 }
 
 export default function GalleryGrid({ 
@@ -58,7 +59,8 @@ export default function GalleryGrid({
   onPhotoLoad,
   clientName,
   onClientLogin,
-  onOpenMyFavorites
+  onOpenMyFavorites,
+  onOpenChat
 }: GalleryGridProps) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -74,6 +76,13 @@ export default function GalleryGrid({
             <div className="flex items-center gap-3">
               {clientName ? (
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={onOpenChat}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    <Icon name="MessageCircle" size={18} />
+                    Написать фотографу
+                  </button>
                   <button
                     onClick={onOpenMyFavorites}
                     className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"

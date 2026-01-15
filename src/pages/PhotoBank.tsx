@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIndicator';
 import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
@@ -10,6 +10,7 @@ import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
 import ShareFolderModal from '@/components/photobank/ShareFolderModal';
 import FavoritesViewModal from '@/components/photobank/FavoritesViewModal';
 import DownloadStats from '@/components/photobank/DownloadStats';
+import ChatModal from '@/components/gallery/ChatModal';
 import Icon from '@/components/ui/icon';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
@@ -33,6 +34,7 @@ const PhotoBank = () => {
   const [shareModalFolder, setShareModalFolder] = useState<{ id: number; name: string } | null>(null);
   const [showFavorites, setShowFavorites] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [chatClient, setChatClient] = useState<{ id: number; name: string } | null>(null);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -141,6 +143,36 @@ const PhotoBank = () => {
   });
 
   const isAdminViewing = getIsAdminViewing();
+
+  useEffect(() => {
+    const loadUnreadCounts = async () => {
+      if (!userId || folders.length === 0) return;
+
+      try {
+        const response = await fetch(
+          `https://functions.poehali.dev/ac9cc03a-3a9c-4359-acca-5cf58252f6d1?photographer_id=${userId}`
+        );
+        
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const unreadMap = new Map(
+          data.clients.map((c: { client_id: number; unread_count: number }) => [c.client_id, c.unread_count])
+        );
+
+        setFolders(prev => prev.map(folder => ({
+          ...folder,
+          unread_messages_count: folder.client_id ? (unreadMap.get(folder.client_id) || 0) : 0
+        })));
+      } catch (error) {
+        console.error('Failed to load unread counts:', error);
+      }
+    };
+
+    loadUnreadCounts();
+    const interval = setInterval(loadUnreadCounts, 10000);
+    return () => clearInterval(interval);
+  }, [userId, folders.length]);
 
   const handleExitAdminView = () => {
     localStorage.removeItem('admin_viewing_user_id');
@@ -359,6 +391,7 @@ const PhotoBank = () => {
             onStartTechSort={handleStartTechSort}
             onDownloadFolder={handleDownloadFolder}
             onShareFolder={handleShareFolder}
+            onOpenChat={(clientId, clientName) => setChatClient({ id: clientId, name: clientName })}
           />
         ) : (
           <PhotoBankPhotoGrid
@@ -418,6 +451,17 @@ const PhotoBank = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {chatClient && (
+        <ChatModal
+          isOpen={true}
+          onClose={() => setChatClient(null)}
+          clientId={chatClient.id}
+          photographerId={parseInt(userId)}
+          senderType="photographer"
+          clientName={chatClient.name}
+        />
       )}
     </div>
   );

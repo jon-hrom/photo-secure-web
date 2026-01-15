@@ -12,6 +12,8 @@ interface PhotoFolder {
   folder_type?: 'originals' | 'tech_rejects';
   parent_folder_id?: number | null;
   archive_download_count?: number;
+  client_id?: number | null;
+  unread_messages_count?: number;
 }
 
 interface PhotoBankFoldersListProps {
@@ -24,6 +26,7 @@ interface PhotoBankFoldersListProps {
   onStartTechSort: (folderId: number, folderName: string) => void;
   onDownloadFolder?: (folderId: number, folderName: string) => void;
   onShareFolder?: (folderId: number, folderName: string) => void;
+  onOpenChat?: (clientId: number, clientName: string) => void;
   isAdminViewing?: boolean;
 }
 
@@ -37,6 +40,7 @@ const PhotoBankFoldersList = ({
   onStartTechSort,
   onDownloadFolder,
   onShareFolder,
+  onOpenChat,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
   // Используем sessionStorage для хранения состояния сворачивания
@@ -210,6 +214,25 @@ const PhotoBankFoldersList = ({
                                 <span className="sm:hidden">
                                   <Icon name="SlidersHorizontal" size={14} />
                                 </span>
+                              </Button>
+                            )}
+                            {onOpenChat && folder.client_id && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 relative"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenChat(folder.client_id!, folder.folder_name);
+                                }}
+                                title="Сообщения от клиента"
+                              >
+                                <Icon name="Mail" size={16} />
+                                {(folder.unread_messages_count ?? 0) > 0 && (
+                                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                    {folder.unread_messages_count}
+                                  </span>
+                                )}
                               </Button>
                             )}
                             {onShareFolder && folder.photo_count > 0 && (

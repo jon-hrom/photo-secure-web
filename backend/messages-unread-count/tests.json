@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Get unread messages count",
+      "method": "GET",
+      "path": "/?photographer_id=22",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "clients": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

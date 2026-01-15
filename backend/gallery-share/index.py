@@ -145,7 +145,7 @@ def handler(event: dict, context) -> dict:
                 SELECT fsl.folder_id, fsl.expires_at, pf.folder_name, fsl.password_hash, fsl.download_disabled,
                        fsl.watermark_enabled, fsl.watermark_type, fsl.watermark_text, fsl.watermark_image_url,
                        fsl.watermark_frequency, fsl.watermark_size, fsl.watermark_opacity, fsl.watermark_rotation, fsl.screenshot_protection,
-                       fsl.favorite_config
+                       fsl.favorite_config, fsl.user_id
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -166,7 +166,7 @@ def handler(event: dict, context) -> dict:
             (folder_id, expires_at, folder_name, password_hash, download_disabled,
              watermark_enabled, watermark_type, watermark_text, watermark_image_url,
              watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
-             favorite_config_json) = result
+             favorite_config_json, photographer_id) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -300,6 +300,7 @@ def handler(event: dict, context) -> dict:
                     'photos': photos_data,
                     'total_size': total_size,
                     'download_disabled': download_disabled,
+                    'photographer_id': photographer_id,
                     'watermark': {
                         'enabled': watermark_enabled,
                         'type': watermark_type,

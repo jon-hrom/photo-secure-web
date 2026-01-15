@@ -1,0 +1,46 @@
+{
+  "tests": [
+    {
+      "name": "Send new message",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "client_id": 161,
+        "photographer_id": 22,
+        "message": "Test message",
+        "sender_type": "client"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "id": "number",
+        "created_at": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get messages for client and photographer",
+      "method": "GET",
+      "path": "/?client_id=161&photographer_id=22",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "messages": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Mark messages as read",
+      "method": "PUT",
+      "path": "/",
+      "body": {
+        "client_id": 161,
+        "photographer_id": 22,
+        "mark_as_read": true
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

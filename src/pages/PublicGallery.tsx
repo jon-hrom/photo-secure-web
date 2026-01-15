@@ -8,6 +8,7 @@ import LoadingIndicators from './gallery/LoadingIndicators';
 import FavoritesModal from '@/components/gallery/FavoritesModal';
 import ClientLoginModal from '@/components/gallery/ClientLoginModal';
 import MyFavoritesModal from '@/components/gallery/MyFavoritesModal';
+import ChatModal from '@/components/gallery/ChatModal';
 import { useGalleryProtection } from './gallery/hooks/useGalleryProtection';
 import { useGalleryLoader } from './gallery/hooks/useGalleryLoader';
 import { usePhotoDownloader } from './gallery/hooks/usePhotoDownloader';
@@ -48,6 +49,7 @@ export default function PublicGallery() {
   const [isMyFavoritesOpen, setIsMyFavoritesOpen] = useState(false);
   const [clientFavoritePhotoIds, setClientFavoritePhotoIds] = useState<number[]>([]);
   const [viewingFavorites, setViewingFavorites] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const {
     gallery,
@@ -260,6 +262,7 @@ export default function PublicGallery() {
           clientName={clientData?.full_name}
           onClientLogin={() => setIsLoginModalOpen(true)}
           onOpenMyFavorites={() => setIsMyFavoritesOpen(true)}
+          onOpenChat={() => setIsChatOpen(true)}
         />
       )}
 
@@ -350,6 +353,16 @@ export default function PublicGallery() {
           onPhotoRemoved={(photoId) => {
             setClientFavoritePhotoIds(prev => prev.filter(id => id !== photoId));
           }}
+        />
+      )}
+
+      {clientData && gallery && (
+        <ChatModal
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          clientId={clientData.client_id}
+          photographerId={gallery.photographer_id || 0}
+          senderType="client"
         />
       )}
     </>
