@@ -278,6 +278,22 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                   className="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all aspect-square group"
                   onClick={() => setSelectedPhoto(photo)}
                 >
+                  <div 
+                    className="absolute top-1 left-1 z-10 bg-black/60 backdrop-blur-sm text-white text-[10px] px-1.5 py-0.5 rounded max-w-[calc(100%-0.5rem)] truncate cursor-pointer hover:bg-black/70 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(photo.file_name);
+                      const btn = e.currentTarget;
+                      const originalText = btn.textContent;
+                      btn.textContent = 'Скопировано';
+                      setTimeout(() => {
+                        btn.textContent = originalText;
+                      }, 2000);
+                    }}
+                    title="Нажмите, чтобы скопировать"
+                  >
+                    {photo.file_name}
+                  </div>
                   <img
                     src={photo.thumbnail_url || photo.photo_url}
                     alt={photo.file_name}
