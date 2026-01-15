@@ -82,6 +82,23 @@ export default function PublicGallery() {
       console.log('[FAVORITES] Loaded favorite config from server:', gallery.favorite_config);
       setFavoriteFolder(gallery.favorite_config);
     }
+    
+    // Автоматический вход клиента из localStorage
+    if (gallery && !clientData) {
+      const savedClientData = localStorage.getItem(`client_${gallery.photographer_id}_${code}`);
+      if (savedClientData) {
+        try {
+          const parsed = JSON.parse(savedClientData);
+          console.log('[CLIENT_LOGIN] Auto-login from localStorage:', parsed);
+          setClientData(parsed);
+          if (parsed.client_id) {
+            loadClientFavorites(parsed.client_id);
+          }
+        } catch (error) {
+          console.error('[CLIENT_LOGIN] Error parsing saved client data:', error);
+        }
+      }
+    }
   }, [gallery]);
 
   const loadClientFavorites = async (clientId: number) => {
@@ -184,6 +201,12 @@ export default function PublicGallery() {
     };
     
     setClientData(newClientData);
+    
+    // Сохраняем в localStorage для автоматического входа
+    if (gallery && data.client_id) {
+      localStorage.setItem(`client_${gallery.photographer_id}_${code}`, JSON.stringify(newClientData));
+      console.log('[CLIENT_LOGIN] Saved client data to localStorage');
+    }
     
     if (photoToAdd) {
       setClientFavoritePhotoIds(prev => [...prev, photoToAdd.id]);
@@ -360,6 +383,13 @@ export default function PublicGallery() {
         onLogin={(data) => {
           setClientData(data);
           loadClientFavorites(data.client_id);
+          
+          // Сохраняем в localStorage для автоматического входа
+          if (gallery) {
+            localStorage.setItem(`client_${gallery.photographer_id}_${code}`, JSON.stringify(data));
+            console.log('[CLIENT_LOGIN] Saved to localStorage');
+          }
+          
           console.log('[CLIENT_LOGIN] Logged in:', data);
         }}
         galleryCode={code || ''}

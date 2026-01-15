@@ -43,7 +43,7 @@ def handler(event: dict, context) -> dict:
             cur.execute('''
                 SELECT id, client_id, photographer_id, content as message, 
                        sender_type, is_read, created_at, image_url
-                FROM client_messages
+                FROM t_p28211681_photo_secure_web.client_messages
                 WHERE client_id = %s AND photographer_id = %s
                 ORDER BY created_at ASC
             ''', (client_id, photographer_id))
@@ -104,7 +104,7 @@ def handler(event: dict, context) -> dict:
                 }
             
             # Проверяем существование клиента и фотографа
-            cur.execute('SELECT id FROM clients WHERE id = %s', (client_id,))
+            cur.execute('SELECT id FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
             if not cur.fetchone():
                 cur.close()
                 conn.close()
@@ -115,7 +115,7 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
-            cur.execute('SELECT id FROM users WHERE id = %s', (photographer_id,))
+            cur.execute('SELECT id FROM t_p28211681_photo_secure_web.users WHERE id = %s', (photographer_id,))
             if not cur.fetchone():
                 cur.close()
                 conn.close()
@@ -151,7 +151,7 @@ def handler(event: dict, context) -> dict:
                     print(f'Error uploading image: {str(e)}')
             
             cur.execute('''
-                INSERT INTO client_messages 
+                INSERT INTO t_p28211681_photo_secure_web.client_messages 
                 (client_id, photographer_id, content, sender_type, is_read, created_at, type, author, image_url)
                 VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s, %s)
                 RETURNING id, created_at
@@ -236,7 +236,7 @@ def handler(event: dict, context) -> dict:
             
             if mark_as_read:
                 cur.execute('''
-                    UPDATE client_messages 
+                    UPDATE t_p28211681_photo_secure_web.client_messages 
                     SET is_read = TRUE
                     WHERE client_id = %s AND photographer_id = %s AND is_read = FALSE
                 ''', (client_id, photographer_id))
