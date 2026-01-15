@@ -49,6 +49,7 @@ export default function PublicGallery() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isMyFavoritesOpen, setIsMyFavoritesOpen] = useState(false);
   const [clientFavoritePhotoIds, setClientFavoritePhotoIds] = useState<number[]>([]);
+  const [viewingFavorites, setViewingFavorites] = useState(false);
 
   const {
     gallery,
@@ -177,17 +178,22 @@ export default function PublicGallery() {
 
   const navigatePhoto = (direction: 'prev' | 'next') => {
     if (!gallery || !selectedPhoto) return;
-    const currentIndex = gallery.photos.findIndex(p => p.id === selectedPhoto.id);
+    
+    const photosToUse = viewingFavorites
+      ? gallery.photos.filter(p => clientFavoritePhotoIds.includes(p.id))
+      : gallery.photos;
+    
+    const currentIndex = photosToUse.findIndex(p => p.id === selectedPhoto.id);
     if (currentIndex === -1) return;
 
     let newIndex: number;
     if (direction === 'prev') {
-      newIndex = currentIndex > 0 ? currentIndex - 1 : gallery.photos.length - 1;
+      newIndex = currentIndex > 0 ? currentIndex - 1 : photosToUse.length - 1;
     } else {
-      newIndex = currentIndex < gallery.photos.length - 1 ? currentIndex + 1 : 0;
+      newIndex = currentIndex < photosToUse.length - 1 ? currentIndex + 1 : 0;
     }
 
-    setSelectedPhoto(gallery.photos[newIndex]);
+    setSelectedPhoto(photosToUse[newIndex]);
     setImageError(false);
   };
 
@@ -283,6 +289,7 @@ export default function PublicGallery() {
           onDownloadAll={downloadAll}
           onPhotoClick={(photo) => {
             setImageError(false);
+            setViewingFavorites(false);
             setSelectedPhoto(photo);
           }}
           onDownloadPhoto={downloadPhoto}
@@ -301,7 +308,10 @@ export default function PublicGallery() {
           selectedPhoto={selectedPhoto}
           gallery={gallery}
           imageError={imageError}
-          onClose={() => setSelectedPhoto(null)}
+          onClose={() => {
+            setSelectedPhoto(null);
+            setViewingFavorites(false);
+          }}
           onNavigate={navigatePhoto}
           onDownloadPhoto={downloadPhoto}
           onAddToFavorites={handleAddToFavorites}
@@ -346,6 +356,7 @@ export default function PublicGallery() {
           galleryPhotos={gallery.photos}
           onPhotoClick={(photo) => {
             setIsMyFavoritesOpen(false);
+            setViewingFavorites(true);
             setSelectedPhoto(photo);
             setImageError(false);
           }}
