@@ -239,46 +239,6 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     );
   }
 
-  const handleDownloadClientPhotos = async (client: ClientData) => {
-    const displayPhotos = client.photos
-      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
-      .filter((p): p is Photo => p !== undefined);
-
-    if (displayPhotos.length === 0) {
-      alert('Нет фото для скачивания');
-      return;
-    }
-
-    try {
-      const response = await fetch('https://functions.poehali.dev/6e1b3b67-2e15-4eb2-a01c-c17a2b5bba42', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId.toString()
-        },
-        body: JSON.stringify({
-          photo_urls: displayPhotos.map(p => p.photo_url),
-          archive_name: `${client.full_name}.zip`
-        })
-      });
-
-      if (!response.ok) throw new Error('Ошибка скачивания');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${client.full_name}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error('Download failed:', e);
-      alert('Ошибка при скачивании архива');
-    }
-  };
-
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-6xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
