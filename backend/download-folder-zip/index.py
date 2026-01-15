@@ -141,6 +141,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 """,
                 (folder_id,)
             )
+            
+            # Логируем скачивание архива
+            client_ip = event.get('requestContext', {}).get('identity', {}).get('sourceIp', '')
+            user_agent = event.get('requestContext', {}).get('identity', {}).get('userAgent', '')
+            
+            cur.execute(
+                "SELECT user_id FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s",
+                (folder_id,)
+            )
+            owner_result = cur.fetchone()
+            owner_user_id = owner_result[0] if owner_result else None
+            
+            if owner_user_id:
+                cur.execute(
+                    """
+                    INSERT INTO t_p28211681_photo_secure_web.download_logs
+                    (user_id, folder_id, download_type, client_ip, user_agent)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (owner_user_id, folder_id, 'archive', client_ip, user_agent)
+                )
+            
             conn.commit()
     finally:
         conn.close()

@@ -44,6 +44,7 @@ interface PhotoBankHeaderProps {
   isAdminViewing?: boolean;
   onDeleteSelectedPhotos?: () => void;
   onRestoreSelectedPhotos?: () => void;
+  onShowStats?: () => void;
 }
 
 const PhotoBankHeader = ({
@@ -68,6 +69,7 @@ const PhotoBankHeader = ({
   isAdminViewing = false,
   onDeleteSelectedPhotos,
   onRestoreSelectedPhotos,
+  onShowStats,
 }: PhotoBankHeaderProps) => {
   const navigate = useNavigate();
   const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
@@ -206,6 +208,16 @@ const PhotoBankHeader = ({
             <Icon name="Trash2" className="mr-2" size={18} />
             Корзина
           </Button>
+          {onShowStats && !selectedFolder && (
+            <Button 
+              variant="outline"
+              onClick={onShowStats}
+              className="bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+            >
+              <Icon name="BarChart3" className="mr-2" size={18} />
+              Статистика
+            </Button>
+          )}
         </div>
     </div>
   );

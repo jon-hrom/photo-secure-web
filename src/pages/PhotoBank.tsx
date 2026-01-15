@@ -9,6 +9,8 @@ import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
 import ShareFolderModal from '@/components/photobank/ShareFolderModal';
 import FavoritesViewModal from '@/components/photobank/FavoritesViewModal';
+import DownloadStats from '@/components/photobank/DownloadStats';
+import Icon from '@/components/ui/icon';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
@@ -30,6 +32,7 @@ const PhotoBank = () => {
   const [showUrlUpload, setShowUrlUpload] = useState(false);
   const [shareModalFolder, setShareModalFolder] = useState<{ id: number; name: string } | null>(null);
   const [showFavorites, setShowFavorites] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -341,6 +344,7 @@ const PhotoBank = () => {
           onGoForward={handleGoForward}
           onDeleteSelectedPhotos={handleDeleteSelectedPhotos}
           onRestoreSelectedPhotos={handleRestoreSelectedPhotos}
+          onShowStats={() => setShowStats(true)}
         />
 
         {!selectedFolder ? (
@@ -395,6 +399,25 @@ const PhotoBank = () => {
           userId={userId}
           onClose={() => setShowFavorites(false)}
         />
+      )}
+
+      {showStats && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-background rounded-lg shadow-xl w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-2xl font-bold">Статистика скачиваний</h2>
+              <button
+                onClick={() => setShowStats(false)}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <Icon name="X" size={24} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <DownloadStats userId={parseInt(userId)} />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

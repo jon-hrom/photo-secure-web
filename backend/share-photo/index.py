@@ -171,6 +171,27 @@ def handler(event: dict, context) -> dict:
                 """,
                 (photo_path,)
             )
+            
+            # Логируем скачивание фотографии
+            client_ip = event.get('requestContext', {}).get('identity', {}).get('sourceIp', '')
+            user_agent = event.get('requestContext', {}).get('identity', {}).get('userAgent', '')
+            
+            cur.execute(
+                "SELECT id, user_id FROM t_p28211681_photo_secure_web.photo_bank WHERE s3_key = %s",
+                (photo_path,)
+            )
+            photo_result = cur.fetchone()
+            if photo_result:
+                photo_id, owner_user_id = photo_result
+                cur.execute(
+                    """
+                    INSERT INTO t_p28211681_photo_secure_web.download_logs
+                    (user_id, photo_id, download_type, client_ip, user_agent)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (owner_user_id, photo_id, 'photo', client_ip, user_agent)
+                )
+            
             conn.commit()
             
             cur.close()

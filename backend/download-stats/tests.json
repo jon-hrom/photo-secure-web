@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "Get download stats",
+      "method": "POST",
+      "body": {
+        "userId": 1
+      },
+      "expectedStatus": 200
+    }
+  ]
+}
