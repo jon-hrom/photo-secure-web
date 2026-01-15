@@ -45,6 +45,7 @@ interface GalleryGridProps {
   onClientLogin?: () => void;
   onOpenMyFavorites?: () => void;
   onOpenChat?: () => void;
+  unreadMessagesCount?: number;
 }
 
 export default function GalleryGrid({ 
@@ -60,7 +61,8 @@ export default function GalleryGrid({
   clientName,
   onClientLogin,
   onOpenMyFavorites,
-  onOpenChat
+  onOpenChat,
+  unreadMessagesCount = 0
 }: GalleryGridProps) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,10 +80,15 @@ export default function GalleryGrid({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={onOpenChat}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    className="relative flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                   >
                     <Icon name="MessageCircle" size={18} />
                     Написать фотографу
+                    {unreadMessagesCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shadow-lg">
+                        {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                      </span>
+                    )}
                   </button>
                   <button
                     onClick={onOpenMyFavorites}

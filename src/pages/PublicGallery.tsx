@@ -50,6 +50,7 @@ export default function PublicGallery() {
   const [clientFavoritePhotoIds, setClientFavoritePhotoIds] = useState<number[]>([]);
   const [viewingFavorites, setViewingFavorites] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const {
     gallery,
@@ -99,6 +100,31 @@ export default function PublicGallery() {
       console.error('[FAVORITES] Error loading client favorites:', error);
     }
   };
+
+  const loadUnreadCount = async () => {
+    if (!clientData || !gallery) return;
+    
+    try {
+      const response = await fetch(
+        `https://functions.poehali.dev/4ddfbac1-ffe0-42c3-8a29-bcb2a48c7c73?client_id=${clientData.client_id}&photographer_id=${gallery.photographer_id}`
+      );
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUnreadCount(data.unread_count || 0);
+      }
+    } catch (error) {
+      console.error('[CHAT] Error loading unread count:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (clientData && gallery) {
+      loadUnreadCount();
+      const interval = setInterval(loadUnreadCount, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [clientData, gallery]);
 
   const handleAddToFavorites = async (photo: Photo) => {
     if (!favoriteFolder) {
@@ -263,6 +289,7 @@ export default function PublicGallery() {
           onClientLogin={() => setIsLoginModalOpen(true)}
           onOpenMyFavorites={() => setIsMyFavoritesOpen(true)}
           onOpenChat={() => setIsChatOpen(true)}
+          unreadMessagesCount={unreadCount}
         />
       )}
 
@@ -359,7 +386,10 @@ export default function PublicGallery() {
       {clientData && gallery && (
         <ChatModal
           isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
+          onClose={() => {
+            setIsChatOpen(false);
+            loadUnreadCount();
+          }}
           clientId={clientData.client_id}
           photographerId={gallery.photographer_id || 0}
           senderType="client"
