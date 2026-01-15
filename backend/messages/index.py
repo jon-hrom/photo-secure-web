@@ -150,6 +150,54 @@ def handler(event: dict, context) -> dict:
             ''', (client_id, photographer_id, message, sender_type, sender_type, image_url))
             
             result = cur.fetchone()
+            message_id = result[0]
+            created_at = result[1]
+            
+            # Отправляем email фотографу если сообщение от клиента
+            if sender_type == 'client':
+                try:
+                    # Получаем данные фотографа и клиента
+                    cur.execute('''
+                        SELECT u.email, u.username, c.full_name 
+                        FROM t_p28211681_photo_secure_web.users u,
+                             t_p28211681_photo_secure_web.clients c
+                        WHERE u.id = %s AND c.id = %s
+                    ''', (photographer_id, client_id))
+                    
+                    email_data = cur.fetchone()
+                    if email_data and email_data[0]:
+                        photographer_email = email_data[0]
+                        photographer_name = email_data[1] or 'Фотограф'
+                        client_name = email_data[2] or 'Клиент'
+                        
+                        # Формируем текст для email
+                        message_preview = message[:100] if message else '[Изображение]'
+                        
+                        # Импортируем shared_email
+                        import sys
+                        sys.path.insert(0, '/function/code/..')
+                        from shared_email import send_email
+                        
+                        html_body = f'''
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #2563eb;">Новое сообщение от {client_name}</h2>
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;">{message_preview}</p>
+        </div>
+        <p>Войдите в админ-панель чтобы ответить.</p>
+    </div>
+</body>
+</html>
+                        '''
+                        
+                        send_email(photographer_email, f'Новое сообщение от {client_name}', html_body, 'FotoMix Chat')
+                except Exception as e:
+                    print(f'Email notification error: {str(e)}')
+            
             conn.commit()
             cur.close()
             conn.close()
@@ -158,8 +206,8 @@ def handler(event: dict, context) -> dict:
                 'statusCode': 201,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
-                    'id': result[0],
-                    'created_at': result[1].isoformat() if result[1] else None
+                    'id': message_id,
+                    'created_at': created_at.isoformat() if created_at else None
                 })
             }
         
