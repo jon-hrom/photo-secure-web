@@ -41,7 +41,7 @@ def handler(event: dict, context) -> dict:
                 FROM client_messages
                 WHERE client_id = %s AND photographer_id = %s
                 ORDER BY created_at ASC
-            ''', (int(client_id), int(photographer_id)))
+            ''', (client_id, photographer_id))
             
             messages = []
             for row in cur.fetchall():
@@ -88,9 +88,9 @@ def handler(event: dict, context) -> dict:
             cur.execute('''
                 INSERT INTO client_messages 
                 (client_id, photographer_id, content, sender_type, is_read, created_at, type, author)
-                VALUES (%s, %s, %s, %s, FALSE, CURRENT_TIMESTAMP, 'chat', %s)
+                VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s)
                 RETURNING id, created_at
-            ''', (int(client_id), int(photographer_id), message, sender_type, sender_type))
+            ''', (client_id, photographer_id, message, sender_type, sender_type))
             
             result = cur.fetchone()
             conn.commit()
@@ -124,7 +124,7 @@ def handler(event: dict, context) -> dict:
                     UPDATE client_messages 
                     SET is_read = TRUE
                     WHERE client_id = %s AND photographer_id = %s AND is_read = FALSE
-                ''', (int(client_id), int(photographer_id)))
+                ''', (client_id, photographer_id))
                 conn.commit()
             
             cur.close()
@@ -143,6 +143,9 @@ def handler(event: dict, context) -> dict:
         }
         
     except Exception as e:
+        print(f'Error in messages handler: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
