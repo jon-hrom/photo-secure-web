@@ -208,48 +208,6 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     );
   }
 
-  const handleDownloadClientPhotos = async (client: ClientData) => {
-    const displayPhotos = client.photos
-      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
-      .filter((p): p is Photo => p !== undefined);
-
-    if (displayPhotos.length === 0) {
-      alert('Нет фото для скачивания');
-      return;
-    }
-
-    try {
-      const { ZipWriter, BlobWriter, HttpReader } = await import('@zip.js/zip.js');
-      const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
-
-      for (const photo of displayPhotos) {
-        try {
-          const urlParts = photo.photo_url.split('/bucket/');
-          const s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
-          
-          const proxyUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`;
-          
-          await zipWriter.add(photo.file_name, new HttpReader(proxyUrl));
-        } catch (photoError) {
-          console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
-        }
-      }
-
-      const blob = await zipWriter.close();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${client.full_name}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error('Download failed:', e);
-      alert('Ошибка при скачивании архива');
-    }
-  };
-
   if (selectedClient) {
     const displayPhotos = selectedClient.photos
       .map(fp => allPhotos.find(p => p.id === fp.photo_id))
