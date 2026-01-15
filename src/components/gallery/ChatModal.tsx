@@ -48,7 +48,7 @@ export default function ChatModal({
       if (!silent) setLoading(true);
       
       const response = await fetch(
-        `https://functions.poehali.dev/4efc4114-28bb-4e58-820d-6275fe30e7c0?client_id=${clientId}&photographer_id=${photographerId}`
+        `https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?client_id=${clientId}&photographer_id=${photographerId}`
       );
       
       if (!response.ok) throw new Error('Ошибка загрузки сообщений');
@@ -77,7 +77,7 @@ export default function ChatModal({
 
   const markAsRead = async () => {
     try {
-      await fetch('https://functions.poehali.dev/4efc4114-28bb-4e58-820d-6275fe30e7c0', {
+      await fetch('https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -124,7 +124,7 @@ export default function ChatModal({
         payload.image = selectedImage.split(',')[1];
       }
       
-      const response = await fetch('https://functions.poehali.dev/4efc4114-28bb-4e58-820d-6275fe30e7c0', {
+      const response = await fetch('https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
