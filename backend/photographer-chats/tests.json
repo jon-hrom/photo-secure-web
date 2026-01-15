@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "Get photographer chats",
+      "method": "GET",
+      "headers": {
+        "X-User-Id": "22"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "chats": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

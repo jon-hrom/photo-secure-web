@@ -1,6 +1,9 @@
 import json
 import os
 import psycopg2
+import boto3
+import base64
+import uuid
 from datetime import datetime
 
 def handler(event: dict, context) -> dict:
@@ -37,7 +40,7 @@ def handler(event: dict, context) -> dict:
             
             cur.execute('''
                 SELECT id, client_id, photographer_id, content as message, 
-                       sender_type, is_read, created_at
+                       sender_type, is_read, created_at, image_url
                 FROM client_messages
                 WHERE client_id = %s AND photographer_id = %s
                 ORDER BY created_at ASC
@@ -52,7 +55,8 @@ def handler(event: dict, context) -> dict:
                     'message': row[3],
                     'sender_type': row[4],
                     'is_read': row[5],
-                    'created_at': row[6].isoformat() if row[6] else None
+                    'created_at': row[6].isoformat() if row[6] else None,
+                    'image_url': row[7]
                 })
             
             cur.close()
@@ -68,14 +72,22 @@ def handler(event: dict, context) -> dict:
             body = json.loads(event.get('body', '{}'))
             client_id = body.get('client_id')
             photographer_id = body.get('photographer_id')
-            message = body.get('message')
+            message = body.get('message', '')
             sender_type = body.get('sender_type')
+            image_base64 = body.get('image')
             
-            if not all([client_id, photographer_id, message, sender_type]):
+            if not all([client_id, photographer_id, sender_type]):
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'All fields required'})
+                    'body': json.dumps({'error': 'client_id, photographer_id and sender_type required'})
+                }
+            
+            if not message and not image_base64:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'message or image required'})
                 }
             
             if sender_type not in ['client', 'photographer']:
@@ -106,12 +118,36 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Photographer not found'})
                 }
             
+            # Загружаем изображение в S3 если есть
+            image_url = None
+            if image_base64:
+                try:
+                    s3 = boto3.client('s3',
+                        endpoint_url='https://bucket.poehali.dev',
+                        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+                    )
+                    
+                    image_data = base64.b64decode(image_base64)
+                    file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
+                    
+                    s3.put_object(
+                        Bucket='files',
+                        Key=file_name,
+                        Body=image_data,
+                        ContentType='image/jpeg'
+                    )
+                    
+                    image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
+                except Exception as e:
+                    print(f'Error uploading image: {str(e)}')
+            
             cur.execute('''
                 INSERT INTO client_messages 
-                (client_id, photographer_id, content, sender_type, is_read, created_at, type, author)
-                VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s)
+                (client_id, photographer_id, content, sender_type, is_read, created_at, type, author, image_url)
+                VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s, %s)
                 RETURNING id, created_at
-            ''', (client_id, photographer_id, message, sender_type, sender_type))
+            ''', (client_id, photographer_id, message, sender_type, sender_type, image_url))
             
             result = cur.fetchone()
             conn.commit()

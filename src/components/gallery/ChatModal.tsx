@@ -9,6 +9,7 @@ interface Message {
   sender_type: 'client' | 'photographer';
   created_at: string;
   is_read: boolean;
+  image_url?: string;
 }
 
 interface ChatModalProps {
@@ -32,9 +33,11 @@ export default function ChatModal({
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -88,25 +91,50 @@ export default function ChatModal({
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Размер файла не должен превышать 10 МБ');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const sendMessage = async () => {
-    if (!newMessage.trim() || sending) return;
+    if ((!newMessage.trim() && !selectedImage) || sending) return;
     
     try {
       setSending(true);
+      
+      const payload: any = {
+        client_id: clientId,
+        photographer_id: photographerId,
+        message: newMessage.trim(),
+        sender_type: senderType
+      };
+      
+      if (selectedImage) {
+        payload.image = selectedImage.split(',')[1];
+      }
+      
       const response = await fetch('https://functions.poehali.dev/53960ae3-2519-432d-85c8-395435f0f401', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: clientId,
-          photographer_id: photographerId,
-          message: newMessage.trim(),
-          sender_type: senderType
-        })
+        body: JSON.stringify(payload)
       });
       
       if (!response.ok) throw new Error('Ошибка отправки сообщения');
       
       setNewMessage('');
+      setSelectedImage(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       await loadMessages();
     } catch (error) {
       console.error('Error sending message:', error);
@@ -195,15 +223,28 @@ export default function ChatModal({
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap break-words">{msg.message}</p>
-                      <p className={`text-xs mt-1 ${isMyMessage ? 'text-blue-100' : 'text-gray-500'}`}>
-                        {new Date(msg.created_at).toLocaleString('ru-RU', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
+                      {msg.image_url && (
+                        <img 
+                          src={msg.image_url} 
+                          alt="Изображение" 
+                          className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => window.open(msg.image_url, '_blank')}
+                        />
+                      )}
+                      {msg.message && <p className="whitespace-pre-wrap break-words">{msg.message}</p>}
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className={`text-xs ${isMyMessage ? 'text-blue-100' : 'text-gray-500'}`}>
+                          {new Date(msg.created_at).toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                        {isMyMessage && msg.is_read && (
+                          <Icon name="CheckCheck" size={14} className="text-blue-100" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -214,7 +255,35 @@ export default function ChatModal({
         </div>
 
         <div className="p-3 sm:p-4 border-t dark:border-gray-800 safe-bottom">
+          {selectedImage && (
+            <div className="mb-2 relative inline-block">
+              <img src={selectedImage} alt="Preview" className="max-h-32 rounded-lg" />
+              <button
+                onClick={() => {
+                  setSelectedImage(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+              >
+                <Icon name="X" size={16} />
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Icon name="Image" size={20} className="text-gray-600 dark:text-gray-400" />
+            </button>
             <textarea
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -228,7 +297,7 @@ export default function ChatModal({
             />
             <Button
               onClick={sendMessage}
-              disabled={!newMessage.trim() || sending}
+              disabled={(!newMessage.trim() && !selectedImage) || sending}
               className="px-4"
             >
               {sending ? (

@@ -1,4 +1,6 @@
 {
+  "photographer-chats": "https://functions.poehali.dev/5a4dec63-cfc7-46ad-b6dd-449909398c79",
+  "email-chat-notifications": "https://functions.poehali.dev/09943372-bcb0-4c16-a55a-e28420599722",
   "messages-unread-count": "https://functions.poehali.dev/ac9cc03a-3a9c-4359-acca-5cf58252f6d1",
   "messages": "https://functions.poehali.dev/53960ae3-2519-432d-85c8-395435f0f401",
   "gallery-photo-download": "https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215",
