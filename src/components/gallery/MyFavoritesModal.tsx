@@ -120,18 +120,24 @@ export default function MyFavoritesModal({
   if (!isOpen) return null;
 
   if (selectedPhoto) {
-    const viewerPhotos = displayPhotos.map(p => ({
-      id: p.id,
-      file_name: p.file_name,
-      s3_url: p.photo_url,
-      s3_key: p.s3_key || p.photo_url.split('/bucket/')[1] || p.photo_url.split('/').slice(-3).join('/'),
-      thumbnail_s3_url: p.thumbnail_url,
-      is_raw: false,
-      file_size: p.file_size,
-      width: p.width || null,
-      height: p.height || null,
-      created_at: new Date().toISOString()
-    }));
+    const viewerPhotos = displayPhotos.map(p => {
+      let s3_key = p.s3_key || p.photo_url.split('/bucket/')[1] || p.photo_url.split('/').slice(-3).join('/');
+      // Удаляем параметры presigned URL если есть
+      s3_key = s3_key.split('?')[0];
+      
+      return {
+        id: p.id,
+        file_name: p.file_name,
+        s3_url: p.photo_url,
+        s3_key: s3_key,
+        thumbnail_s3_url: p.thumbnail_url,
+        is_raw: false,
+        file_size: p.file_size,
+        width: p.width || null,
+        height: p.height || null,
+        created_at: new Date().toISOString()
+      };
+    });
 
     const viewerPhoto = viewerPhotos.find(p => p.id === selectedPhoto.id) || null;
 

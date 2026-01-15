@@ -16,7 +16,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Max-Age': '86400'
             },
@@ -24,7 +24,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
-    if method != 'GET':
+    if method not in ['GET', 'HEAD']:
         return {
             'statusCode': 405,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -76,7 +76,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Извлекаем имя файла из s3_key
         filename = s3_key.split('/')[-1] if '/' in s3_key else s3_key
         
-        # Возвращаем файл как base64
+        # Для HEAD запроса возвращаем только заголовки
+        if method == 'HEAD':
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': content_type,
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Length': str(len(file_content)),
+                    'Content-Disposition': f'attachment; filename="{filename}"'
+                },
+                'body': '',
+                'isBase64Encoded': False
+            }
+        
+        # Для GET возвращаем файл как base64
         return {
             'statusCode': 200,
             'headers': {

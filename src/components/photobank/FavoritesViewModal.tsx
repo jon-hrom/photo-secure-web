@@ -112,7 +112,9 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     try {
       console.log('[FAVORITES] Downloading photo:', photo.photo_url);
       const urlParts = photo.photo_url.split('/bucket/');
-      const s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
+      let s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
+      // Удаляем параметры presigned URL если есть
+      s3_key = s3_key.split('?')[0];
       console.log('[FAVORITES] Extracted s3_key:', s3_key);
       
       const response = await fetch(
@@ -157,7 +159,9 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
       for (const photo of displayPhotos) {
         try {
           const urlParts = photo.photo_url.split('/bucket/');
-          const s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
+          let s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
+          // Удаляем параметры presigned URL если есть
+          s3_key = s3_key.split('?')[0];
           
           const proxyUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`;
           
