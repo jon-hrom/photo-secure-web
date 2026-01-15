@@ -128,21 +128,23 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     }
 
     try {
-      const response = await fetch('https://functions.poehali.dev/6e1b3b67-2e15-4eb2-a01c-c17a2b5bba42', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId.toString()
-        },
-        body: JSON.stringify({
-          photo_urls: displayPhotos.map(p => p.photo_url),
-          archive_name: `${client.full_name}.zip`
-        })
-      });
+      const { ZipWriter, BlobWriter, HttpReader } = await import('@zip.js/zip.js');
+      const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
 
-      if (!response.ok) throw new Error('Ошибка скачивания');
+      for (const photo of displayPhotos) {
+        try {
+          const urlParts = photo.photo_url.split('/bucket/');
+          const s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
+          
+          const proxyUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`;
+          
+          await zipWriter.add(photo.file_name, new HttpReader(proxyUrl));
+        } catch (photoError) {
+          console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
+        }
+      }
 
-      const blob = await response.blob();
+      const blob = await zipWriter.close();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -188,11 +190,23 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">{displayPhotos.length} фото</p>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => handleDownloadClientPhotos(selectedClient)}
+                className="flex items-center gap-2"
+              >
+                <Icon name="Archive" size={16} />
+                Скачать все архивом
+              </Button>
+            </div>
             <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
               {displayPhotos.map((photo) => (
                 <div
                   key={photo.id}
-                  className="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all aspect-square"
+                  className="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all aspect-square group"
                   onClick={() => setSelectedPhoto(photo)}
                 >
                   <img
@@ -210,6 +224,16 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                   <div className="hidden absolute inset-0 flex items-center justify-center">
                     <Icon name="Camera" size={48} className="text-gray-400" />
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadSinglePhoto(photo);
+                    }}
+                    className="absolute top-1 right-1 bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Скачать фото"
+                  >
+                    <Icon name="Download" size={14} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -219,6 +243,33 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     );
   }
 
+  const handleDownloadSinglePhoto = async (photo: Photo) => {
+    try {
+      // Извлекаем s3_key из photo_url (формат: https://cdn.poehali.dev/.../{s3_key})
+      const urlParts = photo.photo_url.split('/bucket/');
+      const s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
+      
+      const response = await fetch(
+        `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`
+      );
+
+      if (!response.ok) throw new Error('Ошибка скачивания');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = photo.file_name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Download failed:', e);
+      alert('Ошибка при скачивании фото');
+    }
+  };
+
   if (selectedPhoto) {
     return (
       <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4" onClick={() => setSelectedPhoto(null)}>
@@ -227,6 +278,16 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
           className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10"
         >
           <Icon name="X" size={24} className="text-white" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDownloadSinglePhoto(selectedPhoto);
+          }}
+          className="absolute top-4 right-20 p-2 bg-blue-500 hover:bg-blue-600 rounded-full transition-colors z-10"
+          title="Скачать фото"
+        >
+          <Icon name="Download" size={24} className="text-white" />
         </button>
         <img
           src={selectedPhoto.photo_url}
@@ -311,9 +372,9 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                           handleDownloadClientPhotos(client);
                         }}
                         className="absolute bottom-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg shadow-md hover:shadow-lg transition-all z-10 hover:scale-110 active:scale-95"
-                        title="Скачать архив"
+                        title="Скачать все фото архивом"
                       >
-                        <Icon name="Download" size={16} />
+                        <Icon name="Archive" size={16} />
                       </button>
                     </div>
                   </div>
