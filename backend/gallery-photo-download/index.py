@@ -44,19 +44,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
-        s3_client = boto3.client(
-            's3',
-            endpoint_url='https://storage.yandexcloud.net',
-            region_name='ru-central1',
-            aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
-            aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
-            config=Config(signature_version='s3v4')
-        )
-        
-        # Скачиваем файл из S3
-        response = s3_client.get_object(Bucket='foto-mix', Key=s3_key)
-        file_content = response['Body'].read()
-        content_type = response.get('ContentType', 'application/octet-stream')
+        # Пробуем сначала из Yandex Cloud (foto-mix)
+        yc_error = None
+        try:
+            s3_client_yc = boto3.client(
+                's3',
+                endpoint_url='https://storage.yandexcloud.net',
+                region_name='ru-central1',
+                aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+                aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+                config=Config(signature_version='s3v4')
+            )
+            
+            response = s3_client_yc.get_object(Bucket='foto-mix', Key=s3_key)
+            file_content = response['Body'].read()
+            content_type = response.get('ContentType', 'application/octet-stream')
+        except Exception as e:
+            yc_error = str(e)
+            # Если не нашли в Yandex Cloud, пробуем проектный bucket
+            s3_client_project = boto3.client(
+                's3',
+                endpoint_url='https://bucket.poehali.dev',
+                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+            )
+            
+            response = s3_client_project.get_object(Bucket='files', Key=s3_key)
+            file_content = response['Body'].read()
+            content_type = response.get('ContentType', 'application/octet-stream')
         
         # Извлекаем имя файла из s3_key
         filename = s3_key.split('/')[-1] if '/' in s3_key else s3_key

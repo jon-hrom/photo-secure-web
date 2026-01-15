@@ -108,6 +108,96 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     }
   };
 
+  const handleDownloadSinglePhoto = async (photo: Photo) => {
+    try {
+      console.log('[FAVORITES] Downloading photo:', photo.photo_url);
+      const urlParts = photo.photo_url.split('/bucket/');
+      const s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
+      console.log('[FAVORITES] Extracted s3_key:', s3_key);
+      
+      const response = await fetch(
+        `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[FAVORITES] Download error:', errorData);
+        throw new Error(errorData.error || 'Ошибка скачивания');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = photo.file_name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('[FAVORITES] Download failed:', e);
+      alert('Ошибка при скачивании фото: ' + (e instanceof Error ? e.message : 'Неизвестная ошибка'));
+    }
+  };
+
+  const handleDownloadClientPhotos = async (client: ClientData) => {
+    const displayPhotos = client.photos
+      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
+      .filter((p): p is Photo => p !== undefined);
+
+    if (displayPhotos.length === 0) {
+      alert('Нет фото для скачивания');
+      return;
+    }
+
+    try {
+      const { ZipWriter, BlobWriter, HttpReader } = await import('@zip.js/zip.js');
+      const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
+
+      for (const photo of displayPhotos) {
+        try {
+          const urlParts = photo.photo_url.split('/bucket/');
+          const s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
+          
+          const proxyUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`;
+          
+          await zipWriter.add(photo.file_name, new HttpReader(proxyUrl));
+        } catch (photoError) {
+          console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
+        }
+      }
+
+      const blob = await zipWriter.close();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${client.full_name}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Download failed:', e);
+      alert('Ошибка при скачивании архива');
+    }
+  };
+
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    if (!selectedClient || !selectedPhoto) return;
+    
+    const displayPhotos = selectedClient.photos
+      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
+      .filter((p): p is Photo => p !== undefined);
+    
+    const currentIndex = displayPhotos.findIndex(p => p.id === selectedPhoto.id);
+    
+    if (direction === 'prev' && currentIndex > 0) {
+      setSelectedPhoto(displayPhotos[currentIndex - 1]);
+    } else if (direction === 'next' && currentIndex < displayPhotos.length - 1) {
+      setSelectedPhoto(displayPhotos[currentIndex + 1]);
+    }
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
@@ -243,49 +333,6 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
       </div>
     );
   }
-
-  const handleDownloadSinglePhoto = async (photo: Photo) => {
-    try {
-      // Извлекаем s3_key из photo_url (формат: https://cdn.poehali.dev/.../{s3_key})
-      const urlParts = photo.photo_url.split('/bucket/');
-      const s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
-      
-      const response = await fetch(
-        `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`
-      );
-
-      if (!response.ok) throw new Error('Ошибка скачивания');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = photo.file_name;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error('Download failed:', e);
-      alert('Ошибка при скачивании фото');
-    }
-  };
-
-  const handleNavigate = (direction: 'prev' | 'next') => {
-    if (!selectedClient || !selectedPhoto) return;
-    
-    const displayPhotos = selectedClient.photos
-      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
-      .filter((p): p is Photo => p !== undefined);
-    
-    const currentIndex = displayPhotos.findIndex(p => p.id === selectedPhoto.id);
-    
-    if (direction === 'prev' && currentIndex > 0) {
-      setSelectedPhoto(displayPhotos[currentIndex - 1]);
-    } else if (direction === 'next' && currentIndex < displayPhotos.length - 1) {
-      setSelectedPhoto(displayPhotos[currentIndex + 1]);
-    }
-  };
 
   if (selectedPhoto) {
     const displayPhotos = selectedClient?.photos
