@@ -40,6 +40,7 @@ const PhotoGridViewer = ({
   formatBytes
 }: PhotoGridViewerProps) => {
   const [showExif, setShowExif] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
 
   // Используем кастомный хук для всей логики жестов
   const {
@@ -91,6 +92,11 @@ const PhotoGridViewer = ({
             onResetZoom={resetZoom}
             onDownload={onDownload}
             onShowExif={() => setShowExif(true)}
+            onCopyFileName={() => {
+              navigator.clipboard.writeText(viewPhoto.file_name);
+              setShowCopied(true);
+              setTimeout(() => setShowCopied(false), 2000);
+            }}
           />
 
           {/* Область с изображением */}
@@ -195,6 +201,13 @@ const PhotoGridViewer = ({
             onShowExif={() => setShowExif(true)}
             formatBytes={formatBytes}
           />
+
+          {/* Уведомление о копировании */}
+          {showCopied && (
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[60] bg-green-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+              Имя скопировано
+            </div>
+          )}
         </div>
       </DialogContent>
 

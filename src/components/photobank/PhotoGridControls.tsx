@@ -25,6 +25,7 @@ interface PhotoGridControlsProps {
   onResetZoom: () => void;
   onDownload: (s3Key: string, fileName: string, userId: number) => Promise<void>;
   onShowExif: () => void;
+  onCopyFileName?: () => void;
 }
 
 const PhotoGridControls = ({
@@ -36,7 +37,8 @@ const PhotoGridControls = ({
   onNavigate,
   onResetZoom,
   onDownload,
-  onShowExif
+  onShowExif,
+  onCopyFileName
 }: PhotoGridControlsProps) => {
   const currentPhotoIndex = photos.findIndex(p => p.id === viewPhoto.id);
   const hasPrev = currentPhotoIndex > 0;
@@ -50,7 +52,11 @@ const PhotoGridControls = ({
             <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
               {currentPhotoIndex + 1} / {photos.length}
             </div>
-            <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full max-w-xs truncate">
+            <div 
+              className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full max-w-xs truncate cursor-pointer hover:bg-black/40 transition-colors"
+              onClick={onCopyFileName}
+              title="Нажмите, чтобы скопировать"
+            >
               {viewPhoto.file_name}
             </div>
           </div>
@@ -94,12 +100,21 @@ const PhotoGridControls = ({
       )}
 
       {isLandscape && (
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-        >
-          <Icon name="X" size={20} className="text-white" />
-        </button>
+        <>
+          <div 
+            className="absolute top-2 left-2 z-50 text-white/80 text-xs bg-black/30 backdrop-blur-sm px-2 py-1 rounded cursor-pointer hover:bg-black/40 transition-colors max-w-[60%] truncate"
+            onClick={onCopyFileName}
+            title="Нажмите, чтобы скопировать"
+          >
+            {viewPhoto.file_name}
+          </div>
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+          >
+            <Icon name="X" size={20} className="text-white" />
+          </button>
+        </>
       )}
 
       {hasPrev && (

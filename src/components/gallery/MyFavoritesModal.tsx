@@ -241,7 +241,20 @@ export default function MyFavoritesModal({
                   key={photo.id}
                   className="relative group bg-gray-100 rounded-lg overflow-hidden cursor-pointer aspect-square"
                 >
-                  <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded max-w-[calc(100%-1rem)] truncate">
+                  <div 
+                    className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded max-w-[calc(100%-1rem)] truncate cursor-pointer hover:bg-black/70 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(photo.file_name);
+                      const btn = e.currentTarget;
+                      const originalText = btn.textContent;
+                      btn.textContent = 'Имя скопировано';
+                      setTimeout(() => {
+                        btn.textContent = originalText;
+                      }, 2000);
+                    }}
+                    title="Нажмите, чтобы скопировать"
+                  >
                     {photo.file_name}
                   </div>
                   <img
