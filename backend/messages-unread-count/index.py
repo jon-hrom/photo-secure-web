@@ -65,28 +65,21 @@ def handler(event: dict, context) -> dict:
         
         # Иначе вернуть список всех клиентов с непрочитанными
         cur.execute('''
-            SELECT client_id, COUNT(*) as unread_count
-            FROM t_p28211681_photo_secure_web.client_messages
-            WHERE photographer_id = %s 
-              AND is_read = FALSE 
-              AND sender_type = 'client'
-            GROUP BY client_id
+            SELECT cm.client_id, COUNT(*) as unread_count, c.full_name
+            FROM t_p28211681_photo_secure_web.client_messages cm
+            LEFT JOIN t_p28211681_photo_secure_web.clients c ON c.id = cm.client_id
+            WHERE cm.photographer_id = %s 
+              AND cm.is_read = FALSE 
+              AND cm.sender_type = 'client'
+            GROUP BY cm.client_id, c.full_name
         ''', (int(photographer_id),))
         
         results = []
         for row in cur.fetchall():
-            client_id = row[0]
-            unread_count = row[1]
-            
-            # Получаем имя клиента отдельным запросом
-            cur.execute('SELECT full_name FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
-            client_row = cur.fetchone()
-            client_name = client_row[0] if client_row else 'Клиент'
-            
             results.append({
-                'client_id': client_id,
-                'client_name': client_name,
-                'unread_count': unread_count
+                'client_id': row[0],
+                'unread_count': row[1],
+                'client_name': row[2] if row[2] else 'Клиент'
             })
         
         cur.close()
