@@ -42,14 +42,15 @@ def handler(event: dict, context) -> dict:
         
         # Если указан client_id - вернуть непрочитанные сообщения ОТ ФОТОГРАФА для этого клиента
         if client_id:
-            cur.execute('''
+            query = f'''
                 SELECT COUNT(*) as unread_count
                 FROM t_p28211681_photo_secure_web.client_messages
-                WHERE photographer_id = %s 
-                  AND client_id = %s
+                WHERE photographer_id = {int(photographer_id)} 
+                  AND client_id = {int(client_id)}
                   AND is_read = FALSE 
                   AND sender_type = 'photographer'
-            ''', (int(photographer_id), int(client_id)))
+            '''
+            cur.execute(query)
             
             row = cur.fetchone()
             unread_count = row[0] if row else 0
@@ -64,15 +65,16 @@ def handler(event: dict, context) -> dict:
             }
         
         # Иначе вернуть список всех клиентов с непрочитанными
-        cur.execute('''
-            SELECT cm.client_id, COUNT(*) as unread_count, c.full_name
+        query = f'''
+            SELECT cm.client_id, COUNT(*) as unread_count, c.name
             FROM t_p28211681_photo_secure_web.client_messages cm
             LEFT JOIN t_p28211681_photo_secure_web.clients c ON c.id = cm.client_id
-            WHERE cm.photographer_id = %s 
+            WHERE cm.photographer_id = {int(photographer_id)} 
               AND cm.is_read = FALSE 
               AND cm.sender_type = 'client'
-            GROUP BY cm.client_id, c.full_name
-        ''', (int(photographer_id),))
+            GROUP BY cm.client_id, c.name
+        '''
+        cur.execute(query)
         
         results = []
         for row in cur.fetchall():
