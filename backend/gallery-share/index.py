@@ -269,7 +269,7 @@ def handler(event: dict, context) -> dict:
                     
                     total_size += file_size or 0
                 except Exception as e:
-                    print(f'[GALLERY] Error processing photo {photo}: {e}')
+                    print(f'[GALLERY] Error processing photo ID={photo_id}, file={file_name}, s3_key={s3_key}, error: {str(e)}')
                     continue
             
             cur.execute(
