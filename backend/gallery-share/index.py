@@ -47,7 +47,9 @@ def handler(event: dict, context) -> dict:
             data = json.loads(event.get('body', '{}'))
             folder_id = data.get('folder_id')
             user_id = data.get('user_id') or event.get('headers', {}).get('x-user-id')
-            expires_days = data.get('expires_days', 30)
+            # Получаем expires_days: null = бессрочная, число = дней до истечения
+            # Если ключ отсутствует - по умолчанию 30 дней
+            expires_days = data['expires_days'] if 'expires_days' in data else 30
             password = data.get('password')
             download_disabled = data.get('download_disabled', False)
             
@@ -88,7 +90,17 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Folder not found or access denied'})
                 }
             
-            short_code = generate_short_code()
+            # Проверяем, есть ли уже ссылка для этой папки
+            cur.execute(
+                """
+                SELECT short_code FROM t_p28211681_photo_secure_web.folder_short_links
+                WHERE folder_id = %s AND user_id = %s
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (folder_id, user_id)
+            )
+            existing_link = cur.fetchone()
+            
             expires_at = datetime.now() + timedelta(days=expires_days) if expires_days else None
             
             password_hash = None
@@ -96,20 +108,41 @@ def handler(event: dict, context) -> dict:
                 import hashlib
                 password_hash = hashlib.sha256(password.encode()).hexdigest()
             
-            cur.execute(
-                """
-                INSERT INTO t_p28211681_photo_secure_web.folder_short_links
-                (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
-                 watermark_enabled, watermark_type, watermark_text, watermark_image_url,
-                 watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection, favorite_config)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING short_code
-                """,
-                (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
-                 watermark_enabled, watermark_type, watermark_text, watermark_image_url,
-                 watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
-                 json.dumps(favorite_config) if favorite_config else None)
-            )
+            if existing_link:
+                # Обновляем существующую ссылку
+                short_code = existing_link[0]
+                cur.execute(
+                    """
+                    UPDATE t_p28211681_photo_secure_web.folder_short_links
+                    SET expires_at = %s, password_hash = %s, download_disabled = %s,
+                        watermark_enabled = %s, watermark_type = %s, watermark_text = %s,
+                        watermark_image_url = %s, watermark_frequency = %s, watermark_size = %s,
+                        watermark_opacity = %s, watermark_rotation = %s, screenshot_protection = %s,
+                        favorite_config = %s
+                    WHERE short_code = %s
+                    """,
+                    (expires_at, password_hash, download_disabled,
+                     watermark_enabled, watermark_type, watermark_text,
+                     watermark_image_url, watermark_frequency, watermark_size,
+                     watermark_opacity, watermark_rotation, screenshot_protection,
+                     json.dumps(favorite_config) if favorite_config else None, short_code)
+                )
+            else:
+                # Создаём новую ссылку
+                short_code = generate_short_code()
+                cur.execute(
+                    """
+                    INSERT INTO t_p28211681_photo_secure_web.folder_short_links
+                    (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
+                     watermark_enabled, watermark_type, watermark_text, watermark_image_url,
+                     watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection, favorite_config)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
+                     watermark_enabled, watermark_type, watermark_text, watermark_image_url,
+                     watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
+                     json.dumps(favorite_config) if favorite_config else None)
+                )
             conn.commit()
             
             cur.close()
