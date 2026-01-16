@@ -101,12 +101,14 @@ export function useGalleryLoader(code?: string) {
   }, [code]);
 
   useEffect(() => {
-    if (gallery && gallery.photos.length > 0 && photosLoaded < gallery.photos.length) {
-      const progressPercent = (photosLoaded / gallery.photos.length) * 100;
+    if (gallery && gallery.photos.length > 0) {
+      const progressPercent = Math.min((photosLoaded / gallery.photos.length) * 100, 100);
       setLoadingProgress(progressPercent);
-    } else if (gallery && photosLoaded >= gallery.photos.length && photosLoaded > 0) {
-      setLoadingProgress(100);
-      setTimeout(() => setLoadingProgress(0), 500);
+      
+      // Скрываем прогресс-бар когда все фото загружены
+      if (photosLoaded >= gallery.photos.length) {
+        setTimeout(() => setLoadingProgress(0), 500);
+      }
     }
   }, [photosLoaded, gallery]);
 
