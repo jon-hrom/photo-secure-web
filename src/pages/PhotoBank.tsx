@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIndicator';
 import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
@@ -7,17 +7,14 @@ import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogsContainer from '@/components/photobank/PhotoBankDialogsContainer';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
-import ShareFolderModal from '@/components/photobank/ShareFolderModal';
-import FavoritesViewModal from '@/components/photobank/FavoritesViewModal';
-import DownloadStats from '@/components/photobank/DownloadStats';
-import ChatModal from '@/components/gallery/ChatModal';
-import FolderChatsModal from '@/components/photobank/FolderChatsModal';
-import Icon from '@/components/ui/icon';
+import { PhotoBankModals } from '@/pages/photobank/PhotoBankModals';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
 import { usePhotoBankHandlersExtended } from '@/hooks/usePhotoBankHandlersExtended';
 import { usePhotoBankNavigationHistory } from '@/hooks/usePhotoBankNavigationHistory';
+import { usePhotoBankHandlersLocal } from '@/pages/photobank/usePhotoBankHandlersLocal';
+import { usePhotoBankUnreadMessages } from '@/pages/photobank/usePhotoBankUnreadMessages';
 import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewing } from '@/pages/photobank/PhotoBankAuth';
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
@@ -144,178 +141,37 @@ const PhotoBank = () => {
     navigation,
   });
 
+  const {
+    handleExitAdminView,
+    handleDeleteSelectedPhotos,
+    handleShareFolder,
+    handleOpenFolderChats,
+    handleRenameFolder,
+    handleRestoreSelectedPhotos,
+  } = usePhotoBankHandlersLocal({
+    userId,
+    selectedFolder,
+    selectedPhotos,
+    photos,
+    setShareModalFolder,
+    setFolderChatsId,
+    setSelectedFolder,
+    setLoading,
+    setSelectedPhotos,
+    setSelectionMode,
+    handleDeletePhoto,
+    handleRestorePhoto,
+    fetchFolders,
+    fetchPhotos,
+  });
+
+  usePhotoBankUnreadMessages({
+    userId,
+    foldersLength: folders.length,
+    setFolders,
+  });
+
   const isAdminViewing = getIsAdminViewing();
-
-  useEffect(() => {
-    const loadUnreadCounts = async () => {
-      if (!userId || folders.length === 0) {
-        console.log('[UNREAD_COUNTS] Skipping: userId=', userId, 'folders.length=', folders.length);
-        return;
-      }
-
-      try {
-        const url = `https://functions.poehali.dev/ac9cc03a-3a9c-4359-acca-5cf58252f6d1?photographer_id=${userId}`;
-        console.log('[UNREAD_COUNTS] Fetching from:', url);
-        
-        const response = await fetch(url);
-        console.log('[UNREAD_COUNTS] Response status:', response.status);
-        
-        if (!response.ok) {
-          console.error('[UNREAD_COUNTS] Response not ok:', response.status);
-          return;
-        }
-        
-        const data = await response.json();
-        console.log('[UNREAD_COUNTS] Received data:', data);
-        
-        const unreadMap = new Map(
-          data.folders.map((f: { folder_id: number; unread_count: number }) => [f.folder_id, f.unread_count])
-        );
-        console.log('[UNREAD_COUNTS] Unread map:', Array.from(unreadMap.entries()));
-
-        setFolders(prev => {
-          const updated = prev.map(folder => ({
-            ...folder,
-            unread_messages_count: unreadMap.get(folder.id) || 0
-          }));
-          console.log('[UNREAD_COUNTS] Updated folders:', updated.map(f => ({ id: f.id, name: f.folder_name, unread: f.unread_messages_count })));
-          return updated;
-        });
-      } catch (error) {
-        console.error('[UNREAD_COUNTS] Error:', error);
-      }
-    };
-
-    loadUnreadCounts();
-    const interval = setInterval(loadUnreadCounts, 10000);
-    return () => clearInterval(interval);
-  }, [userId, folders.length]);
-
-  const handleExitAdminView = () => {
-    localStorage.removeItem('admin_viewing_user_id');
-    const adminViewingUser = localStorage.getItem('admin_viewing_user');
-    if (adminViewingUser) {
-      navigate('/');
-    } else {
-      navigate('/');
-    }
-  };
-
-  const handleDeleteSelectedPhotos = async () => {
-    if (selectedPhotos.size === 0) return;
-
-    const confirmed = window.confirm(
-      `Удалить выбранные фото (${selectedPhotos.size}) в корзину?`
-    );
-
-    if (!confirmed) return;
-
-    setLoading(true);
-    try {
-      for (const photoId of selectedPhotos) {
-        const photo = photos.find(p => p.id === photoId);
-        if (photo) {
-          await handleDeletePhoto(photoId, photo.file_name);
-        }
-      }
-      setSelectedPhotos(new Set());
-      setSelectionMode(false);
-      if (selectedFolder) {
-        await fetchPhotos(selectedFolder.id);
-      }
-      await fetchFolders();
-    } catch (error) {
-      console.error('Failed to delete photos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleShareFolder = async (folderId: number, folderName: string) => {
-    setShareModalFolder({ id: folderId, name: folderName });
-  };
-
-  const handleOpenFolderChats = (folderId: number) => {
-    setFolderChatsId(folderId);
-  };
-
-  const handleRenameFolder = () => {
-    if (!selectedFolder) return;
-    const newName = window.prompt('Введите новое название папки:', selectedFolder.folder_name);
-    if (!newName || newName.trim() === '' || newName === selectedFolder.folder_name) return;
-
-    const PHOTO_BANK_API = 'https://functions.poehali.dev/8aa39ae1-26f5-40c1-ad06-fe0d657f1310';
-    
-    fetch(PHOTO_BANK_API, {
-      method: 'PATCH',
-      headers: { 
-        'Content-Type': 'application/json',
-        'X-User-Id': userId
-      },
-      body: JSON.stringify({ 
-        action: 'rename_folder',
-        folder_id: selectedFolder.id,
-        folder_name: newName.trim() 
-      })
-    })
-      .then(res => res.json())
-      .then(() => {
-        fetchFolders();
-        setSelectedFolder({ ...selectedFolder, folder_name: newName.trim() });
-      })
-      .catch(err => {
-        console.error('Failed to rename folder:', err);
-        alert('Ошибка переименования папки');
-      });
-  };
-
-  const handleRestoreSelectedPhotos = async () => {
-    if (selectedPhotos.size === 0) return;
-
-    const confirmed = window.confirm(
-      `Вернуть выбранные фото (${selectedPhotos.size}) обратно в оригиналы?`
-    );
-
-    if (!confirmed) return;
-
-    setLoading(true);
-    let restoredCount = 0;
-    let cleanedCount = 0;
-
-    try {
-      for (const photoId of selectedPhotos) {
-        try {
-          const result = await handleRestorePhoto(photoId);
-          if (result?.cleaned) {
-            cleanedCount++;
-          } else {
-            restoredCount++;
-          }
-        } catch (error) {
-          console.error(`Failed to restore photo ${photoId}:`, error);
-        }
-      }
-
-      setSelectedPhotos(new Set());
-      setSelectionMode(false);
-      
-      if (selectedFolder) {
-        await fetchPhotos(selectedFolder.id);
-      }
-      await fetchFolders();
-
-      const message = cleanedCount > 0 
-        ? `Восстановлено: ${restoredCount}, удалено из базы (файл отсутствует): ${cleanedCount}`
-        : `Успешно восстановлено ${restoredCount} фото`;
-      
-      alert(message);
-    } catch (error) {
-      console.error('Failed to restore photos:', error);
-      alert('Произошла ошибка при восстановлении фото');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (authChecking || !userId) {
     return (
@@ -438,65 +294,23 @@ const PhotoBank = () => {
 
       <MobileNavigation />
 
-      {shareModalFolder && (
-        <ShareFolderModal
-          folderId={shareModalFolder.id}
-          folderName={shareModalFolder.name}
-          userId={userId}
-          onClose={() => setShareModalFolder(null)}
-        />
-      )}
-
-      {showFavorites && selectedFolder && (
-        <FavoritesViewModal
-          folderId={selectedFolder.id}
-          folderName={selectedFolder.folder_name}
-          userId={userId}
-          onClose={() => setShowFavorites(false)}
-        />
-      )}
-
-      {showStats && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-lg shadow-xl w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-2xl font-bold">Статистика скачиваний</h2>
-              <button
-                onClick={() => setShowStats(false)}
-                className="p-2 hover:bg-muted rounded-lg transition-colors"
-              >
-                <Icon name="X" size={24} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-auto">
-              <DownloadStats userId={parseInt(userId)} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {chatClient && (
-        <ChatModal
-          isOpen={true}
-          onClose={() => setChatClient(null)}
-          clientId={chatClient.id}
-          photographerId={parseInt(userId)}
-          senderType="photographer"
-          clientName={chatClient.name}
-        />
-      )}
-
-      {folderChatsId && (
-        <FolderChatsModal
-          isOpen={true}
-          onClose={() => {
-            setFolderChatsId(null);
-            fetchFolders(); // Обновляем счетчики после закрытия
-          }}
-          folderId={folderChatsId}
-          photographerId={parseInt(userId)}
-        />
-      )}
+      <PhotoBankModals
+        shareModalFolder={shareModalFolder}
+        showFavorites={showFavorites}
+        selectedFolder={selectedFolder}
+        showStats={showStats}
+        chatClient={chatClient}
+        folderChatsId={folderChatsId}
+        userId={userId}
+        onCloseShareModal={() => setShareModalFolder(null)}
+        onCloseFavorites={() => setShowFavorites(false)}
+        onCloseStats={() => setShowStats(false)}
+        onCloseChat={() => setChatClient(null)}
+        onCloseFolderChats={() => {
+          setFolderChatsId(null);
+          fetchFolders();
+        }}
+      />
     </div>
   );
 };
