@@ -79,12 +79,20 @@ def handler(event: dict, context) -> dict:
                         'isBase64Encoded': False
                     }
                 
+                # Получаем имя клиента из favorite_clients для author
+                cur.execute('''
+                    SELECT full_name FROM t_p28211681_photo_secure_web.favorite_clients 
+                    WHERE id = %s
+                ''', (client_id,))
+                client_row = cur.fetchone()
+                author_name = client_row[0] if client_row else 'Клиент'
+                
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.client_messages 
                     (client_id, photographer_id, content, sender_type, is_read, created_at, type, author)
                     VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s)
                     RETURNING id, created_at
-                ''', (client_id, photographer_id, message, sender_type, sender_type))
+                ''', (client_id, photographer_id, message, sender_type, author_name))
                 
                 result = cur.fetchone()
                 message_id = result[0]
