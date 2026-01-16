@@ -157,12 +157,12 @@ const PhotoBank = () => {
         
         const data = await response.json();
         const unreadMap = new Map(
-          data.clients.map((c: { client_id: number; unread_count: number }) => [c.client_id, c.unread_count])
+          data.folders.map((f: { folder_id: number; unread_count: number }) => [f.folder_id, f.unread_count])
         );
 
         setFolders(prev => prev.map(folder => ({
           ...folder,
-          unread_messages_count: folder.client_id ? (unreadMap.get(folder.client_id) || 0) : 0
+          unread_messages_count: unreadMap.get(folder.id) || 0
         })));
       } catch (error) {
         console.error('Failed to load unread counts:', error);
