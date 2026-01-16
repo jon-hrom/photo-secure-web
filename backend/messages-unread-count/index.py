@@ -40,7 +40,7 @@ def handler(event: dict, context) -> dict:
         conn = psycopg2.connect(dsn)
         cur = conn.cursor()
         
-        # Если указан client_id - вернуть только для этого клиента
+        # Если указан client_id - вернуть непрочитанные сообщения ОТ ФОТОГРАФА для этого клиента
         if client_id:
             cur.execute('''
                 SELECT COUNT(*) as unread_count
@@ -48,7 +48,7 @@ def handler(event: dict, context) -> dict:
                 WHERE photographer_id = %s 
                   AND client_id = %s
                   AND is_read = FALSE 
-                  AND sender_type = 'client'
+                  AND sender_type = 'photographer'
             ''', (int(photographer_id), int(client_id)))
             
             row = cur.fetchone()
