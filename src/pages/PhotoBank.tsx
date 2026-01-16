@@ -11,6 +11,7 @@ import ShareFolderModal from '@/components/photobank/ShareFolderModal';
 import FavoritesViewModal from '@/components/photobank/FavoritesViewModal';
 import DownloadStats from '@/components/photobank/DownloadStats';
 import ChatModal from '@/components/gallery/ChatModal';
+import FolderChatsModal from '@/components/photobank/FolderChatsModal';
 import Icon from '@/components/ui/icon';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
@@ -35,6 +36,7 @@ const PhotoBank = () => {
   const [showFavorites, setShowFavorites] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [chatClient, setChatClient] = useState<{ id: number; name: string } | null>(null);
+  const [folderChatsId, setFolderChatsId] = useState<number | null>(null);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -233,6 +235,10 @@ const PhotoBank = () => {
     setShareModalFolder({ id: folderId, name: folderName });
   };
 
+  const handleOpenFolderChats = (folderId: number) => {
+    setFolderChatsId(folderId);
+  };
+
   const handleRenameFolder = () => {
     if (!selectedFolder) return;
     const newName = window.prompt('Введите новое название папки:', selectedFolder.folder_name);
@@ -407,6 +413,7 @@ const PhotoBank = () => {
             onDownloadFolder={handleDownloadFolder}
             onShareFolder={handleShareFolder}
             onOpenChat={(clientId, clientName) => setChatClient({ id: clientId, name: clientName })}
+            onOpenFolderChats={handleOpenFolderChats}
           />
         ) : (
           <PhotoBankPhotoGrid
@@ -476,6 +483,18 @@ const PhotoBank = () => {
           photographerId={parseInt(userId)}
           senderType="photographer"
           clientName={chatClient.name}
+        />
+      )}
+
+      {folderChatsId && (
+        <FolderChatsModal
+          isOpen={true}
+          onClose={() => {
+            setFolderChatsId(null);
+            fetchFolders(); // Обновляем счетчики после закрытия
+          }}
+          folderId={folderChatsId}
+          photographerId={parseInt(userId)}
         />
       )}
     </div>

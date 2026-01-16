@@ -27,6 +27,7 @@ interface PhotoBankFoldersListProps {
   onDownloadFolder?: (folderId: number, folderName: string) => void;
   onShareFolder?: (folderId: number, folderName: string) => void;
   onOpenChat?: (clientId: number, clientName: string) => void;
+  onOpenFolderChats?: (folderId: number) => void;
   isAdminViewing?: boolean;
 }
 
@@ -41,6 +42,7 @@ const PhotoBankFoldersList = ({
   onDownloadFolder,
   onShareFolder,
   onOpenChat,
+  onOpenFolderChats,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
   // DEBUG: показать данные папок с unread_messages_count
@@ -183,10 +185,17 @@ const PhotoBankFoldersList = ({
                                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Оригиналы</span>
                                 )}
                                 {(folder.unread_messages_count ?? 0) > 0 && (
-                                  <div className="inline-flex items-center gap-1 text-yellow-600 font-medium" title="Непрочитанные сообщения от клиентов">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onOpenFolderChats?.(folder.id);
+                                    }}
+                                    className="inline-flex items-center gap-1 text-yellow-600 font-medium hover:text-yellow-700 transition-colors"
+                                    title="Непрочитанные сообщения от клиентов"
+                                  >
                                     <Icon name="Mail" size={16} />
                                     <span className="text-xs">{folder.unread_messages_count}</span>
-                                  </div>
+                                  </button>
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground md:hidden">
@@ -214,10 +223,17 @@ const PhotoBankFoldersList = ({
                               const count = folder.unread_messages_count ?? 0;
                               console.log(`[RENDER] Folder ${folder.id}: unread=${count}, show=${count > 0}`);
                               return count > 0 ? (
-                                <div className="inline-flex items-center gap-1 text-yellow-600 font-medium" title="Непрочитанные сообщения от клиентов">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenFolderChats?.(folder.id);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-yellow-600 font-medium hover:text-yellow-700 transition-colors"
+                                  title="Непрочитанные сообщения от клиентов"
+                                >
                                   <Icon name="Mail" size={16} />
                                   <span>{count}</span>
-                                </div>
+                                </button>
                               ) : null;
                             })()}
                           </div>

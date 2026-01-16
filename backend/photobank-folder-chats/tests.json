@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Get folder clients with chats",
+      "method": "GET",
+      "path": "/?folder_id=1",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "clients": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
