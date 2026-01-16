@@ -4,6 +4,7 @@ interface LoadingIndicatorsProps {
   loadingProgress: number;
   photosLoaded: number;
   totalPhotos: number;
+  visiblePhotos: number;
   downloadProgress: {
     show: boolean;
     current: number;
@@ -17,6 +18,7 @@ export default function LoadingIndicators({
   loadingProgress,
   photosLoaded,
   totalPhotos,
+  visiblePhotos,
   downloadProgress,
   onCancelDownload
 }: LoadingIndicatorsProps) {
@@ -45,7 +47,7 @@ export default function LoadingIndicators({
                 />
               </div>
               <p className="text-sm text-gray-400 text-center">
-                Загружено {photosLoaded} из {totalPhotos} фото
+                Загружено {photosLoaded} из {totalPhotos} фото · В галерее {visiblePhotos}
               </p>
             </div>
           </div>

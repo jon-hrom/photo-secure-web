@@ -285,13 +285,21 @@ export default function PublicGallery() {
         loadingProgress={loadingProgress}
         photosLoaded={photosLoaded}
         totalPhotos={gallery?.photos.length || 0}
+        visiblePhotos={(clientData && clientData.client_id > 0 && gallery)
+          ? gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id)).length
+          : gallery?.photos.length || 0}
         downloadProgress={downloadProgress}
         onCancelDownload={cancelDownload}
       />
 
       {gallery && (
         <GalleryGrid
-          gallery={gallery}
+          gallery={{
+            ...gallery,
+            photos: (clientData && clientData.client_id > 0)
+              ? gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id))
+              : gallery.photos
+          }}
           downloadingAll={downloadingAll}
           onDownloadAll={downloadAll}
           onPhotoClick={(photo) => {
