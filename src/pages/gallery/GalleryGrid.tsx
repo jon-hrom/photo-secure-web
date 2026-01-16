@@ -141,6 +141,7 @@ export default function GalleryGrid({
                   onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
                   draggable={false}
                   onLoad={() => onPhotoLoad?.()}
+                  onError={() => onPhotoLoad?.()}
                 />
                 {gallery.watermark?.enabled && (() => {
                   const frequency = gallery.watermark.frequency || 50;
