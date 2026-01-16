@@ -52,6 +52,26 @@ export default function PublicGallery() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Вычисляем видимые фото (без избранного если клиент залогинен)
+  const visiblePhotos = (clientData && clientData.client_id > 0 && gallery)
+    ? gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id))
+    : gallery?.photos || [];
+
+  // Рассчитываем прогресс по видимым фото
+  const actualProgress = visiblePhotos.length > 0
+    ? Math.min((photosLoaded / visiblePhotos.length) * 100, 100)
+    : loadingProgress;
+
+  // Скрываем прогресс-бар когда все видимые фото загружены
+  const [showProgress, setShowProgress] = useState(true);
+  useEffect(() => {
+    if (visiblePhotos.length > 0 && photosLoaded >= visiblePhotos.length) {
+      setTimeout(() => setShowProgress(false), 500);
+    } else if (visiblePhotos.length > 0 && photosLoaded < visiblePhotos.length) {
+      setShowProgress(true);
+    }
+  }, [photosLoaded, visiblePhotos.length]);
+
   const {
     gallery,
     loading,
@@ -282,12 +302,10 @@ export default function PublicGallery() {
   return (
     <>
       <LoadingIndicators
-        loadingProgress={loadingProgress}
+        loadingProgress={showProgress ? actualProgress : 0}
         photosLoaded={photosLoaded}
         totalPhotos={gallery?.photos.length || 0}
-        visiblePhotos={(clientData && clientData.client_id > 0 && gallery)
-          ? gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id)).length
-          : gallery?.photos.length || 0}
+        visiblePhotos={visiblePhotos.length}
         downloadProgress={downloadProgress}
         onCancelDownload={cancelDownload}
       />
@@ -296,9 +314,7 @@ export default function PublicGallery() {
         <GalleryGrid
           gallery={{
             ...gallery,
-            photos: (clientData && clientData.client_id > 0)
-              ? gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id))
-              : gallery.photos
+            photos: visiblePhotos
           }}
           downloadingAll={downloadingAll}
           onDownloadAll={downloadAll}
