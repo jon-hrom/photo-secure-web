@@ -258,6 +258,7 @@ const PhotoBankFoldersList = ({
                                 </span>
                               </Button>
                             )}
+                            {/* Показываем кнопку чата только для старых папок с одним клиентом */}
                             {onOpenChat && folder.client_id && (
                               <Button
                                 variant="ghost"
@@ -275,6 +276,24 @@ const PhotoBankFoldersList = ({
                                     {folder.unread_messages_count}
                                   </span>
                                 )}
+                              </Button>
+                            )}
+                            {/* Показываем кнопку со всеми чатами папки для новых папок с доступами */}
+                            {onOpenFolderChats && !folder.client_id && (folder.unread_messages_count ?? 0) > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 relative"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenFolderChats(folder.id);
+                                }}
+                                title="Непрочитанные сообщения от клиентов папки"
+                              >
+                                <Icon name="Mail" size={16} />
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                  {folder.unread_messages_count}
+                                </span>
                               </Button>
                             )}
                             {onShareFolder && folder.photo_count > 0 && (

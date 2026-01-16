@@ -6,6 +6,11 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
+  folder_type?: 'originals' | 'tech_rejects';
+  parent_folder_id?: number | null;
+  archive_download_count?: number;
+  client_id?: number | null;
+  unread_messages_count?: number;
 }
 
 interface Photo {
