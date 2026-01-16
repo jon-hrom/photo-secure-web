@@ -204,12 +204,16 @@ const PhotoBankFoldersList = ({
                                 <span>{folder.archive_download_count}</span>
                               </div>
                             )}
-                            {(folder.unread_messages_count ?? 0) > 0 && (
-                              <div className="inline-flex items-center gap-1 text-yellow-600 font-medium" title="Непрочитанные сообщения от клиентов">
-                                <Icon name="Mail" size={16} />
-                                <span>{folder.unread_messages_count}</span>
-                              </div>
-                            )}
+                            {(() => {
+                              const count = folder.unread_messages_count ?? 0;
+                              console.log(`[RENDER] Folder ${folder.id}: unread=${count}, show=${count > 0}`);
+                              return count > 0 ? (
+                                <div className="inline-flex items-center gap-1 text-yellow-600 font-medium" title="Непрочитанные сообщения от клиентов">
+                                  <Icon name="Mail" size={16} />
+                                  <span>{count}</span>
+                                </div>
+                              ) : null;
+                            })()}
                           </div>
                         </td>
                         <td className="p-3">
