@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import ChatModal from '@/components/gallery/ChatModal';
+import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 
 interface Client {
   id: number;
@@ -32,13 +33,17 @@ export default function FolderChatsModal({
   const loadClients = async () => {
     try {
       setLoading(true);
-      const userId = sessionStorage.getItem('userId');
+      const userId = getAuthUserId();
+      
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       
       const response = await fetch(
         `https://functions.poehali.dev/cf469a8f-506f-4b38-98b3-731c22c5c836?folder_id=${folderId}`,
         {
           headers: {
-            'X-User-Id': userId || ''
+            'X-User-Id': userId.toString()
           }
         }
       );
