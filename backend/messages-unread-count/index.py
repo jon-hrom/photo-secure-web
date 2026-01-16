@@ -25,7 +25,7 @@ def handler(event: dict, context) -> dict:
         }
     
     try:
-        params = event.get('queryStringParameters', {})
+        params = event.get('queryStringParameters', {}) or {}
         photographer_id = params.get('photographer_id')
         client_id = params.get('client_id')
         
@@ -37,6 +37,13 @@ def handler(event: dict, context) -> dict:
             }
         
         dsn = os.environ.get('DATABASE_URL')
+        if not dsn:
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'DATABASE_URL not configured'})
+            }
+        
         conn = psycopg2.connect(dsn)
         cur = conn.cursor()
         
@@ -85,8 +92,8 @@ def handler(event: dict, context) -> dict:
         results = []
         for row in cur.fetchall():
             results.append({
-                'folder_id': row[0],
-                'unread_count': row[1]
+                'folder_id': int(row[0]),
+                'unread_count': int(row[1])
             })
         
         cur.close()

@@ -1,12 +1,12 @@
 {
   "tests": [
     {
-      "name": "Get unread messages count for all clients",
+      "name": "Get unread messages count grouped by folders",
       "method": "GET",
       "path": "/?photographer_id=22",
       "expectedStatus": 200,
       "expectedBody": {
-        "clients": "array"
+        "folders": "array"
       },
       "bodyMatcher": "partial"
     },
