@@ -51,26 +51,7 @@ export default function PublicGallery() {
   const [viewingFavorites, setViewingFavorites] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-
-  // Вычисляем видимые фото (без избранного если клиент залогинен)
-  const visiblePhotos = (clientData && clientData.client_id > 0 && gallery)
-    ? gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id))
-    : gallery?.photos || [];
-
-  // Рассчитываем прогресс по видимым фото
-  const actualProgress = visiblePhotos.length > 0
-    ? Math.min((photosLoaded / visiblePhotos.length) * 100, 100)
-    : loadingProgress;
-
-  // Скрываем прогресс-бар когда все видимые фото загружены
   const [showProgress, setShowProgress] = useState(true);
-  useEffect(() => {
-    if (visiblePhotos.length > 0 && photosLoaded >= visiblePhotos.length) {
-      setTimeout(() => setShowProgress(false), 500);
-    } else if (visiblePhotos.length > 0 && photosLoaded < visiblePhotos.length) {
-      setShowProgress(true);
-    }
-  }, [photosLoaded, visiblePhotos.length]);
 
   const {
     gallery,
@@ -95,6 +76,25 @@ export default function PublicGallery() {
     downloadAll,
     cancelDownload
   } = usePhotoDownloader(code, password, gallery?.folder_name);
+
+  // Вычисляем видимые фото (без избранного если клиент залогинен)
+  const visiblePhotos = (clientData && clientData.client_id > 0 && gallery)
+    ? gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id))
+    : gallery?.photos || [];
+
+  // Рассчитываем прогресс по видимым фото
+  const actualProgress = visiblePhotos.length > 0
+    ? Math.min((photosLoaded / visiblePhotos.length) * 100, 100)
+    : loadingProgress;
+
+  // Скрываем прогресс-бар когда все видимые фото загружены
+  useEffect(() => {
+    if (visiblePhotos.length > 0 && photosLoaded >= visiblePhotos.length) {
+      setTimeout(() => setShowProgress(false), 500);
+    } else if (visiblePhotos.length > 0 && photosLoaded < visiblePhotos.length) {
+      setShowProgress(true);
+    }
+  }, [photosLoaded, visiblePhotos.length]);
 
   useEffect(() => {
     // Читаем настройки избранного из данных галереи (приходят с сервера)
