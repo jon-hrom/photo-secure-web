@@ -28,7 +28,8 @@ def handler(event: dict, context) -> dict:
         cur = conn.cursor()
         
         if method == 'GET':
-            params = event.get('queryStringParameters', {})
+            params = event.get('queryStringParameters', {}) or {}
+            action = params.get('action', 'list')
             client_id = params.get('client_id')
             photographer_id = params.get('photographer_id')
             
@@ -39,6 +40,67 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'client_id and photographer_id required'}),
                     'isBase64Encoded': False
                 }
+            
+            # Обработка action=mark_read
+            if action == 'mark_read':
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.client_messages 
+                    SET is_read = TRUE
+                    WHERE client_id = %s AND photographer_id = %s AND sender_type = 'client'
+                ''', (client_id, photographer_id))
+                conn.commit()
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            
+            # Обработка action=send (отправка через GET с параметрами)
+            if action == 'send':
+                message = params.get('message', '')
+                sender_type = params.get('sender_type')
+                
+                if not sender_type or sender_type not in ['client', 'photographer']:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Invalid sender_type'}),
+                        'isBase64Encoded': False
+                    }
+                
+                if not message:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'message required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                cur.execute('''
+                    INSERT INTO t_p28211681_photo_secure_web.client_messages 
+                    (client_id, photographer_id, content, sender_type, is_read, created_at, type, author)
+                    VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s)
+                    RETURNING id, created_at
+                ''', (client_id, photographer_id, message, sender_type, sender_type))
+                
+                result = cur.fetchone()
+                message_id = result[0]
+                created_at = result[1]
+                conn.commit()
+                cur.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'id': message_id, 'created_at': created_at.isoformat()}),
+                    'isBase64Encoded': False
+                }
+            
+            # action=list (по умолчанию) - список сообщений
             
             cur.execute('''
                 SELECT id, client_id, photographer_id, content as message, 

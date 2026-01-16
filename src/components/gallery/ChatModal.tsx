@@ -77,14 +77,8 @@ export default function ChatModal({
 
   const markAsRead = async () => {
     try {
-      await fetch('https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: clientId,
-          photographer_id: photographerId,
-          mark_as_read: true
-        })
+      await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?action=mark_read&client_id=${clientId}&photographer_id=${photographerId}`, {
+        method: 'GET'
       });
     } catch (error) {
       console.error('Error marking messages as read:', error);
@@ -113,21 +107,17 @@ export default function ChatModal({
     try {
       setSending(true);
       
-      const payload: any = {
-        client_id: clientId,
-        photographer_id: photographerId,
+      // Используем GET с параметрами вместо POST (обход Cloud Functions ограничений)
+      const params = new URLSearchParams({
+        action: 'send',
+        client_id: String(clientId),
+        photographer_id: String(photographerId),
         message: newMessage.trim(),
         sender_type: senderType
-      };
+      });
       
-      if (selectedImage) {
-        payload.image = selectedImage.split(',')[1];
-      }
-      
-      const response = await fetch('https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?${params}`, {
+        method: 'GET'
       });
       
       if (!response.ok) throw new Error('Ошибка отправки сообщения');
