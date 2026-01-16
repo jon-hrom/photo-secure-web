@@ -43,6 +43,16 @@ const PhotoBankFoldersList = ({
   onOpenChat,
   isAdminViewing = false
 }: PhotoBankFoldersListProps) => {
+  // DEBUG: показать данные папок с unread_messages_count
+  React.useEffect(() => {
+    console.log('[DEBUG] PhotoBankFoldersList folders:', folders.map(f => ({
+      id: f.id,
+      name: f.folder_name,
+      unread_messages_count: f.unread_messages_count,
+      client_id: f.client_id
+    })));
+  }, [folders]);
+
   // Используем sessionStorage для хранения состояния сворачивания
   const STORAGE_KEY = 'photobank_collapsed_folders';
   
