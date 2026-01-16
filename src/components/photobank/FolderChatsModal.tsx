@@ -28,7 +28,6 @@ export default function FolderChatsModal({
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showChat, setShowChat] = useState(false);
 
   const loadClients = async () => {
     try {
@@ -49,7 +48,6 @@ export default function FolderChatsModal({
       const data = await response.json();
       setClients(data.clients || []);
       
-      // Автоматически выбираем первого клиента если есть
       if (data.clients && data.clients.length > 0) {
         setSelectedClientId(data.clients[0].id);
       }
@@ -71,126 +69,121 @@ export default function FolderChatsModal({
   if (!isOpen) return null;
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-          {/* Заголовок */}
-          <div className="flex items-center justify-between p-4 border-b">
-            <div className="flex items-center gap-2">
-              <Icon name="MessagesSquare" size={24} className="text-blue-600" />
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex" onClick={onClose}>
+      <div 
+        className="bg-background w-full h-full md:m-4 md:rounded-xl shadow-2xl flex flex-col overflow-hidden md:max-w-7xl md:mx-auto" 
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Заголовок */}
+        <div className="flex items-center justify-between p-4 border-b bg-background">
+          <div className="flex items-center gap-3">
+            <Icon name="MessagesSquare" size={24} className="text-primary" />
+            <div>
               <h2 className="text-xl font-semibold">Сообщения клиентов</h2>
+              <p className="text-sm text-muted-foreground">Клиентов: {clients.length}</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <Icon name="X" size={20} />
-            </Button>
           </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <Icon name="X" size={20} />
+          </Button>
+        </div>
 
-          {/* Контент */}
-          <div className="flex-1 flex overflow-hidden">
-            {/* Список клиентов */}
-            <div className="w-80 border-r flex flex-col">
-              <div className="p-3 border-b bg-gray-50">
-                <p className="text-sm text-muted-foreground">
-                  Клиентов: {clients.length}
-                </p>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto">
-                {loading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : clients.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-                    <Icon name="Users" size={32} className="mb-2 opacity-50" />
-                    <p className="text-sm">Нет клиентов</p>
-                  </div>
-                ) : (
-                  clients.map(client => (
-                    <button
-                      key={client.id}
-                      onClick={() => {
-                        setSelectedClientId(client.id);
-                        setShowChat(true);
-                      }}
-                      className={`w-full p-4 text-left border-b hover:bg-gray-50 transition-colors ${
-                        selectedClientId === client.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-medium truncate">{client.name}</p>
-                            {client.unread_count > 0 && (
-                              <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-white bg-yellow-600 rounded-full">
-                                {client.unread_count}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-1">{client.phone}</p>
-                          {client.last_message && (
-                            <p className="text-sm text-muted-foreground truncate">
-                              {client.last_message}
-                            </p>
-                          )}
-                        </div>
-                        <Icon name="ChevronRight" size={16} className="flex-shrink-0 text-gray-400" />
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Область для чата */}
-            <div className="flex-1 flex items-center justify-center bg-gray-50">
-              {!selectedClient ? (
-                <div className="text-center text-muted-foreground">
-                  <Icon name="MessageCircle" size={48} className="mx-auto mb-3 opacity-30" />
-                  <p>Выберите клиента для начала общения</p>
+        {/* Контент */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Список клиентов - скрывается на мобильных если выбран клиент */}
+          <div className={`
+            w-full md:w-80 border-r flex flex-col bg-background
+            ${selectedClient ? 'hidden md:flex' : 'flex'}
+          `}>
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : clients.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground p-4">
+                  <Icon name="Users" size={32} className="mb-2 opacity-50" />
+                  <p className="text-sm text-center">Нет клиентов с сообщениями</p>
                 </div>
               ) : (
-                <div className="w-full h-full flex flex-col">
-                  <div className="p-4 border-b bg-white">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <Icon name="User" size={20} className="text-blue-600" />
+                clients.map(client => (
+                  <button
+                    key={client.id}
+                    onClick={() => setSelectedClientId(client.id)}
+                    className={`w-full p-4 text-left border-b hover:bg-muted transition-colors ${
+                      selectedClientId === client.id ? 'bg-muted border-l-4 border-l-primary' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium truncate">{client.name}</p>
+                          {client.unread_count > 0 && (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-white bg-yellow-600 rounded-full">
+                              {client.unread_count}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-1">{client.phone}</p>
+                        {client.last_message && (
+                          <p className="text-sm text-muted-foreground truncate">
+                            {client.last_message}
+                          </p>
+                        )}
                       </div>
-                      <div>
-                        <p className="font-medium">{selectedClient.name}</p>
-                        <p className="text-sm text-muted-foreground">{selectedClient.phone}</p>
-                      </div>
+                      <Icon name="ChevronRight" size={16} className="flex-shrink-0 text-muted-foreground" />
                     </div>
-                  </div>
-                  
-                  <div className="flex-1 p-4 text-center text-muted-foreground">
-                    <p className="mb-4">Чат откроется в отдельном окне</p>
-                    <Button onClick={() => setShowChat(true)}>
-                      <Icon name="MessageSquare" size={16} className="mr-2" />
-                      Открыть чат
-                    </Button>
-                  </div>
-                </div>
+                  </button>
+                ))
               )}
             </div>
           </div>
+
+          {/* Область чата - полный экран на мобильных */}
+          <div className={`
+            flex-1 flex flex-col bg-muted/30
+            ${selectedClient ? 'flex' : 'hidden md:flex'}
+          `}>
+            {!selectedClient ? (
+              <div className="flex-1 flex items-center justify-center text-center text-muted-foreground p-4">
+                <div>
+                  <Icon name="MessageCircle" size={48} className="mx-auto mb-3 opacity-30" />
+                  <p>Выберите клиента для начала общения</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Кнопка назад на мобильных */}
+                <div className="md:hidden border-b bg-background p-4">
+                  <button 
+                    onClick={() => setSelectedClientId(null)}
+                    className="flex items-center gap-2 text-primary"
+                  >
+                    <Icon name="ChevronLeft" size={20} />
+                    <span>Назад к списку</span>
+                  </button>
+                </div>
+
+                {/* Встроенный чат */}
+                <div className="flex-1 overflow-hidden relative">
+                  <ChatModal
+                    isOpen={true}
+                    onClose={() => {
+                      setSelectedClientId(null);
+                      loadClients();
+                    }}
+                    clientId={selectedClient.id}
+                    photographerId={photographerId}
+                    senderType="photographer"
+                    clientName={selectedClient.name}
+                    embedded={true}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Модалка чата */}
-      {showChat && selectedClient && (
-        <ChatModal
-          isOpen={showChat}
-          onClose={() => {
-            setShowChat(false);
-            loadClients(); // Обновляем счетчики после закрытия чата
-          }}
-          clientId={selectedClient.id}
-          photographerId={photographerId}
-          senderType="photographer"
-          clientName={selectedClient.name}
-        />
-      )}
-    </>
+    </div>
   );
 }

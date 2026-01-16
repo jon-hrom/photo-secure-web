@@ -19,6 +19,7 @@ interface ChatModalProps {
   photographerId: number;
   senderType: 'client' | 'photographer';
   clientName?: string;
+  embedded?: boolean;
 }
 
 export default function ChatModal({ 
@@ -27,7 +28,8 @@ export default function ChatModal({
   clientId, 
   photographerId, 
   senderType,
-  clientName 
+  clientName,
+  embedded = false
 }: ChatModalProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -156,6 +158,143 @@ export default function ChatModal({
   }, [isOpen, clientId, photographerId]);
 
   if (!isOpen) return null;
+
+  if (embedded) {
+    return (
+      <div className="w-full h-full flex flex-col bg-background">
+        <div className="hidden md:flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-2">
+            <Icon name="MessageCircle" size={24} className="text-primary" />
+            <h2 className="text-xl font-semibold">
+              {senderType === 'photographer' ? clientName || 'Чат с клиентом' : 'Чат с фотографом'}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-muted rounded-full transition-colors"
+          >
+            <Icon name="X" size={20} className="text-muted-foreground" />
+          </button>
+        </div>
+
+        <div 
+          ref={messageContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30"
+        >
+          {loading && messages.length === 0 ? (
+            <div className="flex justify-center items-center h-full">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <Icon name="MessageCircle" size={48} className="mb-2 opacity-50" />
+              <p>Нет сообщений</p>
+            </div>
+          ) : (
+            <>
+              {messages.map((msg) => {
+                const isMyMessage = msg.sender_type === senderType;
+                
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 ${
+                        isMyMessage
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-foreground'
+                      }`}
+                    >
+                      {msg.image_url && (
+                        <img 
+                          src={msg.image_url} 
+                          alt="Изображение" 
+                          className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => window.open(msg.image_url, '_blank')}
+                        />
+                      )}
+                      {msg.message && <p className="whitespace-pre-wrap break-words">{msg.message}</p>}
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className={`text-xs ${isMyMessage ? 'opacity-80' : 'text-muted-foreground'}`}>
+                          {new Date(msg.created_at).toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                        {isMyMessage && msg.is_read && (
+                          <Icon name="CheckCheck" size={14} className="opacity-80" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
+
+        <div className="p-4 border-t bg-background">
+          {selectedImage && (
+            <div className="mb-2 relative inline-block">
+              <img src={selectedImage} alt="Preview" className="max-h-32 rounded-lg" />
+              <button
+                onClick={() => {
+                  setSelectedImage(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:opacity-90"
+              >
+                <Icon name="X" size={16} />
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Icon name="Image" size={20} className="text-muted-foreground" />
+            </button>
+            <textarea
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              onFocus={enableNotificationSound}
+              placeholder="Введите сообщение..."
+              className="flex-1 px-3 py-2 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+              rows={2}
+              disabled={sending}
+              style={{ fontSize: '16px' }}
+            />
+            <Button
+              onClick={sendMessage}
+              disabled={(!newMessage.trim() && !selectedImage) || sending}
+              className="px-4"
+            >
+              {sending ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Icon name="Send" size={20} />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 

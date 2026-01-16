@@ -67,22 +67,16 @@ def handler(event: dict, context) -> dict:
                 'body': json.dumps({'error': 'Folder not found'})
             }
         
-        # Получаем клиентов папки с информацией о непрочитанных сообщениях
+        # Получаем клиента папки с информацией о непрочитанных сообщениях
         schema = 't_p28211681_photo_secure_web'
         query = f"""
-            WITH folder_access AS (
-                SELECT DISTINCT client_id
-                FROM {schema}.folder_access
-                WHERE folder_id = %s
-            ),
-            latest_messages AS (
+            WITH latest_message AS (
                 SELECT DISTINCT ON (cm.client_id)
                     cm.client_id,
                     cm.content,
                     cm.created_at
                 FROM {schema}.client_messages cm
                 WHERE cm.photographer_id = %s
-                  AND cm.client_id IN (SELECT client_id FROM folder_access)
                 ORDER BY cm.client_id, cm.created_at DESC
             ),
             unread_counts AS (
@@ -91,24 +85,24 @@ def handler(event: dict, context) -> dict:
                 WHERE photographer_id = %s
                   AND sender_type = 'client'
                   AND is_read = FALSE
-                  AND client_id IN (SELECT client_id FROM folder_access)
                 GROUP BY client_id
             )
             SELECT 
                 c.id,
-                c.full_name,
+                c.name,
                 c.phone,
                 COALESCE(uc.cnt, 0) as unread_count,
                 lm.content as last_message,
                 lm.created_at as last_message_time
-            FROM {schema}.clients c
-            INNER JOIN folder_access fa ON fa.client_id = c.id
+            FROM {schema}.photo_folders pf
+            INNER JOIN {schema}.clients c ON pf.client_id = c.id
             LEFT JOIN unread_counts uc ON uc.client_id = c.id
-            LEFT JOIN latest_messages lm ON lm.client_id = c.id
+            LEFT JOIN latest_message lm ON lm.client_id = c.id
+            WHERE pf.id = %s AND pf.user_id = %s
             ORDER BY lm.created_at DESC NULLS LAST
         """
         
-        cur.execute(query, (folder_id, user_id, user_id))
+        cur.execute(query, (user_id, user_id, folder_id, user_id))
         
         clients = []
         for row in cur.fetchall():
