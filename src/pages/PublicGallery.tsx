@@ -291,12 +291,7 @@ export default function PublicGallery() {
 
       {gallery && (
         <GalleryGrid
-          gallery={{
-            ...gallery,
-            photos: (clientData && clientData.client_id > 0)
-              ? gallery.photos.filter(p => !clientFavoritePhotoIds.includes(p.id))
-              : gallery.photos
-          }}
+          gallery={gallery}
           downloadingAll={downloadingAll}
           onDownloadAll={downloadAll}
           onPhotoClick={(photo) => {
