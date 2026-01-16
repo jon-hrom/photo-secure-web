@@ -194,18 +194,11 @@ const PhotoBankFoldersList = ({
                                 <span>{folder.archive_download_count}</span>
                               </div>
                             )}
-                            {(folder.unread_messages_count ?? 0) > 0 && onOpenChat && folder.client_id && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onOpenChat(folder.client_id!, folder.folder_name);
-                                }}
-                                className="inline-flex items-center gap-1 text-yellow-600 font-medium hover:text-yellow-700 hover:bg-yellow-50 px-2 py-1 rounded transition-colors"
-                                title="Новых сообщений от клиента (нажмите чтобы открыть чат)"
-                              >
+                            {(folder.unread_messages_count ?? 0) > 0 && (
+                              <div className="inline-flex items-center gap-1 text-yellow-600 font-medium" title="Непрочитанные сообщения от клиентов">
                                 <Icon name="Mail" size={16} />
                                 <span>{folder.unread_messages_count}</span>
-                              </button>
+                              </div>
                             )}
                           </div>
                         </td>
