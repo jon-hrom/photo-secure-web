@@ -71,20 +71,18 @@ def handler(event: dict, context) -> dict:
                 'body': json.dumps({'unread_count': unread_count})
             }
         
-        # Вернуть непрочитанные сообщения сгруппированные по folder_id
+        # Вернуть непрочитанные и общее количество сообщений сгруппированные по folder_id
         query = f'''
-            SELECT fsl.folder_id, SUM(unread_cnt) as total_unread
-            FROM (
-                SELECT cm.client_id, COUNT(*) as unread_cnt
-                FROM t_p28211681_photo_secure_web.client_messages cm
-                WHERE cm.photographer_id = {int(photographer_id)} 
-                  AND cm.is_read = FALSE 
-                  AND cm.sender_type = 'client'
-                GROUP BY cm.client_id
-            ) unread
-            JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = unread.client_id
+            SELECT 
+                fsl.folder_id,
+                SUM(CASE WHEN cm.is_read = FALSE THEN 1 ELSE 0 END) as unread_count,
+                COUNT(*) as total_count
+            FROM t_p28211681_photo_secure_web.client_messages cm
+            JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = cm.client_id
             JOIN t_p28211681_photo_secure_web.folder_short_links fsl ON fsl.short_code = fc.gallery_code
-            WHERE fsl.user_id = {int(photographer_id)}
+            WHERE cm.photographer_id = {int(photographer_id)} 
+              AND cm.sender_type = 'client'
+              AND fsl.user_id = {int(photographer_id)}
             GROUP BY fsl.folder_id
         '''
         cur.execute(query)
@@ -93,7 +91,8 @@ def handler(event: dict, context) -> dict:
         for row in cur.fetchall():
             results.append({
                 'folder_id': int(row[0]),
-                'unread_count': int(row[1])
+                'unread_count': int(row[1]),
+                'total_count': int(row[2])
             })
         
         cur.close()

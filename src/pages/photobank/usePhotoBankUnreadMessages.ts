@@ -33,17 +33,29 @@ export const usePhotoBankUnreadMessages = ({
         const data = await response.json();
         console.log('[UNREAD_COUNTS] Received data:', data);
         
-        const unreadMap = new Map(
-          data.folders.map((f: { folder_id: number; unread_count: number }) => [f.folder_id, f.unread_count])
+        const messagesMap = new Map(
+          data.folders.map((f: { folder_id: number; unread_count: number; total_count: number }) => [
+            f.folder_id, 
+            { unread: f.unread_count, total: f.total_count }
+          ])
         );
-        console.log('[UNREAD_COUNTS] Unread map:', Array.from(unreadMap.entries()));
+        console.log('[UNREAD_COUNTS] Messages map:', Array.from(messagesMap.entries()));
 
         setFolders(prev => {
-          const updated = prev.map(folder => ({
-            ...folder,
-            unread_messages_count: unreadMap.get(folder.id) || 0
-          }));
-          console.log('[UNREAD_COUNTS] Updated folders:', updated.map(f => ({ id: f.id, name: f.folder_name, unread: f.unread_messages_count })));
+          const updated = prev.map(folder => {
+            const counts = messagesMap.get(folder.id) || { unread: 0, total: 0 };
+            return {
+              ...folder,
+              unread_messages_count: counts.unread,
+              total_messages_count: counts.total
+            };
+          });
+          console.log('[UNREAD_COUNTS] Updated folders:', updated.map(f => ({ 
+            id: f.id, 
+            name: f.folder_name, 
+            unread: f.unread_messages_count,
+            total: f.total_messages_count 
+          })));
           return updated;
         });
       } catch (error) {

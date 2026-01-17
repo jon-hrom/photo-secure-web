@@ -14,6 +14,7 @@ interface PhotoFolder {
   archive_download_count?: number;
   client_id?: number | null;
   unread_messages_count?: number;
+  total_messages_count?: number;
 }
 
 interface PhotoBankFoldersListProps {
@@ -220,19 +221,24 @@ const PhotoBankFoldersList = ({
                               </div>
                             )}
                             {(() => {
-                              const count = folder.unread_messages_count ?? 0;
-                              console.log(`[RENDER] Folder ${folder.id}: unread=${count}, show=${count > 0}`);
-                              return count > 0 ? (
+                              const unread = folder.unread_messages_count ?? 0;
+                              const total = folder.total_messages_count ?? 0;
+                              console.log(`[RENDER] Folder ${folder.id}: unread=${unread}, total=${total}`);
+                              return total > 0 ? (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onOpenFolderChats?.(folder.id);
                                   }}
-                                  className="inline-flex items-center gap-1 text-yellow-600 font-medium hover:text-yellow-700 transition-colors"
-                                  title="Непрочитанные сообщения от клиентов"
+                                  className={`inline-flex items-center gap-1 font-medium transition-colors ${
+                                    unread > 0 
+                                      ? 'text-yellow-600 hover:text-yellow-700' 
+                                      : 'text-gray-500 hover:text-gray-700'
+                                  }`}
+                                  title={unread > 0 ? `Непрочитанных: ${unread} из ${total}` : `Сообщений: ${total}`}
                                 >
                                   <Icon name="Mail" size={16} />
-                                  <span>{count}</span>
+                                  {unread > 0 && <span>{unread}</span>}
                                 </button>
                               ) : null;
                             })()}
@@ -278,22 +284,32 @@ const PhotoBankFoldersList = ({
                                 )}
                               </Button>
                             )}
-                            {/* Показываем кнопку со всеми чатами папки для новых папок с доступами */}
-                            {onOpenFolderChats && !folder.client_id && (folder.unread_messages_count ?? 0) > 0 && (
+                            {/* Показываем кнопку со всеми чатами папки - всегда если есть сообщения */}
+                            {onOpenFolderChats && !folder.client_id && (folder.total_messages_count ?? 0) > 0 && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 relative"
+                                className={`h-8 w-8 relative ${
+                                  (folder.unread_messages_count ?? 0) > 0
+                                    ? 'text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onOpenFolderChats(folder.id);
                                 }}
-                                title="Непрочитанные сообщения от клиентов папки"
+                                title={
+                                  (folder.unread_messages_count ?? 0) > 0
+                                    ? `Непрочитанных: ${folder.unread_messages_count}`
+                                    : 'Сообщения от клиентов'
+                                }
                               >
                                 <Icon name="Mail" size={16} />
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                  {folder.unread_messages_count}
-                                </span>
+                                {(folder.unread_messages_count ?? 0) > 0 && (
+                                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                    {folder.unread_messages_count}
+                                  </span>
+                                )}
                               </Button>
                             )}
                             {onShareFolder && folder.photo_count > 0 && (
