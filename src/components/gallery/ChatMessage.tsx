@@ -53,8 +53,10 @@ export default function ChatMessage({
           <img 
             src={message.image_url} 
             alt="Изображение" 
-            className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity"
+            className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity touch-manipulation"
             onClick={() => onImageClick(message.image_url!)}
+            loading="lazy"
+            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
           />
         )}
         {message.message && (

@@ -42,9 +42,10 @@ export default function ChatInput({
               <img src={img} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
               <button
                 onClick={() => onImageRemove(index)}
+                type="button"
                 className={isEmbedded
-                  ? "absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:opacity-90"
-                  : "absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  ? "absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:opacity-90 touch-manipulation"
+                  : "absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 touch-manipulation"
                 }
               >
                 <Icon name="X" size={14} />
@@ -61,13 +62,15 @@ export default function ChatInput({
           multiple
           onChange={onImageSelect}
           className="hidden"
+          capture="environment"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={sending}
+          type="button"
           className={isEmbedded
-            ? "p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
-            : "p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+            ? "p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50 touch-manipulation"
+            : "p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 touch-manipulation"
           }
           title="Прикрепить фото или архив"
         >
@@ -89,7 +92,11 @@ export default function ChatInput({
           }
           rows={2}
           disabled={sending}
-          style={{ fontSize: '16px' }}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="sentences"
+          spellCheck="true"
+          style={{ fontSize: '16px', maxHeight: '120px' }}
         />
         <Button
           onClick={onSend}

@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import { playNotificationSound, enableNotificationSound } from '@/utils/notificationSound';
 import ChatMessageList from './ChatMessageList';
 import ChatInput from './ChatInput';
+import FullscreenImage from './FullscreenImage';
 
 interface Message {
   id: number;
@@ -198,7 +199,8 @@ export default function ChatModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-muted rounded-full transition-colors"
+            type="button"
+            className="p-2 hover:bg-muted rounded-full transition-colors touch-manipulation"
           >
             <Icon name="X" size={20} className="text-muted-foreground" />
           </button>
@@ -207,6 +209,7 @@ export default function ChatModal({
         <div 
           ref={messageContainerRef}
           className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <ChatMessageList
             messages={messages}
@@ -253,7 +256,8 @@ export default function ChatModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+            type="button"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors touch-manipulation"
           >
             <Icon name="X" size={20} className="text-gray-500" />
           </button>
@@ -289,23 +293,10 @@ export default function ChatModal({
       </div>
 
       {fullscreenImage && (
-        <div 
-          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4"
-          onClick={() => setFullscreenImage(null)}
-        >
-          <button
-            onClick={() => setFullscreenImage(null)}
-            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <Icon name="X" size={24} className="text-white" />
-          </button>
-          <img 
-            src={fullscreenImage} 
-            alt="Полноэкранное изображение" 
-            className="max-w-full max-h-full object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+        <FullscreenImage 
+          imageUrl={fullscreenImage}
+          onClose={() => setFullscreenImage(null)}
+        />
       )}
     </div>
   );
