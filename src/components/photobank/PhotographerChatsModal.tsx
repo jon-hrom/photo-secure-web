@@ -150,24 +150,8 @@ export default function PhotographerChatsModal({
                           )}
                         </div>
                         {chat.client_phone && (
-                          <p className="text-xs text-muted-foreground mb-1">{chat.client_phone}</p>
+                          <p className="text-sm text-muted-foreground">{chat.client_phone}</p>
                         )}
-                        <div className="flex items-center gap-2">
-                          {chat.last_message_image ? (
-                            <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
-                              <Icon name="Image" size={14} />
-                              Изображение
-                            </p>
-                          ) : (
-                            <p className="text-sm text-muted-foreground truncate">
-                              {chat.last_sender === 'client' ? '' : 'Вы: '}
-                              {chat.last_message}
-                            </p>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatTime(chat.last_message_time)}
-                        </p>
                       </div>
                       <Icon name="ChevronRight" size={16} className="flex-shrink-0 text-muted-foreground" />
                     </div>
