@@ -115,7 +115,7 @@ const PhotoBankFoldersList = ({
 
   return (
     <Card className="lg:col-span-2">
-      <CardContent className="p-0">
+      <CardContent className="p-0 max-h-[calc(100vh-320px)] overflow-y-auto">
         {loading && folders.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Icon name="Loader2" size={32} className="animate-spin mx-auto mb-2" />
