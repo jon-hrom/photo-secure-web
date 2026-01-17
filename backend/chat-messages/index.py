@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 
 def handler(event: dict, context) -> dict:
-    '''API для работы с сообщениями между клиентом и фотографом'''
+    '''API для работы с сообщениями между клиентом и фотографом. Включает отправку уведомлений на email и WhatsApp.'''
     method = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':
@@ -364,7 +364,7 @@ def handler(event: dict, context) -> dict:
                             # Ищем папку по client_id (если клиент добавлен через интеграцию)
                             cur.execute('''
                                 SELECT f.folder_name
-                                FROM t_p28211681_photo_secure_web.photobank_folders f
+                                FROM t_p28211681_photo_secure_web.photo_folders f
                                 WHERE f.user_id = %s AND f.client_id = %s
                                 LIMIT 1
                             ''', (photographer_id, client_id))
@@ -375,7 +375,7 @@ def handler(event: dict, context) -> dict:
                                 # Если не нашли по client_id, берём последнюю папку фотографа
                                 cur.execute('''
                                     SELECT folder_name
-                                    FROM t_p28211681_photo_secure_web.photobank_folders
+                                    FROM t_p28211681_photo_secure_web.photo_folders
                                     WHERE user_id = %s
                                     ORDER BY created_at DESC
                                     LIMIT 1
@@ -384,7 +384,7 @@ def handler(event: dict, context) -> dict:
                                 if folder_row:
                                     folder_name = folder_row[0]
                         except Exception as e:
-                            print(f'[CHAT] Error finding folder name: {str(e)}')
+                            print(f'[CHAT] Error finding folder name: {str(e)}', flush=True)
                         
                         # Формируем текст для уведомлений
                         if message:
@@ -397,9 +397,10 @@ def handler(event: dict, context) -> dict:
                         # Email уведомление
                         if photographer_email:
                             print(f'[NOTIFICATION] Sending email to {photographer_email}', flush=True)
-                            from shared_email import send_email
-                            
-                            html_body = f'''
+                            try:
+                                from shared_email import send_email
+                                
+                                html_body = f'''
 <!DOCTYPE html>
 <html>
 <head>
@@ -443,10 +444,15 @@ def handler(event: dict, context) -> dict:
     </div>
 </body>
 </html>
-                            '''
-                            
-                            send_email(photographer_email, f'💬 Сообщение от {client_name} | {folder_name}', html_body, 'Foto-Mix')
-                            print(f'[NOTIFICATION] Email sent successfully', flush=True)
+                                '''
+                                
+                                result = send_email(photographer_email, f'💬 Сообщение от {client_name} | {folder_name}', html_body, 'Foto-Mix')
+                                if result:
+                                    print(f'[NOTIFICATION] Email sent successfully', flush=True)
+                                else:
+                                    print(f'[NOTIFICATION] Email failed: SMTP not configured or disabled', flush=True)
+                            except Exception as email_err:
+                                print(f'[NOTIFICATION] Email error: {str(email_err)}', flush=True)
                         
                         # WhatsApp уведомление через МаКС
                         if photographer_phone:
@@ -475,10 +481,14 @@ def handler(event: dict, context) -> dict:
                                 else:
                                     print(f'[CHAT] WhatsApp notification failed: {whatsapp_response.status_code}', flush=True)
                             except Exception as e:
-                                print(f'[CHAT] WhatsApp notification error: {str(e)}')
+                                print(f'[CHAT] WhatsApp notification error: {str(e)}', flush=True)
+                        else:
+                            print(f'[NOTIFICATION] No phone number for WhatsApp', flush=True)
                         
                 except Exception as e:
-                    print(f'[CHAT] Notification error: {str(e)}')
+                    print(f'[CHAT] Notification error: {str(e)}', flush=True)
+                    import traceback
+                    traceback.print_exc()
             
             conn.commit()
             cur.close()
