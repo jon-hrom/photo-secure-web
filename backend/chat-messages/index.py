@@ -199,7 +199,7 @@ def handler(event: dict, context) -> dict:
             message = body.get('message', '')
             sender_type = body.get('sender_type')
             images_base64 = body.get('images_base64', [])
-            print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}')
+            print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}', flush=True)
             
             if not all([client_id, photographer_id, sender_type]):
                 return {
@@ -341,7 +341,7 @@ def handler(event: dict, context) -> dict:
             
             # Отправляем уведомления фотографу если сообщение от клиента
             if sender_type == 'client':
-                print(f'[NOTIFICATION] Client message detected, sender_type={sender_type}')
+                print(f'[NOTIFICATION] Client message detected, sender_type={sender_type}', flush=True)
                 try:
                     # Получаем данные фотографа и название папки проекта
                     cur.execute('''
@@ -351,7 +351,7 @@ def handler(event: dict, context) -> dict:
                     ''', (photographer_id,))
                     
                     photographer_data = cur.fetchone()
-                    print(f'[NOTIFICATION] Photographer data: {photographer_data}')
+                    print(f'[NOTIFICATION] Photographer data: {photographer_data}', flush=True)
                     if photographer_data:
                         photographer_email = photographer_data[0]
                         photographer_name = photographer_data[1] or 'Фотограф'
@@ -396,7 +396,7 @@ def handler(event: dict, context) -> dict:
                         
                         # Email уведомление
                         if photographer_email:
-                            print(f'[NOTIFICATION] Sending email to {photographer_email}')
+                            print(f'[NOTIFICATION] Sending email to {photographer_email}', flush=True)
                             from shared_email import send_email
                             
                             html_body = f'''
@@ -446,11 +446,11 @@ def handler(event: dict, context) -> dict:
                             '''
                             
                             send_email(photographer_email, f'💬 Сообщение от {client_name} | {folder_name}', html_body, 'Foto-Mix')
-                            print(f'[NOTIFICATION] Email sent successfully')
+                            print(f'[NOTIFICATION] Email sent successfully', flush=True)
                         
                         # WhatsApp уведомление через МаКС
                         if photographer_phone:
-                            print(f'[NOTIFICATION] Sending WhatsApp to {photographer_phone}')
+                            print(f'[NOTIFICATION] Sending WhatsApp to {photographer_phone}', flush=True)
                             try:
                                 whatsapp_text = f'''📬 *Новое сообщение в Foto-Mix*
 
@@ -471,9 +471,9 @@ def handler(event: dict, context) -> dict:
                                 }, timeout=10)
                                 
                                 if whatsapp_response.status_code == 200:
-                                    print(f'[CHAT] WhatsApp notification sent to {photographer_phone}')
+                                    print(f'[CHAT] WhatsApp notification sent to {photographer_phone}', flush=True)
                                 else:
-                                    print(f'[CHAT] WhatsApp notification failed: {whatsapp_response.status_code}')
+                                    print(f'[CHAT] WhatsApp notification failed: {whatsapp_response.status_code}', flush=True)
                             except Exception as e:
                                 print(f'[CHAT] WhatsApp notification error: {str(e)}')
                         
