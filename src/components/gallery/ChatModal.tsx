@@ -9,6 +9,7 @@ interface Message {
   sender_type: 'client' | 'photographer';
   created_at: string;
   is_read: boolean;
+  is_delivered: boolean;
   image_url?: string;
 }
 
@@ -231,8 +232,14 @@ export default function ChatModal({
                             minute: '2-digit'
                           })}
                         </p>
-                        {isMyMessage && msg.is_read && (
-                          <Icon name="CheckCheck" size={14} className="opacity-80" />
+                        {isMyMessage && (
+                          msg.is_read ? (
+                            <Icon name="CheckCheck" size={14} className="text-green-500" />
+                          ) : msg.is_delivered ? (
+                            <Icon name="CheckCheck" size={14} className="opacity-80" />
+                          ) : (
+                            <Icon name="Check" size={14} className="opacity-80" />
+                          )
                         )}
                       </div>
                     </div>

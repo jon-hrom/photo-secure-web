@@ -58,6 +58,23 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
+            # Обработка action=mark_delivered
+            if action == 'mark_delivered':
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.client_messages 
+                    SET is_delivered = TRUE
+                    WHERE client_id = %s AND photographer_id = %s
+                ''', (client_id, photographer_id))
+                conn.commit()
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            
             # Обработка action=send (отправка через GET с параметрами)
             if action == 'send':
                 message = params.get('message', '')
@@ -98,8 +115,8 @@ def handler(event: dict, context) -> dict:
                 
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                    (client_id, photographer_id, content, sender_type, is_read, created_at, type, author)
-                    VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s)
+                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author)
+                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s)
                     RETURNING id, created_at
                 ''', (client_id, photographer_id, message, sender_type, author_name))
                 
@@ -119,9 +136,17 @@ def handler(event: dict, context) -> dict:
             
             # action=list (по умолчанию) - список сообщений
             
+            # Помечаем сообщения как доставленные при загрузке чата
+            cur.execute('''
+                UPDATE t_p28211681_photo_secure_web.client_messages 
+                SET is_delivered = TRUE
+                WHERE client_id = %s AND photographer_id = %s AND is_delivered = FALSE
+            ''', (client_id, photographer_id))
+            conn.commit()
+            
             cur.execute('''
                 SELECT id, client_id, photographer_id, content as message, 
-                       sender_type, is_read, created_at, image_url
+                       sender_type, is_read, created_at, image_url, is_delivered
                 FROM t_p28211681_photo_secure_web.client_messages
                 WHERE client_id = %s AND photographer_id = %s
                 ORDER BY created_at ASC
@@ -137,7 +162,8 @@ def handler(event: dict, context) -> dict:
                     'sender_type': row[4],
                     'is_read': row[5],
                     'created_at': row[6].isoformat() if row[6] else None,
-                    'image_url': row[7]
+                    'image_url': row[7],
+                    'is_delivered': row[8]
                 })
             
             cur.close()
@@ -240,8 +266,8 @@ def handler(event: dict, context) -> dict:
             
             cur.execute('''
                 INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                (client_id, photographer_id, content, sender_type, is_read, created_at, type, author, image_url)
-                VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s, %s)
+                (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url)
+                VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s)
                 RETURNING id, created_at
             ''', (client_id, photographer_id, message, sender_type, author_name, image_url))
             
