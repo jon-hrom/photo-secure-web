@@ -147,7 +147,7 @@ export default function ChatModal({
         });
       }
       
-      const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86`, {
+      const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?v=2`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
