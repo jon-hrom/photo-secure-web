@@ -76,6 +76,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     handleDeletePayment,
     handleDeleteComment,
     handleDeleteMessage,
+    handleDeleteAllMessages,
     updateProjectStatus,
     updateProjectDate,
     updateProjectShootingStyle,
@@ -150,6 +151,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             setNewMessage={setNewMessage}
             handleAddMessage={handleAddMessage}
             handleDeleteMessage={handleDeleteMessage}
+            handleDeleteAllMessages={handleDeleteAllMessages}
             photographerName={photographerName}
             showSwipeHint={showSwipeHint}
             tabs={tabs}

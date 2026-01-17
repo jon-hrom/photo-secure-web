@@ -1239,6 +1239,50 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            if action == 'delete_all_messages':
+                client_id = params.get('clientId')
+                print(f'[DELETE_ALL_MESSAGES] client_id={client_id}, user_id={user_id}')
+                
+                if not client_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'clientId required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Проверяем, что клиент принадлежит пользователю
+                cur.execute('''
+                    SELECT id FROM t_p28211681_photo_secure_web.clients 
+                    WHERE id = %s AND user_id = %s
+                ''', (client_id, user_id))
+                
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Client not found or access denied'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Удаляем все сообщения клиента
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.client_messages 
+                    WHERE client_id = %s
+                ''', (client_id,))
+                
+                deleted_count = cur.rowcount
+                conn.commit()
+                
+                print(f'[DELETE_ALL_MESSAGES] Deleted {deleted_count} messages for client {client_id}')
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True, 'deleted_count': deleted_count}),
+                    'isBase64Encoded': False
+                }
+            
             client_id = params.get('clientId')
             
             cur.execute('''

@@ -9,6 +9,7 @@ import {
   createDeletePaymentHandler,
   createDeleteCommentHandler,
   createDeleteMessageHandler,
+  createDeleteAllMessagesHandler,
   createStatusBadgeGetter,
   createPaymentStatusBadgeGetter,
   createUpdateProjectStatusHandler,
@@ -105,6 +106,11 @@ export const useClientDetailHandlers = (
     onUpdate
   );
 
+  const handleDeleteAllMessages = createDeleteAllMessagesHandler(
+    localClient,
+    onUpdate
+  );
+
   const getStatusBadge = createStatusBadgeGetter();
   const getPaymentStatusBadge = createPaymentStatusBadgeGetter();
   const updateProjectStatus = createUpdateProjectStatusHandler(localClient, projects, onUpdate);
@@ -125,6 +131,7 @@ export const useClientDetailHandlers = (
     handleDeletePayment,
     handleDeleteComment,
     handleDeleteMessage,
+    handleDeleteAllMessages,
     getStatusBadge,
     getPaymentStatusBadge,
     updateProjectStatus,

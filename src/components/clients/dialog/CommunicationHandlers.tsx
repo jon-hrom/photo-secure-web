@@ -99,3 +99,44 @@ export const createDeleteMessageHandler = (
     toast.success('Сообщение удалено');
   };
 };
+
+export const createDeleteAllMessagesHandler = (
+  localClient: Client,
+  onUpdate: (client: Client) => void
+) => {
+  return async () => {
+    if (!confirm('Вы уверены, что хотите удалить всю переписку с этим клиентом?')) {
+      return;
+    }
+
+    try {
+      const userId = localStorage.getItem('userId');
+      const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
+
+      const response = await fetch(`${CLIENTS_API}?action=delete_all_messages&clientId=${localClient.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId || ''
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete messages');
+      }
+
+      const data = await response.json();
+
+      const updatedClient = {
+        ...localClient,
+        messages: [],
+      };
+
+      onUpdate(updatedClient);
+      toast.success(`Переписка очищена (${data.deleted_count || 0} сообщений)`);
+    } catch (error) {
+      console.error('Error deleting all messages:', error);
+      toast.error('Не удалось удалить переписку');
+    }
+  };
+};

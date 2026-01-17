@@ -17,6 +17,7 @@ export {
   createDeleteCommentHandler,
   createAddMessageHandler,
   createDeleteMessageHandler,
+  createDeleteAllMessagesHandler,
 } from './CommunicationHandlers';
 
 export {

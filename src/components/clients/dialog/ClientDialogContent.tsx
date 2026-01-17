@@ -42,6 +42,7 @@ interface ClientDialogContentProps {
   setNewMessage: (message: any) => void;
   handleAddMessage: () => void;
   handleDeleteMessage: (messageId: number) => void;
+  handleDeleteAllMessages?: () => void;
   photographerName: string;
   showSwipeHint: boolean;
   tabs: readonly string[];
@@ -82,6 +83,7 @@ const ClientDialogContent = ({
   setNewMessage,
   handleAddMessage,
   handleDeleteMessage,
+  handleDeleteAllMessages,
   photographerName,
   showSwipeHint,
   tabs,
@@ -186,6 +188,7 @@ const ClientDialogContent = ({
             onMessageChange={(field, value) => setNewMessage(prev => ({ ...prev, [field]: value }))}
             onAddMessage={handleAddMessage}
             onDeleteMessage={handleDeleteMessage}
+            onDeleteAllMessages={handleDeleteAllMessages}
             clientName={localClient.name}
             clientId={localClient.id}
             photographerName={photographerName || 'Фотограф'}
