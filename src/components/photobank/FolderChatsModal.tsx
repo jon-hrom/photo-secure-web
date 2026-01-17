@@ -170,7 +170,7 @@ export default function FolderChatsModal({
                 </div>
 
                 {/* Встроенный чат */}
-                <div className="flex-1 overflow-hidden relative">
+                <div className="flex-1 flex flex-col min-h-0">
                   <ChatModal
                     isOpen={true}
                     onClose={() => {
