@@ -259,6 +259,7 @@ def handler(event: dict, context) -> dict:
             # Загружаем изображения в S3 если есть
             image_urls = []
             if images_base64:
+                print(f'[CHAT] Uploading {len(images_base64)} images')
                 try:
                     s3 = boto3.client('s3',
                         endpoint_url='https://bucket.poehali.dev',
@@ -266,12 +267,15 @@ def handler(event: dict, context) -> dict:
                         aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
                     )
                     
-                    for img_base64 in images_base64:
+                    for idx, img_base64 in enumerate(images_base64):
                         # Убираем data:image/...;base64, если есть
                         if 'base64,' in img_base64:
                             img_base64 = img_base64.split('base64,')[1]
                         
+                        print(f'[CHAT] Image {idx+1}: base64 length = {len(img_base64)}')
                         image_data = base64.b64decode(img_base64)
+                        print(f'[CHAT] Image {idx+1}: decoded size = {len(image_data)} bytes')
+                        
                         file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
                         
                         s3.put_object(
@@ -283,8 +287,9 @@ def handler(event: dict, context) -> dict:
                         
                         image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
                         image_urls.append(image_url)
+                        print(f'[CHAT] Image {idx+1}: uploaded to {image_url}')
                 except Exception as e:
-                    print(f'Error uploading images: {str(e)}')
+                    print(f'[CHAT] Error uploading images: {str(e)}')
             
             # Ищем упоминания номеров фото в сообщении (#123, фото 123, photo 123)
             if not image_urls and message:

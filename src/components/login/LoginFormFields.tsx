@@ -167,7 +167,8 @@ const LoginFormFields = ({
           <Button
             onClick={onSubmit}
             disabled={isBlocked || !privacyAccepted}
-            className="w-full rounded-xl"
+            className="w-full rounded-xl h-11"
+            size="default"
           >
             {isRegistering ? 'Зарегистрироваться' : 'Войти'}
           </Button>

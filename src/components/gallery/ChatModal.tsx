@@ -132,7 +132,12 @@ export default function ChatModal({
       };
 
       if (selectedImages.length > 0) {
-        body.images_base64 = selectedImages;
+        body.images_base64 = selectedImages.map(img => {
+          if (img.includes('base64,')) {
+            return img.split('base64,')[1];
+          }
+          return img;
+        });
       }
       
       const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86`, {
