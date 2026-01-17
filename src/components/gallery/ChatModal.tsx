@@ -130,6 +130,14 @@ export default function ChatModal({
         sender_type: senderType
       };
 
+      console.log('[CHAT_SEND] Sending message:', {
+        client_id: clientId,
+        photographer_id: photographerId,
+        sender_type: senderType,
+        message_length: newMessage.trim().length,
+        has_images: selectedImages.length > 0
+      });
+
       if (selectedImages.length > 0) {
         body.images_base64 = selectedImages.map(img => {
           if (img.includes('base64,')) {
@@ -146,6 +154,8 @@ export default function ChatModal({
         },
         body: JSON.stringify(body)
       });
+      
+      console.log('[CHAT_SEND] Response status:', response.status);
       
       if (!response.ok) throw new Error('Ошибка отправки сообщения');
       
