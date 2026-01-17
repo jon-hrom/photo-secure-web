@@ -38,7 +38,7 @@ export default function ChatModal({
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
@@ -91,24 +91,34 @@ export default function ChatModal({
     }
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        alert('Размер файла не должен превышать 10 МБ');
-        return;
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newImages: string[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      if (file.size > 50 * 1024 * 1024) {
+        alert(`Файл ${file.name} слишком большой. Максимальный размер: 50 МБ`);
+        continue;
       }
       
       const reader = new FileReader();
-      reader.onload = () => {
-        setSelectedImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      const result = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      
+      newImages.push(result);
     }
+    
+    setSelectedImages(prev => [...prev, ...newImages]);
   };
 
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !selectedImage) || sending) return;
+    if ((!newMessage.trim() && selectedImages.length === 0) || sending) return;
     
     try {
       setSending(true);
@@ -121,8 +131,8 @@ export default function ChatModal({
         sender_type: senderType
       };
 
-      if (selectedImage) {
-        body.image_base64 = selectedImage;
+      if (selectedImages.length > 0) {
+        body.images_base64 = selectedImages;
       }
       
       const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86`, {
@@ -136,7 +146,7 @@ export default function ChatModal({
       if (!response.ok) throw new Error('Ошибка отправки сообщения');
       
       setNewMessage('');
-      setSelectedImage(null);
+      setSelectedImages([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
       await loadMessages();
       
@@ -269,25 +279,27 @@ export default function ChatModal({
         </div>
 
         <div className="p-4 border-t bg-background">
-          {selectedImage && (
-            <div className="mb-2 relative inline-block">
-              <img src={selectedImage} alt="Preview" className="max-h-32 rounded-lg" />
-              <button
-                onClick={() => {
-                  setSelectedImage(null);
-                  if (fileInputRef.current) fileInputRef.current.value = '';
-                }}
-                className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:opacity-90"
-              >
-                <Icon name="X" size={16} />
-              </button>
+          {selectedImages.length > 0 && (
+            <div className="mb-2 flex gap-2 flex-wrap">
+              {selectedImages.map((img, index) => (
+                <div key={index} className="relative inline-block">
+                  <img src={img} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
+                  <button
+                    onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:opacity-90"
+                  >
+                    <Icon name="X" size={14} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           <div className="flex gap-2">
             <input
               type="file"
               ref={fileInputRef}
-              accept="image/*"
+              accept="image/*,.zip,.rar,.7z"
+              multiple
               onChange={handleImageSelect}
               className="hidden"
             />
@@ -295,8 +307,9 @@ export default function ChatModal({
               onClick={() => fileInputRef.current?.click()}
               disabled={sending}
               className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+              title="Прикрепить фото или архив"
             >
-              <Icon name="Image" size={20} className="text-muted-foreground" />
+              <Icon name="Paperclip" size={20} className="text-muted-foreground" />
             </button>
             <textarea
               value={newMessage}
@@ -311,7 +324,7 @@ export default function ChatModal({
             />
             <Button
               onClick={sendMessage}
-              disabled={(!newMessage.trim() && !selectedImage) || sending}
+              disabled={(!newMessage.trim() && selectedImages.length === 0) || sending}
               className="px-4"
             >
               {sending ? (
@@ -429,25 +442,27 @@ export default function ChatModal({
         </div>
 
         <div className="p-3 sm:p-4 border-t dark:border-gray-800 safe-bottom">
-          {selectedImage && (
-            <div className="mb-2 relative inline-block">
-              <img src={selectedImage} alt="Preview" className="max-h-32 rounded-lg" />
-              <button
-                onClick={() => {
-                  setSelectedImage(null);
-                  if (fileInputRef.current) fileInputRef.current.value = '';
-                }}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-              >
-                <Icon name="X" size={16} />
-              </button>
+          {selectedImages.length > 0 && (
+            <div className="mb-2 flex gap-2 flex-wrap">
+              {selectedImages.map((img, index) => (
+                <div key={index} className="relative inline-block">
+                  <img src={img} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
+                  <button
+                    onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <Icon name="X" size={14} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           <div className="flex gap-2">
             <input
               type="file"
               ref={fileInputRef}
-              accept="image/*"
+              accept="image/*,.zip,.rar,.7z"
+              multiple
               onChange={handleImageSelect}
               className="hidden"
             />
@@ -455,8 +470,9 @@ export default function ChatModal({
               onClick={() => fileInputRef.current?.click()}
               disabled={sending}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              title="Прикрепить фото или архив"
             >
-              <Icon name="Image" size={20} className="text-gray-600 dark:text-gray-400" />
+              <Icon name="Paperclip" size={20} className="text-gray-600 dark:text-gray-400" />
             </button>
             <textarea
               value={newMessage}
@@ -471,7 +487,7 @@ export default function ChatModal({
             />
             <Button
               onClick={sendMessage}
-              disabled={(!newMessage.trim() && !selectedImage) || sending}
+              disabled={(!newMessage.trim() && selectedImages.length === 0) || sending}
               className="px-4"
             >
               {sending ? (

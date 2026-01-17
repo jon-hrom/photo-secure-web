@@ -198,7 +198,7 @@ def handler(event: dict, context) -> dict:
             photographer_id = body.get('photographer_id')
             message = body.get('message', '')
             sender_type = body.get('sender_type')
-            image_base64 = body.get('image_base64') or body.get('image')
+            images_base64 = body.get('images_base64', [])
             
             if not all([client_id, photographer_id, sender_type]):
                 return {
@@ -208,11 +208,11 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
-            if not message and not image_base64:
+            if not message and not images_base64:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'message or image required'}),
+                    'body': json.dumps({'error': 'message or images required'}),
                     'isBase64Encoded': False
                 }
             
@@ -256,9 +256,9 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
-            # Загружаем изображение в S3 если есть
-            image_url = None
-            if image_base64:
+            # Загружаем изображения в S3 если есть
+            image_urls = []
+            if images_base64:
                 try:
                     s3 = boto3.client('s3',
                         endpoint_url='https://bucket.poehali.dev',
@@ -266,29 +266,31 @@ def handler(event: dict, context) -> dict:
                         aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
                     )
                     
-                    # Убираем data:image/...;base64, если есть
-                    if 'base64,' in image_base64:
-                        image_base64 = image_base64.split('base64,')[1]
-                    
-                    image_data = base64.b64decode(image_base64)
-                    file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
-                    
-                    s3.put_object(
-                        Bucket='files',
-                        Key=file_name,
-                        Body=image_data,
-                        ContentType='image/jpeg'
-                    )
-                    
-                    image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
+                    for img_base64 in images_base64:
+                        # Убираем data:image/...;base64, если есть
+                        if 'base64,' in img_base64:
+                            img_base64 = img_base64.split('base64,')[1]
+                        
+                        image_data = base64.b64decode(img_base64)
+                        file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
+                        
+                        s3.put_object(
+                            Bucket='files',
+                            Key=file_name,
+                            Body=image_data,
+                            ContentType='image/jpeg'
+                        )
+                        
+                        image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
+                        image_urls.append(image_url)
                 except Exception as e:
-                    print(f'Error uploading image: {str(e)}')
+                    print(f'Error uploading images: {str(e)}')
             
             # Ищем упоминания номеров фото в сообщении (#123, фото 123, photo 123)
-            if not image_url and message:
+            if not image_urls and message:
                 photo_ids = re.findall(r'(?:#|фото\s*|photo\s*)(\d+)', message, re.IGNORECASE)
                 if photo_ids:
-                    photo_id = photo_ids[0]  # Берём первое упоминание
+                    photo_id = photo_ids[0]
                     cur.execute('''
                         SELECT thumbnail_s3_url, s3_url 
                         FROM t_p28211681_photo_secure_web.photo_bank
@@ -296,18 +298,40 @@ def handler(event: dict, context) -> dict:
                     ''', (photo_id, photographer_id))
                     photo_row = cur.fetchone()
                     if photo_row:
-                        image_url = photo_row[0] if photo_row[0] else photo_row[1]
+                        photo_url = photo_row[0] if photo_row[0] else photo_row[1]
+                        image_urls.append(photo_url)
             
-            cur.execute('''
-                INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url)
-                VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s)
-                RETURNING id, created_at
-            ''', (client_id, photographer_id, message, sender_type, author_name, image_url))
+            # Создаём сообщения: одно с текстом (если есть) и по одному на каждое изображение
+            message_ids = []
+            created_timestamps = []
             
-            result = cur.fetchone()
-            message_id = result[0]
-            created_at = result[1]
+            if message or not image_urls:
+                # Основное текстовое сообщение (или пустое если только текст без изображений)
+                first_image = image_urls[0] if image_urls else None
+                cur.execute('''
+                    INSERT INTO t_p28211681_photo_secure_web.client_messages 
+                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url)
+                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s)
+                    RETURNING id, created_at
+                ''', (client_id, photographer_id, message, sender_type, author_name, first_image))
+                result = cur.fetchone()
+                message_ids.append(result[0])
+                created_timestamps.append(result[1])
+                
+                # Остальные изображения как отдельные сообщения
+                for img_url in image_urls[1:]:
+                    cur.execute('''
+                        INSERT INTO t_p28211681_photo_secure_web.client_messages 
+                        (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url)
+                        VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s)
+                        RETURNING id, created_at
+                    ''', (client_id, photographer_id, '', sender_type, author_name, img_url))
+                    result = cur.fetchone()
+                    message_ids.append(result[0])
+                    created_timestamps.append(result[1])
+            
+            message_id = message_ids[0] if message_ids else None
+            created_at = created_timestamps[0] if created_timestamps else None
             
             # Отправляем email фотографу если сообщение от клиента
             if sender_type == 'client':
@@ -327,7 +351,12 @@ def handler(event: dict, context) -> dict:
                         client_name = author_name
                         
                         # Формируем текст для email
-                        message_preview = message[:100] if message else '[Изображение]'
+                        if message:
+                            message_preview = message[:100]
+                        elif len(image_urls) > 1:
+                            message_preview = f'[{len(image_urls)} изображений]'
+                        else:
+                            message_preview = '[Изображение]'
                         
                         # Импортируем shared_email
                         import sys
