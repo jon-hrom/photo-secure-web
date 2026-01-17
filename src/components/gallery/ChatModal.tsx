@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
-import { Button } from '@/components/ui/button';
 import { playNotificationSound, enableNotificationSound } from '@/utils/notificationSound';
+import ChatMessageList from './ChatMessageList';
+import ChatInput from './ChatInput';
 
 interface Message {
   id: number;
@@ -43,7 +44,6 @@ export default function ChatModal({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef<number>(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,7 +62,6 @@ export default function ChatModal({
       const data = await response.json();
       const newMessages = data.messages || [];
       
-      // Проверяем есть ли новые сообщения от собеседника
       if (silent && previousMessageCountRef.current > 0 && newMessages.length > previousMessageCountRef.current) {
         const latestMessage = newMessages[newMessages.length - 1];
         if (latestMessage.sender_type !== senderType) {
@@ -147,7 +146,6 @@ export default function ChatModal({
       
       setNewMessage('');
       setSelectedImages([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
       await loadMessages();
       
       if (onMessageSent) {
@@ -166,6 +164,10 @@ export default function ChatModal({
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleImageRemove = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -206,135 +208,28 @@ export default function ChatModal({
           ref={messageContainerRef}
           className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30"
         >
-          {loading && messages.length === 0 ? (
-            <div className="flex justify-center items-center h-full">
-              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <Icon name="MessageCircle" size={48} className="mb-2 opacity-50" />
-              <p>Нет сообщений</p>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg) => {
-                const isMyMessage = msg.sender_type === senderType;
-                
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 ${
-                        isMyMessage
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-foreground'
-                      }`}
-                    >
-                      {msg.image_url && (
-                        <img 
-                          src={msg.image_url} 
-                          alt="Изображение" 
-                          className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setFullscreenImage(msg.image_url!)}
-                        />
-                      )}
-                      {msg.message && (
-                        <p className="whitespace-pre-wrap break-words">
-                          {msg.message.split(/(\#\d+|фото\s*\d+|photo\s*\d+)/gi).map((part, i) => {
-                            if (/(\#\d+|фото\s*\d+|photo\s*\d+)/i.test(part)) {
-                              return <span key={i} className="font-semibold underline">{part}</span>;
-                            }
-                            return part;
-                          })}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className={`text-xs ${isMyMessage ? 'opacity-80' : 'text-muted-foreground'}`}>
-                          {new Date(msg.created_at).toLocaleString('ru-RU', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                        {isMyMessage && (
-                          msg.is_read ? (
-                            <Icon name="CheckCheck" size={14} className="text-green-500" />
-                          ) : msg.is_delivered ? (
-                            <Icon name="CheckCheck" size={14} className="opacity-80" />
-                          ) : (
-                            <Icon name="Check" size={14} className="opacity-80" />
-                          )
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </>
-          )}
+          <ChatMessageList
+            messages={messages}
+            loading={loading}
+            senderType={senderType}
+            onImageClick={setFullscreenImage}
+            variant="embedded"
+            ref={messagesEndRef}
+          />
         </div>
 
-        <div className="p-4 border-t bg-background">
-          {selectedImages.length > 0 && (
-            <div className="mb-2 flex gap-2 flex-wrap">
-              {selectedImages.map((img, index) => (
-                <div key={index} className="relative inline-block">
-                  <img src={img} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
-                  <button
-                    onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
-                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:opacity-90"
-                  >
-                    <Icon name="X" size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*,.zip,.rar,.7z"
-              multiple
-              onChange={handleImageSelect}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={sending}
-              className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
-              title="Прикрепить фото или архив"
-            >
-              <Icon name="Paperclip" size={20} className="text-muted-foreground" />
-            </button>
-            <textarea
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              onFocus={enableNotificationSound}
-              placeholder="Введите сообщение..."
-              className="flex-1 px-3 py-2 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-              rows={2}
-              disabled={sending}
-              style={{ fontSize: '16px' }}
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={(!newMessage.trim() && selectedImages.length === 0) || sending}
-              className="px-4"
-            >
-              {sending ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Icon name="Send" size={20} />
-              )}
-            </Button>
-          </div>
-        </div>
+        <ChatInput
+          newMessage={newMessage}
+          onMessageChange={setNewMessage}
+          onSend={sendMessage}
+          onKeyPress={handleKeyPress}
+          selectedImages={selectedImages}
+          onImageSelect={handleImageSelect}
+          onImageRemove={handleImageRemove}
+          sending={sending}
+          onFocus={enableNotificationSound}
+          variant="embedded"
+        />
       </div>
     );
   }
@@ -369,135 +264,28 @@ export default function ChatModal({
           className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3 overscroll-contain"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {loading && messages.length === 0 ? (
-            <div className="flex justify-center items-center h-full">
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-              <Icon name="MessageCircle" size={48} className="mb-2 opacity-50" />
-              <p>Нет сообщений</p>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg) => {
-                const isMyMessage = msg.sender_type === senderType;
-                
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 ${
-                        isMyMessage
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                      }`}
-                    >
-                      {msg.image_url && (
-                        <img 
-                          src={msg.image_url} 
-                          alt="Изображение" 
-                          className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setFullscreenImage(msg.image_url!)}
-                        />
-                      )}
-                      {msg.message && (
-                        <p className="whitespace-pre-wrap break-words">
-                          {msg.message.split(/(\#\d+|фото\s*\d+|photo\s*\d+)/gi).map((part, i) => {
-                            if (/(\#\d+|фото\s*\d+|photo\s*\d+)/i.test(part)) {
-                              return <span key={i} className="font-semibold underline">{part}</span>;
-                            }
-                            return part;
-                          })}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className={`text-xs ${isMyMessage ? 'text-blue-100' : 'text-gray-500'}`}>
-                          {new Date(msg.created_at).toLocaleString('ru-RU', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                        {isMyMessage && (
-                          msg.is_read ? (
-                            <Icon name="CheckCheck" size={14} className="text-green-400" />
-                          ) : msg.is_delivered ? (
-                            <Icon name="CheckCheck" size={14} className="text-blue-100" />
-                          ) : (
-                            <Icon name="Check" size={14} className="text-blue-100" />
-                          )
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </>
-          )}
+          <ChatMessageList
+            messages={messages}
+            loading={loading}
+            senderType={senderType}
+            onImageClick={setFullscreenImage}
+            variant="default"
+            ref={messagesEndRef}
+          />
         </div>
 
-        <div className="p-3 sm:p-4 border-t dark:border-gray-800 safe-bottom">
-          {selectedImages.length > 0 && (
-            <div className="mb-2 flex gap-2 flex-wrap">
-              {selectedImages.map((img, index) => (
-                <div key={index} className="relative inline-block">
-                  <img src={img} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
-                  <button
-                    onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                  >
-                    <Icon name="X" size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*,.zip,.rar,.7z"
-              multiple
-              onChange={handleImageSelect}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={sending}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
-              title="Прикрепить фото или архив"
-            >
-              <Icon name="Paperclip" size={20} className="text-gray-600 dark:text-gray-400" />
-            </button>
-            <textarea
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              onFocus={enableNotificationSound}
-              placeholder="Введите сообщение..."
-              className="flex-1 px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              rows={2}
-              disabled={sending}
-              style={{ fontSize: '16px' }}
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={(!newMessage.trim() && selectedImages.length === 0) || sending}
-              className="px-4"
-            >
-              {sending ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Icon name="Send" size={20} />
-              )}
-            </Button>
-          </div>
-        </div>
+        <ChatInput
+          newMessage={newMessage}
+          onMessageChange={setNewMessage}
+          onSend={sendMessage}
+          onKeyPress={handleKeyPress}
+          selectedImages={selectedImages}
+          onImageSelect={handleImageSelect}
+          onImageRemove={handleImageRemove}
+          sending={sending}
+          onFocus={enableNotificationSound}
+          variant="default"
+        />
       </div>
 
       {fullscreenImage && (
