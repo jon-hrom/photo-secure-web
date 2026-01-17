@@ -74,6 +74,7 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
       return;
     }
 
+    console.log('[PASSWORD_RESET] Checking contact:', contact);
     setLoading(true);
     try {
       const response = await fetch('https://functions.poehali.dev/9c80d4b8-f659-41f4-a792-64cdff4bba7d', {
@@ -85,7 +86,9 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
         }),
       });
 
+      console.log('[PASSWORD_RESET] Response status:', response.status);
       const data = await response.json();
+      console.log('[PASSWORD_RESET] Response data:', data);
 
       if (response.ok) {
         setUserEmail(data.email || '');
@@ -115,6 +118,7 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
   };
 
   const sendCode = async (selectedMethod: 'email' | 'sms') => {
+    console.log('[PASSWORD_RESET] Sending code via:', selectedMethod, 'to:', contact);
     setLoading(true);
     try {
       const response = await fetch('https://functions.poehali.dev/9c80d4b8-f659-41f4-a792-64cdff4bba7d', {
@@ -127,7 +131,9 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
         }),
       });
 
+      console.log('[PASSWORD_RESET] Send code response:', response.status);
       const data = await response.json();
+      console.log('[PASSWORD_RESET] Send code data:', data);
 
       if (response.ok) {
         setSessionToken(data.session_token);
