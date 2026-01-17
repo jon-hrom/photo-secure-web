@@ -179,7 +179,7 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
     setIsAddDialogOpen(true);
   };
 
-  const handleClientCreated = () => {
+  const handleClientCreated = (createdClient?: Client) => {
     clearClientData();
     setNewClient({
       name: '',
@@ -187,7 +187,15 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
       email: '',
       address: '',
       vkProfile: '',
+      vkUsername: '',
+      birthdate: '',
     });
+    
+    // Открываем диалог деталей клиента для создания проекта
+    if (createdClient) {
+      setSelectedClient(createdClient);
+      setIsDetailDialogOpen(true);
+    }
   };
 
   const hasUnsavedClientData = () => {

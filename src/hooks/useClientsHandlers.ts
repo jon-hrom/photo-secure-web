@@ -40,7 +40,7 @@ interface UseClientsHandlersProps {
   setEmailBody: (body: string) => void;
   setIsDetailDialogOpen?: (open: boolean) => void;
   setIsCountdownOpen?: (open: boolean) => void;
-  onClientCreated?: () => void;
+  onClientCreated?: (createdClient?: Client) => void;
   navigateToSettings?: () => void;
   saveOpenCardData?: (clientId: number, clientName: string) => void;
 }
@@ -197,11 +197,8 @@ export const useClientsHandlers = ({
 
           toast.success('Клиент успешно добавлен');
           
-          // Очищаем форму и localStorage ТОЛЬКО для новых клиентов
-          setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '' });
-          if (onClientCreated) {
-            onClientCreated();
-          }
+          // Очищаем форму ТОЛЬКО для новых клиентов (вызов onClientCreated будет ниже с данными клиента)
+          setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '', vkUsername: '', birthdate: '' });
         }
         
         // Обновить список клиентов и сразу открыть окно
@@ -340,6 +337,11 @@ export const useClientsHandlers = ({
           const parsedClient = await dataPromise;
           console.log('[CLIENT_ADD] Client data ready:', parsedClient.id, parsedClient.name);
           setSelectedClient(parsedClient);
+          
+          // Вызываем onClientCreated для очистки localStorage и открытия диалога
+          if (onClientCreated && !isDuplicate) {
+            onClientCreated(parsedClient);
+          }
           
           // Считаем сколько времени прошло
           const elapsedTime = Date.now() - startTime;
