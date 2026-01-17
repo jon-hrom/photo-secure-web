@@ -39,6 +39,7 @@ export default function ChatModal({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef<number>(0);
@@ -112,17 +113,24 @@ export default function ChatModal({
     try {
       setSending(true);
       
-      // Используем GET с параметрами вместо POST (обход Cloud Functions ограничений)
-      const params = new URLSearchParams({
+      const body: any = {
         action: 'send',
-        client_id: String(clientId),
-        photographer_id: String(photographerId),
+        client_id: clientId,
+        photographer_id: photographerId,
         message: newMessage.trim(),
         sender_type: senderType
-      });
+      };
+
+      if (selectedImage) {
+        body.image_base64 = selectedImage;
+      }
       
-      const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?${params}`, {
-        method: 'GET'
+      const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
       });
       
       if (!response.ok) throw new Error('Ошибка отправки сообщения');
@@ -219,7 +227,7 @@ export default function ChatModal({
                           src={msg.image_url} 
                           alt="Изображение" 
                           className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(msg.image_url, '_blank')}
+                          onClick={() => setFullscreenImage(msg.image_url!)}
                         />
                       )}
                       {msg.message && (
@@ -379,7 +387,7 @@ export default function ChatModal({
                           src={msg.image_url} 
                           alt="Изображение" 
                           className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(msg.image_url, '_blank')}
+                          onClick={() => setFullscreenImage(msg.image_url!)}
                         />
                       )}
                       {msg.message && (
@@ -475,6 +483,26 @@ export default function ChatModal({
           </div>
         </div>
       </div>
+
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button
+            onClick={() => setFullscreenImage(null)}
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <Icon name="X" size={24} className="text-white" />
+          </button>
+          <img 
+            src={fullscreenImage} 
+            alt="Полноэкранное изображение" 
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

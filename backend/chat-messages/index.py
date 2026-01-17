@@ -198,7 +198,7 @@ def handler(event: dict, context) -> dict:
             photographer_id = body.get('photographer_id')
             message = body.get('message', '')
             sender_type = body.get('sender_type')
-            image_base64 = body.get('image')
+            image_base64 = body.get('image_base64') or body.get('image')
             
             if not all([client_id, photographer_id, sender_type]):
                 return {
@@ -265,6 +265,10 @@ def handler(event: dict, context) -> dict:
                         aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
                         aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
                     )
+                    
+                    # Убираем data:image/...;base64, если есть
+                    if 'base64,' in image_base64:
+                        image_base64 = image_base64.split('base64,')[1]
                     
                     image_data = base64.b64decode(image_base64)
                     file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
