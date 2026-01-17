@@ -124,7 +124,6 @@ export default function ChatModal({
       setSending(true);
       
       const body: any = {
-        action: 'send',
         client_id: clientId,
         photographer_id: photographerId,
         message: newMessage.trim(),
