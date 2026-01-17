@@ -397,8 +397,6 @@ def handler(event: dict, context) -> dict:
                         # Email уведомление
                         if photographer_email:
                             print(f'[NOTIFICATION] Sending email to {photographer_email}')
-                            import sys
-                            sys.path.insert(0, '/function/code/..')
                             from shared_email import send_email
                             
                             html_body = f'''
