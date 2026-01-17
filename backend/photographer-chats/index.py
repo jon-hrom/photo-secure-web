@@ -35,22 +35,23 @@ def handler(event: dict, context) -> dict:
         
         if method == 'GET':
             # Получаем список всех чатов с последним сообщением и количеством непрочитанных
-            schema = 't_p28211681_photo_secure_web'
-            query = f"""
+            # Используем author как fallback для имени клиента
+            cur.execute("""
                 WITH latest_messages AS (
                     SELECT DISTINCT ON (client_id)
                         client_id,
                         content,
                         image_url,
                         sender_type,
-                        created_at
-                    FROM {schema}.client_messages
+                        created_at,
+                        author
+                    FROM t_p28211681_photo_secure_web.client_messages
                     WHERE photographer_id = %s
                     ORDER BY client_id, created_at DESC
                 ),
                 unread_counts AS (
                     SELECT client_id, COUNT(*) as cnt
-                    FROM {schema}.client_messages
+                    FROM t_p28211681_photo_secure_web.client_messages
                     WHERE photographer_id = %s 
                       AND sender_type = 'client' 
                       AND is_read = FALSE
@@ -58,19 +59,18 @@ def handler(event: dict, context) -> dict:
                 )
                 SELECT 
                     lm.client_id,
-                    c.full_name,
-                    c.phone,
+                    COALESCE(fc.full_name, lm.author, 'Клиент'),
+                    COALESCE(fc.phone, ''),
                     lm.content,
                     lm.image_url,
                     lm.sender_type,
                     lm.created_at,
                     COALESCE(uc.cnt, 0)
                 FROM latest_messages lm
-                JOIN {schema}.clients c ON c.id = lm.client_id
+                LEFT JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = lm.client_id
                 LEFT JOIN unread_counts uc ON uc.client_id = lm.client_id
                 ORDER BY lm.created_at DESC
-            """
-            cur.execute(query, (photographer_id, photographer_id))
+            """, (photographer_id, photographer_id))
             
             chats = []
             for row in cur.fetchall():
