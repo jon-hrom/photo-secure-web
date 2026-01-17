@@ -2,7 +2,7 @@ import ShareFolderModal from '@/components/photobank/ShareFolderModal';
 import FavoritesViewModal from '@/components/photobank/FavoritesViewModal';
 import DownloadStats from '@/components/photobank/DownloadStats';
 import ChatModal from '@/components/gallery/ChatModal';
-import FolderChatsModal from '@/components/photobank/FolderChatsModal';
+import PhotographerChatsModal from '@/components/photobank/PhotographerChatsModal';
 import Icon from '@/components/ui/icon';
 
 interface PhotoBankModalsProps {
@@ -84,11 +84,10 @@ export const PhotoBankModals = ({
         />
       )}
 
-      {folderChatsId && (
-        <FolderChatsModal
+      {folderChatsId !== null && (
+        <PhotographerChatsModal
           isOpen={true}
           onClose={onCloseFolderChats}
-          folderId={folderChatsId}
           photographerId={parseInt(userId)}
         />
       )}

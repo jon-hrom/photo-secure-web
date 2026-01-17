@@ -45,6 +45,8 @@ interface PhotoBankHeaderProps {
   onDeleteSelectedPhotos?: () => void;
   onRestoreSelectedPhotos?: () => void;
   onShowStats?: () => void;
+  onShowAllChats?: () => void;
+  totalUnreadMessages?: number;
 }
 
 const PhotoBankHeader = ({
@@ -70,6 +72,8 @@ const PhotoBankHeader = ({
   onDeleteSelectedPhotos,
   onRestoreSelectedPhotos,
   onShowStats,
+  onShowAllChats,
+  totalUnreadMessages = 0,
 }: PhotoBankHeaderProps) => {
   const navigate = useNavigate();
   const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
@@ -216,6 +220,21 @@ const PhotoBankHeader = ({
             >
               <Icon name="BarChart3" className="mr-2" size={18} />
               Статистика
+            </Button>
+          )}
+          {onShowAllChats && !selectedFolder && (
+            <Button 
+              variant="outline"
+              onClick={onShowAllChats}
+              className="bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-200 text-blue-900 hover:text-blue-950 relative"
+            >
+              <Icon name="MessagesSquare" className="mr-2" size={18} />
+              Сообщения
+              {totalUnreadMessages > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-white bg-red-600 rounded-full">
+                  {totalUnreadMessages}
+                </span>
+              )}
             </Button>
           )}
         </div>

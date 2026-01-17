@@ -254,6 +254,8 @@ const PhotoBank = () => {
           onDeleteSelectedPhotos={handleDeleteSelectedPhotos}
           onRestoreSelectedPhotos={handleRestoreSelectedPhotos}
           onShowStats={() => setShowStats(true)}
+          onShowAllChats={() => setFolderChatsId(-1)}
+          totalUnreadMessages={folders.reduce((sum, f) => sum + (f.unread_messages_count || 0), 0)}
         />
 
         {!selectedFolder ? (
