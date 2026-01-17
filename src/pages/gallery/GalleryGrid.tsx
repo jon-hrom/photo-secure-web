@@ -68,47 +68,51 @@ export default function GalleryGrid({
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+          <div className="flex flex-col gap-4">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{gallery.folder_name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{gallery.folder_name}</h1>
               <p className="text-gray-600">
                 {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               {clientName ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={onOpenChat}
-                    className="relative flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    <Icon name="MessageCircle" size={18} />
-                    Написать фотографу
-                    {unreadMessagesCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shadow-lg">
-                        {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={onOpenMyFavorites}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
-                  >
-                    <Icon name="Star" size={18} />
-                    Мой список избранного
-                  </button>
-                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
-                    <Icon name="User" size={18} className="text-gray-600" />
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={onOpenChat}
+                      className="relative flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                    >
+                      <Icon name="MessageCircle" size={16} />
+                      <span className="hidden sm:inline">Написать фотографу</span>
+                      <span className="sm:hidden">Написать</span>
+                      {unreadMessagesCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-lg">
+                          {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={onOpenMyFavorites}
+                      className="flex items-center justify-center gap-2 px-3 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
+                    >
+                      <Icon name="Star" size={16} />
+                      <span className="hidden sm:inline">Мой список избранного</span>
+                      <span className="sm:hidden">Избранное</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
+                    <Icon name="User" size={16} className="text-gray-600" />
                     <span className="text-sm font-medium text-gray-900">{clientName}</span>
                   </div>
-                </div>
+                </>
               ) : (
                 <button
                   onClick={onClientLogin}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
                 >
-                  <Icon name="User" size={18} />
+                  <Icon name="User" size={16} />
                   Войти
                 </button>
               )}
@@ -116,10 +120,11 @@ export default function GalleryGrid({
                 <button
                   onClick={onDownloadAll}
                   disabled={downloadingAll}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
                 >
-                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={20} className={downloadingAll ? "animate-spin" : ""} />
-                  {downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}
+                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={18} className={downloadingAll ? "animate-spin" : ""} />
+                  <span className="hidden sm:inline">{downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}</span>
+                  <span className="sm:hidden">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
                 </button>
               )}
             </div>
