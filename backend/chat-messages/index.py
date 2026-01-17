@@ -338,55 +338,143 @@ def handler(event: dict, context) -> dict:
             message_id = message_ids[0] if message_ids else None
             created_at = created_timestamps[0] if created_timestamps else None
             
-            # Отправляем email фотографу если сообщение от клиента
+            # Отправляем уведомления фотографу если сообщение от клиента
             if sender_type == 'client':
                 try:
-                    # Получаем данные фотографа
+                    # Получаем данные фотографа и название папки проекта
                     cur.execute('''
-                        SELECT email, username 
-                        FROM t_p28211681_photo_secure_web.users
-                        WHERE id = %s
+                        SELECT u.email, u.username, u.phone
+                        FROM t_p28211681_photo_secure_web.users u
+                        WHERE u.id = %s
                     ''', (photographer_id,))
                     
                     photographer_data = cur.fetchone()
-                    if photographer_data and photographer_data[0]:
+                    if photographer_data:
                         photographer_email = photographer_data[0]
                         photographer_name = photographer_data[1] or 'Фотограф'
-                        # Используем уже полученное имя клиента из author_name
+                        photographer_phone = photographer_data[2]
                         client_name = author_name
                         
-                        # Формируем текст для email
+                        # Находим название папки проекта через которую клиент связался
+                        folder_name = 'Проект'
+                        try:
+                            # Ищем папку по client_id (если клиент добавлен через интеграцию)
+                            cur.execute('''
+                                SELECT f.folder_name
+                                FROM t_p28211681_photo_secure_web.photobank_folders f
+                                WHERE f.user_id = %s AND f.client_id = %s
+                                LIMIT 1
+                            ''', (photographer_id, client_id))
+                            folder_row = cur.fetchone()
+                            if folder_row:
+                                folder_name = folder_row[0]
+                            else:
+                                # Если не нашли по client_id, берём последнюю папку фотографа
+                                cur.execute('''
+                                    SELECT folder_name
+                                    FROM t_p28211681_photo_secure_web.photobank_folders
+                                    WHERE user_id = %s
+                                    ORDER BY created_at DESC
+                                    LIMIT 1
+                                ''', (photographer_id,))
+                                folder_row = cur.fetchone()
+                                if folder_row:
+                                    folder_name = folder_row[0]
+                        except Exception as e:
+                            print(f'[CHAT] Error finding folder name: {str(e)}')
+                        
+                        # Формируем текст для уведомлений
                         if message:
-                            message_preview = message[:100]
+                            message_preview = message[:150] + ('...' if len(message) > 150 else '')
                         elif len(image_urls) > 1:
-                            message_preview = f'[{len(image_urls)} изображений]'
+                            message_preview = f'Отправил(а) {len(image_urls)} изображений'
                         else:
-                            message_preview = '[Изображение]'
+                            message_preview = 'Отправил(а) изображение'
                         
-                        # Импортируем shared_email
-                        import sys
-                        sys.path.insert(0, '/function/code/..')
-                        from shared_email import send_email
-                        
-                        html_body = f'''
+                        # Email уведомление
+                        if photographer_email:
+                            import sys
+                            sys.path.insert(0, '/function/code/..')
+                            from shared_email import send_email
+                            
+                            html_body = f'''
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #2563eb;">Новое сообщение от {client_name}</h2>
-        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0;">{message_preview}</p>
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">📬 Новое сообщение</h1>
         </div>
-        <p>Войдите в админ-панель чтобы ответить.</p>
+        
+        <div style="background-color: white; padding: 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <div style="margin-bottom: 25px;">
+                <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">От клиента</p>
+                <p style="margin: 0; color: #111827; font-size: 20px; font-weight: 600;">{client_name}</p>
+            </div>
+            
+            <div style="margin-bottom: 25px;">
+                <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Проект</p>
+                <p style="margin: 0; color: #111827; font-size: 16px; font-weight: 500;">{folder_name}</p>
+            </div>
+            
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin-bottom: 25px;">
+                <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Сообщение</p>
+                <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.6;">{message_preview}</p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="https://foto-mix.ru" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
+                    Открыть Foto-Mix
+                </a>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; color: #9ca3af; font-size: 13px; text-align: center;">
+                    Войдите в свой аккаунт на foto-mix.ru, чтобы ответить клиенту
+                </p>
+            </div>
+        </div>
     </div>
 </body>
 </html>
-                        '''
+                            '''
+                            
+                            send_email(photographer_email, f'💬 Сообщение от {client_name} | {folder_name}', html_body, 'Foto-Mix')
                         
-                        send_email(photographer_email, f'Новое сообщение от {client_name}', html_body, 'FotoMix Chat')
+                        # WhatsApp уведомление через МаКС
+                        if photographer_phone:
+                            try:
+                                whatsapp_text = f'''📬 *Новое сообщение в Foto-Mix*
+
+👤 *От клиента:* {client_name}
+📁 *Проект:* {folder_name}
+
+💬 *Сообщение:*
+{message_preview}
+
+Войдите на foto-mix.ru чтобы ответить'''
+                                
+                                # Отправляем через WhatsApp API (МаКС)
+                                import requests
+                                whatsapp_api_url = 'https://functions.poehali.dev/0a053c97-18f2-42c4-95e3-8f02894ee0c1'
+                                whatsapp_response = requests.post(whatsapp_api_url, json={
+                                    'phone': photographer_phone,
+                                    'message': whatsapp_text
+                                }, timeout=10)
+                                
+                                if whatsapp_response.status_code == 200:
+                                    print(f'[CHAT] WhatsApp notification sent to {photographer_phone}')
+                                else:
+                                    print(f'[CHAT] WhatsApp notification failed: {whatsapp_response.status_code}')
+                            except Exception as e:
+                                print(f'[CHAT] WhatsApp notification error: {str(e)}')
+                        
                 except Exception as e:
-                    print(f'Email notification error: {str(e)}')
+                    print(f'[CHAT] Notification error: {str(e)}')
             
             conn.commit()
             cur.close()
