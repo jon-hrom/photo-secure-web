@@ -550,6 +550,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 # Если дубликата нет - создаём нового клиента
+                birthdate_value = body.get('birthdate')
+                if birthdate_value == '':
+                    birthdate_value = None
+                
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.clients (user_id, photographer_id, name, phone, email, address, vk_profile, vk_username, birthdate)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -563,7 +567,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     body.get('address'),
                     body.get('vkProfile'),
                     body.get('vkUsername'),
-                    body.get('birthdate')
+                    birthdate_value
                 ))
                 client = cur.fetchone()
                 conn.commit()

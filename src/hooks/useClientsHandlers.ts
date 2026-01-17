@@ -17,6 +17,8 @@ interface UseClientsHandlersProps {
     email: string;
     address: string;
     vkProfile: string;
+    vkUsername?: string;
+    birthdate?: string;
   };
   setNewClient: (client: any) => void;
   setIsAddDialogOpen: (open: boolean) => void;
@@ -316,9 +318,9 @@ export const useClientsHandlers = ({
             id: createdClientId,
             name: clientNameForSearch,
             phone: clientPhoneForSearch,
-            email: newClient.email || '',
-            address: newClient.address || '',
-            vkProfile: newClient.vkProfile || '',
+            email: savedClientData.email || '',
+            address: savedClientData.address || '',
+            vkProfile: savedClientData.vkProfile || '',
             bookings: [],
             projects: [],
             payments: [],
