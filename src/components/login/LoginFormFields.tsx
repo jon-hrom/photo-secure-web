@@ -84,7 +84,7 @@ const LoginFormFields = ({
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             disabled={isBlocked}
-            className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700"
+            className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700 h-11"
           />
         </div>
 
@@ -98,7 +98,7 @@ const LoginFormFields = ({
               value={password}
               onChange={(e) => handlePasswordChange(e.target.value)}
               disabled={isBlocked}
-              className="rounded-xl pr-10 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              className="rounded-xl pr-10 dark:bg-gray-800 dark:text-white dark:border-gray-700 h-11"
               onKeyDown={(e) => e.key === 'Enter' && !isRegistering && onSubmit()}
             />
             <Button
@@ -129,7 +129,7 @@ const LoginFormFields = ({
               placeholder="+7 (___) ___-__-__"
               value={phone}
               onChange={(e) => onPhoneChange(e.target.value)}
-              className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700 h-11"
               required
             />
             <p className="text-xs text-muted-foreground dark:text-gray-400">
