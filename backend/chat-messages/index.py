@@ -10,6 +10,7 @@ from datetime import datetime
 def handler(event: dict, context) -> dict:
     '''API для работы с сообщениями между клиентом и фотографом. Включает отправку уведомлений на email и WhatsApp.'''
     method = event.get('httpMethod', 'GET')
+    print(f'[CHAT_HANDLER] Method={method}, Body={event.get("body", "")}', flush=True)
     
     if method == 'OPTIONS':
         return {
@@ -193,7 +194,10 @@ def handler(event: dict, context) -> dict:
             }
         
         elif method == 'POST':
-            body = json.loads(event.get('body', '{}'))
+            raw_body = event.get('body', '{}')
+            if not raw_body or raw_body.strip() == '':
+                raw_body = '{}'
+            body = json.loads(raw_body)
             client_id = body.get('client_id')
             photographer_id = body.get('photographer_id')
             message = body.get('message', '')
@@ -544,7 +548,7 @@ def handler(event: dict, context) -> dict:
         }
         
     except Exception as e:
-        print(f'Error in messages handler: {str(e)}')
+        print(f'Error in messages handler: {str(e)}', flush=True)
         import traceback
         traceback.print_exc()
         return {
