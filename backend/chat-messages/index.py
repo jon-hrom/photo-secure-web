@@ -199,6 +199,7 @@ def handler(event: dict, context) -> dict:
             message = body.get('message', '')
             sender_type = body.get('sender_type')
             images_base64 = body.get('images_base64', [])
+            print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}')
             
             if not all([client_id, photographer_id, sender_type]):
                 return {
