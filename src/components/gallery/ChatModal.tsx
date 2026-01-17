@@ -20,6 +20,7 @@ interface ChatModalProps {
   senderType: 'client' | 'photographer';
   clientName?: string;
   embedded?: boolean;
+  onMessageSent?: () => void;
 }
 
 export default function ChatModal({ 
@@ -29,7 +30,8 @@ export default function ChatModal({
   photographerId, 
   senderType,
   clientName,
-  embedded = false
+  embedded = false,
+  onMessageSent
 }: ChatModalProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -128,6 +130,10 @@ export default function ChatModal({
       setSelectedImage(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       await loadMessages();
+      
+      if (onMessageSent) {
+        onMessageSent();
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Ошибка при отправке сообщения');

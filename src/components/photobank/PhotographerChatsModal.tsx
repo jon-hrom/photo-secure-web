@@ -205,6 +205,7 @@ export default function PhotographerChatsModal({
                   senderType="photographer"
                   clientName={selectedChat.client_name}
                   embedded={true}
+                  onMessageSent={loadChats}
                 />
               </>
             ) : (
