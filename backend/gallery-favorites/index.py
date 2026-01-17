@@ -81,16 +81,33 @@ def handler(event: dict, context) -> dict:
                         'body': json.dumps({'error': 'Missing required fields'})
                     }
                 
+                # Ищем существующего клиента по gallery_code + full_name (без учёта phone)
                 cur.execute('''
-                    INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
-                    (gallery_code, full_name, phone, email)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (gallery_code, full_name, phone) 
-                    DO UPDATE SET email = EXCLUDED.email
-                    RETURNING id
-                ''', (gallery_code, full_name, phone, email))
+                    SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE gallery_code = %s AND full_name = %s
+                    ORDER BY id DESC LIMIT 1
+                ''', (gallery_code, full_name))
                 
-                client_id = cur.fetchone()[0]
+                existing = cur.fetchone()
+                
+                if existing:
+                    client_id = existing[0]
+                    # Обновляем email если он изменился
+                    if email:
+                        cur.execute('''
+                            UPDATE t_p28211681_photo_secure_web.favorite_clients
+                            SET email = %s
+                            WHERE id = %s
+                        ''', (email, client_id))
+                else:
+                    # Создаём нового клиента
+                    cur.execute('''
+                        INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
+                        (gallery_code, full_name, phone, email)
+                        VALUES (%s, %s, %s, %s)
+                        RETURNING id
+                    ''', (gallery_code, full_name, phone, email))
+                    client_id = cur.fetchone()[0]
                 
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.favorite_photos 
@@ -120,16 +137,37 @@ def handler(event: dict, context) -> dict:
                         'body': json.dumps({'error': 'Missing required fields'})
                     }
                 
+                # Ищем существующего клиента по gallery_code + full_name (без учёта phone)
                 cur.execute('''
-                    INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
-                    (gallery_code, full_name, phone, email)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (gallery_code, full_name, phone) 
-                    DO UPDATE SET email = EXCLUDED.email
-                    RETURNING id, full_name, phone, email
-                ''', (gallery_code, full_name, phone, email))
+                    SELECT id, full_name, phone, email
+                    FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE gallery_code = %s AND full_name = %s
+                    ORDER BY id DESC LIMIT 1
+                ''', (gallery_code, full_name))
                 
-                client = cur.fetchone()
+                existing_client = cur.fetchone()
+                
+                if existing_client:
+                    # Обновляем существующего клиента если телефон или email изменились
+                    client_id = existing_client[0]
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.favorite_clients
+                        SET phone = CASE WHEN %s != '' THEN %s ELSE phone END,
+                            email = CASE WHEN %s != '' THEN %s ELSE email END
+                        WHERE id = %s
+                        RETURNING id, full_name, phone, email
+                    ''', (phone, phone, email, email, client_id))
+                    client = cur.fetchone()
+                else:
+                    # Создаём нового клиента
+                    cur.execute('''
+                        INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
+                        (gallery_code, full_name, phone, email)
+                        VALUES (%s, %s, %s, %s)
+                        RETURNING id, full_name, phone, email
+                    ''', (gallery_code, full_name, phone, email))
+                    client = cur.fetchone()
+                
                 conn.commit()
                 
                 return {
