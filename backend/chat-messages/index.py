@@ -340,6 +340,7 @@ def handler(event: dict, context) -> dict:
             
             # Отправляем уведомления фотографу если сообщение от клиента
             if sender_type == 'client':
+                print(f'[NOTIFICATION] Client message detected, sender_type={sender_type}')
                 try:
                     # Получаем данные фотографа и название папки проекта
                     cur.execute('''
@@ -349,6 +350,7 @@ def handler(event: dict, context) -> dict:
                     ''', (photographer_id,))
                     
                     photographer_data = cur.fetchone()
+                    print(f'[NOTIFICATION] Photographer data: {photographer_data}')
                     if photographer_data:
                         photographer_email = photographer_data[0]
                         photographer_name = photographer_data[1] or 'Фотограф'
@@ -393,6 +395,7 @@ def handler(event: dict, context) -> dict:
                         
                         # Email уведомление
                         if photographer_email:
+                            print(f'[NOTIFICATION] Sending email to {photographer_email}')
                             import sys
                             sys.path.insert(0, '/function/code/..')
                             from shared_email import send_email
@@ -444,9 +447,11 @@ def handler(event: dict, context) -> dict:
                             '''
                             
                             send_email(photographer_email, f'💬 Сообщение от {client_name} | {folder_name}', html_body, 'Foto-Mix')
+                            print(f'[NOTIFICATION] Email sent successfully')
                         
                         # WhatsApp уведомление через МаКС
                         if photographer_phone:
+                            print(f'[NOTIFICATION] Sending WhatsApp to {photographer_phone}')
                             try:
                                 whatsapp_text = f'''📬 *Новое сообщение в Foto-Mix*
 
