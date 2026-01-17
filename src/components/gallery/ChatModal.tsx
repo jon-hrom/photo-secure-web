@@ -222,7 +222,16 @@ export default function ChatModal({
                           onClick={() => window.open(msg.image_url, '_blank')}
                         />
                       )}
-                      {msg.message && <p className="whitespace-pre-wrap break-words">{msg.message}</p>}
+                      {msg.message && (
+                        <p className="whitespace-pre-wrap break-words">
+                          {msg.message.split(/(\#\d+|фото\s*\d+|photo\s*\d+)/gi).map((part, i) => {
+                            if (/(\#\d+|фото\s*\d+|photo\s*\d+)/i.test(part)) {
+                              return <span key={i} className="font-semibold underline">{part}</span>;
+                            }
+                            return part;
+                          })}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mt-1">
                         <p className={`text-xs ${isMyMessage ? 'opacity-80' : 'text-muted-foreground'}`}>
                           {new Date(msg.created_at).toLocaleString('ru-RU', {
@@ -373,7 +382,16 @@ export default function ChatModal({
                           onClick={() => window.open(msg.image_url, '_blank')}
                         />
                       )}
-                      {msg.message && <p className="whitespace-pre-wrap break-words">{msg.message}</p>}
+                      {msg.message && (
+                        <p className="whitespace-pre-wrap break-words">
+                          {msg.message.split(/(\#\d+|фото\s*\d+|photo\s*\d+)/gi).map((part, i) => {
+                            if (/(\#\d+|фото\s*\d+|photo\s*\d+)/i.test(part)) {
+                              return <span key={i} className="font-semibold underline">{part}</span>;
+                            }
+                            return part;
+                          })}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mt-1">
                         <p className={`text-xs ${isMyMessage ? 'text-blue-100' : 'text-gray-500'}`}>
                           {new Date(msg.created_at).toLocaleString('ru-RU', {
@@ -383,8 +401,14 @@ export default function ChatModal({
                             minute: '2-digit'
                           })}
                         </p>
-                        {isMyMessage && msg.is_read && (
-                          <Icon name="CheckCheck" size={14} className="text-blue-100" />
+                        {isMyMessage && (
+                          msg.is_read ? (
+                            <Icon name="CheckCheck" size={14} className="text-green-400" />
+                          ) : msg.is_delivered ? (
+                            <Icon name="CheckCheck" size={14} className="text-blue-100" />
+                          ) : (
+                            <Icon name="Check" size={14} className="text-blue-100" />
+                          )
                         )}
                       </div>
                     </div>

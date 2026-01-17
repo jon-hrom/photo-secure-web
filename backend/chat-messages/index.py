@@ -4,6 +4,7 @@ import psycopg2
 import boto3
 import base64
 import uuid
+import re
 from datetime import datetime
 
 def handler(event: dict, context) -> dict:
@@ -113,12 +114,27 @@ def handler(event: dict, context) -> dict:
                 
                 author_name = client_row[0] if client_row else 'Клиент'
                 
+                # Ищем упоминания номеров фото в сообщении (#123, фото 123, photo 123)
+                photo_ids = re.findall(r'(?:#|фото\s*|photo\s*)(\d+)', message, re.IGNORECASE)
+                photo_url = None
+                
+                if photo_ids:
+                    photo_id = photo_ids[0]  # Берём первое упоминание
+                    cur.execute('''
+                        SELECT thumbnail_s3_url, s3_url 
+                        FROM t_p28211681_photo_secure_web.photo_bank
+                        WHERE id = %s AND photographer_id = %s
+                    ''', (photo_id, photographer_id))
+                    photo_row = cur.fetchone()
+                    if photo_row:
+                        photo_url = photo_row[0] if photo_row[0] else photo_row[1]
+                
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author)
-                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s)
+                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url)
+                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s)
                     RETURNING id, created_at
-                ''', (client_id, photographer_id, message, sender_type, author_name))
+                ''', (client_id, photographer_id, message, sender_type, author_name, photo_url))
                 
                 result = cur.fetchone()
                 message_id = result[0]
@@ -263,6 +279,20 @@ def handler(event: dict, context) -> dict:
                     image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
                 except Exception as e:
                     print(f'Error uploading image: {str(e)}')
+            
+            # Ищем упоминания номеров фото в сообщении (#123, фото 123, photo 123)
+            if not image_url and message:
+                photo_ids = re.findall(r'(?:#|фото\s*|photo\s*)(\d+)', message, re.IGNORECASE)
+                if photo_ids:
+                    photo_id = photo_ids[0]  # Берём первое упоминание
+                    cur.execute('''
+                        SELECT thumbnail_s3_url, s3_url 
+                        FROM t_p28211681_photo_secure_web.photo_bank
+                        WHERE id = %s AND user_id = %s
+                    ''', (photo_id, photographer_id))
+                    photo_row = cur.fetchone()
+                    if photo_row:
+                        image_url = photo_row[0] if photo_row[0] else photo_row[1]
             
             cur.execute('''
                 INSERT INTO t_p28211681_photo_secure_web.client_messages 
