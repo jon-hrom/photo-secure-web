@@ -79,12 +79,21 @@ def handler(event: dict, context) -> dict:
                         'isBase64Encoded': False
                     }
                 
-                # Получаем имя клиента из favorite_clients для author
+                # Получаем имя клиента - сначала из clients, потом из favorite_clients
                 cur.execute('''
-                    SELECT full_name FROM t_p28211681_photo_secure_web.favorite_clients 
+                    SELECT name FROM t_p28211681_photo_secure_web.clients 
                     WHERE id = %s
                 ''', (client_id,))
                 client_row = cur.fetchone()
+                
+                if not client_row:
+                    # Если не нашли в clients, ищем в favorite_clients
+                    cur.execute('''
+                        SELECT full_name FROM t_p28211681_photo_secure_web.favorite_clients 
+                        WHERE id = %s
+                    ''', (client_id,))
+                    client_row = cur.fetchone()
+                
                 author_name = client_row[0] if client_row else 'Клиент'
                 
                 cur.execute('''
@@ -173,17 +182,26 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
-            # Проверяем существование клиента и фотографа
-            cur.execute('SELECT id FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
-            if not cur.fetchone():
-                cur.close()
-                conn.close()
-                return {
-                    'statusCode': 404,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Client not found'}),
-                    'isBase64Encoded': False
-                }
+            # Получаем имя клиента - сначала из clients, потом из favorite_clients
+            cur.execute('SELECT name FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
+            client_row = cur.fetchone()
+            
+            if not client_row:
+                # Если не нашли в clients, ищем в favorite_clients
+                cur.execute('SELECT full_name FROM t_p28211681_photo_secure_web.favorite_clients WHERE id = %s', (client_id,))
+                client_row = cur.fetchone()
+                
+                if not client_row:
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Client not found'}),
+                        'isBase64Encoded': False
+                    }
+            
+            author_name = client_row[0] if client_row else 'Клиент'
             
             cur.execute('SELECT id FROM t_p28211681_photo_secure_web.users WHERE id = %s', (photographer_id,))
             if not cur.fetchone():
@@ -225,7 +243,7 @@ def handler(event: dict, context) -> dict:
                 (client_id, photographer_id, content, sender_type, is_read, created_at, type, author, image_url)
                 VALUES (%s, %s, %s, %s, FALSE, NOW(), 'chat', %s, %s)
                 RETURNING id, created_at
-            ''', (client_id, photographer_id, message, sender_type, sender_type, image_url))
+            ''', (client_id, photographer_id, message, sender_type, author_name, image_url))
             
             result = cur.fetchone()
             message_id = result[0]
@@ -234,19 +252,19 @@ def handler(event: dict, context) -> dict:
             # Отправляем email фотографу если сообщение от клиента
             if sender_type == 'client':
                 try:
-                    # Получаем данные фотографа и клиента
+                    # Получаем данные фотографа
                     cur.execute('''
-                        SELECT u.email, u.username, c.full_name 
-                        FROM t_p28211681_photo_secure_web.users u,
-                             t_p28211681_photo_secure_web.clients c
-                        WHERE u.id = %s AND c.id = %s
-                    ''', (photographer_id, client_id))
+                        SELECT email, username 
+                        FROM t_p28211681_photo_secure_web.users
+                        WHERE id = %s
+                    ''', (photographer_id,))
                     
-                    email_data = cur.fetchone()
-                    if email_data and email_data[0]:
-                        photographer_email = email_data[0]
-                        photographer_name = email_data[1] or 'Фотограф'
-                        client_name = email_data[2] or 'Клиент'
+                    photographer_data = cur.fetchone()
+                    if photographer_data and photographer_data[0]:
+                        photographer_email = photographer_data[0]
+                        photographer_name = photographer_data[1] or 'Фотограф'
+                        # Используем уже полученное имя клиента из author_name
+                        client_name = author_name
                         
                         # Формируем текст для email
                         message_preview = message[:100] if message else '[Изображение]'
