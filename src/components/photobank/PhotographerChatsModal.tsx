@@ -64,6 +64,38 @@ export default function PhotographerChatsModal({
     }
   };
 
+  const deleteChat = async (clientId: number) => {
+    if (!confirm('Удалить всю переписку с этим клиентом?')) return;
+
+    try {
+      const userId = getAuthUserId();
+      if (!userId) throw new Error('User not authenticated');
+
+      const response = await fetch(
+        `https://functions.poehali.dev/5a4dec63-cfc7-46ad-b6dd-449909398c79?client_id=${clientId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'X-User-Id': userId.toString()
+          }
+        }
+      );
+
+      if (!response.ok) throw new Error('Ошибка удаления');
+
+      // Обновляем список чатов
+      setChats(prev => prev.filter(c => c.client_id !== clientId));
+      
+      // Если удаленный чат был выбран, сбрасываем выбор
+      if (selectedClientId === clientId) {
+        setSelectedClientId(null);
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      alert('Не удалось удалить переписку');
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       loadChats();
@@ -132,30 +164,47 @@ export default function PhotographerChatsModal({
                 </div>
               ) : (
                 chats.map(chat => (
-                  <button
+                  <div
                     key={chat.client_id}
-                    onClick={() => setSelectedClientId(chat.client_id)}
-                    className={`w-full p-4 text-left border-b hover:bg-muted transition-colors ${
+                    className={`w-full border-b hover:bg-muted transition-colors group ${
                       selectedClientId === chat.client_id ? 'bg-muted border-l-4 border-l-primary' : ''
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium truncate">{chat.client_name}</p>
-                          {chat.unread_count > 0 && (
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-white bg-red-600 rounded-full">
-                              {chat.unread_count}
-                            </span>
-                          )}
+                    <div className="flex items-stretch">
+                      <button
+                        onClick={() => setSelectedClientId(chat.client_id)}
+                        className="flex-1 p-4 text-left"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium truncate">{chat.client_name}</p>
+                              {chat.unread_count > 0 && (
+                                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-white bg-red-600 rounded-full">
+                                  {chat.unread_count}
+                                </span>
+                              )}
+                            </div>
+                            {chat.client_phone && (
+                              <p className="text-sm text-muted-foreground">{chat.client_phone}</p>
+                            )}
+                          </div>
+                          <Icon name="ChevronRight" size={16} className="flex-shrink-0 text-muted-foreground" />
                         </div>
-                        {chat.client_phone && (
-                          <p className="text-sm text-muted-foreground">{chat.client_phone}</p>
-                        )}
-                      </div>
-                      <Icon name="ChevronRight" size={16} className="flex-shrink-0 text-muted-foreground" />
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteChat(chat.client_id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity m-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                      >
+                        <Icon name="Trash2" size={18} />
+                      </Button>
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>

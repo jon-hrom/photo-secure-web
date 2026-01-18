@@ -4,7 +4,7 @@ import psycopg2
 from datetime import datetime
 
 def handler(event: dict, context) -> dict:
-    '''API для получения списка всех чатов фотографа с клиентами'''
+    '''API для получения списка всех чатов фотографа с клиентами и удаления переписок'''
     method = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':
@@ -12,7 +12,7 @@ def handler(event: dict, context) -> dict:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
             },
             'body': ''
@@ -95,6 +95,35 @@ def handler(event: dict, context) -> dict:
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'chats': chats})
+            }
+        
+        elif method == 'DELETE':
+            # Удаление всей переписки с конкретным клиентом
+            query_params = event.get('queryStringParameters', {})
+            client_id = query_params.get('client_id')
+            
+            if not client_id:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'client_id required'})
+                }
+            
+            cur.execute("""
+                DELETE FROM t_p28211681_photo_secure_web.client_messages
+                WHERE photographer_id = %s AND client_id = %s
+            """, (photographer_id, client_id))
+            
+            conn.commit()
+            deleted_count = cur.rowcount
+            
+            cur.close()
+            conn.close()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': True, 'deleted_messages': deleted_count})
             }
         
         return {
