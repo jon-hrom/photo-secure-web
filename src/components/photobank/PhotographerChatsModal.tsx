@@ -232,7 +232,10 @@ export default function PhotographerChatsModal({
 
                 <ChatModal
                   isOpen={true}
-                  onClose={() => setSelectedClientId(null)}
+                  onClose={() => {
+                    setSelectedClientId(null);
+                    loadChats();
+                  }}
                   clientId={selectedChat.client_id}
                   photographerId={photographerId}
                   senderType="photographer"
