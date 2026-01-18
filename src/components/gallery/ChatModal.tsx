@@ -65,13 +65,6 @@ export default function ChatModal({
       const data = await response.json();
       const newMessages = data.messages || [];
       
-      if (silent && previousMessageCountRef.current > 0 && newMessages.length > previousMessageCountRef.current) {
-        const latestMessage = newMessages[newMessages.length - 1];
-        if (latestMessage.sender_type !== senderType) {
-          playNotificationSound();
-        }
-      }
-      
       previousMessageCountRef.current = newMessages.length;
       setMessages(newMessages);
       
