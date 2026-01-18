@@ -42,9 +42,11 @@ export default function ChatModal({
   const [sending, setSending] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [isOpponentTyping, setIsOpponentTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef<number>(0);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,6 +91,43 @@ export default function ChatModal({
       });
     } catch (error) {
       console.error('Error marking messages as read:', error);
+    }
+  };
+
+  const updateTypingStatus = async (isTyping: boolean) => {
+    try {
+      await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?action=typing&client_id=${clientId}&photographer_id=${photographerId}&sender_type=${senderType}&is_typing=${isTyping}`, {
+        method: 'GET'
+      });
+    } catch (error) {
+      console.error('Error updating typing status:', error);
+    }
+  };
+
+  const checkOpponentTyping = async () => {
+    try {
+      const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?action=check_typing&client_id=${clientId}&photographer_id=${photographerId}&sender_type=${senderType}`);
+      const data = await response.json();
+      setIsOpponentTyping(data.is_typing || false);
+    } catch (error) {
+      console.error('Error checking typing status:', error);
+    }
+  };
+
+  const handleInputChange = (value: string) => {
+    setNewMessage(value);
+    
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    if (value.trim().length > 0) {
+      updateTypingStatus(true);
+      typingTimeoutRef.current = setTimeout(() => {
+        updateTypingStatus(false);
+      }, 3000);
+    } else {
+      updateTypingStatus(false);
     }
   };
 
@@ -195,9 +234,16 @@ export default function ChatModal({
       const interval = setInterval(() => {
         loadMessages(true);
         markAsRead();
+        checkOpponentTyping();
       }, 3000);
       
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        updateTypingStatus(false);
+      };
     }
   }, [isOpen, clientId, photographerId]);
 
@@ -233,13 +279,14 @@ export default function ChatModal({
             senderType={senderType}
             onImageClick={setFullscreenImage}
             variant="embedded"
+            isOpponentTyping={isOpponentTyping}
             ref={messagesEndRef}
           />
         </div>
 
         <ChatInput
           newMessage={newMessage}
-          onMessageChange={setNewMessage}
+          onMessageChange={handleInputChange}
           onSend={sendMessage}
           onKeyPress={handleKeyPress}
           selectedImages={selectedImages}
@@ -290,13 +337,14 @@ export default function ChatModal({
             senderType={senderType}
             onImageClick={setFullscreenImage}
             variant="default"
+            isOpponentTyping={isOpponentTyping}
             ref={messagesEndRef}
           />
         </div>
 
         <ChatInput
           newMessage={newMessage}
-          onMessageChange={setNewMessage}
+          onMessageChange={handleInputChange}
           onSend={sendMessage}
           onKeyPress={handleKeyPress}
           selectedImages={selectedImages}

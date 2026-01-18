@@ -18,10 +18,11 @@ interface ChatMessageListProps {
   senderType: 'client' | 'photographer';
   onImageClick: (imageUrl: string) => void;
   variant?: 'default' | 'embedded';
+  isOpponentTyping?: boolean;
 }
 
 const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
-  ({ messages, loading, senderType, onImageClick, variant = 'default' }, ref) => {
+  ({ messages, loading, senderType, onImageClick, variant = 'default', isOpponentTyping = false }, ref) => {
     const isEmbedded = variant === 'embedded';
 
     if (loading && messages.length === 0) {
@@ -60,6 +61,21 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
             />
           );
         })}
+        {isOpponentTyping && (
+          <div className="flex justify-start mb-3">
+            <div className={`inline-block px-4 py-2 rounded-2xl ${
+              isEmbedded 
+                ? 'bg-muted' 
+                : 'bg-gray-200 dark:bg-gray-700'
+            }`}>
+              <div className="flex gap-1 items-center">
+                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={ref} />
       </>
     );

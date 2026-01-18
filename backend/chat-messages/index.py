@@ -89,6 +89,69 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
+            # Обработка action=typing - обновление статуса печати
+            if action == 'typing':
+                sender_type = params.get('sender_type')
+                is_typing = params.get('is_typing', 'false').lower() == 'true'
+                
+                if not sender_type or sender_type not in ['client', 'photographer']:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Invalid sender_type'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Upsert статуса печати
+                cur.execute('''
+                    INSERT INTO t_p28211681_photo_secure_web.typing_status 
+                    (client_id, photographer_id, sender_type, is_typing, updated_at)
+                    VALUES (%s, %s, %s, %s, NOW())
+                    ON CONFLICT (client_id, photographer_id, sender_type)
+                    DO UPDATE SET is_typing = EXCLUDED.is_typing, updated_at = NOW()
+                ''', (client_id, photographer_id, sender_type, is_typing))
+                conn.commit()
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+            
+            # Обработка action=check_typing - проверка статуса печати собеседника
+            if action == 'check_typing':
+                sender_type = params.get('sender_type')
+                if not sender_type or sender_type not in ['client', 'photographer']:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Invalid sender_type'}),
+                        'isBase64Encoded': False
+                    }
+                
+                # Проверяем статус печати противоположной стороны
+                opposite_type = 'photographer' if sender_type == 'client' else 'client'
+                cur.execute('''
+                    SELECT is_typing, updated_at 
+                    FROM t_p28211681_photo_secure_web.typing_status
+                    WHERE client_id = %s AND photographer_id = %s AND sender_type = %s
+                    AND updated_at > NOW() - INTERVAL '10 seconds'
+                ''', (client_id, photographer_id, opposite_type))
+                
+                row = cur.fetchone()
+                is_typing = row[0] if row else False
+                
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'is_typing': is_typing}),
+                    'isBase64Encoded': False
+                }
+            
             # Обработка action=send (отправка через GET с параметрами)
             if action == 'send':
                 message = params.get('message', '')
