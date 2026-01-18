@@ -7,7 +7,7 @@ interface ChatInputProps {
   onMessageChange: (message: string) => void;
   onSend: () => void;
   onKeyPress: (e: React.KeyboardEvent) => void;
-  selectedImages: string[];
+  selectedImages: {dataUrl: string; fileName: string}[];
   onImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onImageRemove: (index: number) => void;
   sending: boolean;
@@ -39,7 +39,7 @@ export default function ChatInput({
         <div className="mb-2 flex gap-2 flex-wrap">
           {selectedImages.map((img, index) => (
             <div key={index} className="relative inline-block">
-              <img src={img} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
+              <img src={img.dataUrl} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
               <button
                 onClick={() => onImageRemove(index)}
                 type="button"

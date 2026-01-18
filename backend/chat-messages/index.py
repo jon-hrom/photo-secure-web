@@ -278,6 +278,7 @@ def handler(event: dict, context) -> dict:
             message = body.get('message', '')
             sender_type = body.get('sender_type')
             images_base64 = body.get('images_base64', [])
+            file_names = body.get('file_names', [])
             print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}', flush=True)
             
             if not all([client_id, photographer_id, sender_type]):
@@ -336,10 +337,10 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
-            # Загружаем изображения в S3 если есть
+            # Загружаем изображения в S3 если есть или ищем миниатюры в фотобанке
             image_urls = []
             if images_base64:
-                print(f'[CHAT] Uploading {len(images_base64)} images')
+                print(f'[CHAT] Processing {len(images_base64)} images')
                 try:
                     s3 = boto3.client('s3',
                         endpoint_url='https://bucket.poehali.dev',
@@ -348,28 +349,56 @@ def handler(event: dict, context) -> dict:
                     )
                     
                     for idx, img_base64 in enumerate(images_base64):
-                        # Убираем data:image/...;base64, если есть
-                        if 'base64,' in img_base64:
-                            img_base64 = img_base64.split('base64,')[1]
+                        original_file_name = file_names[idx] if idx < len(file_names) else None
+                        print(f'[CHAT] Image {idx+1}: original_file_name={original_file_name}')
                         
-                        print(f'[CHAT] Image {idx+1}: base64 length = {len(img_base64)}')
-                        image_data = base64.b64decode(img_base64)
-                        print(f'[CHAT] Image {idx+1}: decoded size = {len(image_data)} bytes')
+                        # Проверяем, есть ли фото с таким именем в фотобанке
+                        thumbnail_url = None
+                        if original_file_name:
+                            # Убираем расширение и получаем базовое имя
+                            base_name = re.sub(r'\.(cr2|nef|arw|dng|raw|jpg|jpeg|png)$', '', original_file_name, flags=re.IGNORECASE)
+                            print(f'[CHAT] Searching for thumbnail with base name: {base_name}')
+                            
+                            # Ищем фото по имени файла (without extension)
+                            cur.execute('''
+                                SELECT thumbnail_s3_url, s3_url, file_name
+                                FROM t_p28211681_photo_secure_web.photo_bank
+                                WHERE user_id = %s 
+                                  AND (file_name ILIKE %s OR file_name ILIKE %s OR file_name ILIKE %s)
+                                  AND is_trashed = FALSE
+                                ORDER BY created_at DESC
+                                LIMIT 1
+                            ''', (photographer_id, f'{base_name}.%', f'%/{base_name}.%', f'{base_name}'))
+                            
+                            photo_row = cur.fetchone()
+                            if photo_row:
+                                thumbnail_url = photo_row[0] if photo_row[0] else photo_row[1]
+                                print(f'[CHAT] Found thumbnail in photobank: {thumbnail_url}')
                         
-                        file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
-                        
-                        s3.put_object(
-                            Bucket='files',
-                            Key=file_name,
-                            Body=image_data,
-                            ContentType='image/jpeg'
-                        )
-                        
-                        image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
-                        image_urls.append(image_url)
-                        print(f'[CHAT] Image {idx+1}: uploaded to {image_url}')
+                        # Если нашли миниатюру, используем её
+                        if thumbnail_url:
+                            image_urls.append(thumbnail_url)
+                            print(f'[CHAT] Image {idx+1}: using photobank thumbnail')
+                        else:
+                            # Иначе загружаем как обычно
+                            if 'base64,' in img_base64:
+                                img_base64 = img_base64.split('base64,')[1]
+                            
+                            image_data = base64.b64decode(img_base64)
+                            file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
+                            
+                            s3.put_object(
+                                Bucket='files',
+                                Key=file_name,
+                                Body=image_data,
+                                ContentType='image/jpeg'
+                            )
+                            
+                            image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
+                            image_urls.append(image_url)
+                            print(f'[CHAT] Image {idx+1}: uploaded to S3: {image_url}')
                 except Exception as e:
-                    print(f'[CHAT] Error uploading images: {str(e)}')
+                    print(f'[CHAT] Error processing images: {str(e)}')
             
             # Ищем упоминания номеров фото в сообщении (#123, фото 123, photo 123)
             if not image_urls and message:

@@ -40,7 +40,7 @@ export default function ChatModal({
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedImages, setSelectedImages] = useState<{dataUrl: string; fileName: string}[]>([]);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isOpponentTyping, setIsOpponentTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -128,7 +128,7 @@ export default function ChatModal({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const newImages: string[] = [];
+    const newImages: {dataUrl: string; fileName: string}[] = [];
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -144,7 +144,7 @@ export default function ChatModal({
         reader.readAsDataURL(file);
       });
       
-      newImages.push(result);
+      newImages.push({ dataUrl: result, fileName: file.name });
     }
     
     setSelectedImages(prev => [...prev, ...newImages]);
@@ -173,11 +173,12 @@ export default function ChatModal({
 
       if (selectedImages.length > 0) {
         body.images_base64 = selectedImages.map(img => {
-          if (img.includes('base64,')) {
-            return img.split('base64,')[1];
-          }
-          return img;
+          const base64Data = img.dataUrl.includes('base64,') 
+            ? img.dataUrl.split('base64,')[1] 
+            : img.dataUrl;
+          return base64Data;
         });
+        body.file_names = selectedImages.map(img => img.fileName);
       }
       
       const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?v=2`, {
