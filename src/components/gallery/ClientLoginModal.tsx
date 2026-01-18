@@ -13,6 +13,7 @@ interface ClientLoginModalProps {
 
 export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode }: ClientLoginModalProps) {
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,6 +27,11 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
       return;
     }
 
+    if (!phone.trim()) {
+      setError('Введите номер телефона');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -36,7 +42,8 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
         body: JSON.stringify({
           action: 'login',
           gallery_code: galleryCode,
-          full_name: fullName
+          full_name: fullName,
+          phone: phone
         })
       });
 
@@ -59,6 +66,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
       });
 
       setFullName('');
+      setPhone('');
       setError('');
       onClose();
     } catch (error) {
@@ -83,7 +91,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
         </div>
 
         <p className="text-sm text-gray-600 mb-6">
-          Введите ФИО, которое вы указали при добавлении фото в избранное
+          Введите ФИО и телефон для доступа к вашим избранным фото
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -98,14 +106,30 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
                 setError('');
               }}
               placeholder="Иванов Иван Иванович"
-              className={error ? 'border-red-500' : ''}
+              className={error && !phone.trim() ? '' : (error ? 'border-red-500' : '')}
               autoFocus
             />
-            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
           </div>
 
+          <div>
+            <Label htmlFor="phone">Телефон <span className="text-red-500">*</span></Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                setError('');
+              }}
+              placeholder="+7 (900) 123-45-67"
+              className={error && fullName.trim() ? 'border-red-500' : ''}
+            />
+          </div>
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+
           <p className="text-xs text-gray-500">
-            Регистр не имеет значения. Введите ФИО так же, как указывали ранее.
+            Введите данные, которые вы указали при добавлении фото в избранное
           </p>
 
           <div className="flex gap-3 pt-4">

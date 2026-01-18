@@ -26,7 +26,8 @@
       "body": {
         "action": "login",
         "gallery_code": "test123",
-        "full_name": "иванов иван иванович"
+        "full_name": "Иванов Иван Иванович",
+        "phone": "+7-999-123-45-67"
       },
       "expectedStatus": 200,
       "expectedBody": {

@@ -130,43 +130,40 @@ def handler(event: dict, context) -> dict:
                 phone = body.get('phone', '')
                 email = body.get('email', '')
                 
-                if not all([gallery_code, full_name]):
+                if not all([gallery_code, full_name, phone]):
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'Missing required fields'})
+                        'body': json.dumps({'error': 'Missing required fields (gallery_code, full_name, phone)'})
                     }
                 
-                # Ищем существующего клиента по gallery_code + full_name (без учёта phone)
+                # Ищем существующего клиента по gallery_code + full_name + phone
                 cur.execute('''
                     SELECT id, full_name, phone, email
                     FROM t_p28211681_photo_secure_web.favorite_clients
-                    WHERE gallery_code = %s AND full_name = %s
+                    WHERE gallery_code = %s AND full_name = %s AND phone = %s
                     ORDER BY id DESC LIMIT 1
-                ''', (gallery_code, full_name))
+                ''', (gallery_code, full_name, phone))
                 
                 existing_client = cur.fetchone()
                 
                 if existing_client:
-                    # Обновляем существующего клиента если телефон или email изменились
+                    # Обновляем email если изменился
                     client_id = existing_client[0]
                     cur.execute('''
                         UPDATE t_p28211681_photo_secure_web.favorite_clients
-                        SET phone = CASE WHEN %s != '' THEN %s ELSE phone END,
-                            email = CASE WHEN %s != '' THEN %s ELSE email END
+                        SET email = CASE WHEN %s != '' THEN %s ELSE email END
                         WHERE id = %s
                         RETURNING id, full_name, phone, email
-                    ''', (phone, phone, email, email, client_id))
+                    ''', (email, email, client_id))
                     client = cur.fetchone()
                 else:
-                    # Создаём нового клиента
-                    cur.execute('''
-                        INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
-                        (gallery_code, full_name, phone, email)
-                        VALUES (%s, %s, %s, %s)
-                        RETURNING id, full_name, phone, email
-                    ''', (gallery_code, full_name, phone, email))
-                    client = cur.fetchone()
+                    # Клиент не найден - возвращаем 404
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Client not found. Add photos to favorites first.'})
+                    }
                 
                 conn.commit()
                 
