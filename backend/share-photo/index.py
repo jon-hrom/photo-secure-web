@@ -6,6 +6,49 @@ import string
 import boto3
 from botocore.client import Config
 from datetime import datetime, timedelta
+import urllib.request
+import urllib.error
+
+def get_ip_geolocation(ip: str) -> str:
+    """Получение геолокации по IP через 2ip.io API"""
+    if not ip or ip == 'unknown':
+        return ip
+    
+    api_key = os.environ.get('TWOIP_API_KEY', '')
+    if not api_key:
+        print("[GEOLOCATION] TWOIP_API_KEY not configured, returning plain IP")
+        return ip
+    
+    try:
+        url = f"https://api.2ip.io/{ip}?token={api_key}&lang=ru"
+        print(f"[GEOLOCATION] Requesting geo for IP {ip} via 2ip.io")
+        
+        req = urllib.request.Request(url, headers={'User-Agent': 'foto-mix.ru/1.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            raw_data = response.read().decode('utf-8')
+            data = json.loads(raw_data)
+            
+            city = data.get('city', '')
+            country = data.get('country', '')
+            country_code = data.get('code', '')
+            
+            print(f"[GEOLOCATION] Success: {country} ({country_code}), {city}")
+            
+            geo_data = {
+                'city': city,
+                'country': country,
+                'country_code': country_code,
+                'emoji': data.get('emoji', ''),
+                'lat': data.get('lat', ''),
+                'lon': data.get('lon', ''),
+                'timezone': data.get('timezone', ''),
+                'asn': data.get('asn', {})
+            }
+            
+            return json.dumps(geo_data, ensure_ascii=False)
+    except Exception as e:
+        print(f"[GEOLOCATION] Error fetching geo for {ip}: {type(e).__name__} - {e}")
+        return ip
 
 def generate_short_code(length=8):
     """Генерирует короткий уникальный код для ссылки"""
@@ -172,9 +215,12 @@ def handler(event: dict, context) -> dict:
                 (photo_path,)
             )
             
-            # Логируем скачивание фотографии
+            # Логируем скачивание фотографии с геолокацией
             client_ip = event.get('requestContext', {}).get('identity', {}).get('sourceIp', '')
             user_agent = event.get('requestContext', {}).get('identity', {}).get('userAgent', '')
+            
+            # Получаем геолокацию IP
+            ip_with_geo = get_ip_geolocation(client_ip)
             
             cur.execute(
                 "SELECT id, user_id FROM t_p28211681_photo_secure_web.photo_bank WHERE s3_key = %s",
@@ -189,7 +235,7 @@ def handler(event: dict, context) -> dict:
                     (user_id, photo_id, download_type, client_ip, user_agent)
                     VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (owner_user_id, photo_id, 'photo', client_ip, user_agent)
+                    (owner_user_id, photo_id, 'photo', ip_with_geo, user_agent)
                 )
             
             conn.commit()

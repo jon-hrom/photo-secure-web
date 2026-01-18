@@ -15,12 +15,20 @@ interface DownloadLog {
   photo_name?: string;
 }
 
+interface FavoriteStats {
+  client_id: number;
+  client_name: string;
+  favorite_date: string;
+  photo_count: number;
+}
+
 interface DownloadStatsProps {
   userId: number;
 }
 
 const DownloadStats = ({ userId }: DownloadStatsProps) => {
   const [logs, setLogs] = useState<DownloadLog[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState<'line' | 'pie' | 'bar'>('line');
   const [dateFilter, setDateFilter] = useState<'7d' | '30d' | 'all'>('30d');
@@ -41,6 +49,7 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
       if (response.ok) {
         const data = await response.json();
         setLogs(data.logs || []);
+        setFavorites(data.favorites || []);
       }
     } catch (error) {
       console.error('Failed to fetch download logs:', error);
@@ -61,14 +70,33 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
 
   const filteredLogs = getFilteredLogs();
 
+  const getFilteredFavorites = () => {
+    if (dateFilter === 'all') return favorites;
+    
+    const now = new Date();
+    const daysAgo = dateFilter === '7d' ? 7 : 30;
+    const filterDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+    
+    return favorites.filter(fav => new Date(fav.favorite_date) >= filterDate);
+  };
+
+  const filteredFavorites = getFilteredFavorites();
+
   const getTimelineData = () => {
     const grouped = filteredLogs.reduce((acc, log) => {
       const date = new Date(log.downloaded_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-      if (!acc[date]) acc[date] = { date, archives: 0, photos: 0 };
+      if (!acc[date]) acc[date] = { date, archives: 0, photos: 0, favorites: 0 };
       if (log.download_type === 'archive') acc[date].archives++;
       else acc[date].photos++;
       return acc;
-    }, {} as Record<string, { date: string; archives: number; photos: number }>);
+    }, {} as Record<string, { date: string; archives: number; photos: number; favorites: number }>);
+
+    // Добавляем избранное
+    filteredFavorites.forEach(fav => {
+      const date = new Date(fav.favorite_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+      if (!grouped[date]) grouped[date] = { date, archives: 0, photos: 0, favorites: 0 };
+      grouped[date].favorites += fav.photo_count;
+    });
 
     return Object.values(grouped).sort((a, b) => {
       const [dayA, monthA] = a.date.split('.').map(Number);
@@ -80,9 +108,11 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
   const getPieData = () => {
     const archives = filteredLogs.filter(l => l.download_type === 'archive').length;
     const photos = filteredLogs.filter(l => l.download_type === 'photo').length;
+    const favoritesCount = filteredFavorites.reduce((sum, fav) => sum + fav.photo_count, 0);
     return [
       { name: 'Архивы', value: archives, color: '#3b82f6' },
-      { name: 'Фото', value: photos, color: '#10b981' }
+      { name: 'Фото', value: photos, color: '#10b981' },
+      { name: 'Избранное', value: favoritesCount, color: '#f59e0b' }
     ];
   };
 
@@ -112,8 +142,29 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
     });
   };
 
+  const formatIP = (ipData: string) => {
+    if (!ipData) return '—';
+    
+    try {
+      // Пробуем распарсить JSON с геолокацией
+      const geo = JSON.parse(ipData);
+      if (geo.country) {
+        const parts = [];
+        if (geo.emoji) parts.push(geo.emoji);
+        if (geo.city) parts.push(geo.city);
+        if (geo.country) parts.push(geo.country);
+        return parts.join(' ');
+      }
+    } catch {
+      // Если не JSON - просто IP
+    }
+    
+    return ipData;
+  };
+
   const totalArchives = filteredLogs.filter(l => l.download_type === 'archive').length;
   const totalPhotos = filteredLogs.filter(l => l.download_type === 'photo').length;
+  const totalFavorites = filteredFavorites.reduce((sum, fav) => sum + fav.photo_count, 0);
 
   if (loading) {
     return (
@@ -136,7 +187,7 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Icon name="Archive" size={18} />
@@ -150,6 +201,13 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
             <span className="text-sm">Фото</span>
           </div>
           <div className="text-3xl font-bold text-emerald-500">{totalPhotos}</div>
+        </div>
+        <div className="p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <Icon name="Heart" size={18} />
+            <span className="text-sm">Избранное</span>
+          </div>
+          <div className="text-3xl font-bold text-amber-500">{totalFavorites}</div>
         </div>
         <div className="p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -233,6 +291,7 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
                 <Legend />
                 <Line type="monotone" dataKey="archives" stroke="#3b82f6" strokeWidth={2} name="Архивы" />
                 <Line type="monotone" dataKey="photos" stroke="#10b981" strokeWidth={2} name="Фото" />
+                <Line type="monotone" dataKey="favorites" stroke="#f59e0b" strokeWidth={2} name="Избранное" />
               </LineChart>
             )}
             {chartType === 'pie' && (
@@ -317,8 +376,8 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
                     <td className="p-3 text-sm max-w-xs truncate">
                       {log.folder_name || log.photo_name || '—'}
                     </td>
-                    <td className="p-3 text-sm text-muted-foreground font-mono">
-                      {log.client_ip || '—'}
+                    <td className="p-3 text-sm text-muted-foreground">
+                      {formatIP(log.client_ip)}
                     </td>
                     <td className="p-3 text-sm text-muted-foreground max-w-xs truncate" title={log.user_agent}>
                       {log.user_agent ? (

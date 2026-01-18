@@ -46,6 +46,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(dsn)
         cur = conn.cursor()
         
+        # Получаем логи скачиваний
         cur.execute(
             """
             SELECT 
@@ -84,6 +85,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'photo_name': row[8]
             })
         
+        # Получаем статистику избранного (по клиентам и дате)
+        cur.execute(
+            """
+            SELECT 
+                fp.client_id,
+                fc.full_name as client_name,
+                DATE(fp.added_at) as favorite_date,
+                COUNT(fp.id) as photo_count
+            FROM t_p28211681_photo_secure_web.favorite_photos fp
+            JOIN t_p28211681_photo_secure_web.photo_bank pb ON pb.id = fp.photo_id
+            LEFT JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = fp.client_id
+            WHERE pb.user_id = %s
+            GROUP BY fp.client_id, fc.full_name, DATE(fp.added_at), fp.added_at
+            ORDER BY fp.added_at DESC
+            LIMIT 1000
+            """,
+            (user_id,)
+        )
+        
+        favorite_rows = cur.fetchall()
+        
+        favorites = []
+        for row in favorite_rows:
+            favorites.append({
+                'client_id': row[0],
+                'client_name': row[1] or f'Клиент #{row[0]}',
+                'favorite_date': row[2].isoformat() if row[2] else None,
+                'photo_count': row[3]
+            })
+        
         cur.close()
         conn.close()
         
@@ -93,7 +124,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({'logs': logs}),
+            'body': json.dumps({
+                'logs': logs,
+                'favorites': favorites
+            }),
             'isBase64Encoded': False
         }
     
