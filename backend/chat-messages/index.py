@@ -279,7 +279,7 @@ def handler(event: dict, context) -> dict:
             sender_type = body.get('sender_type')
             images_base64 = body.get('images_base64', [])
             file_names = body.get('file_names', [])
-            print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}', flush=True)
+            print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}, images={len(images_base64)}, file_names={file_names}', flush=True)
             
             if not all([client_id, photographer_id, sender_type]):
                 return {
@@ -373,7 +373,9 @@ def handler(event: dict, context) -> dict:
                             photo_row = cur.fetchone()
                             if photo_row:
                                 thumbnail_url = photo_row[0] if photo_row[0] else photo_row[1]
-                                print(f'[CHAT] Found thumbnail in photobank: {thumbnail_url}')
+                                print(f'[CHAT] Found thumbnail in photobank: file={photo_row[2]}, thumbnail_url={thumbnail_url}', flush=True)
+                            else:
+                                print(f'[CHAT] No thumbnail found for base_name={base_name}', flush=True)
                         
                         # Если нашли миниатюру, используем её
                         if thumbnail_url:
