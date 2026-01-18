@@ -174,7 +174,7 @@ export function ShootingStyleSelector({ value, onChange }: ShootingStyleSelector
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="flex-1 justify-between">
-              <span className="truncate">
+              <span className="truncate dark:text-white">
                 {selectedStyle?.name || 'Выберите стиль съёмки'}
               </span>
               <GripVertical className="h-4 w-4 ml-2 shrink-0" />
