@@ -46,6 +46,7 @@ interface GalleryGridProps {
   onOpenMyFavorites?: () => void;
   onOpenChat?: () => void;
   unreadMessagesCount?: number;
+  onLogout?: () => void;
 }
 
 export default function GalleryGrid({ 
@@ -62,29 +63,30 @@ export default function GalleryGrid({
   onClientLogin,
   onOpenMyFavorites,
   onOpenChat,
-  unreadMessagesCount = 0
+  unreadMessagesCount = 0,
+  onLogout
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
-          <div className="flex flex-col gap-4">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col gap-3 sm:gap-4">
             <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{gallery.folder_name}</h1>
-              <p className="text-gray-600">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">{gallery.folder_name}</h1>
+              <p className="text-sm sm:text-base text-gray-600">
                 {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               {clientName ? (
                 <>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
                     <button
                       onClick={onOpenChat}
-                      className="relative flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                      className="relative flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs sm:text-sm touch-manipulation"
                     >
-                      <Icon name="MessageCircle" size={16} />
+                      <Icon name="MessageCircle" size={16} className="flex-shrink-0" />
                       <span className="hidden sm:inline">Написать фотографу</span>
                       <span className="sm:hidden">Написать</span>
                       {unreadMessagesCount > 0 && (
@@ -95,24 +97,31 @@ export default function GalleryGrid({
                     </button>
                     <button
                       onClick={onOpenMyFavorites}
-                      className="flex items-center justify-center gap-2 px-3 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
+                      className="flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation"
                     >
-                      <Icon name="Star" size={16} />
+                      <Icon name="Star" size={16} className="flex-shrink-0" />
                       <span className="hidden sm:inline">Мой список избранного</span>
                       <span className="sm:hidden">Избранное</span>
                     </button>
                   </div>
                   <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
-                    <Icon name="User" size={16} className="text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">{clientName}</span>
+                    <Icon name="User" size={16} className="text-gray-600 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm font-medium text-gray-900 truncate">{clientName}</span>
                   </div>
+                  <button
+                    onClick={onLogout}
+                    className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 active:bg-red-300 transition-colors text-xs sm:text-sm touch-manipulation"
+                  >
+                    <Icon name="LogOut" size={16} className="flex-shrink-0" />
+                    <span>Выход</span>
+                  </button>
                 </>
               ) : (
                 <button
                   onClick={onClientLogin}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 active:bg-blue-300 transition-colors text-xs sm:text-sm touch-manipulation"
                 >
-                  <Icon name="User" size={16} />
+                  <Icon name="User" size={16} className="flex-shrink-0" />
                   Войти
                 </button>
               )}
@@ -120,9 +129,9 @@ export default function GalleryGrid({
                 <button
                   onClick={onDownloadAll}
                   disabled={downloadingAll}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm touch-manipulation"
                 >
-                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={18} className={downloadingAll ? "animate-spin" : ""} />
+                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={18} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
                   <span className="hidden sm:inline">{downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}</span>
                   <span className="sm:hidden">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
                 </button>
@@ -131,12 +140,12 @@ export default function GalleryGrid({
           </div>
         </div>
 
-        <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
+        <div className="columns-2 sm:columns-2 md:columns-3 lg:columns-4 gap-2 sm:gap-3 md:gap-4">
           {gallery.photos.map((photo) => {
             return (
               <div
                 key={photo.id}
-                className="group relative bg-gray-100 rounded-lg overflow-hidden cursor-pointer break-inside-avoid mb-4"
+                className="group relative bg-gray-100 rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid mb-2 sm:mb-3 md:mb-4 touch-manipulation"
                 onClick={() => onPhotoClick(photo)}
               >
                 <img
@@ -197,13 +206,13 @@ export default function GalleryGrid({
                   
                   return watermarks;
                 })()}
-                <div className="absolute bottom-2 right-2 flex gap-2 z-10">
+                <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex gap-1.5 sm:gap-2 z-10">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddToFavorites(photo);
                     }}
-                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 hover:scale-110 transition-all shadow-lg group/btn"
+                    className="p-1.5 sm:p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
                     title="Добавить в избранное"
                   >
                     <Icon name="Star" size={16} className="text-yellow-500 group-hover/btn:text-white" />
@@ -214,7 +223,7 @@ export default function GalleryGrid({
                         e.stopPropagation();
                         onDownloadPhoto(photo);
                       }}
-                      className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-blue-500 hover:scale-110 transition-all shadow-lg group/btn"
+                      className="p-1.5 sm:p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
                       title="Скачать фото"
                     >
                       <Icon name="Download" size={16} className="text-gray-900 group-hover/btn:text-white" />

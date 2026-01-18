@@ -195,54 +195,54 @@ export default function MyFavoritesModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       <div 
-        className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col" 
+        className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" 
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center gap-3">
-            <Icon name="Star" size={24} className="text-yellow-500 fill-yellow-500" />
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Мой список избранного</h2>
-              <p className="text-sm text-gray-600 mt-1">{clientName}</p>
+        <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Icon name="Star" size={20} className="text-yellow-500 fill-yellow-500 flex-shrink-0 sm:w-6 sm:h-6" />
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Мой список избранного</h2>
+              <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1 truncate">{clientName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={onClose} className="p-1.5 sm:p-2 hover:bg-gray-100 active:bg-gray-200 rounded-full transition-colors touch-manipulation flex-shrink-0">
             <Icon name="X" size={20} className="text-gray-500" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex items-center justify-center py-8 sm:py-12">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : error ? (
-            <div className="text-center py-12">
-              <Icon name="AlertCircle" size={48} className="text-red-500 mx-auto mb-4" />
-              <p className="text-red-600">{error}</p>
-              <Button onClick={loadFavorites} className="mt-4">
+            <div className="text-center py-8 sm:py-12 px-4">
+              <Icon name="AlertCircle" size={40} className="text-red-500 mx-auto mb-3 sm:mb-4 sm:w-12 sm:h-12" />
+              <p className="text-red-600 text-sm sm:text-base">{error}</p>
+              <Button onClick={loadFavorites} className="mt-3 sm:mt-4 touch-manipulation">
                 Попробовать снова
               </Button>
             </div>
           ) : displayPhotos.length === 0 ? (
-            <div className="text-center py-12">
-              <Icon name="Star" size={64} className="text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">Вы ещё не добавили фото в избранное</p>
-              <p className="text-gray-400 text-sm mt-2">
+            <div className="text-center py-8 sm:py-12 px-4">
+              <Icon name="Star" size={48} className="text-gray-300 mx-auto mb-3 sm:mb-4 sm:w-16 sm:h-16" />
+              <p className="text-gray-500 text-base sm:text-lg">Вы ещё не добавили фото в избранное</p>
+              <p className="text-gray-400 text-xs sm:text-sm mt-2">
                 Нажмите на звёздочку на любом фото, чтобы добавить его сюда
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               {displayPhotos.map((photo) => (
                 <div
                   key={photo.id}
-                  className="relative group bg-gray-100 rounded-lg overflow-hidden cursor-pointer aspect-square"
+                  className="relative group bg-gray-100 rounded-md sm:rounded-lg overflow-hidden cursor-pointer aspect-square touch-manipulation"
                 >
                   <div 
-                    className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded max-w-[calc(100%-1rem)] truncate cursor-pointer hover:bg-black/70 transition-colors"
+                    className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 z-10 bg-black/60 backdrop-blur-sm text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded max-w-[calc(100%-1rem)] truncate cursor-pointer hover:bg-black/70 active:bg-black/80 transition-colors touch-manipulation"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigator.clipboard.writeText(photo.file_name);
@@ -260,7 +260,7 @@ export default function MyFavoritesModal({
                   <img
                     src={photo.thumbnail_url || photo.photo_url}
                     alt={photo.file_name}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105 active:scale-95"
                     onClick={() => {
                       setSelectedPhoto(photo);
                     }}
@@ -270,10 +270,10 @@ export default function MyFavoritesModal({
                       e.stopPropagation();
                       handleRemoveFromFavorites(photo.id);
                     }}
-                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-lg"
+                    className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 p-1.5 sm:p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 active:bg-red-700 shadow-lg touch-manipulation"
                     title="Удалить из избранного"
                   >
-                    <Icon name="Trash2" size={16} />
+                    <Icon name="Trash2" size={14} className="sm:w-4 sm:h-4" />
                   </button>
                   <button
                     onClick={async (e) => {
@@ -317,10 +317,10 @@ export default function MyFavoritesModal({
                         alert('Ошибка при скачивании фото');
                       }
                     }}
-                    className="absolute bottom-2 right-2 p-2 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 shadow-lg"
+                    className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 p-1.5 sm:p-2 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 active:bg-blue-700 shadow-lg touch-manipulation"
                     title="Скачать фото"
                   >
-                    <Icon name="Download" size={16} />
+                    <Icon name="Download" size={14} className="sm:w-4 sm:h-4" />
                   </button>
                 </div>
               ))}
@@ -328,10 +328,10 @@ export default function MyFavoritesModal({
           )}
         </div>
 
-        <div className="border-t p-4 bg-gray-50">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>Всего фото в избранном: {displayPhotos.length}</span>
-            <Button variant="outline" onClick={onClose}>
+        <div className="border-t p-3 sm:p-4 bg-gray-50">
+          <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600">
+            <span className="truncate mr-2">Всего фото в избранном: {displayPhotos.length}</span>
+            <Button variant="outline" onClick={onClose} className="touch-manipulation flex-shrink-0">
               Закрыть
             </Button>
           </div>

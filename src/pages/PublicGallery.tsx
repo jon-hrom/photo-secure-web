@@ -250,6 +250,15 @@ export default function PublicGallery() {
     setPhotoToAdd(null);
   };
 
+  const handleLogout = () => {
+    if (gallery) {
+      localStorage.removeItem(`client_${gallery.photographer_id}_${code}`);
+    }
+    setClientData(null);
+    setClientFavoritePhotoIds([]);
+    console.log('[CLIENT_LOGIN] Logged out');
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' Б';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
@@ -343,6 +352,7 @@ export default function PublicGallery() {
           onOpenMyFavorites={() => setIsMyFavoritesOpen(true)}
           onOpenChat={() => setIsChatOpen(true)}
           unreadMessagesCount={unreadCount}
+          onLogout={handleLogout}
         />
       )}
 
