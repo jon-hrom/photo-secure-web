@@ -62,7 +62,7 @@ const ShootingStyleFilterButton = ({ activeFilter, onFilterChange, clients }: Sh
           className={`rounded-full transition-all hover:scale-105 active:scale-95 ${
             hasActiveStyleFilter
               ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-md'
-              : 'bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 hover:from-purple-200 hover:via-pink-100 hover:to-rose-200 text-purple-700 hover:text-purple-800 border border-purple-200/50'
+              : 'bg-gradient-to-r from-purple-100 via-pink-50 to-rose-100 dark:from-purple-950 dark:via-pink-950 dark:to-rose-950 hover:from-purple-200 hover:via-pink-100 hover:to-rose-200 dark:hover:from-purple-900 dark:hover:via-pink-900 dark:hover:to-rose-900 text-purple-700 dark:text-purple-300 hover:text-purple-800 dark:hover:text-purple-200 border border-purple-200/50 dark:border-purple-800/50'
           }`}
         >
           <Icon name="Camera" size={20} className="mr-2" />
@@ -76,7 +76,7 @@ const ShootingStyleFilterButton = ({ activeFilter, onFilterChange, clients }: Sh
       <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Icon name="Camera" size={24} className="text-purple-600" />
+            <Icon name="Camera" size={24} className="text-purple-600 dark:text-purple-400" />
             Выберите стиль съёмки
           </DialogTitle>
           <DialogDescription>
@@ -98,8 +98,8 @@ const ShootingStyleFilterButton = ({ activeFilter, onFilterChange, clients }: Sh
                   key={style.id}
                   className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all group ${
                     isActive 
-                      ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300' 
-                      : 'border-transparent hover:border-purple-200'
+                      ? 'bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-950 dark:to-pink-950 border-purple-300 dark:border-purple-700' 
+                      : 'border-transparent hover:border-purple-200 dark:hover:border-purple-800'
                   } ${count === 0 ? 'opacity-50' : ''}`}
                 >
                   <div className="flex flex-col gap-1">
@@ -136,12 +136,12 @@ const ShootingStyleFilterButton = ({ activeFilter, onFilterChange, clients }: Sh
                     <Icon 
                       name="Camera" 
                       size={18} 
-                      className={isActive ? 'text-purple-600' : 'text-muted-foreground group-hover:text-primary'}
+                      className={isActive ? 'text-purple-600 dark:text-purple-400' : 'text-muted-foreground group-hover:text-primary'}
                     />
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className={`text-sm ${
-                          isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'
+                          isActive ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-700 dark:text-gray-300'
                         }`}>
                           {style.name}
                         </p>
