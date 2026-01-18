@@ -83,7 +83,8 @@ export default function ChatModal({
 
   const markAsRead = async () => {
     try {
-      await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?action=mark_read&client_id=${clientId}&photographer_id=${photographerId}`, {
+      const oppositeType = senderType === 'client' ? 'photographer' : 'client';
+      await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?action=mark_read&client_id=${clientId}&photographer_id=${photographerId}&sender_type=${oppositeType}`, {
         method: 'GET'
       });
     } catch (error) {
@@ -193,6 +194,7 @@ export default function ChatModal({
       
       const interval = setInterval(() => {
         loadMessages(true);
+        markAsRead();
       }, 3000);
       
       return () => clearInterval(interval);

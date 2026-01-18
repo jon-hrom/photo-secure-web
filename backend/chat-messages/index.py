@@ -45,11 +45,23 @@ def handler(event: dict, context) -> dict:
             
             # Обработка action=mark_read
             if action == 'mark_read':
-                cur.execute('''
-                    UPDATE t_p28211681_photo_secure_web.client_messages 
-                    SET is_read = TRUE
-                    WHERE client_id = %s AND photographer_id = %s AND sender_type = 'client'
-                ''', (client_id, photographer_id))
+                sender_param = params.get('sender_type')
+                
+                # Если указан sender_type, помечаем как прочитанные только сообщения от этого типа отправителя
+                if sender_param and sender_param in ['client', 'photographer']:
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.client_messages 
+                        SET is_read = TRUE
+                        WHERE client_id = %s AND photographer_id = %s AND sender_type = %s AND is_read = FALSE
+                    ''', (client_id, photographer_id, sender_param))
+                else:
+                    # По умолчанию помечаем сообщения от клиента (старая логика)
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.client_messages 
+                        SET is_read = TRUE
+                        WHERE client_id = %s AND photographer_id = %s AND sender_type = 'client' AND is_read = FALSE
+                    ''', (client_id, photographer_id))
+                
                 conn.commit()
                 cur.close()
                 conn.close()
