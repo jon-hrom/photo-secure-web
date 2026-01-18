@@ -9,6 +9,7 @@ import FavoritesModal from '@/components/gallery/FavoritesModal';
 import ClientLoginModal from '@/components/gallery/ClientLoginModal';
 import MyFavoritesModal from '@/components/gallery/MyFavoritesModal';
 import ChatModal from '@/components/gallery/ChatModal';
+import WelcomeModal from '@/components/gallery/WelcomeModal';
 import { useGalleryProtection } from './gallery/hooks/useGalleryProtection';
 import { useGalleryLoader } from './gallery/hooks/useGalleryLoader';
 import { usePhotoDownloader } from './gallery/hooks/usePhotoDownloader';
@@ -53,6 +54,7 @@ export default function PublicGallery() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showProgress, setShowProgress] = useState(true);
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
   const previousUnreadCount = useRef<number>(0);
 
   const {
@@ -93,10 +95,18 @@ export default function PublicGallery() {
   useEffect(() => {
     if (visiblePhotos.length > 0 && photosLoaded >= visiblePhotos.length) {
       setTimeout(() => setShowProgress(false), 500);
+      
+      // Показываем приветственное сообщение только если клиент не залогинен
+      if (!clientData && code) {
+        const welcomeShown = localStorage.getItem(`welcome_shown_${code}`);
+        if (!welcomeShown) {
+          setTimeout(() => setIsWelcomeModalOpen(true), 800);
+        }
+      }
     } else if (visiblePhotos.length > 0 && photosLoaded < visiblePhotos.length) {
       setShowProgress(true);
     }
-  }, [photosLoaded, visiblePhotos.length]);
+  }, [photosLoaded, visiblePhotos.length, clientData, code]);
 
   useEffect(() => {
     // Читаем настройки избранного из данных галереи (приходят с сервера)
@@ -248,6 +258,13 @@ export default function PublicGallery() {
     }
     
     setPhotoToAdd(null);
+  };
+
+  const handleCloseWelcomeModal = () => {
+    if (code) {
+      localStorage.setItem(`welcome_shown_${code}`, 'true');
+    }
+    setIsWelcomeModalOpen(false);
   };
 
   const handleLogout = () => {
@@ -465,6 +482,11 @@ export default function PublicGallery() {
           senderType="client"
         />
       )}
+
+      <WelcomeModal
+        isOpen={isWelcomeModalOpen}
+        onClose={handleCloseWelcomeModal}
+      />
     </>
   );
 }
