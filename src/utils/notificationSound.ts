@@ -33,12 +33,22 @@ const playNote = (
   oscillator.stop(startTime + duration);
 };
 
-export const playNotificationSound = () => {
+export const playNotificationSound = async () => {
   try {
     initAudio();
     
-    if (!audioContext) return;
+    if (!audioContext) {
+      console.log('[SOUND] AudioContext not initialized');
+      return;
+    }
 
+    // Возобновляем контекст если приостановлен (политика браузера)
+    if (audioContext.state === 'suspended') {
+      console.log('[SOUND] Resuming suspended AudioContext');
+      await audioContext.resume();
+    }
+
+    console.log('[SOUND] AudioContext state:', audioContext.state);
     const currentTime = audioContext.currentTime;
     
     // Приятная мелодия из 4 нот (C5 → E5 → G5 → C6)
@@ -49,11 +59,12 @@ export const playNotificationSound = () => {
       { freq: 1046.50, time: 0.36, duration: 0.25 },  // C6 (длиннее)
     ];
 
+    console.log('[SOUND] Playing melody...');
     melody.forEach(note => {
       playNote(note.freq, currentTime + note.time, note.duration);
     });
   } catch (error) {
-    console.error('Failed to play notification sound:', error);
+    console.error('[SOUND] Failed to play notification sound:', error);
   }
 };
 
