@@ -239,7 +239,7 @@ def handler(event: dict, context) -> dict:
             
             cur.execute(
                 """
-                SELECT id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw
+                SELECT id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw, is_video, content_type
                 FROM t_p28211681_photo_secure_web.photo_bank
                 WHERE folder_id = %s AND is_trashed = false
                   AND (is_raw = false OR (is_raw = true AND thumbnail_s3_key IS NOT NULL))
@@ -266,7 +266,7 @@ def handler(event: dict, context) -> dict:
             
             for photo in photos:
                 try:
-                    photo_id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw = photo
+                    photo_id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw, is_video, content_type = photo
                     
                     if is_raw and thumbnail_s3_key:
                         photo_url = yc_s3.generate_presigned_url(
@@ -297,6 +297,8 @@ def handler(event: dict, context) -> dict:
                         'width': width,
                         'height': height,
                         'file_size': file_size,
+                        'is_video': is_video,
+                        'content_type': content_type,
                         's3_key': s3_key
                     })
                     

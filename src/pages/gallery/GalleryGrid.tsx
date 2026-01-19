@@ -9,6 +9,8 @@ interface Photo {
   height?: number;
   file_size: number;
   s3_key?: string;
+  is_video?: boolean;
+  content_type?: string;
 }
 
 interface WatermarkSettings {
@@ -158,6 +160,13 @@ export default function GalleryGrid({
                   onLoad={() => onPhotoLoad?.()}
                   onError={() => onPhotoLoad?.()}
                 />
+                {photo.is_video && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                      <Icon name="Play" size={24} className="text-white sm:w-8 sm:h-8" />
+                    </div>
+                  </div>
+                )}
                 {gallery.watermark?.enabled && (() => {
                   const frequency = gallery.watermark.frequency || 50;
                   const count = Math.ceil((frequency / 10) * 10);

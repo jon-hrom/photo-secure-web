@@ -9,6 +9,8 @@ interface Photo {
   height?: number;
   file_size: number;
   s3_key?: string;
+  is_video?: boolean;
+  content_type?: string;
 }
 
 interface WatermarkSettings {

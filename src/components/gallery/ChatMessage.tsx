@@ -8,6 +8,7 @@ interface Message {
   is_read: boolean;
   is_delivered: boolean;
   image_url?: string;
+  video_url?: string;
 }
 
 interface ChatMessageProps {
@@ -49,7 +50,7 @@ export default function ChatMessage({
               : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
         }`}
       >
-        {message.image_url && (
+        {message.image_url && !message.video_url && (
           <img 
             src={message.image_url} 
             alt="Изображение" 
@@ -58,6 +59,18 @@ export default function ChatMessage({
             loading="lazy"
             style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
           />
+        )}
+        {message.video_url && (
+          <div className="relative mb-2">
+            <video 
+              src={message.video_url}
+              poster={message.image_url}
+              controls
+              playsInline
+              className="rounded-lg max-w-full"
+              style={{ maxHeight: '300px' }}
+            />
+          </div>
         )}
         {message.message && (
           <p className="whitespace-pre-wrap break-words">

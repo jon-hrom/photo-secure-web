@@ -238,7 +238,7 @@ def handler(event: dict, context) -> dict:
             
             cur.execute('''
                 SELECT id, client_id, photographer_id, content as message, 
-                       sender_type, is_read, created_at, image_url, is_delivered
+                       sender_type, is_read, created_at, image_url, is_delivered, video_url
                 FROM t_p28211681_photo_secure_web.client_messages
                 WHERE client_id = %s AND photographer_id = %s
                 ORDER BY created_at ASC
@@ -255,7 +255,8 @@ def handler(event: dict, context) -> dict:
                     'is_read': row[5],
                     'created_at': row[6].isoformat() if row[6] else None,
                     'image_url': row[7],
-                    'is_delivered': row[8]
+                    'is_delivered': row[8],
+                    'video_url': row[9] if len(row) > 9 else None
                 })
             
             cur.close()
@@ -355,13 +356,13 @@ def handler(event: dict, context) -> dict:
                         # Проверяем, есть ли фото с таким именем в фотобанке
                         thumbnail_url = None
                         if original_file_name:
-                            # Убираем расширение и получаем базовое имя
-                            base_name = re.sub(r'\.(cr2|nef|arw|dng|raw|jpg|jpeg|png)$', '', original_file_name, flags=re.IGNORECASE)
+                            # Убираем расширение и получаем базовое имя (поддерживаем фото и видео)
+                            base_name = re.sub(r'\.(cr2|nef|arw|dng|raw|jpg|jpeg|png|mp4|mov|avi|mkv|webm)$', '', original_file_name, flags=re.IGNORECASE)
                             print(f'[CHAT] Searching for thumbnail with base name: {base_name}')
                             
                             # Ищем фото по имени файла (without extension)
                             cur.execute('''
-                                SELECT thumbnail_s3_url, s3_url, file_name
+                                SELECT thumbnail_s3_url, s3_url, file_name, is_video, content_type
                                 FROM t_p28211681_photo_secure_web.photo_bank
                                 WHERE user_id = %s 
                                   AND (file_name ILIKE %s OR file_name ILIKE %s OR file_name ILIKE %s)
@@ -372,14 +373,27 @@ def handler(event: dict, context) -> dict:
                             
                             photo_row = cur.fetchone()
                             if photo_row:
-                                thumbnail_url = photo_row[0] if photo_row[0] else photo_row[1]
-                                print(f'[CHAT] Found thumbnail in photobank: file={photo_row[2]}, thumbnail_url={thumbnail_url}', flush=True)
+                                is_video = photo_row[3] if len(photo_row) > 3 else False
+                                content_type = photo_row[4] if len(photo_row) > 4 else None
+                                
+                                if is_video:
+                                    # Для видео: thumbnail как image_url, s3_url как video_url
+                                    video_url = photo_row[1]  # s3_url
+                                    thumbnail_url = photo_row[0]  # thumbnail_s3_url
+                                    image_urls.append({'image_url': thumbnail_url, 'video_url': video_url})
+                                    print(f'[CHAT] Found VIDEO in photobank: file={photo_row[2]}, video_url={video_url}, thumbnail={thumbnail_url}', flush=True)
+                                else:
+                                    thumbnail_url = photo_row[0] if photo_row[0] else photo_row[1]
+                                    print(f'[CHAT] Found thumbnail in photobank: file={photo_row[2]}, thumbnail_url={thumbnail_url}', flush=True)
                             else:
                                 print(f'[CHAT] No thumbnail found for base_name={base_name}', flush=True)
                         
-                        # Если нашли миниатюру, используем её
+                        # Если нашли миниатюру или видео, используем её
                         if thumbnail_url:
-                            image_urls.append(thumbnail_url)
+                            if isinstance(thumbnail_url, dict):
+                                image_urls.append(thumbnail_url)  # Словарь с video_url
+                            else:
+                                image_urls.append(thumbnail_url)  # Обычный URL
                             print(f'[CHAT] Image {idx+1}: using photobank thumbnail')
                         else:
                             # Иначе загружаем как обычно
@@ -423,25 +437,31 @@ def handler(event: dict, context) -> dict:
             
             if message or not image_urls:
                 # Основное текстовое сообщение (или пустое если только текст без изображений)
-                first_image = image_urls[0] if image_urls else None
+                first_media = image_urls[0] if image_urls else None
+                first_image = first_media if first_media and not isinstance(first_media, dict) else (first_media.get('image_url') if isinstance(first_media, dict) else None)
+                first_video = first_media.get('video_url') if isinstance(first_media, dict) else None
+                
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url)
-                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s)
+                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url)
+                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s)
                     RETURNING id, created_at
-                ''', (client_id, photographer_id, message, sender_type, author_name, first_image))
+                ''', (client_id, photographer_id, message, sender_type, author_name, first_image, first_video))
                 result = cur.fetchone()
                 message_ids.append(result[0])
                 created_timestamps.append(result[1])
                 
                 # Остальные изображения как отдельные сообщения
-                for img_url in image_urls[1:]:
+                for media in image_urls[1:]:
+                    media_image = media if not isinstance(media, dict) else media.get('image_url')
+                    media_video = media.get('video_url') if isinstance(media, dict) else None
+                    
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                        (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url)
-                        VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s)
+                        (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url)
+                        VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s)
                         RETURNING id, created_at
-                    ''', (client_id, photographer_id, '', sender_type, author_name, img_url))
+                    ''', (client_id, photographer_id, '', sender_type, author_name, media_image, media_video))
                     result = cur.fetchone()
                     message_ids.append(result[0])
                     created_timestamps.append(result[1])

@@ -10,6 +10,7 @@ interface Message {
   is_read: boolean;
   is_delivered: boolean;
   image_url?: string;
+  video_url?: string;
 }
 
 interface ChatMessageListProps {

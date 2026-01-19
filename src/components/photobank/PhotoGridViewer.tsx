@@ -7,6 +7,7 @@ import { usePhotoGridGestures } from './PhotoGridGestureHandlers';
 import PhotoGridControls from './PhotoGridControls';
 import PhotoGridContextMenu from './PhotoGridContextMenu';
 import PhotoGridInfo from './PhotoGridInfo';
+import VideoPlayer from './VideoPlayer';
 
 interface Photo {
   id: number;
@@ -16,6 +17,8 @@ interface Photo {
   s3_key?: string;
   thumbnail_s3_url?: string;
   is_raw?: boolean;
+  is_video?: boolean;
+  content_type?: string;
   file_size: number;
   width: number | null;
   height: number | null;
@@ -69,6 +72,17 @@ const PhotoGridViewer = ({
   });
 
   if (!viewPhoto) return null;
+
+  if (viewPhoto.is_video) {
+    return (
+      <VideoPlayer
+        src={viewPhoto.s3_url || viewPhoto.data_url || ''}
+        poster={viewPhoto.thumbnail_s3_url}
+        onClose={onClose}
+        fileName={viewPhoto.file_name}
+      />
+    );
+  }
 
   return (
     <Dialog open={!!viewPhoto} onOpenChange={handleCloseDialog}>

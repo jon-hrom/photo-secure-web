@@ -24,6 +24,8 @@ interface Photo {
   height?: number;
   file_size: number;
   s3_key?: string;
+  is_video?: boolean;
+  content_type?: string;
 }
 
 interface FavoriteFolder {
@@ -382,6 +384,8 @@ export default function PublicGallery() {
             s3_key: selectedPhoto.s3_key || selectedPhoto.photo_url.split('/bucket/')[1] || selectedPhoto.photo_url.split('/').slice(-3).join('/'),
             thumbnail_s3_url: selectedPhoto.thumbnail_url,
             is_raw: false,
+            is_video: selectedPhoto.is_video,
+            content_type: selectedPhoto.content_type,
             file_size: selectedPhoto.file_size,
             width: selectedPhoto.width || null,
             height: selectedPhoto.height || null,
@@ -399,6 +403,8 @@ export default function PublicGallery() {
               s3_key: s3_key,
               thumbnail_s3_url: p.thumbnail_url,
               is_raw: false,
+              is_video: p.is_video,
+              content_type: p.content_type,
               file_size: p.file_size,
               width: p.width || null,
               height: p.height || null,
