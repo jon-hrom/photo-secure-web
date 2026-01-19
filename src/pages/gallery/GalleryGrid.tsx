@@ -142,6 +142,7 @@ export default function GalleryGrid({
             </div>
           </div>
         </div>
+        </div>
       </div>
       <div className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0">
         <div className="columns-2 sm:columns-2 md:columns-3 lg:columns-4 gap-2 sm:gap-3 md:gap-4">
