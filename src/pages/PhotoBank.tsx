@@ -106,7 +106,8 @@ const PhotoBank = () => {
     setSelectionMode,
     fetchFolders,
     fetchPhotos,
-    fetchStorageUsage
+    fetchStorageUsage,
+    storageUsage
   );
 
   const {
@@ -290,6 +291,7 @@ const PhotoBank = () => {
             onRestorePhoto={handleRestorePhoto}
             isAdminViewing={isAdminViewing}
             onRenameFolder={handleRenameFolder}
+            storageUsage={storageUsage}
           />
         )}
       </div>

@@ -18,6 +18,7 @@ interface PhotoGridHeaderProps {
   onCancelUpload: () => void;
   isAdminViewing?: boolean;
   onRenameFolder?: () => void;
+  storageUsage?: { usedGb: number; limitGb: number; percent: number };
 }
 
 const PhotoGridHeader = ({
@@ -27,8 +28,10 @@ const PhotoGridHeader = ({
   onUploadPhoto,
   onCancelUpload,
   isAdminViewing = false,
-  onRenameFolder
+  onRenameFolder,
+  storageUsage
 }: PhotoGridHeaderProps) => {
+  const isStorageFull = storageUsage && storageUsage.percent >= 100;
   return (
     <CardHeader>
       <div className="flex items-center justify-between">
@@ -56,12 +59,12 @@ const PhotoGridHeader = ({
               accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
               multiple
               onChange={onUploadPhoto}
-              disabled={uploading}
+              disabled={uploading || isStorageFull}
             />
-            <Button asChild disabled={uploading} size="sm">
-              <label htmlFor="photo-upload" className="cursor-pointer">
-                <Icon name="Upload" className="mr-2" size={16} />
-                {uploading ? 'Загрузка...' : 'Загрузить фото / видео'}
+            <Button asChild disabled={uploading || isStorageFull} size="sm" title={isStorageFull ? 'Хранилище заполнено. Перейдите на другой тариф' : ''}>
+              <label htmlFor="photo-upload" className={isStorageFull ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                <Icon name={isStorageFull ? 'Ban' : 'Upload'} className="mr-2" size={16} />
+                {isStorageFull ? 'Хранилище заполнено' : uploading ? 'Загрузка...' : 'Загрузить фото / видео'}
               </label>
             </Button>
           </div>

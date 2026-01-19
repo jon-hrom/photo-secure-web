@@ -43,7 +43,8 @@ export const usePhotoBankHandlers = (
   setSelectionMode: (mode: boolean) => void,
   fetchFolders: () => Promise<void>,
   fetchPhotos: (folderId: number) => Promise<void>,
-  fetchStorageUsage: () => Promise<void>
+  fetchStorageUsage: () => Promise<void>,
+  storageUsage: { usedGb: number; limitGb: number; percent: number }
 ) => {
   const { toast } = useToast();
 
@@ -92,6 +93,16 @@ export const usePhotoBankHandlers = (
   };
 
   const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (storageUsage.percent >= 100) {
+      toast({
+        title: 'Хранилище заполнено',
+        description: 'Объём хранилища заполнен на 100%. Перейдите на тариф с большим объёмом для продолжения загрузки.',
+        variant: 'destructive'
+      });
+      e.target.value = '';
+      return;
+    }
+
     if (!selectedFolder) {
       toast({
         title: 'Ошибка',
