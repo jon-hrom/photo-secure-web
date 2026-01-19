@@ -57,29 +57,6 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     previousUnreadCount
   } = params;
 
-  useEffect(() => {
-    if (gallery?.favorite_config) {
-      console.log('[FAVORITES] Loaded favorite config from server:', gallery.favorite_config);
-      setFavoriteFolder(gallery.favorite_config);
-    }
-    
-    if (gallery && !clientData) {
-      const savedClientData = localStorage.getItem(`client_${gallery.photographer_id}_${code}`);
-      if (savedClientData) {
-        try {
-          const parsed = JSON.parse(savedClientData);
-          console.log('[CLIENT_LOGIN] Auto-login from localStorage:', parsed);
-          setClientData(parsed);
-          if (parsed.client_id) {
-            loadClientFavorites(parsed.client_id);
-          }
-        } catch (error) {
-          console.error('[CLIENT_LOGIN] Error parsing saved client data:', error);
-        }
-      }
-    }
-  }, [gallery, clientData, code, setFavoriteFolder, setClientData, loadClientFavorites]);
-
   const loadClientFavorites = useCallback(async (clientId: number) => {
     try {
       const response = await fetch(
@@ -121,6 +98,29 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
       console.error('[CHAT] Error loading unread count:', error);
     }
   }, [clientData, gallery, isChatOpen, previousUnreadCount, setUnreadCount]);
+
+  useEffect(() => {
+    if (gallery?.favorite_config) {
+      console.log('[FAVORITES] Loaded favorite config from server:', gallery.favorite_config);
+      setFavoriteFolder(gallery.favorite_config);
+    }
+    
+    if (gallery && !clientData) {
+      const savedClientData = localStorage.getItem(`client_${gallery.photographer_id}_${code}`);
+      if (savedClientData) {
+        try {
+          const parsed = JSON.parse(savedClientData);
+          console.log('[CLIENT_LOGIN] Auto-login from localStorage:', parsed);
+          setClientData(parsed);
+          if (parsed.client_id) {
+            loadClientFavorites(parsed.client_id);
+          }
+        } catch (error) {
+          console.error('[CLIENT_LOGIN] Error parsing saved client data:', error);
+        }
+      }
+    }
+  }, [gallery, clientData, code, setFavoriteFolder, setClientData, loadClientFavorites]);
 
   useEffect(() => {
     if (clientData && gallery) {
