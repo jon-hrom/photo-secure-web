@@ -71,9 +71,10 @@ export default function GalleryGrid({
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 mb-4 sm:mb-6">
-          <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="sticky top-0 z-50 bg-white shadow-md md:static md:shadow-none">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4 md:py-8">
+          <div className="bg-white rounded-lg md:shadow-sm p-3 sm:p-4 md:p-6">
+            <div className="flex flex-col gap-3 sm:gap-4">
             <div className="flex-1">
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">{gallery.folder_name}</h1>
               <p className="text-sm sm:text-base text-gray-600">
@@ -141,7 +142,8 @@ export default function GalleryGrid({
             </div>
           </div>
         </div>
-
+      </div>
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0">
         <div className="columns-2 sm:columns-2 md:columns-3 lg:columns-4 gap-2 sm:gap-3 md:gap-4">
           {gallery.photos.map((photo) => {
             return (
@@ -150,16 +152,29 @@ export default function GalleryGrid({
                 className="group relative bg-gray-100 rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid mb-2 sm:mb-3 md:mb-4 touch-manipulation"
                 onClick={() => onPhotoClick(photo)}
               >
-                <img
-                  src={photo.thumbnail_url || photo.photo_url}
-                  alt={photo.file_name}
-                  className="w-full h-auto transition-transform group-hover:scale-105"
-                  loading="lazy"
-                  onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
-                  draggable={false}
-                  onLoad={() => onPhotoLoad?.()}
-                  onError={() => onPhotoLoad?.()}
-                />
+                {photo.is_video ? (
+                  <video
+                    src={`${photo.photo_url}#t=0.1`}
+                    className="w-full h-auto transition-transform group-hover:scale-105"
+                    preload="metadata"
+                    onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
+                    onLoadedData={() => onPhotoLoad?.()}
+                    onError={() => onPhotoLoad?.()}
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={photo.thumbnail_url || photo.photo_url}
+                    alt={photo.file_name}
+                    className="w-full h-auto transition-transform group-hover:scale-105"
+                    loading="lazy"
+                    onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
+                    draggable={false}
+                    onLoad={() => onPhotoLoad?.()}
+                    onError={() => onPhotoLoad?.()}
+                  />
+                )}
                 {photo.is_video && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
