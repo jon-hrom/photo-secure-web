@@ -161,17 +161,16 @@ export const usePhotoBankHandlers = (
       // Продолжаем без проверки дубликатов
     }
 
-    // Check file size limit (50 MB for images, 100 MB for videos)
+    // Check file size limit (50 MB for images, no limit for videos)
     const MAX_FILE_SIZE = 50 * 1024 * 1024;
-    const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
     const tooLargeFiles = mediaFiles.filter(file => {
-      const maxSize = file.type.startsWith('video/') ? MAX_VIDEO_SIZE : MAX_FILE_SIZE;
-      return file.size > maxSize;
+      const isVideo = file.type.startsWith('video/');
+      return !isVideo && file.size > MAX_FILE_SIZE;
     });
     if (tooLargeFiles.length > 0) {
       toast({
         title: 'Файлы слишком большие',
-        description: `Макс. размер: 50 МБ (фото), 100 МБ (видео). Файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
+        description: `Макс. размер для фото: 50 МБ. Файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
         variant: 'destructive'
       });
       return;
