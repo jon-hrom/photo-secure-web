@@ -27,6 +27,7 @@ interface MyFavoritesModalProps {
   galleryPhotos: Photo[];
   onPhotoClick?: (photo: Photo) => void;
   onPhotoRemoved?: (photoId: number) => void;
+  downloadDisabled?: boolean;
 }
 
 export default function MyFavoritesModal({ 
@@ -36,7 +37,8 @@ export default function MyFavoritesModal({
   clientName,
   galleryPhotos,
   onPhotoClick,
-  onPhotoRemoved
+  onPhotoRemoved,
+  downloadDisabled = false
 }: MyFavoritesModalProps) {
   const [favoritePhotos, setFavoritePhotos] = useState<FavoritePhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -147,6 +149,7 @@ export default function MyFavoritesModal({
         photos={viewerPhotos}
         onClose={() => setSelectedPhoto(null)}
         onNavigate={handleNavigate}
+        downloadDisabled={downloadDisabled}
         onDownload={async (s3Key, fileName) => {
           try {
             const isLargeFile = fileName.toUpperCase().endsWith('.CR2') || 

@@ -32,6 +32,7 @@ interface PhotoGridViewerProps {
   onNavigate: (direction: 'prev' | 'next') => void;
   onDownload: (s3Key: string, fileName: string, userId: number) => Promise<void>;
   formatBytes: (bytes: number) => string;
+  downloadDisabled?: boolean;
 }
 
 const PhotoGridViewer = ({
@@ -40,7 +41,8 @@ const PhotoGridViewer = ({
   onClose,
   onNavigate,
   onDownload,
-  formatBytes
+  formatBytes,
+  downloadDisabled = false
 }: PhotoGridViewerProps) => {
   const [showExif, setShowExif] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
@@ -80,6 +82,7 @@ const PhotoGridViewer = ({
         poster={viewPhoto.thumbnail_s3_url}
         onClose={onClose}
         fileName={viewPhoto.file_name}
+        downloadDisabled={downloadDisabled}
       />
     );
   }
@@ -111,6 +114,7 @@ const PhotoGridViewer = ({
               setShowCopied(true);
               setTimeout(() => setShowCopied(false), 2000);
             }}
+            downloadDisabled={downloadDisabled}
           />
 
           {/* Область с изображением */}

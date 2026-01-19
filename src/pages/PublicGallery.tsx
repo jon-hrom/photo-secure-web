@@ -423,6 +423,7 @@ export default function PublicGallery() {
             }
           }}
           formatBytes={formatFileSize}
+          downloadDisabled={gallery.download_disabled}
         />
       )}
 
@@ -473,6 +474,7 @@ export default function PublicGallery() {
           onPhotoRemoved={(photoId) => {
             setClientFavoritePhotoIds(prev => prev.filter(id => id !== photoId));
           }}
+          downloadDisabled={gallery.download_disabled}
         />
       )}
 

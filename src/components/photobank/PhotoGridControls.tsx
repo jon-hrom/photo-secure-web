@@ -26,6 +26,7 @@ interface PhotoGridControlsProps {
   onDownload: (s3Key: string, fileName: string, userId: number) => Promise<void>;
   onShowExif: () => void;
   onCopyFileName?: () => void;
+  downloadDisabled?: boolean;
 }
 
 const PhotoGridControls = ({
@@ -38,7 +39,8 @@ const PhotoGridControls = ({
   onResetZoom,
   onDownload,
   onShowExif,
-  onCopyFileName
+  onCopyFileName,
+  downloadDisabled = false
 }: PhotoGridControlsProps) => {
   const currentPhotoIndex = photos.findIndex(p => p.id === viewPhoto.id);
   const hasPrev = currentPhotoIndex > 0;
@@ -67,21 +69,23 @@ const PhotoGridControls = ({
                 <span className="text-xs font-bold text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded">HD</span>
               )}
             </div>
-            <button
-              onClick={async () => {
-                if (viewPhoto.s3_key) {
-                  const userIdStr = getAuthUserId();
-                  const userId = userIdStr ? parseInt(userIdStr, 10) : 0;
-                  if (userId) {
-                    await onDownload(viewPhoto.s3_key, viewPhoto.file_name, userId);
+            {!downloadDisabled && (
+              <button
+                onClick={async () => {
+                  if (viewPhoto.s3_key) {
+                    const userIdStr = getAuthUserId();
+                    const userId = userIdStr ? parseInt(userIdStr, 10) : 0;
+                    if (userId) {
+                      await onDownload(viewPhoto.s3_key, viewPhoto.file_name, userId);
+                    }
                   }
-                }
-              }}
-              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-              title="Скачать фото"
-            >
-              <Icon name="Download" size={20} className="text-white" />
-            </button>
+                }}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                title="Скачать фото"
+              >
+                <Icon name="Download" size={20} className="text-white" />
+              </button>
+            )}
             <button
               onClick={onShowExif}
               className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"

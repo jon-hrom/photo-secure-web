@@ -11,9 +11,10 @@ interface VideoPlayerProps {
   poster?: string;
   onClose?: () => void;
   fileName?: string;
+  downloadDisabled?: boolean;
 }
 
-export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPlayerProps) {
+export default function VideoPlayer({ src, poster, onClose, fileName, downloadDisabled = false }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -158,15 +159,17 @@ export default function VideoPlayer({ src, poster, onClose, fileName }: VideoPla
           </h3>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleDownload}
-            className="text-white hover:bg-white/10"
-            title="Скачать"
-          >
-            <Icon name="Download" size={20} />
-          </Button>
+          {!downloadDisabled && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDownload}
+              className="text-white hover:bg-white/10"
+              title="Скачать"
+            >
+              <Icon name="Download" size={20} />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
