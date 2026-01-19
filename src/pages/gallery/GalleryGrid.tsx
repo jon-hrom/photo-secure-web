@@ -160,8 +160,8 @@ export default function GalleryGrid({
                     onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
                     onLoadedData={() => onPhotoLoad?.()}
                     onError={() => onPhotoLoad?.()}
-                    muted
-                    playsInline
+                    muted={true}
+                    playsInline={true}
                   />
                 ) : (
                   <img
