@@ -133,7 +133,11 @@ export default function ChatModal({
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       
-      if (file.size > 50 * 1024 * 1024) {
+      // Проверяем тип файла - для видео нет ограничений, для фото - 50 МБ
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo ? Infinity : 50 * 1024 * 1024;
+      
+      if (file.size > maxSize) {
         alert(`Файл ${file.name} слишком большой. Максимальный размер: 50 МБ`);
         continue;
       }

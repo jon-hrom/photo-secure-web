@@ -37,28 +37,40 @@ export default function ChatInput({
     }>
       {selectedImages.length > 0 && (
         <div className="mb-2 flex gap-2 flex-wrap">
-          {selectedImages.map((img, index) => (
-            <div key={index} className="relative inline-block">
-              <img src={img.dataUrl} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
-              <button
-                onClick={() => onImageRemove(index)}
-                type="button"
-                className={isEmbedded
-                  ? "absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:opacity-90 touch-manipulation"
-                  : "absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 touch-manipulation"
-                }
-              >
-                <Icon name="X" size={14} />
-              </button>
-            </div>
-          ))}
+          {selectedImages.map((img, index) => {
+            const isVideo = img.dataUrl.startsWith('data:video/');
+            return (
+              <div key={index} className="relative inline-block">
+                {isVideo ? (
+                  <div className="relative h-20 w-20 bg-black rounded-lg flex items-center justify-center">
+                    <Icon name="Video" size={32} className="text-white" />
+                    <div className="absolute bottom-1 left-1 right-1">
+                      <p className="text-white text-[10px] truncate bg-black/50 px-1 rounded">{img.fileName}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <img src={img.dataUrl} alt={`Preview ${index + 1}`} className="h-20 w-20 object-cover rounded-lg" />
+                )}
+                <button
+                  onClick={() => onImageRemove(index)}
+                  type="button"
+                  className={isEmbedded
+                    ? "absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:opacity-90 touch-manipulation"
+                    : "absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 touch-manipulation"
+                  }
+                >
+                  <Icon name="X" size={14} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
       <div className="flex gap-2">
         <input
           type="file"
           ref={fileInputRef}
-          accept="image/*,.zip,.rar,.7z"
+          accept="image/*,video/*,.zip,.rar,.7z"
           multiple
           onChange={onImageSelect}
           className="hidden"
@@ -72,7 +84,7 @@ export default function ChatInput({
             ? "p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50 touch-manipulation"
             : "p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 touch-manipulation"
           }
-          title="Прикрепить фото или архив"
+          title="Прикрепить фото, видео или архив"
         >
           <Icon 
             name="Paperclip" 
