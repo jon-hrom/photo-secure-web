@@ -89,7 +89,7 @@ export default function PublicGallery() {
     } else if (visiblePhotos.length > 0 && photosLoaded < visiblePhotos.length) {
       state.setShowProgress(true);
     }
-  }, [photosLoaded, visiblePhotos.length, state.clientData, code]);
+  }, [photosLoaded, visiblePhotos.length, state.clientData, code, state.setShowProgress, state.setIsWelcomeModalOpen]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Б';

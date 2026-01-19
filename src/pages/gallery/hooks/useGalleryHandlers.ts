@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { playNotificationSound } from '@/utils/notificationSound';
 
 interface Photo {
@@ -78,9 +78,9 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
         }
       }
     }
-  }, [gallery]);
+  }, [gallery, clientData, code, setFavoriteFolder, setClientData, loadClientFavorites]);
 
-  const loadClientFavorites = async (clientId: number) => {
+  const loadClientFavorites = useCallback(async (clientId: number) => {
     try {
       const response = await fetch(
         `https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?client_id=${clientId}`
@@ -95,9 +95,9 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     } catch (error) {
       console.error('[FAVORITES] Error loading client favorites:', error);
     }
-  };
+  }, [setClientFavoritePhotoIds]);
 
-  const loadUnreadCount = async () => {
+  const loadUnreadCount = useCallback(async () => {
     if (!clientData || !gallery) return;
     
     try {
@@ -120,7 +120,7 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     } catch (error) {
       console.error('[CHAT] Error loading unread count:', error);
     }
-  };
+  }, [clientData, gallery, isChatOpen, previousUnreadCount, setUnreadCount]);
 
   useEffect(() => {
     if (clientData && gallery) {
@@ -128,7 +128,7 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
       const interval = setInterval(loadUnreadCount, 5000);
       return () => clearInterval(interval);
     }
-  }, [clientData, gallery]);
+  }, [clientData, gallery, loadUnreadCount]);
 
   const handleAddToFavorites = async (photo: Photo) => {
     if (!favoriteFolder) {
