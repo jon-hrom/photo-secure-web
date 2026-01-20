@@ -37,6 +37,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
   const [balance] = useState(0);
 
   const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0, plan_name: 'Старт', plan_id: 1 });
+  const [photoBankStats, setPhotoBankStats] = useState({ filled: 0, total: 0, percent: 0 });
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
@@ -132,6 +133,41 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
     
     fetchStorageUsage();
     const interval = setInterval(fetchStorageUsage, 30000);
+    return () => clearInterval(interval);
+  }, [propUserId]);
+
+  useEffect(() => {
+    const fetchPhotoBankStats = async () => {
+      const userId = propUserId || localStorage.getItem('userId');
+      if (!userId) {
+        setPhotoBankStats({ filled: 0, total: 0, percent: 0 });
+        return;
+      }
+      
+      try {
+        const res = await fetch('https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985?action=stats', {
+          headers: { 'X-User-Id': userId }
+        });
+        
+        if (!res.ok) {
+          setPhotoBankStats({ filled: 0, total: 0, percent: 0 });
+          return;
+        }
+        
+        const data = await res.json();
+        const filled = data.filled_categories || 0;
+        const total = data.total_categories || 0;
+        const percent = total > 0 ? (filled / total) * 100 : 0;
+        
+        setPhotoBankStats({ filled, total, percent });
+      } catch (error) {
+        console.error('[PHOTOBANK] Failed to fetch stats:', error);
+        setPhotoBankStats({ filled: 0, total: 0, percent: 0 });
+      }
+    };
+    
+    fetchPhotoBankStats();
+    const interval = setInterval(fetchPhotoBankStats, 30000);
     return () => clearInterval(interval);
   }, [propUserId]);
 
@@ -314,13 +350,25 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                   {(storageUsage.percent || 0).toFixed(1)}%
                 </Badge>
               </div>
-              <Progress 
-                value={storageUsage.percent || 0} 
-                className="h-2 sm:h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
-              />
-              <div className="flex justify-between text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground dark:text-gray-300">
-                <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ</span>
-                <span>{Math.floor(storageUsage.limitGb || 5)} ГБ</span>
+              <div className="space-y-1.5 sm:space-y-2">
+                <div className="flex justify-between text-[10px] sm:text-xs font-medium text-muted-foreground dark:text-gray-400">
+                  <span>Хранилище</span>
+                  <span>{(storageUsage.usedGb || 0).toFixed(2)} / {Math.floor(storageUsage.limitGb || 5)} ГБ</span>
+                </div>
+                <Progress 
+                  value={storageUsage.percent || 0} 
+                  className="h-2 sm:h-2.5 md:h-3 transition-all duration-500 ease-out shadow-inner"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <div className="flex justify-between text-[10px] sm:text-xs font-medium text-muted-foreground dark:text-gray-400">
+                  <span>Заполнено категорий</span>
+                  <span>{photoBankStats.filled} / {photoBankStats.total}</span>
+                </div>
+                <Progress 
+                  value={photoBankStats.percent || 0} 
+                  className="h-2 sm:h-2.5 md:h-3 transition-all duration-500 ease-out shadow-inner"
+                />
               </div>
             </div>
           </CardContent>
