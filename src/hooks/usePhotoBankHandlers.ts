@@ -96,8 +96,9 @@ export const usePhotoBankHandlers = (
     if (storageUsage.percent >= 100) {
       toast({
         title: 'Хранилище заполнено',
-        description: 'Объём хранилища заполнен на 100%. Перейдите на тариф с большим объёмом для продолжения загрузки.',
-        variant: 'destructive'
+        description: 'Объём хранилища заполнен на 100%. Перейдите в Главная → Тарифы для смены тарифного плана.',
+        variant: 'destructive',
+        duration: 8000
       });
       e.target.value = '';
       return;
