@@ -101,8 +101,8 @@ const StorageWarning = () => {
           Рекомендуем перейти на «{nextPlan.plan_name}»
         </AlertTitle>
         <AlertDescription className="text-blue-700">
-          Вы использовали {(usage.percent || 0).toFixed(1)}% хранилища ({(usage.usedGb || 0).toFixed(2)} ГБ из {(usage.limitGb || 5).toFixed(0)} ГБ). 
-          Тариф «{nextPlan.plan_name}» даст вам {nextPlan.quota_gb} ГБ за {nextPlan.price_rub} ₽/мес.
+          Вы использовали {(usage.percent || 0).toFixed(1)}% хранилища ({(usage.usedGb || 0).toFixed(2)} ГБ из {Math.floor(usage.limitGb || 5)} ГБ). 
+          Тариф «{nextPlan.plan_name}» даст вам {Math.floor(nextPlan.quota_gb)} ГБ за {Math.floor(nextPlan.price_rub)} ₽/мес.
           <div className="mt-3 flex gap-2">
             <Button size="sm" variant="default">
               Перейти на {nextPlan.plan_name}
@@ -132,7 +132,7 @@ const StorageWarning = () => {
         Хранилище заканчивается
       </AlertTitle>
       <AlertDescription className="text-orange-700">
-        Использовано {(usage.usedGb || 0).toFixed(2)} ГБ из {(usage.limitGb || 5).toFixed(0)} ГБ ({(usage.percent || 0).toFixed(1)}%).
+        Использовано {(usage.usedGb || 0).toFixed(2)} ГБ из {Math.floor(usage.limitGb || 5)} ГБ ({(usage.percent || 0).toFixed(1)}%).
         Осталось только {(usage.remainingGb || 0).toFixed(2)} ГБ свободного места.
         <div className="mt-3 text-sm">
           Обратитесь к администратору для увеличения лимита хранилища.

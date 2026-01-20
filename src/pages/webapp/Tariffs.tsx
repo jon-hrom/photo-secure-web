@@ -100,8 +100,8 @@ const Tariffs = () => {
   const getPlanFeatures = (plan: Plan): string[] => {
     const features: string[] = [];
     
-    features.push(`${plan.max_clients} ${plan.max_clients === 1 ? 'клиент' : plan.max_clients < 5 ? 'клиента' : 'клиентов'}`);
-    features.push(`${plan.quota_gb} ГБ хранилища`);
+    features.push(`${Math.floor(plan.max_clients)} ${plan.max_clients === 1 ? 'клиент' : plan.max_clients < 5 ? 'клиента' : 'клиентов'}`);
+    features.push(`${Math.floor(plan.quota_gb)} ГБ хранилища`);
     
     if (plan.stats_enabled) {
       features.push('Статистика и аналитика');
@@ -190,7 +190,7 @@ const Tariffs = () => {
                       
                       <div className="mt-6">
                         <div className="text-4xl font-bold text-gray-900 dark:text-white">
-                          {plan.price_rub === 0 ? 'Бесплатно' : `${plan.price_rub} ₽`}
+                          {plan.price_rub === 0 ? 'Бесплатно' : `${Math.floor(plan.price_rub)} ₽`}
                         </div>
                         {plan.price_rub > 0 && (
                           <div className="text-gray-600 dark:text-gray-400">в месяц</div>
@@ -251,11 +251,11 @@ const Tariffs = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Квота:</span>
-                    <span>{selectedPlan.quota_gb} ГБ</span>
+                    <span>{Math.floor(selectedPlan.quota_gb)} ГБ</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Макс. клиентов:</span>
-                    <span>{selectedPlan.max_clients}</span>
+                    <span>{Math.floor(selectedPlan.max_clients)}</span>
                   </div>
                 </div>
 
@@ -280,7 +280,7 @@ const Tariffs = () => {
                 <div className="p-4 border rounded-lg space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Стоимость тарифа:</span>
-                    <span>{selectedPlan.price_rub} ₽</span>
+                    <span>{Math.floor(selectedPlan.price_rub)} ₽</span>
                   </div>
                   
                   {promoDiscount > 0 && (
@@ -298,7 +298,7 @@ const Tariffs = () => {
                   
                   <div className="pt-3 border-t flex justify-between items-center">
                     <span className="font-bold">Итого к оплате:</span>
-                    <span className="text-2xl font-bold text-primary">{promoFinalPrice} ₽</span>
+                    <span className="text-2xl font-bold text-primary">{Math.floor(promoFinalPrice)} ₽</span>
                   </div>
                   
                   {promoDuration > 1 && (

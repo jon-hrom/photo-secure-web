@@ -320,7 +320,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
               />
               <div className="flex justify-between text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground dark:text-gray-300">
                 <span>{(storageUsage.usedGb || 0).toFixed(2)} ГБ</span>
-                <span>{(storageUsage.limitGb || 5).toFixed(0)} ГБ</span>
+                <span>{Math.floor(storageUsage.limitGb || 5)} ГБ</span>
               </div>
             </div>
           </CardContent>

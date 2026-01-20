@@ -100,8 +100,8 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
   const getPlanFeatures = (plan: Plan): string[] => {
     const features: string[] = [];
     
-    features.push(`${plan.max_clients} ${plan.max_clients === 1 ? 'клиент' : 'клиентов'}`);
-    features.push(`${plan.quota_gb} GB хранилища`);
+    features.push(`${Math.floor(plan.max_clients)} ${plan.max_clients === 1 ? 'клиент' : 'клиентов'}`);
+    features.push(`${Math.floor(plan.quota_gb)} GB хранилища`);
     
     if (plan.stats_enabled) {
       features.push('Статистика и аналитика');
@@ -170,7 +170,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
                   <CardDescription>{plan.description}</CardDescription>
                   <div className="mt-4">
                     <span className="text-4xl font-bold">
-                      {plan.price_rub === 0 ? 'Бесплатно' : `${plan.price_rub} ₽`}
+                      {plan.price_rub === 0 ? 'Бесплатно' : `${Math.floor(plan.price_rub)} ₽`}
                     </span>
                     {plan.price_rub > 0 && (
                       <span className="text-muted-foreground ml-2">/ месяц</span>
@@ -220,11 +220,11 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Квота:</span>
-                    <span>{selectedPlan.quota_gb} GB</span>
+                    <span>{Math.floor(selectedPlan.quota_gb)} GB</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Макс. клиентов:</span>
-                    <span>{selectedPlan.max_clients}</span>
+                    <span>{Math.floor(selectedPlan.max_clients)}</span>
                   </div>
                 </div>
 
@@ -251,7 +251,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
                     <div className="flex justify-between items-center text-lg">
                       <span className="font-semibold">Итого:</span>
                       <span className="text-2xl font-bold">
-                        {selectedPlan.price_rub} ₽
+                        {Math.floor(selectedPlan.price_rub)} ₽
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">

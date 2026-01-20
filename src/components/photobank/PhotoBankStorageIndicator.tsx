@@ -83,7 +83,7 @@ const PhotoBankStorageIndicator = ({ storageUsage, onStorageFull }: PhotoBankSto
           
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>{storageUsage.usedGb.toFixed(2)} ГБ использовано</span>
-            <span>{storageUsage.limitGb.toFixed(0)} ГБ доступно</span>
+            <span>{Math.floor(storageUsage.limitGb)} ГБ доступно</span>
           </div>
 
           {storageUsage.percent >= 100 && (
