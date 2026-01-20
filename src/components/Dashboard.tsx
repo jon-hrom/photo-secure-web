@@ -358,6 +358,13 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                 <Progress 
                   value={storageUsage.percent || 0} 
                   className="h-2 sm:h-2.5 md:h-3 transition-all duration-500 ease-out shadow-inner"
+                  indicatorColor={
+                    storageUsage.percent >= 90 
+                      ? 'bg-destructive' 
+                      : storageUsage.percent >= 70 
+                        ? 'bg-orange-500' 
+                        : 'bg-primary'
+                  }
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
@@ -368,6 +375,13 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                 <Progress 
                   value={photoBankStats.percent || 0} 
                   className="h-2 sm:h-2.5 md:h-3 transition-all duration-500 ease-out shadow-inner"
+                  indicatorColor={
+                    photoBankStats.percent >= 90 
+                      ? 'bg-green-500' 
+                      : photoBankStats.percent >= 50 
+                        ? 'bg-blue-500' 
+                        : 'bg-gray-400'
+                  }
                 />
               </div>
             </div>
