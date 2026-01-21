@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface DownloadLog {
@@ -22,6 +23,12 @@ interface FavoriteStats {
   photo_count: number;
 }
 
+interface Folder {
+  id: number;
+  folder_name: string;
+  created_at: string;
+}
+
 interface DownloadStatsProps {
   userId: number;
 }
@@ -29,13 +36,30 @@ interface DownloadStatsProps {
 const DownloadStats = ({ userId }: DownloadStatsProps) => {
   const [logs, setLogs] = useState<DownloadLog[]>([]);
   const [favorites, setFavorites] = useState<FavoriteStats[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState<'line' | 'pie' | 'bar'>('line');
   const [dateFilter, setDateFilter] = useState<'7d' | '30d' | 'all'>('30d');
+  const [selectedFolder, setSelectedFolder] = useState<string>('all');
 
   useEffect(() => {
     fetchDownloadLogs();
+    fetchFolders();
   }, [userId]);
+
+  const fetchFolders = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985?action=list', {
+        headers: { 'X-User-Id': userId.toString() }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setFolders(data.folders || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch folders:', error);
+    }
+  };
 
   const fetchDownloadLogs = async () => {
     setLoading(true);
@@ -59,13 +83,20 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
   };
 
   const getFilteredLogs = () => {
-    if (dateFilter === 'all') return logs;
+    let filtered = logs;
+    
+    if (selectedFolder !== 'all') {
+      const folderId = parseInt(selectedFolder);
+      filtered = filtered.filter(log => log.folder_id === folderId);
+    }
+    
+    if (dateFilter === 'all') return filtered;
     
     const now = new Date();
     const daysAgo = dateFilter === '7d' ? 7 : 30;
     const filterDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
     
-    return logs.filter(log => new Date(log.downloaded_at) >= filterDate);
+    return filtered.filter(log => new Date(log.downloaded_at) >= filterDate);
   };
 
   const filteredLogs = getFilteredLogs();
@@ -218,8 +249,8 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 border-b pb-4">
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b pb-4">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant={dateFilter === '7d' ? 'default' : 'outline'}
             size="sm"
@@ -242,6 +273,24 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
             Всё время
           </Button>
         </div>
+        
+        <div className="flex items-center gap-2">
+          <Icon name="Folder" size={16} className="text-muted-foreground" />
+          <Select value={selectedFolder} onValueChange={setSelectedFolder}>
+            <SelectTrigger className="w-[200px] h-9">
+              <SelectValue placeholder="Все папки" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все папки</SelectItem>
+              {folders.map(folder => (
+                <SelectItem key={folder.id} value={folder.id.toString()}>
+                  {folder.folder_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex gap-2 ml-auto">
           <Button
             variant={chartType === 'line' ? 'default' : 'outline'}
