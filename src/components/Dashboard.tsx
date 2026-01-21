@@ -317,14 +317,14 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
                 </Badge>
               </div>
               <Progress 
-                value={storageUsage.percent || 0} 
+                value={Math.min(storageUsage.percent || 0, 100)} 
                 className="h-2 sm:h-3 md:h-4 transition-all duration-500 ease-out shadow-inner"
                 indicatorColor={
                   storageUsage.percent >= 90 
-                    ? 'bg-destructive' 
+                    ? 'bg-red-500' 
                     : storageUsage.percent >= 70 
                       ? 'bg-orange-500' 
-                      : 'bg-primary'
+                      : 'bg-blue-500'
                 }
               />
               <div className="flex justify-between text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground dark:text-gray-300">
