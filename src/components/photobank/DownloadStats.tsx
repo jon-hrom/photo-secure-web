@@ -54,7 +54,10 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
       });
       if (response.ok) {
         const data = await response.json();
-        setFolders(data.folders || []);
+        const filteredFolders = (data.folders || []).filter(
+          (folder: Folder) => folder.folder_name !== 'Технический брак'
+        );
+        setFolders(filteredFolders);
       }
     } catch (error) {
       console.error('Failed to fetch folders:', error);
