@@ -54,9 +54,11 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('📂 Folders loaded:', data.folders);
         const filteredFolders = (data.folders || []).filter(
           (folder: Folder) => folder.folder_name !== 'Технический брак'
         );
+        console.log('📂 Filtered folders:', filteredFolders);
         setFolders(filteredFolders);
       }
     } catch (error) {
@@ -211,44 +213,41 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Статистика скачиваний</h2>
-          <p className="text-muted-foreground">Детальная информация о загрузках клиентами</p>
-        </div>
+        <p className="text-muted-foreground">Детальная информация о загрузках клиентами</p>
         <Button onClick={fetchDownloadLogs} variant="outline" size="sm">
           <Icon name="RefreshCw" size={16} className="mr-2" />
           Обновить
         </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <div className="p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="p-3 sm:p-4 rounded-lg border bg-card">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-muted-foreground mb-1">
             <Icon name="Archive" size={18} />
-            <span className="text-sm">Архивы</span>
+            <span className="text-xs sm:text-sm whitespace-nowrap">Архивы</span>
           </div>
-          <div className="text-3xl font-bold text-blue-500">{totalArchives}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-blue-500">{totalArchives}</div>
         </div>
-        <div className="p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+        <div className="p-3 sm:p-4 rounded-lg border bg-card">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-muted-foreground mb-1">
             <Icon name="Image" size={18} />
-            <span className="text-sm">Фото</span>
+            <span className="text-xs sm:text-sm whitespace-nowrap">Фото</span>
           </div>
-          <div className="text-3xl font-bold text-emerald-500">{totalPhotos}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-emerald-500">{totalPhotos}</div>
         </div>
-        <div className="p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+        <div className="p-3 sm:p-4 rounded-lg border bg-card">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-muted-foreground mb-1">
             <Icon name="Heart" size={18} />
-            <span className="text-sm">Избранное</span>
+            <span className="text-xs sm:text-sm whitespace-nowrap">Избранное</span>
           </div>
-          <div className="text-3xl font-bold text-amber-500">{totalFavorites}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-amber-500">{totalFavorites}</div>
         </div>
-        <div className="p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+        <div className="p-3 sm:p-4 rounded-lg border bg-card">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-muted-foreground mb-1">
             <Icon name="Download" size={18} />
-            <span className="text-sm">Всего</span>
+            <span className="text-xs sm:text-sm whitespace-nowrap">Всего</span>
           </div>
-          <div className="text-3xl font-bold">{totalArchives + totalPhotos}</div>
+          <div className="text-2xl sm:text-3xl font-bold">{totalArchives + totalPhotos}</div>
         </div>
       </div>
 
