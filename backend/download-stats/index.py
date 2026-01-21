@@ -1,7 +1,39 @@
 import json
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import psycopg2
+import requests
+
+def get_location_from_ip(ip: str) -> Optional[Dict[str, str]]:
+    '''
+    Определяет город по IP через ipapi.co
+    '''
+    if not ip or ip in ['127.0.0.1', 'localhost', '::1']:
+        return None
+    
+    try:
+        response = requests.get(f'https://ipapi.co/{ip}/json/', timeout=2)
+        if response.status_code == 200:
+            data = response.json()
+            city = data.get('city')
+            country = data.get('country_name')
+            country_code = data.get('country_code', '')
+            
+            # Эмодзи флага страны
+            emoji = ''
+            if country_code and len(country_code) == 2:
+                emoji = ''.join(chr(127397 + ord(c)) for c in country_code.upper())
+            
+            if city or country:
+                return {
+                    'city': city or '',
+                    'country': country or '',
+                    'emoji': emoji
+                }
+    except:
+        pass
+    
+    return None
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -73,12 +105,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         logs = []
         for row in rows:
+            ip = row[4]
+            location = get_location_from_ip(ip)
+            
+            # Если геолокация определена - сохраняем JSON, иначе - просто IP
+            if location:
+                ip_display = json.dumps(location, ensure_ascii=False)
+            else:
+                ip_display = ip
+            
             logs.append({
                 'id': row[0],
                 'folder_id': row[1],
                 'photo_id': row[2],
                 'download_type': row[3],
-                'client_ip': row[4],
+                'client_ip': ip_display,
                 'user_agent': row[5],
                 'downloaded_at': row[6].isoformat() if row[6] else None,
                 'folder_name': row[7],
