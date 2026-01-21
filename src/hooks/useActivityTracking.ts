@@ -52,6 +52,16 @@ export const useActivityTracking = ({
 
     const updateActivity = () => {
       const now = Date.now();
+      const timeSinceLastActivity = now - lastActivityRef.current;
+      
+      // Проверяем сессию перед обновлением активности
+      if (timeSinceLastActivity > SESSION_TIMEOUT) {
+        console.log('⏰ Session expired during inactivity. Logging out...');
+        onLogout();
+        alert('Сессия истекла. Пожалуйста, войдите снова.');
+        return;
+      }
+      
       lastActivityRef.current = now;
       
       const savedSession = localStorage.getItem('authSession');

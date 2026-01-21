@@ -297,6 +297,21 @@ export const useAuth = () => {
           const authMethod = vkUser ? 'vk' : 'google';
           const uid = userData.user_id;
           
+          // CRITICAL: Check session expiry before restoring
+          const savedSession = localStorage.getItem('authSession');
+          if (savedSession) {
+            const session = JSON.parse(savedSession);
+            const timeSinceLastActivity = Date.now() - (session.lastActivity || 0);
+            
+            if (timeSinceLastActivity > SESSION_TIMEOUT) {
+              console.log('⏰ Session expired. Logging out...');
+              handleLogout();
+              setLoading(false);
+              alert('Сессия истекла. Пожалуйста, войдите снова.');
+              return;
+            }
+          }
+          
           // CRITICAL: Check if user is still not blocked before restoring session
           console.log('🔍 Checking if user is blocked before restoring session...');
           
