@@ -22,6 +22,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
   const [lastTap, setLastTap] = useState<{ time: number; x: number } | null>(null);
   const [useNativePlayer, setUseNativePlayer] = useState(false);
   const [hasDecodeError, setHasDecodeError] = useState(false);
+  const [corruptedSegments, setCorruptedSegments] = useState<Array<{start: number, end: number}>>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -126,14 +127,32 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
         console.error('[NATIVE_VIDEO] Error details:', {
           code: videoElement.error.code,
           message: videoElement.error.message,
-          MEDIA_ERR_ABORTED: videoElement.error.MEDIA_ERR_ABORTED,
-          MEDIA_ERR_NETWORK: videoElement.error.MEDIA_ERR_NETWORK,
-          MEDIA_ERR_DECODE: videoElement.error.MEDIA_ERR_DECODE,
-          MEDIA_ERR_SRC_NOT_SUPPORTED: videoElement.error.MEDIA_ERR_SRC_NOT_SUPPORTED
+          currentTime: videoElement.currentTime,
+          MEDIA_ERR_DECODE: videoElement.error.code === 3
         });
         
-        // Если ошибка декодирования, показываем сообщение
-        if (videoElement.error.code === 3 || videoElement.error.code === 4) {
+        // Если ошибка декодирования
+        if (videoElement.error.code === 3) {
+          const errorTime = videoElement.currentTime;
+          console.log(`[NATIVE_VIDEO] Decode error at ${errorTime}s - trying to skip corrupted segment`);
+          
+          // Запоминаем проблемный сегмент (текущая позиция + 3 секунды)
+          const newSegment = { start: Math.floor(errorTime), end: Math.floor(errorTime) + 3 };
+          setCorruptedSegments(prev => [...prev, newSegment]);
+          
+          // Пытаемся перемотать на 3 секунды вперёд
+          const nextTime = errorTime + 3;
+          if (nextTime < videoElement.duration) {
+            console.log(`[NATIVE_VIDEO] Skipping to ${nextTime}s`);
+            videoElement.currentTime = nextTime;
+            videoElement.play().catch(err => {
+              console.error('[NATIVE_VIDEO] Failed to resume playback:', err);
+              setHasDecodeError(true);
+            });
+          } else {
+            setHasDecodeError(true);
+          }
+        } else if (videoElement.error.code === 4) {
           setHasDecodeError(true);
         }
       }
@@ -145,6 +164,16 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
     const handleCanPlay = () => console.log('[NATIVE_VIDEO] Can play - готов к воспроизведению');
     const handlePlaying = () => console.log('[NATIVE_VIDEO] Playing - воспроизведение началось');
     const handlePause = () => console.log('[NATIVE_VIDEO] Paused');
+    const handleTimeUpdate = () => {
+      // Проверяем, не попали ли мы в известный проблемный сегмент
+      for (const segment of corruptedSegments) {
+        if (video.currentTime >= segment.start && video.currentTime < segment.end && !video.seeking) {
+          console.log(`[NATIVE_VIDEO] In corrupted segment ${segment.start}-${segment.end}s, skipping to ${segment.end}s`);
+          video.currentTime = segment.end;
+          break;
+        }
+      }
+    };
     
     video.addEventListener('error', handleError);
     video.addEventListener('stalled', handleStalled);
@@ -153,6 +182,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('playing', handlePlaying);
     video.addEventListener('pause', handlePause);
+    video.addEventListener('timeupdate', handleTimeUpdate);
     
     return () => {
       video.removeEventListener('error', handleError);
@@ -162,8 +192,9 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('pause', handlePause);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
     };
-  }, [useNativePlayer]);
+  }, [useNativePlayer, corruptedSegments]);
 
   const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
     const currentTime = Date.now();
