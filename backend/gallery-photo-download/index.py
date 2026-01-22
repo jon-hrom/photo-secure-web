@@ -38,9 +38,12 @@ def log_download(photo_id: Optional[int], folder_id: Optional[int], client_ip: s
     '''
     Логирует скачивание фото в базу данных
     '''
+    print(f'[LOG_DOWNLOAD] Called with photo_id={photo_id}, folder_id={folder_id}, ip={client_ip}')
     try:
         user_id = get_user_id_from_folder(folder_id)
+        print(f'[LOG_DOWNLOAD] Resolved user_id={user_id}')
         if not user_id:
+            print(f'[LOG_DOWNLOAD] No user_id found, skipping')
             return
         
         dsn = os.environ.get('DATABASE_URL')
@@ -56,6 +59,7 @@ def log_download(photo_id: Optional[int], folder_id: Optional[int], client_ip: s
         )
         
         conn.commit()
+        print(f'[LOG_DOWNLOAD] Successfully logged download')
         cur.close()
         conn.close()
     except Exception as e:
@@ -105,6 +109,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     photo_id = int(photo_id_str) if photo_id_str and photo_id_str.isdigit() else None
     folder_id = int(folder_id_str) if folder_id_str and folder_id_str.isdigit() else None
     
+    print(f'[HANDLER] photo_id={photo_id}, folder_id={folder_id}, presigned={use_presigned}, ip={client_ip}')
+    
     if not s3_key:
         return {
             'statusCode': 400,
@@ -149,6 +155,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Если запрашивается presigned URL (для больших файлов)
         if use_presigned:
+            # Логируем скачивание ДО генерации presigned URL
+            log_download(photo_id, folder_id, client_ip, user_agent)
+            
             presigned_url = s3_client.generate_presigned_url(
                 'get_object',
                 Params={'Bucket': bucket, 'Key': s3_key},
