@@ -139,38 +139,37 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
         console.error('[NATIVE_VIDEO] Error details:', {
           code: videoElement.error.code,
           message: videoElement.error.message,
-          currentTime: videoElement.currentTime,
-          MEDIA_ERR_DECODE: videoElement.error.code === 3
+          currentTime: videoElement.currentTime
         });
         
-        // Если ошибка декодирования
+        // На мобильных — сразу показываем ошибку, без попыток восстановления
+        if (isMobile) {
+          if (videoElement.error.code === 3 || videoElement.error.code === 4) {
+            setHasDecodeError(true);
+          }
+          return;
+        }
+        
+        // На десктопе — пытаемся восстановить только при ошибке декодирования
         if (videoElement.error.code === 3) {
           const errorTime = videoElement.currentTime;
           console.log(`[NATIVE_VIDEO] Decode error at ${errorTime}s - trying to skip corrupted segment`);
           
-          // Запоминаем проблемный сегмент (текущая позиция + 3 секунды)
           const newSegment = { start: Math.floor(errorTime), end: Math.floor(errorTime) + 3 };
           setCorruptedSegments(prev => {
-            // Проверяем что такого сегмента ещё нет
             const exists = prev.some(s => s.start === newSegment.start);
             if (exists) return prev;
             return [...prev, newSegment];
           });
           
-          // Пытаемся перемотать на 3 секунды вперёд
           const nextTime = errorTime + 3;
           if (nextTime < videoElement.duration) {
             console.log(`[NATIVE_VIDEO] Skipping to ${nextTime}s and resuming playback`);
-            
-            // Сбрасываем ошибку перед продолжением
             videoElement.load();
             videoElement.currentTime = nextTime;
-            
-            // Автоматически продолжаем воспроизведение
             setTimeout(() => {
               videoElement.play().catch(err => {
                 console.error('[NATIVE_VIDEO] Failed to resume playback:', err);
-                // Если не удалось возобновить - показываем ошибку
                 setHasDecodeError(true);
               });
             }, 200);
@@ -183,20 +182,15 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
       }
     };
     
-    const handleStalled = () => console.log('[NATIVE_VIDEO] Stalled - загрузка остановлена');
-    const handleSuspend = () => console.log('[NATIVE_VIDEO] Suspend - загрузка приостановлена');
-    const handleWaiting = () => console.log('[NATIVE_VIDEO] Waiting - ожидание данных');
-    const handleCanPlay = () => console.log('[NATIVE_VIDEO] Can play - готов к воспроизведению');
-    const handlePlaying = () => console.log('[NATIVE_VIDEO] Playing - воспроизведение началось');
-    const handlePause = () => console.log('[NATIVE_VIDEO] Paused');
     const handleTimeUpdate = () => {
-      // Проверяем, не попали ли мы в известный проблемный сегмент
+      // Пропускаем проблемные сегменты только на десктопе
+      if (isMobile) return;
+      
       for (const segment of corruptedSegments) {
         if (video.currentTime >= segment.start && video.currentTime < segment.end && !video.seeking) {
           console.log(`[NATIVE_VIDEO] In corrupted segment ${segment.start}-${segment.end}s, skipping to ${segment.end}s`);
           const wasPlaying = !video.paused;
           video.currentTime = segment.end;
-          // Автоматически продолжаем воспроизведение после прыжка
           if (wasPlaying) {
             setTimeout(() => {
               video.play().catch(err => console.error('[NATIVE_VIDEO] Failed to resume after skip:', err));
@@ -208,25 +202,13 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
     };
     
     video.addEventListener('error', handleError);
-    video.addEventListener('stalled', handleStalled);
-    video.addEventListener('suspend', handleSuspend);
-    video.addEventListener('waiting', handleWaiting);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('playing', handlePlaying);
-    video.addEventListener('pause', handlePause);
     video.addEventListener('timeupdate', handleTimeUpdate);
     
     return () => {
       video.removeEventListener('error', handleError);
-      video.removeEventListener('stalled', handleStalled);
-      video.removeEventListener('suspend', handleSuspend);
-      video.removeEventListener('waiting', handleWaiting);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('playing', handlePlaying);
-      video.removeEventListener('pause', handlePause);
       video.removeEventListener('timeupdate', handleTimeUpdate);
     };
-  }, [useNativePlayer, corruptedSegments]);
+  }, [useNativePlayer, corruptedSegments, isMobile]);
 
   const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
     const currentTime = Date.now();
