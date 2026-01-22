@@ -108,9 +108,14 @@ export default function GalleryPhotoViewer({
   if (!currentPhoto) return null;
 
   if (currentPhoto.is_video) {
+    console.log('[GALLERY_PHOTO_VIEWER] Opening video:', currentPhoto);
+    
+    // Для видео используем photo_url (это оригинальный файл с CDN)
+    const videoSrc = currentPhoto.photo_url;
+    
     return (
       <VideoPlayer
-        src={currentPhoto.photo_url}
+        src={videoSrc}
         poster={currentPhoto.thumbnail_url}
         onClose={onClose}
         fileName={currentPhoto.file_name}

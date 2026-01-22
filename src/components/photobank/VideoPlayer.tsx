@@ -19,10 +19,11 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
   const playerRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastTap, setLastTap] = useState<{ time: number; x: number } | null>(null);
+  const [useNativePlayer, setUseNativePlayer] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || useNativePlayer) return;
 
     const player = videojs(videoRef.current, {
       controls: true,
@@ -56,19 +57,23 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
 
     const getVideoType = (url: string): string => {
       const ext = url.split('.').pop()?.toLowerCase().split('?')[0];
+      console.log('[VIDEO_PLAYER] Video extension:', ext, 'URL:', url);
       switch (ext) {
         case 'mp4': return 'video/mp4';
         case 'webm': return 'video/webm';
-        case 'mov': return 'video/quicktime';
-        case 'avi': return 'video/x-msvideo';
-        case 'mkv': return 'video/x-matroska';
+        case 'mov': return 'video/mp4'; // MOV часто содержит H.264, пробуем как MP4
+        case 'avi': return 'video/mp4';
+        case 'mkv': return 'video/mp4';
         default: return 'video/mp4';
       }
     };
 
+    const videoType = getVideoType(src);
+    console.log('[VIDEO_PLAYER] Setting video source:', { src, type: videoType });
+
     player.src({
       src: src,
-      type: getVideoType(src)
+      type: videoType
     });
 
     player.on('fullscreenchange', () => {
@@ -76,7 +81,24 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
     });
 
     player.on('error', (error: any) => {
-      console.error('Video.js error:', error);
+      console.error('[VIDEO_PLAYER] Video.js error:', error);
+      const mediaError = player.error();
+      if (mediaError) {
+        console.error('[VIDEO_PLAYER] Media error details:', {
+          code: mediaError.code,
+          message: mediaError.message,
+          MEDIA_ERR_ABORTED: mediaError.MEDIA_ERR_ABORTED,
+          MEDIA_ERR_NETWORK: mediaError.MEDIA_ERR_NETWORK,
+          MEDIA_ERR_DECODE: mediaError.MEDIA_ERR_DECODE,
+          MEDIA_ERR_SRC_NOT_SUPPORTED: mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+        });
+        
+        // Если Video.js не может воспроизвести, переключаемся на нативный плеер
+        if (mediaError.code === 3 || mediaError.code === 4) {
+          console.log('[VIDEO_PLAYER] Switching to native HTML5 player');
+          setUseNativePlayer(true);
+        }
+      }
     });
 
     playerRef.current = player;
@@ -148,6 +170,56 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
       });
     }
   };
+
+  // Нативный HTML5 плеер как fallback
+  if (useNativePlayer) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
+        <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent shrink-0">
+          <div className="flex items-center gap-3">
+            <Icon name="Video" className="text-white" size={24} />
+            <h3 className="text-white font-medium truncate max-w-md">
+              {fileName || 'Видео'}
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            {!downloadDisabled && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDownload}
+                className="text-white hover:bg-white/10"
+                title="Скачать"
+              >
+                <Icon name="Download" size={20} />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white hover:bg-white/10"
+            >
+              <Icon name="X" size={24} />
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
+          <video
+            src={src}
+            poster={poster}
+            controls
+            playsInline
+            className="w-full max-w-6xl"
+            style={{ maxHeight: 'calc(100vh - 180px)' }}
+          >
+            Ваш браузер не поддерживает воспроизведение видео.
+          </video>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
