@@ -138,17 +138,30 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
           
           // Запоминаем проблемный сегмент (текущая позиция + 3 секунды)
           const newSegment = { start: Math.floor(errorTime), end: Math.floor(errorTime) + 3 };
-          setCorruptedSegments(prev => [...prev, newSegment]);
+          setCorruptedSegments(prev => {
+            // Проверяем что такого сегмента ещё нет
+            const exists = prev.some(s => s.start === newSegment.start);
+            if (exists) return prev;
+            return [...prev, newSegment];
+          });
           
           // Пытаемся перемотать на 3 секунды вперёд
           const nextTime = errorTime + 3;
           if (nextTime < videoElement.duration) {
-            console.log(`[NATIVE_VIDEO] Skipping to ${nextTime}s`);
+            console.log(`[NATIVE_VIDEO] Skipping to ${nextTime}s and resuming playback`);
+            
+            // Сбрасываем ошибку перед продолжением
+            videoElement.load();
             videoElement.currentTime = nextTime;
-            videoElement.play().catch(err => {
-              console.error('[NATIVE_VIDEO] Failed to resume playback:', err);
-              setHasDecodeError(true);
-            });
+            
+            // Автоматически продолжаем воспроизведение
+            setTimeout(() => {
+              videoElement.play().catch(err => {
+                console.error('[NATIVE_VIDEO] Failed to resume playback:', err);
+                // Если не удалось возобновить - показываем ошибку
+                setHasDecodeError(true);
+              });
+            }, 200);
           } else {
             setHasDecodeError(true);
           }
@@ -169,7 +182,14 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
       for (const segment of corruptedSegments) {
         if (video.currentTime >= segment.start && video.currentTime < segment.end && !video.seeking) {
           console.log(`[NATIVE_VIDEO] In corrupted segment ${segment.start}-${segment.end}s, skipping to ${segment.end}s`);
+          const wasPlaying = !video.paused;
           video.currentTime = segment.end;
+          // Автоматически продолжаем воспроизведение после прыжка
+          if (wasPlaying) {
+            setTimeout(() => {
+              video.play().catch(err => console.error('[NATIVE_VIDEO] Failed to resume after skip:', err));
+            }, 100);
+          }
           break;
         }
       }
