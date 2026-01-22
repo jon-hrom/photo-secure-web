@@ -31,13 +31,12 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
   const isAndroid = /Android/i.test(navigator.userAgent);
 
   useEffect(() => {
-    // На мобильных устройствах сразу используем нативный плеер
-    if (isMobile) {
-      console.log('[VIDEO_PLAYER] Mobile device detected, using native player');
-      setUseNativePlayer(true);
-      return;
-    }
+    // Всегда используем нативный плеер (и на мобильных, и на десктопе)
+    console.log('[VIDEO_PLAYER] Using native HTML5 player');
+    setUseNativePlayer(true);
+    return;
 
+    // Код ниже больше не используется
     if (!videoRef.current || useNativePlayer) return;
 
     const player = videojs(videoRef.current, {
