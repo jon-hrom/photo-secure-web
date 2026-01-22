@@ -189,7 +189,7 @@ const PhotoBankHeader = ({
               className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Camera" size={32} />
-              <span className="text-xs text-center leading-tight">Загрузить с камеры</span>
+              <span className="text-xs text-center leading-tight">Загрузить<br />с камеры</span>
             </Button>
           )}
           {onShowFavorites && selectedFolder && (
@@ -209,7 +209,7 @@ const PhotoBankHeader = ({
               className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Link" size={32} />
-              <span className="text-xs text-center leading-tight">Загрузить по ссылке</span>
+              <span className="text-xs text-center leading-tight">Загрузить<br />по ссылке</span>
             </Button>
           )}
           <Button 
