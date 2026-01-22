@@ -58,10 +58,10 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
         const allFolders = data.folders || [];
         console.log('📂 All folders:', allFolders);
         const filteredFolders = allFolders
-          .filter((folder: any) => !folder.name?.includes('Технический брак'))
+          .filter((folder: any) => !folder.folder_name?.includes('Технический брак'))
           .map((folder: any) => ({
             id: folder.id,
-            folder_name: folder.name,
+            folder_name: folder.folder_name,
             created_at: folder.created_at
           }));
         console.log('📂 Filtered folders:', filteredFolders);
