@@ -49,15 +49,21 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
 
   const fetchFolders = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985?action=list', {
+      const response = await fetch('https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc?action=list', {
         headers: { 'X-User-Id': userId.toString() }
       });
       if (response.ok) {
         const data = await response.json();
-        console.log('📂 Folders loaded:', data.folders);
-        const filteredFolders = (data.folders || []).filter(
-          (folder: Folder) => folder.folder_name !== 'Технический брак'
-        );
+        console.log('📂 Folders loaded:', data);
+        const allFolders = data.folders || [];
+        console.log('📂 All folders:', allFolders);
+        const filteredFolders = allFolders
+          .filter((folder: any) => !folder.name?.includes('Технический брак'))
+          .map((folder: any) => ({
+            id: folder.id,
+            folder_name: folder.name,
+            created_at: folder.created_at
+          }));
         console.log('📂 Filtered folders:', filteredFolders);
         setFolders(filteredFolders);
       }
