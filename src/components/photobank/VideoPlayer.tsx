@@ -21,6 +21,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastTap, setLastTap] = useState<{ time: number; x: number } | null>(null);
   const [useNativePlayer, setUseNativePlayer] = useState(false);
+  const [hasDecodeError, setHasDecodeError] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -130,6 +131,11 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
           MEDIA_ERR_DECODE: videoElement.error.MEDIA_ERR_DECODE,
           MEDIA_ERR_SRC_NOT_SUPPORTED: videoElement.error.MEDIA_ERR_SRC_NOT_SUPPORTED
         });
+        
+        // Если ошибка декодирования, показываем сообщение
+        if (videoElement.error.code === 3 || videoElement.error.code === 4) {
+          setHasDecodeError(true);
+        }
       }
     };
     
@@ -254,18 +260,45 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
         </div>
 
         <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
-          <video
-            ref={nativeVideoRef}
-            src={src}
-            poster={poster}
-            controls
-            playsInline
-            preload="auto"
-            className="w-full max-w-6xl"
-            style={{ maxHeight: 'calc(100vh - 180px)' }}
-          >
-            Ваш браузер не поддерживает воспроизведение видео.
-          </video>
+          {hasDecodeError ? (
+            <div className="text-center max-w-lg px-4">
+              <Icon name="AlertCircle" size={64} className="text-yellow-500 mx-auto mb-4" />
+              <h3 className="text-white text-xl font-semibold mb-3">
+                Видео не поддерживается браузером
+              </h3>
+              <p className="text-white/70 mb-4">
+                Видео использует кодек, который не поддерживается вашим браузером.
+                {!downloadDisabled && ' Скачайте файл и откройте его в видеоплеере на вашем устройстве.'}
+              </p>
+              <div className="bg-white/10 rounded-lg p-3 mb-6 text-sm text-white/60 text-left">
+                <p className="font-medium text-white/80 mb-1">Техническая информация:</p>
+                <p>• Рекомендуемый формат: MP4 (H.264 + AAC)</p>
+                <p>• Текущее видео может использовать H.265 или другой неподдерживаемый кодек</p>
+              </div>
+              {!downloadDisabled && (
+                <Button
+                  onClick={handleDownload}
+                  className="bg-white hover:bg-white/90 text-black"
+                >
+                  <Icon name="Download" size={20} className="mr-2" />
+                  Скачать видео
+                </Button>
+              )}
+            </div>
+          ) : (
+            <video
+              ref={nativeVideoRef}
+              src={src}
+              poster={poster}
+              controls
+              playsInline
+              preload="auto"
+              className="w-full max-w-6xl"
+              style={{ maxHeight: 'calc(100vh - 180px)' }}
+            >
+              Ваш браузер не поддерживает воспроизведение видео.
+            </video>
+          )}
         </div>
       </div>
     );
