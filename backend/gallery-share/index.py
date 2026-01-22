@@ -268,18 +268,22 @@ def handler(event: dict, context) -> dict:
                 try:
                     photo_id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw, is_video, content_type = photo
                     
+                    # Для видео используем больший срок действия URL (12 часов)
+                    # чтобы избежать проблем с потоковой загрузкой
+                    expires_in = 43200 if is_video else 3600
+                    
                     if is_raw and thumbnail_s3_key:
                         photo_url = yc_s3.generate_presigned_url(
                             'get_object',
                             Params={'Bucket': bucket_name, 'Key': thumbnail_s3_key},
-                            ExpiresIn=3600
+                            ExpiresIn=expires_in
                         )
                         thumbnail_url = photo_url
                     else:
                         photo_url = yc_s3.generate_presigned_url(
                             'get_object',
                             Params={'Bucket': bucket_name, 'Key': s3_key},
-                            ExpiresIn=3600
+                            ExpiresIn=expires_in
                         )
                         thumbnail_url = None
                         if thumbnail_s3_key:
