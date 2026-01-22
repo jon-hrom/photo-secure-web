@@ -142,7 +142,7 @@ const PhotoBankFoldersList = ({
                   <th className="text-left p-3 text-sm font-medium text-muted-foreground">Название</th>
                   <th className="text-left p-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата создания</th>
                   <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Фото</th>
-                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">Действия</th>
+                  <th className="text-left md:text-right p-3 text-sm font-medium text-muted-foreground">Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -179,9 +179,9 @@ const PhotoBankFoldersList = ({
                             <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
                               <Icon name="Folder" size={20} className="text-orange-600" />
                             </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium truncate">{folder.folder_name}</p>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium break-words">{folder.folder_name}</p>
                                 {folder.folder_type === 'originals' && (
                                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Оригиналы</span>
                                 )}
@@ -245,7 +245,7 @@ const PhotoBankFoldersList = ({
                           </div>
                         </td>
                         <td className="p-3">
-                          <div className="flex items-center justify-end gap-1 flex-wrap">
+                          <div className="flex items-center justify-start md:justify-end gap-1 flex-wrap">
                             {canStartTechSort(folder) && (
                               <Button
                                 variant="ghost"
@@ -380,9 +380,9 @@ const PhotoBankFoldersList = ({
                               <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
                                 <Icon name="AlertTriangle" size={20} className="text-red-600" />
                               </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium truncate text-sm">{subfolder.folder_name}</p>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-medium break-words text-sm">{subfolder.folder_name}</p>
                                   {subfolder.folder_type === 'tech_rejects' && (
                                     <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Брак</span>
                                   )}
@@ -403,7 +403,7 @@ const PhotoBankFoldersList = ({
                             </div>
                           </td>
                           <td className="p-3">
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex items-center justify-start md:justify-end gap-1">
                               <Button
                                 variant="ghost"
                                 size="icon"
