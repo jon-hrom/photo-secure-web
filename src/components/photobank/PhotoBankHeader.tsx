@@ -125,18 +125,19 @@ const PhotoBankHeader = ({
               {isTechRejectsFolder ? (
                 <>
                   <Button 
-                    variant="default"
+                    variant="outline"
                     onClick={onRestoreSelectedPhotos}
                     disabled={selectedPhotos.size === 0}
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                   >
                     <Icon name="RotateCcw" className="mr-2" size={18} />
                     Вернуть в оригиналы ({selectedPhotos.size})
                   </Button>
                   <Button 
-                    variant="destructive"
+                    variant="outline"
                     onClick={onDeleteSelectedPhotos}
                     disabled={selectedPhotos.size === 0}
+                    className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                   >
                     <Icon name="Trash2" className="mr-2" size={18} />
                     Удалить в корзину ({selectedPhotos.size})
@@ -144,9 +145,10 @@ const PhotoBankHeader = ({
                 </>
               ) : (
                 <Button 
-                  variant="default"
+                  variant="outline"
                   onClick={onAddToPhotobook}
                   disabled={selectedPhotos.size === 0}
+                  className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                 >
                   <Icon name="Plus" className="mr-2" size={18} />
                   Добавить в макет ({selectedPhotos.size})
@@ -155,6 +157,7 @@ const PhotoBankHeader = ({
               <Button 
                 variant="outline"
                 onClick={onCancelSelection}
+                className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
               >
                 Отмена
               </Button>
@@ -164,6 +167,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onStartSelection}
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="CheckSquare" className="mr-2" size={18} />
               Выбрать фото
@@ -172,6 +176,7 @@ const PhotoBankHeader = ({
           <Button 
             variant="outline"
             onClick={onShowCreateFolder}
+            className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
           >
             <Icon name="FolderPlus" className="mr-2" size={18} />
             Новая папка
@@ -180,7 +185,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowCameraUpload}
-              className="bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-200 text-green-900 hover:text-green-950 dark:text-green-950 dark:hover:text-green-950"
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Camera" className="mr-2" size={18} />
               Загрузить с камеры
@@ -190,7 +195,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowFavorites}
-              className="bg-gradient-to-r from-yellow-50 to-amber-50 hover:from-yellow-100 hover:to-amber-100 border-yellow-200 text-yellow-900 hover:text-yellow-950"
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Star" className="mr-2" size={18} />
               Избранное
@@ -200,6 +205,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowUrlUpload}
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Link" className="mr-2" size={18} />
               Загрузить по ссылке
@@ -208,6 +214,7 @@ const PhotoBankHeader = ({
           <Button 
             variant="outline"
             onClick={() => navigate('/photo-bank/trash')}
+            className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
           >
             <Icon name="Trash2" className="mr-2" size={18} />
             Корзина
@@ -216,7 +223,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowStats}
-              className="bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="BarChart3" className="mr-2" size={18} />
               Статистика
@@ -226,7 +233,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowAllChats}
-              className="bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-200 text-blue-900 hover:text-blue-950 relative"
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 relative"
             >
               <Icon name="MessagesSquare" className="mr-2" size={18} />
               Сообщения
