@@ -126,20 +126,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'photo_name': row[8]
             })
         
-        # Получаем статистику избранного (по клиентам и дате)
+        # Получаем статистику избранного (по клиентам, дате и папкам)
         cur.execute(
             """
             SELECT 
                 fp.client_id,
                 fc.full_name as client_name,
                 DATE(fp.added_at) as favorite_date,
-                COUNT(fp.id) as photo_count
+                COUNT(fp.id) as photo_count,
+                pf.id as folder_id,
+                pf.folder_name
             FROM t_p28211681_photo_secure_web.favorite_photos fp
             JOIN t_p28211681_photo_secure_web.photo_bank pb ON pb.id = fp.photo_id
             JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = pb.folder_id
             LEFT JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = fp.client_id
             WHERE pf.user_id = %s
-            GROUP BY fp.client_id, fc.full_name, DATE(fp.added_at), fp.added_at
+            GROUP BY fp.client_id, fc.full_name, DATE(fp.added_at), pf.id, pf.folder_name, fp.added_at
             ORDER BY fp.added_at DESC
             LIMIT 1000
             """,
@@ -154,7 +156,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'client_id': row[0],
                 'client_name': row[1] or f'Клиент #{row[0]}',
                 'favorite_date': row[2].isoformat() if row[2] else None,
-                'photo_count': row[3]
+                'photo_count': row[3],
+                'folder_id': row[4],
+                'folder_name': row[5]
             })
         
         cur.close()

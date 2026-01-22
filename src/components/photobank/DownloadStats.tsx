@@ -21,6 +21,8 @@ interface FavoriteStats {
   client_name: string;
   favorite_date: string;
   photo_count: number;
+  folder_id: number;
+  folder_name: string;
 }
 
 interface Folder {
@@ -113,13 +115,22 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
   const filteredLogs = getFilteredLogs();
 
   const getFilteredFavorites = () => {
-    if (dateFilter === 'all') return favorites;
+    let filtered = favorites;
+    
+    // Фильтр по папке
+    if (selectedFolder !== 'all') {
+      const folderId = parseInt(selectedFolder);
+      filtered = filtered.filter(fav => fav.folder_id === folderId);
+    }
+    
+    // Фильтр по дате
+    if (dateFilter === 'all') return filtered;
     
     const now = new Date();
     const daysAgo = dateFilter === '7d' ? 7 : 30;
     const filterDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
     
-    return favorites.filter(fav => new Date(fav.favorite_date) >= filterDate);
+    return filtered.filter(fav => new Date(fav.favorite_date) >= filterDate);
   };
 
   const filteredFavorites = getFilteredFavorites();
