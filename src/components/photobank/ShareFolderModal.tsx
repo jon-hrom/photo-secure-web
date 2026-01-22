@@ -68,11 +68,29 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     }
   }, [clients]);
 
-  const loadSavedLink = () => {
+  const loadSavedLink = async () => {
     const key = `folder_${folderId}_link`;
     const saved = localStorage.getItem(key);
     if (saved) {
       setShareUrl(saved);
+      
+      // Сначала пробуем загрузить настройки из localStorage (быстро)
+      const settingsKey = `folder_${folderId}_link_settings`;
+      const savedSettings = localStorage.getItem(settingsKey);
+      
+      if (savedSettings) {
+        try {
+          const settings = JSON.parse(savedSettings);
+          setLinkSettings(prev => ({
+            ...prev,
+            ...settings,
+            password: '' // Не показываем пароль в UI
+          }));
+          console.log('[SHARE_MODAL] Настройки загружены из localStorage');
+        } catch (err) {
+          console.error('[SHARE_MODAL] Ошибка парсинга настроек из localStorage:', err);
+        }
+      }
     }
   };
 
@@ -205,10 +223,25 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
       setShareUrl(data.share_url);
       saveLink(data.share_url);
       
+      // Сохраняем настройки в localStorage для быстрого восстановления
+      const settingsKey = `folder_${folderId}_link_settings`;
+      localStorage.setItem(settingsKey, JSON.stringify({
+        downloadDisabled: linkSettings.downloadDisabled,
+        watermarkEnabled: linkSettings.watermarkEnabled,
+        watermarkType: linkSettings.watermarkType,
+        watermarkText: linkSettings.watermarkText,
+        watermarkImageUrl: linkSettings.watermarkImageUrl,
+        watermarkFrequency: linkSettings.watermarkFrequency,
+        watermarkSize: linkSettings.watermarkSize,
+        watermarkOpacity: linkSettings.watermarkOpacity,
+        watermarkRotation: linkSettings.watermarkRotation,
+        screenshotProtection: linkSettings.screenshotProtection
+      }));
+      
       const galleryCode = data.share_url.split('/').pop();
       if (galleryCode) {
         localStorage.setItem(`folder_${folderId}_gallery_code`, galleryCode);
-        console.log('[SHARE_MODAL] Ссылка создана, настройки избранного отправлены на сервер');
+        console.log('[SHARE_MODAL] Ссылка создана, настройки сохранены');
       }
     } catch (err: any) {
       setError(err.message);

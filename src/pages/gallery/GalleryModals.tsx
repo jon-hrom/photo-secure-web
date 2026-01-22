@@ -1,4 +1,4 @@
-import PhotoGridViewer from '@/components/photobank/PhotoGridViewer';
+import GalleryPhotoViewer from '@/components/gallery/GalleryPhotoViewer';
 import FavoritesModal from '@/components/gallery/FavoritesModal';
 import ClientLoginModal from '@/components/gallery/ClientLoginModal';
 import MyFavoritesModal from '@/components/gallery/MyFavoritesModal';
@@ -94,7 +94,7 @@ export default function GalleryModals({
   return (
     <>
       {selectedPhoto && (
-        <PhotoGridViewer
+        <GalleryPhotoViewer
           photos={viewingFavorites ? gallery.photos.filter((p: Photo) => clientFavoritePhotoIds.includes(p.id)) : visiblePhotos}
           initialPhotoId={selectedPhoto.id}
           onClose={() => {
