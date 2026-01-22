@@ -25,7 +25,19 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
   const [corruptedSegments, setCorruptedSegments] = useState<Array<{start: number, end: number}>>([]);
   const { toast } = useToast();
 
+  // Определяем мобильное устройство
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
   useEffect(() => {
+    // На мобильных устройствах сразу используем нативный плеер
+    if (isMobile) {
+      console.log('[VIDEO_PLAYER] Mobile device detected, using native player');
+      setUseNativePlayer(true);
+      return;
+    }
+
     if (!videoRef.current || useNativePlayer) return;
 
     const player = videojs(videoRef.current, {
@@ -276,44 +288,44 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
     }
   };
 
-  // Нативный HTML5 плеер как fallback
+  // Нативный HTML5 плеер для мобильных устройств и fallback
   if (useNativePlayer) {
     return (
-      <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
-        <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent shrink-0">
-          <div className="flex items-center gap-3">
-            <Icon name="Video" className="text-white" size={24} />
-            <h3 className="text-white font-medium truncate max-w-md">
+      <div className="fixed inset-0 bg-black z-50 flex flex-col">
+        <div className="flex items-center justify-between p-3 md:p-4 bg-gradient-to-b from-black/80 to-transparent shrink-0">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+            <Icon name="Video" className="text-white shrink-0" size={isMobile ? 20 : 24} />
+            <h3 className="text-white font-medium truncate text-sm md:text-base">
               {fileName || 'Видео'}
             </h3>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 md:gap-2 shrink-0">
             {!downloadDisabled && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleDownload}
-                className="text-white hover:bg-white/10"
+                className="text-white hover:bg-white/10 h-8 w-8 md:h-10 md:w-10"
                 title="Скачать"
               >
-                <Icon name="Download" size={20} />
+                <Icon name="Download" size={isMobile ? 18 : 20} />
               </Button>
             )}
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/10 h-8 w-8 md:h-10 md:w-10"
             >
-              <Icon name="X" size={24} />
+              <Icon name="X" size={isMobile ? 20 : 24} />
             </Button>
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
+        <div className="flex-1 flex items-center justify-center overflow-hidden">
           {hasDecodeError ? (
             <div className="text-center max-w-lg px-4">
-              <Icon name="AlertCircle" size={64} className="text-yellow-500 mx-auto mb-4" />
+              <Icon name="AlertCircle" size={isMobile ? 48 : 64} className="text-yellow-500 mx-auto mb-4" />
               <h3 className="text-white text-xl font-semibold mb-3">
                 Видео не поддерживается браузером
               </h3>
@@ -342,10 +354,16 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
               src={src}
               poster={poster}
               controls
+              controlsList="nodownload"
               playsInline
+              webkit-playsinline="true"
+              x5-playsinline="true"
+              x5-video-player-type="h5"
+              x5-video-player-fullscreen="true"
+              x-webkit-airplay="allow"
               preload="auto"
-              className="w-full max-w-6xl"
-              style={{ maxHeight: 'calc(100vh - 180px)' }}
+              className="w-full h-full object-contain max-w-full max-h-full"
+              style={{ maxHeight: isMobile ? '100%' : 'calc(100vh - 180px)' }}
             >
               <source src={src} type="video/mp4" />
               Ваш браузер не поддерживает воспроизведение видео.
