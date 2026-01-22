@@ -16,6 +16,7 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({ src, poster, onClose, fileName, downloadDisabled = false }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastTap, setLastTap] = useState<{ time: number; x: number } | null>(null);
@@ -111,6 +112,53 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
     };
   }, [src, poster]);
 
+  // useEffect для нативного HTML5 плеера
+  useEffect(() => {
+    if (!useNativePlayer || !nativeVideoRef.current) return;
+    
+    const video = nativeVideoRef.current;
+    
+    const handleError = (e: Event) => {
+      console.error('[NATIVE_VIDEO] Error:', e);
+      const videoElement = e.target as HTMLVideoElement;
+      if (videoElement.error) {
+        console.error('[NATIVE_VIDEO] Error details:', {
+          code: videoElement.error.code,
+          message: videoElement.error.message,
+          MEDIA_ERR_ABORTED: videoElement.error.MEDIA_ERR_ABORTED,
+          MEDIA_ERR_NETWORK: videoElement.error.MEDIA_ERR_NETWORK,
+          MEDIA_ERR_DECODE: videoElement.error.MEDIA_ERR_DECODE,
+          MEDIA_ERR_SRC_NOT_SUPPORTED: videoElement.error.MEDIA_ERR_SRC_NOT_SUPPORTED
+        });
+      }
+    };
+    
+    const handleStalled = () => console.log('[NATIVE_VIDEO] Stalled - загрузка остановлена');
+    const handleSuspend = () => console.log('[NATIVE_VIDEO] Suspend - загрузка приостановлена');
+    const handleWaiting = () => console.log('[NATIVE_VIDEO] Waiting - ожидание данных');
+    const handleCanPlay = () => console.log('[NATIVE_VIDEO] Can play - готов к воспроизведению');
+    const handlePlaying = () => console.log('[NATIVE_VIDEO] Playing - воспроизведение началось');
+    const handlePause = () => console.log('[NATIVE_VIDEO] Paused');
+    
+    video.addEventListener('error', handleError);
+    video.addEventListener('stalled', handleStalled);
+    video.addEventListener('suspend', handleSuspend);
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('pause', handlePause);
+    
+    return () => {
+      video.removeEventListener('error', handleError);
+      video.removeEventListener('stalled', handleStalled);
+      video.removeEventListener('suspend', handleSuspend);
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('pause', handlePause);
+    };
+  }, [useNativePlayer]);
+
   const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
     const currentTime = Date.now();
     const clickX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -173,53 +221,6 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
 
   // Нативный HTML5 плеер как fallback
   if (useNativePlayer) {
-    const nativeVideoRef = useRef<HTMLVideoElement>(null);
-    
-    useEffect(() => {
-      const video = nativeVideoRef.current;
-      if (!video) return;
-      
-      const handleError = (e: Event) => {
-        console.error('[NATIVE_VIDEO] Error:', e);
-        const videoElement = e.target as HTMLVideoElement;
-        if (videoElement.error) {
-          console.error('[NATIVE_VIDEO] Error details:', {
-            code: videoElement.error.code,
-            message: videoElement.error.message,
-            MEDIA_ERR_ABORTED: videoElement.error.MEDIA_ERR_ABORTED,
-            MEDIA_ERR_NETWORK: videoElement.error.MEDIA_ERR_NETWORK,
-            MEDIA_ERR_DECODE: videoElement.error.MEDIA_ERR_DECODE,
-            MEDIA_ERR_SRC_NOT_SUPPORTED: videoElement.error.MEDIA_ERR_SRC_NOT_SUPPORTED
-          });
-        }
-      };
-      
-      const handleStalled = () => console.log('[NATIVE_VIDEO] Stalled - загрузка остановлена');
-      const handleSuspend = () => console.log('[NATIVE_VIDEO] Suspend - загрузка приостановлена');
-      const handleWaiting = () => console.log('[NATIVE_VIDEO] Waiting - ожидание данных');
-      const handleCanPlay = () => console.log('[NATIVE_VIDEO] Can play - готов к воспроизведению');
-      const handlePlaying = () => console.log('[NATIVE_VIDEO] Playing - воспроизведение началось');
-      const handlePause = () => console.log('[NATIVE_VIDEO] Paused');
-      
-      video.addEventListener('error', handleError);
-      video.addEventListener('stalled', handleStalled);
-      video.addEventListener('suspend', handleSuspend);
-      video.addEventListener('waiting', handleWaiting);
-      video.addEventListener('canplay', handleCanPlay);
-      video.addEventListener('playing', handlePlaying);
-      video.addEventListener('pause', handlePause);
-      
-      return () => {
-        video.removeEventListener('error', handleError);
-        video.removeEventListener('stalled', handleStalled);
-        video.removeEventListener('suspend', handleSuspend);
-        video.removeEventListener('waiting', handleWaiting);
-        video.removeEventListener('canplay', handleCanPlay);
-        video.removeEventListener('playing', handlePlaying);
-        video.removeEventListener('pause', handlePause);
-      };
-    }, []);
-    
     return (
       <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
         <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent shrink-0">
