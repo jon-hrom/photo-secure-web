@@ -28,9 +28,9 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
       controls: true,
       autoplay: false,
       preload: 'metadata',
-      fluid: true,
-      fill: true,
+      fluid: false,
       responsive: true,
+      aspectRatio: '16:9',
       poster: poster,
       playbackRates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2],
       controlBar: {
@@ -182,15 +182,16 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
       </div>
 
       <div 
-        className="flex-1 flex items-center justify-center overflow-hidden px-4"
+        className="flex-1 flex items-center justify-center overflow-hidden p-4"
         onTouchStart={handleDoubleTap}
         onClick={handleDoubleTap}
       >
-        <div className="w-full h-full max-w-[90vw] max-h-[70vh]">
-          <div data-vjs-player className="w-full h-full">
+        <div className="w-full max-w-6xl" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+          <div data-vjs-player style={{ width: '100%', maxHeight: 'calc(100vh - 180px)' }}>
             <video
               ref={videoRef}
               className="video-js vjs-theme-fantasy vjs-big-play-centered"
+              style={{ width: '100%', height: 'auto', maxHeight: 'calc(100vh - 180px)' }}
               playsInline
             />
           </div>
