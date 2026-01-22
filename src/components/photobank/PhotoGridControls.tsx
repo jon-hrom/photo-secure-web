@@ -13,6 +13,7 @@ interface Photo {
   width: number | null;
   height: number | null;
   created_at: string;
+  photo_download_count?: number;
 }
 
 interface PhotoGridControlsProps {
@@ -80,10 +81,13 @@ const PhotoGridControls = ({
                     }
                   }
                 }}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
-                title="Скачать фото"
+                className="h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all gap-2 px-3"
+                title={`Скачать фото${(viewPhoto.photo_download_count ?? 0) > 0 ? ` (скачиваний клиентами: ${viewPhoto.photo_download_count})` : ''}`}
               >
                 <Icon name="Download" size={20} className="text-white" />
+                {(viewPhoto.photo_download_count ?? 0) > 0 && (
+                  <span className="text-emerald-400 text-sm font-medium">{viewPhoto.photo_download_count}</span>
+                )}
               </button>
             )}
             <button

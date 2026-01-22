@@ -10,6 +10,7 @@ interface Photo {
   width: number | null;
   height: number | null;
   created_at: string;
+  photo_download_count?: number;
 }
 
 interface PhotoGridInfoProps {
@@ -32,6 +33,9 @@ const PhotoGridInfo = ({
         <span>{formatBytes(viewPhoto.file_size)}</span>
         {viewPhoto.width && viewPhoto.height && (
           <span>{viewPhoto.width} × {viewPhoto.height}</span>
+        )}
+        {(viewPhoto.photo_download_count ?? 0) > 0 && (
+          <span className="text-emerald-400 font-medium">📥 {viewPhoto.photo_download_count} скачиваний</span>
         )}
       </div>
     </div>

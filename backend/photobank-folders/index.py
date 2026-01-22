@@ -194,7 +194,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pb.height,
                             pb.tech_reject_reason,
                             pb.tech_analyzed,
-                            pb.created_at
+                            pb.created_at,
+                            COALESCE(
+                                (SELECT COUNT(*) 
+                                 FROM t_p28211681_photo_secure_web.download_logs dl 
+                                 WHERE dl.photo_id = pb.id AND dl.download_type = 'photo'),
+                                0
+                            ) as photo_download_count
                         FROM t_p28211681_photo_secure_web.photo_bank pb
                         JOIN t_p28211681_photo_secure_web.photo_folders pf ON pb.folder_id = pf.id
                         WHERE pb.folder_id = %s 

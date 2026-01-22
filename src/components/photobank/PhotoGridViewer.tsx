@@ -23,6 +23,7 @@ interface Photo {
   width: number | null;
   height: number | null;
   created_at: string;
+  photo_download_count?: number;
 }
 
 interface PhotoGridViewerProps {

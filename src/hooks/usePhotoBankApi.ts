@@ -31,6 +31,7 @@ interface Photo {
   created_at: string;
   tech_reject_reason?: string | null;
   tech_analyzed?: boolean;
+  photo_download_count?: number;
 }
 
 interface TechSortProgressCallback {
