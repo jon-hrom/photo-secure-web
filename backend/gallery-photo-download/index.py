@@ -6,11 +6,43 @@ import boto3
 from botocore.client import Config
 import psycopg2
 
+def get_user_id_from_folder(folder_id: Optional[int]) -> Optional[int]:
+    '''
+    Получает user_id по folder_id
+    '''
+    if not folder_id:
+        return None
+    
+    try:
+        dsn = os.environ.get('DATABASE_URL')
+        if not dsn:
+            return None
+        
+        conn = psycopg2.connect(dsn)
+        cur = conn.cursor()
+        
+        cur.execute(
+            "SELECT user_id FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s",
+            (folder_id,)
+        )
+        
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        return result[0] if result else None
+    except:
+        return None
+
 def log_download(photo_id: Optional[int], folder_id: Optional[int], client_ip: str, user_agent: str) -> None:
     '''
     Логирует скачивание фото в базу данных
     '''
     try:
+        user_id = get_user_id_from_folder(folder_id)
+        if not user_id:
+            return
+        
         dsn = os.environ.get('DATABASE_URL')
         if not dsn:
             return
@@ -19,15 +51,15 @@ def log_download(photo_id: Optional[int], folder_id: Optional[int], client_ip: s
         cur = conn.cursor()
         
         cur.execute(
-            "INSERT INTO photobank_download_logs (folder_id, photo_id, download_type, client_ip, user_agent) VALUES (%s, %s, %s, %s, %s)",
-            (folder_id, photo_id, 'photo', client_ip, user_agent)
+            "INSERT INTO t_p28211681_photo_secure_web.download_logs (user_id, folder_id, photo_id, download_type, client_ip, user_agent) VALUES (%s, %s, %s, %s, %s, %s)",
+            (user_id, folder_id, photo_id, 'photo', client_ip, user_agent)
         )
         
         conn.commit()
         cur.close()
         conn.close()
-    except:
-        pass
+    except Exception as e:
+        print(f'[LOG_DOWNLOAD_ERROR] {str(e)}')
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
