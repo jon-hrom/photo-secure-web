@@ -139,10 +139,10 @@ const PhotoBankFoldersList = ({
             <table className="w-full">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Название</th>
-                  <th className="text-left p-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата создания</th>
-                  <th className="text-center p-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Фото</th>
-                  <th className="text-left md:text-right p-3 text-sm font-medium text-muted-foreground">Действия</th>
+                  <th className="text-left p-2 text-sm font-medium text-muted-foreground">Название</th>
+                  <th className="text-left p-2 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата создания</th>
+                  <th className="text-center p-2 text-sm font-medium text-muted-foreground hidden lg:table-cell">Фото</th>
+                  <th className="text-left md:text-right p-2 text-sm font-medium text-muted-foreground">Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,7 +156,7 @@ const PhotoBankFoldersList = ({
                         }`}
                         onClick={() => onSelectFolder(folder)}
                       >
-                        <td className="p-3">
+                        <td className="p-2">
                           <div className="flex items-center gap-2">
                             {subfolders.length > 0 ? (
                               <button
@@ -176,12 +176,12 @@ const PhotoBankFoldersList = ({
                             ) : (
                               <div className="w-6 flex-shrink-0" />
                             )}
-                            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                              <Icon name="Folder" size={20} className="text-orange-600" />
+                            <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                              <Icon name="Folder" size={18} className="text-orange-600" />
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium break-words">{folder.folder_name}</p>
+                                <p className="font-medium break-words text-sm">{folder.folder_name}</p>
                                 {folder.folder_type === 'originals' && (
                                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Оригиналы</span>
                                 )}
@@ -199,7 +199,7 @@ const PhotoBankFoldersList = ({
                                   </button>
                                 )}
                               </div>
-                              <p className="text-sm text-muted-foreground md:hidden">
+                              <p className="text-xs text-muted-foreground md:hidden">
                                 {folder.photo_count || 0} фото • {formatDate(folder.created_at)}
                               </p>
                             </div>
@@ -244,7 +244,7 @@ const PhotoBankFoldersList = ({
                             })()}
                           </div>
                         </td>
-                        <td className="p-3">
+                        <td className="p-2">
                           <div className="flex items-center justify-start md:justify-end gap-1 flex-wrap">
                             {canStartTechSort(folder) && (
                               <Button
@@ -375,10 +375,10 @@ const PhotoBankFoldersList = ({
                           }`}
                           onClick={() => onSelectFolder(subfolder)}
                         >
-                          <td className="p-3 pl-12">
+                          <td className="p-2 pl-10">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                                <Icon name="AlertTriangle" size={20} className="text-red-600" />
+                              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                                <Icon name="AlertTriangle" size={18} className="text-red-600" />
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -393,16 +393,16 @@ const PhotoBankFoldersList = ({
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 text-sm text-muted-foreground hidden md:table-cell">
+                          <td className="p-2 text-sm text-muted-foreground hidden md:table-cell">
                             {formatDate(subfolder.created_at)}
                           </td>
-                          <td className="p-3 text-center hidden lg:table-cell">
+                          <td className="p-2 text-center hidden lg:table-cell">
                             <div className="inline-flex items-center gap-1 text-red-600 font-medium">
                               <Icon name="Image" size={16} />
                               <span>{subfolder.photo_count || 0}</span>
                             </div>
                           </td>
-                          <td className="p-3">
+                          <td className="p-2">
                             <div className="flex items-center justify-start md:justify-end gap-1">
                               <Button
                                 variant="ghost"
