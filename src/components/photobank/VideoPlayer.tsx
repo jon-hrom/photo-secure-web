@@ -296,6 +296,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
               className="w-full max-w-6xl"
               style={{ maxHeight: 'calc(100vh - 180px)' }}
             >
+              <source src={src} type="video/mp4" />
               Ваш браузер не поддерживает воспроизведение видео.
             </video>
           )}
