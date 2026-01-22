@@ -11,6 +11,7 @@ interface Photo {
   s3_key?: string;
   is_video?: boolean;
   content_type?: string;
+  folder_id?: number;
 }
 
 interface FavoriteFolder {

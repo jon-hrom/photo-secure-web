@@ -1,9 +1,33 @@
 import json
 import os
 import base64
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import boto3
 from botocore.client import Config
+import psycopg2
+
+def log_download(photo_id: Optional[int], folder_id: Optional[int], client_ip: str, user_agent: str) -> None:
+    '''
+    Логирует скачивание фото в базу данных
+    '''
+    try:
+        dsn = os.environ.get('DATABASE_URL')
+        if not dsn:
+            return
+        
+        conn = psycopg2.connect(dsn)
+        cur = conn.cursor()
+        
+        cur.execute(
+            "INSERT INTO photobank_download_logs (folder_id, photo_id, download_type, client_ip, user_agent) VALUES (%s, %s, %s, %s, %s)",
+            (folder_id, photo_id, 'photo', client_ip, user_agent)
+        )
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+    except:
+        pass
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -35,6 +59,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     query_params = event.get('queryStringParameters') or {}
     s3_key: str = query_params.get('s3_key', '')
     use_presigned: bool = query_params.get('presigned', 'false').lower() == 'true'
+    photo_id_str = query_params.get('photo_id')
+    folder_id_str = query_params.get('folder_id')
+    
+    # Извлекаем IP и User-Agent для статистики
+    request_context = event.get('requestContext', {})
+    identity = request_context.get('identity', {})
+    client_ip = identity.get('sourceIp', 'unknown')
+    headers = event.get('headers', {})
+    user_agent = headers.get('user-agent', 'unknown')
+    
+    # Конвертируем ID в int если возможно
+    photo_id = int(photo_id_str) if photo_id_str and photo_id_str.isdigit() else None
+    folder_id = int(folder_id_str) if folder_id_str and folder_id_str.isdigit() else None
     
     if not s3_key:
         return {
@@ -118,6 +155,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         response = s3_client.get_object(Bucket=bucket, Key=s3_key)
         file_content = response['Body'].read()
         content_type = response.get('ContentType', 'application/octet-stream')
+        
+        # Логируем скачивание
+        log_download(photo_id, folder_id, client_ip, user_agent)
         
         return {
             'statusCode': 200,

@@ -10,6 +10,7 @@ interface Photo {
   height?: number;
   file_size: number;
   s3_key?: string;
+  folder_id?: number;
 }
 
 interface DownloadProgress {
@@ -41,7 +42,13 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
                          photo.file_name.toUpperCase().endsWith('.ARW') ||
                          photo.file_size > 3 * 1024 * 1024; // > 3MB
       
-      const apiUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(photo.s3_key)}${isLargeFile ? '&presigned=true' : ''}`;
+      const params = new URLSearchParams({
+        s3_key: photo.s3_key,
+        photo_id: photo.id.toString(),
+        ...(photo.folder_id && { folder_id: photo.folder_id.toString() }),
+        ...(isLargeFile && { presigned: 'true' })
+      });
+      const apiUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?${params.toString()}`;
       
       const response = await fetch(apiUrl);
       

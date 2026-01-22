@@ -299,7 +299,8 @@ def handler(event: dict, context) -> dict:
                         'file_size': file_size,
                         'is_video': is_video,
                         'content_type': content_type,
-                        's3_key': s3_key
+                        's3_key': s3_key,
+                        'folder_id': folder_id
                     })
                     
                     total_size += file_size or 0
