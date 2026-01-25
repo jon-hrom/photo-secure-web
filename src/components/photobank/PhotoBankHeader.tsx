@@ -129,7 +129,7 @@ const PhotoBankHeader = ({
                     variant="outline"
                     onClick={onRestoreSelectedPhotos}
                     disabled={selectedPhotos.size === 0}
-                    className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+                    className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
                   >
                     <Icon name="RotateCcw" size={24} />
                     <span className="text-[10px] text-center leading-tight">Вернуть в оригиналы ({selectedPhotos.size})</span>
@@ -138,7 +138,7 @@ const PhotoBankHeader = ({
                     variant="outline"
                     onClick={onDeleteSelectedPhotos}
                     disabled={selectedPhotos.size === 0}
-                    className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+                    className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
                   >
                     <Icon name="Trash2" size={24} />
                     <span className="text-[10px] text-center leading-tight">Удалить в корзину ({selectedPhotos.size})</span>
@@ -149,7 +149,7 @@ const PhotoBankHeader = ({
                   variant="outline"
                   onClick={onAddToPhotobook}
                   disabled={selectedPhotos.size === 0}
-                  className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+                  className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
                 >
                   <Icon name="Plus" size={24} />
                   <span className="text-[10px] text-center leading-tight">Добавить в макет ({selectedPhotos.size})</span>
@@ -158,7 +158,7 @@ const PhotoBankHeader = ({
               <Button 
                 variant="outline"
                 onClick={onCancelSelection}
-                className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+                className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
               >
                 <Icon name="X" size={24} />
                 <span className="text-[10px] text-center leading-tight">Отмена</span>
@@ -169,7 +169,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onStartSelection}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
             >
               <Icon name="CheckSquare" size={24} />
               <span className="text-[10px] text-center leading-tight">Выбрать фото</span>
@@ -178,7 +178,7 @@ const PhotoBankHeader = ({
           <Button 
             variant="outline"
             onClick={onShowCreateFolder}
-            className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+            className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
           >
             <Icon name="FolderPlus" size={24} />
             <span className="text-[10px] text-center leading-tight">Новая папка</span>
@@ -187,7 +187,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowCameraUpload}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
             >
               <Icon name="Camera" size={24} />
               <span className="text-[10px] text-center leading-tight">Загрузить<br />с камеры</span>
@@ -197,7 +197,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowFavorites}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
             >
               <Icon name="Star" size={24} />
               <span className="text-[10px] text-center leading-tight">Избранное</span>
@@ -207,7 +207,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowUrlUpload}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
             >
               <Icon name="Link" size={24} />
               <span className="text-[10px] text-center leading-tight">Загрузить<br />по ссылке</span>
@@ -216,7 +216,7 @@ const PhotoBankHeader = ({
           <Button 
             variant="outline"
             onClick={() => navigate('/photo-bank/trash')}
-            className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+            className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
           >
             <Icon name="Trash2" size={24} />
             <span className="text-[10px] text-center leading-tight">Корзина</span>
@@ -225,7 +225,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowStats}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
             >
               <Icon name="BarChart3" size={24} />
               <span className="text-[10px] text-center leading-tight">Статистика</span>
@@ -235,7 +235,7 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onShowAllChats}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 relative transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 relative transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-95"
             >
               <Icon name="MessagesSquare" size={24} />
               <span className="text-[10px] text-center leading-tight">Сообщения</span>
