@@ -86,8 +86,9 @@ const PhotoBankHeader = ({
             variant="ghost" 
             size="icon"
             onClick={onNavigateBack}
+            className="h-9 w-9"
           >
-            <Icon name="ArrowLeft" size={24} />
+            <Icon name="ArrowLeft" size={20} />
           </Button>
           <h1 className="text-3xl font-bold">Мой фото банк</h1>
         </div>
@@ -119,7 +120,7 @@ const PhotoBankHeader = ({
           </div>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
           {selectionMode && (
             <>
               {isTechRejectsFolder ? (
@@ -128,19 +129,19 @@ const PhotoBankHeader = ({
                     variant="outline"
                     onClick={onRestoreSelectedPhotos}
                     disabled={selectedPhotos.size === 0}
-                    className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+                    className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                   >
-                    <Icon name="RotateCcw" size={32} />
-                    <span className="text-xs text-center leading-tight">Вернуть в оригиналы ({selectedPhotos.size})</span>
+                    <Icon name="RotateCcw" size={24} />
+                    <span className="text-[10px] text-center leading-tight">Вернуть в оригиналы ({selectedPhotos.size})</span>
                   </Button>
                   <Button 
                     variant="outline"
                     onClick={onDeleteSelectedPhotos}
                     disabled={selectedPhotos.size === 0}
-                    className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+                    className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                   >
-                    <Icon name="Trash2" size={32} />
-                    <span className="text-xs text-center leading-tight">Удалить в корзину ({selectedPhotos.size})</span>
+                    <Icon name="Trash2" size={24} />
+                    <span className="text-[10px] text-center leading-tight">Удалить в корзину ({selectedPhotos.size})</span>
                   </Button>
                 </>
               ) : (
@@ -148,19 +149,19 @@ const PhotoBankHeader = ({
                   variant="outline"
                   onClick={onAddToPhotobook}
                   disabled={selectedPhotos.size === 0}
-                  className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+                  className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                 >
-                  <Icon name="Plus" size={32} />
-                  <span className="text-xs text-center leading-tight">Добавить в макет ({selectedPhotos.size})</span>
+                  <Icon name="Plus" size={24} />
+                  <span className="text-[10px] text-center leading-tight">Добавить в макет ({selectedPhotos.size})</span>
                 </Button>
               )}
               <Button 
                 variant="outline"
                 onClick={onCancelSelection}
-                className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+                className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
               >
-                <Icon name="X" size={32} />
-                <span className="text-xs text-center leading-tight">Отмена</span>
+                <Icon name="X" size={24} />
+                <span className="text-[10px] text-center leading-tight">Отмена</span>
               </Button>
             </>
           )}
@@ -168,78 +169,78 @@ const PhotoBankHeader = ({
             <Button 
               variant="outline"
               onClick={onStartSelection}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
-              <Icon name="CheckSquare" size={32} />
-              <span className="text-xs text-center leading-tight">Выбрать фото</span>
+              <Icon name="CheckSquare" size={24} />
+              <span className="text-[10px] text-center leading-tight">Выбрать фото</span>
             </Button>
           )}
           <Button 
             variant="outline"
             onClick={onShowCreateFolder}
-            className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+            className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
           >
-            <Icon name="FolderPlus" size={32} />
-            <span className="text-xs text-center leading-tight">Новая папка</span>
+            <Icon name="FolderPlus" size={24} />
+            <span className="text-[10px] text-center leading-tight">Новая папка</span>
           </Button>
           {onShowCameraUpload && (
             <Button 
               variant="outline"
               onClick={onShowCameraUpload}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
-              <Icon name="Camera" size={32} />
-              <span className="text-xs text-center leading-tight">Загрузить<br />с камеры</span>
+              <Icon name="Camera" size={24} />
+              <span className="text-[10px] text-center leading-tight">Загрузить<br />с камеры</span>
             </Button>
           )}
           {onShowFavorites && selectedFolder && (
             <Button 
               variant="outline"
               onClick={onShowFavorites}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
-              <Icon name="Star" size={32} />
-              <span className="text-xs text-center leading-tight">Избранное</span>
+              <Icon name="Star" size={24} />
+              <span className="text-[10px] text-center leading-tight">Избранное</span>
             </Button>
           )}
           {onShowUrlUpload && (
             <Button 
               variant="outline"
               onClick={onShowUrlUpload}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
-              <Icon name="Link" size={32} />
-              <span className="text-xs text-center leading-tight">Загрузить<br />по ссылке</span>
+              <Icon name="Link" size={24} />
+              <span className="text-[10px] text-center leading-tight">Загрузить<br />по ссылке</span>
             </Button>
           )}
           <Button 
             variant="outline"
             onClick={() => navigate('/photo-bank/trash')}
-            className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+            className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
           >
-            <Icon name="Trash2" size={32} />
-            <span className="text-xs text-center leading-tight">Корзина</span>
+            <Icon name="Trash2" size={24} />
+            <span className="text-[10px] text-center leading-tight">Корзина</span>
           </Button>
           {onShowStats && !selectedFolder && (
             <Button 
               variant="outline"
               onClick={onShowStats}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
-              <Icon name="BarChart3" size={32} />
-              <span className="text-xs text-center leading-tight">Статистика</span>
+              <Icon name="BarChart3" size={24} />
+              <span className="text-[10px] text-center leading-tight">Статистика</span>
             </Button>
           )}
           {onShowAllChats && !selectedFolder && (
             <Button 
               variant="outline"
               onClick={onShowAllChats}
-              className="aspect-square h-auto flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 relative"
+              className="aspect-square h-auto flex flex-col items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 relative"
             >
-              <Icon name="MessagesSquare" size={32} />
-              <span className="text-xs text-center leading-tight">Сообщения</span>
+              <Icon name="MessagesSquare" size={24} />
+              <span className="text-[10px] text-center leading-tight">Сообщения</span>
               {totalUnreadMessages > 0 && (
-                <span className="absolute top-2 right-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-white bg-red-600 rounded-full">
+                <span className="absolute top-1.5 right-1.5 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-medium text-white bg-red-600 rounded-full">
                   {totalUnreadMessages}
                 </span>
               )}

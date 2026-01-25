@@ -19,8 +19,9 @@ const TrashHeader = ({ hasFolders, hasPhotos, loading, onEmptyTrash }: TrashHead
           variant="ghost" 
           size="icon"
           onClick={() => navigate('/photo-bank')}
+          className="h-9 w-9"
         >
-          <Icon name="ArrowLeft" size={24} />
+          <Icon name="ArrowLeft" size={20} />
         </Button>
         <h1 className="text-3xl font-bold">Корзина</h1>
       </div>
@@ -29,8 +30,9 @@ const TrashHeader = ({ hasFolders, hasPhotos, loading, onEmptyTrash }: TrashHead
           variant="destructive"
           onClick={onEmptyTrash}
           disabled={loading}
+          size="sm"
         >
-          <Icon name="Trash2" className="mr-2" size={18} />
+          <Icon name="Trash2" className="mr-2" size={16} />
           Очистить корзину
         </Button>
       )}

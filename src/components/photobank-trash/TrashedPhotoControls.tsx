@@ -40,9 +40,9 @@ const TrashedPhotoControls = ({
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
             >
-              <Icon name="X" size={24} className="text-white" />
+              <Icon name="X" size={18} className="text-white" />
             </button>
           </div>
         </div>
@@ -51,27 +51,27 @@ const TrashedPhotoControls = ({
       {isLandscape && (
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+          className="absolute top-2 right-2 z-50 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
         >
-          <Icon name="X" size={20} className="text-white" />
+          <Icon name="X" size={16} className="text-white" />
         </button>
       )}
 
       {hasPrev && (
         <button
           onClick={() => { onNavigate('prev'); onResetZoom(); }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
         >
-          <Icon name="ChevronLeft" size={28} className="text-white" />
+          <Icon name="ChevronLeft" size={24} className="text-white" />
         </button>
       )}
 
       {hasNext && (
         <button
           onClick={() => { onNavigate('next'); onResetZoom(); }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
         >
-          <Icon name="ChevronRight" size={28} className="text-white" />
+          <Icon name="ChevronRight" size={24} className="text-white" />
         </button>
       )}
     </>

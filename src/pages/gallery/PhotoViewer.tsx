@@ -67,40 +67,40 @@ export default function PhotoViewer({
       onTouchEnd={onTouchEnd}
     >
       <button
-        className="absolute top-4 right-4 p-3 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
+        className="absolute top-4 right-4 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
         onClick={onClose}
       >
-        <Icon name="X" size={24} className="text-white" />
+        <Icon name="X" size={18} className="text-white" />
       </button>
       
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 z-10">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 z-10">
         <p className="text-white text-sm text-center">
           {gallery.photos.findIndex(p => p.id === selectedPhoto.id)! + 1} из {gallery.photos.length}
         </p>
       </div>
       
-      <div className="absolute top-16 left-4 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 z-10 max-w-[calc(100%-2rem)]">
+      <div className="absolute top-14 left-4 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 z-10 max-w-[calc(100%-2rem)]">
         <p className="text-white text-xs truncate">{selectedPhoto.file_name}</p>
       </div>
 
       <button
-        className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
+        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
         onClick={(e) => {
           e.stopPropagation();
           onNavigate('prev');
         }}
       >
-        <Icon name="ChevronLeft" size={32} className="text-white" />
+        <Icon name="ChevronLeft" size={24} className="text-white" />
       </button>
 
       <button
-        className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
+        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
         onClick={(e) => {
           e.stopPropagation();
           onNavigate('next');
         }}
       >
-        <Icon name="ChevronRight" size={32} className="text-white" />
+        <Icon name="ChevronRight" size={24} className="text-white" />
       </button>
       
       {imageError ? (
@@ -182,26 +182,26 @@ export default function PhotoViewer({
               return watermarks;
             })()}
           </div>
-          <div className="absolute bottom-4 right-4 flex gap-3 z-10">
+          <div className="absolute bottom-4 right-4 flex gap-2 z-10">
             <button
-              className="p-3 bg-white/20 backdrop-blur-sm rounded-full hover:bg-yellow-500 hover:scale-110 transition-all shadow-lg group/btn"
+              className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-yellow-500 hover:scale-110 transition-all shadow-lg group/btn"
               onClick={(e) => {
                 e.stopPropagation();
                 onAddToFavorites(selectedPhoto);
               }}
               title="Добавить в избранное"
             >
-              <Icon name="Star" size={20} className="text-white" />
+              <Icon name="Star" size={18} className="text-white" />
             </button>
             {!gallery.download_disabled && (
               <button
-                className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg text-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDownloadPhoto(selectedPhoto);
                 }}
               >
-                <Icon name="Download" size={20} />
+                <Icon name="Download" size={16} />
                 Скачать
               </button>
             )}
