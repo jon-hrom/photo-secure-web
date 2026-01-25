@@ -249,19 +249,15 @@ const PhotoBankFoldersList = ({
                             {canStartTechSort(folder) && (
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-8 px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 text-xs sm:text-sm"
+                                size="icon"
+                                className="h-7 w-7 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onStartTechSort(folder.id, folder.folder_name);
                                 }}
                                 title="Отобрать фото на технический брак"
                               >
-                                <Icon name="SlidersHorizontal" size={14} className="mr-1" />
-                                <span className="hidden sm:inline">Отобрать</span>
-                                <span className="sm:hidden">
-                                  <Icon name="SlidersHorizontal" size={14} />
-                                </span>
+                                <Icon name="SlidersHorizontal" size={14} />
                               </Button>
                             )}
                             {/* Показываем кнопку чата только для старых папок с одним клиентом */}
@@ -269,7 +265,7 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 relative"
+                                className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 relative"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onOpenChat(folder.client_id!, folder.folder_name);
@@ -289,7 +285,7 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className={`h-8 w-8 relative ${
+                                className={`h-7 w-7 relative ${
                                   (folder.unread_messages_count ?? 0) > 0
                                     ? 'text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50'
                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -304,9 +300,9 @@ const PhotoBankFoldersList = ({
                                     : 'Сообщения от клиентов'
                                 }
                               >
-                                <Icon name="Mail" size={16} />
+                                <Icon name="Mail" size={14} />
                                 {(folder.unread_messages_count ?? 0) > 0 && (
-                                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
                                     {folder.unread_messages_count}
                                   </span>
                                 )}
@@ -316,21 +312,21 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onShareFolder(folder.id, folder.folder_name);
                                 }}
                                 title="Поделиться галереей"
                               >
-                                <Icon name="Share2" size={16} />
+                                <Icon name="Share2" size={14} />
                               </Button>
                             )}
                             {onDownloadFolder && folder.photo_count > 0 && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onDownloadFolder(folder.id, folder.folder_name);
@@ -343,26 +339,26 @@ const PhotoBankFoldersList = ({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-7 w-7"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onSelectFolder(folder);
                               }}
                               title="Открыть папку"
                             >
-                              <Icon name="FolderOpen" size={16} />
+                              <Icon name="FolderOpen" size={14} />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteFolder(folder.id, folder.folder_name);
                               }}
                               title="Удалить"
                             >
-                              <Icon name="Trash2" size={16} />
+                              <Icon name="Trash2" size={14} />
                             </Button>
                           </div>
                         </td>
@@ -407,14 +403,14 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
+                                className="h-7 w-7"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onSelectFolder(subfolder);
                                 }}
                                 title="Открыть папку"
                               >
-                                <Icon name="FolderOpen" size={16} />
+                                <Icon name="FolderOpen" size={14} />
                               </Button>
                             </div>
                           </td>
