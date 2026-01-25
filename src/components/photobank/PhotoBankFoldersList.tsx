@@ -250,7 +250,7 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                className="h-7 w-7 text-purple-600 hover:text-purple-700 hover:bg-purple-50 hover:scale-110 active:scale-95 transition-all duration-200"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onStartTechSort(folder.id, folder.folder_name);
@@ -265,7 +265,7 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 relative"
+                                className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 relative hover:scale-110 active:scale-95 transition-all duration-200"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onOpenChat(folder.client_id!, folder.folder_name);
@@ -285,7 +285,7 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className={`h-7 w-7 relative ${
+                                className={`h-7 w-7 relative hover:scale-110 active:scale-95 transition-all duration-200 ${
                                   (folder.unread_messages_count ?? 0) > 0
                                     ? 'text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50'
                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -312,7 +312,7 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 hover:scale-110 active:scale-95 transition-all duration-200"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onShareFolder(folder.id, folder.folder_name);
@@ -326,7 +326,7 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 hover:scale-110 active:scale-95 transition-all duration-200"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onDownloadFolder(folder.id, folder.folder_name);
@@ -339,7 +339,7 @@ const PhotoBankFoldersList = ({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7"
+                              className="h-7 w-7 hover:scale-110 active:scale-95 transition-all duration-200"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onSelectFolder(folder);
@@ -351,7 +351,7 @@ const PhotoBankFoldersList = ({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:scale-110 active:scale-95 transition-all duration-200"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteFolder(folder.id, folder.folder_name);
@@ -403,7 +403,7 @@ const PhotoBankFoldersList = ({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-7 w-7 hover:scale-110 active:scale-95 transition-all duration-200"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onSelectFolder(subfolder);
