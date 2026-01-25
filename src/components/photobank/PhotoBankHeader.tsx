@@ -120,7 +120,7 @@ const PhotoBankHeader = ({
           </div>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 max-w-3xl">
           {selectionMode && (
             <>
               {isTechRejectsFolder ? (
