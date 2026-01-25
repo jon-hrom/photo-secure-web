@@ -81,7 +81,7 @@ const PhotoGridControls = ({
                     }
                   }
                 }}
-                className="h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all gap-2 px-2.5"
+                className="h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 gap-2 px-2.5 hover:scale-110 active:scale-95"
                 title={`Скачать фото${(viewPhoto.photo_download_count ?? 0) > 0 ? ` (скачиваний клиентами: ${viewPhoto.photo_download_count})` : ''}`}
               >
                 <Icon name="Download" size={16} className="text-white" />
@@ -92,14 +92,14 @@ const PhotoGridControls = ({
             )}
             <button
               onClick={onShowExif}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
               title="Информация о фото"
             >
               <Icon name="Info" size={16} className="text-white" />
             </button>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
             >
               <Icon name="X" size={18} className="text-white" />
             </button>
@@ -118,7 +118,7 @@ const PhotoGridControls = ({
           </div>
           <button
             onClick={onClose}
-            className="absolute top-2 right-2 z-50 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+            className="absolute top-2 right-2 z-50 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
           >
             <Icon name="X" size={16} className="text-white" />
           </button>
@@ -128,7 +128,7 @@ const PhotoGridControls = ({
       {hasPrev && (
         <button
           onClick={() => { onNavigate('prev'); onResetZoom(); }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
         >
           <Icon name="ChevronLeft" size={24} className="text-white" />
         </button>
@@ -137,7 +137,7 @@ const PhotoGridControls = ({
       {hasNext && (
         <button
           onClick={() => { onNavigate('next'); onResetZoom(); }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
         >
           <Icon name="ChevronRight" size={24} className="text-white" />
         </button>

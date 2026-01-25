@@ -67,7 +67,7 @@ export default function PhotoViewer({
       onTouchEnd={onTouchEnd}
     >
       <button
-        className="absolute top-4 right-4 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
+        className="absolute top-4 right-4 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-all duration-200 hover:scale-110 active:scale-95 z-10"
         onClick={onClose}
       >
         <Icon name="X" size={18} className="text-white" />
@@ -84,7 +84,7 @@ export default function PhotoViewer({
       </div>
 
       <button
-        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
+        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-all duration-200 hover:scale-110 active:scale-95 z-10"
         onClick={(e) => {
           e.stopPropagation();
           onNavigate('prev');
@@ -94,7 +94,7 @@ export default function PhotoViewer({
       </button>
 
       <button
-        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-colors z-10"
+        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 backdrop-blur-sm rounded-full hover:bg-white/20 transition-all duration-200 hover:scale-110 active:scale-95 z-10"
         onClick={(e) => {
           e.stopPropagation();
           onNavigate('next');
@@ -184,7 +184,7 @@ export default function PhotoViewer({
           </div>
           <div className="absolute bottom-4 right-4 flex gap-2 z-10">
             <button
-              className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-yellow-500 hover:scale-110 transition-all shadow-lg group/btn"
+              className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-yellow-500 hover:scale-110 active:scale-95 transition-all duration-200 shadow-lg group/btn"
               onClick={(e) => {
                 e.stopPropagation();
                 onAddToFavorites(selectedPhoto);
@@ -195,7 +195,7 @@ export default function PhotoViewer({
             </button>
             {!gallery.download_disabled && (
               <button
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg text-sm"
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg text-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDownloadPhoto(selectedPhoto);
