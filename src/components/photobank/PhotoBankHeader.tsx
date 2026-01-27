@@ -132,7 +132,7 @@ const PhotoBankHeader = ({
                     className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                   >
                     <Icon name="RotateCcw" size={16} />
-                    <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Вернуть в оригиналы ({selectedPhotos.size})</span>
+                    <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Вернуть в оригиналы ({selectedPhotos.size})</span>
                   </Button>
                   <Button 
                     variant="outline"
@@ -141,7 +141,7 @@ const PhotoBankHeader = ({
                     className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                   >
                     <Icon name="Trash2" size={16} />
-                    <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Удалить в корзину ({selectedPhotos.size})</span>
+                    <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Удалить в корзину ({selectedPhotos.size})</span>
                   </Button>
                 </>
               ) : (
@@ -152,7 +152,7 @@ const PhotoBankHeader = ({
                   className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
                 >
                   <Icon name="Plus" size={16} />
-                  <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Добавить в макет ({selectedPhotos.size})</span>
+                  <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Добавить в макет ({selectedPhotos.size})</span>
                 </Button>
               )}
               <Button 
@@ -161,7 +161,7 @@ const PhotoBankHeader = ({
                 className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
               >
                 <Icon name="X" size={16} />
-                <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Отмена</span>
+                <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Отмена</span>
               </Button>
             </>
           )}
@@ -172,7 +172,7 @@ const PhotoBankHeader = ({
               className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="CheckSquare" size={16} />
-              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Выбрать фото</span>
+              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Выбрать фото</span>
             </Button>
           )}
           <Button 
@@ -181,7 +181,7 @@ const PhotoBankHeader = ({
             className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
           >
             <Icon name="FolderPlus" size={16} />
-            <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Новая папка</span>
+            <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Новая папка</span>
           </Button>
           {onShowCameraUpload && (
             <Button 
@@ -190,7 +190,7 @@ const PhotoBankHeader = ({
               className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Camera" size={16} />
-              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Загрузить с камеры</span>
+              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Загрузить с камеры</span>
             </Button>
           )}
           {onShowFavorites && selectedFolder && (
@@ -200,7 +200,7 @@ const PhotoBankHeader = ({
               className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Star" size={16} />
-              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Избранное</span>
+              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Избранное</span>
             </Button>
           )}
           {onShowUrlUpload && (
@@ -210,7 +210,7 @@ const PhotoBankHeader = ({
               className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Link" size={16} />
-              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Загрузить по ссылке</span>
+              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Загрузить по ссылке</span>
             </Button>
           )}
           <Button 
@@ -219,7 +219,7 @@ const PhotoBankHeader = ({
             className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
           >
             <Icon name="Trash2" size={16} />
-            <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Корзина</span>
+            <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Корзина</span>
           </Button>
           {onShowStats && !selectedFolder && (
             <Button 
@@ -228,7 +228,7 @@ const PhotoBankHeader = ({
               className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="BarChart3" size={16} />
-              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Статистика</span>
+              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Статистика</span>
             </Button>
           )}
           {onShowAllChats && !selectedFolder && (
@@ -238,7 +238,7 @@ const PhotoBankHeader = ({
               className="h-16 w-16 md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-1 md:gap-0 p-2 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950 relative"
             >
               <Icon name="MessagesSquare" size={16} />
-              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight">Сообщения</span>
+              <span className="text-[9px] md:text-sm md:ml-1.5 leading-tight text-center md:text-left">Сообщения</span>
               {totalUnreadMessages > 0 && (
                 <span className="absolute top-0 right-0 md:-top-1 md:-right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-medium text-white bg-red-600 rounded-full">
                   {totalUnreadMessages}
