@@ -245,7 +245,7 @@ const PhotoBankFoldersList = ({
                           </div>
                         </td>
                         <td className="px-2 py-1.5">
-                          <div className="flex items-center justify-start md:justify-end gap-0.5 flex-wrap">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-0.5 justify-items-start md:justify-items-end">
                             {canStartTechSort(folder) && (
                               <Button
                                 variant="ghost"
@@ -399,7 +399,7 @@ const PhotoBankFoldersList = ({
                             </div>
                           </td>
                           <td className="px-2 py-1.5">
-                            <div className="flex items-center justify-start md:justify-end gap-0.5">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-0.5 justify-items-start md:justify-items-end">
                               <Button
                                 variant="ghost"
                                 size="icon"
