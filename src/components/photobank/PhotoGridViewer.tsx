@@ -149,7 +149,7 @@ const PhotoGridViewer = ({
                         ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)` 
                         : 'none',
                       maxWidth: zoom === 0 ? '90vw' : '100%',
-                      maxHeight: zoom === 0 ? '75vh' : '85vh',
+                      maxHeight: zoom === 0 ? '70vh' : '80vh',
                       width: 'auto',
                       height: 'auto',
                       transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
@@ -170,7 +170,7 @@ const PhotoGridViewer = ({
                     style={{
                       transform: `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`,
                       maxWidth: '90vw',
-                      maxHeight: '85vh',
+                      maxHeight: '80vh',
                       width: 'auto',
                       height: 'auto',
                       transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
