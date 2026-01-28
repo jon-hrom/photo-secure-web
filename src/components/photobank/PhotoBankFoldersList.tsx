@@ -135,7 +135,7 @@ const PhotoBankFoldersList = ({
             </Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto pb-24 md:pb-0">
             <table className="w-full">
               <thead>
                 <tr className="border-b bg-muted/50">
