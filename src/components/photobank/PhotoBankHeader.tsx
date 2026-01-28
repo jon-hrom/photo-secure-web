@@ -86,7 +86,7 @@ const PhotoBankHeader = ({
             variant="ghost" 
             size="icon"
             onClick={onNavigateBack}
-            className="h-9 w-9 hover:bg-purple-100 hover:text-purple-700 active:bg-purple-200 transition-all duration-200"
+            className="h-9 w-9 bg-purple-100 text-purple-700 hover:bg-purple-200 active:bg-purple-300 transition-all duration-200"
           >
             <Icon name="ArrowLeft" size={20} />
           </Button>
