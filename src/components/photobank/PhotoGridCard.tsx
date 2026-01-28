@@ -99,10 +99,10 @@ const PhotoGridCard = ({
             e.stopPropagation();
             onShowExif(photo);
           }}
-          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
+          className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm flex items-center justify-center transition-all touch-manipulation"
           title="Информация о фото"
         >
-          <Icon name="Info" size={16} className="text-white" />
+          <Icon name="Info" size={12} className="text-white" />
         </button>
       )}
       <div className="w-full h-full relative">
@@ -169,10 +169,10 @@ const PhotoGridCard = ({
               e.stopPropagation();
               onDeletePhoto(photo.id, photo.file_name);
             }}
-            className="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 backdrop-blur-sm flex items-center justify-center transition-all"
+            className="absolute top-1 left-1 z-10 w-6 h-6 rounded-full bg-red-500/90 hover:bg-red-600 backdrop-blur-sm flex items-center justify-center transition-all touch-manipulation"
             title="Удалить файл"
           >
-            <Icon name="Trash2" size={16} className="text-white" />
+            <Icon name="Trash2" size={12} className="text-white" />
           </button>
           {emailVerified && photo.s3_key && (
             <button
@@ -185,10 +185,10 @@ const PhotoGridCard = ({
                   onDownload(photo.s3_key!, photo.file_name, userId);
                 }
               }}
-              className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all"
+              className="absolute bottom-1 right-1 z-10 w-6 h-6 rounded-full bg-blue-500/90 hover:bg-blue-600 backdrop-blur-sm flex items-center justify-center transition-all touch-manipulation"
               title="Скачать"
             >
-              <Icon name="Download" size={16} className="text-white" />
+              <Icon name="Download" size={12} className="text-white" />
             </button>
           )}
         </>
