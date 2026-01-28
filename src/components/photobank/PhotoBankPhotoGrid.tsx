@@ -201,7 +201,7 @@ const PhotoBankPhotoGrid = ({
         )}
 
         {!loading && photos.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 gap-1.5 sm:gap-2 md:gap-3">
             {photos.map((photo) => (
               <div key={photo.id} className="relative">
                 <PhotoGridCard
