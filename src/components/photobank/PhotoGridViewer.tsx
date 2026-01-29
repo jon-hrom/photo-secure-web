@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Icon from '@/components/ui/icon';
@@ -47,6 +47,27 @@ const PhotoGridViewer = ({
 }: PhotoGridViewerProps) => {
   const [showExif, setShowExif] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
+
+  // Блокируем скролл body когда диалог открыт
+  useEffect(() => {
+    if (viewPhoto) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      const originalPosition = window.getComputedStyle(document.body).position;
+      const originalWidth = window.getComputedStyle(document.body).width;
+      
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.height = '100vh';
+      
+      return () => {
+        document.body.style.overflow = originalStyle;
+        document.body.style.position = originalPosition;
+        document.body.style.width = originalWidth;
+        document.body.style.height = '';
+      };
+    }
+  }, [viewPhoto]);
 
   // Используем кастомный хук для всей логики жестов
   const {
