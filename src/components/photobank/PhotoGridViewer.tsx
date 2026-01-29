@@ -51,20 +51,27 @@ const PhotoGridViewer = ({
   // Блокируем скролл body когда диалог открыт
   useEffect(() => {
     if (viewPhoto) {
-      const originalStyle = window.getComputedStyle(document.body).overflow;
-      const originalPosition = window.getComputedStyle(document.body).position;
-      const originalWidth = window.getComputedStyle(document.body).width;
+      // Сохраняем оригинальные значения ДО изменения
+      const originalOverflow = document.body.style.overflow;
+      const originalPosition = document.body.style.position;
+      const originalWidth = document.body.style.width;
+      const originalHeight = document.body.style.height;
+      const scrollY = window.scrollY;
       
+      // Блокируем скролл
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
-      document.body.style.height = '100vh';
       
       return () => {
-        document.body.style.overflow = originalStyle;
+        // Восстанавливаем оригинальные значения
+        document.body.style.overflow = originalOverflow;
         document.body.style.position = originalPosition;
         document.body.style.width = originalWidth;
-        document.body.style.height = '';
+        document.body.style.height = originalHeight;
+        document.body.style.top = '';
+        window.scrollTo(0, scrollY);
       };
     }
   }, [viewPhoto]);
