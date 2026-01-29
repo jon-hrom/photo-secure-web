@@ -65,7 +65,7 @@ const FolderSelection = ({
         </div>
       ) : (
         <div className="space-y-2">
-          <Label>Выберите папку</Label>
+          <Label className="text-foreground">Выберите папку</Label>
           <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
             {folders.map(folder => (
               <Button
@@ -73,10 +73,16 @@ const FolderSelection = ({
                 variant={selectedFolderId === folder.id ? 'default' : 'outline'}
                 onClick={() => onFolderSelect(folder.id)}
                 disabled={uploading}
-                className="justify-start h-auto py-3 px-3"
+                className={`justify-start h-auto py-3 px-3 ${
+                  selectedFolderId === folder.id 
+                    ? 'text-primary-foreground' 
+                    : 'text-foreground hover:text-foreground'
+                }`}
               >
                 <Icon name="Folder" className="mr-2 flex-shrink-0" size={16} />
-                <span className="truncate text-left flex-1 min-w-0">{folder.name}</span>
+                <span className="truncate text-left flex-1 min-w-0 font-medium">
+                  {folder.name}
+                </span>
               </Button>
             ))}
           </div>
