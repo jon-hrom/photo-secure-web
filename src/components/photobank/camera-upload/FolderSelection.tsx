@@ -66,17 +66,17 @@ const FolderSelection = ({
       ) : (
         <div className="space-y-2">
           <Label>Выберите папку</Label>
-          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
             {folders.map(folder => (
               <Button
                 key={folder.id}
                 variant={selectedFolderId === folder.id ? 'default' : 'outline'}
                 onClick={() => onFolderSelect(folder.id)}
                 disabled={uploading}
-                className="justify-start"
+                className="justify-start h-auto py-3 px-3"
               >
-                <Icon name="Folder" className="mr-2" size={16} />
-                <span className="truncate">{folder.name}</span>
+                <Icon name="Folder" className="mr-2 flex-shrink-0" size={16} />
+                <span className="truncate text-left flex-1 min-w-0">{folder.name}</span>
               </Button>
             ))}
           </div>
