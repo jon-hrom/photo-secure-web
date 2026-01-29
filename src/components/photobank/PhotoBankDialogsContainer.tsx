@@ -97,7 +97,7 @@ const PhotoBankDialogsContainer = ({
         open={showCameraUpload}
         onOpenChange={setShowCameraUpload}
         userId={userId || ''}
-        folders={folders}
+        folders={folders.map(f => ({ id: f.id, name: f.folder_name }))}
         onUploadComplete={() => {
           fetchFolders();
           fetchStorageUsage();
