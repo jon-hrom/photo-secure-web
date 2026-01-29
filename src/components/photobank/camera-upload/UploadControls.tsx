@@ -23,8 +23,8 @@ const UploadControls = ({
   return (
     <div className="space-y-4 border-t pt-4">
       {!isOnline && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-2 rounded">
-          <Icon name="WifiOff" size={16} />
+        <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 rounded-lg">
+          <Icon name="WifiOff" size={16} className="flex-shrink-0" />
           <span>Нет подключения к интернету</span>
         </div>
       )}

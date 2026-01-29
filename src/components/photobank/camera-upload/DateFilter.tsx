@@ -20,15 +20,16 @@ const DateFilter = ({
   if (availableDates.length === 0) return null;
 
   return (
-    <div className="space-y-2 border-t pt-4">
+    <div className="space-y-2 border-t dark:border-gray-700 pt-4">
       <div className="flex items-center justify-between">
-        <Label>Фильтр по дате съёмки</Label>
+        <Label className="text-foreground text-base font-semibold">Фильтр по дате съёмки</Label>
         {selectedDate && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onDateSelect(null)}
             disabled={uploading}
+            className="text-foreground"
           >
             <Icon name="X" className="mr-1" size={14} />
             Сбросить
@@ -44,6 +45,9 @@ const DateFilter = ({
             onClick={() => onDateSelect(selectedDate === date ? null : date)}
             disabled={uploading}
             size="sm"
+            style={{
+              color: selectedDate === date ? 'white' : 'inherit'
+            }}
           >
             {date}
           </Button>
