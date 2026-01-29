@@ -6,6 +6,7 @@ Returns: HTTP response with trash operations status
 
 import json
 import os
+import traceback
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -64,68 +65,74 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute('''
-                SELECT pb.id, pb.s3_key, pf.s3_prefix, pb.folder_id
-                FROM photo_bank pb
-                LEFT JOIN photo_folders pf ON pb.folder_id = pf.id
-                WHERE pb.is_trashed = TRUE 
-                  AND pb.trashed_at < NOW() - INTERVAL '7 days'
-            ''')
-            expired_photos = cur.fetchall()
-            
-            for photo in expired_photos:
-                if photo['s3_key']:
-                    trash_key = f'trash/{photo["s3_key"]}'
-                    try:
-                        s3_client.delete_object(Bucket=bucket, Key=trash_key)
-                    except Exception as e:
-                        print(f'Failed to delete {trash_key} from S3: {e}')
-            
-            if expired_photos:
-                expired_ids = [p['id'] for p in expired_photos]
-                cur.execute(f'''
-                    DELETE FROM photo_bank 
-                    WHERE id IN ({','.join(map(str, expired_ids))})
+        # Auto-cleanup: delete trashed items older than 7 days
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Clean up expired photos
+                cur.execute('''
+                    SELECT pb.id, pb.s3_key
+                    FROM t_p28211681_photo_secure_web.photo_bank pb
+                    WHERE pb.is_trashed = TRUE 
+                      AND pb.trashed_at < NOW() - INTERVAL '7 days'
                 ''')
-                conn.commit()
-                print(f'Auto-deleted {len(expired_photos)} expired photos from trash')
-            
-            cur.execute('''
-                SELECT id, s3_prefix
-                FROM photo_folders
-                WHERE is_trashed = TRUE 
-                  AND trashed_at < NOW() - INTERVAL '7 days'
-            ''')
-            expired_folders = cur.fetchall()
-            
-            for folder in expired_folders:
-                if folder['s3_prefix']:
-                    trash_prefix = f'trash/{folder["s3_prefix"]}'
-                    paginator = s3_client.get_paginator('list_objects_v2')
-                    pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
-                    
-                    for page in pages:
-                        for obj in page.get('Contents', []):
-                            try:
-                                s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
-                            except Exception as e:
-                                print(f'Failed to delete {obj["Key"]} from S3: {e}')
-            
-            if expired_folders:
-                expired_folder_ids = [f['id'] for f in expired_folders]
-                # Сначала удаляем все фото из этих папок (включая неудалённые)
-                cur.execute(f'''
-                    DELETE FROM photo_bank 
-                    WHERE folder_id IN ({','.join(map(str, expired_folder_ids))})
+                expired_photos = cur.fetchall()
+                
+                for photo in expired_photos:
+                    if photo['s3_key']:
+                        trash_key = f'trash/{photo["s3_key"]}'
+                        try:
+                            s3_client.delete_object(Bucket=bucket, Key=trash_key)
+                        except Exception as e:
+                            print(f'Failed to delete {trash_key} from S3: {e}')
+                
+                if expired_photos:
+                    expired_ids = [p['id'] for p in expired_photos]
+                    cur.execute(f'''
+                        DELETE FROM t_p28211681_photo_secure_web.photo_bank 
+                        WHERE id IN ({','.join(map(str, expired_ids))})
+                    ''')
+                    conn.commit()
+                    print(f'Auto-deleted {len(expired_photos)} expired photos from trash')
+                
+                # Clean up expired folders
+                cur.execute('''
+                    SELECT id, s3_prefix
+                    FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE is_trashed = TRUE 
+                      AND trashed_at < NOW() - INTERVAL '7 days'
                 ''')
-                # Теперь можно безопасно удалить папки
-                cur.execute(f'''
-                    DELETE FROM photo_folders 
-                    WHERE id IN ({','.join(map(str, expired_folder_ids))})
-                ''')
-                conn.commit()
-                print(f'Auto-deleted {len(expired_folders)} expired folders from trash')
+                expired_folders = cur.fetchall()
+                
+                for folder in expired_folders:
+                    if folder['s3_prefix']:
+                        trash_prefix = f'trash/{folder["s3_prefix"]}'
+                        paginator = s3_client.get_paginator('list_objects_v2')
+                        pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
+                        
+                        for page in pages:
+                            for obj in page.get('Contents', []):
+                                try:
+                                    s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
+                                except Exception as e:
+                                    print(f'Failed to delete {obj["Key"]} from S3: {e}')
+                
+                if expired_folders:
+                    expired_folder_ids = [f['id'] for f in expired_folders]
+                    # Delete all photos from these folders first
+                    cur.execute(f'''
+                        DELETE FROM t_p28211681_photo_secure_web.photo_bank 
+                        WHERE folder_id IN ({','.join(map(str, expired_folder_ids))})
+                    ''')
+                    # Then delete folders
+                    cur.execute(f'''
+                        DELETE FROM t_p28211681_photo_secure_web.photo_folders 
+                        WHERE id IN ({','.join(map(str, expired_folder_ids))})
+                    ''')
+                    conn.commit()
+                    print(f'Auto-deleted {len(expired_folders)} expired folders from trash')
+        except Exception as cleanup_error:
+            print(f'Auto-cleanup failed (non-critical): {cleanup_error}')
+            # Don't fail the request if cleanup fails
         
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')
@@ -134,15 +141,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         SELECT 
-                            id, 
-                            folder_name, 
-                            s3_prefix,
-                            trashed_at,
-                            (SELECT COUNT(*) FROM photo_bank 
-                             WHERE folder_id = photo_folders.id AND is_trashed = TRUE) as photo_count
-                        FROM photo_folders
-                        WHERE user_id = %s AND is_trashed = TRUE
-                        ORDER BY trashed_at DESC
+                            pf.id, 
+                            pf.folder_name, 
+                            pf.s3_prefix,
+                            pf.trashed_at,
+                            (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank pb
+                             WHERE pb.folder_id = pf.id AND pb.is_trashed = TRUE) as photo_count
+                        FROM t_p28211681_photo_secure_web.photo_folders pf
+                        WHERE pf.user_id = %s AND pf.is_trashed = TRUE
+                        ORDER BY pf.trashed_at DESC
                     ''', (user_id,))
                     folders = cur.fetchall()
                     
@@ -169,8 +176,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pb.height, 
                             pb.trashed_at,
                             pf.folder_name
-                        FROM photo_bank pb
-                        LEFT JOIN photo_folders pf ON pb.folder_id = pf.id
+                        FROM t_p28211681_photo_secure_web.photo_bank pb
+                        LEFT JOIN t_p28211681_photo_secure_web.photo_folders pf ON pb.folder_id = pf.id
                         WHERE pb.user_id = %s 
                           AND pb.is_trashed = TRUE
                           AND pf.is_trashed = FALSE
@@ -223,7 +230,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         SELECT s3_prefix 
-                        FROM photo_folders 
+                        FROM t_p28211681_photo_secure_web.photo_folders 
                         WHERE id = %s AND user_id = %s AND is_trashed = TRUE
                     ''', (folder_id, user_id))
                     folder = cur.fetchone()
@@ -237,13 +244,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         }
                     
                     cur.execute('''
-                        UPDATE photo_folders
+                        UPDATE t_p28211681_photo_secure_web.photo_folders
                         SET is_trashed = FALSE, trashed_at = NULL
                         WHERE id = %s
                     ''', (folder_id,))
                     
                     cur.execute('''
-                        UPDATE photo_bank
+                        UPDATE t_p28211681_photo_secure_web.photo_bank
                         SET is_trashed = FALSE, trashed_at = NULL
                         WHERE folder_id = %s
                     ''', (folder_id,))
@@ -296,7 +303,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         SELECT s3_key
-                        FROM photo_bank
+                        FROM t_p28211681_photo_secure_web.photo_bank
                         WHERE id = %s AND user_id = %s AND is_trashed = TRUE
                     ''', (photo_id, user_id))
                     photo = cur.fetchone()
@@ -329,7 +336,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         }
                     
                     cur.execute('''
-                        UPDATE photo_bank
+                        UPDATE t_p28211681_photo_secure_web.photo_bank
                         SET is_trashed = FALSE, trashed_at = NULL
                         WHERE id = %s
                     ''', (photo_id,))
@@ -356,7 +363,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         SELECT s3_key
-                        FROM photo_bank
+                        FROM t_p28211681_photo_secure_web.photo_bank
                         WHERE id = %s AND user_id = %s AND is_trashed = TRUE
                     ''', (photo_id, user_id))
                     photo = cur.fetchone()
@@ -378,7 +385,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         print(f'Failed to delete photo from S3: {e}')
                     
                     cur.execute('''
-                        DELETE FROM photo_bank
+                        DELETE FROM t_p28211681_photo_secure_web.photo_bank
                         WHERE id = %s
                     ''', (photo_id,))
                     conn.commit()
@@ -394,7 +401,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         SELECT id, s3_prefix 
-                        FROM photo_folders 
+                        FROM t_p28211681_photo_secure_web.photo_folders 
                         WHERE user_id = %s AND is_trashed = TRUE
                     ''', (user_id,))
                     folders = cur.fetchall()
@@ -404,13 +411,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if folder_ids:
                         # Сначала удаляем ВСЕ фото из удалённых папок (включая неудалённые фото)
                         cur.execute('''
-                            DELETE FROM photo_bank 
+                            DELETE FROM t_p28211681_photo_secure_web.photo_bank 
                             WHERE folder_id = ANY(%s)
                         ''', (folder_ids,))
                         
                         # Теперь можно безопасно удалить папки
                         cur.execute('''
-                            DELETE FROM photo_folders 
+                            DELETE FROM t_p28211681_photo_secure_web.photo_folders 
                             WHERE id = ANY(%s) AND is_trashed = TRUE
                         ''', (folder_ids,))
                         
@@ -510,11 +517,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     except Exception as e:
-        print(f'[ERROR] {str(e)}')
+        error_msg = str(e)
+        error_trace = traceback.format_exc()
+        print(f'[ERROR] Method: {method}')
+        print(f'[ERROR] User ID: {user_id}')
+        print(f'[ERROR] Message: {error_msg}')
+        print(f'[ERROR] Traceback:\n{error_trace}')
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': str(e)}),
+            'body': json.dumps({'error': error_msg}),
             'isBase64Encoded': False
         }
     finally:
