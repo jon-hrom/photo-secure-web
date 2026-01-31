@@ -635,51 +635,67 @@ def get_wfolio_gallery_urls(url: str) -> list:
         seen_urls = set()
         
         # Ищем все фото-элементы в галерее
-        # wfolio использует структуру: <div class="masonry-piece" data-gallery-versions="...">
-        for piece in soup.find_all(['div', 'turbo-frame'], class_=lambda x: x and 'masonry-piece' in x if x else False):
+        # wfolio использует структуру: <div class="piece" data-piece-id="...">
+        pieces = soup.find_all('div', class_='piece')
+        
+        print(f'[WFOLIO] Found {len(pieces)} piece elements')
+        
+        for piece in pieces:
             try:
-                # Извлекаем JSON с версиями изображения
-                gallery_versions = piece.get('data-gallery-versions')
                 piece_id = piece.get('data-piece-id')
-                title = piece.get('data-gallery-title', '').strip()
                 
-                if gallery_versions:
-                    import json as json_lib
-                    versions = json_lib.loads(gallery_versions)
+                # Ищем ссылку с данными галереи
+                link = piece.find('a', attrs={'data-gallery-title': True})
+                
+                if link:
+                    title = link.get('data-gallery-title', '').strip()
                     
-                    # Берем самую большую версию (последняя в массиве)
-                    if versions and len(versions) > 0:
-                        largest = versions[-1]  # Обычно это максимальное разрешение
-                        img_url = largest.get('src', '')
+                    # Ищем img тег внутри piece
+                    img = piece.find('img', class_='lazyload')
+                    
+                    if img:
+                        # Получаем srcset с разными разрешениями
+                        srcset = img.get('data-srcset', '')
                         
-                        # Добавляем протокол если нужно
-                        if img_url.startswith('//'):
-                            img_url = f"{parsed.scheme}:{img_url}"
-                        
-                        # Генерируем имя файла
-                        if title:
-                            filename = title
-                        elif piece_id:
-                            filename = f'photo_{piece_id}.jpg'
-                        else:
-                            filename = os.path.basename(urlparse(img_url).path.split('?')[0])
-                        
-                        # Очищаем имя файла от лишних пробелов
-                        filename = filename.strip()
-                        if not filename:
-                            filename = f'image_{len(files)+1}.jpg'
-                        
-                        # Проверяем расширение
-                        if not any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif']):
-                            filename += '.jpg'
-                        
-                        if img_url not in seen_urls:
-                            seen_urls.add(img_url)
-                            files.append({
-                                'url': img_url,
-                                'name': filename
-                            })
-                            print(f'[WFOLIO] Found image: {filename}')
+                        if srcset:
+                            # srcset формата: "url1 1280w, url2 1920w, url3 2560w"
+                            # Берем последний (самый большой)
+                            srcset_parts = [s.strip() for s in srcset.split(',')]
+                            
+                            if srcset_parts:
+                                # Берем последнюю часть (самое большое разрешение)
+                                largest = srcset_parts[-1].split()[0]
+                                
+                                # Добавляем протокол если нужно
+                                if largest.startswith('//'):
+                                    img_url = f"{parsed.scheme}:{largest}"
+                                else:
+                                    img_url = urljoin(url, largest)
+                                
+                                # Генерируем имя файла
+                                if title:
+                                    filename = title
+                                elif piece_id:
+                                    filename = f'photo_{piece_id}.jpg'
+                                else:
+                                    filename = os.path.basename(urlparse(img_url).path.split('?')[0])
+                                
+                                # Очищаем имя файла от лишних пробелов
+                                filename = filename.strip()
+                                if not filename:
+                                    filename = f'image_{len(files)+1}.jpg'
+                                
+                                # Проверяем расширение
+                                if not any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                                    filename += '.jpg'
+                                
+                                if img_url not in seen_urls:
+                                    seen_urls.add(img_url)
+                                    files.append({
+                                        'url': img_url,
+                                        'name': filename
+                                    })
+                                    print(f'[WFOLIO] Found image: {filename} -> {img_url[:80]}...')
             
             except Exception as e:
                 print(f'[WFOLIO] Error processing piece: {str(e)}')
