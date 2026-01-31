@@ -2,7 +2,7 @@ import json
 import os
 import requests
 import re
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urljoin
 import tempfile
 import boto3
 from datetime import datetime
@@ -10,6 +10,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from PIL import Image
 from io import BytesIO
+from bs4 import BeautifulSoup
 
 def handler(event: dict, context) -> dict:
     '''API для загрузки фото по URL (Яндекс Диск, Google Drive и др.)'''
@@ -300,10 +301,24 @@ def get_download_urls(url: str) -> list:
     elif '1drv.ms' in url or 'onedrive.live.com' in url or 'sharepoint.com' in url:
         return get_onedrive_urls(url)
     
+    # Wfolio или другие HTML-галереи
+    elif 'wfolio.ru' in url or url.endswith('/photos') or '/disk/' in url:
+        return get_html_gallery_urls(url)
+    
     # Прямая ссылка на файл
     else:
-        filename = os.path.basename(urlparse(url).path) or 'file.jpg'
-        return [{'url': url, 'name': filename}]
+        # Проверяем, является ли это HTML-страницей или прямой ссылкой на изображение
+        parsed = urlparse(url)
+        path_lower = parsed.path.lower()
+        image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.raw', '.cr2', '.nef', '.arw', '.dng', '.webp')
+        
+        if path_lower.endswith(image_extensions):
+            # Прямая ссылка на изображение
+            filename = os.path.basename(parsed.path) or 'file.jpg'
+            return [{'url': url, 'name': filename}]
+        else:
+            # Возможно HTML-галерея - пытаемся парсить
+            return get_html_gallery_urls(url)
 
 
 def get_yandex_disk_urls(public_url: str) -> list:
@@ -457,3 +472,113 @@ def get_onedrive_urls(url: str) -> list:
         })
     
     return files
+
+
+def get_html_gallery_urls(url: str) -> list:
+    '''Парсит HTML-страницу и извлекает все изображения'''
+    
+    try:
+        # Загружаем страницу
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        # Парсим HTML
+        soup = BeautifulSoup(response.text, 'html.parser')
+        base_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
+        
+        files = []
+        seen_urls = set()
+        
+        # Ищем изображения в разных местах
+        # 1. Обычные <img> теги
+        for img in soup.find_all('img'):
+            src = img.get('src') or img.get('data-src') or img.get('data-lazy-src')
+            if src:
+                # Преобразуем относительные URL в абсолютные
+                full_url = urljoin(url, src)
+                
+                # Пропускаем маленькие иконки и служебные изображения
+                if any(skip in full_url.lower() for skip in ['icon', 'logo', 'avatar', 'sprite']):
+                    continue
+                
+                # Извлекаем имя файла
+                filename = os.path.basename(urlparse(full_url).path.split('?')[0])
+                
+                # Добавляем если еще не добавлено
+                if full_url not in seen_urls and filename:
+                    seen_urls.add(full_url)
+                    files.append({
+                        'url': full_url,
+                        'name': filename or f'image_{len(files)+1}.jpg'
+                    })
+        
+        # 2. Ищем в srcset атрибутах (для responsive изображений)
+        for img in soup.find_all(['img', 'source']):
+            srcset = img.get('srcset')
+            if srcset:
+                # srcset содержит список URL с размерами: "url1 1x, url2 2x"
+                for src_entry in srcset.split(','):
+                    src = src_entry.strip().split()[0]
+                    full_url = urljoin(url, src)
+                    
+                    if full_url not in seen_urls:
+                        filename = os.path.basename(urlparse(full_url).path.split('?')[0])
+                        if filename:
+                            seen_urls.add(full_url)
+                            files.append({
+                                'url': full_url,
+                                'name': filename or f'image_{len(files)+1}.jpg'
+                            })
+        
+        # 3. Ищем фоновые изображения в style атрибутах
+        for element in soup.find_all(style=True):
+            style = element.get('style', '')
+            bg_matches = re.findall(r'url\(["\']?([^"\')]+)["\']?\)', style)
+            for bg_url in bg_matches:
+                full_url = urljoin(url, bg_url)
+                
+                if full_url not in seen_urls:
+                    filename = os.path.basename(urlparse(full_url).path.split('?')[0])
+                    if filename and any(full_url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                        seen_urls.add(full_url)
+                        files.append({
+                            'url': full_url,
+                            'name': filename or f'image_{len(files)+1}.jpg'
+                        })
+        
+        # 4. Ищем специфичные паттерны для wfolio
+        for picture in soup.find_all('picture'):
+            for source in picture.find_all('source'):
+                src = source.get('srcset', '').split()[0] if source.get('srcset') else None
+                if src:
+                    full_url = urljoin(url, src)
+                    if full_url not in seen_urls:
+                        filename = os.path.basename(urlparse(full_url).path.split('?')[0])
+                        if filename:
+                            seen_urls.add(full_url)
+                            files.append({
+                                'url': full_url,
+                                'name': filename or f'image_{len(files)+1}.jpg'
+                            })
+        
+        # Фильтруем только изображения (исключаем SVG, иконки и т.д.)
+        image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp', '.raw', '.cr2', '.nef', '.arw', '.dng')
+        filtered_files = []
+        
+        for file_info in files:
+            filename_lower = file_info['name'].lower()
+            # Проверяем расширение и размер URL (отсекаем base64)
+            if any(filename_lower.endswith(ext) for ext in image_extensions):
+                if not file_info['url'].startswith('data:'):
+                    filtered_files.append(file_info)
+        
+        print(f'[HTML_GALLERY] Found {len(filtered_files)} images on page')
+        
+        return filtered_files
+    
+    except Exception as e:
+        print(f'[HTML_GALLERY] Error parsing page: {str(e)}')
+        raise ValueError(f'Не удалось распарсить страницу: {str(e)}')
