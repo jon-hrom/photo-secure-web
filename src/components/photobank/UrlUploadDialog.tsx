@@ -66,6 +66,13 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       // Первый запрос для получения общего количества
       const firstResult = await onUpload(url, undefined);
       
+      // Проверяем отмену сразу после первого запроса
+      if (cancelledRef.current) {
+        setLoading(false);
+        setUploadingProgress(null);
+        return;
+      }
+      
       totalFound = firstResult.total_found;
       totalUploadedCount = firstResult.uploaded;
       targetFolderId = firstResult.folder_id || null;
@@ -93,7 +100,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
 
       // Загружаем остальные порции по 5 фото
       while (totalUploadedCount < totalFound) {
-        // Проверяем отмену ДО следующего запроса (используем ref для синхронной проверки)
+        // Проверяем отмену ДО следующего запроса
         if (cancelledRef.current) {
           setLoading(false);
           setUploadingProgress(null);
