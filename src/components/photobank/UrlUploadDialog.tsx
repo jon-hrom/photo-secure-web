@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
   } | null>(null);
   const [totalUploaded, setTotalUploaded] = useState(0);
   const [cancelled, setCancelled] = useState(false);
+  const cancelledRef = useRef(false);
   const [createdFolderId, setCreatedFolderId] = useState<number | null>(null);
 
   const handleUpload = async () => {
@@ -53,6 +54,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     setProgress(null);
     setTotalUploaded(0);
     setCancelled(false);
+    cancelledRef.current = false;
     setCreatedFolderId(null);
     setUploadingProgress({ current: 0, total: 5 });
 
@@ -91,8 +93,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
 
       // Загружаем остальные порции по 5 фото
       while (totalUploadedCount < totalFound) {
-        // Проверяем отмену ДО следующего запроса
-        if (cancelled) {
+        // Проверяем отмену ДО следующего запроса (используем ref для синхронной проверки)
+        if (cancelledRef.current) {
           setLoading(false);
           setUploadingProgress(null);
           return;
@@ -136,6 +138,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
   const handleClose = () => {
     if (loading) {
       setCancelled(true);
+      cancelledRef.current = true;
       setLoading(false);
       setUploadingProgress(null);
     } else {
@@ -144,6 +147,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       setProgress(null);
       setUploadingProgress(null);
       setTotalUploaded(0);
+      cancelledRef.current = false;
       onClose();
     }
   };
