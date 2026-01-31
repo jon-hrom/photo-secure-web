@@ -2,7 +2,7 @@ import json
 import os
 import requests
 import re
-from urllib.parse import urlparse, parse_qs, urljoin
+from urllib.parse import urlparse, parse_qs, urljoin, quote
 import tempfile
 import boto3
 from datetime import datetime
@@ -184,9 +184,10 @@ def handler(event: dict, context) -> dict:
             
             print(f'[URL_UPLOAD] Uploaded to S3 successfully')
             
-            # Формируем CDN URL (CDN автоматически обрабатывает спецсимволы)
+            # Формируем CDN URL с кодированием спецсимволов (скобки, пробелы и т.д.)
             aws_key_id = os.environ['AWS_ACCESS_KEY_ID']
-            s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{s3_key}'
+            encoded_s3_key = quote(s3_key, safe='/')
+            s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{encoded_s3_key}'
             
             # Генерируем превью только для небольших изображений (не RAW)
             thumbnail_s3_key = None
@@ -229,7 +230,9 @@ def handler(event: dict, context) -> dict:
                         Body=thumb_buffer.getvalue(),
                         ContentType='image/jpeg'
                     )
-                    thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{thumbnail_s3_key}'
+                    # CDN URL с кодированием специальных символов
+                    encoded_thumbnail_key = quote(thumbnail_s3_key, safe='/')
+                    thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{encoded_thumbnail_key}'
                     
                     print(f'[URL_UPLOAD] Generated thumbnail: {thumbnail_s3_key}')
                 except Exception as thumb_error:
