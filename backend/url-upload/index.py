@@ -478,6 +478,10 @@ def get_html_gallery_urls(url: str) -> list:
     '''Парсит HTML-страницу и извлекает все изображения'''
     
     try:
+        # Проверяем, не wfolio ли это
+        if 'wfolio.ru' in url or '/disk/' in url:
+            return get_wfolio_gallery_urls(url)
+        
         # Загружаем страницу
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -582,3 +586,143 @@ def get_html_gallery_urls(url: str) -> list:
     except Exception as e:
         print(f'[HTML_GALLERY] Error parsing page: {str(e)}')
         raise ValueError(f'Не удалось распарсить страницу: {str(e)}')
+
+
+def get_wfolio_gallery_urls(url: str) -> list:
+    '''Получает изображения из галереи wfolio'''
+    
+    try:
+        # Парсим URL чтобы построить API endpoint
+        parsed = urlparse(url)
+        
+        # URL формата: https://ponomarev-pro.ru/disk/ds-vishenka-3-gruppa-z1pqps/photos
+        # API endpoint: /disk/ds-vishenka-3-gruppa-z1pqps/pieces?design_variant=masonry&folder_path=photos
+        
+        path_parts = parsed.path.strip('/').split('/')
+        
+        if len(path_parts) < 2:
+            raise ValueError('Некорректный URL wfolio галереи')
+        
+        # Извлекаем disk_id и folder_path
+        disk_id = path_parts[1] if len(path_parts) > 1 else None
+        folder_path = path_parts[2] if len(path_parts) > 2 else 'photos'
+        
+        if not disk_id:
+            raise ValueError('Не удалось извлечь ID галереи из URL')
+        
+        # Формируем API endpoint
+        api_url = f"{parsed.scheme}://{parsed.netloc}/disk/{disk_id}/pieces"
+        params = {
+            'design_variant': 'masonry',
+            'folder_path': folder_path
+        }
+        
+        print(f'[WFOLIO] Fetching gallery from: {api_url}')
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Referer': url
+        }
+        
+        response = requests.get(api_url, params=params, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        # Парсим HTML ответ
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        files = []
+        seen_urls = set()
+        
+        # Ищем все фото-элементы в галерее
+        # wfolio использует структуру: <div class="masonry-piece" data-gallery-versions="...">
+        for piece in soup.find_all(['div', 'turbo-frame'], class_=lambda x: x and 'masonry-piece' in x if x else False):
+            try:
+                # Извлекаем JSON с версиями изображения
+                gallery_versions = piece.get('data-gallery-versions')
+                piece_id = piece.get('data-piece-id')
+                title = piece.get('data-gallery-title', '').strip()
+                
+                if gallery_versions:
+                    import json as json_lib
+                    versions = json_lib.loads(gallery_versions)
+                    
+                    # Берем самую большую версию (последняя в массиве)
+                    if versions and len(versions) > 0:
+                        largest = versions[-1]  # Обычно это максимальное разрешение
+                        img_url = largest.get('src', '')
+                        
+                        # Добавляем протокол если нужно
+                        if img_url.startswith('//'):
+                            img_url = f"{parsed.scheme}:{img_url}"
+                        
+                        # Генерируем имя файла
+                        if title:
+                            filename = title
+                        elif piece_id:
+                            filename = f'photo_{piece_id}.jpg'
+                        else:
+                            filename = os.path.basename(urlparse(img_url).path.split('?')[0])
+                        
+                        # Очищаем имя файла от лишних пробелов
+                        filename = filename.strip()
+                        if not filename:
+                            filename = f'image_{len(files)+1}.jpg'
+                        
+                        # Проверяем расширение
+                        if not any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif']):
+                            filename += '.jpg'
+                        
+                        if img_url not in seen_urls:
+                            seen_urls.add(img_url)
+                            files.append({
+                                'url': img_url,
+                                'name': filename
+                            })
+                            print(f'[WFOLIO] Found image: {filename}')
+            
+            except Exception as e:
+                print(f'[WFOLIO] Error processing piece: {str(e)}')
+                continue
+        
+        # Если не нашли через data-gallery-versions, пробуем искать обычным способом
+        if not files:
+            print('[WFOLIO] No images found via data-gallery-versions, trying img tags')
+            
+            for img in soup.find_all('img'):
+                src = img.get('src') or img.get('data-src')
+                srcset = img.get('srcset', '')
+                
+                # Из srcset берем самое большое изображение
+                if srcset:
+                    srcset_parts = [s.strip().split()[0] for s in srcset.split(',')]
+                    if srcset_parts:
+                        src = srcset_parts[-1]  # Последнее обычно самое большое
+                
+                if src:
+                    # Преобразуем в абсолютный URL
+                    if src.startswith('//'):
+                        src = f"{parsed.scheme}:{src}"
+                    elif not src.startswith('http'):
+                        src = urljoin(url, src)
+                    
+                    # Фильтруем служебные изображения
+                    if any(skip in src.lower() for skip in ['icon', 'logo', 'avatar', 'sprite', 'placeholder']):
+                        continue
+                    
+                    if src not in seen_urls:
+                        filename = os.path.basename(urlparse(src).path.split('?')[0])
+                        if filename and any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                            seen_urls.add(src)
+                            files.append({
+                                'url': src,
+                                'name': filename
+                            })
+        
+        print(f'[WFOLIO] Found {len(files)} images total')
+        
+        return files
+    
+    except Exception as e:
+        print(f'[WFOLIO] Error: {str(e)}')
+        raise ValueError(f'Не удалось получить изображения из wfolio галереи: {str(e)}')
