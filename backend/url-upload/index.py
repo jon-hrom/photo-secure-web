@@ -220,7 +220,9 @@ def handler(event: dict, context) -> dict:
                     thumb_buffer.seek(0)
                     
                     # Загружаем превью в S3
-                    thumbnail_s3_key = f'{s3_prefix}thumbnails/{filename}.jpg'
+                    # Убираем расширение из filename, чтобы избежать .jpg.jpg
+                    base_name = os.path.splitext(filename)[0]
+                    thumbnail_s3_key = f'{s3_prefix}thumbnails/{base_name}.jpg'
                     s3.put_object(
                         Bucket=bucket,
                         Key=thumbnail_s3_key,

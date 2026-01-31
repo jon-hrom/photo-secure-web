@@ -59,72 +59,72 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     try {
       let totalFound = 0;
       let totalUploadedCount = 0;
-      let batchNumber = 0;
       let targetFolderId: number | null = null;
 
-      // Загружаем по 5 фото, пока не загрузим все
-      while (!cancelled) {
-        batchNumber++;
-        
-        // Симулируем прогресс для текущей порции
-        const progressInterval = setInterval(() => {
-          setUploadingProgress(prev => {
-            if (!prev || prev.current >= prev.total) return prev;
-            return { ...prev, current: Math.min(prev.current + 1, prev.total) };
-          });
+      // Первый запрос для получения общего количества
+      const firstResult = await onUpload(url, undefined);
+      
+      totalFound = firstResult.total_found;
+      totalUploadedCount = firstResult.uploaded;
+      targetFolderId = firstResult.folder_id || null;
+      
+      setCreatedFolderId(targetFolderId);
+      setTotalUploaded(totalUploadedCount);
+      setProgress({
+        found: totalFound,
+        uploaded: totalUploadedCount,
+        total: totalFound
+      });
+      
+      // Если загружено всё или меньше 5 — завершаем
+      if (totalUploadedCount >= totalFound || firstResult.uploaded < 5) {
+        setUploadingProgress(null);
+        setLoading(false);
+        setTimeout(() => {
+          setUrl('');
+          setProgress(null);
+          setTotalUploaded(0);
+          onClose();
         }, 2000);
+        return;
+      }
 
+      // Загружаем остальные порции по 5 фото
+      while (totalUploadedCount < totalFound) {
+        // Проверяем отмену ДО следующего запроса
+        if (cancelled) {
+          setLoading(false);
+          setUploadingProgress(null);
+          return;
+        }
+
+        setUploadingProgress({ current: 0, total: 5 });
+        
         const result = await onUpload(url, targetFolderId || undefined);
         
-        clearInterval(progressInterval);
-        
-        // Сохраняем folder_id из первого запроса
-        if (result.folder_id && !targetFolderId) {
-          targetFolderId = result.folder_id;
-          setCreatedFolderId(result.folder_id);
-        }
-        
-        totalFound = result.total_found;
         totalUploadedCount += result.uploaded;
         setTotalUploaded(totalUploadedCount);
+        setProgress({
+          found: totalFound,
+          uploaded: totalUploadedCount,
+          total: totalFound
+        });
         
-        // Показываем количество найденных фото после первого запроса
-        if (batchNumber === 1 && totalFound > 0) {
-          setProgress({
-            found: totalFound,
-            uploaded: totalUploadedCount,
-            total: totalFound
-          });
-        }
-        
-        // Если загрузили меньше 5 или все файлы — выходим
-        if (result.uploaded < 5 || totalUploadedCount >= totalFound) {
-          setUploadingProgress(null);
-          setProgress({
-            found: totalFound,
-            uploaded: totalUploadedCount,
-            total: totalFound
-          });
-          setLoading(false);
-          
-          // Автоматически закрываем через 2 секунды
-          setTimeout(() => {
-            setUrl('');
-            setProgress(null);
-            setTotalUploaded(0);
-            onClose();
-          }, 2000);
+        // Если загрузили меньше 5 — больше файлов нет
+        if (result.uploaded < 5) {
           break;
         }
-        
-        // Сбрасываем прогресс для следующей порции
-        setUploadingProgress({ current: 0, total: 5 });
       }
       
-      if (cancelled) {
-        setLoading(false);
-        setUploadingProgress(null);
-      }
+      // Завершение загрузки
+      setUploadingProgress(null);
+      setLoading(false);
+      setTimeout(() => {
+        setUrl('');
+        setProgress(null);
+        setTotalUploaded(0);
+        onClose();
+      }, 2000);
       
     } catch (err: any) {
       setUploadingProgress(null);
@@ -136,6 +136,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
   const handleClose = () => {
     if (loading) {
       setCancelled(true);
+      setLoading(false);
+      setUploadingProgress(null);
     } else {
       setUrl('');
       setError('');
