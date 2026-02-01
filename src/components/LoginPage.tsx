@@ -35,6 +35,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     yandex: true,
     vk: true,
     google: true,
+    telegram: true,
   });
   const [showAppealDialog, setShowAppealDialog] = useState(false);
   const [blockedUserData, setBlockedUserData] = useState<{
