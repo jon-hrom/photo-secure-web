@@ -45,69 +45,119 @@ const ClientDetailDocumentsHistory = ({
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
 
+  const compressImage = async (file: File): Promise<string> => {
+    console.log('[ClientDetailDocumentsHistory] Starting image compression...');
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const maxSize = 1920;
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const base64 = canvas.toDataURL('image/jpeg', 0.85);
+          console.log('[ClientDetailDocumentsHistory] Image compressed successfully');
+          resolve(base64.split(',')[1]);
+        };
+        img.onerror = () => {
+          console.error('[ClientDetailDocumentsHistory] Image load error');
+          reject(new Error('Failed to load image'));
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        console.error('[ClientDetailDocumentsHistory] FileReader error in compression');
+        reject(new Error('Failed to read file'));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const uploadFile = async (file: File) => {
     console.log('[ClientDetailDocumentsHistory] uploadFile called with:', file.name, file.type, file.size);
     setUploading(true);
     console.log('[ClientDetailDocumentsHistory] Starting upload:', file.name);
 
     try {
-      const reader = new FileReader();
+      let base64Data: string;
       
-      reader.onerror = (error) => {
-        console.error('[ClientDetailDocumentsHistory] FileReader error:', error);
-        toast.error('Ошибка чтения файла');
-        setUploading(false);
-      };
-      
-      reader.onload = async (e) => {
-        const base64 = e.target?.result as string;
-        const base64Data = base64.split(',')[1];
+      if (file.type.startsWith('image/')) {
+        console.log('[ClientDetailDocumentsHistory] Image detected, compressing...');
+        toast.info('Обработка изображения...');
+        base64Data = await compressImage(file);
+        console.log('[ClientDetailDocumentsHistory] Compressed size:', base64Data.length);
+        toast.info('Загрузка на сервер...');
+      } else {
+        console.log('[ClientDetailDocumentsHistory] Non-image file, reading as-is...');
+        const reader = new FileReader();
+        base64Data = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => {
+            const base64 = e.target?.result as string;
+            resolve(base64.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
 
-        console.log('[ClientDetailDocumentsHistory] Sending to backend:', {
+      console.log('[ClientDetailDocumentsHistory] Sending to backend:', {
+        clientId,
+        filename: file.name,
+        fileSize: base64Data.length
+      });
+
+      const response = await fetch(funcUrls['clients'], {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': localStorage.getItem('userId') || ''
+        },
+        body: JSON.stringify({
+          action: 'upload_document',
           clientId,
           filename: file.name,
-          fileSize: base64Data.length
-        });
+          file: base64Data
+        })
+      });
 
-        const response = await fetch(funcUrls['clients'], {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': localStorage.getItem('userId') || ''
-          },
-          body: JSON.stringify({
-            action: 'upload_document',
-            clientId,
-            filename: file.name,
-            file: base64Data
-          })
-        });
+      console.log('[ClientDetailDocumentsHistory] Response status:', response.status);
 
-        console.log('[ClientDetailDocumentsHistory] Response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[ClientDetailDocumentsHistory] Upload failed:', errorText);
+        throw new Error('Failed to upload file');
+      }
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('[ClientDetailDocumentsHistory] Upload failed:', errorText);
-          throw new Error('Failed to upload file');
-        }
+      const data = await response.json();
+      console.log('[ClientDetailDocumentsHistory] Upload success:', data);
 
-        const data = await response.json();
-        console.log('[ClientDetailDocumentsHistory] Upload success:', data);
-
-        const newDocument: Document = {
-          id: data.id,
-          name: data.name,
-          fileUrl: data.file_url,
-          uploadDate: data.upload_date
-        };
-
-        console.log('[ClientDetailDocumentsHistory] Calling onDocumentUploaded with:', newDocument);
-        onDocumentUploaded(newDocument);
-
-        toast.success(`Файл "${file.name}" загружен`);
+      const newDocument: Document = {
+        id: data.id,
+        name: data.name,
+        fileUrl: data.file_url,
+        uploadDate: data.upload_date
       };
 
-      reader.readAsDataURL(file);
+      console.log('[ClientDetailDocumentsHistory] Calling onDocumentUploaded with:', newDocument);
+      onDocumentUploaded(newDocument);
+
+      toast.success(`Файл "${file.name}" загружен`);
     } catch (error) {
       console.error('[ClientDetailDocumentsHistory] Upload error:', error);
       toast.error('Ошибка загрузки файла');
@@ -137,6 +187,7 @@ const ClientDetailDocumentsHistory = ({
   const handleCameraClick = () => {
     console.log('[ClientDetailDocumentsHistory] Camera button clicked');
     console.log('[ClientDetailDocumentsHistory] Camera input ref:', cameraInputRef.current);
+    toast.info('Открытие камеры...');
     cameraInputRef.current?.click();
   };
 
@@ -240,9 +291,19 @@ const ClientDetailDocumentsHistory = ({
               size="sm"
               variant="outline"
               className="md:hidden"
+              disabled={uploading}
             >
-              <Icon name="Camera" size={16} className="mr-2" />
-              Камера
+              {uploading ? (
+                <>
+                  <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
+                  Загрузка...
+                </>
+              ) : (
+                <>
+                  <Icon name="Camera" size={16} className="mr-2" />
+                  Камера
+                </>
+              )}
             </Button>
             
             {/* Обычная загрузка для десктопа */}
