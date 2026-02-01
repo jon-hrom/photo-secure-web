@@ -27,10 +27,23 @@ const SwipeContainer = ({
     const element = document.getElementById('swipe-container');
     if (!element) return;
 
+    let isHorizontalSwipe = false;
+
     const handleStart = (e: TouchEvent) => {
       touchStartX.current = e.touches[0].clientX;
       touchStartY.current = e.touches[0].clientY;
       touchStartTime.current = Date.now();
+      isHorizontalSwipe = false;
+    };
+
+    const handleMove = (e: TouchEvent) => {
+      const deltaX = Math.abs(e.touches[0].clientX - touchStartX.current);
+      const deltaY = Math.abs(e.touches[0].clientY - touchStartY.current);
+      
+      // Определяем направление свайпа только если движение больше 10px
+      if (deltaX > 10 || deltaY > 10) {
+        isHorizontalSwipe = deltaX > deltaY;
+      }
     };
 
     const handleEnd = (e: TouchEvent) => {
@@ -41,8 +54,12 @@ const SwipeContainer = ({
       const deltaX = touchEndX - touchStartX.current;
       const deltaY = touchEndY - touchStartY.current;
       
+      // Свайп срабатывает только если:
+      // 1. Движение было преимущественно горизонтальным
+      // 2. Прошло меньше 500ms
+      // 3. Горизонтальное смещение больше порога
+      if (!isHorizontalSwipe) return;
       if (touchDuration > 500) return;
-      if (Math.abs(deltaY) > Math.abs(deltaX)) return;
       if (Math.abs(deltaX) < threshold) return;
       
       if (deltaX > 0 && onSwipeRight) {
@@ -55,10 +72,12 @@ const SwipeContainer = ({
     };
 
     element.addEventListener('touchstart', handleStart, { passive: true });
+    element.addEventListener('touchmove', handleMove, { passive: true });
     element.addEventListener('touchend', handleEnd, { passive: true });
 
     return () => {
       element.removeEventListener('touchstart', handleStart);
+      element.removeEventListener('touchmove', handleMove);
       element.removeEventListener('touchend', handleEnd);
     };
   }, [onSwipeLeft, onSwipeRight, threshold]);
