@@ -213,9 +213,8 @@ const DocumentPreviewModal = ({
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
-    // Игнорируем клики при перетаскивании или если флаг установлен
-    if (isDragging || ignoreNextClick) {
-      setIgnoreNextClick(false);
+    // Игнорируем клики при перетаскивании
+    if (isDragging) {
       return;
     }
 
@@ -225,14 +224,23 @@ const DocumentPreviewModal = ({
     if (lastTap && now - lastTap < DOUBLE_TAP_DELAY) {
       // Двойное нажатие обнаружено
       e.preventDefault();
+      e.stopPropagation();
       handleDoubleClick();
-      // Блокируем следующий клик на короткое время
-      setIgnoreNextClick(true);
-      setTimeout(() => setIgnoreNextClick(false), 100);
+      // Полностью сбрасываем таймер после выполнения действия
       setLastTap(0);
     } else {
-      // Первое нажатие
+      // Первое нажатие - запускаем таймер
       setLastTap(now);
+      // Автоматически сбрасываем таймер через DOUBLE_TAP_DELAY, если не было второго тапа
+      setTimeout(() => {
+        setLastTap(prev => {
+          // Сбрасываем только если не было обновления (т.е. не было второго тапа)
+          if (prev === now) {
+            return 0;
+          }
+          return prev;
+        });
+      }, DOUBLE_TAP_DELAY);
     }
   };
 
