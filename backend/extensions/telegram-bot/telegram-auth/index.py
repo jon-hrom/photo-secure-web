@@ -24,7 +24,10 @@ import jwt
 # =============================================================================
 
 def get_db_connection():
-    return psycopg2.connect(os.environ["DATABASE_URL"])
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        raise ValueError("DATABASE_URL environment variable is not set")
+    return psycopg2.connect(db_url)
 
 
 def get_schema() -> str:
@@ -461,11 +464,14 @@ def handler(event, context):
         return response
 
     except ValueError as e:
-        return cors_response(500, {"error": "Server configuration error"})
+        print(f"[TG_AUTH] Configuration error: {e}")
+        return cors_response(500, {"error": f"Server configuration error: {str(e)}"})
     except Exception as e:
         if conn:
             conn.rollback()
-        print(f"Error: {e}")
+        print(f"[TG_AUTH] Error: {e}")
+        import traceback
+        print(traceback.format_exc())
         return cors_response(500, {"error": "Internal server error"})
     finally:
         if conn:
