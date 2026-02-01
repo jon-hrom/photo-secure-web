@@ -155,10 +155,16 @@ def create_or_update_user(
 
 def save_refresh_token(conn, user_id: int, token_hash: str, expires_at: datetime) -> None:
     """Сохранить refresh token"""
+    import uuid
+    token_id = str(uuid.uuid4())
+    session_id = str(uuid.uuid4())
+    
     with conn.cursor() as cur:
         cur.execute(f"""
-            INSERT INTO {SCHEMA}.refresh_tokens (user_id, token_hash, expires_at)
-            VALUES ({user_id}, {escape_sql(token_hash)}, {escape_sql(expires_at.isoformat())})
+            INSERT INTO {SCHEMA}.refresh_tokens 
+            (token_id, user_id, token_hash, session_id, expires_at, created_at)
+            VALUES ({escape_sql(token_id)}, {user_id}, {escape_sql(token_hash)}, 
+                    {escape_sql(session_id)}, {escape_sql(expires_at.isoformat())}, CURRENT_TIMESTAMP)
         """)
         conn.commit()
 
