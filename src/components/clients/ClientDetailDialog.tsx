@@ -110,54 +110,58 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-          <ClientDialogHeader 
-            localClient={localClient} 
-            onUpdate={onUpdate}
-            setLocalClient={setLocalClient}
-          />
-          <ClientDialogTabs activeTab={activeTab} />
-          <ClientDialogContent
-            localClient={localClient}
-            projects={projects}
-            documents={documents}
-            payments={payments}
-            messages={messages}
-            comments={comments}
-            newProject={newProject}
-            setNewProject={setNewProject}
-            handleAddProject={handleAddProject}
-            handleDeleteProject={handleDeleteProject}
-            handleUpdateProject={handleUpdateProject}
-            updateProjectStatus={updateProjectStatus}
-            updateProjectDate={updateProjectDate}
-            updateProjectShootingStyle={updateProjectShootingStyle}
-            getStatusBadge={getStatusBadge}
-            formatDate={formatDate}
-            newPayment={newPayment}
-            setNewPayment={setNewPayment}
-            handleAddPayment={handleAddPayment}
-            handleDeletePayment={handleDeletePayment}
-            getPaymentStatusBadge={getPaymentStatusBadge}
-            newComment={newComment}
-            setNewComment={setNewComment}
-            handleAddComment={handleAddComment}
-            handleDeleteComment={handleDeleteComment}
-            formatDateTime={formatDateTime}
-            handleDocumentUploaded={handleDocumentUploaded}
-            handleDocumentDeleted={handleDocumentDeleted}
-            newMessage={newMessage}
-            setNewMessage={setNewMessage}
-            handleAddMessage={handleAddMessage}
-            handleDeleteMessage={handleDeleteMessage}
-            handleDeleteAllMessages={handleDeleteAllMessages}
-            photographerName={photographerName}
-            showSwipeHint={showSwipeHint}
-            tabs={tabs}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
+          <div className="flex-shrink-0">
+            <ClientDialogHeader 
+              localClient={localClient} 
+              onUpdate={onUpdate}
+              setLocalClient={setLocalClient}
+            />
+            <ClientDialogTabs activeTab={activeTab} />
+          </div>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <ClientDialogContent
+              localClient={localClient}
+              projects={projects}
+              documents={documents}
+              payments={payments}
+              messages={messages}
+              comments={comments}
+              newProject={newProject}
+              setNewProject={setNewProject}
+              handleAddProject={handleAddProject}
+              handleDeleteProject={handleDeleteProject}
+              handleUpdateProject={handleUpdateProject}
+              updateProjectStatus={updateProjectStatus}
+              updateProjectDate={updateProjectDate}
+              updateProjectShootingStyle={updateProjectShootingStyle}
+              getStatusBadge={getStatusBadge}
+              formatDate={formatDate}
+              newPayment={newPayment}
+              setNewPayment={setNewPayment}
+              handleAddPayment={handleAddPayment}
+              handleDeletePayment={handleDeletePayment}
+              getPaymentStatusBadge={getPaymentStatusBadge}
+              newComment={newComment}
+              setNewComment={setNewComment}
+              handleAddComment={handleAddComment}
+              handleDeleteComment={handleDeleteComment}
+              formatDateTime={formatDateTime}
+              handleDocumentUploaded={handleDocumentUploaded}
+              handleDocumentDeleted={handleDocumentDeleted}
+              newMessage={newMessage}
+              setNewMessage={setNewMessage}
+              handleAddMessage={handleAddMessage}
+              handleDeleteMessage={handleDeleteMessage}
+              handleDeleteAllMessages={handleDeleteAllMessages}
+              photographerName={photographerName}
+              showSwipeHint={showSwipeHint}
+              tabs={tabs}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+            />
+          </div>
         </Tabs>
       </DialogContent>
 
