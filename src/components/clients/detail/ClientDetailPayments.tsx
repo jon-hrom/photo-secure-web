@@ -53,7 +53,7 @@ const ClientDetailPayments = ({
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Добавить платёж</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 pb-20 max-h-[60vh] md:max-h-none overflow-y-auto md:overflow-visible">
+        <CardContent className="space-y-4 pb-6 max-h-[50vh] md:max-h-none overflow-y-auto md:overflow-visible">
           <div className="space-y-2">
             <div className="flex items-start sm:items-center space-x-2 p-3 bg-muted/50 rounded-lg touch-manipulation">
               <Checkbox
