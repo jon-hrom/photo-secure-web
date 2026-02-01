@@ -211,29 +211,29 @@ const DocumentPreviewModal = ({
         {previewDocument && (
           <div className="flex flex-col h-full">
             {/* Заголовок */}
-            <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 sm:p-4 border-b">
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold truncate text-sm sm:text-base">{previewDocument.name}</h3>
                 <p className="text-xs text-muted-foreground">{formatDate(previewDocument.uploadDate)}</p>
               </div>
-              <div className="flex gap-1 sm:gap-2 ml-2 sm:ml-4">
+              <div className="flex gap-1 sm:gap-2 flex-wrap">
                 {isImage(previewDocument.name) && (
-                  <>
+                  <div className="flex gap-1 border-r pr-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleZoomOut}
                       disabled={scale <= 1}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0"
                     >
-                      <Icon name="ZoomOut" size={16} />
+                      <Icon name="Minus" size={14} />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleResetZoom}
                       disabled={scale === 1}
-                      className="h-8 w-auto px-2 text-xs"
+                      className="h-7 w-auto px-2 text-xs font-mono"
                     >
                       {Math.round(scale * 100)}%
                     </Button>
@@ -242,28 +242,28 @@ const DocumentPreviewModal = ({
                       size="sm"
                       onClick={handleZoomIn}
                       disabled={scale >= 5}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0"
                     >
-                      <Icon name="ZoomIn" size={16} />
+                      <Icon name="Plus" size={14} />
                     </Button>
-                  </>
+                  </div>
                 )}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => window.open(previewDocument.fileUrl, '_blank')}
-                  className="h-8 w-8 sm:w-auto p-0 sm:px-3"
+                  className="h-7 w-7 sm:w-auto p-0 sm:px-3"
                 >
-                  <Icon name="Download" size={16} className="sm:mr-2" />
-                  <span className="hidden sm:inline">Скачать</span>
+                  <Icon name="Download" size={14} className="sm:mr-2" />
+                  <span className="hidden sm:inline text-xs">Скачать</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onDelete(previewDocument.id, previewDocument.name)}
-                  className="h-8 w-8 p-0"
+                  className="h-7 w-7 p-0"
                 >
-                  <Icon name="Trash2" size={16} className="text-destructive" />
+                  <Icon name="Trash2" size={14} className="text-destructive" />
                 </Button>
               </div>
             </div>
@@ -282,9 +282,13 @@ const DocumentPreviewModal = ({
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
                 >
-                  {scale === 1 && (
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-3 py-1 rounded-full pointer-events-none opacity-70">
-                      Двойное нажатие для увеличения
+                  {scale === 1 ? (
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs sm:text-sm px-4 py-2 rounded-full pointer-events-none z-10 animate-pulse">
+                      👆 Двойное нажатие для увеличения
+                    </div>
+                  ) : (
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full pointer-events-none z-10">
+                      🔍 {Math.round(scale * 100)}% · Перетащите для просмотра
                     </div>
                   )}
                   <img 
