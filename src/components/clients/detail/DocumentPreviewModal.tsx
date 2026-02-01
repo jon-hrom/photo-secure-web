@@ -35,6 +35,7 @@ const DocumentPreviewModal = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastTap, setLastTap] = useState(0);
+  const [ignoreNextClick, setIgnoreNextClick] = useState(false);
 
   // Клавиатурная навигация
   useEffect(() => {
@@ -212,8 +213,9 @@ const DocumentPreviewModal = ({
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
-    // Игнорируем клики при перетаскивании
-    if (isDragging) {
+    // Игнорируем клики при перетаскивании или если флаг установлен
+    if (isDragging || ignoreNextClick) {
+      setIgnoreNextClick(false);
       return;
     }
 
@@ -224,7 +226,10 @@ const DocumentPreviewModal = ({
       // Двойное нажатие обнаружено
       e.preventDefault();
       handleDoubleClick();
-      setLastTap(0); // Сбрасываем, чтобы не было тройного срабатывания
+      // Блокируем следующий клик на короткое время
+      setIgnoreNextClick(true);
+      setTimeout(() => setIgnoreNextClick(false), 100);
+      setLastTap(0);
     } else {
       // Первое нажатие
       setLastTap(now);
