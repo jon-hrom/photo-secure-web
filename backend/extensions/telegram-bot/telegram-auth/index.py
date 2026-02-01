@@ -283,13 +283,18 @@ def handle_callback(cursor, body: dict) -> dict:
     Frontend calls this with token to exchange for JWT.
     Like standard OAuth callback.
     """
+    print(f"[TG_AUTH] Callback body: {body}")
     token = body.get("token")
     if not token:
+        print("[TG_AUTH] Error: Missing token")
         return cors_response(400, {"error": "Missing token"})
 
+    print(f"[TG_AUTH] Token received: {token[:10]}...")
     token_data = get_auth_token(cursor, token)
+    print(f"[TG_AUTH] Token data from DB: {token_data}")
 
     if not token_data:
+        print("[TG_AUTH] Error: Token not found in DB")
         return cors_response(404, {"error": "Token not found"})
 
     # Check if expired (handle both naive and aware datetime from DB)
@@ -298,11 +303,14 @@ def handle_callback(cursor, body: dict) -> dict:
     # Convert to naive UTC for comparison if needed
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
+    print(f"[TG_AUTH] Token expires_at: {expires_at}, now: {now}")
     if expires_at < now:
+        print("[TG_AUTH] Error: Token expired")
         return cors_response(410, {"error": "Token expired"})
 
     # Check if already used
     if token_data["used"]:
+        print("[TG_AUTH] Error: Token already used")
         return cors_response(410, {"error": "Token already used"})
 
     # Check if user data exists
@@ -310,19 +318,34 @@ def handle_callback(cursor, body: dict) -> dict:
         return cors_response(400, {"error": "Token not authenticated"})
 
     # Get JWT secret
-    jwt_secret = get_env("JWT_SECRET")
+    try:
+        jwt_secret = get_env("JWT_SECRET")
+        print(f"[TG_AUTH] JWT secret loaded: {len(jwt_secret)} chars")
+    except Exception as e:
+        print(f"[TG_AUTH] Error getting JWT_SECRET: {e}")
+        return cors_response(500, {"error": "Server configuration error: missing JWT_SECRET"})
+    
     if len(jwt_secret) < 32:
+        print(f"[TG_AUTH] Error: JWT secret too short ({len(jwt_secret)} chars)")
         return cors_response(500, {"error": "Server configuration error"})
 
     # Create or update user
-    user = create_or_update_user(
-        cursor,
-        telegram_id=token_data["telegram_id"],
-        username=token_data["telegram_username"],
-        first_name=token_data["telegram_first_name"],
-        last_name=token_data["telegram_last_name"],
-        photo_url=token_data["telegram_photo_url"],
-    )
+    print(f"[TG_AUTH] Creating/updating user for telegram_id: {token_data['telegram_id']}")
+    try:
+        user = create_or_update_user(
+            cursor,
+            telegram_id=token_data["telegram_id"],
+            username=token_data["telegram_username"],
+            first_name=token_data["telegram_first_name"],
+            last_name=token_data["telegram_last_name"],
+            photo_url=token_data["telegram_photo_url"],
+        )
+        print(f"[TG_AUTH] User created/updated: {user}")
+    except Exception as e:
+        print(f"[TG_AUTH] Error creating/updating user: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return cors_response(500, {"error": f"Database error: {str(e)}"})
 
     # Mark token as used
     mark_token_used(cursor, token)
@@ -392,6 +415,7 @@ def handle_logout(cursor, body: dict) -> dict:
 
 def handler(event, context):
     """Main entry point."""
+    print(f"[TG_AUTH] Handler called: {event.get('httpMethod')} {event.get('queryStringParameters')}")
     method = event.get("httpMethod", "GET")
 
     # Handle CORS preflight
@@ -413,14 +437,17 @@ def handler(event, context):
 
     conn = None
     try:
+        print("[TG_AUTH] Connecting to database...")
         conn = get_db_connection()
         cursor = conn.cursor()
+        print("[TG_AUTH] Database connected")
 
         # Cleanup expired tokens periodically
         cleanup_expired_tokens(cursor)
         cleanup_expired_refresh_tokens(cursor)
 
         # Route to action handler
+        print(f"[TG_AUTH] Routing to action: {action}")
         if action == "callback" and method == "POST":
             response = handle_callback(cursor, body)
         elif action == "refresh" and method == "POST":
