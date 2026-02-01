@@ -778,6 +778,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 filename = body.get('filename')
                 file_base64 = body.get('file')
                 
+                print(f'[UPLOAD_DOCUMENT] Received: client_id={client_id}, filename={filename}, file_size={len(file_base64) if file_base64 else 0}, photographer_id={photographer_id}')
+                
                 if not client_id or not filename or not file_base64:
                     return {
                         'statusCode': 400,
@@ -787,8 +789,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 # Проверяем, что клиент принадлежит пользователю
-                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND user_id = %s', (client_id, user_id))
+                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND photographer_id = %s', (client_id, photographer_id))
                 if not cur.fetchone():
+                    print(f'[UPLOAD_DOCUMENT] Access denied: client_id={client_id}, photographer_id={photographer_id}')
                     return {
                         'statusCode': 403,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -797,8 +800,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 # Декодируем и загружаем в S3
+                print(f'[UPLOAD_DOCUMENT] Decoding base64 file: {len(file_base64)} chars')
                 file_content = base64.b64decode(file_base64)
+                print(f'[UPLOAD_DOCUMENT] Decoded to {len(file_content)} bytes, uploading to S3...')
                 s3_key = upload_to_s3(file_content, filename)
+                print(f'[UPLOAD_DOCUMENT] Uploaded to S3: {s3_key}')
                 
                 # Сохраняем в БД с S3 key
                 cur.execute('''
@@ -810,8 +816,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 document = cur.fetchone()
                 conn.commit()
                 
+                print(f'[UPLOAD_DOCUMENT] Saved to DB: document_id={document["id"]}')
+                
                 # Генерируем presigned URL для ответа
                 presigned_url = generate_presigned_url(document['s3_key'])
+                print(f'[UPLOAD_DOCUMENT] Generated presigned URL, length={len(presigned_url)}')
                 
                 return {
                     'statusCode': 201,
