@@ -66,6 +66,20 @@ const ClientDetailMessages = ({
   }, [messages]);
 
   useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+
+    document.addEventListener('focusin', handleFocus);
+    return () => document.removeEventListener('focusin', handleFocus);
+  }, []);
+
+  useEffect(() => {
     const loadTemplates = async () => {
       try {
         const userId = localStorage.getItem('userId');
@@ -269,7 +283,7 @@ const ClientDetailMessages = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 bg-white border-t-2 border-gray-200 rounded-b-2xl shadow-lg">
+      <div className="p-4 pb-20 bg-white border-t-2 border-gray-200 rounded-b-2xl shadow-lg">
         <div className="space-y-2">
           {clientId && templates.length > 0 && (
             <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>

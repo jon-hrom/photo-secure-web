@@ -96,6 +96,20 @@ const ClientDetailProjects = ({
     setAnimateKeys(newKeys);
   }, [payments]);
 
+  useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+
+    document.addEventListener('focusin', handleFocus);
+    return () => document.removeEventListener('focusin', handleFocus);
+  }, []);
+
   const toggleAllProjects = () => {
     const allExpanded = projects.every(p => expandedProjects[p.id]);
     const newState: Record<number, boolean> = {};

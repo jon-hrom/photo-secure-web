@@ -44,6 +44,20 @@ const ClientDetailOverview = ({
     setAnimateKey(prev => prev + 1);
   }, [totalPaid, totalRemaining]);
 
+  useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+
+    document.addEventListener('focusin', handleFocus);
+    return () => document.removeEventListener('focusin', handleFocus);
+  }, []);
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -99,7 +113,7 @@ const ClientDetailOverview = ({
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pb-20">
           <div className="space-y-2">
             <Textarea
               placeholder="Добавить комментарий..."
@@ -107,7 +121,7 @@ const ClientDetailOverview = ({
               onChange={(e) => setNewComment(e.target.value)}
               rows={3}
             />
-            <Button onClick={handleAddComment} size="sm">
+            <Button onClick={handleAddComment} size="sm" className="h-11 touch-manipulation">
               <Icon name="Plus" size={16} className="mr-2" />
               Добавить комментарий
             </Button>

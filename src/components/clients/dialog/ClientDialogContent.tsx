@@ -122,7 +122,7 @@ const ClientDialogContent = ({
           }
         }}
       >
-        <TabsContent value="overview" className="space-y-4 mt-4 px-4 pb-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
+        <TabsContent value="overview" className="space-y-4 mt-4 px-4 pb-20 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
           <ClientDetailOverview
             projects={projects}
             payments={payments}
@@ -135,7 +135,7 @@ const ClientDialogContent = ({
           />
         </TabsContent>
 
-        <TabsContent value="projects" className="space-y-4 mt-4 px-4 pb-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
+        <TabsContent value="projects" className="space-y-4 mt-4 px-4 pb-20 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
           <ClientDetailProjects
             key={`projects-${localClient.id}-${JSON.stringify(projects.map(p => p.shootingStyleId))}`}
             projects={projects}
@@ -153,7 +153,7 @@ const ClientDialogContent = ({
           />
         </TabsContent>
 
-        <TabsContent value="documents" className="space-y-4 mt-4 px-4 pb-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
+        <TabsContent value="documents" className="space-y-4 mt-4 px-4 pb-20 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
           <ClientDetailDocumentsHistory
             documents={documents}
             messages={messages}
@@ -181,7 +181,7 @@ const ClientDialogContent = ({
           />
         </TabsContent>
 
-        <TabsContent value="messages" className="space-y-4 mt-4 px-4 pb-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
+        <TabsContent value="messages" className="space-y-4 mt-4 px-4 pb-20 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
           <ClientDetailMessages
             messages={messages}
             newMessage={newMessage}
