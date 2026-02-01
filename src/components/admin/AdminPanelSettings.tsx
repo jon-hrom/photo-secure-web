@@ -33,6 +33,7 @@ export const useAdminPanelSettings = () => {
     yandex: true,
     vk: true,
     google: true,
+    telegram: true,
   });
 
   const [colors, setColors] = useState({

@@ -9,6 +9,7 @@ interface AuthProvidersProps {
     yandex: boolean;
     vk: boolean;
     google: boolean;
+    telegram?: boolean;
   };
   onToggleProvider: (provider: string) => void;
 }
@@ -17,6 +18,13 @@ const AdminAuthProviders = ({ authProviders, onToggleProvider }: AuthProvidersPr
   const [isExpanded, setIsExpanded] = useState(true);
 
   const providers = [
+    {
+      key: 'telegram',
+      name: 'Telegram',
+      description: 'Вход через Telegram аккаунт',
+      icon: 'MessageCircle',
+      color: 'text-[#0088cc]',
+    },
     {
       key: 'yandex',
       name: 'Яндекс ID',
