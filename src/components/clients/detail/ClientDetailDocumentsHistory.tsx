@@ -188,7 +188,20 @@ const ClientDetailDocumentsHistory = ({
     console.log('[ClientDetailDocumentsHistory] Camera button clicked');
     console.log('[ClientDetailDocumentsHistory] Camera input ref:', cameraInputRef.current);
     toast.info('Открытие камеры...');
-    cameraInputRef.current?.click();
+    
+    try {
+      if (cameraInputRef.current) {
+        console.log('[ClientDetailDocumentsHistory] Clicking input...');
+        cameraInputRef.current.click();
+        console.log('[ClientDetailDocumentsHistory] Input clicked successfully');
+      } else {
+        console.error('[ClientDetailDocumentsHistory] Camera input ref is null!');
+        toast.error('Ошибка: камера недоступна');
+      }
+    } catch (error) {
+      console.error('[ClientDetailDocumentsHistory] Error clicking camera input:', error);
+      toast.error('Ошибка открытия камеры');
+    }
   };
 
   const handleFileClick = () => {
@@ -285,12 +298,11 @@ const ClientDetailDocumentsHistory = ({
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>Документы</CardTitle>
           <div className="flex gap-2">
-            {/* Камера для мобильных */}
+            {/* Камера */}
             <Button
               onClick={handleCameraClick}
               size="sm"
               variant="outline"
-              className="md:hidden"
               disabled={uploading}
             >
               {uploading ? (
@@ -301,12 +313,12 @@ const ClientDetailDocumentsHistory = ({
               ) : (
                 <>
                   <Icon name="Camera" size={16} className="mr-2" />
-                  Камера
+                  <span className="hidden sm:inline">Камера</span>
                 </>
               )}
             </Button>
             
-            {/* Обычная загрузка для десктопа */}
+            {/* Загрузка файла */}
             <Button
               onClick={handleFileClick}
               size="sm"
@@ -321,8 +333,7 @@ const ClientDetailDocumentsHistory = ({
               ) : (
                 <>
                   <Icon name="Upload" size={16} className="mr-2" />
-                  <span className="hidden md:inline">Загрузить файл</span>
-                  <span className="md:hidden">Файл</span>
+                  <span className="hidden sm:inline">Файл</span>
                 </>
               )}
             </Button>
@@ -340,7 +351,7 @@ const ClientDetailDocumentsHistory = ({
             ref={cameraInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
+            capture
             className="hidden"
             onChange={handleFileUpload}
             onClick={() => console.log('[ClientDetailDocumentsHistory] Camera input clicked')}
