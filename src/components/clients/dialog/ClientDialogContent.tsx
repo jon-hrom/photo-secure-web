@@ -168,7 +168,7 @@ const ClientDialogContent = ({
           />
         </TabsContent>
 
-        <TabsContent value="payments" className="space-y-4 mt-4 px-4 pb-4 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
+        <TabsContent value="payments" className="space-y-4 mt-4 px-4 pb-20 data-[state=active]:animate-in data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:zoom-out-95 data-[state=active]:zoom-in-95 data-[state=inactive]:slide-out-to-right-2 data-[state=active]:slide-in-from-left-2">
           <ClientDetailPayments
             payments={payments}
             projects={projects}

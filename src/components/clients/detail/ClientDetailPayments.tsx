@@ -37,9 +37,9 @@ const ClientDetailPayments = ({
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Добавить платёж</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pb-6">
           <div className="space-y-2">
-            <div className="flex items-start sm:items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-start sm:items-center space-x-2 p-3 bg-muted/50 rounded-lg touch-manipulation">
               <Checkbox
                 id="splitPayment"
                 checked={newPayment.splitAcrossProjects}
@@ -132,8 +132,11 @@ const ClientDetailPayments = ({
               />
             </div>
           </div>
-          <Button onClick={handleAddPayment} className="w-full sm:w-auto h-9 text-xs sm:text-sm">
-            <Icon name="Plus" size={16} className="mr-2" />
+          <Button 
+            onClick={handleAddPayment} 
+            className="w-full sm:w-auto h-11 text-sm font-semibold touch-manipulation"
+          >
+            <Icon name="Plus" size={18} className="mr-2" />
             Добавить платёж
           </Button>
         </CardContent>

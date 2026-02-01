@@ -28,21 +28,30 @@ const SwipeContainer = ({
     if (!element) return;
 
     let isHorizontalSwipe = false;
+    let swipeDecided = false;
 
     const handleStart = (e: TouchEvent) => {
       touchStartX.current = e.touches[0].clientX;
       touchStartY.current = e.touches[0].clientY;
       touchStartTime.current = Date.now();
       isHorizontalSwipe = false;
+      swipeDecided = false;
+      console.log('SwipeContainer: Touch start', { x: touchStartX.current, y: touchStartY.current });
     };
 
     const handleMove = (e: TouchEvent) => {
+      if (swipeDecided) return;
+      
       const deltaX = Math.abs(e.touches[0].clientX - touchStartX.current);
       const deltaY = Math.abs(e.touches[0].clientY - touchStartY.current);
       
-      // Определяем направление свайпа только если движение больше 10px
-      if (deltaX > 10 || deltaY > 10) {
-        isHorizontalSwipe = deltaX > deltaY;
+      console.log('SwipeContainer: Move', { deltaX, deltaY });
+      
+      // Определяем направление только если движение больше 15px
+      if (deltaX > 15 || deltaY > 15) {
+        isHorizontalSwipe = deltaX > deltaY * 1.5; // Более строгий порог
+        swipeDecided = true;
+        console.log('SwipeContainer: Direction decided', { isHorizontalSwipe });
       }
     };
 
@@ -54,18 +63,26 @@ const SwipeContainer = ({
       const deltaX = touchEndX - touchStartX.current;
       const deltaY = touchEndY - touchStartY.current;
       
-      // Свайп срабатывает только если:
-      // 1. Движение было преимущественно горизонтальным
-      // 2. Прошло меньше 500ms
-      // 3. Горизонтальное смещение больше порога
-      if (!isHorizontalSwipe) return;
+      console.log('SwipeContainer: Touch end', { 
+        deltaX, 
+        deltaY, 
+        duration: touchDuration, 
+        isHorizontalSwipe 
+      });
+      
+      if (!isHorizontalSwipe) {
+        console.log('SwipeContainer: Vertical scroll, ignoring');
+        return;
+      }
       if (touchDuration > 500) return;
       if (Math.abs(deltaX) < threshold) return;
       
       if (deltaX > 0 && onSwipeRight) {
+        console.log('SwipeContainer: Swipe RIGHT');
         vibrate([10, 5, 10]);
         onSwipeRight();
       } else if (deltaX < 0 && onSwipeLeft) {
+        console.log('SwipeContainer: Swipe LEFT');
         vibrate([10, 5, 10]);
         onSwipeLeft();
       }
@@ -83,7 +100,7 @@ const SwipeContainer = ({
   }, [onSwipeLeft, onSwipeRight, threshold]);
 
   return (
-    <div id="swipe-container" className="w-full h-full">
+    <div id="swipe-container" className="w-full h-full" style={{ touchAction: 'pan-y' }}>
       {children}
     </div>
   );
