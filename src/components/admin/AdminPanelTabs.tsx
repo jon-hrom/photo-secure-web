@@ -4,6 +4,7 @@ import AdminAppearance from '@/components/admin/AdminAppearance';
 import AdminWidgets from '@/components/admin/AdminWidgets';
 import EnhancedAdminUsers from '@/components/admin/EnhancedAdminUsers';
 import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
+import AuthStats from '@/components/admin/AuthStats';
 import EmailNotifications from '@/components/admin/EmailNotifications';
 import NotificationSoundSettings from '@/components/admin/NotificationSoundSettings';
 import SmsBalanceManager from '@/components/admin/SmsBalanceManager';
@@ -154,10 +155,13 @@ const AdminPanelTabs = ({
       <AccordionItem value="auth">
         <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Авторизация</AccordionTrigger>
         <AccordionContent>
-          <AdminAuthProviders
-            authProviders={authProviders}
-            onToggleProvider={onToggleAuthProvider}
-          />
+          <div className="space-y-6">
+            <AdminAuthProviders
+              authProviders={authProviders}
+              onToggleProvider={onToggleAuthProvider}
+            />
+            <AuthStats />
+          </div>
         </AccordionContent>
       </AccordionItem>
 

@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Test auth stats - OPTIONS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Test auth stats - GET",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "stats": "array",
+        "recent_logins": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
