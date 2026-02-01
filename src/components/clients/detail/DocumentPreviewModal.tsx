@@ -75,6 +75,8 @@ const DocumentPreviewModal = ({
     if (e.touches.length === 2) {
       // Начало pinch-to-zoom
       setInitialDistance(getDistance(e.touches));
+      // Блокируем двойной тап при pinch
+      setLastTap(0);
     } else if (e.touches.length === 1 && scale === 1) {
       // Свайп только при zoom = 1
       setTouchStart(e.targetTouches[0].clientX);
@@ -87,6 +89,8 @@ const DocumentPreviewModal = ({
       const currentDistance = getDistance(e.touches);
       const newScale = (currentDistance / initialDistance) * scale;
       setScale(Math.min(Math.max(newScale, 1), 5)); // От 1x до 5x
+      // Блокируем двойной тап при pinch
+      setLastTap(0);
     } else if (e.touches.length === 1 && scale === 1) {
       setTouchEnd(e.targetTouches[0].clientX);
     }
@@ -95,6 +99,8 @@ const DocumentPreviewModal = ({
   const handleTouchEnd = () => {
     if (initialDistance) {
       setInitialDistance(null);
+      // Блокируем клик после pinch
+      setLastTap(0);
       return;
     }
 
@@ -169,6 +175,8 @@ const DocumentPreviewModal = ({
         x: e.touches[0].clientX - position.x, 
         y: e.touches[0].clientY - position.y 
       });
+      // Блокируем двойной тап при перетаскивании
+      setLastTap(0);
     }
   };
 
@@ -178,11 +186,19 @@ const DocumentPreviewModal = ({
         x: e.touches[0].clientX - dragStart.x,
         y: e.touches[0].clientY - dragStart.y
       });
+      // Если было движение, отменяем клик
+      setLastTap(0);
     }
   };
 
   const handleImageTouchEnd = () => {
+    const wasDragging = isDragging;
     setIsDragging(false);
+    
+    // Если было перетаскивание, не обрабатываем клик
+    if (wasDragging && scale > 1) {
+      setLastTap(0);
+    }
   };
 
   // Двойное нажатие для zoom
@@ -195,14 +211,24 @@ const DocumentPreviewModal = ({
     }
   };
 
-  const handleDoubleTap = () => {
+  const handleImageClick = (e: React.MouseEvent) => {
+    // Игнорируем клики при перетаскивании
+    if (isDragging) {
+      return;
+    }
+
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
     
-    if (now - lastTap < DOUBLE_TAP_DELAY) {
+    if (lastTap && now - lastTap < DOUBLE_TAP_DELAY) {
+      // Двойное нажатие обнаружено
+      e.preventDefault();
       handleDoubleClick();
+      setLastTap(0); // Сбрасываем, чтобы не было тройного срабатывания
+    } else {
+      // Первое нажатие
+      setLastTap(now);
     }
-    setLastTap(now);
   };
 
   return (
@@ -305,10 +331,8 @@ const DocumentPreviewModal = ({
                     onDoubleClick={handleDoubleClick}
                     onTouchStart={handleImageTouchStart}
                     onTouchMove={handleImageTouchMove}
-                    onTouchEnd={(e) => {
-                      handleImageTouchEnd();
-                      handleDoubleTap();
-                    }}
+                    onTouchEnd={handleImageTouchEnd}
+                    onClick={handleImageClick}
                     draggable={false}
                   />
                 </div>
