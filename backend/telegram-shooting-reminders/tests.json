@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "Test telegram reminders - OPTIONS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Test telegram reminders - POST",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "total": 0
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

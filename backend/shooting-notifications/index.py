@@ -9,6 +9,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 import requests
+import telebot
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = 't_p28211681_photo_secure_web'
@@ -59,6 +60,26 @@ def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -
     response = requests.post(url, json=payload, timeout=10)
     response.raise_for_status()
     return response.json()
+
+
+def send_via_telegram(telegram_id: str, message: str) -> dict:
+    """Отправить сообщение через Telegram"""
+    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    if not bot_token:
+        return {'error': 'Telegram bot token not configured'}
+    
+    try:
+        bot = telebot.TeleBot(bot_token)
+        result = bot.send_message(
+            chat_id=telegram_id,
+            text=message,
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+        return {'success': True, 'message_id': result.message_id}
+    except Exception as e:
+        print(f'[SHOOTING_NOTIF] Telegram error: {str(e)}')
+        return {'error': str(e)}
 
 
 def format_date_ru(date_str: str) -> str:
@@ -131,17 +152,28 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     
     message = "\n".join(message_parts)
     
-    try:
-        result = send_via_green_api(
-            creds['instance_id'],
-            creds['token'],
-            client_data['phone'],
-            message
-        )
-        return {'success': True, 'message_id': result.get('idMessage')}
-    except Exception as e:
-        print(f'[SHOOTING_NOTIF] Error sending to client: {str(e)}')
-        return {'error': str(e)}
+    results = {}
+    
+    # Отправляем в WhatsApp если есть телефон
+    if client_data.get('phone'):
+        try:
+            result = send_via_green_api(
+                creds['instance_id'],
+                creds['token'],
+                client_data['phone'],
+                message
+            )
+            results['whatsapp'] = {'success': True, 'message_id': result.get('idMessage')}
+        except Exception as e:
+            print(f'[SHOOTING_NOTIF] WhatsApp error: {str(e)}')
+            results['whatsapp'] = {'error': str(e)}
+    
+    # Отправляем в Telegram если есть telegram_id
+    if client_data.get('telegram_id'):
+        telegram_result = send_via_telegram(client_data['telegram_id'], message)
+        results['telegram'] = telegram_result
+    
+    return results if results else {'error': 'No contact methods available'}
 
 
 def send_photographer_notification(project_data: dict, client_data: dict, photographer_data: dict) -> dict:
@@ -212,17 +244,28 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
     
     message = "\n".join(message_parts)
     
-    try:
-        result = send_via_green_api(
-            creds['instance_id'],
-            creds['token'],
-            photographer_data['phone'],
-            message
-        )
-        return {'success': True, 'message_id': result.get('idMessage')}
-    except Exception as e:
-        print(f'[SHOOTING_NOTIF] Error sending to photographer: {str(e)}')
-        return {'error': str(e)}
+    results = {}
+    
+    # Отправляем в WhatsApp если есть телефон
+    if photographer_data.get('phone'):
+        try:
+            result = send_via_green_api(
+                creds['instance_id'],
+                creds['token'],
+                photographer_data['phone'],
+                message
+            )
+            results['whatsapp'] = {'success': True, 'message_id': result.get('idMessage')}
+        except Exception as e:
+            print(f'[SHOOTING_NOTIF] WhatsApp error: {str(e)}')
+            results['whatsapp'] = {'error': str(e)}
+    
+    # Отправляем в Telegram если есть telegram_id
+    if photographer_data.get('telegram_id'):
+        telegram_result = send_via_telegram(photographer_data['telegram_id'], message)
+        results['telegram'] = telegram_result
+    
+    return results if results else {'error': 'No contact methods available'}
 
 
 def handler(event: dict, context) -> dict:
