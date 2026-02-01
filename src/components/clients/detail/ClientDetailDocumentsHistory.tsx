@@ -46,11 +46,19 @@ const ClientDetailDocumentsHistory = ({
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
 
   const uploadFile = async (file: File) => {
+    console.log('[ClientDetailDocumentsHistory] uploadFile called with:', file.name, file.type, file.size);
     setUploading(true);
     console.log('[ClientDetailDocumentsHistory] Starting upload:', file.name);
 
     try {
       const reader = new FileReader();
+      
+      reader.onerror = (error) => {
+        console.error('[ClientDetailDocumentsHistory] FileReader error:', error);
+        toast.error('Ошибка чтения файла');
+        setUploading(false);
+      };
+      
       reader.onload = async (e) => {
         const base64 = e.target?.result as string;
         const base64Data = base64.split(',')[1];
@@ -109,9 +117,16 @@ const ClientDetailDocumentsHistory = ({
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[ClientDetailDocumentsHistory] handleFileUpload triggered');
     const files = event.target.files;
-    if (!files || files.length === 0) return;
+    console.log('[ClientDetailDocumentsHistory] Files:', files);
+    
+    if (!files || files.length === 0) {
+      console.log('[ClientDetailDocumentsHistory] No files selected');
+      return;
+    }
 
+    console.log('[ClientDetailDocumentsHistory] Selected file:', files[0].name, files[0].type, files[0].size);
     await uploadFile(files[0]);
     
     if (event.target) {
@@ -120,6 +135,8 @@ const ClientDetailDocumentsHistory = ({
   };
 
   const handleCameraClick = () => {
+    console.log('[ClientDetailDocumentsHistory] Camera button clicked');
+    console.log('[ClientDetailDocumentsHistory] Camera input ref:', cameraInputRef.current);
     cameraInputRef.current?.click();
   };
 
@@ -265,6 +282,7 @@ const ClientDetailDocumentsHistory = ({
             capture="environment"
             className="hidden"
             onChange={handleFileUpload}
+            onClick={() => console.log('[ClientDetailDocumentsHistory] Camera input clicked')}
           />
         </CardHeader>
         <CardContent
