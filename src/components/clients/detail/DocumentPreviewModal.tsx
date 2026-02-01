@@ -35,7 +35,7 @@ const DocumentPreviewModal = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastTap, setLastTap] = useState(0);
-  const [ignoreNextClick, setIgnoreNextClick] = useState(false);
+  const [tapCount, setTapCount] = useState(0);
 
   // Клавиатурная навигация
   useEffect(() => {
@@ -176,8 +176,21 @@ const DocumentPreviewModal = ({
         x: e.touches[0].clientX - position.x, 
         y: e.touches[0].clientY - position.y 
       });
-      // Блокируем двойной тап при перетаскивании
-      setLastTap(0);
+    } else if (scale === 1 && e.touches.length === 1) {
+      // Обработка двойного тапа на неувеличенном изображении
+      const now = Date.now();
+      const DOUBLE_TAP_DELAY = 300;
+      
+      if (lastTap && now - lastTap < DOUBLE_TAP_DELAY) {
+        // Двойной тап обнаружен!
+        e.preventDefault();
+        setScale(2.5);
+        setLastTap(0);
+        setTapCount(0);
+      } else {
+        setLastTap(now);
+        setTapCount(1);
+      }
     }
   };
 
@@ -196,9 +209,21 @@ const DocumentPreviewModal = ({
     const wasDragging = isDragging;
     setIsDragging(false);
     
-    // Если было перетаскивание, не обрабатываем клик
-    if (wasDragging && scale > 1) {
-      setLastTap(0);
+    // Обработка двойного тапа на увеличенном изображении
+    if (!wasDragging && scale > 1) {
+      const now = Date.now();
+      const DOUBLE_TAP_DELAY = 300;
+      
+      if (lastTap && now - lastTap < DOUBLE_TAP_DELAY) {
+        // Двойной тап - возврат к 1x
+        setScale(1);
+        setPosition({ x: 0, y: 0 });
+        setLastTap(0);
+        setTapCount(0);
+      } else {
+        setLastTap(now);
+        setTapCount(1);
+      }
     }
   };
 
@@ -345,7 +370,6 @@ const DocumentPreviewModal = ({
                     onTouchStart={handleImageTouchStart}
                     onTouchMove={handleImageTouchMove}
                     onTouchEnd={handleImageTouchEnd}
-                    onClick={handleImageClick}
                     draggable={false}
                   />
                 </div>
