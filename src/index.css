@@ -12,6 +12,14 @@
   }
 }
 
+/* Fix for mobile keyboard covering dialog content */
+@media (max-width: 1024px) {
+  [data-radix-dialog-content] {
+    max-height: 90dvh !important;
+    height: auto !important;
+  }
+}
+
 @layer base {
   :root {
     --background: 240 60% 99%;

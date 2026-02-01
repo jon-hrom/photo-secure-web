@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { Payment, Project } from '@/components/clients/ClientsTypes';
+import { useEffect } from 'react';
 
 interface ClientDetailPaymentsProps {
   payments: Payment[];
@@ -31,13 +32,28 @@ const ClientDetailPayments = ({
   const getProjectById = (projectId?: number) => {
     return projects.find(p => p.id === projectId);
   };
+
+  useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+
+    document.addEventListener('focusin', handleFocus);
+    return () => document.removeEventListener('focusin', handleFocus);
+  }, []);
+
   return (
     <>
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Добавить платёж</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 pb-6">
+        <CardContent className="space-y-4 pb-32">
           <div className="space-y-2">
             <div className="flex items-start sm:items-center space-x-2 p-3 bg-muted/50 rounded-lg touch-manipulation">
               <Checkbox
