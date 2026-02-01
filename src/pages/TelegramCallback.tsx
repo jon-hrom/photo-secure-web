@@ -21,7 +21,7 @@ const TelegramCallback = () => {
     const exchangeToken = async () => {
       try {
         const response = await fetch(
-          'https://functions.poehali.dev/cddd84c3-3a9b-4673-a9e9-775e2e4bbd36?action=callback',
+          'https://functions.poehali.dev/d75023e4-464a-4aad-9456-a7417376a901?action=callback',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
