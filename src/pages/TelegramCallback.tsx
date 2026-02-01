@@ -35,16 +35,18 @@ const TelegramCallback = () => {
           throw new Error(data.error || 'Ошибка авторизации');
         }
 
-        // Сохраняем токены
-        localStorage.setItem('access_token', data.access_token);
+        // Сохраняем токены и сессию в правильном формате
+        localStorage.setItem('auth_token', data.access_token);
         localStorage.setItem('refresh_token', data.refresh_token);
+        localStorage.setItem('userId', data.user.id.toString());
         
-        // Сохраняем сессию в формате приложения
+        // Сохраняем сессию в формате приложения (как в useAuth.ts)
         const authSession = {
+          isAuthenticated: true,
           userId: data.user.id,
-          email: data.user.email,
-          name: data.user.name,
-          avatar: data.user.avatar_url,
+          userEmail: data.user.email || '',
+          isAdmin: false, // Telegram пользователи не админы по умолчанию
+          currentPage: 'dashboard',
           lastActivity: Date.now(),
         };
         localStorage.setItem('authSession', JSON.stringify(authSession));
@@ -53,9 +55,9 @@ const TelegramCallback = () => {
         setMessage('Успешная авторизация!');
         toast.success('Вход выполнен через Telegram');
 
-        // Перенаправляем на главную страницу через 1 секунду
+        // Перенаправляем на главную с перезагрузкой для восстановления сессии
         setTimeout(() => {
-          navigate('/');
+          window.location.href = '/';
         }, 1000);
       } catch (error: any) {
         console.error('Token exchange error:', error);
