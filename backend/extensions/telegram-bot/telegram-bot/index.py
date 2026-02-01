@@ -143,10 +143,58 @@ def handle_web_auth(chat_id: int, user: dict) -> None:
     )
 
 
+def handle_verify(chat_id: int, code: str) -> None:
+    """Обработка команды /verify <code> для привязки Telegram."""
+    import requests
+    
+    bot = get_bot()
+    verify_url = os.environ.get("TELEGRAM_VERIFY_URL", "")
+    
+    if not verify_url:
+        bot.send_message(chat_id, "❌ Ошибка конфигурации сервера")
+        return
+    
+    try:
+        response = requests.post(
+            f"{verify_url}?action=verify",
+            json={"code": code, "telegram_chat_id": str(chat_id)},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            bot.send_message(
+                chat_id,
+                f"✅ {data.get('message', 'Telegram успешно подключен!')}\n\n"
+                f"Теперь вы будете получать уведомления о съёмках!"
+            )
+        elif response.status_code == 404:
+            bot.send_message(
+                chat_id,
+                "❌ Код не найден или истёк.\n\n"
+                "Получите новый код на сайте в настройках."
+            )
+        else:
+            bot.send_message(chat_id, "❌ Ошибка проверки кода. Попробуйте ещё раз.")
+    except Exception as e:
+        print(f"Error verifying code: {e}")
+        bot.send_message(chat_id, "❌ Ошибка связи с сервером. Попробуйте позже.")
+
+
 def handle_start(chat_id: int) -> None:
     """Обработка команды /start без параметров."""
     bot = get_bot()
-    bot.send_message(chat_id, "Привет! Используйте кнопку «Войти через Telegram» на сайте.")
+    bot.send_message(
+        chat_id,
+        "Привет! 👋\n\n"
+        "Этот бот отправляет уведомления о съёмках.\n\n"
+        "Для подключения:\n"
+        "1️⃣ Войдите на сайт Foto-Mix.ru\n"
+        "2️⃣ Зайдите в настройки\n"
+        "3️⃣ Введите номер телефона и получите код\n"
+        "4️⃣ Отправьте мне команду:\n"
+        "/verify <код>"
+    )
 
 
 def process_webhook(body: dict) -> dict:
@@ -170,6 +218,18 @@ def process_webhook(body: dict) -> dict:
                 handle_web_auth(chat_id, user)
             else:
                 handle_start(chat_id)
+        elif text.startswith("/verify"):
+            parts = text.split(" ", 1)
+            if len(parts) > 1:
+                code = parts[1].strip()
+                handle_verify(chat_id, code)
+            else:
+                bot = get_bot()
+                bot.send_message(
+                    chat_id,
+                    "❌ Укажите код после команды.\n\n"
+                    "Пример: /verify 123456"
+                )
     except telebot.apihelper.ApiTelegramException as e:
         print(f"Telegram API error: {e}")
     except Exception as e:

@@ -5,6 +5,7 @@ import AdminWidgets from '@/components/admin/AdminWidgets';
 import EnhancedAdminUsers from '@/components/admin/EnhancedAdminUsers';
 import AdminAuthProviders from '@/components/admin/AdminAuthProviders';
 import AuthStats from '@/components/admin/AuthStats';
+import TelegramVerificationAdmin from '@/components/admin/TelegramVerificationAdmin';
 import EmailNotifications from '@/components/admin/EmailNotifications';
 import NotificationSoundSettings from '@/components/admin/NotificationSoundSettings';
 import SmsBalanceManager from '@/components/admin/SmsBalanceManager';
@@ -161,6 +162,7 @@ const AdminPanelTabs = ({
               onToggleProvider={onToggleAuthProvider}
             />
             <AuthStats />
+            <TelegramVerificationAdmin />
           </div>
         </AccordionContent>
       </AccordionItem>

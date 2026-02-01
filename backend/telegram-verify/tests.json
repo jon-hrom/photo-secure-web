@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Test OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/?action=check",
+      "expectedStatus": 204
+    },
+    {
+      "name": "Test check without user_id",
+      "method": "GET",
+      "path": "/?action=check",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "Missing user_id"
+      }
+    },
+    {
+      "name": "Test generate without body",
+      "method": "POST",
+      "path": "/?action=generate",
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "Missing user_id or phone_number"
+      }
+    }
+  ]
+}

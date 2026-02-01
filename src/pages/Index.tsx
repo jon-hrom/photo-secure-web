@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/components/layout/AuthenticatedLayout';
 import UnauthenticatedViews from '@/components/layout/UnauthenticatedViews';
 import AccessDeniedNotification from '@/components/AccessDeniedNotification';
 import SessionTimeoutWarning from '@/components/SessionTimeoutWarning';
+import TelegramVerification from '@/components/TelegramVerification';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { useClientsSync } from '@/hooks/useClientsSync';
@@ -35,6 +36,8 @@ const Index = () => {
     blockData,
     showAccessDenied,
     accessDeniedMessage,
+    needsTelegramVerification,
+    setNeedsTelegramVerification,
     setShowAccessDenied,
     setNeeds2FA,
     setIsBlocked,
@@ -143,6 +146,15 @@ const Index = () => {
 
   if (showAccessDenied) {
     return <AccessDeniedNotification message={accessDeniedMessage} onClose={() => setShowAccessDenied(false)} />;
+  }
+
+  if (isAuthenticated && needsTelegramVerification && userId) {
+    return (
+      <TelegramVerification
+        userId={userId}
+        onVerified={() => setNeedsTelegramVerification(false)}
+      />
+    );
   }
 
   if (!isAuthenticated && guestAccess && currentPage === 'auth') {
