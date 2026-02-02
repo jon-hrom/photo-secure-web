@@ -150,16 +150,24 @@ def handle_verify(chat_id: int, code: str) -> None:
     bot = get_bot()
     verify_url = os.environ.get("TELEGRAM_VERIFY_URL", "")
     
+    print(f"[VERIFY] Starting verification: chat_id={chat_id}, code={code}")
+    print(f"[VERIFY] TELEGRAM_VERIFY_URL={verify_url}")
+    
     if not verify_url:
+        print("[VERIFY] ERROR: TELEGRAM_VERIFY_URL not set")
         bot.send_message(chat_id, "❌ Ошибка конфигурации сервера")
         return
     
     try:
-        response = requests.post(
-            f"{verify_url}?action=verify",
-            json={"code": code, "telegram_chat_id": str(chat_id)},
-            timeout=10
-        )
+        url = f"{verify_url}?action=verify"
+        payload = {"code": code, "telegram_chat_id": str(chat_id)}
+        print(f"[VERIFY] POST {url}")
+        print(f"[VERIFY] Payload: {payload}")
+        
+        response = requests.post(url, json=payload, timeout=10)
+        
+        print(f"[VERIFY] Response status: {response.status_code}")
+        print(f"[VERIFY] Response body: {response.text}")
         
         if response.status_code == 200:
             data = response.json()
@@ -175,10 +183,17 @@ def handle_verify(chat_id: int, code: str) -> None:
                 "Получите новый код на сайте в настройках."
             )
         else:
-            bot.send_message(chat_id, "❌ Ошибка проверки кода. Попробуйте ещё раз.")
+            error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+            error_msg = error_data.get('error', 'Неизвестная ошибка')
+            bot.send_message(chat_id, f"❌ Ошибка проверки кода: {error_msg}")
+    except requests.exceptions.RequestException as e:
+        print(f"[VERIFY] RequestException: {type(e).__name__}: {e}")
+        bot.send_message(chat_id, f"❌ Ошибка связи с сервером: {type(e).__name__}")
     except Exception as e:
-        print(f"Error verifying code: {e}")
-        bot.send_message(chat_id, "❌ Ошибка связи с сервером. Попробуйте позже.")
+        print(f"[VERIFY] Unexpected error: {type(e).__name__}: {e}")
+        import traceback
+        print(traceback.format_exc())
+        bot.send_message(chat_id, f"❌ Ошибка: {type(e).__name__}")
 
 
 def handle_start(chat_id: int) -> None:
