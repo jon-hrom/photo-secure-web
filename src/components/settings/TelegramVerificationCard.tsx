@@ -184,8 +184,9 @@ const TelegramVerificationCard: React.FC<TelegramVerificationCardProps> = ({ use
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    navigator.clipboard.writeText(code);
+                    navigator.clipboard.writeText(`/verify ${code}`);
                   }}
+                  title="Скопировать команду для бота"
                 >
                   <Icon name="Copy" size={16} />
                 </Button>
