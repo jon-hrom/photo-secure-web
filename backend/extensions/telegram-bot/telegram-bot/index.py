@@ -5,6 +5,7 @@ Telegram Bot Function
 1. Webhook от Telegram для авторизации через /start web_auth
 2. Отправку уведомлений через API (action=send, action=send-photo)
 3. Тестовые сообщения (action=test)
+4. Верификацию пользователей через /verify <code>
 """
 
 import json
