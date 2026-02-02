@@ -5,6 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { Loader2 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface TelegramVerificationCardProps {
   userId: number;
@@ -13,6 +19,7 @@ interface TelegramVerificationCardProps {
 const TelegramVerificationCard: React.FC<TelegramVerificationCardProps> = ({ userId }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
+  const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isCodeSent, setIsCodeSent] = useState(false);
@@ -180,16 +187,26 @@ const TelegramVerificationCard: React.FC<TelegramVerificationCardProps> = ({ use
                 <code className="text-2xl font-bold bg-white dark:bg-gray-800 px-4 py-2 rounded border-2 border-yellow-400 text-yellow-700 dark:text-yellow-300">
                   {code}
                 </code>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`/verify ${code}`);
-                  }}
-                  title="Скопировать команду для бота"
-                >
-                  <Icon name="Copy" size={16} />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip open={copied}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`/verify ${code}`);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                      >
+                        <Icon name={copied ? "Check" : "Copy"} size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">{copied ? 'Скопировано: /verify ' + code : 'Скопировать команду /verify'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
 
