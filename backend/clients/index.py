@@ -933,6 +933,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         except (ValueError, AttributeError):
                             end_date = None
                     
+                    project_id = project.get('id')
+                    is_new_project = project_id not in existing_ids
+                    
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.client_projects 
                         (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar)
@@ -950,7 +953,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             shooting_address = EXCLUDED.shooting_address,
                             add_to_calendar = EXCLUDED.add_to_calendar
                     ''', (
-                        project.get('id'),
+                        project_id,
                         client_id,
                         project_name,
                         project_status,
@@ -964,6 +967,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         project.get('shooting_address'),
                         project.get('add_to_calendar')
                     ))
+                    
+                    # Отправка уведомлений в Telegram при создании нового проекта
+                    if is_new_project and start_date and project.get('shooting_time'):
+                        try:
+                            telegram_notif_url = 'https://functions.poehali.dev/9768a392-3928-4880-bccc-dd33983ce097'
+                            requests.post(telegram_notif_url, json={
+                                'action': 'send_project_notification',
+                                'project_id': project_id
+                            }, timeout=5)
+                            print(f'[TELEGRAM_NOTIF] Sent notification for project {project_id}')
+                        except Exception as e:
+                            print(f'[TELEGRAM_NOTIF] Error: {e}')
             
             # Обновляем платежи (upsert)
             if 'payments' in body:

@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Test project notification endpoint",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "send_project_notification",
+        "project_id": 1764767811540
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test reminders endpoint",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "send_reminders",
+        "hours_before": 24
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
