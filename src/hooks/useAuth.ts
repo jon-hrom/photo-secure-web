@@ -84,41 +84,8 @@ export const useAuth = () => {
       }
     }
     
-    // Проверяем верификацию Telegram (для не-админов)
-    if (!isUserAdmin) {
-      try {
-        const verifyResponse = await fetch(`https://functions.poehali.dev/46d9b487-dbc7-4472-a333-3b30ed8d2733?action=check&user_id=${uid}`);
-        const verifyData = await verifyResponse.json();
-        
-        if (!verifyData.verified) {
-          console.log('[AUTH] User needs Telegram verification');
-          setNeedsTelegramVerification(true);
-          setUserId(uid);
-          setUserEmail(email || '');
-          setIsAdmin(false);
-          setIsAuthenticated(true);
-          setCurrentPage('dashboard');
-          lastActivityRef.current = Date.now();
-          
-          localStorage.setItem('userId', uid.toString());
-          if (token) {
-            localStorage.setItem('auth_token', token);
-          }
-          
-          localStorage.setItem('authSession', JSON.stringify({
-            isAuthenticated: true,
-            userId: uid,
-            userEmail: email || '',
-            isAdmin: false,
-            currentPage: 'dashboard',
-            lastActivity: Date.now(),
-          }));
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking Telegram verification:', error);
-      }
-    }
+    // Telegram verification is now handled via TelegramBanner component
+    // No blocking on login - just show banner if not verified
     
     setIsAuthenticated(true);
     setUserId(uid);

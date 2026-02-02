@@ -4,7 +4,7 @@ import AuthenticatedLayout from '@/components/layout/AuthenticatedLayout';
 import UnauthenticatedViews from '@/components/layout/UnauthenticatedViews';
 import AccessDeniedNotification from '@/components/AccessDeniedNotification';
 import SessionTimeoutWarning from '@/components/SessionTimeoutWarning';
-import TelegramVerification from '@/components/TelegramVerification';
+import TelegramBanner from '@/components/TelegramBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { useClientsSync } from '@/hooks/useClientsSync';
@@ -148,15 +148,6 @@ const Index = () => {
     return <AccessDeniedNotification message={accessDeniedMessage} onClose={() => setShowAccessDenied(false)} />;
   }
 
-  if (isAuthenticated && needsTelegramVerification && userId) {
-    return (
-      <TelegramVerification
-        userId={userId}
-        onVerified={() => setNeedsTelegramVerification(false)}
-      />
-    );
-  }
-
   if (!isAuthenticated && guestAccess && currentPage === 'auth') {
     return (
       <UnauthenticatedViews
@@ -214,6 +205,7 @@ const Index = () => {
           onLogout={handleLogout}
         />
       )}
+      {isAuthenticated && userId && !isAdmin && <TelegramBanner userId={userId} />}
       <AuthenticatedLayout
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
