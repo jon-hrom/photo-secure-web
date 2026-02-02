@@ -149,10 +149,10 @@ def handle_verify(chat_id: int, code: str) -> None:
     import requests
     
     bot = get_bot()
-    verify_url = os.environ.get("TELEGRAM_VERIFY_URL") or "https://functions.poehali.dev/46d9b487-dbc7-4472-a333-3b30ed8d2733"
+    verify_url = os.environ.get("TELEGRAM_VERIFY_URL", "https://functions.poehali.dev/46d9b487-dbc7-4472-a333-3b30ed8d2733")
     
     print(f"[VERIFY] Starting verification: chat_id={chat_id}, code={code}")
-    print(f"[VERIFY] Using verify_url={verify_url}")
+    print(f"[VERIFY] verify_url={verify_url}")
     
     try:
         url = f"{verify_url}?action=verify"
