@@ -1,6 +1,10 @@
 """
-Крон-задача для отправки напоминаний о съёмках за 24 часа и за 1 час
-Запускается каждый час автоматически
+Cron-задача для отправки автоматических напоминаний о съёмках
+Проверяет предстоящие съёмки и отправляет напоминания:
+- За 24 часа до съёмки
+- За 5 часов до съёмки  
+- За 1 час до съёмки
+Запускается каждый час
 """
 
 import json
@@ -9,13 +13,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 import requests
-import urllib.request
-import boto3
-from botocore.exceptions import ClientError
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = 't_p28211681_photo_secure_web'
-CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d'
 
 
 def escape_sql(value):
@@ -35,12 +35,10 @@ def get_db_connection():
 
 
 def get_max_credentials():
-    """Получить GREEN-API credentials из переменных окружения"""
-    instance_id = os.environ.get('MAX_INSTANCE_ID', '')
-    token = os.environ.get('MAX_TOKEN', '')
+    """Получить GREEN-API credentials"""
     return {
-        'instance_id': instance_id,
-        'token': token
+        'instance_id': os.environ.get('MAX_INSTANCE_ID', ''),
+        'token': os.environ.get('MAX_TOKEN', '')
     }
 
 
@@ -63,621 +61,250 @@ def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -
     return response.json()
 
 
-def send_email(to_email: str, subject: str, html_body: str, from_name: str = 'FotoMix') -> bool:
-    """Отправить email через Yandex Cloud Postbox"""
+def send_via_telegram(telegram_id: str, message: str) -> dict:
+    """Отправить сообщение через Telegram"""
+    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    if not bot_token:
+        return {'error': 'Telegram bot token not configured'}
+    
     try:
-        access_key_id = os.environ.get('POSTBOX_ACCESS_KEY_ID')
-        secret_access_key = os.environ.get('POSTBOX_SECRET_ACCESS_KEY')
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            'chat_id': telegram_id,
+            'text': message,
+            'parse_mode': 'HTML',
+            'disable_web_page_preview': True
+        }
+        response = requests.post(url, json=payload, timeout=10)
+        result = response.json()
         
-        if not access_key_id or not secret_access_key:
-            print("[EMAIL] POSTBOX credentials not set")
-            return False
-        
-        client = boto3.client(
-            'sesv2',
-            region_name='ru-central1',
-            endpoint_url='https://postbox.cloud.yandex.net',
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret_access_key
-        )
-        
-        from_email = f'{from_name} <info@foto-mix.ru>'
-        
-        response = client.send_email(
-            FromEmailAddress=from_email,
-            Destination={'ToAddresses': [to_email]},
-            Content={
-                'Simple': {
-                    'Subject': {'Data': subject, 'Charset': 'UTF-8'},
-                    'Body': {'Html': {'Data': html_body, 'Charset': 'UTF-8'}}
-                }
-            }
-        )
-        
-        print(f"[EMAIL] Sent to {to_email}. MessageId: {response.get('MessageId')}")
-        return True
-    except ClientError as e:
-        print(f"[EMAIL] ClientError: {e.response['Error']['Code']} - {e.response['Error']['Message']}")
-        return False
+        if result.get('ok'):
+            return {'success': True, 'message_id': result.get('result', {}).get('message_id')}
+        else:
+            return {'error': result.get('description', 'Unknown error')}
     except Exception as e:
-        print(f"[EMAIL] Error: {str(e)}")
-        return False
+        return {'error': str(e)}
 
 
-def format_date_ru(date_str: str) -> str:
-    """Форматировать дату в русский формат"""
+def format_time(time_obj) -> str:
+    """Форматировать время в HH:MM"""
+    if not time_obj:
+        return "не указано"
+    time_str = str(time_obj)
+    if ':' in time_str:
+        parts = time_str.split(':')
+        return f"{parts[0].zfill(2)}:{parts[1].zfill(2)}"
+    return time_str
+
+
+def send_reminder_24h(project: dict, client: dict, photographer: dict, creds: dict) -> dict:
+    """Отправить напоминание за 24 часа"""
+    time_str = format_time(project['shooting_time'])
+    
+    # Сообщение клиенту
+    client_message = f"""⏰ Напоминание о завтрашней съёмке!
+
+📸 Ваша фотосессия завтра!
+
+🕐 Время: {time_str}
+📍 Место: {project['shooting_address'] or 'не указано'}
+
+👤 Фотограф: {photographer.get('display_name') or photographer.get('email', 'Фотограф')}
+📞 Телефон: {photographer.get('phone', 'не указан')}
+
+✨ Подготовьтесь заранее! До встречи завтра! 📷"""
+
+    # Сообщение фотографу
+    photographer_message = f"""⏰ Напоминание о завтрашней съёмке!
+
+📸 У вас съёмка завтра!
+
+🕐 Время: {time_str}
+📍 Место: {project['shooting_address'] or 'не указано'}
+
+👤 Клиент: {client['name']}
+📞 Телефон: {client['phone'] or 'не указан'}
+
+🎯 Проверьте оборудование заранее!"""
+
+    results = {'client': {}, 'photographer': {}}
+    
+    # Отправляем клиенту
+    if client.get('phone'):
+        try:
+            send_via_green_api(creds['instance_id'], creds['token'], client['phone'], client_message)
+            results['client']['whatsapp'] = True
+        except Exception as e:
+            results['client']['whatsapp_error'] = str(e)
+    
+    if client.get('telegram_id'):
+        result = send_via_telegram(client['telegram_id'], client_message)
+        results['client']['telegram'] = result.get('success', False)
+    
+    # Отправляем фотографу
+    if photographer.get('phone'):
+        try:
+            send_via_green_api(creds['instance_id'], creds['token'], photographer['phone'], photographer_message)
+            results['photographer']['whatsapp'] = True
+        except Exception as e:
+            results['photographer']['whatsapp_error'] = str(e)
+    
+    if photographer.get('telegram_id'):
+        result = send_via_telegram(photographer['telegram_id'], photographer_message)
+        results['photographer']['telegram'] = result.get('success', False)
+    
+    return results
+
+
+def send_reminder_5h(project: dict, client: dict, photographer: dict, creds: dict) -> dict:
+    """Отправить напоминание за 5 часов"""
+    time_str = format_time(project['shooting_time'])
+    
+    # Сообщение клиенту
+    client_message = f"""⏰ Съёмка через 5 часов!
+
+📸 Скоро начнётся ваша фотосессия!
+
+🕐 Время: {time_str}
+📍 Место: {project['shooting_address'] or 'не указано'}
+
+👤 Фотограф: {photographer.get('display_name') or photographer.get('email', 'Фотограф')}
+📞 Телефон: {photographer.get('phone', 'не указан')}
+
+💡 Совет: выезжайте заранее с учётом пробок!
+✨ Всё будет отлично! 📷"""
+
+    # Сообщение фотографу
+    photographer_message = f"""⏰ Съёмка через 5 часов!
+
+📸 Съёмка скоро начнётся!
+
+🕐 Время: {time_str}
+📍 Место: {project['shooting_address'] or 'не указано'}
+
+👤 Клиент: {client['name']}
+📞 Телефон: {client['phone'] or 'не указан'}
+
+📦 Проверьте:
+✅ Флешки
+✅ Аккумуляторы
+✅ Объективы
+✅ Освещение
+
+🚗 Выезжайте с запасом времени!"""
+
+    results = {'client': {}, 'photographer': {}}
+    
+    # Отправляем клиенту
+    if client.get('phone'):
+        try:
+            send_via_green_api(creds['instance_id'], creds['token'], client['phone'], client_message)
+            results['client']['whatsapp'] = True
+        except Exception as e:
+            results['client']['whatsapp_error'] = str(e)
+    
+    if client.get('telegram_id'):
+        result = send_via_telegram(client['telegram_id'], client_message)
+        results['client']['telegram'] = result.get('success', False)
+    
+    # Отправляем фотографу
+    if photographer.get('phone'):
+        try:
+            send_via_green_api(creds['instance_id'], creds['token'], photographer['phone'], photographer_message)
+            results['photographer']['whatsapp'] = True
+        except Exception as e:
+            results['photographer']['whatsapp_error'] = str(e)
+    
+    if photographer.get('telegram_id'):
+        result = send_via_telegram(photographer['telegram_id'], photographer_message)
+        results['photographer']['telegram'] = result.get('success', False)
+    
+    return results
+
+
+def send_reminder_1h(project: dict, client: dict, photographer: dict, creds: dict) -> dict:
+    """Отправить напоминание за 1 час"""
+    time_str = format_time(project['shooting_time'])
+    
+    # Сообщение клиенту
+    client_message = f"""⏰ Съёмка через 1 час!
+
+📸 Ваша фотосессия начнётся совсем скоро!
+
+🕐 Время: {time_str}
+📍 Место: {project['shooting_address'] or 'не указано'}
+
+👤 Фотограф: {photographer.get('display_name') or photographer.get('email', 'Фотограф')}
+📞 Телефон: {photographer.get('phone', 'не указан')}
+
+🎉 Ждём вас! Будет красиво! 📷"""
+
+    # Сообщение фотографу
+    photographer_message = f"""⏰ Съёмка через 1 час!
+
+📸 Съёмка начнётся через час!
+
+🕐 Время: {time_str}
+📍 Место: {project['shooting_address'] or 'не указано'}
+
+👤 Клиент: {client['name']}
+📞 Телефон: {client['phone'] or 'не указан'}
+
+🚀 В путь! Удачной съёмки!"""
+
+    results = {'client': {}, 'photographer': {}}
+    
+    # Отправляем клиенту
+    if client.get('phone'):
+        try:
+            send_via_green_api(creds['instance_id'], creds['token'], client['phone'], client_message)
+            results['client']['whatsapp'] = True
+        except Exception as e:
+            results['client']['whatsapp_error'] = str(e)
+    
+    if client.get('telegram_id'):
+        result = send_via_telegram(client['telegram_id'], client_message)
+        results['client']['telegram'] = result.get('success', False)
+    
+    # Отправляем фотографу
+    if photographer.get('phone'):
+        try:
+            send_via_green_api(creds['instance_id'], creds['token'], photographer['phone'], photographer_message)
+            results['photographer']['whatsapp'] = True
+        except Exception as e:
+            results['photographer']['whatsapp_error'] = str(e)
+    
+    if photographer.get('telegram_id'):
+        result = send_via_telegram(photographer['telegram_id'], photographer_message)
+        results['photographer']['telegram'] = result.get('success', False)
+    
+    return results
+
+
+def log_reminder(conn, project_id: int, reminder_type: str, sent_to: str, success: bool, error: str = None):
+    """Записать отправку напоминания в лог"""
     try:
-        dt = datetime.fromisoformat(date_str.replace('Z', ''))
-        months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-                  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-        return f"{dt.day} {months[dt.month - 1]} {dt.year}"
-    except:
-        return date_str
-
-
-def send_photographer_email_reminder(photographer_email: str, photographer_name: str, project_data: dict, client_data: dict, hours_before: int) -> bool:
-    """Отправить email-напоминание фотографу"""
-    if not photographer_email:
-        print('[EMAIL_REMINDER] Photographer email not found')
-        return False
-    
-    client_name = client_data.get('name', 'Клиент')
-    client_phone = client_data.get('phone', 'не указан')
-    client_email = client_data.get('email', 'не указан')
-    
-    date_str = format_date_ru(project_data.get('startDate', ''))
-    time_str = project_data.get('shooting_time', '10:00')
-    if time_str and ':' in time_str:
-        time_parts = time_str.split(':')
-        time_str = f"{time_parts[0].zfill(2)}:{time_parts[1].zfill(2)}"
-    address = project_data.get('shooting_address', 'Адрес не указан')
-    project_name = project_data.get('name', 'Съёмка')
-    
-    if hours_before == 24:
-        subject = f'📅 Напоминание: съёмка завтра — {project_name}'
-        time_text = 'завтра'
-        tip = 'Не забудьте проверить оборудование! 📷'
-    else:
-        subject = f'⏰ Напоминание: съёмка сегодня — {project_name}'
-        time_text = 'сегодня'
-        tip = 'Выезжайте заранее! 🚗'
-    
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
-            .info-block {{ background: white; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #667eea; }}
-            .info-row {{ margin: 10px 0; }}
-            .label {{ font-weight: bold; color: #667eea; }}
-            .tip {{ background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #ffc107; }}
-            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1 style="margin: 0;">📸 Напоминание о съёмке</h1>
-                <p style="margin: 10px 0 0 0; font-size: 18px;">Съёмка {time_text}!</p>
-            </div>
-            <div class="content">
-                <div class="info-block">
-                    <div class="info-row">
-                        <span class="label">🎬 Проект:</span> {project_name}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">📅 Дата:</span> {date_str}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">🕐 Время:</span> {time_str}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">📍 Адрес:</span> {address}
-                    </div>
-                </div>
-                
-                <div class="info-block">
-                    <h3 style="margin-top: 0; color: #667eea;">Информация о клиенте</h3>
-                    <div class="info-row">
-                        <span class="label">👤 Имя:</span> {client_name}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">📞 Телефон:</span> {client_phone}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">📧 Email:</span> {client_email}
-                    </div>
-                </div>
-                
-                <div class="tip">
-                    <strong>💡 Напоминание:</strong><br>
-                    {tip}
-                </div>
-            </div>
-            <div class="footer">
-                <p>С уважением, команда FotoMix</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return send_email(photographer_email, subject, html_body)
-
-
-def send_client_email_reminder(client_email: str, photographer_name: str, project_data: dict, hours_before: int) -> bool:
-    """Отправить email-напоминание клиенту"""
-    if not client_email:
-        print('[EMAIL_REMINDER] Client email not found')
-        return False
-    
-    date_str = format_date_ru(project_data.get('startDate', ''))
-    time_str = project_data.get('shooting_time', '10:00')
-    if time_str and ':' in time_str:
-        time_parts = time_str.split(':')
-        time_str = f"{time_parts[0].zfill(2)}:{time_parts[1].zfill(2)}"
-    address = project_data.get('shooting_address', 'Адрес не указан')
-    project_name = project_data.get('name', 'Съёмка')
-    
-    if hours_before == 24:
-        subject = f'📅 Напоминание: фотосессия завтра — {project_name}'
-        time_text = 'завтра'
-        checklist = """
-            <li>Подберите наряды и аксессуары ✨</li>
-            <li>Выспитесь и отдохните 😴</li>
-            <li>Подготовьте реквизит (если нужен) 🎭</li>
-            <li>Продумайте образы 💅</li>
-        """
-    elif hours_before == 5:
-        subject = f'⏰ Скоро съёмка! Осталось {hours_before} часов — {project_name}'
-        time_text = 'сегодня'
-        checklist = """
-            <li>Проверьте наряды ✨</li>
-            <li>Соберите аксессуары 💄</li>
-            <li>Проверьте адрес 📍</li>
-            <li>Рассчитайте время в пути 🚗</li>
-        """
-    elif hours_before == 3:
-        subject = f'🚀 Время собираться! Осталось {hours_before} часа — {project_name}'
-        time_text = 'сегодня'
-        checklist = """
-            <li>Оденьтесь и подготовьтесь ✨</li>
-            <li>Возьмите все необходимое 💼</li>
-            <li>Выезжайте с запасом времени 🚗</li>
-            <li>Зарядите телефон 📱</li>
-        """
-    else:  # 1 hour
-        subject = f'⏰ Выезжайте! Съёмка через час — {project_name}'
-        time_text = 'сегодня'
-        checklist = """
-            <li>Проверьте наряды ✨</li>
-            <li>Соберите аксессуары 💄</li>
-            <li>Проверьте адрес 📍</li>
-            <li>Хорошее настроение 😊</li>
-            <li>Зарядите телефон 📱</li>
-        """
-    
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
-            .info-block {{ background: white; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #f5576c; }}
-            .info-row {{ margin: 10px 0; }}
-            .label {{ font-weight: bold; color: #f5576c; }}
-            .checklist {{ background: #e7f3ff; padding: 20px; border-radius: 8px; margin-top: 20px; }}
-            .checklist ul {{ margin: 10px 0; padding-left: 20px; }}
-            .checklist li {{ margin: 8px 0; }}
-            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1 style="margin: 0;">📸 Напоминание о фотосессии</h1>
-                <p style="margin: 10px 0 0 0; font-size: 18px;">Съёмка {time_text}!</p>
-            </div>
-            <div class="content">
-                <div class="info-block">
-                    <div class="info-row">
-                        <span class="label">🎬 Услуга:</span> {project_name}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">📅 Дата:</span> {date_str}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">🕐 Время:</span> {time_str}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">📍 Место встречи:</span> {address}
-                    </div>
-                    <div class="info-row">
-                        <span class="label">👤 Фотограф:</span> {photographer_name}
-                    </div>
-                </div>
-                
-                <div class="checklist">
-                    <h3 style="margin-top: 0; color: #f5576c;">✅ Подготовьтесь к съёмке:</h3>
-                    <ul>
-                        {checklist}
-                    </ul>
-                </div>
-                
-                <p style="text-align: center; margin-top: 30px; font-size: 18px;">
-                    До встречи на съёмке! 🌟📷
-                </p>
-            </div>
-            <div class="footer">
-                <p>С уважением, команда FotoMix</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return send_email(client_email, subject, html_body)
-
-
-def send_photographer_reminder(photographer_phone: str, photographer_name: str, project_data: dict, client_data: dict, hours_before: int) -> bool:
-    """Отправить напоминание фотографу"""
-    creds = get_max_credentials()
-    
-    if not creds.get('instance_id') or not creds.get('token'):
-        print('[REMINDER] MAX credentials not configured')
-        return False
-    
-    if not photographer_phone:
-        print('[REMINDER] Photographer phone not found')
-        return False
-    
-    client_name = client_data.get('name', 'Клиент')
-    client_phone = client_data.get('phone', 'не указан')
-    
-    date_str = format_date_ru(project_data.get('startDate', ''))
-    time_str = project_data.get('shooting_time', '10:00')
-    # Ensure time is in HH:MM format (handle HH:MM:SS format)
-    if time_str and ':' in time_str:
-        time_parts = time_str.split(':')
-        hours_part = time_parts[0]
-        minutes_part = time_parts[1] if len(time_parts) > 1 else '00'
-        time_str = f"{hours_part.zfill(2)}:{minutes_part.zfill(2)}"
-    address = project_data.get('shooting_address', 'Адрес не указан')
-    project_name = project_data.get('name', 'Съёмка')
-    
-    if hours_before == 24:
-        emoji = '📅'
-        time_text = f'завтра (через {int(hours_before)} часов)'
-        tip = 'Не забудьте проверить оборудование! 📷'
-    elif hours_before == 5:
-        emoji = '⏰'
-        time_text = f'через {int(hours_before)} часов'
-        tip = 'Проверьте заряд батарей и карты памяти! 🔋'
-    else:
-        emoji = '⏰'
-        time_text = f'через {int(hours_before)} час'
-        tip = 'Выезжайте заранее! 🚗'
-    
-    message = f"""{emoji} Напоминание о съёмке {time_text}!
-
-🎬 Проект: {project_name}
-📅 Дата: {date_str}
-🕐 Время: {time_str}
-📍 Адрес: {address}
-
-👤 Клиент: {client_name}
-📞 Телефон: {client_phone}
-
-{tip}"""
-    
-    try:
-        send_via_green_api(
-            creds['instance_id'],
-            creds['token'],
-            photographer_phone,
-            message
-        )
-        print(f'[REMINDER] Sent {hours_before}h reminder to photographer for project {project_data.get("id")}')
-        return True
-    except Exception as e:
-        print(f'[REMINDER] Error sending to photographer: {str(e)}')
-        return False
-
-
-def send_client_reminder(client_phone: str, photographer_name: str, project_data: dict, hours_before: int) -> bool:
-    """Отправить напоминание клиенту о съёмке"""
-    creds = get_max_credentials()
-    
-    if not creds.get('instance_id') or not creds.get('token'):
-        print('[REMINDER] MAX credentials not configured')
-        return False
-    
-    if not client_phone:
-        print('[REMINDER] Client phone not found')
-        return False
-    
-    date_str = format_date_ru(project_data.get('startDate', ''))
-    time_str = project_data.get('shooting_time', '10:00')
-    # Ensure time is in HH:MM format (handle HH:MM:SS format)
-    if time_str and ':' in time_str:
-        time_parts = time_str.split(':')
-        hours_part = time_parts[0]
-        minutes_part = time_parts[1] if len(time_parts) > 1 else '00'
-        time_str = f"{hours_part.zfill(2)}:{minutes_part.zfill(2)}"
-    address = project_data.get('shooting_address', 'Адрес не указан')
-    project_name = project_data.get('name', 'Съёмка')
-    
-    if hours_before == 24:
-        message = f"""📅 Напоминание о фотосессии завтра через {int(hours_before)} часов!
-
-🎬 Проект: {project_name}
-📅 Дата: {date_str}
-🕐 Время: {time_str}
-📍 Адрес: {address}
-
-👤 Фотограф: {photographer_name}
-
-✨ Не забудьте подготовиться заранее:
-• Подберите наряды и аксессуары
-• Выспитесь и отдохните
-• Подготовьте реквизит (если нужен)
-• Продумайте образы
-
-До встречи! 📷"""
-    elif hours_before == 5:
-        message = f"""⏰ Скоро съёмка! Осталось {int(hours_before)} часов
-
-🎬 Проект: {project_name}
-📅 Дата: {date_str}
-🕐 Время: {time_str}
-📍 Адрес: {address}
-
-👤 Фотограф: {photographer_name}
-
-⏱ Подготовьтесь к выходу:
-• Проверьте наряды ✨
-• Соберите аксессуары 💄
-• Проверьте адрес 📍
-• Рассчитайте время в пути 🚗
-
-Скоро встретимся! 📸"""
-    elif hours_before == 3:
-        message = f"""⏰ Осталось всего {int(hours_before)} часа до съёмки!
-
-🎬 Проект: {project_name}
-📅 Дата: {date_str}
-🕐 Время: {time_str}
-📍 Адрес: {address}
-
-👤 Фотограф: {photographer_name}
-
-🚀 Время собираться:
-• Оденьтесь и подготовьтесь ✨
-• Возьмите все необходимое 💼
-• Выезжайте с запасом времени 🚗
-• Телефон заряжен 📱
-
-Скоро увидимся! 📸"""
-    else:  # 1 hour
-        message = f"""⏰ Время близко! Фотосессия через {int(hours_before)} час!
-
-🎬 Проект: {project_name}
-📅 Дата: {date_str}
-🕐 Время: {time_str}
-📍 Адрес: {address}
-
-👤 Фотограф: {photographer_name}
-
-✅ Всё ли подготовили?
-• Наряды и аксессуары ✨
-• Хорошее настроение 😊
-• Заряженный телефон 📱
-• Выехали вовремя 🚗
-
-А самое главное — хорошее настроение не забудьте взять!!! 🌟💫
-
-Увидимся скоро! 📸"""
-    
-    try:
-        send_via_green_api(
-            creds['instance_id'],
-            creds['token'],
-            client_phone,
-            message
-        )
-        print(f'[REMINDER] Sent {hours_before}h reminder to client for project {project_data.get("id")}')
-        return True
-    except Exception as e:
-        print(f'[REMINDER] Error sending to client: {str(e)}')
-        return False
-
-
-def check_and_send_reminders():
-    """Проверить все съёмки и отправить напоминания"""
-    conn = get_db_connection()
-    results = {
-        'checked': 0,
-        'sent_24h_photographer': 0,
-        'sent_5h_photographer': 0,
-        'sent_3h_photographer': 0,
-        'sent_1h_photographer': 0,
-        'sent_24h_client': 0,
-        'sent_5h_client': 0,
-        'sent_3h_client': 0,
-        'sent_1h_client': 0,
-        'errors': 0
-    }
-    
-    try:
-        # Получаем всех пользователей (фотографов) с профилями
         with conn.cursor() as cur:
             cur.execute(f"""
-                SELECT u.id, u.phone, u.email, up.full_name as display_name
-                FROM "{SCHEMA}"."users" u
-                LEFT JOIN "{SCHEMA}"."user_profiles" up ON u.id = up.user_id
-                WHERE u.is_active = true AND u.is_blocked = false
+                INSERT INTO {SCHEMA}.shooting_reminders_log 
+                (project_id, reminder_type, sent_to, success, error_message, channel)
+                VALUES ({escape_sql(project_id)}, {escape_sql(reminder_type)}, 
+                        {escape_sql(sent_to)}, {escape_sql(success)}, 
+                        {escape_sql(error)}, 'both')
+                ON CONFLICT (project_id, reminder_type, sent_to) DO NOTHING
             """)
-            photographers = cur.fetchall()
-        
-        now = datetime.now()
-        
-        for photographer in photographers:
-            photographer_id = photographer['id']
-            photographer_phone = photographer.get('phone')
-            photographer_email = photographer.get('email')
-            photographer_name = photographer.get('display_name') or photographer.get('email', 'Фотограф')
-            
-            # Получаем все проекты фотографа
-            try:
-                req = urllib.request.Request(
-                    f'{CLIENTS_API}?userId={photographer_id}',
-                    headers={'X-User-Id': str(photographer_id)}
-                )
-                
-                with urllib.request.urlopen(req) as response:
-                    clients_data = json.loads(response.read().decode())
-                
-                # Проверяем все проекты всех клиентов
-                for client in clients_data:
-                    client_phone = client.get('phone')
-                    client_email = client.get('email')
-                    
-                    for project in client.get('projects', []):
-                        results['checked'] += 1
-                        
-                        start_date = project.get('startDate')
-                        shooting_time = project.get('shooting_time', '10:00')
-                        
-                        if not start_date or not shooting_time:
-                            continue
-                        
-                        # Парсим дату и время съёмки
-                        try:
-                            date_part = start_date.split('T')[0]
-                            shooting_datetime = datetime.fromisoformat(f"{date_part}T{shooting_time}:00")
-                        except:
-                            continue
-                        
-                        time_until = shooting_datetime - now
-                        hours_until = time_until.total_seconds() / 3600
-                        
-                        # Отправляем напоминания за 24 часа (с окном ±1 час)
-                        if 23 <= hours_until <= 25:
-                            # Фотографу по MAX (если есть телефон)
-                            if photographer_phone:
-                                if send_photographer_reminder(photographer_phone, photographer_name, project, client, 24):
-                                    results['sent_24h_photographer'] += 1
-                                else:
-                                    results['errors'] += 1
-                            
-                            # Фотографу по email
-                            if photographer_email:
-                                if send_photographer_email_reminder(photographer_email, photographer_name, project, client, 24):
-                                    results['sent_24h_photographer'] += 1
-                            
-                            # Клиенту по MAX
-                            if client_phone:
-                                if send_client_reminder(client_phone, photographer_name, project, 24):
-                                    results['sent_24h_client'] += 1
-                                else:
-                                    results['errors'] += 1
-                            
-                            # Клиенту по email
-                            if client_email:
-                                if send_client_email_reminder(client_email, photographer_name, project, 24):
-                                    results['sent_24h_client'] += 1
-                        
-                        # Отправляем напоминание за 5 часов (с окном ±30 минут)
-                        elif 4.5 <= hours_until <= 5.5:
-                            # Фотографу по MAX
-                            if photographer_phone:
-                                if send_photographer_reminder(photographer_phone, photographer_name, project, client, 5):
-                                    results['sent_5h_photographer'] += 1
-                                else:
-                                    results['errors'] += 1
-                            
-                            # Клиенту по MAX
-                            if client_phone:
-                                if send_client_reminder(client_phone, photographer_name, project, 5):
-                                    results['sent_5h_client'] += 1
-                                else:
-                                    results['errors'] += 1
-                            
-                            # Клиенту по email
-                            if client_email:
-                                if send_client_email_reminder(client_email, photographer_name, project, 5):
-                                    results['sent_5h_client'] += 1
-                        
-                        # Отправляем напоминание за 3 часа (с окном ±30 минут)
-                        elif 2.5 <= hours_until <= 3.5:
-                            # Фотографу по MAX
-                            if photographer_phone:
-                                if send_photographer_reminder(photographer_phone, photographer_name, project, client, 3):
-                                    results['sent_3h_photographer'] += 1
-                                else:
-                                    results['errors'] += 1
-                            
-                            # Клиенту по MAX
-                            if client_phone:
-                                if send_client_reminder(client_phone, photographer_name, project, 3):
-                                    results['sent_3h_client'] += 1
-                                else:
-                                    results['errors'] += 1
-                            
-                            # Клиенту по email
-                            if client_email:
-                                if send_client_email_reminder(client_email, photographer_name, project, 3):
-                                    results['sent_3h_client'] += 1
-                        
-                        # Отправляем напоминание за 1 час (с окном ±15 минут)
-                        elif 0.75 <= hours_until <= 1.25:
-                            # Фотографу по MAX
-                            if photographer_phone:
-                                if send_photographer_reminder(photographer_phone, photographer_name, project, client, 1):
-                                    results['sent_1h_photographer'] += 1
-                                else:
-                                    results['errors'] += 1
-                            
-                            # Клиенту по MAX
-                            if client_phone:
-                                if send_client_reminder(client_phone, photographer_name, project, 1):
-                                    results['sent_1h_client'] += 1
-                                else:
-                                    results['errors'] += 1
-                            
-                            # Клиенту по email
-                            if client_email:
-                                if send_client_email_reminder(client_email, photographer_name, project, 1):
-                                    results['sent_1h_client'] += 1
-                
-            except Exception as e:
-                print(f'[REMINDER] Error processing photographer {photographer_id}: {str(e)}')
-                results['errors'] += 1
-                continue
-        
-        return results
-        
-    finally:
-        conn.close()
+            conn.commit()
+    except Exception as e:
+        print(f"[LOG_ERROR] Failed to log reminder: {e}")
 
 
 def handler(event: dict, context) -> dict:
     """
-    Крон-задача для отправки напоминаний о съёмках
-    Запускается автоматически каждый час
+    Проверяет предстоящие съёмки и отправляет напоминания
+    Запускается каждый час автоматически
     """
     method = event.get('httpMethod', 'GET')
     
-    # CORS
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
@@ -687,31 +314,174 @@ def handler(event: dict, context) -> dict:
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Max-Age': '86400'
             },
-            'body': ''
+            'body': '',
+            'isBase64Encoded': False
+        }
+    
+    conn = get_db_connection()
+    creds = get_max_credentials()
+    
+    if not creds['instance_id'] or not creds['token']:
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'MAX credentials not configured'}),
+            'isBase64Encoded': False
         }
     
     try:
-        print('[REMINDER_CRON] Starting reminder check...')
-        results = check_and_send_reminders()
-        print(f'[REMINDER_CRON] Results: {results}')
+        now = datetime.now()
+        results = {
+            '24h_reminders': [],
+            '5h_reminders': [],
+            '1h_reminders': []
+        }
+        
+        with conn.cursor() as cur:
+            # Находим все активные проекты с датой съёмки
+            cur.execute(f"""
+                SELECT 
+                    cp.id as project_id,
+                    cp.name as project_name,
+                    cp.start_date,
+                    cp.shooting_time,
+                    cp.shooting_address,
+                    c.id as client_id,
+                    c.name as client_name,
+                    c.phone as client_phone,
+                    c.telegram_id as client_telegram_id,
+                    u.id as photographer_id,
+                    u.display_name as photographer_name,
+                    u.email as photographer_email,
+                    u.phone as photographer_phone,
+                    u.telegram_id as photographer_telegram_id
+                FROM {SCHEMA}.client_projects cp
+                JOIN {SCHEMA}.clients c ON cp.client_id = c.id
+                JOIN {SCHEMA}.users u ON c.photographer_id = u.id
+                WHERE cp.start_date IS NOT NULL
+                  AND cp.shooting_time IS NOT NULL
+                  AND cp.status IN ('new', 'in_progress', 'scheduled')
+                  AND cp.start_date >= CURRENT_DATE
+                  AND cp.start_date <= CURRENT_DATE + INTERVAL '2 days'
+            """)
+            
+            projects = cur.fetchall()
+            
+            for proj in projects:
+                # Комбинируем дату и время съёмки
+                shooting_date = proj['start_date']
+                shooting_time = proj['shooting_time']
+                
+                # Создаём datetime объект
+                shooting_datetime = datetime.combine(shooting_date, shooting_time)
+                
+                # Разница во времени
+                time_diff = shooting_datetime - now
+                hours_until = time_diff.total_seconds() / 3600
+                
+                project_data = dict(proj)
+                client_data = {
+                    'id': proj['client_id'],
+                    'name': proj['client_name'],
+                    'phone': proj['client_phone'],
+                    'telegram_id': proj['client_telegram_id']
+                }
+                photographer_data = {
+                    'id': proj['photographer_id'],
+                    'display_name': proj['photographer_name'],
+                    'email': proj['photographer_email'],
+                    'phone': proj['photographer_phone'],
+                    'telegram_id': proj['photographer_telegram_id']
+                }
+                
+                # Проверяем, нужно ли отправить напоминание за 24 часа
+                if 23 <= hours_until < 25:
+                    # Проверяем, не отправляли ли уже
+                    cur.execute(f"""
+                        SELECT 1 FROM {SCHEMA}.shooting_reminders_log
+                        WHERE project_id = {escape_sql(proj['project_id'])}
+                          AND reminder_type = '24h'
+                    """)
+                    if not cur.fetchone():
+                        try:
+                            result = send_reminder_24h(project_data, client_data, photographer_data, creds)
+                            log_reminder(conn, proj['project_id'], '24h', 'both', True)
+                            results['24h_reminders'].append({
+                                'project_id': proj['project_id'],
+                                'project_name': proj['project_name'],
+                                'result': result
+                            })
+                            print(f"[24H] Sent reminder for project {proj['project_id']}")
+                        except Exception as e:
+                            log_reminder(conn, proj['project_id'], '24h', 'both', False, str(e))
+                            print(f"[24H_ERROR] {proj['project_id']}: {e}")
+                
+                # Проверяем напоминание за 5 часов
+                elif 4.5 <= hours_until < 5.5:
+                    cur.execute(f"""
+                        SELECT 1 FROM {SCHEMA}.shooting_reminders_log
+                        WHERE project_id = {escape_sql(proj['project_id'])}
+                          AND reminder_type = '5h'
+                    """)
+                    if not cur.fetchone():
+                        try:
+                            result = send_reminder_5h(project_data, client_data, photographer_data, creds)
+                            log_reminder(conn, proj['project_id'], '5h', 'both', True)
+                            results['5h_reminders'].append({
+                                'project_id': proj['project_id'],
+                                'project_name': proj['project_name'],
+                                'result': result
+                            })
+                            print(f"[5H] Sent reminder for project {proj['project_id']}")
+                        except Exception as e:
+                            log_reminder(conn, proj['project_id'], '5h', 'both', False, str(e))
+                            print(f"[5H_ERROR] {proj['project_id']}: {e}")
+                
+                # Проверяем напоминание за 1 час
+                elif 0.5 <= hours_until < 1.5:
+                    cur.execute(f"""
+                        SELECT 1 FROM {SCHEMA}.shooting_reminders_log
+                        WHERE project_id = {escape_sql(proj['project_id'])}
+                          AND reminder_type = '1h'
+                    """)
+                    if not cur.fetchone():
+                        try:
+                            result = send_reminder_1h(project_data, client_data, photographer_data, creds)
+                            log_reminder(conn, proj['project_id'], '1h', 'both', True)
+                            results['1h_reminders'].append({
+                                'project_id': proj['project_id'],
+                                'project_name': proj['project_name'],
+                                'result': result
+                            })
+                            print(f"[1H] Sent reminder for project {proj['project_id']}")
+                        except Exception as e:
+                            log_reminder(conn, proj['project_id'], '1h', 'both', False, str(e))
+                            print(f"[1H_ERROR] {proj['project_id']}: {e}")
+        
+        conn.close()
         
         return {
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
             'body': json.dumps({
                 'success': True,
-                'timestamp': datetime.now().isoformat(),
-                'results': results
-            })
+                'timestamp': now.isoformat(),
+                'reminders_sent': results
+            }),
+            'isBase64Encoded': False
         }
         
     except Exception as e:
-        print(f'[REMINDER_CRON] Error: {str(e)}')
+        print(f"[CRON_ERROR] {str(e)}")
         import traceback
         print(traceback.format_exc())
+        
+        if conn:
+            conn.close()
         
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': str(e)})
+            'body': json.dumps({'error': str(e)}),
+            'isBase64Encoded': False
         }
