@@ -8,6 +8,7 @@ import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
 import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import SecurityCard from '@/components/settings/SecurityCard';
 import HintsCard from '@/components/settings/HintsCard';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
 
@@ -262,97 +263,133 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
           />
         )}
 
-        <ContactInfoCard
-          settings={settings}
-          editedEmail={editedEmail}
-          isEditingEmail={isEditingEmail}
-          setEditedEmail={setEditedEmail}
-          setIsEditingEmail={setIsEditingEmail}
-          isSavingEmail={isSavingEmail}
-          editedPhone={editedPhone}
-          isEditingPhone={isEditingPhone}
-          setEditedPhone={setEditedPhone}
-          setIsEditingPhone={setIsEditingPhone}
-          setPhoneVerified={setPhoneVerified}
-          isSavingPhone={isSavingPhone}
-          phoneVerified={phoneVerified}
-          handleUpdateContact={handleUpdateContact}
-          loadSettings={loadSettings}
-          setShowEmailVerification={setShowEmailVerification}
-          setShowPhoneVerification={setShowPhoneVerification}
-          editedDisplayName={editedDisplayName}
-          isEditingDisplayName={isEditingDisplayName}
-          setEditedDisplayName={setEditedDisplayName}
-          setIsEditingDisplayName={setIsEditingDisplayName}
-          isSavingDisplayName={isSavingDisplayName}
-        />
-
-        <SecurityCard
-          settings={settings}
-          handleToggle2FA={handleToggle2FA}
-        />
-
-        <Card className="shadow-xl">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-gradient-to-br from-primary to-secondary rounded-lg shadow-sm">
-                <Icon name="Palette" size={24} className="text-white" />
+        <Accordion type="multiple" defaultValue={['profile', 'security']} className="space-y-3">
+          <AccordionItem value="profile" className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-0">
+            <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Icon name="User" size={20} className="text-primary" />
+                <span className="text-lg font-semibold">Профиль и контакты</span>
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg mb-2">Оформление</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Выберите тему интерфейса
-                </p>
-                <div className="flex gap-3">
+            </AccordionTrigger>
+            <AccordionContent className="px-4 sm:px-6 pb-4">
+              <ContactInfoCard
+                settings={settings}
+                editedEmail={editedEmail}
+                isEditingEmail={isEditingEmail}
+                setEditedEmail={setEditedEmail}
+                setIsEditingEmail={setIsEditingEmail}
+                isSavingEmail={isSavingEmail}
+                editedPhone={editedPhone}
+                isEditingPhone={isEditingPhone}
+                setEditedPhone={setEditedPhone}
+                setIsEditingPhone={setIsEditingPhone}
+                setPhoneVerified={setPhoneVerified}
+                isSavingPhone={isSavingPhone}
+                phoneVerified={phoneVerified}
+                handleUpdateContact={handleUpdateContact}
+                loadSettings={loadSettings}
+                setShowEmailVerification={setShowEmailVerification}
+                setShowPhoneVerification={setShowPhoneVerification}
+                editedDisplayName={editedDisplayName}
+                isEditingDisplayName={isEditingDisplayName}
+                setEditedDisplayName={setEditedDisplayName}
+                setIsEditingDisplayName={setIsEditingDisplayName}
+                isSavingDisplayName={isSavingDisplayName}
+              />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="security" className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-0">
+            <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Icon name="Shield" size={20} className="text-primary" />
+                <span className="text-lg font-semibold">Безопасность</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 sm:px-6 pb-4">
+              <SecurityCard
+                settings={settings}
+                handleToggle2FA={handleToggle2FA}
+              />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="appearance" className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-0">
+            <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Icon name="Palette" size={20} className="text-primary" />
+                <span className="text-lg font-semibold">Оформление</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 sm:px-6 pb-4">
+              <Card className="shadow-none border-0">
+                <CardContent className="p-0">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Выберите тему интерфейса
+                  </p>
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => handleThemeChange('light')}
+                      variant={theme === 'light' ? 'default' : 'outline'}
+                      className="flex-1"
+                      size="sm"
+                    >
+                      <Icon name="Sun" size={16} className="mr-2" />
+                      Светлая
+                    </Button>
+                    <Button
+                      onClick={() => handleThemeChange('dark')}
+                      variant={theme === 'dark' ? 'default' : 'outline'}
+                      className="flex-1"
+                      size="sm"
+                    >
+                      <Icon name="Moon" size={16} className="mr-2" />
+                      Тёмная
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="hints" className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-0">
+            <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Icon name="Lightbulb" size={20} className="text-primary" />
+                <span className="text-lg font-semibold">Подсказки</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 sm:px-6 pb-4">
+              <HintsCard />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="help" className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-0">
+            <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Icon name="BookOpen" size={20} className="text-primary" />
+                <span className="text-lg font-semibold">Справочный центр</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 sm:px-6 pb-4">
+              <Card className="shadow-none border-0 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Полное руководство по работе с приложением, ответы на частые вопросы и инструкции с примерами
+                  </p>
                   <Button
-                    onClick={() => handleThemeChange('light')}
-                    variant={theme === 'light' ? 'default' : 'outline'}
-                    className="flex-1"
+                    onClick={() => window.location.href = '/#help'}
+                    className="w-full sm:w-auto"
                     size="sm"
                   >
-                    <Icon name="Sun" size={16} className="mr-2" />
-                    Светлая
+                    <Icon name="ExternalLink" size={16} className="mr-2" />
+                    Открыть справку
                   </Button>
-                  <Button
-                    onClick={() => handleThemeChange('dark')}
-                    variant={theme === 'dark' ? 'default' : 'outline'}
-                    className="flex-1"
-                    size="sm"
-                  >
-                    <Icon name="Moon" size={16} className="mr-2" />
-                    Тёмная
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <HintsCard />
-
-        <Card className="shadow-xl bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-white rounded-lg shadow-sm">
-                <Icon name="BookOpen" size={24} className="text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg mb-2">Справочный центр</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Полное руководство по работе с приложением, ответы на частые вопросы и инструкции с примерами
-                </p>
-                <Button
-                  onClick={() => window.location.href = '/#help'}
-                  className="rounded-full"
-                  size="sm"
-                >
-                  <Icon name="ExternalLink" size={16} className="mr-2" />
-                  Открыть справку
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </div>
   );
