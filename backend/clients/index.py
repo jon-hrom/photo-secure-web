@@ -8,6 +8,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
 import requests
+from reminder_checker import check_and_send_reminders
 
 # S3 configuration
 S3_BUCKET = 'foto-mix'
@@ -291,6 +292,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             if action == 'list':
+                # Проверяем и отправляем напоминания о предстоящих съёмках
+                try:
+                    check_and_send_reminders(conn, DB_SCHEMA, photographer_id)
+                except Exception as e:
+                    print(f'[REMINDER_CHECK_ERROR] {e}')
+                    # Продолжаем работу даже если проверка напоминаний упала
+                
                 # Оптимизированный запрос: сначала получаем всех клиентов
                 cur.execute('''
                     SELECT id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, created_at, updated_at
