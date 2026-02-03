@@ -8,10 +8,14 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
+import requests
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = 't_p28211681_photo_secure_web'
 CRON_TOKEN = os.environ.get('CRON_TOKEN', '')
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+MAX_INSTANCE_ID = os.environ.get('MAX_INSTANCE_ID', '')
+MAX_TOKEN = os.environ.get('MAX_TOKEN', '')
 
 
 def get_db_connection():
@@ -21,9 +25,79 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
+def send_telegram_message(chat_id: str, text: str) -> bool:
+    """Отправка сообщения через Telegram Bot API"""
+    if not TELEGRAM_BOT_TOKEN:
+        return False
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    
+    try:
+        response = requests.post(url, json={
+            'chat_id': chat_id,
+            'text': text
+        }, timeout=10)
+        return response.status_code == 200
+    except Exception as e:
+        print(f"[CLEANUP] Telegram error: {e}")
+        return False
+
+
+def send_max_notification(phone: str, message: str) -> bool:
+    """Отправка уведомления через MAX (WhatsApp)"""
+    if not MAX_INSTANCE_ID or not MAX_TOKEN:
+        return False
+    
+    url = f"https://api.green-api.com/waInstance{MAX_INSTANCE_ID}/sendMessage/{MAX_TOKEN}"
+    
+    try:
+        response = requests.post(url, json={
+            'chatId': f"{phone.replace('+', '')}@c.us",
+            'message': message
+        }, timeout=10)
+        return response.status_code == 200
+    except Exception as e:
+        print(f"[CLEANUP] MAX error: {e}")
+        return False
+
+
+def notify_photographer_expired(conn, photographer_id: int, client_name: str):
+    """Уведомление фотографа об истекшем сообщении"""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT phone_number, telegram_chat_id, telegram_verified
+            FROM {SCHEMA}.users
+            WHERE id = {photographer_id}
+        """)
+        photographer = cur.fetchone()
+        
+        if not photographer:
+            return
+        
+        text = f"⚠️ Клиент {client_name} не подключил Telegram\nУведомление удалено (истекло 7 дней)"
+        
+        # Отправляем через Telegram
+        if photographer['telegram_verified'] and photographer['telegram_chat_id']:
+            send_telegram_message(photographer['telegram_chat_id'], text)
+        
+        # Отправляем через MAX
+        if photographer['phone_number']:
+            send_max_notification(photographer['phone_number'], text)
+
+
 def cleanup_expired_messages(conn) -> dict:
     """Удаление истекших сообщений"""
     with conn.cursor() as cur:
+        # Находим истекшие сообщения для уведомлений
+        cur.execute(f"""
+            SELECT DISTINCT tmq.photographer_id, c.name as client_name
+            FROM {SCHEMA}.telegram_message_queue tmq
+            JOIN {SCHEMA}.clients c ON c.id = tmq.client_id
+            WHERE tmq.status = 'pending'
+              AND tmq.expires_at < CURRENT_TIMESTAMP
+        """)
+        expired_messages = cur.fetchall()
+        
         # Помечаем истекшие сообщения
         cur.execute(f"""
             UPDATE {SCHEMA}.telegram_message_queue
@@ -33,6 +107,10 @@ def cleanup_expired_messages(conn) -> dict:
         """)
         
         expired_count = cur.rowcount
+        
+        # Уведомляем фотографов об истекших сообщениях
+        for msg in expired_messages:
+            notify_photographer_expired(conn, msg['photographer_id'], msg['client_name'])
         
         # Удаляем старые записи (старше 30 дней)
         cur.execute(f"""

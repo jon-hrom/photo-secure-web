@@ -13,6 +13,8 @@ import requests
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = 't_p28211681_photo_secure_web'
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+MAX_INSTANCE_ID = os.environ.get('MAX_INSTANCE_ID', '')
+MAX_TOKEN = os.environ.get('MAX_TOKEN', '')
 
 
 def escape_sql(value) -> str:
@@ -58,6 +60,69 @@ def send_telegram_message(chat_id: str, text: str) -> bool:
         return False
 
 
+def send_max_notification(phone: str, message: str) -> bool:
+    """Отправка уведомления через MAX (WhatsApp)"""
+    if not MAX_INSTANCE_ID or not MAX_TOKEN:
+        print("[NOTIFY] MAX credentials not configured")
+        return False
+    
+    url = f"https://api.green-api.com/waInstance{MAX_INSTANCE_ID}/sendMessage/{MAX_TOKEN}"
+    
+    try:
+        response = requests.post(url, json={
+            'chatId': f"{phone.replace('+', '')}@c.us",
+            'message': message
+        }, timeout=10)
+        
+        if response.status_code == 200:
+            return True
+        else:
+            print(f"[NOTIFY] MAX API error: {response.text}")
+            return False
+    except Exception as e:
+        print(f"[NOTIFY] Failed to send MAX notification: {e}")
+        return False
+
+
+def notify_photographer(conn, photographer_id: int, client_name: str, 
+                       message_type: str, extra_data: dict = None):
+    """Отправка сервисного уведомления фотографу"""
+    with conn.cursor() as cur:
+        # Получаем контакты фотографа
+        cur.execute(f"""
+            SELECT phone_number, telegram_chat_id, telegram_verified
+            FROM {SCHEMA}.users
+            WHERE id = {photographer_id}
+        """)
+        photographer = cur.fetchone()
+        
+        if not photographer:
+            return
+        
+        # Формируем текст уведомления
+        if message_type == 'delivered':
+            text = f"✅ Клиент {client_name} получил уведомление о съёмке"
+            if extra_data and extra_data.get('booking_date'):
+                text += f" на {extra_data['booking_date']}"
+        elif message_type == 'queued':
+            text = f"⏳ Клиент {client_name} ещё не подключил Telegram\nУведомление ждёт в очереди"
+        elif message_type == 'bulk_delivered':
+            count = extra_data.get('count', 0) if extra_data else 0
+            text = f"🎉 Клиент {client_name} подключил Telegram!\nДоставлено {count} сообщений"
+        elif message_type == 'expired':
+            text = f"⚠️ Клиент {client_name} не подключил Telegram\nУведомление удалено (истекло 7 дней)"
+        else:
+            text = f"📢 Обновление по клиенту {client_name}"
+        
+        # Отправляем через Telegram если подключен
+        if photographer['telegram_verified'] and photographer['telegram_chat_id']:
+            send_telegram_message(photographer['telegram_chat_id'], text)
+        
+        # Отправляем через MAX (WhatsApp)
+        if photographer['phone_number']:
+            send_max_notification(photographer['phone_number'], text)
+
+
 def queue_message(conn, client_id: int, photographer_id: int, booking_id: int | None, 
                   message_type: str, message_text: str) -> int:
     """Добавление сообщения в очередь с буферизацией на 7 дней"""
@@ -98,6 +163,10 @@ def send_or_queue_message(conn, client_id: int, photographer_id: int,
             success = send_telegram_message(client['telegram_chat_id'], message_text)
             
             if success:
+                # Уведомляем фотографа об успешной доставке
+                notify_photographer(conn, photographer_id, client['name'], 'delivered', 
+                                  {'booking_date': booking_date} if 'booking_date' in locals() else None)
+                
                 return {
                     'success': True,
                     'status': 'sent',
@@ -117,6 +186,9 @@ def send_or_queue_message(conn, client_id: int, photographer_id: int,
         # Если Telegram не подключен - добавляем в буфер
         queue_id = queue_message(conn, client_id, photographer_id, 
                                 booking_id, message_type, message_text)
+        
+        # Уведомляем фотографа что сообщение в очереди
+        notify_photographer(conn, photographer_id, client['name'], 'queued')
         
         return {
             'success': True,
@@ -199,6 +271,28 @@ def flush_pending_messages(conn, client_id: int, telegram_chat_id: str) -> dict:
                 failed_count += 1
         
         conn.commit()
+        
+        # Уведомляем фотографа о массовой доставке
+        if sent_count > 0 and len(messages) > 0:
+            # Берём photographer_id из первого сообщения
+            first_msg = messages[0]
+            cur.execute(f"""
+                SELECT photographer_id, client_id
+                FROM {SCHEMA}.telegram_message_queue
+                WHERE id = {first_msg['id']}
+            """)
+            queue_info = cur.fetchone()
+            
+            if queue_info:
+                cur.execute(f"""
+                    SELECT name FROM {SCHEMA}.clients WHERE id = {queue_info['client_id']}
+                """)
+                client = cur.fetchone()
+                
+                if client:
+                    notify_photographer(conn, queue_info['photographer_id'], 
+                                      client['name'], 'bulk_delivered', 
+                                      {'count': sent_count})
         
         return {
             'sent': sent_count,
