@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "name": "Unauthorized access",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "Unauthorized"
+      }
+    }
+  ]
+}

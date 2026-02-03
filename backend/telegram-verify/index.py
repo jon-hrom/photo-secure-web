@@ -10,9 +10,12 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from typing import Optional
+import requests
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = 't_p28211681_photo_secure_web'
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_NOTIFY_URL = 'https://functions.poehali.dev/acd42a29-3e28-415f-b82a-b5b29439cc80'
 
 
 def escape_sql(value) -> str:
@@ -103,6 +106,26 @@ def verify_code(conn, code: str, telegram_chat_id: str) -> Optional[dict]:
         return verification
 
 
+def flush_pending_messages(client_id: int, telegram_chat_id: str):
+    """Отправка запроса на отправку буфера сообщений"""
+    try:
+        response = requests.post(
+            f"{TELEGRAM_NOTIFY_URL}?action=flush",
+            json={
+                'client_id': client_id,
+                'telegram_chat_id': telegram_chat_id
+            },
+            timeout=5
+        )
+        if response.status_code == 200:
+            data = response.json()
+            print(f"[VERIFY] Flushed {data.get('sent', 0)} pending messages for client {client_id}")
+        else:
+            print(f"[VERIFY] Failed to flush messages: {response.text}")
+    except Exception as e:
+        print(f"[VERIFY] Error flushing messages: {e}")
+
+
 def verify_invite(conn, invite_code: str, telegram_chat_id: str) -> Optional[dict]:
     """Проверка и активация invite-кода для клиента"""
     with conn.cursor() as cur:
@@ -140,6 +163,9 @@ def verify_invite(conn, invite_code: str, telegram_chat_id: str) -> Optional[dic
             WHERE id = {invite['client_id']}
         """)
         conn.commit()
+        
+        # Отправляем буфер сообщений
+        flush_pending_messages(invite['client_id'], telegram_chat_id)
         
         return invite
 
