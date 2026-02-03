@@ -68,33 +68,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Auto-cleanup: delete trashed items older than 7 days
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Clean up expired photos
-                cur.execute('''
-                    SELECT pb.id, pb.s3_key
-                    FROM t_p28211681_photo_secure_web.photo_bank pb
-                    WHERE pb.is_trashed = TRUE 
-                      AND pb.trashed_at < NOW() - INTERVAL '7 days'
-                ''')
-                expired_photos = cur.fetchall()
-                
-                for photo in expired_photos:
-                    if photo['s3_key']:
-                        trash_key = f'trash/{photo["s3_key"]}'
-                        try:
-                            s3_client.delete_object(Bucket=bucket, Key=trash_key)
-                        except Exception as e:
-                            print(f'Failed to delete {trash_key} from S3: {e}')
-                
-                if expired_photos:
-                    expired_ids = [p['id'] for p in expired_photos]
-                    cur.execute(f'''
-                        DELETE FROM t_p28211681_photo_secure_web.photo_bank 
-                        WHERE id IN ({','.join(map(str, expired_ids))})
-                    ''')
-                    conn.commit()
-                    print(f'Auto-deleted {len(expired_photos)} expired photos from trash')
-                
-                # Clean up expired folders
+                # Clean up expired folders first (including their photos)
                 cur.execute('''
                     SELECT id, s3_prefix
                     FROM t_p28211681_photo_secure_web.photo_folders
@@ -118,10 +92,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 if expired_folders:
                     expired_folder_ids = [f['id'] for f in expired_folders]
-                    # Delete all photos from these folders first
+                    # Delete all trashed photos from these folders first
                     cur.execute(f'''
                         DELETE FROM t_p28211681_photo_secure_web.photo_bank 
                         WHERE folder_id IN ({','.join(map(str, expired_folder_ids))})
+                          AND is_trashed = TRUE
                     ''')
                     # Then delete folders
                     cur.execute(f'''
@@ -130,8 +105,38 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ''')
                     conn.commit()
                     print(f'Auto-deleted {len(expired_folders)} expired folders from trash')
+                
+                # Clean up expired standalone photos (not in trashed folders)
+                cur.execute('''
+                    SELECT pb.id, pb.s3_key, pb.folder_id
+                    FROM t_p28211681_photo_secure_web.photo_bank pb
+                    LEFT JOIN t_p28211681_photo_secure_web.photo_folders pf ON pb.folder_id = pf.id
+                    WHERE pb.is_trashed = TRUE 
+                      AND pb.trashed_at < NOW() - INTERVAL '7 days'
+                      AND (pf.is_trashed = FALSE OR pf.is_trashed IS NULL)
+                ''')
+                expired_photos = cur.fetchall()
+                
+                for photo in expired_photos:
+                    if photo['s3_key']:
+                        trash_key = f'trash/{photo["s3_key"]}'
+                        try:
+                            s3_client.delete_object(Bucket=bucket, Key=trash_key)
+                        except Exception as e:
+                            print(f'Failed to delete {trash_key} from S3: {e}')
+                
+                if expired_photos:
+                    expired_ids = [p['id'] for p in expired_photos]
+                    cur.execute(f'''
+                        DELETE FROM t_p28211681_photo_secure_web.photo_bank 
+                        WHERE id IN ({','.join(map(str, expired_ids))})
+                    ''')
+                    conn.commit()
+                    print(f'Auto-deleted {len(expired_photos)} expired standalone photos from trash')
         except Exception as cleanup_error:
             print(f'Auto-cleanup failed (non-critical): {cleanup_error}')
+            import traceback
+            print(f'Traceback: {traceback.format_exc()}')
             # Don't fail the request if cleanup fails
         
         if method == 'GET':
