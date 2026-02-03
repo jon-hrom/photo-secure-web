@@ -22,6 +22,7 @@ import { useSettingsData } from '@/hooks/useSettingsData';
 import { useThemeManager } from '@/hooks/useThemeManager';
 import { useContactManager } from '@/hooks/useContactManager';
 import { useNewYearManager } from '@/hooks/useNewYearManager';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -200,9 +201,17 @@ const Settings = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Настройки</h1>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-6 space-y-4 sm:space-y-6">
-            {settings && (
-              <ContactInfoCard
+          <Accordion type="multiple" defaultValue={['profile', 'security']} className="space-y-3">
+            <AccordionItem value="profile" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+              <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon name="User" size={20} className="text-primary" />
+                  <span className="text-lg font-semibold">Профиль и контакты</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
+                {settings && (
+                  <ContactInfoCard
                 settings={{
                   email: settings.email,
                   phone: settings.phone || '',
@@ -236,70 +245,147 @@ const Settings = () => {
                 setIsEditingDisplayName={setIsEditingDisplayName}
                 isSavingDisplayName={isSavingDisplayName}
               />
-            )}
+                )}
 
-            <ProfileSection
-              bio={bio}
-              setBio={setBio}
-              interests={interests}
-              setInterests={setInterests}
-            />
+                {settings && (
+                  <MultiEmailCard userId={settings.id} />
+                )}
 
-            <ThemeSection
-              theme={theme}
-              onThemeChange={handleThemeChange}
-            />
+                {settings && (
+                  <ProfileSection
+                    bio={bio}
+                    setBio={setBio}
+                    interests={interests}
+                    setInterests={setInterests}
+                  />
+                )}
 
-            {settings && (
-              <MultiEmailCard
-                userId={settings.id}
-              />
-            )}
+                <div className="pt-2">
+                  <Button 
+                    onClick={saveSettings} 
+                    disabled={saving}
+                    className="w-full"
+                  >
+                    {saving ? 'Сохранение...' : 'Сохранить профиль'}
+                  </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
-            {settings && (
-              <TelegramVerificationCard userId={settings.id} />
-            )}
+            <AccordionItem value="security" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+              <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon name="Shield" size={20} className="text-primary" />
+                  <span className="text-lg font-semibold">Безопасность</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
+                {settings && (
+                  <SecuritySettings
+                    userId={settings.id.toString()}
+                    hasPassword={settings.has_password === 'true' || settings.has_password === '1'}
+                    userSource={settings.source as 'email' | 'vk' | 'google' | 'yandex' | null}
+                  />
+                )}
 
-            {settings && (
-              <SecuritySettings
-                userId={settings.id.toString()}
-                hasPassword={settings.has_password === 'true' || settings.has_password === '1'}
-                userSource={settings.source as 'email' | 'vk' | 'google' | 'yandex' | null}
-              />
-            )}
+                {settings && (
+                  <ActiveSessionsCard userId={settings.id} />
+                )}
+              </AccordionContent>
+            </AccordionItem>
 
-            {settings && (
-              <ActiveSessionsCard userId={settings.id} />
-            )}
+            <AccordionItem value="notifications" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+              <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon name="Bell" size={20} className="text-primary" />
+                  <span className="text-lg font-semibold">Уведомления</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
+                {settings && (
+                  <TelegramVerificationCard userId={settings.id} />
+                )}
 
-            {newYearModeAvailable && (
-              <NewYearSettings
-                settings={newYearSettings}
-                onSettingsChange={handleNewYearSettingsChange}
-                onSave={saveNewYearSettings}
-              />
-            )}
+                {settings && (
+                  <BirthdayNotificationsCard userId={settings.id?.toString() || null} />
+                )}
+              </AccordionContent>
+            </AccordionItem>
 
-            <GoogleCalendarConnect />
+            <AccordionItem value="integrations" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+              <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon name="Link" size={20} className="text-primary" />
+                  <span className="text-lg font-semibold">Интеграции</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
+                <GoogleCalendarConnect />
 
-            {settings && (
-              <BirthdayNotificationsCard userId={settings.id?.toString() || null} />
-            )}
+                {settings && (
+                  <VKSettings userId={settings.id?.toString() || null} />
+                )}
+              </AccordionContent>
+            </AccordionItem>
 
-            {settings && (
-              <VKSettings userId={settings.id?.toString() || null} />
-            )}
+            <AccordionItem value="appearance" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+              <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon name="Palette" size={20} className="text-primary" />
+                  <span className="text-lg font-semibold">Внешний вид</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
+                <ThemeSection
+                  theme={theme}
+                  onThemeChange={handleThemeChange}
+                />
 
-            <div className="pt-2 sm:pt-4">
-              <Button 
-                onClick={saveSettings} 
-                disabled={saving}
-                className="w-full sm:w-auto text-sm sm:text-base"
-              >
-                {saving ? 'Сохранение...' : 'Сохранить изменения'}
-              </Button>
-            </div>
-          </div>
+                {newYearModeAvailable && (
+                  <NewYearSettings
+                    settings={newYearSettings}
+                    onSettingsChange={handleNewYearSettingsChange}
+                    onSave={saveNewYearSettings}
+                  />
+                )}
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="account" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+              <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon name="Settings" size={20} className="text-primary" />
+                  <span className="text-lg font-semibold">Управление аккаунтом</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => {
+                      localStorage.clear();
+                      window.location.href = '/';
+                    }}
+                    variant="destructive"
+                    className="flex-1 py-6 text-base sm:text-lg rounded-xl"
+                  >
+                    <Icon name="LogOut" size={20} className="mr-2" />
+                    Выйти
+                  </Button>
+                </div>
+
+                {finalIsAdmin && (
+                  <Button
+                    onClick={() => navigate('/admin')}
+                    variant="secondary"
+                    className="w-full py-6 text-base sm:text-lg rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                  >
+                    <Icon name="Shield" size={20} className="mr-2" />
+                    Админ-панель
+                  </Button>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       </div>
       <MobileNavigation />

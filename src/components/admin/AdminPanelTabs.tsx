@@ -61,11 +61,16 @@ const AdminPanelTabs = ({
   const navigate = useNavigate();
 
   return (
-    <Accordion type="multiple" className="space-y-4">
-      <AccordionItem value="storage">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Хранилище и тарифы</AccordionTrigger>
-        <AccordionContent>
-          <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+    <Accordion type="multiple" defaultValue={['general']} className="space-y-3">
+      <AccordionItem value="storage" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Database" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Хранилище и тарифы</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
+          <div className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg border border-blue-200 dark:border-blue-800">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-blue-500 dark:bg-blue-600 rounded-lg">
                 <Icon name="Database" className="h-8 w-8 text-white" />
@@ -107,44 +112,74 @@ const AdminPanelTabs = ({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="max-templates">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Шаблоны MAX сообщений</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="max-templates" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="MessageSquare" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Шаблоны MAX сообщений</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <MaxTemplates />
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="sms">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">SMS уведомления</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="sms" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Smartphone" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">SMS уведомления</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <SmsBalanceManager />
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="emails">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Email уведомления</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="emails" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Mail" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Email уведомления</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <EmailNotifications />
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="notification-sound">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Звук уведомлений</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="notification-sound" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Volume2" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Звук уведомлений</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <NotificationSoundSettings />
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="notification-monitor">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Мониторинг уведомлений</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="notification-monitor" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Activity" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Мониторинг уведомлений</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <NotificationMonitor />
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="general">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Основные настройки</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="general" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Settings" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Основные настройки</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <AdminGeneralSettings
             settings={settings}
             onToggle={onToggle}
@@ -153,9 +188,14 @@ const AdminPanelTabs = ({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="auth">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Авторизация</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="auth" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Key" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Авторизация</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4 space-y-6">
           <div className="space-y-6">
             <AdminAuthProviders
               authProviders={authProviders}
@@ -167,9 +207,14 @@ const AdminPanelTabs = ({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="appearance">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Внешний вид</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="appearance" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Palette" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Внешний вид</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <AdminAppearance
             colors={colors}
             onColorChange={onColorChange}
@@ -178,9 +223,14 @@ const AdminPanelTabs = ({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="widgets">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Виджеты</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="widgets" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Layout" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Виджеты</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <AdminWidgets
             widgets={widgets}
             onToggle={onToggleWidget}
@@ -189,9 +239,14 @@ const AdminPanelTabs = ({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="users">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">Пользователи</AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem value="users" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Users" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Пользователи</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <EnhancedAdminUsers 
             users={users} 
             onDelete={onDeleteUser}
@@ -203,50 +258,50 @@ const AdminPanelTabs = ({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="all-clients">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          <div className="flex items-center gap-2">
-            <Icon name="Users" size={20} />
-            Управление клиентами
+      <AccordionItem value="all-clients" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="UserCheck" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Управление клиентами</span>
           </div>
         </AccordionTrigger>
-        <AccordionContent>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <AdminClientsTab />
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="max-settings">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          <div className="flex items-center gap-2">
-            <Icon name="Settings" size={20} />
-            Настройки MAX (Единая система)
+      <AccordionItem value="max-settings" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Zap" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Настройки MAX</span>
           </div>
         </AccordionTrigger>
-        <AccordionContent>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <MaxSettings />
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="birthday-notifications">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          <div className="flex items-center gap-2">
-            <Icon name="Cake" size={20} />
-            Поздравления с Днём Рождения
+      <AccordionItem value="birthday-notifications" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Cake" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Поздравления с Днём Рождения</span>
           </div>
         </AccordionTrigger>
-        <AccordionContent>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <BirthdayNotificationsCard userId={null} />
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="vk-settings">
-        <AccordionTrigger className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          <div className="flex items-center gap-2">
-            <Icon name="MessageCircle" size={20} />
-            Подключение ВКонтакте
+      <AccordionItem value="vk-settings" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="MessageCircle" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Подключение ВКонтакте</span>
           </div>
         </AccordionTrigger>
-        <AccordionContent>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
           <VKSettings userId={null} />
         </AccordionContent>
       </AccordionItem>
