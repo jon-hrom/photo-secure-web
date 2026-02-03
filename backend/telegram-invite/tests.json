@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Create invite link for client",
+      "method": "POST",
+      "path": "/?action=create",
+      "body": {
+        "client_id": 161,
+        "photographer_id": 22,
+        "client_phone": "+79001234567"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "invite_code": "string",
+        "invite_url": "string",
+        "expires_at": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Check client telegram status",
+      "method": "GET",
+      "path": "/?action=check&client_id=161",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "connected": false,
+        "has_chat_id": false
+      }
+    }
+  ]
+}

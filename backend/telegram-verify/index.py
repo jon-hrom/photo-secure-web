@@ -103,6 +103,47 @@ def verify_code(conn, code: str, telegram_chat_id: str) -> Optional[dict]:
         return verification
 
 
+def verify_invite(conn, invite_code: str, telegram_chat_id: str) -> Optional[dict]:
+    """Проверка и активация invite-кода для клиента"""
+    with conn.cursor() as cur:
+        # Находим активное приглашение
+        cur.execute(f"""
+            SELECT ti.id, ti.client_id, ti.photographer_id, ti.client_phone,
+                   c.name as client_name
+            FROM {SCHEMA}.telegram_invites ti
+            JOIN {SCHEMA}.clients c ON c.id = ti.client_id
+            WHERE ti.invite_code = {escape_sql(invite_code)}
+              AND ti.is_used = FALSE
+              AND ti.expires_at > CURRENT_TIMESTAMP
+            LIMIT 1
+        """)
+        result = cur.fetchone()
+        
+        if not result:
+            return None
+        
+        invite = dict(result)
+        
+        # Помечаем приглашение использованным
+        cur.execute(f"""
+            UPDATE {SCHEMA}.telegram_invites
+            SET is_used = TRUE, used_at = CURRENT_TIMESTAMP
+            WHERE id = {invite['id']}
+        """)
+        
+        # Обновляем клиента - привязываем Telegram
+        cur.execute(f"""
+            UPDATE {SCHEMA}.clients
+            SET telegram_chat_id = {escape_sql(telegram_chat_id)},
+                telegram_verified = TRUE,
+                telegram_verified_at = CURRENT_TIMESTAMP
+            WHERE id = {invite['client_id']}
+        """)
+        conn.commit()
+        
+        return invite
+
+
 def check_user_verification(conn, user_id: int) -> dict:
     """Проверка статуса верификации пользователя"""
     with conn.cursor() as cur:
@@ -148,6 +189,7 @@ def handler(event, context):
     GET ?action=check&user_id=123 - проверка статуса верификации
     POST ?action=generate - генерация кода (body: {user_id, phone_number})
     POST ?action=verify - проверка кода (body: {code, telegram_chat_id})
+    POST ?action=verify_invite - проверка invite (body: {invite_code, telegram_chat_id})
     """
     method = event.get("httpMethod", "GET")
     
@@ -222,6 +264,28 @@ def handler(event, context):
                 "user_id": verification['user_id'],
                 "phone_number": verification['phone_number'],
                 "message": "Telegram успешно подключен!"
+            })
+        
+        # Проверка invite-кода (вызывается ботом)
+        elif action == "verify_invite" and method == "POST":
+            invite_code = body.get("invite_code")
+            telegram_chat_id = body.get("telegram_chat_id")
+            
+            if not invite_code or not telegram_chat_id:
+                return cors_response(400, {"error": "Missing invite_code or telegram_chat_id"})
+            
+            invite = verify_invite(conn, invite_code, telegram_chat_id)
+            
+            if not invite:
+                return cors_response(404, {"error": "Приглашение не найдено или истекло"})
+            
+            return cors_response(200, {
+                "success": True,
+                "client_id": invite['client_id'],
+                "client_name": invite['client_name'],
+                "client_phone": invite['client_phone'],
+                "photographer_id": invite['photographer_id'],
+                "message": f"Telegram успешно подключен для клиента {invite['client_name']}!"
             })
         
         else:

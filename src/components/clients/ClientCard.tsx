@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ClientCardProps {
   client: Client;
@@ -12,9 +14,13 @@ interface ClientCardProps {
   onDelete: () => void;
   onAddBooking: () => void;
   userId?: string | null;
+  onRefresh?: () => void;
 }
 
-const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: propUserId }: ClientCardProps) => {
+const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: propUserId, onRefresh }: ClientCardProps) => {
+  const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
+  const { toast } = useToast();
+  
   const activeBookings = client.bookings.filter(b => b.date >= new Date());
   const pastBookings = client.bookings.filter(b => b.date < new Date());
   
@@ -22,6 +28,53 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
   const payments = client.payments || [];
   const activeProjects = projects.filter(p => p.status === 'in_progress' || p.status === 'new');
   const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
+  
+  const handleGenerateTelegramInvite = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!client.phone) {
+      toast({
+        title: 'Ошибка',
+        description: 'У клиента не указан номер телефона',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setIsGeneratingInvite(true);
+    
+    try {
+      const response = await fetch('https://functions.poehali.dev/3128bc7e-f0d6-4d0a-a73e-91eb657795a0?action=create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: client.id,
+          photographer_id: propUserId,
+          client_phone: client.phone
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        await navigator.clipboard.writeText(data.invite_url);
+        toast({
+          title: 'Ссылка скопирована!',
+          description: 'Отправьте эту ссылку клиенту для подключения Telegram',
+        });
+      } else {
+        throw new Error(data.error || 'Ошибка генерации ссылки');
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось создать приглашение',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingInvite(false);
+    }
+  };
 
   return (
     <Card className="hover-scale cursor-pointer" onClick={onSelect} data-tour="client-card">
@@ -78,6 +131,24 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
               <Icon name="MessageCircle" size={16} className="text-muted-foreground flex-shrink-0" />
               <span className="truncate">@{client.vkProfile}</span>
             </div>
+          )}
+          {client.telegram_verified && (
+            <div className="flex items-center gap-2 text-green-600">
+              <Icon name="CheckCircle" size={16} className="flex-shrink-0" />
+              <span className="text-sm">Telegram подключен</span>
+            </div>
+          )}
+          {!client.telegram_verified && client.phone && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-2"
+              onClick={handleGenerateTelegramInvite}
+              disabled={isGeneratingInvite}
+            >
+              <Icon name="Send" size={14} className="mr-1" />
+              {isGeneratingInvite ? 'Генерация...' : 'Пригласить в Telegram'}
+            </Button>
           )}
         </div>
 

@@ -100,4 +100,8 @@ export interface Client {
   project_comments?: string;
   google_event_id?: string;
   synced_at?: string;
+  
+  telegram_chat_id?: string;
+  telegram_verified?: boolean;
+  telegram_verified_at?: string;
 }

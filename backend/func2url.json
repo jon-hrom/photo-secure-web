@@ -1,4 +1,5 @@
 {
+  "telegram-invite": "https://functions.poehali.dev/3128bc7e-f0d6-4d0a-a73e-91eb657795a0",
   "telegram-reminders-cron": "https://functions.poehali.dev/9132a7e9-8c6c-4f00-8909-71c6be9043c0",
   "telegram-notifications": "https://functions.poehali.dev/9768a392-3928-4880-bccc-dd33983ce097",
   "telegram-verify": "https://functions.poehali.dev/46d9b487-dbc7-4472-a333-3b30ed8d2733",
