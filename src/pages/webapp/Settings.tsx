@@ -201,7 +201,7 @@ const Settings = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Настройки</h1>
           </div>
           
-          <Accordion type="multiple" defaultValue={['profile', 'security']} className="space-y-3">
+          <Accordion type="multiple" className="space-y-3">
             <AccordionItem value="profile" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
               <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
                 <div className="flex items-center gap-3">
