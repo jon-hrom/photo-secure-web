@@ -61,7 +61,7 @@ const AdminPanelTabs = ({
   const navigate = useNavigate();
 
   return (
-    <Accordion type="multiple" className="space-y-3">
+    <Accordion type="multiple" className="space-y-3 will-change-transform">
       <AccordionItem value="storage" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
         <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
           <div className="flex items-center gap-3">
