@@ -227,13 +227,6 @@ const MultiEmailCard = ({ userId }: MultiEmailCardProps) => {
                       {formatDate(selectedEmail.added_at)}
                     </p>
                   </div>
-
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Последний вход</p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {formatDate(selectedEmail.last_used_at)}
-                    </p>
-                  </div>
                 </div>
 
                 {!selectedEmail.is_primary && selectedEmail.is_verified && (
