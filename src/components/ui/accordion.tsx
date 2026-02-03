@@ -3,6 +3,7 @@ import * as AccordionPrimitive from "@radix-ui/react-accordion"
 import { ChevronDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { triggerHapticFeedback } from "@/utils/haptics"
 
 const Accordion = AccordionPrimitive.Root
 
@@ -21,21 +22,29 @@ AccordionItem.displayName = "AccordionItem"
 const AccordionTrigger = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <AccordionPrimitive.Header className="flex">
-    <AccordionPrimitive.Trigger
-      ref={ref}
-      className={cn(
-        "flex flex-1 items-center justify-between py-4 font-medium transition-all duration-300 ease-out hover:opacity-80 [&[data-state=open]>svg]:rotate-180",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <ChevronDown className="h-5 w-5 shrink-0 transition-all duration-300 ease-out" />
-    </AccordionPrimitive.Trigger>
-  </AccordionPrimitive.Header>
-))
+>(({ className, children, onClick, ...props }, ref) => {
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    triggerHapticFeedback('light');
+    onClick?.(e);
+  };
+
+  return (
+    <AccordionPrimitive.Header className="flex">
+      <AccordionPrimitive.Trigger
+        ref={ref}
+        className={cn(
+          "flex flex-1 items-center justify-between py-4 font-medium transition-all duration-300 ease-out hover:opacity-80 [&[data-state=open]>svg]:rotate-180",
+          className
+        )}
+        onClick={handleClick}
+        {...props}
+      >
+        {children}
+        <ChevronDown className="h-5 w-5 shrink-0 transition-all duration-300 ease-out" />
+      </AccordionPrimitive.Trigger>
+    </AccordionPrimitive.Header>
+  );
+})
 AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName
 
 const AccordionContent = React.forwardRef<
