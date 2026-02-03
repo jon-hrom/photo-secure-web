@@ -176,7 +176,7 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     return results if results else {'error': 'No contact methods available'}
 
 
-def send_photographer_notification(project_data: dict, client_data: dict, photographer_data: dict) -> dict:
+def send_photographer_notification(project_data: dict, client_data: dict, photographer_data: dict, payment_data: dict = None) -> dict:
     """Отправить уведомление фотографу о съёмке"""
     creds = get_max_credentials()
     
@@ -203,7 +203,7 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
     shooting_address = project_data.get('shooting_address', 'Адрес не указан')
     project_name = project_data.get('name', 'Съёмка')
     description = project_data.get('description', '')
-    budget = project_data.get('budget', 0)
+    budget = float(project_data.get('budget', 0))
     duration_minutes = project_data.get('shooting_duration', 120)
     duration_hours = int(duration_minutes / 60) if duration_minutes else 2
     
@@ -211,35 +211,56 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
     shooting_style = project_data.get('shooting_style_name', '')
     
     message_parts = [
-        f"📸 Новый проект съёмки (foto-mix)",
+        f"📸 Новый заказ!",
         "",
-        f"🎬 Проект: {project_name}",
-        f"💰 Бюджет: {budget} ₽",
-        f"📅 Дата: {date_str}",
+        f"📅 Дата съёмки: {date_str}",
         f"🕐 Время: {time_str}",
         f"⏱ Длительность: {duration_hours} ч",
-        f"📍 Место съёмки: {shooting_address}"
+        f"📍 Место: {shooting_address}"
     ]
     
     if shooting_style:
         message_parts.append(f"🎨 Стиль: {shooting_style}")
     
-    if description:
-        message_parts.append(f"\n📝 Пожелания клиента: {description}")
-    
     message_parts.extend([
         "",
         f"👤 Клиент: {client_name}",
-        f"📞 Телефон: {client_phone}",
-        f"📧 Email: {client_email}"
+        f"📞 Телефон: {client_phone}"
     ])
+    
+    if client_email and client_email != 'не указан':
+        message_parts.append(f"📧 Email: {client_email}")
     
     if client_address:
         message_parts.append(f"🏠 Адрес клиента: {client_address}")
     
+    # Добавляем финансовую информацию
+    if payment_data:
+        prepaid = float(payment_data.get('prepaid', 0))
+        remaining = budget - prepaid
+        
+        message_parts.extend([
+            "",
+            f"💰 Стоимость съёмки: {budget:,.0f} ₽"
+        ])
+        
+        if prepaid > 0:
+            message_parts.extend([
+                f"✅ Предоплата: {prepaid:,.0f} ₽",
+                f"💳 Остаток к получению: {remaining:,.0f} ₽"
+            ])
+        else:
+            message_parts.append(f"💳 К оплате: {budget:,.0f} ₽")
+    
+    if description:
+        message_parts.extend([
+            "",
+            f"📝 Пожелания: {description}"
+        ])
+    
     message_parts.extend([
         "",
-        "Не забудьте проверить оборудование перед выездом! 📷"
+        "🎯 Удачной съёмки!"
     ])
     
     message = "\n".join(message_parts)
@@ -355,7 +376,7 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Project or client not found'})
                 }
             
-            # Получаем данные фотографа и стиль съёмки
+            # Получаем данные фотографа, стиль съёмки и платежи
             with conn.cursor() as cur:
                 cur.execute(f"""
                     SELECT id, email, phone, display_name
@@ -383,6 +404,25 @@ def handler(event: dict, context) -> dict:
                     style_row = cur.fetchone()
                     if style_row:
                         project_data['shooting_style_name'] = style_row['name']
+                
+                # Получаем информацию о платежах
+                payment_data = None
+                cur.execute(f"""
+                    SELECT 
+                        COALESCE(SUM(amount), 0) as total_paid
+                    FROM {SCHEMA}.client_payments
+                    WHERE project_id = {escape_sql(project_id)}
+                      AND status = 'completed'
+                """)
+                payment_row = cur.fetchone()
+                
+                if payment_row:
+                    budget = float(project_data.get('budget', 0))
+                    prepaid = float(payment_row['total_paid'])
+                    payment_data = {
+                        'budget': budget,
+                        'prepaid': prepaid
+                    }
             
             results = {}
             
@@ -393,7 +433,7 @@ def handler(event: dict, context) -> dict:
             
             # Отправляем уведомление фотографу
             if notify_photographer:
-                photographer_result = send_photographer_notification(project_data, client_data, photographer_data)
+                photographer_result = send_photographer_notification(project_data, client_data, photographer_data, payment_data)
                 results['photographer_notification'] = photographer_result
             
             return {
