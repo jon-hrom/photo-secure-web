@@ -98,6 +98,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'create-promo-code': create_promo_code,
         'update-promo-code': update_promo_code,
         'delete-promo-code': delete_promo_code,
+        'cloud-storage-stats': cloud_storage_stats,
     }
     
     handler_func = handlers.get(action)
@@ -1055,6 +1056,77 @@ def update_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
             'statusCode': 500,
             'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to update promo code: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+def cloud_storage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Статистика использования облачного хранилища по датам"""
+    params = event.get('queryStringParameters', {}) or {}
+    days = int(params.get('days', 30))
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Получаем размер хранилища по датам из photo_bank
+            query = f'''
+                WITH daily_storage AS (
+                    SELECT 
+                        DATE(created_at) as date,
+                        SUM(file_size) OVER (ORDER BY DATE(created_at)) / 1073741824.0 as cumulative_size_gb
+                    FROM {SCHEMA}.photo_bank
+                    WHERE is_trashed = FALSE
+                    GROUP BY DATE(created_at), file_size, created_at
+                )
+                SELECT 
+                    date,
+                    MAX(cumulative_size_gb) as total_size_gb
+                FROM daily_storage
+                WHERE date >= NOW() - INTERVAL '{days} days'
+                GROUP BY date
+                ORDER BY date ASC
+            '''
+            
+            print(f'[CLOUD_STORAGE_STATS] Fetching storage stats for last {days} days')
+            cur.execute(query)
+            stats = cur.fetchall()
+            
+            # Получаем текущий общий размер
+            cur.execute(f'''
+                SELECT COALESCE(SUM(file_size) / 1073741824.0, 0) as total_gb
+                FROM {SCHEMA}.photo_bank
+                WHERE is_trashed = FALSE
+            ''')
+            current = cur.fetchone()
+            total_gb = float(current['total_gb']) if current else 0
+            
+            # Конвертим в GB×hour для сравнения с тарифом Яндекс.Облака
+            gb_hours = total_gb * 24 * days
+            
+            print(f'[CLOUD_STORAGE_STATS] Found {len(stats)} records, total: {total_gb:.2f} GB, {gb_hours:.2f} GB×hour')
+            
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({
+                    'stats': [dict(s) for s in stats],
+                    'summary': {
+                        'total_gb': round(total_gb, 2),
+                        'gb_hours': round(gb_hours, 2),
+                        'days': days
+                    }
+                }, default=str),
+                'isBase64Encoded': False
+            }
+    except Exception as e:
+        print(f'[ERROR] cloud_storage_stats failed: {e}')
+        import traceback
+        print(f'[ERROR] Traceback: {traceback.format_exc()}')
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Failed to get cloud storage stats: {str(e)}'}),
             'isBase64Encoded': False
         }
     finally:

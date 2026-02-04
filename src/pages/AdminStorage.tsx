@@ -47,6 +47,8 @@ const AdminStorage = () => {
   const [adminKey, setAdminKey] = useState('');
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [cloudStorageStats, setCloudStorageStats] = useState<any[]>([]);
+  const [cloudStorageSummary, setCloudStorageSummary] = useState<any>({});
 
   const api = useAdminStorageAPI(adminKey);
 
@@ -101,7 +103,9 @@ const AdminStorage = () => {
       api.fetchStats(
         (us) => { tempUsageStats.push(...us); setUsageStats(us); },
         (rs) => { tempRevenueStats.push(...rs); setRevenueStats(rs); },
-        setLoading
+        setLoading,
+        setCloudStorageStats,
+        setCloudStorageSummary
       ),
     ]);
     
@@ -120,7 +124,7 @@ const AdminStorage = () => {
 
   const refetchPlans = () => api.fetchPlans(setPlans);
   const refetchUsers = () => api.fetchUsers(setUsers);
-  const refetchStats = () => api.fetchStats(setUsageStats, setRevenueStats, setLoading);
+  const refetchStats = () => api.fetchStats(setUsageStats, setRevenueStats, setLoading, setCloudStorageStats, setCloudStorageSummary);
   const refetchPromoCodes = () => api.fetchPromoCodes(setPromoCodes);
 
   useEffect(() => {
@@ -281,6 +285,8 @@ const AdminStorage = () => {
               revenueStats={revenueStats}
               totalRevenue={totalRevenue}
               loading={loading}
+              cloudStorageStats={cloudStorageStats}
+              cloudStorageSummary={cloudStorageSummary}
             />
           </TabsContent>
 

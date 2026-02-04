@@ -80,7 +80,9 @@ export const createPlanHandlers = (adminKey: string, toast: any) => {
   const fetchStats = async (
     setUsageStats: (stats: UsageStat[]) => void,
     setRevenueStats: (stats: RevenueStat[]) => void,
-    setLoading: (loading: boolean) => void
+    setLoading: (loading: boolean) => void,
+    setCloudStorageStats?: (stats: any[]) => void,
+    setCloudStorageSummary?: (summary: any) => void
   ) => {
     if (!adminKey) {
       console.log('[FETCH_STATS] Waiting for adminKey...');
@@ -89,10 +91,18 @@ export const createPlanHandlers = (adminKey: string, toast: any) => {
     setLoading(true);
     try {
       console.log('[FETCH_STATS] Starting requests...');
-      const [usageRes, revenueRes] = await Promise.all([
+      const requests = [
         fetch(`${ADMIN_API}?action=usage-stats&days=30&admin_key=${adminKey}`),
         fetch(`${ADMIN_API}?action=revenue-stats&admin_key=${adminKey}`)
-      ]);
+      ];
+      
+      // Добавляем запрос статистики облачного хранилища
+      if (setCloudStorageStats && setCloudStorageSummary) {
+        requests.push(fetch(`${ADMIN_API}?action=cloud-storage-stats&days=30&admin_key=${adminKey}`));
+      }
+      
+      const responses = await Promise.all(requests);
+      const [usageRes, revenueRes, cloudStorageRes] = responses;
 
       console.log('[FETCH_STATS] Usage response status:', usageRes.status);
       console.log('[FETCH_STATS] Revenue response status:', revenueRes.status);
@@ -105,6 +115,14 @@ export const createPlanHandlers = (adminKey: string, toast: any) => {
 
       setUsageStats(usageData.stats || []);
       setRevenueStats(revenueData.revenue || []);
+      
+      if (cloudStorageRes && setCloudStorageStats && setCloudStorageSummary) {
+        console.log('[FETCH_STATS] Cloud storage response status:', cloudStorageRes.status);
+        const cloudData = await cloudStorageRes.json();
+        console.log('[FETCH_STATS] Cloud storage data:', cloudData);
+        setCloudStorageStats(cloudData.stats || []);
+        setCloudStorageSummary(cloudData.summary || {});
+      }
     } catch (error) {
       console.error('[FETCH_STATS] Error:', error);
       toast({ title: 'Ошибка', description: 'Не удалось загрузить статистику', variant: 'destructive' });

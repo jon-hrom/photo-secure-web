@@ -39,13 +39,59 @@ interface StatsTabProps {
   revenueStats: RevenueStat[];
   totalRevenue: number;
   loading: boolean;
+  cloudStorageStats?: any[];
+  cloudStorageSummary?: any;
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-export const StatsTab = ({ usageStats, revenueStats, totalRevenue, loading }: StatsTabProps) => {
+export const StatsTab = ({ usageStats, revenueStats, totalRevenue, loading, cloudStorageStats = [], cloudStorageSummary = {} }: StatsTabProps) => {
   return (
     <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Использование облачного хранилища (Яндекс.Облако)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">Загрузка...</div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <h4 className="text-sm text-muted-foreground mb-1">Общий размер</h4>
+                  <p className="text-2xl font-bold text-blue-600">{cloudStorageSummary.total_gb || 0} ГБ</p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                  <h4 className="text-sm text-muted-foreground mb-1">ГБ×час (30 дней)</h4>
+                  <p className="text-2xl font-bold text-purple-600">{cloudStorageSummary.gb_hours || 0}</p>
+                </div>
+                <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                  <h4 className="text-sm text-muted-foreground mb-1">Тариф Яндекс.Облака</h4>
+                  <p className="text-sm text-muted-foreground mt-1">~2.71₽ за 1000 ГБ×час</p>
+                </div>
+              </div>
+
+              {cloudStorageStats && cloudStorageStats.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Динамика роста хранилища</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={cloudStorageStats}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="total_size_gb" stroke="#3b82f6" name="Размер (ГБ)" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Статистика загрузок (30 дней)</CardTitle>
