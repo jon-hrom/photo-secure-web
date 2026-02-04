@@ -48,6 +48,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 export const StatsTab = ({ usageStats, revenueStats, totalRevenue, loading, cloudStorageStats = [], cloudStorageSummary = {} }: StatsTabProps) => {
   const totalGb = cloudStorageSummary.total_gb || 0;
+  const totalFiles = cloudStorageSummary.total_files || 0;
   const gbHours = cloudStorageSummary.gb_hours || 0;
   const days = cloudStorageSummary.days || 30;
   
@@ -77,14 +78,14 @@ export const StatsTab = ({ usageStats, revenueStats, totalRevenue, loading, clou
           ) : (
             <div className="space-y-6">
               {/* Основные метрики */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border-2 border-blue-200 dark:border-blue-800">
                   <div className="flex items-center gap-2 mb-2">
                     <Icon name="HardDrive" className="h-5 w-5 text-blue-600" />
                     <h4 className="text-sm font-medium text-muted-foreground">Текущий размер</h4>
                   </div>
                   <p className="text-3xl font-bold text-blue-600">{totalGb.toFixed(2)} ГБ</p>
-                  <p className="text-xs text-muted-foreground mt-1">{(totalGb * 1024).toFixed(0)} МБ</p>
+                  <p className="text-xs text-muted-foreground mt-1">{totalFiles} файлов</p>
                 </div>
                 
                 <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg border-2 border-purple-200 dark:border-purple-800">
