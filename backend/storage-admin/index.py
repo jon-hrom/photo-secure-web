@@ -1069,40 +1069,54 @@ def cloud_storage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Получаем размер хранилища по датам из photo_bank
-            query = f'''
-                WITH daily_storage AS (
-                    SELECT 
-                        DATE(created_at) as date,
-                        SUM(file_size) OVER (ORDER BY DATE(created_at)) / 1073741824.0 as cumulative_size_gb
-                    FROM {SCHEMA}.photo_bank
-                    WHERE is_trashed = FALSE
-                    GROUP BY DATE(created_at), file_size, created_at
-                )
-                SELECT 
-                    date,
-                    MAX(cumulative_size_gb) as total_size_gb
-                FROM daily_storage
-                WHERE date >= NOW() - INTERVAL '{days} days'
-                GROUP BY date
-                ORDER BY date ASC
-            '''
-            
-            print(f'[CLOUD_STORAGE_STATS] Fetching storage stats for last {days} days')
-            cur.execute(query)
-            stats = cur.fetchall()
-            
-            # Получаем текущий общий размер
+            # Получаем текущий общий размер и количество файлов
             cur.execute(f'''
-                SELECT COALESCE(SUM(file_size) / 1073741824.0, 0) as total_gb
+                SELECT 
+                    COALESCE(SUM(file_size) / 1073741824.0, 0) as total_gb,
+                    COUNT(*) as total_files
                 FROM {SCHEMA}.photo_bank
                 WHERE is_trashed = FALSE
             ''')
             current = cur.fetchone()
             total_gb = float(current['total_gb']) if current else 0
+            total_files = int(current['total_files']) if current else 0
             
-            # Конвертим в GB×hour для сравнения с тарифом Яндекс.Облака
-            gb_hours = total_gb * 24 * days
+            print(f'[CLOUD_STORAGE_STATS] Current storage: {total_gb:.2f} GB, {total_files} files')
+            
+            # Получаем динамику роста по датам (накопительная сумма)
+            query = f'''
+                WITH daily_uploads AS (
+                    SELECT 
+                        DATE(created_at) as date,
+                        SUM(file_size) / 1073741824.0 as daily_size_gb
+                    FROM {SCHEMA}.photo_bank
+                    WHERE is_trashed = FALSE
+                        AND created_at >= NOW() - INTERVAL '{days} days'
+                    GROUP BY DATE(created_at)
+                    ORDER BY date ASC
+                ),
+                cumulative AS (
+                    SELECT 
+                        date,
+                        daily_size_gb,
+                        SUM(daily_size_gb) OVER (ORDER BY date) as total_size_gb
+                    FROM daily_uploads
+                )
+                SELECT 
+                    TO_CHAR(date, 'DD.MM') as date,
+                    ROUND(CAST(total_size_gb AS NUMERIC), 2) as total_size_gb
+                FROM cumulative
+                ORDER BY date ASC
+            '''
+            
+            print(f'[CLOUD_STORAGE_STATS] Fetching storage growth for last {days} days')
+            cur.execute(query)
+            stats = cur.fetchall()
+            
+            # Рассчитываем средний размер за период для GB×hour
+            # GB×hour = средний размер × часы в периоде
+            hours_in_period = days * 24
+            gb_hours = total_gb * hours_in_period
             
             print(f'[CLOUD_STORAGE_STATS] Found {len(stats)} records, total: {total_gb:.2f} GB, {gb_hours:.2f} GB×hour')
             
@@ -1113,6 +1127,7 @@ def cloud_storage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
                     'stats': [dict(s) for s in stats],
                     'summary': {
                         'total_gb': round(total_gb, 2),
+                        'total_files': total_files,
                         'gb_hours': round(gb_hours, 2),
                         'days': days
                     }
