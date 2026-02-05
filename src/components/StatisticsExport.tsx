@@ -7,9 +7,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import roboto from 'roboto-base64';
 
 interface StatisticsData {
   period: string;
@@ -126,11 +127,15 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
     try {
       const doc = new jsPDF();
 
-      doc.setFont('helvetica', 'bold');
+      // Добавляем Roboto шрифт с поддержкой кириллицы
+      doc.addFileToVFS('Roboto-Regular.ttf', roboto.normal);
+      doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+      doc.setFont('Roboto');
+
       doc.setFontSize(18);
       doc.text('Статистика фотостудии', 14, 15);
 
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('Roboto');
       doc.setFontSize(10);
       doc.text(`Период: ${getPeriodLabel(data.period)}`, 14, 22);
       doc.text(
@@ -141,7 +146,7 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
 
       let yPos = 35;
 
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto');
       doc.setFontSize(14);
       doc.text('Общая статистика', 14, yPos);
       yPos += 7;
@@ -158,12 +163,13 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
           ['Всего бронирований', data.general.bookings.total.toString()],
         ],
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246] },
+        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
+        styles: { font: 'Roboto' },
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
 
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto');
       doc.setFontSize(14);
       doc.text('Финансовая статистика', 14, yPos);
       yPos += 7;
@@ -178,7 +184,8 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
           ['Неоплаченные заказы', `${data.financial.pending.count} (${formatCurrency(data.financial.pending.amount)})`],
         ],
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246] },
+        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
+        styles: { font: 'Roboto' },
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -188,7 +195,7 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         yPos = 20;
       }
 
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto');
       doc.setFontSize(14);
       doc.text('Клиенты', 14, yPos);
       yPos += 7;
@@ -204,7 +211,8 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
           ['Процент возвращаемости', `${data.clients.returning_rate.toFixed(1)}%`],
         ],
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246] },
+        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
+        styles: { font: 'Roboto' },
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -214,7 +222,7 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         yPos = 20;
       }
 
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto');
       doc.setFontSize(14);
       doc.text('Проекты по категориям', 14, yPos);
       yPos += 7;
@@ -228,7 +236,8 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
           formatCurrency(cat.revenue),
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246] },
+        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
+        styles: { font: 'Roboto' },
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -238,7 +247,7 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         yPos = 20;
       }
 
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto');
       doc.setFontSize(14);
       doc.text('ТОП-5 клиентов', 14, yPos);
       yPos += 7;
@@ -253,7 +262,8 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
           client.projects_count.toString(),
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246] },
+        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
+        styles: { font: 'Roboto' },
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -263,7 +273,7 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         yPos = 20;
       }
 
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto');
       doc.setFontSize(14);
       doc.text('ТОП-5 проектов', 14, yPos);
       yPos += 7;
@@ -278,7 +288,8 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
           project.status,
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246] },
+        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
+        styles: { font: 'Roboto' },
       });
 
       const fileName = `statistika_${getPeriodLabel(data.period)}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
