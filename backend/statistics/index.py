@@ -427,15 +427,21 @@ def get_tops(cur, photographer_id: str, date_filter: str) -> Dict[str, Any]:
 def get_alerts(cur, photographer_id: str) -> Dict[str, Any]:
     '''Предупреждения и задачи'''
     
-    # Неоплаченные заказы
+    # Неоплаченные заказы - считаем остаток со всех проектов
     cur.execute(f'''
         SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(amount), 0) as total_amount
-        FROM {SCHEMA}.client_payments pay
-        JOIN {SCHEMA}.clients c ON pay.client_id = c.id
+            COUNT(CASE WHEN (COALESCE(cp.budget, 0) - COALESCE(paid.total_paid, 0)) > 0 THEN 1 END) as count,
+            COALESCE(SUM(COALESCE(cp.budget, 0) - COALESCE(paid.total_paid, 0)), 0) as total_amount
+        FROM {SCHEMA}.client_projects cp
+        JOIN {SCHEMA}.clients c ON cp.client_id = c.id
+        LEFT JOIN (
+            SELECT project_id, SUM(amount) as total_paid
+            FROM {SCHEMA}.client_payments
+            WHERE status = 'completed'
+            GROUP BY project_id
+        ) paid ON cp.id = paid.project_id
         WHERE c.photographer_id = {photographer_id}
-          AND pay.status = 'pending'
+          AND (COALESCE(cp.budget, 0) - COALESCE(paid.total_paid, 0)) > 0
     ''')
     unpaid = cur.fetchone()
     
