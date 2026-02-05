@@ -1078,7 +1078,7 @@ def update_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
         conn.close()
 
 def delete_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
-    """Удаление промокода по ID"""
+    """Удаление промокода по ID (полное удаление из базы)"""
     params = event.get('queryStringParameters', {}) or {}
     promo_id = params.get('id')
     
