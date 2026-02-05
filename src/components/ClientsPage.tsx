@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
 import ClientsHeader from '@/components/clients/ClientsHeader';
@@ -34,7 +34,18 @@ interface ClientsPageProps {
 const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId, clients: propClients, onClientsUpdate }: ClientsPageProps) => {
   const userId = propUserId || localStorage.getItem('userId');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+
+  // Обработка URL параметра filter=no-date
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam === 'no-date') {
+      setActiveFilter('no-date');
+      // Очищаем параметр из URL после применения
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
   
   // Хук для работы с данными
   const { clients, setClients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId, propClients, onClientsUpdate);

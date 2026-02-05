@@ -21,6 +21,7 @@ export type FilterType =
   | 'new-clients' 
   | 'alphabetical' 
   | 'most-projects'
+  | 'no-date'
   | { type: 'shooting-style', styleId: string };
 
 interface ClientsFilterSidebarProps {
@@ -54,7 +55,11 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
       return createdDate >= sevenDaysAgo;
     }).length;
 
-    return { activeProjects, upcomingMeetings, newClients };
+    const projectsWithoutDate = clients.filter(c =>
+      (c.projects || []).some(p => !p.startDate && p.status !== 'cancelled' && p.status !== 'completed')
+    ).length;
+
+    return { activeProjects, upcomingMeetings, newClients, projectsWithoutDate };
   };
 
   const counts = getFilterCounts();
@@ -113,6 +118,13 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
       label: 'Больше всего проектов',
       description: 'Топ клиентов по количеству проектов',
       count: null,
+    },
+    {
+      id: 'no-date' as FilterType,
+      icon: 'CalendarX',
+      label: 'Проекты без даты',
+      description: 'Клиенты с проектами без даты съёмки',
+      count: counts.projectsWithoutDate,
     },
   ];
 

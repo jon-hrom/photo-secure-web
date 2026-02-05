@@ -98,6 +98,11 @@ export const useClientsFilters = ({
           (b.projects?.length || 0) - (a.projects?.length || 0)
         );
       
+      case 'no-date':
+        return clientsList.filter(c =>
+          (c.projects || []).some(p => !p.startDate && p.status !== 'cancelled' && p.status !== 'completed')
+        );
+      
       default:
         return clientsList;
     }

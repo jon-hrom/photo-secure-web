@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import MaintenancePage from '@/components/MaintenancePage';
 import AuthenticatedLayout from '@/components/layout/AuthenticatedLayout';
 import UnauthenticatedViews from '@/components/layout/UnauthenticatedViews';
@@ -14,6 +15,7 @@ import { settingsSync } from '@/utils/settingsSync';
 import { toast } from 'sonner';
 
 const Index = () => {
+  const [searchParams] = useSearchParams();
   // Отслеживаем изменения сессии для автоматической очистки admin viewing
   useSessionWatcher();
   const {
@@ -71,6 +73,14 @@ const Index = () => {
     lastActivityRef,
     onLogout: handleLogout
   });
+
+  // Обработка URL параметра filter=no-date
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam === 'no-date' && isAuthenticated) {
+      setCurrentPage('clients');
+    }
+  }, [searchParams, isAuthenticated, setCurrentPage]);
 
   useEffect(() => {
     settingsSync.onUpdate(() => {

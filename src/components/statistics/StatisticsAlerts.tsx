@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
+import { useNavigate } from 'react-router-dom';
 
 interface AlertsData {
   unpaid_orders: {
@@ -16,9 +17,15 @@ interface StatisticsAlertsProps {
 }
 
 const StatisticsAlerts = ({ alerts, formatCurrency }: StatisticsAlertsProps) => {
+  const navigate = useNavigate();
+
   if (alerts.unpaid_orders.count === 0 && alerts.projects_without_date === 0 && alerts.overdue_bookings === 0) {
     return null;
   }
+
+  const handleProjectsWithoutDateClick = () => {
+    navigate('/?filter=no-date');
+  };
 
   return (
     <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
@@ -42,14 +49,17 @@ const StatisticsAlerts = ({ alerts, formatCurrency }: StatisticsAlertsProps) => 
           )}
 
           {alerts.projects_without_date > 0 && (
-            <div className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg">
+            <button
+              onClick={handleProjectsWithoutDateClick}
+              className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer border-2 border-transparent hover:border-orange-200 dark:hover:border-orange-800 w-full text-left"
+            >
               <Icon name="Calendar" size={20} className="text-orange-600 mt-0.5" />
               <div>
                 <p className="text-sm font-medium">Проекты без даты</p>
                 <p className="text-2xl font-bold text-orange-600">{alerts.projects_without_date}</p>
                 <p className="text-xs text-muted-foreground">Требуется установить дату</p>
               </div>
-            </div>
+            </button>
           )}
 
           {alerts.overdue_bookings > 0 && (
