@@ -1,0 +1,50 @@
+{
+  "tests": [
+    {
+      "name": "Get statistics for month period",
+      "method": "GET",
+      "path": "/?period=month",
+      "headers": {
+        "X-User-Id": "81"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "period": "month",
+        "general": {
+          "clients": {
+            "total": "number",
+            "new": "number",
+            "growth": "number"
+          },
+          "projects": {
+            "total": "number",
+            "new": "number",
+            "completed": "number"
+          }
+        },
+        "financial": {
+          "total_revenue": "number",
+          "avg_check": "number"
+        }
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get statistics for custom period",
+      "method": "GET",
+      "path": "/?period=custom&start_date=2024-01-01&end_date=2024-12-31",
+      "headers": {
+        "X-User-Id": "81"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "period": "custom",
+        "date_range": {
+          "start": "2024-01-01",
+          "end": "2024-12-31"
+        }
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

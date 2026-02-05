@@ -69,6 +69,10 @@ const AppNavigation = ({
                   <Icon name="Users" size={18} className="mr-2" />
                   Клиенты
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/statistics')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
+                  <Icon name="BarChart3" size={18} className="mr-2" />
+                  Статистика
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200" data-tour="photobook-nav">
                   <Icon name="Book" size={18} className="mr-2" />
                   Фотокниги

@@ -35,6 +35,7 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     { icon: 'Zap', label: 'Тарифы', path: '/tariffs' },
     { icon: 'Images', label: 'Фото банк', path: '/photo-bank' },
     { icon: 'Users', label: 'Клиенты', path: '/clients' },
+    { icon: 'BarChart3', label: 'Статистика', path: '/statistics' },
   ];
   
   const getNavClassName = (path: string) => {

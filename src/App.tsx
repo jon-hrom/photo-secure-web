@@ -22,6 +22,7 @@ import Settings from "./pages/webapp/Settings";
 import Tariffs from "./pages/webapp/Tariffs";
 import Clients from "./pages/webapp/Clients";
 import MobileUpload from "./pages/webapp/MobileUpload";
+import Statistics from "./pages/webapp/Statistics";
 import AdminCleanup from "./pages/AdminCleanup";
 import NewYearDecorations from "./components/NewYearDecorations";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -92,6 +93,7 @@ const App = () => {
           <Route path="/settings" element={<Settings />} />
           <Route path="/tariffs" element={<Tariffs />} />
           <Route path="/clients" element={<Clients />} />
+          <Route path="/statistics" element={<Statistics />} />
           <Route path="/mobile-upload" element={<MobileUpload />} />
           <Route path="/photo-bank" element={<PhotoBank />} />
           <Route path="/photo-bank/trash" element={<PhotoBankTrash />} />
