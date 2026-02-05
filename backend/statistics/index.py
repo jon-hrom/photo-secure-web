@@ -430,8 +430,8 @@ def get_alerts(cur, photographer_id: str) -> Dict[str, Any]:
     # Неоплаченные заказы - считаем остаток со всех проектов
     cur.execute(f'''
         SELECT 
-            COUNT(CASE WHEN (COALESCE(cp.budget, 0) - COALESCE(paid.total_paid, 0)) > 0 THEN 1 END) as count,
-            COALESCE(SUM(COALESCE(cp.budget, 0) - COALESCE(paid.total_paid, 0)), 0) as total_amount
+            COUNT(*) as count,
+            COALESCE(SUM(GREATEST(COALESCE(cp.budget, 0) - COALESCE(paid.total_paid, 0), 0)), 0) as total_amount
         FROM {SCHEMA}.client_projects cp
         JOIN {SCHEMA}.clients c ON cp.client_id = c.id
         LEFT JOIN (
@@ -441,6 +441,8 @@ def get_alerts(cur, photographer_id: str) -> Dict[str, Any]:
             GROUP BY project_id
         ) paid ON cp.id = paid.project_id
         WHERE c.photographer_id = {photographer_id}
+          AND cp.budget IS NOT NULL
+          AND cp.budget > 0
           AND (COALESCE(cp.budget, 0) - COALESCE(paid.total_paid, 0)) > 0
     ''')
     unpaid = cur.fetchone()

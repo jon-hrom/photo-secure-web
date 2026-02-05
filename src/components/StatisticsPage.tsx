@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import StatisticsHeader from '@/components/statistics/StatisticsHeader';
-import StatisticsAlerts from '@/components/statistics/StatisticsAlerts';
 import StatisticsCharts from '@/components/statistics/StatisticsCharts';
 
 const STATISTICS_API = 'https://functions.poehali.dev/459209b2-e3b0-4b54-a6cf-cda0b74e4f3f';
@@ -122,6 +121,8 @@ const StatisticsPage = () => {
       if (!res.ok) {
         throw new Error(result.error || 'Ошибка загрузки статистики');
       }
+
+      console.log('[STATISTICS] Raw data from backend:', result);
 
       // Нормализуем данные: преобразуем все числа
       const normalizeNumber = (val: any): number => {
@@ -274,8 +275,6 @@ const StatisticsPage = () => {
           loading={loading}
           data={data}
         />
-
-        <StatisticsAlerts alerts={data.alerts} formatCurrency={formatCurrency} />
 
         <StatisticsCharts data={data} formatCurrency={formatCurrency} formatDate={formatDate} />
       </div>
