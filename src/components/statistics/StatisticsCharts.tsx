@@ -103,6 +103,15 @@ interface StatisticsChartsProps {
 }
 
 const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsChartsProps) => {
+  const safeNumber = (value: any): number => {
+    const num = Number(value);
+    return isNaN(num) || !isFinite(num) ? 0 : num;
+  };
+
+  const safeToFixed = (value: any, digits: number = 1): string => {
+    return safeNumber(value).toFixed(digits);
+  };
+
   return (
     <Tabs defaultValue="overview" className="space-y-6">
       <TabsList className="grid w-full grid-cols-5">
@@ -123,8 +132,8 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
                 <Icon name={data.general.clients.growth >= 0 ? 'TrendingUp' : 'TrendingDown'} size={16} className={data.general.clients.growth >= 0 ? 'text-green-600' : 'text-red-600'} />
-                <span className={data.general.clients.growth >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  {data.general.clients.growth >= 0 ? '+' : ''}{data.general.clients.growth.toFixed(1)}%
+                <span className={safeNumber(data.general.clients.growth) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {safeNumber(data.general.clients.growth) >= 0 ? '+' : ''}{safeToFixed(data.general.clients.growth, 1)}%
                 </span>
                 <span className="text-muted-foreground">новых: {data.general.clients.new}</span>
               </div>
@@ -140,7 +149,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
               <div className="flex items-center gap-2 text-sm">
                 <Icon name="CheckCircle" size={16} className="text-green-600" />
                 <span className="text-muted-foreground">
-                  завершено: {data.general.projects.completed} ({data.general.projects.completion_rate.toFixed(0)}%)
+                  завершено: {data.general.projects.completed} ({safeToFixed(data.general.projects.completion_rate, 0)}%)
                 </span>
               </div>
             </CardContent>
@@ -289,7 +298,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
                 <Icon name="Repeat" size={16} className="text-green-600" />
-                <span className="text-green-600">{data.clients.returning_rate.toFixed(1)}% возвращаемость</span>
+                <span className="text-green-600">{safeToFixed(data.clients.returning_rate, 1)}% возвращаемость</span>
               </div>
             </CardContent>
           </Card>
@@ -357,9 +366,9 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
-                <Icon name={data.financial.revenue_growth >= 0 ? 'TrendingUp' : 'TrendingDown'} size={16} className={data.financial.revenue_growth >= 0 ? 'text-green-600' : 'text-red-600'} />
-                <span className={data.financial.revenue_growth >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  {data.financial.revenue_growth >= 0 ? '+' : ''}{data.financial.revenue_growth.toFixed(1)}%
+                <Icon name={safeNumber(data.financial.revenue_growth) >= 0 ? 'TrendingUp' : 'TrendingDown'} size={16} className={safeNumber(data.financial.revenue_growth) >= 0 ? 'text-green-600' : 'text-red-600'} />
+                <span className={safeNumber(data.financial.revenue_growth) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {safeNumber(data.financial.revenue_growth) >= 0 ? '+' : ''}{safeToFixed(data.financial.revenue_growth, 1)}%
                 </span>
                 <span className="text-muted-foreground">к прошлому периоду</span>
               </div>

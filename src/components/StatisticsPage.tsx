@@ -123,7 +123,79 @@ const StatisticsPage = () => {
         throw new Error(result.error || 'Ошибка загрузки статистики');
       }
 
-      setData(result);
+      // Нормализуем данные: преобразуем все числа
+      const normalizeNumber = (val: any): number => {
+        const num = Number(val);
+        return isNaN(num) || !isFinite(num) ? 0 : num;
+      };
+
+      const normalized = {
+        ...result,
+        general: {
+          ...result.general,
+          clients: {
+            ...result.general?.clients,
+            total: normalizeNumber(result.general?.clients?.total),
+            new: normalizeNumber(result.general?.clients?.new),
+            growth: normalizeNumber(result.general?.clients?.growth),
+          },
+          projects: {
+            ...result.general?.projects,
+            total: normalizeNumber(result.general?.projects?.total),
+            new: normalizeNumber(result.general?.projects?.new),
+            completed: normalizeNumber(result.general?.projects?.completed),
+            completion_rate: normalizeNumber(result.general?.projects?.completion_rate),
+          },
+          bookings: {
+            ...result.general?.bookings,
+            total: normalizeNumber(result.general?.bookings?.total),
+            new: normalizeNumber(result.general?.bookings?.new),
+          },
+        },
+        clients: {
+          ...result.clients,
+          total_clients: normalizeNumber(result.clients?.total_clients),
+          new_clients: normalizeNumber(result.clients?.new_clients),
+          returning_clients: normalizeNumber(result.clients?.returning_clients),
+          returning_rate: normalizeNumber(result.clients?.returning_rate),
+          one_time_clients: normalizeNumber(result.clients?.one_time_clients),
+        },
+        financial: {
+          ...result.financial,
+          revenue_growth: normalizeNumber(result.financial?.revenue_growth),
+          total_revenue: normalizeNumber(result.financial?.total_revenue),
+          prev_revenue: normalizeNumber(result.financial?.prev_revenue),
+          avg_check: normalizeNumber(result.financial?.avg_check),
+          pending: {
+            amount: normalizeNumber(result.financial?.pending?.amount),
+            count: normalizeNumber(result.financial?.pending?.count),
+          },
+          by_method: result.financial?.by_method || [],
+        },
+        projects: {
+          by_category: result.projects?.by_category || [],
+          by_status: result.projects?.by_status || [],
+        },
+        charts: {
+          projects_timeline: result.charts?.projects_timeline || [],
+          revenue_timeline: result.charts?.revenue_timeline || [],
+          clients_timeline: result.charts?.clients_timeline || [],
+        },
+        tops: {
+          top_clients: result.tops?.top_clients || [],
+          top_projects: result.tops?.top_projects || [],
+        },
+        alerts: {
+          unpaid_orders: {
+            count: normalizeNumber(result.alerts?.unpaid_orders?.count),
+            amount: normalizeNumber(result.alerts?.unpaid_orders?.amount),
+          },
+          projects_without_date: normalizeNumber(result.alerts?.projects_without_date),
+          overdue_bookings: normalizeNumber(result.alerts?.overdue_bookings),
+        },
+      };
+
+      setData(normalized);
     } catch (error: any) {
       console.error('[STATISTICS] Error:', error);
       toast({
@@ -153,11 +225,13 @@ const StatisticsPage = () => {
   };
 
   const formatCurrency = (value: number) => {
+    const num = Number(value);
+    const safeValue = isNaN(num) || !isFinite(num) ? 0 : num;
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: 'RUB',
       maximumFractionDigits: 0,
-    }).format(value);
+    }).format(safeValue);
   };
 
   const formatDate = (dateStr: string) => {

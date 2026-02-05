@@ -470,6 +470,13 @@ def get_alerts(cur, photographer_id: str) -> Dict[str, Any]:
 
 def calculate_growth(current: float, previous: float) -> float:
     '''Расчет роста в процентах'''
-    if previous == 0:
-        return 100.0 if current > 0 else 0.0
-    return round(((current - previous) / previous) * 100, 1)
+    # Защита от None и non-numeric значений
+    try:
+        curr = float(current) if current is not None else 0.0
+        prev = float(previous) if previous is not None else 0.0
+        
+        if prev == 0:
+            return 100.0 if curr > 0 else 0.0
+        return round(((curr - prev) / prev) * 100, 1)
+    except (ValueError, TypeError):
+        return 0.0
