@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import roboto from 'roboto-base64';
+
 
 interface StatisticsData {
   period: string;
@@ -123,96 +123,81 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
     return labels[period] || period;
   };
 
+  const transliterate = (text: string): string => {
+    const map: Record<string, string> = {
+      'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'jo', 'ж': 'zh',
+      'з': 'z', 'и': 'i', 'й': 'j', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+      'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'c',
+      'ч': 'ch', 'ш': 'sh', 'щ': 'shh', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'je', 'ю': 'ju', 'я': 'ja',
+      'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Jo', 'Ж': 'Zh',
+      'З': 'Z', 'И': 'I', 'Й': 'J', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O',
+      'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'H', 'Ц': 'C',
+      'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shh', 'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'Je', 'Ю': 'Ju', 'Я': 'Ja'
+    };
+    return text.split('').map(char => map[char] || char).join('');
+  };
+
   const exportToPDF = () => {
     try {
       const doc = new jsPDF();
 
-      // Добавляем Roboto шрифт с поддержкой кириллицы
-      doc.addFileToVFS('Roboto-Regular.ttf', roboto.normal);
-      doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-      doc.setFont('Roboto');
+      // Используем встроенный шрифт с поддержкой Unicode
+      doc.setFont('helvetica', 'normal');
 
       doc.setFontSize(18);
-      doc.text('Статистика фотостудии', 14, 15);
+      doc.text(transliterate('Статистика фотостудии'), 14, 15);
 
-      doc.setFont('Roboto');
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
-      doc.text(`Период: ${getPeriodLabel(data.period)}`, 14, 22);
+      doc.text(transliterate(`Период: ${getPeriodLabel(data.period)}`), 14, 22);
       doc.text(
-        `Дата: ${formatDate(data.date_range.start)} - ${formatDate(data.date_range.end)}`,
+        transliterate(`Дата: ${formatDate(data.date_range.start)} - ${formatDate(data.date_range.end)}`),
         14,
         27
       );
 
       let yPos = 35;
 
-      doc.setFont('Roboto');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
-      doc.text('Общая статистика', 14, yPos);
+      doc.text(transliterate('Общая статистика'), 14, yPos);
       yPos += 7;
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Показатель', 'Значение']],
+        head: [[transliterate('Показатель'), transliterate('Значение')]],
         body: [
-          ['Всего клиентов', data.general.clients.total.toString()],
-          ['Новых клиентов', data.general.clients.new.toString()],
-          ['Всего проектов', data.general.projects.total.toString()],
-          ['Завершено проектов', data.general.projects.completed.toString()],
-          ['Процент завершения', `${data.general.projects.completion_rate.toFixed(1)}%`],
-          ['Всего бронирований', data.general.bookings.total.toString()],
+          [transliterate('Всего клиентов'), data.general.clients.total.toString()],
+          [transliterate('Новых клиентов'), data.general.clients.new.toString()],
+          [transliterate('Всего проектов'), data.general.projects.total.toString()],
+          [transliterate('Завершено проектов'), data.general.projects.completed.toString()],
+          [transliterate('Процент завершения'), `${data.general.projects.completion_rate.toFixed(1)}%`],
+          [transliterate('Всего бронирований'), data.general.bookings.total.toString()],
         ],
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
-        styles: { font: 'Roboto' },
+        headStyles: { fillColor: [139, 92, 246] },
+        styles: {},
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
 
-      doc.setFont('Roboto');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
-      doc.text('Финансовая статистика', 14, yPos);
+      doc.text(transliterate('Финансовая статистика'), 14, yPos);
       yPos += 7;
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Показатель', 'Значение']],
+        head: [[transliterate('Показатель'), transliterate('Значение')]],
         body: [
-          ['Общий доход', formatCurrency(data.financial.total_revenue)],
-          ['Средний чек', formatCurrency(data.financial.avg_check)],
-          ['Рост дохода', `${data.financial.revenue_growth.toFixed(1)}%`],
-          ['Неоплаченные заказы', `${data.financial.pending.count} (${formatCurrency(data.financial.pending.amount)})`],
+          [transliterate('Общий доход'), formatCurrency(data.financial.total_revenue)],
+          [transliterate('Средний чек'), formatCurrency(data.financial.avg_check)],
+          [transliterate('Рост дохода'), `${data.financial.revenue_growth.toFixed(1)}%`],
+          [transliterate('Неоплаченные заказы'), `${data.financial.pending?.count ?? 0} (${formatCurrency(data.financial.pending?.amount ?? 0)})`],
         ],
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
-        styles: { font: 'Roboto' },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 10;
-
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
-      }
-
-      doc.setFont('Roboto');
-      doc.setFontSize(14);
-      doc.text('Клиенты', 14, yPos);
-      yPos += 7;
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Показатель', 'Значение']],
-        body: [
-          ['Всего клиентов', data.clients.total_clients.toString()],
-          ['Новые клиенты', data.clients.new_clients.toString()],
-          ['Постоянные клиенты', data.clients.returning_clients.toString()],
-          ['Разовые клиенты', data.clients.one_time_clients.toString()],
-          ['Процент возвращаемости', `${data.clients.returning_rate.toFixed(1)}%`],
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
-        styles: { font: 'Roboto' },
+        headStyles: { fillColor: [139, 92, 246] },
+        styles: {},
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -222,22 +207,49 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         yPos = 20;
       }
 
-      doc.setFont('Roboto');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
-      doc.text('Проекты по категориям', 14, yPos);
+      doc.text(transliterate('Клиенты'), 14, yPos);
       yPos += 7;
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Категория', 'Количество', 'Доход']],
+        head: [[transliterate('Показатель'), transliterate('Значение')]],
+        body: [
+          [transliterate('Всего клиентов'), data.clients.total_clients.toString()],
+          [transliterate('Новые клиенты'), data.clients.new_clients.toString()],
+          [transliterate('Постоянные клиенты'), data.clients.returning_clients.toString()],
+          [transliterate('Разовые клиенты'), data.clients.one_time_clients.toString()],
+          [transliterate('Процент возвращаемости'), `${data.clients.returning_rate.toFixed(1)}%`],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [139, 92, 246] },
+        styles: {},
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text(transliterate('Проекты по категориям'), 14, yPos);
+      yPos += 7;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [[transliterate('Категория'), transliterate('Количество'), transliterate('Доход')]],
         body: data.projects.by_category.map((cat) => [
-          cat.category,
+          transliterate(cat.category),
           cat.count.toString(),
           formatCurrency(cat.revenue),
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
-        styles: { font: 'Roboto' },
+        headStyles: { fillColor: [139, 92, 246] },
+        styles: {},
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -247,23 +259,23 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         yPos = 20;
       }
 
-      doc.setFont('Roboto');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
-      doc.text('ТОП-5 клиентов', 14, yPos);
+      doc.text(transliterate('ТОП-5 клиентов'), 14, yPos);
       yPos += 7;
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Имя', 'Телефон', 'Потрачено', 'Проектов']],
+        head: [[transliterate('Имя'), transliterate('Телефон'), transliterate('Потрачено'), transliterate('Проектов')]],
         body: data.tops.top_clients.map((client) => [
-          client.name,
+          transliterate(client.name),
           client.phone,
           formatCurrency(client.total_spent),
           client.projects_count.toString(),
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
-        styles: { font: 'Roboto' },
+        headStyles: { fillColor: [139, 92, 246] },
+        styles: {},
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -273,26 +285,26 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         yPos = 20;
       }
 
-      doc.setFont('Roboto');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
-      doc.text('ТОП-5 проектов', 14, yPos);
+      doc.text(transliterate('ТОП-5 проектов'), 14, yPos);
       yPos += 7;
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Проект', 'Клиент', 'Сумма', 'Статус']],
+        head: [[transliterate('Проект'), transliterate('Клиент'), transliterate('Сумма'), transliterate('Статус')]],
         body: data.tops.top_projects.map((project) => [
-          project.project_name,
-          project.client_name,
+          transliterate(project.project_name),
+          transliterate(project.client_name),
           formatCurrency(project.total_amount),
-          project.status,
+          transliterate(project.status),
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
-        styles: { font: 'Roboto' },
+        headStyles: { fillColor: [139, 92, 246] },
+        styles: {},
       });
 
-      const fileName = `statistika_${getPeriodLabel(data.period)}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
+      const fileName = `statistika_${transliterate(getPeriodLabel(data.period))}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
       doc.save(fileName);
 
       toast({
@@ -332,8 +344,8 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         ['Общий доход', data.financial.total_revenue],
         ['Средний чек', data.financial.avg_check],
         ['Рост дохода', `${data.financial.revenue_growth.toFixed(1)}%`],
-        ['Неоплаченных заказов', data.financial.pending.count],
-        ['Сумма неоплаченных', data.financial.pending.amount],
+        ['Неоплаченных заказов', data.financial.pending?.count ?? 0],
+        ['Сумма неоплаченных', data.financial.pending?.amount ?? 0],
       ];
 
       const ws1 = XLSX.utils.aoa_to_sheet(generalData);
@@ -393,7 +405,7 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
       const ws5 = XLSX.utils.aoa_to_sheet(topProjectsData);
       XLSX.utils.book_append_sheet(wb, ws5, 'ТОП проекты');
 
-      const fileName = `statistika_${getPeriodLabel(data.period)}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`;
+      const fileName = `statistika_${transliterate(getPeriodLabel(data.period))}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`;
       XLSX.writeFile(wb, fileName);
 
       toast({
