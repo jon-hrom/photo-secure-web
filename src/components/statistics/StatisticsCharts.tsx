@@ -412,10 +412,10 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card className="border-orange-200">
             <CardHeader className="pb-2">
               <CardDescription>Неоплачено</CardDescription>
-              <CardTitle className="text-3xl text-orange-600">{formatCurrency(data.financial.pending.amount)}</CardTitle>
+              <CardTitle className="text-3xl text-orange-600">{formatCurrency(data.alerts.unpaid_orders.amount)}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{data.financial.pending.count} заказов</p>
+              <p className="text-sm text-muted-foreground">{data.alerts.unpaid_orders.count} проектов</p>
             </CardContent>
           </Card>
         </div>
