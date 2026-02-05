@@ -890,6 +890,22 @@ def list_promo_codes(event: Dict[str, Any]) -> Dict[str, Any]:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Автоматически деактивируем истекшие промокоды
+            deactivate_query = f'''
+                UPDATE {SCHEMA}.promo_codes
+                SET is_active = FALSE
+                WHERE is_active = TRUE
+                  AND valid_until IS NOT NULL
+                  AND valid_until < NOW()
+            '''
+            
+            print('[LIST_PROMO_CODES] Deactivating expired promo codes...')
+            cur.execute(deactivate_query)
+            deactivated_count = cur.rowcount
+            if deactivated_count > 0:
+                conn.commit()
+                print(f'[LIST_PROMO_CODES] Deactivated {deactivated_count} expired promo codes')
+            
             query = f'''
                 SELECT 
                     id,
@@ -1056,6 +1072,63 @@ def update_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
             'statusCode': 500,
             'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Failed to update promo code: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+def delete_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Удаление промокода по ID"""
+    params = event.get('queryStringParameters', {}) or {}
+    promo_id = params.get('id')
+    
+    if not promo_id:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Missing id parameter'}),
+            'isBase64Encoded': False
+        }
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            query = f'''
+                DELETE FROM {SCHEMA}.promo_codes
+                WHERE id = {int(promo_id)}
+                RETURNING code
+            '''
+            
+            print(f'[DELETE_PROMO_CODE] Deleting promo code id={promo_id}')
+            cur.execute(query)
+            deleted = cur.fetchone()
+            
+            if not deleted:
+                return {
+                    'statusCode': 404,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': f'Promo code with id={promo_id} not found'}),
+                    'isBase64Encoded': False
+                }
+            
+            conn.commit()
+            print(f'[DELETE_PROMO_CODE] Successfully deleted promo code: {deleted["code"]}')
+            
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'message': f'Promo code {deleted["code"]} deleted successfully'}),
+                'isBase64Encoded': False
+            }
+    except Exception as e:
+        print(f'[ERROR] delete_promo_code failed: {e}')
+        conn.rollback()
+        import traceback
+        print(f'[ERROR] Traceback: {traceback.format_exc()}')
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Failed to delete promo code: {str(e)}'}),
             'isBase64Encoded': False
         }
     finally:
