@@ -2,13 +2,22 @@ import { ADMIN_API, PromoCode } from './types';
 
 export const createPromoHandlers = (adminKey: string, toast: any) => {
   const fetchPromoCodes = async (setPromoCodes: (codes: PromoCode[]) => void) => {
-    if (!adminKey) return;
+    if (!adminKey) {
+      console.log('[FETCH_PROMO] Skipping: no admin key');
+      return;
+    }
     try {
-      const res = await fetch(`${ADMIN_API}?action=list-promo-codes&admin_key=${adminKey}`);
+      console.log('[FETCH_PROMO] Starting request...');
+      const url = `${ADMIN_API}?action=list-promo-codes&admin_key=${adminKey}&_t=${Date.now()}`;
+      console.log('[FETCH_PROMO] URL:', url);
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
+      console.log('[FETCH_PROMO] Response:', { status: res.status, count: data.promo_codes?.length });
       if (!res.ok) throw new Error(data.error);
       setPromoCodes(data.promo_codes || []);
+      console.log('[FETCH_PROMO] State updated with', data.promo_codes?.length, 'promo codes');
     } catch (error: any) {
+      console.error('[FETCH_PROMO] Error:', error);
       toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
     }
   };
