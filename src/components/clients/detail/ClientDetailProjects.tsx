@@ -96,6 +96,18 @@ const ClientDetailProjects = ({
     setAnimateKeys(newKeys);
   }, [payments]);
 
+  // Автоматически разворачиваем проекты без даты при первом рендере
+  useEffect(() => {
+    const projectsWithoutDate = projects.filter(p => !p.startDate);
+    if (projectsWithoutDate.length > 0) {
+      const newExpanded: Record<number, boolean> = {};
+      projectsWithoutDate.forEach(p => {
+        newExpanded[p.id] = true;
+      });
+      setExpandedProjects(prev => ({ ...prev, ...newExpanded }));
+    }
+  }, [projects]);
+
   useEffect(() => {
     const handleFocus = (e: FocusEvent) => {
       const target = e.target as HTMLElement;
@@ -175,7 +187,9 @@ const ClientDetailProjects = ({
             return (
             <Card 
               key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}
-              className="animate-in slide-in-from-top-4 fade-in duration-500"
+              className={`animate-in slide-in-from-top-4 fade-in duration-500 ${
+                !project.startDate ? 'border-2 border-orange-500 bg-orange-50/50 dark:bg-orange-950/20' : ''
+              }`}
               onTouchStart={(e) => handleTouchStart(e, project.id)}
               onTouchEnd={(e) => handleTouchEnd(e, project.id)}
             >
@@ -189,6 +203,12 @@ const ClientDetailProjects = ({
                       <Icon name={isExpanded ? "ChevronDown" : "ChevronRight"} size={20} className="shrink-0" />
                       <span className="truncate">{project.name}</span>
                       {getStatusBadge(project.status)}
+                      {!project.startDate && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-500 text-white">
+                          <Icon name="CalendarX" size={12} />
+                          Без даты
+                        </span>
+                      )}
                     </CardTitle>
                     {isExpanded && (
                       <>
