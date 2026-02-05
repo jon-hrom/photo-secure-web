@@ -51,12 +51,19 @@ export const createPromoHandlers = (adminKey: string, toast: any) => {
   const handleDeletePromoCode = async (id: number, refetchPromoCodes: () => void) => {
     if (!confirm('Удалить промокод?')) return;
     try {
+      console.log(`[DELETE_PROMO] Deleting promo code id=${id}`);
       const res = await fetch(`${ADMIN_API}?action=delete-promo-code&id=${id}&admin_key=${adminKey}`);
       const data = await res.json();
+      console.log('[DELETE_PROMO] Response:', { status: res.status, data });
       if (!res.ok) throw new Error(data.error);
       toast({ title: 'Успешно', description: 'Промокод удален' });
-      refetchPromoCodes();
+      // Небольшая задержка перед обновлением списка
+      setTimeout(() => {
+        console.log('[DELETE_PROMO] Refetching promo codes...');
+        refetchPromoCodes();
+      }, 300);
     } catch (error: any) {
+      console.error('[DELETE_PROMO] Error:', error);
       toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
     }
   };
