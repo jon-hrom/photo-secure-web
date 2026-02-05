@@ -15,9 +15,33 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  TooltipProps,
 } from 'recharts';
 
 const COLORS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444'];
+
+// Кастомный тултип для темной темы
+const CustomTooltip = ({ active, payload, label, formatter }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
+      {label && <p className="text-sm font-medium text-foreground mb-2">{label}</p>}
+      {payload.map((entry: any, index: number) => (
+        <div key={index} className="flex items-center gap-2">
+          <div
+            className="w-3 h-3 rounded-full"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="text-sm text-muted-foreground">{entry.name}:</span>
+          <span className="text-sm font-semibold text-foreground">
+            {formatter ? formatter(entry.value) : entry.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 interface StatisticsData {
   period: string;
@@ -195,7 +219,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   <Bar dataKey="count" fill="#8B5CF6" name="Проекты" />
                 </BarChart>
@@ -213,7 +237,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
                   <YAxis />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Tooltip content={<CustomTooltip formatter={(value: number) => formatCurrency(value)} />} />
                   <Legend />
                   <Line type="monotone" dataKey="revenue" stroke="#EC4899" strokeWidth={2} name="Доход" />
                 </LineChart>
@@ -231,7 +255,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   <Line type="monotone" dataKey="count" stroke="#10B981" strokeWidth={2} name="Клиенты" />
                 </LineChart>
@@ -260,7 +284,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip content={<CustomTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
