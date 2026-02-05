@@ -367,6 +367,49 @@
     }
   }
 
+  /* Print styles */
+  @media print {
+    @page {
+      size: A4;
+      margin: 2cm;
+    }
+
+    body {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    .no-print,
+    button,
+    nav,
+    .mobile-navigation,
+    .print-hide,
+    [data-print-hide],
+    header button {
+      display: none !important;
+    }
+
+    .print-full-width {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+
+    .recharts-wrapper {
+      page-break-inside: avoid;
+    }
+
+    .card {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    h1,
+    h2,
+    h3 {
+      page-break-after: avoid;
+    }
+  }
+
   /* Ensure indicators are visible in both light and dark modes */
   @keyframes pulse-orange {
     0%,

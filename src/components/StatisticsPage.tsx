@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import StatisticsExport from '@/components/StatisticsExport';
 import {
   LineChart,
   Line,
@@ -104,6 +106,7 @@ interface StatisticsData {
 
 const StatisticsPage = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const userId = localStorage.getItem('userId');
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<string>('month');
@@ -208,10 +211,20 @@ const StatisticsPage = () => {
     <div className="min-h-screen bg-background p-4 sm:p-6 pb-20">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Заголовок и фильтры */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Статистика</h1>
-            <p className="text-muted-foreground mt-1">Полный анализ вашего бизнеса</p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => navigate('/')}
+              className="shrink-0"
+            >
+              <Icon name="ArrowLeft" size={20} />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Статистика</h1>
+              <p className="text-muted-foreground mt-1">Полный анализ вашего бизнеса</p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -253,6 +266,8 @@ const StatisticsPage = () => {
             <Button onClick={fetchStatistics} variant="outline" size="sm" disabled={loading}>
               <Icon name={loading ? 'Loader2' : 'RefreshCw'} className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
+
+            <StatisticsExport data={data} />
           </div>
         </div>
 
