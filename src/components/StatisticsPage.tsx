@@ -260,9 +260,39 @@ const StatisticsPage = () => {
     );
   }
 
+  const getPeriodLabel = (period: string) => {
+    const labels: Record<string, string> = {
+      day: 'Сегодня',
+      week: 'Неделя',
+      month: 'Месяц',
+      quarter: 'Квартал',
+      year: 'Год',
+      all: 'Всё время',
+      custom: 'Произвольный период',
+    };
+    return labels[period] || period;
+  };
+
+  const formatDateForPrint = (dateStr: string | null) => {
+    if (!dateStr) return 'Не указано';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU');
+  };
+
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 pb-20">
       <div className="max-w-7xl mx-auto space-y-6">
+        <div className="hidden print:block mb-6">
+          <h1 className="text-2xl font-bold mb-2">Статистика фотостудии</h1>
+          <p className="text-sm">
+            Период: {getPeriodLabel(period)} 
+            {data.date_range.start && data.date_range.end && 
+              ` (${formatDateForPrint(data.date_range.start)} - ${formatDateForPrint(data.date_range.end)})`
+            }
+          </p>
+          <p className="text-sm">Дата формирования: {new Date().toLocaleDateString('ru-RU')}</p>
+        </div>
+
         <StatisticsHeader
           period={period}
           setPeriod={setPeriod}

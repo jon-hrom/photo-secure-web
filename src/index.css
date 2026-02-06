@@ -544,3 +544,94 @@
     -webkit-touch-callout: none;
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .dark {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 20%;
+  }
+
+  [class*="bg-"] {
+    background: white !important;
+  }
+
+  [class*="text-"] {
+    color: black !important;
+  }
+
+  button,
+  [role="button"],
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: black !important;
+    font-weight: 600;
+    page-break-after: avoid;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  img {
+    page-break-inside: avoid;
+  }
+
+  .recharts-wrapper,
+  .recharts-surface {
+    filter: grayscale(50%);
+  }
+
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  .max-w-7xl {
+    max-width: 100% !important;
+  }
+
+  .space-y-6 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  [class*="grid"] {
+    display: block !important;
+  }
+
+  [class*="grid"] > * {
+    margin-bottom: 0.5rem !important;
+  }
+}
