@@ -166,66 +166,38 @@ const PhotoGridViewer = ({
               </div>
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">
-                {/* Превью изображение - показывается при zoom < 2.0 (до 300%) или как fallback при загрузке full-res */}
-                {(zoom < 2.0 || isLoadingFullRes || imageError || !viewPhoto.s3_url) && (
-                  <img
-                    src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
-                    alt={viewPhoto.file_name}
-                    className="object-contain cursor-move select-none touch-manipulation"
-                    style={{
-                      transform: zoom > 0 
-                        ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)` 
-                        : 'none',
-                      maxWidth: zoom === 0 ? '80vw' : '90vw',
-                      maxHeight: zoom === 0 ? '55vh' : '65vh',
-                      width: 'auto',
-                      height: 'auto',
-                      transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
-                      imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
-                      touchAction: 'none',
-                      pointerEvents: 'none'
-                    }}
-                    draggable={false}
-                  />
-                )}
-                {/* Full-res изображение - показывается ВМЕСТО превью при zoom >= 2.0 (300% и выше)
-                    Для RAW используем thumbnail, для обычных - s3_url (оригинал) */}
-                {zoom >= 2.0 && !imageError && (viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url) && (
-                  <img
-                    src={viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url}
-                    alt={viewPhoto.file_name}
-                    className="object-contain cursor-move select-none touch-manipulation"
-                    style={{
-                      transform: `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`,
-                      maxWidth: '85vw',
-                      maxHeight: '65vh',
-                      width: 'auto',
-                      height: 'auto',
-                      transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
-                      imageRendering: 'high-quality',
-                      opacity: isLoadingFullRes ? 0 : 1,
-                      touchAction: 'none',
-                      pointerEvents: 'none'
-                    }}
-                    onLoad={() => {
-                      console.log('[PHOTO_VIEWER] Full-res loaded:', viewPhoto.file_name, 'isRAW:', viewPhoto.is_raw);
-                    }}
-                    onError={(e) => {
-                      console.error('[PHOTO_VIEWER] Full-res image load error:', {
-                        fileName: viewPhoto.file_name,
-                        isRAW: viewPhoto.is_raw,
-                        s3Url: viewPhoto.s3_url,
-                        thumbnailUrl: viewPhoto.thumbnail_s3_url,
-                        s3Key: viewPhoto.s3_key,
-                        error: e
-                      });
-                    }}
-                    onLoadStart={() => {
-                      console.log('[PHOTO_VIEWER] Full-res loading started:', viewPhoto.is_raw ? viewPhoto.thumbnail_s3_url : viewPhoto.s3_url);
-                    }}
-                    draggable={false}
-                  />
-                )}
+                {/* Оригинальное изображение - показывается всегда */}
+                <img
+                  src={viewPhoto.s3_url || viewPhoto.data_url || viewPhoto.thumbnail_s3_url || ''}
+                  alt={viewPhoto.file_name}
+                  className="object-contain cursor-move select-none touch-manipulation"
+                  style={{
+                    transform: zoom > 0 
+                      ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)` 
+                      : 'none',
+                    maxWidth: zoom === 0 ? '95vw' : '100vw',
+                    maxHeight: zoom === 0 ? '90vh' : '100vh',
+                    width: 'auto',
+                    height: 'auto',
+                    transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
+                    imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
+                    touchAction: 'none',
+                    pointerEvents: 'none',
+                    opacity: imageError ? 0.5 : 1
+                  }}
+                  onLoad={() => {
+                    console.log('[PHOTO_VIEWER] Image loaded:', viewPhoto.file_name, 's3_url:', viewPhoto.s3_url);
+                  }}
+                  onError={(e) => {
+                    console.error('[PHOTO_VIEWER] Image load error:', {
+                      fileName: viewPhoto.file_name,
+                      s3Url: viewPhoto.s3_url,
+                      thumbnailUrl: viewPhoto.thumbnail_s3_url,
+                      error: e
+                    });
+                  }}
+                  draggable={false}
+                />
                 {isLoadingFullRes && zoom >= 2.0 && (
                   <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm px-3 py-2 rounded-full flex items-center gap-2">
                     <Icon name="Loader2" size={16} className="animate-spin text-white/80" />
