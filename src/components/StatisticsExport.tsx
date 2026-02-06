@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { addRobotoFont } from '@/utils/pdf-font';
 
 
 interface StatisticsData {
@@ -123,15 +124,27 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
     return labels[period] || period;
   };
 
+  const transliterateFileName = (text: string): string => {
+    const map: Record<string, string> = {
+      'Сегодня': 'segodnya',
+      'Неделя': 'nedelya',
+      'Месяц': 'mesyac',
+      'Квартал': 'kvartal',
+      'Год': 'god',
+      'Всё время': 'vse-vremya',
+      'Произвольный период': 'custom',
+    };
+    return map[text] || text.toLowerCase().replace(/\s+/g, '-');
+  };
+
 
 
   const exportToPDF = () => {
     try {
       const doc = new jsPDF();
 
-      // Используем Roboto шрифт с поддержкой кириллицы
-      doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-      doc.setFont('Roboto', 'normal');
+      // Добавляем Roboto шрифт с поддержкой русского языка
+      addRobotoFont(doc);
 
       doc.setFontSize(18);
       doc.text('Статистика фотостудии', 14, 15);
@@ -293,7 +306,7 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
         styles: { font: 'Roboto' },
       });
 
-      const fileName = `statistika_${getPeriodLabel(data.period)}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
+      const fileName = `statistika_${transliterateFileName(getPeriodLabel(data.period))}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
       doc.save(fileName);
 
       toast({
@@ -394,7 +407,7 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
       const ws5 = XLSX.utils.aoa_to_sheet(topProjectsData);
       XLSX.utils.book_append_sheet(wb, ws5, 'ТОП проекты');
 
-      const fileName = `statistika_${transliterate(getPeriodLabel(data.period))}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`;
+      const fileName = `statistika_${transliterateFileName(getPeriodLabel(data.period))}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.xlsx`;
       XLSX.writeFile(wb, fileName);
 
       toast({
