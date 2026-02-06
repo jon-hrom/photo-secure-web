@@ -206,8 +206,8 @@ def handler(event: dict, context) -> dict:
                     
                     print(f'[URL_UPLOAD] Image dimensions: {width}x{height}, size: {file_size} bytes')
                     
-                    # Для больших файлов создаём маленькое превью (400px), для обычных - 800px
-                    max_thumb_size = 400 if file_size > 10 * 1024 * 1024 else 800
+                    # Увеличенный размер thumbnail для чёткости лиц (1200px вместо 800px)
+                    max_thumb_size = 1200
                     img.thumbnail((max_thumb_size, max_thumb_size), Image.Resampling.LANCZOS)
                     
                     print(f'[URL_UPLOAD] Thumbnail size: {img.size}, max: {max_thumb_size}px')
@@ -222,8 +222,8 @@ def handler(event: dict, context) -> dict:
                     elif img.mode != 'RGB':
                         img = img.convert('RGB')
                     
-                    # Для больших файлов сжимаем сильнее (качество 60), для обычных - 75
-                    quality = 60 if file_size > 10 * 1024 * 1024 else 75
+                    # Повышенное качество для чёткости деталей (85 вместо 75)
+                    quality = 85
                     thumb_buffer = BytesIO()
                     img.save(thumb_buffer, format='JPEG', quality=quality, optimize=True)
                     thumb_buffer.seek(0)
