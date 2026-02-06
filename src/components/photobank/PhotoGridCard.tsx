@@ -70,6 +70,36 @@ const PhotoGridCard = ({
     }
   };
 
+  const fixDoubleSpacesInUrl = (url: string | undefined): string | undefined => {
+    if (!url) return url;
+    const fixed = url.replace(/%20%20/g, '%20');
+    if (url !== fixed) {
+      console.log('[PHOTO_CARD] Fixed URL with double spaces:', { original: url, fixed });
+    }
+    return fixed;
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    console.error('[PHOTO_CARD] Image load error:', {
+      photoId: photo.id,
+      fileName: photo.file_name,
+      thumbnailUrl: photo.thumbnail_s3_url,
+      s3Url: photo.s3_url,
+      attemptedUrl: e.currentTarget.src,
+      error: e
+    });
+    setImageError(true);
+  };
+
+  const handleImageLoad = () => {
+    console.log('[PHOTO_CARD] Image loaded:', {
+      photoId: photo.id,
+      fileName: photo.file_name,
+      url: photo.thumbnail_s3_url || photo.s3_url
+    });
+    setImageLoaded(true);
+  };
+
   return (
     <div
       className={`relative group rounded-lg overflow-hidden border-2 transition-colors ${
@@ -122,12 +152,12 @@ const PhotoGridCard = ({
               </div>
             )}
             <img
-              src={photo.thumbnail_s3_url || photo.s3_url}
+              src={fixDoubleSpacesInUrl(photo.thumbnail_s3_url || photo.s3_url)}
               alt={photo.file_name}
               className={`w-full h-full object-contain transition-opacity duration-300 ${imageLoaded && !imageError ? 'opacity-100' : 'opacity-0'}`}
               loading="lazy"
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}
               style={{ 

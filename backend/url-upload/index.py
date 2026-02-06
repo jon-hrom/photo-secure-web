@@ -148,7 +148,8 @@ def handler(event: dict, context) -> dict:
     for idx, url_info in enumerate(filtered_urls):
         try:
             download_url = url_info['url']
-            filename = url_info['name']
+            # Убираем лишние пробелы в начале и конце имени файла
+            filename = url_info['name'].strip()
             
             print(f'[URL_UPLOAD] Processing {idx+1}/{len(filtered_urls)}: {filename}')
             
