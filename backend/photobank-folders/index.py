@@ -45,18 +45,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     db_url = os.environ.get('DATABASE_URL')
-    s3_key_id = os.environ.get('YC_S3_KEY_ID')
-    s3_secret = os.environ.get('YC_S3_SECRET')
-    bucket = 'foto-mix'
     
-    s3_client = boto3.client(
+    # НОВЫЙ S3 (bucket.poehali.dev) - используется для всех новых загрузок
+    new_s3_client = boto3.client(
+        's3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+    )
+    new_bucket = 'files'
+    
+    # СТАРЫЙ S3 (yandexcloud) - fallback для старых фото
+    old_s3_client = boto3.client(
         's3',
         endpoint_url='https://storage.yandexcloud.net',
         region_name='ru-central1',
-        aws_access_key_id=s3_key_id,
-        aws_secret_access_key=s3_secret,
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
         config=Config(signature_version='s3v4')
     )
+    old_bucket = 'foto-mix'
     
     try:
         conn = psycopg2.connect(db_url)
@@ -144,10 +152,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 file_ext = file_name.split('.')[-1] if '.' in file_name else 'jpg'
                 s3_key = f'{folder["s3_prefix"]}{uuid.uuid4()}.{file_ext}'
                 
-                presigned_url = s3_client.generate_presigned_url(
+                # Используем СТАРЫЙ S3 для presigned upload URLs (совместимость)
+                presigned_url = old_s3_client.generate_presigned_url(
                     'put_object',
                     Params={
-                        'Bucket': bucket,
+                        'Bucket': old_bucket,
                         'Key': s3_key,
                         'ContentType': 'image/jpeg',
                         'Metadata': {
@@ -185,7 +194,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pb.id, 
                             pb.file_name, 
                             pb.s3_key,
+                            pb.s3_url,
                             pb.thumbnail_s3_key,
+                            pb.thumbnail_s3_url,
                             pb.is_raw,
                             pb.is_video,
                             pb.content_type,
@@ -212,62 +223,45 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     result_photos = []
                     
-                    # Инициализируем Yandex S3 клиент для fallback
-                    old_s3_client = boto3.client(
-                        's3',
-                        endpoint_url='https://storage.yandexcloud.net',
-                        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
-                        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
-                        region_name='ru-central1',
-                        config=Config(signature_version='s3v4')
-                    )
-                    
-                    # ВСЕГДА генерируем presigned URLs, т.к. bucket приватный
+                    # Используем s3_url/thumbnail_s3_url из БД если есть (новый CDN публичный!)
+                    # Генерируем presigned URLs только для старых фото (yandexcloud)
                     for photo in photos:
                         if photo['created_at']:
                             photo['created_at'] = photo['created_at'].isoformat()
                         
-                        # Генерируем presigned URL для основного фото
-                        if photo['s3_key']:
+                        # Если в БД уже есть URL с cdn.poehali.dev - используем его (публичный CDN)
+                        if photo.get('s3_url') and 'cdn.poehali.dev' in photo['s3_url']:
+                            # Новый CDN - URL уже готов, ничего генерировать не нужно
+                            pass
+                        elif photo['s3_key']:
+                            # Старые фото - генерируем presigned URL для yandexcloud
                             try:
-                                photo['s3_url'] = s3_client.generate_presigned_url(
+                                photo['s3_url'] = old_s3_client.generate_presigned_url(
                                     'get_object',
-                                    Params={'Bucket': bucket, 'Key': photo['s3_key']},
+                                    Params={'Bucket': old_bucket, 'Key': photo['s3_key']},
                                     ExpiresIn=3600
                                 )
                             except Exception as e:
                                 print(f'[LIST_PHOTOS] Failed to generate presigned URL for {photo["s3_key"]}: {e}')
-                                try:
-                                    photo['s3_url'] = old_s3_client.generate_presigned_url(
-                                        'get_object',
-                                        Params={'Bucket': 'foto-mix', 'Key': photo['s3_key']},
-                                        ExpiresIn=3600
-                                    )
-                                except Exception as e2:
-                                    print(f'[LIST_PHOTOS] Fallback also failed: {e2}')
-                                    photo['s3_url'] = None
+                                photo['s3_url'] = None
                         else:
                             photo['s3_url'] = None
                         
-                        # Генерируем presigned URL для thumbnail
-                        if photo.get('thumbnail_s3_key'):
+                        # Thumbnail - аналогично
+                        if photo.get('thumbnail_s3_url') and 'cdn.poehali.dev' in photo['thumbnail_s3_url']:
+                            # Новый CDN - URL уже готов
+                            pass
+                        elif photo.get('thumbnail_s3_key'):
+                            # Старые фото - генерируем presigned URL
                             try:
-                                photo['thumbnail_s3_url'] = s3_client.generate_presigned_url(
+                                photo['thumbnail_s3_url'] = old_s3_client.generate_presigned_url(
                                     'get_object',
-                                    Params={'Bucket': bucket, 'Key': photo['thumbnail_s3_key']},
+                                    Params={'Bucket': old_bucket, 'Key': photo['thumbnail_s3_key']},
                                     ExpiresIn=3600
                                 )
                             except Exception as e:
-                                print(f'[LIST_PHOTOS] Failed to generate thumbnail presigned URL for {photo["thumbnail_s3_key"]}: {e}')
-                                try:
-                                    photo['thumbnail_s3_url'] = old_s3_client.generate_presigned_url(
-                                        'get_object',
-                                        Params={'Bucket': 'foto-mix', 'Key': photo['thumbnail_s3_key']},
-                                        ExpiresIn=3600
-                                    )
-                                except Exception as e2:
-                                    print(f'[LIST_PHOTOS] Thumbnail fallback also failed: {e2}')
-                                    photo['thumbnail_s3_url'] = None
+                                print(f'[LIST_PHOTOS] Failed to generate thumbnail presigned URL: {e}')
+                                photo['thumbnail_s3_url'] = None
                         else:
                             photo['thumbnail_s3_url'] = None
                         
