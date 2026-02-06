@@ -238,31 +238,6 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
 
       doc.setFont('Roboto', 'normal');
       doc.setFontSize(14);
-      doc.text('Проекты по категориям', 14, yPos);
-      yPos += 7;
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Категория', 'Количество', 'Доход']],
-        body: data.projects.by_category.map((cat) => [
-          cat.category,
-          cat.count.toString(),
-          formatCurrency(cat.revenue),
-        ]),
-        theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246], font: 'Roboto' },
-        styles: { font: 'Roboto' },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 10;
-
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
-      }
-
-      doc.setFont('Roboto', 'normal');
-      doc.setFontSize(14);
       doc.text('ТОП-5 клиентов', 14, yPos);
       yPos += 7;
 
