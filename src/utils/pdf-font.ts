@@ -1,17 +1,21 @@
 // Utility to add Russian language support to jsPDF using Roboto font from pdfMake
 import { jsPDF } from 'jspdf';
 
-// Import pdfMake fonts
-import pdfMake from 'pdfmake/build/pdfmake';
-import pdfFonts from 'pdfmake/build/vfs_fonts';
-
-// Initialize pdfMake fonts
-(pdfMake as any).vfs = pdfFonts.pdfMake.vfs;
+let fontsInitialized = false;
 
 // Add Roboto font to jsPDF
-export const addRobotoFont = (doc: jsPDF) => {
-  // Get Roboto-Regular font from pdfMake VFS
-  const robotoRegular = pdfFonts.pdfMake.vfs['Roboto-Regular.ttf'];
+export const addRobotoFont = async (doc: jsPDF) => {
+  // Lazy load pdfMake fonts only when needed
+  if (!fontsInitialized) {
+    const pdfMake = await import('pdfmake/build/pdfmake');
+    const pdfFonts = await import('pdfmake/build/vfs_fonts');
+    (pdfMake.default as any).vfs = pdfFonts.default.pdfMake.vfs;
+    fontsInitialized = true;
+  }
+
+  // Dynamic import to access initialized VFS
+  const pdfFonts = await import('pdfmake/build/vfs_fonts');
+  const robotoRegular = pdfFonts.default.pdfMake.vfs['Roboto-Regular.ttf'];
   
   // Add font to jsPDF
   doc.addFileToVFS('Roboto-Regular.ttf', robotoRegular);

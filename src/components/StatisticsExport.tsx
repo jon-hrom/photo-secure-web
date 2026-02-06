@@ -139,12 +139,12 @@ const StatisticsExport = ({ data }: StatisticsExportProps) => {
 
 
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
       const doc = new jsPDF();
 
       // Добавляем Roboto шрифт с поддержкой русского языка
-      addRobotoFont(doc);
+      await addRobotoFont(doc);
 
       doc.setFontSize(18);
       doc.text('Статистика фотостудии', 14, 15);
