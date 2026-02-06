@@ -171,12 +171,10 @@ const PhotoGridViewer = ({
                   <img
                     src={viewPhoto.thumbnail_s3_url}
                     alt={viewPhoto.file_name}
-                    className="object-contain cursor-zoom-in select-none touch-manipulation"
+                    className="object-contain cursor-zoom-in select-none touch-manipulation absolute inset-0"
                     style={{
-                      maxWidth: '95vw',
-                      maxHeight: '90vh',
-                      width: 'auto',
-                      height: 'auto',
+                      width: '100%',
+                      height: '100%',
                       touchAction: 'none',
                       pointerEvents: 'none',
                       opacity: imageError ? 0.5 : 1
@@ -193,13 +191,11 @@ const PhotoGridViewer = ({
                   <img
                     src={viewPhoto.s3_url || viewPhoto.data_url || viewPhoto.thumbnail_s3_url || ''}
                     alt={viewPhoto.file_name}
-                    className="object-contain cursor-move select-none touch-manipulation"
+                    className="object-contain cursor-move select-none touch-manipulation absolute inset-0"
                     style={{
+                      width: '100%',
+                      height: '100%',
                       transform: `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`,
-                      maxWidth: '100vw',
-                      maxHeight: '100vh',
-                      width: 'auto',
-                      height: 'auto',
                       transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
                       imageRendering: zoom > 0.5 ? 'high-quality' : 'auto',
                       touchAction: 'none',
