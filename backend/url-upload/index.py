@@ -153,10 +153,11 @@ def handler(event: dict, context) -> dict:
             print(f'[URL_UPLOAD] Processing {idx+1}/{len(filtered_urls)}: {filename}')
             
             # Скачиваем файл (снижаем timeout)
+            print(f'[URL_UPLOAD] 📥 Downloading {filename} from {download_url[:100]}...')
             response = requests.get(download_url, timeout=8, stream=True)
             response.raise_for_status()
             
-            print(f'[URL_UPLOAD] Downloaded {filename}, size: {response.headers.get("content-length", "unknown")}')
+            print(f'[URL_UPLOAD] ✅ Downloaded {filename}, size: {response.headers.get("content-length", "unknown")}')
             
             file_size = int(response.headers.get('content-length', 0))
             file_content = response.content
@@ -173,7 +174,7 @@ def handler(event: dict, context) -> dict:
             # Загружаем в S3 с оригинальным именем
             s3_key = f'{s3_prefix}{filename}'
             
-            print(f'[URL_UPLOAD] Uploading to S3: {s3_key}')
+            print(f'[URL_UPLOAD] 📤 Uploading to S3: {s3_key}')
             
             s3.put_object(
                 Bucket=bucket,
@@ -182,28 +183,33 @@ def handler(event: dict, context) -> dict:
                 ContentType=response.headers.get('content-type', 'application/octet-stream')
             )
             
-            print(f'[URL_UPLOAD] Uploaded to S3 successfully')
+            print(f'[URL_UPLOAD] ✅ Uploaded to S3 successfully')
             
             # Формируем CDN URL с кодированием спецсимволов (скобки, пробелы и т.д.)
             aws_key_id = os.environ['AWS_ACCESS_KEY_ID']
             encoded_s3_key = quote(s3_key, safe='/')
             s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{encoded_s3_key}'
             
-            # Генерируем превью только для небольших изображений (не RAW)
+            # Генерируем превью для всех изображений (кроме RAW)
             thumbnail_s3_key = None
             thumbnail_s3_url = None
             width = None
             height = None
             is_raw = filename.lower().endswith(('.cr2', '.nef', '.arw', '.dng', '.raw'))
             
-            # Пропускаем превью для RAW файлов и больших файлов (>10MB)
-            if not is_raw and file_size < 10 * 1024 * 1024:
+            # Для RAW файлов превью не создаём (требуется специальная обработка)
+            if not is_raw:
                 try:
                     img = Image.open(BytesIO(file_content))
                     width, height = img.size
                     
-                    # Создаём превью (макс 800px для экономии памяти)
-                    img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                    print(f'[URL_UPLOAD] Image dimensions: {width}x{height}, size: {file_size} bytes')
+                    
+                    # Для больших файлов создаём маленькое превью (400px), для обычных - 800px
+                    max_thumb_size = 400 if file_size > 10 * 1024 * 1024 else 800
+                    img.thumbnail((max_thumb_size, max_thumb_size), Image.Resampling.LANCZOS)
+                    
+                    print(f'[URL_UPLOAD] Thumbnail size: {img.size}, max: {max_thumb_size}px')
                     
                     # Конвертируем в JPEG если нужно
                     if img.mode in ('RGBA', 'LA', 'P'):
@@ -215,10 +221,14 @@ def handler(event: dict, context) -> dict:
                     elif img.mode != 'RGB':
                         img = img.convert('RGB')
                     
-                    # Сохраняем в буфер с меньшим качеством
+                    # Для больших файлов сжимаем сильнее (качество 60), для обычных - 75
+                    quality = 60 if file_size > 10 * 1024 * 1024 else 75
                     thumb_buffer = BytesIO()
-                    img.save(thumb_buffer, format='JPEG', quality=75, optimize=True)
+                    img.save(thumb_buffer, format='JPEG', quality=quality, optimize=True)
                     thumb_buffer.seek(0)
+                    
+                    thumb_size = len(thumb_buffer.getvalue())
+                    print(f'[URL_UPLOAD] Thumbnail buffer size: {thumb_size} bytes (quality={quality})')
                     
                     # Загружаем превью в S3
                     # Убираем расширение из filename, чтобы избежать .jpg.jpg
@@ -234,13 +244,16 @@ def handler(event: dict, context) -> dict:
                     encoded_thumbnail_key = quote(thumbnail_s3_key, safe='/')
                     thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{encoded_thumbnail_key}'
                     
-                    print(f'[URL_UPLOAD] Generated thumbnail: {thumbnail_s3_key}')
+                    print(f'[URL_UPLOAD] ✅ Generated thumbnail: {thumbnail_s3_key}')
                 except Exception as thumb_error:
-                    print(f'[URL_UPLOAD] Could not generate thumbnail: {str(thumb_error)}')
+                    print(f'[URL_UPLOAD] ⚠️ Could not generate thumbnail: {str(thumb_error)}')
+                    import traceback
+                    print(f'[URL_UPLOAD] Traceback: {traceback.format_exc()}')
             else:
-                print(f'[URL_UPLOAD] Skipping thumbnail for RAW/large file: {filename}')
+                print(f'[URL_UPLOAD] ⏭️ Skipping thumbnail for RAW file: {filename}')
             
             # Сохраняем в БД
+            print(f'[URL_UPLOAD] 📦 Saving to DB: user_id={user_id}, folder_id={folder_id}, file_size={file_size}, width={width}, height={height}, has_thumbnail={thumbnail_s3_url is not None}')
             cursor.execute(
                 '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
                    (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
@@ -250,6 +263,7 @@ def handler(event: dict, context) -> dict:
             )
             photo_id = cursor.fetchone()['id']
             conn.commit()
+            print(f'[URL_UPLOAD] ✅ Committed to DB, photo_id={photo_id}')
             
             uploaded_files.append({
                 'id': photo_id,
@@ -259,10 +273,12 @@ def handler(event: dict, context) -> dict:
                 'thumbnail_s3_url': thumbnail_s3_url
             })
             
-            print(f'[URL_UPLOAD] Saved to DB with id={photo_id}')
+            print(f'[URL_UPLOAD] ✅ COMPLETE: {filename} (id={photo_id})')
             
         except Exception as e:
-            print(f'[URL_UPLOAD] Error processing {url_info["name"]}: {str(e)}')
+            print(f'[URL_UPLOAD] ❌ ERROR processing {url_info["name"]}: {str(e)}')
+            import traceback
+            print(f'[URL_UPLOAD] Traceback: {traceback.format_exc()}')
             failed_files.append({
                 'filename': url_info['name'],
                 'error': str(e)
@@ -270,6 +286,8 @@ def handler(event: dict, context) -> dict:
     
     cursor.close()
     conn.close()
+    
+    print(f'[URL_UPLOAD] 🏁 FINISHED: uploaded={len(uploaded_files)}, failed={len(failed_files)}, total_found={total_found}')
     
     return {
         'statusCode': 200,
