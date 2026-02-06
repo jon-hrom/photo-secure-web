@@ -242,10 +242,10 @@ def get_clients_stats(cur, photographer_id: str, date_filter: str) -> Dict[str, 
 def get_projects_stats(cur, photographer_id: str, date_filter: str) -> Dict[str, Any]:
     '''Статистика по проектам'''
     
-    # Проекты по типам съемки (используем shooting_address как категорию)
+    # Проекты по категориям
     cur.execute(f'''
         SELECT 
-            COALESCE(c.shooting_address, 'Не указано') as category,
+            COALESCE(cp.category, 'Не указано') as category,
             COUNT(cp.id) as count,
             COALESCE(SUM(pay.amount), 0) as revenue
         FROM {SCHEMA}.client_projects cp
@@ -253,7 +253,7 @@ def get_projects_stats(cur, photographer_id: str, date_filter: str) -> Dict[str,
         LEFT JOIN {SCHEMA}.client_payments pay ON cp.id = pay.project_id AND pay.status = 'completed'
         WHERE c.photographer_id = {photographer_id}
           AND cp.created_at {date_filter}
-        GROUP BY c.shooting_address
+        GROUP BY cp.category
         ORDER BY count DESC
     ''')
     projects_by_category = cur.fetchall()
