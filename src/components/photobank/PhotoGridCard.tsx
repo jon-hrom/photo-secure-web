@@ -46,6 +46,8 @@ const PhotoGridCard = ({
   const isVertical = (photo.height || 0) > (photo.width || 0);
   const [showButtons, setShowButtons] = useState(false);
   const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -108,11 +110,24 @@ const PhotoGridCard = ({
       <div className="w-full h-full relative">
         {(photo.thumbnail_s3_url || photo.s3_url) ? (
           <>
+            {!imageLoaded && !imageError && (
+              <div className="w-full h-full flex items-center justify-center bg-muted animate-pulse">
+                <Icon name="Image" size={32} className="text-muted-foreground/50" />
+              </div>
+            )}
+            {imageError && (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+                <Icon name="ImageOff" size={32} className="text-muted-foreground/50 mb-2" />
+                <span className="text-xs text-muted-foreground">Загрузка...</span>
+              </div>
+            )}
             <img
               src={photo.thumbnail_s3_url || photo.s3_url}
               alt={photo.file_name}
-              className="w-full h-full object-contain"
+              className={`w-full h-full object-contain transition-opacity duration-300 ${imageLoaded && !imageError ? 'opacity-100' : 'opacity-0'}`}
               loading="lazy"
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}
               style={{ 

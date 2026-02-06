@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
@@ -14,7 +15,7 @@ interface UploadResult {
 interface UrlUploadDialogProps {
   open: boolean;
   onClose: () => void;
-  onUpload: (url: string, folderId?: number) => Promise<UploadResult>;
+  onUpload: (url: string, folderId?: number, signal?: AbortSignal) => Promise<UploadResult>;
 }
 
 const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
@@ -34,6 +35,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
   const [cancelled, setCancelled] = useState(false);
   const cancelledRef = useRef(false);
   const [createdFolderId, setCreatedFolderId] = useState<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const handleUpload = async () => {
     if (!url.trim()) {
@@ -57,6 +60,9 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
     cancelledRef.current = false;
     setCreatedFolderId(null);
     setUploadingProgress({ current: 0, total: 5 });
+    
+    // Создаём новый AbortController для этой загрузки
+    abortControllerRef.current = new AbortController();
 
     try {
       let totalFound = 0;
@@ -64,7 +70,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       let targetFolderId: number | null = null;
 
       // Первый запрос для получения общего количества
-      const firstResult = await onUpload(url, undefined);
+      const firstResult = await onUpload(url, undefined, abortControllerRef.current?.signal);
       
       // Проверяем отмену сразу после первого запроса
       if (cancelledRef.current) {
@@ -109,7 +115,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
 
         setUploadingProgress({ current: 0, total: 5 });
         
-        const result = await onUpload(url, targetFolderId || undefined);
+        const result = await onUpload(url, targetFolderId || undefined, abortControllerRef.current?.signal);
         
         totalUploadedCount += result.uploaded;
         setTotalUploaded(totalUploadedCount);
@@ -137,17 +143,52 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       
     } catch (err: any) {
       setUploadingProgress(null);
-      setError(err.message || 'Ошибка при загрузке файлов');
+      
+      // Если загрузка отменена, не показываем ошибку
+      if (err.name === 'AbortError' || cancelledRef.current) {
+        setError('');
+      } else {
+        setError(err.message || 'Ошибка при загрузке файлов');
+      }
+      
       setLoading(false);
     }
   };
 
+  const handleCancelUpload = () => {
+    // Закрываем диалог подтверждения
+    setShowCancelDialog(false);
+    
+    // Отменяем все активные запросы
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setCancelled(true);
+    cancelledRef.current = true;
+    setLoading(false);
+    setUploadingProgress(null);
+    
+    // Очищаем и закрываем
+    setTimeout(() => {
+      setUrl('');
+      setError('');
+      setProgress(null);
+      setTotalUploaded(0);
+      setCancelled(false);
+      cancelledRef.current = false;
+      onClose();
+      
+      // Перезагружаем страницу через небольшую задержку
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    }, 300);
+  };
+  
   const handleClose = () => {
     if (loading) {
-      setCancelled(true);
-      cancelledRef.current = true;
-      setLoading(false);
-      setUploadingProgress(null);
+      // Показываем диалог подтверждения
+      setShowCancelDialog(true);
     } else {
       setUrl('');
       setError('');
@@ -158,9 +199,29 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       onClose();
     }
   };
+  
+
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <>
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Остановить загрузку?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Загрузка будет прервана. Уже загруженные фото сохранятся, но процесс придётся начать заново.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Продолжить загрузку</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelUpload}>
+              Да, остановить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Загрузить по ссылке</DialogTitle>
@@ -270,6 +331,7 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 };
 
