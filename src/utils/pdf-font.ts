@@ -8,20 +8,7 @@ export const addRobotoFont = async (doc: jsPDF) => {
   // Lazy load pdfMake fonts only when needed
   if (!fontsCache) {
     const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
-    
-    console.log('pdfFontsModule keys:', Object.keys(pdfFontsModule));
-    console.log('pdfFontsModule.default:', pdfFontsModule.default);
-    console.log('pdfFontsModule.pdfMake:', (pdfFontsModule as any).pdfMake);
-    
-    // Try all possible paths
-    fontsCache = 
-      pdfFontsModule.default?.pdfMake?.vfs || 
-      (pdfFontsModule as any).pdfMake?.vfs ||
-      (pdfFontsModule as any).vfs ||
-      pdfFontsModule.default;
-    
-    console.log('fontsCache:', fontsCache ? 'loaded' : 'null');
-    console.log('fontsCache keys:', fontsCache ? Object.keys(fontsCache).slice(0, 5) : 'none');
+    fontsCache = pdfFontsModule.default || pdfFontsModule;
     
     if (!fontsCache) {
       throw new Error('Failed to load pdfMake fonts');
@@ -29,17 +16,20 @@ export const addRobotoFont = async (doc: jsPDF) => {
   }
 
   const robotoRegular = fontsCache['Roboto-Regular.ttf'];
+  const robotoMedium = fontsCache['Roboto-Medium.ttf'];
   
-  console.log('robotoRegular:', robotoRegular ? `loaded (${robotoRegular.length} chars)` : 'not found');
-  
-  if (!robotoRegular) {
-    throw new Error('Roboto-Regular.ttf not found in pdfMake fonts');
+  if (!robotoRegular || !robotoMedium) {
+    throw new Error('Roboto fonts not found in pdfMake');
   }
   
-  // Add font to jsPDF
+  // Add normal and bold variants
   doc.addFileToVFS('Roboto-Regular.ttf', robotoRegular);
   doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-  doc.setFont('Roboto');
+  
+  doc.addFileToVFS('Roboto-Medium.ttf', robotoMedium);
+  doc.addFont('Roboto-Medium.ttf', 'Roboto', 'bold');
+  
+  doc.setFont('Roboto', 'normal');
 };
 
 export default addRobotoFont;
