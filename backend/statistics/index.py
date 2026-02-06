@@ -55,7 +55,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     start_date = params.get('start_date')  # для custom периода
     end_date = params.get('end_date')  # для custom периода
     
-    conn = get_db_connection()
+    try:
+        conn = get_db_connection()
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Database connection failed: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Определяем временной диапазон
