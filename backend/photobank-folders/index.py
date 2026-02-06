@@ -800,8 +800,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Переносим файлы основной папки в trash
             prefix = folder['s3_prefix']
-            paginator = s3_client.get_paginator('list_objects_v2')
-            pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+            paginator = new_s3_client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=new_bucket, Prefix=prefix)
             
             moved_count = 0
             for page in pages:
@@ -810,12 +810,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     dst_key = f'trash/{src_key}'
                     
                     try:
-                        s3_client.copy_object(
-                            Bucket=bucket,
-                            CopySource={'Bucket': bucket, 'Key': src_key},
+                        new_s3_client.copy_object(
+                            Bucket=new_bucket,
+                            CopySource={'Bucket': new_bucket, 'Key': src_key},
                             Key=dst_key
                         )
-                        s3_client.delete_object(Bucket=bucket, Key=src_key)
+                        new_s3_client.delete_object(Bucket=new_bucket, Key=src_key)
                         moved_count += 1
                     except Exception as e:
                         print(f'Failed to move {src_key} to trash: {e}')
