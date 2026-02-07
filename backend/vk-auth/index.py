@@ -417,6 +417,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'code': code,
                 'redirect_uri': redirect_uri,
                 'code_verifier': session['code_verifier'],
+                'device_id': device_id,
                 'client_id': VK_CLIENT_ID,
                 'client_secret': VK_CLIENT_SECRET
             }
