@@ -354,7 +354,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         action = params.get('action', 'start')
         
         if action == 'start':
-            device_id = str(uuid.uuid4())
+            device_id = str(uuid.uuid4()).replace('-', '')
             
             state = generate_state()
             code_verifier = generate_code_verifier()
@@ -409,7 +409,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            device_id = session.get('device_id') or str(uuid.uuid4())
+            device_id = session.get('device_id') or str(uuid.uuid4()).replace('-', '')
             delete_session(state)
             
             redirect_uri = f'{BASE_URL}/auth/callback/vkid'
