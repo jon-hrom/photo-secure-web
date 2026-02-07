@@ -103,7 +103,7 @@ const PhoneVerificationDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
             <Icon name="MessageSquare" className="text-primary" size={20} />
@@ -173,8 +173,8 @@ const PhoneVerificationDialog = ({
             </Button>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-700 flex items-start gap-2">
+          <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p className="text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
               <Icon name="Info" size={16} className="mt-0.5 flex-shrink-0" />
               <span>
                 SMS может прийти в течение нескольких минут, обязательно проверьте СПАМ сообщения
