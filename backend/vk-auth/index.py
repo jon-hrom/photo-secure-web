@@ -387,7 +387,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif action == 'callback':
             code = params.get('code')
             state = params.get('state')
-            device_id = params.get('device_id', 'web')
             
             if not code or not state:
                 return {
@@ -406,6 +405,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            device_id = session.get('device_id', 'web')
             delete_session(state)
             
             redirect_uri = f'{BASE_URL}/auth/callback/vkid'
