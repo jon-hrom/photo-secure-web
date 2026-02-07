@@ -370,8 +370,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'state': state,
                 'code_challenge': code_challenge,
                 'code_challenge_method': 'S256',
-                'scope': 'email phone',
-                'device_id': device_id
+                'scope': 'email phone'
             }
             
             print(f'[VK_AUTH] Starting auth flow with params: {auth_params}')
@@ -419,8 +418,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'redirect_uri': redirect_uri,
                 'code_verifier': session['code_verifier'],
                 'client_id': VK_CLIENT_ID,
-                'client_secret': VK_CLIENT_SECRET,
-                'device_id': device_id
+                'client_secret': VK_CLIENT_SECRET
             }
             
             print(f'[VK_AUTH] Token request params (device_id from session): device_id={device_id}')
