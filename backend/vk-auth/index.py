@@ -361,7 +361,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             save_session(state, code_verifier, device_id)
             
-            redirect_uri = f'{BASE_URL}/auth/vk/callback'
+            redirect_uri = f'{BASE_URL}/auth/callback/vkid'
             auth_params = {
                 'response_type': 'code',
                 'client_id': VK_CLIENT_ID,
@@ -408,7 +408,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             delete_session(state)
             
-            redirect_uri = f'{BASE_URL}/auth/vk/callback'
+            redirect_uri = f'{BASE_URL}/auth/callback/vkid'
             token_params = {
                 'grant_type': 'authorization_code',
                 'code': code,

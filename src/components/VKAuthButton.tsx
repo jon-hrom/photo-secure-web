@@ -37,7 +37,7 @@ const VKAuthButton = ({ onSuccess, disabled }: VKAuthButtonProps) => {
         return;
       }
 
-      window.location.href = vkAuthUrl;
+      window.location.href = `${vkAuthUrl}?action=start&device_id=web`;
     } catch (error) {
       console.error('VK Auth error:', error);
       toast.error('Ошибка входа через VK');

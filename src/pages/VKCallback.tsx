@@ -33,7 +33,7 @@ const VKCallback = () => {
       try {
         const vkAuthUrl = funcUrls['vk-auth'];
         console.log('VKCallback: Calling backend:', vkAuthUrl);
-        const response = await fetch(`${vkAuthUrl}?code=${code}&state=${state}`);
+        const response = await fetch(`${vkAuthUrl}?action=callback&code=${code}&state=${state}`);
         const data = await response.json();
 
         console.log('VKCallback: Backend response:', data);
