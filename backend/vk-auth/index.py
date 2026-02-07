@@ -505,6 +505,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             jwt_token = create_jwt(user_id, device_id)
             
+            full_name = f'{first_name} {last_name}'.strip() or 'Пользователь VK'
+            
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -512,7 +514,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'success': True,
                     'token': jwt_token,
                     'user_id': user_id,
-                    'device_id': device_id
+                    'device_id': device_id,
+                    'profile': {
+                        'vk_id': vk_user_id,
+                        'email': email,
+                        'name': full_name,
+                        'avatar': avatar,
+                        'verified': is_verified,
+                        'phone': phone
+                    }
                 }),
                 'isBase64Encoded': False
             }
