@@ -353,7 +353,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         action = params.get('action', 'start')
         
         if action == 'start':
-            device_id = params.get('device_id', 'web')
+            device_id = 'browser'
             
             state = generate_state()
             code_verifier = generate_code_verifier()
@@ -372,7 +372,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'scope': 'email phone'
             }
             
+            print(f'[VK_AUTH] Starting auth flow with params: {auth_params}')
             auth_url = f'{VK_AUTH_URL}?{urlencode(auth_params)}'
+            print(f'[VK_AUTH] Redirecting to: {auth_url}')
             
             return {
                 'statusCode': 302,
@@ -405,7 +407,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            device_id = session.get('device_id', 'web')
+            device_id = session.get('device_id', 'browser')
             delete_session(state)
             
             redirect_uri = f'{BASE_URL}/auth/callback/vkid'
