@@ -9,7 +9,7 @@ interface PromoCodeInputProps {
   planId: number;
   userId: number;
   originalPrice: number;
-  onPromoApplied: (discount: number, finalPrice: number, duration: number) => void;
+  onPromoApplied: (discount: number, finalPrice: number, duration: number, code?: string) => void;
   onPromoRemoved: () => void;
 }
 
@@ -70,7 +70,8 @@ export const PromoCodeInput = ({
         onPromoApplied(
           data.discount_amount,
           data.final_price,
-          data.promo_code.duration_months || 1
+          data.promo_code.duration_months || 1,
+          promoCode.toUpperCase()
         );
         toast.success(`Промокод применен! Скидка ${data.savings_percent}%`);
       }
@@ -87,40 +88,6 @@ export const PromoCodeInput = ({
     setPromoCode('');
     onPromoRemoved();
     toast.info('Промокод удален');
-  };
-
-  const handleApply = async () => {
-    if (!appliedPromo) return;
-
-    console.log('[PROMO] Applying promo code...');
-
-    try {
-      const response = await fetch(APPLY_PROMO_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: promoCode.toUpperCase(),
-          user_id: userId,
-          plan_id: planId,
-        }),
-      });
-
-      const data = await response.json();
-      console.log('[PROMO] Apply response:', data);
-
-      if (!response.ok) {
-        toast.error(data.error || 'Ошибка применения промокода');
-        return;
-      }
-
-      toast.success('Промокод успешно применен! Подписка активирована');
-      // Можно добавить редирект или обновление состояния
-    } catch (error) {
-      console.error('[PROMO] Apply error:', error);
-      toast.error('Ошибка применения промокода');
-    }
   };
 
   return (
@@ -188,11 +155,6 @@ export const PromoCodeInput = ({
               </div>
             )}
           </div>
-
-          <Button className="w-full" onClick={handleApply}>
-            <Icon name="Sparkles" className="mr-2 h-4 w-4" />
-            Применить и оформить подписку
-          </Button>
         </div>
       )}
 

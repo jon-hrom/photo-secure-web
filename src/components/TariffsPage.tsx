@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PromoCodeInput } from './PromoCodeInput';
+import funcUrls from '../../backend/func2url.json';
 
 interface Plan {
   plan_id: number;
@@ -44,6 +45,8 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
   const [promoDiscount, setPromoDiscount] = useState<number>(0);
   const [promoFinalPrice, setPromoFinalPrice] = useState<number>(0);
   const [promoDuration, setPromoDuration] = useState<number>(1);
+  const [isApplying, setIsApplying] = useState(false);
+  const [appliedPromoCode, setAppliedPromoCode] = useState<string>('');
 
   useEffect(() => {
     loadPlans();
@@ -85,16 +88,66 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     setIsPromoDialogOpen(true);
   };
 
-  const handlePromoApplied = (discount: number, finalPrice: number, duration: number) => {
+  const handlePromoApplied = (discount: number, finalPrice: number, duration: number, code?: string) => {
     setPromoDiscount(discount);
     setPromoFinalPrice(finalPrice);
     setPromoDuration(duration);
+    setAppliedPromoCode(code || '');
   };
 
   const handlePromoRemoved = () => {
     setPromoDiscount(0);
     setPromoFinalPrice(selectedPlan?.price_rub || 0);
     setPromoDuration(1);
+    setAppliedPromoCode('');
+  };
+
+  const handleApplyTariff = async () => {
+    if (!selectedPlan || !userId) return;
+
+    setIsApplying(true);
+    try {
+      const applyTariffUrl = funcUrls['apply-tariff'];
+      const response = await fetch(applyTariffUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          plan_id: selectedPlan.plan_id,
+          promo_code: appliedPromoCode,
+          duration_months: promoDuration,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Ошибка применения тарифа');
+        return;
+      }
+
+      if (data.payment_required) {
+        toast.info(`Требуется оплата ${data.amount.toFixed(2)} ₽`);
+        // Здесь будет интеграция с платежной системой
+        toast.info('Интеграция с платежной системой скоро появится!');
+      } else {
+        toast.success(data.message || 'Тариф успешно применен!');
+      }
+
+      setIsPromoDialogOpen(false);
+      
+      // Обновляем страницу через 2 секунды, чтобы пользователь увидел лимиты
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('[APPLY_TARIFF] Error:', error);
+      toast.error('Ошибка применения тарифа');
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const getPlanFeatures = (plan: Plan): string[] => {
@@ -261,10 +314,68 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
                 )}
 
                 {selectedPlan.price_rub === 0 && (
-                  <Button className="w-full" size="lg">
-                    <Icon name="Check" className="mr-2 h-5 w-5" />
-                    Активировать бесплатный тариф
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    onClick={handleApplyTariff}
+                    disabled={isApplying}
+                  >
+                    {isApplying ? (
+                      <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <Icon name="Check" className="mr-2 h-5 w-5" />
+                    )}
+                    {isApplying ? 'Активация...' : 'Активировать бесплатный тариф'}
                   </Button>
+                )}
+
+                {selectedPlan.price_rub > 0 && promoDiscount === 0 && (
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    onClick={handleApplyTariff}
+                    disabled={isApplying}
+                  >
+                    {isApplying ? (
+                      <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <Icon name="CreditCard" className="mr-2 h-5 w-5" />
+                    )}
+                    {isApplying ? 'Обработка...' : 'Оплатить и применить тариф'}
+                  </Button>
+                )}
+
+                {selectedPlan.price_rub > 0 && promoDiscount > 0 && (
+                  <div className="space-y-4">
+                    <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                      <div className="flex justify-between items-center text-lg">
+                        <span className="font-semibold">Итого к оплате:</span>
+                        <span className="text-2xl font-bold text-green-600">
+                          {promoFinalPrice.toFixed(2)} ₽
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Срок подписки: {promoDuration} {promoDuration === 1 ? 'месяц' : 'месяца'}
+                      </p>
+                      <p className="text-xs text-green-600">
+                        Экономия: {promoDiscount.toFixed(2)} ₽
+                      </p>
+                    </div>
+
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      onClick={handleApplyTariff}
+                      disabled={isApplying}
+                    >
+                      {isApplying ? (
+                        <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <Icon name="Sparkles" className="mr-2 h-5 w-5" />
+                      )}
+                      {isApplying ? 'Обработка...' : 'Оплатить и применить тариф'}
+                    </Button>
+                  </div>
                 )}
               </>
             )}
