@@ -509,6 +509,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
+                    'success': True,
                     'token': jwt_token,
                     'user_id': user_id,
                     'device_id': device_id
