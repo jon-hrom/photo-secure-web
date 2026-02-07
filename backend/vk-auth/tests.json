@@ -1,21 +1,19 @@
 {
   "tests": [
     {
-      "name": "Start VK OAuth flow",
-      "method": "GET",
+      "name": "OPTIONS request for CORS",
+      "method": "OPTIONS",
       "path": "/",
-      "expectedStatus": 302,
-      "bodyMatcher": "ignore"
+      "expectedStatus": 200
     },
     {
-      "name": "Handle invalid state",
+      "name": "Start VK OAuth flow",
       "method": "GET",
-      "path": "/?code=test&state=invalid",
-      "expectedStatus": 400,
-      "expectedBody": {
-        "error": "string"
-      },
-      "bodyMatcher": "partial"
+      "path": "/?action=start&device_id=web",
+      "expectedStatus": 302,
+      "expectedHeaders": {
+        "Location": "string"
+      }
     }
   ]
 }

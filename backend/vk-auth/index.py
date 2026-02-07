@@ -145,7 +145,6 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
         with conn.cursor() as cur:
             full_name = f"{first_name} {last_name}".strip()
             
-            # Проверяем существование в vk_users
             cur.execute(f"""
                 SELECT user_id, is_blocked, blocked_reason 
                 FROM {SCHEMA}.vk_users 
@@ -161,7 +160,6 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 
                 user_id = vk_user['user_id']
                 
-                # Обновляем данные
                 cur.execute(f"""
                     UPDATE {SCHEMA}.vk_users 
                     SET full_name = {escape_sql(full_name)},
@@ -173,7 +171,6 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     WHERE vk_sub = {escape_sql(vk_user_id)}
                 """)
                 
-                # Добавляем email в user_emails если есть
                 if email:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
@@ -184,7 +181,6 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 conn.commit()
                 return user_id
             
-            # Проверяем существование в users по vk_id
             cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE vk_id = {escape_sql(vk_user_id)}")
             existing_user = cur.fetchone()
             
@@ -198,7 +194,6 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                             {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(True)}, CURRENT_TIMESTAMP)
                 """)
                 
-                # Добавляем email в user_emails
                 if email:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
@@ -209,467 +204,299 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 conn.commit()
                 return user_id
             
-            # КРИТИЧНО: Умное объединение аккаунтов - проверяем email И телефон
             user_id = None
             
-            # Шаг 1: Проверяем существование по email в user_emails (любой провайдер)
             if email:
                 cur.execute(f"""
                     SELECT user_id FROM {SCHEMA}.user_emails 
-                    WHERE email = {escape_sql(email)}
+                    WHERE LOWER(email) = LOWER({escape_sql(email)})
+                    ORDER BY added_at ASC
                     LIMIT 1
                 """)
-                existing_by_email = cur.fetchone()
-                if existing_by_email:
-                    user_id = existing_by_email['user_id']
-                    print(f"[VK_AUTH] Found existing user by email: user_id={user_id}, email={email}")
+                email_match = cur.fetchone()
+                if email_match:
+                    user_id = email_match['user_id']
+                    print(f'[VK_AUTH] Found existing user by email: user_id={user_id}, email={email}')
             
-            # Шаг 2: Если не нашли по email, проверяем по телефону
             if not user_id and phone:
                 cur.execute(f"""
                     SELECT id FROM {SCHEMA}.users 
-                    WHERE phone = {escape_sql(phone)} AND phone IS NOT NULL AND phone != ''
-                    ORDER BY registered_at ASC LIMIT 1
+                    WHERE phone_number = {escape_sql(phone)}
+                    ORDER BY created_at ASC
+                    LIMIT 1
                 """)
-                existing_by_phone = cur.fetchone()
-                if existing_by_phone:
-                    user_id = existing_by_phone['id']
-                    print(f"[VK_AUTH] Found existing user by phone: user_id={user_id}, phone={phone}")
+                phone_match = cur.fetchone()
+                if phone_match:
+                    user_id = phone_match['id']
+                    print(f'[VK_AUTH] Found existing user by phone: user_id={user_id}, phone={phone}')
             
-            # Если нашли пользователя (по email ИЛИ по телефону)
             if user_id:
-                # Обновляем существующего пользователя
                 cur.execute(f"""
                     UPDATE {SCHEMA}.users 
                     SET vk_id = {escape_sql(vk_user_id)},
-                        phone = COALESCE(phone, {escape_sql(phone)}),
-                        display_name = COALESCE(display_name, {escape_sql(full_name)}),
+                        email = COALESCE(NULLIF({escape_sql(email)}, ''), email),
+                        phone_number = COALESCE(NULLIF({escape_sql(phone)}, ''), phone_number),
+                        full_name = COALESCE(NULLIF({escape_sql(full_name)}, ''), full_name),
+                        avatar_url = COALESCE(NULLIF({escape_sql(avatar_url)}, ''), avatar_url),
                         last_login = CURRENT_TIMESTAMP,
-                        ip_address = {escape_sql(ip_address)},
-                        user_agent = {escape_sql(user_agent)}
+                        updated_at = CURRENT_TIMESTAMP
                     WHERE id = {user_id}
                 """)
                 
-                # Создаём или обновляем запись в vk_users
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.vk_users 
-                    (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login, 
-                     ip_address, user_agent)
+                    (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login)
                     VALUES ({escape_sql(vk_user_id)}, {user_id}, {escape_sql(full_name)}, {escape_sql(avatar_url)}, 
-                            {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(True)}, CURRENT_TIMESTAMP, 
-                            {escape_sql(ip_address)}, {escape_sql(user_agent)})
-                    ON CONFLICT (vk_sub) DO UPDATE SET
-                        full_name = EXCLUDED.full_name,
-                        avatar_url = EXCLUDED.avatar_url,
-                        last_login = EXCLUDED.last_login
+                            {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(True)}, CURRENT_TIMESTAMP)
                 """)
                 
-                # Добавляем email в user_emails ТОЛЬКО если его еще нет
                 if email:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
                         VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT (email, provider) DO UPDATE SET
-                            last_used_at = CURRENT_TIMESTAMP
+                        ON CONFLICT (user_id, email) DO UPDATE SET last_used_at = CURRENT_TIMESTAMP
                     """)
                 
                 conn.commit()
+                print(f'[VK_AUTH] Merged VK account with existing user: user_id={user_id}')
                 return user_id
             
-            # Создаём нового пользователя (телефон не найден)
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.users 
-                (vk_id, email, phone, display_name, is_active, source, registered_at, created_at, updated_at, last_login, 
-                 ip_address, user_agent, role)
+                INSERT INTO {SCHEMA}.users (vk_id, email, phone_number, full_name, avatar_url, role, is_active, created_at, last_login, ip_address, user_agent)
                 VALUES ({escape_sql(vk_user_id)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(full_name)}, 
-                        {escape_sql(True)}, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
-                        {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user')
+                        {escape_sql(avatar_url)}, 'client', {escape_sql(True)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
+                        {escape_sql(ip_address)}, {escape_sql(user_agent)})
                 RETURNING id
             """)
             new_user = cur.fetchone()
-            new_user_id = new_user['id']
+            user_id = new_user['id']
             
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.vk_users 
-                (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login, 
-                 ip_address, user_agent)
-                VALUES ({escape_sql(vk_user_id)}, {new_user_id}, {escape_sql(full_name)}, {escape_sql(avatar_url)}, 
-                        {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(True)}, CURRENT_TIMESTAMP, 
-                        {escape_sql(ip_address)}, {escape_sql(user_agent)})
+                (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login)
+                VALUES ({escape_sql(vk_user_id)}, {user_id}, {escape_sql(full_name)}, {escape_sql(avatar_url)}, 
+                        {escape_sql(is_verified)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(True)}, CURRENT_TIMESTAMP)
             """)
             
-            # Добавляем email в user_emails
             if email:
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                    VALUES ({new_user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    ON CONFLICT DO NOTHING
+                    VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """)
             
             conn.commit()
-            return new_user_id
+            print(f'[VK_AUTH] Created new user: user_id={user_id}, vk_id={vk_user_id}')
+            return user_id
     finally:
         conn.close()
 
 
-def get_security_settings() -> Dict[str, int]:
-    """Получение настроек безопасности из БД"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(f"""
-                SELECT setting_key, setting_value 
-                FROM {SCHEMA}.app_settings 
-                WHERE setting_key IN ('jwt_expiration_minutes', 'session_timeout_minutes')
-            """)
-            rows = cur.fetchall()
-            settings = {row['setting_key']: int(row['setting_value']) for row in rows}
-            return {
-                'jwt_expiration_minutes': settings.get('jwt_expiration_minutes', 30),
-                'session_timeout_minutes': settings.get('session_timeout_minutes', 7)
-            }
-    except Exception as e:
-        print(f"[SECURITY] Error loading settings: {e}")
-        return {'jwt_expiration_minutes': 30, 'session_timeout_minutes': 7}
-    finally:
-        conn.close()
-
-
-def generate_jwt_token(user_id: int, ip_address: str, user_agent: str) -> tuple[str, str]:
-    """Генерация JWT токена с expiration и сохранение в active_sessions"""
+def create_jwt(user_id: int, device_id: str) -> str:
+    """Создание JWT токена с уникальным session_id"""
     import hmac
-    import uuid
     
-    security_settings = get_security_settings()
-    jwt_expiration_minutes = security_settings['jwt_expiration_minutes']
+    session_id = str(secrets.randbits(128))
+    issued_at = int(datetime.now().timestamp())
+    expires_at = issued_at + (30 * 24 * 60 * 60)
     
-    session_id = str(uuid.uuid4())
-    issued_at = datetime.now()
-    expires_at = issued_at + timedelta(minutes=jwt_expiration_minutes)
+    header = base64.urlsafe_b64encode(json.dumps({'alg': 'HS256', 'typ': 'JWT'}).encode()).decode().rstrip('=')
+    payload_data = {
+        'user_id': user_id,
+        'session_id': session_id,
+        'device_id': device_id,
+        'iat': issued_at,
+        'exp': expires_at
+    }
+    payload = base64.urlsafe_b64encode(json.dumps(payload_data).encode()).decode().rstrip('=')
     
-    payload = f"{user_id}:{session_id}:{int(issued_at.timestamp())}:{int(expires_at.timestamp())}"
-    signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    token = f"{payload}:{signature}"
+    message = f'{header}.{payload}'
+    signature = base64.urlsafe_b64encode(
+        hmac.new(JWT_SECRET.encode(), message.encode(), hashlib.sha256).digest()
+    ).decode().rstrip('=')
     
-    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    jwt_token = f'{header}.{payload}.{signature}'
     
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.active_sessions 
-                (session_id, user_id, token_hash, created_at, expires_at, last_activity, ip_address, user_agent)
-                VALUES ({escape_sql(session_id)}, {user_id}, {escape_sql(token_hash)}, 
-                        {escape_sql(issued_at.isoformat())}, {escape_sql(expires_at.isoformat())}, 
-                        {escape_sql(issued_at.isoformat())}, {escape_sql(ip_address)}, {escape_sql(user_agent)})
+                INSERT INTO {SCHEMA}.user_sessions 
+                (session_id, user_id, device_id, jwt_token, issued_at, expires_at, is_active)
+                VALUES ({escape_sql(session_id)}, {user_id}, {escape_sql(device_id)}, {escape_sql(jwt_token)}, 
+                        TO_TIMESTAMP({issued_at}), TO_TIMESTAMP({expires_at}), {escape_sql(True)})
             """)
         conn.commit()
-        print(f"[VK_AUTH] Session created: session_id={session_id}, expires_at={expires_at}")
-    except Exception as e:
-        print(f"[VK_AUTH] Error saving session: {e}")
     finally:
         conn.close()
     
-    return token, session_id
+    return jwt_token
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Главный обработчик VK OAuth"""
     method = event.get('httpMethod', 'GET')
-    
-    cors_headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Content-Type': 'application/json'
-    }
     
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
-            'headers': cors_headers,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Access-Control-Max-Age': '86400'
+            },
             'body': '',
             'isBase64Encoded': False
         }
     
-    query_params = event.get('queryStringParameters', {}) or {}
-    
-    # Проверка существующей сессии (GET /vk-auth?session_id=...)
-    session_id_param = query_params.get('session_id')
-    if session_id_param:
-        try:
-            # Валидация JWT токена
-            parts = session_id_param.split(':')
-            if len(parts) != 3:
-                raise Exception('Неверный формат токена')
+    if method == 'GET':
+        params = event.get('queryStringParameters') or {}
+        action = params.get('action', 'start')
+        
+        if action == 'start':
+            device_id = params.get('device_id', 'web')
             
-            user_id_str, timestamp_str, signature = parts
-            user_id = int(user_id_str)
+            state = generate_state()
+            code_verifier = generate_code_verifier()
+            code_challenge = generate_code_challenge(code_verifier)
             
-            # Проверяем подпись
-            payload = f"{user_id}:{timestamp_str}"
-            expected_signature = hashlib.sha256(
-                (payload + ':' + hashlib.sha256((payload + ':' + JWT_SECRET).encode()).hexdigest()).encode()
-            ).hexdigest()
+            save_session(state, code_verifier, device_id)
             
-            import hmac
-            expected_signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+            redirect_uri = f'{BASE_URL}/auth/vk/callback'
+            auth_params = {
+                'response_type': 'code',
+                'client_id': VK_CLIENT_ID,
+                'redirect_uri': redirect_uri,
+                'state': state,
+                'code_challenge': code_challenge,
+                'code_challenge_method': 'S256',
+                'scope': 'email phone'
+            }
             
-            if signature != expected_signature:
-                raise Exception('Неверная подпись токена')
+            auth_url = f'{VK_AUTH_URL}?{urlencode(auth_params)}'
             
-            # Получаем данные пользователя из БД
-            conn = get_db_connection()
+            return {
+                'statusCode': 302,
+                'headers': {
+                    'Location': auth_url,
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': '',
+                'isBase64Encoded': False
+            }
+        
+        elif action == 'callback':
+            code = params.get('code')
+            state = params.get('state')
+            device_id = params.get('device_id', 'web')
+            
+            if not code or not state:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Missing code or state'}),
+                    'isBase64Encoded': False
+                }
+            
+            session = get_session(state)
+            if not session:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Invalid or expired state'}),
+                    'isBase64Encoded': False
+                }
+            
+            delete_session(state)
+            
+            redirect_uri = f'{BASE_URL}/auth/vk/callback'
+            token_params = {
+                'grant_type': 'authorization_code',
+                'code': code,
+                'redirect_uri': redirect_uri,
+                'code_verifier': session['code_verifier'],
+                'client_id': VK_CLIENT_ID,
+                'client_secret': VK_CLIENT_SECRET,
+                'device_id': device_id,
+                'state': state
+            }
+            
             try:
-                with conn.cursor() as cur:
-                    cur.execute(f"""
-                        SELECT user_id, vk_sub, email, phone_number, full_name, avatar_url, is_verified, is_blocked, blocked_reason
-                        FROM {SCHEMA}.vk_users
-                        WHERE user_id = {user_id}
-                    """)
-                    user = cur.fetchone()
-                    
-                    if not user:
-                        raise Exception('Пользователь не найден')
-                    
-                    # Проверяем блокировку
-                    is_main_admin = user['vk_sub'] == '74713477' or user['email'] == 'jonhrom2012@gmail.com'
-                    if not is_main_admin and user['is_blocked']:
-                        return {
-                            'statusCode': 403,
-                            'headers': cors_headers,
-                            'body': json.dumps({
-                                'success': False,
-                                'blocked': True,
-                                'message': user['blocked_reason'] or 'Аккаунт заблокирован'
-                            }),
-                            'isBase64Encoded': False
-                        }
-                    
+                req = urllib.request.Request(
+                    VK_TOKEN_URL,
+                    data=urlencode(token_params).encode(),
+                    headers={'Content-Type': 'application/x-www-form-urlencoded'}
+                )
+                
+                with urllib.request.urlopen(req) as response:
+                    token_data = json.loads(response.read().decode())
+            except Exception as e:
+                return {
+                    'statusCode': 500,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': f'Token exchange failed: {str(e)}'}),
+                    'isBase64Encoded': False
+                }
+            
+            if 'error' in token_data:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': token_data.get('error_description', 'VK auth failed')}),
+                    'isBase64Encoded': False
+                }
+            
+            vk_user_id = str(token_data.get('user_id', ''))
+            email = token_data.get('email', '')
+            phone = token_data.get('phone', '')
+            first_name = token_data.get('first_name', '')
+            last_name = token_data.get('last_name', '')
+            avatar = token_data.get('avatar', '')
+            
+            vk_info = fetch_vk_user_info(vk_user_id)
+            if vk_info:
+                avatar = vk_info.get('photo_200') or vk_info.get('photo_max') or avatar
+                is_verified = vk_info.get('verified', 0) == 1
+            else:
+                is_verified = False
+            
+            request_context = event.get('requestContext', {})
+            identity = request_context.get('identity', {})
+            ip_address = identity.get('sourceIp', '0.0.0.0')
+            user_agent = identity.get('userAgent', 'Unknown')
+            
+            try:
+                user_id = upsert_vk_user(
+                    vk_user_id, first_name, last_name, avatar,
+                    is_verified, email, phone, ip_address, user_agent
+                )
+            except Exception as e:
+                error_msg = str(e)
+                if error_msg.startswith('USER_BLOCKED:'):
+                    reason = error_msg.split(':', 1)[1]
                     return {
-                        'statusCode': 200,
-                        'headers': cors_headers,
-                        'body': json.dumps({
-                            'success': True,
-                            'token': session_id_param,
-                            'userData': {
-                                'user_id': user['user_id'],
-                                'vk_id': int(user['vk_sub']) if user['vk_sub'] else None,
-                                'email': user['email'],
-                                'phone': user['phone_number'],
-                                'name': user['full_name'],
-                                'avatar': user['avatar_url'],
-                                'verified': user['is_verified']
-                            }
-                        }),
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'user_blocked', 'reason': reason}),
                         'isBase64Encoded': False
                     }
-            finally:
-                conn.close()
-                
-        except Exception as e:
-            print(f"[VK_AUTH] Session validation error: {str(e)}")
+                raise
+            
+            jwt_token = create_jwt(user_id, device_id)
+            
             return {
-                'statusCode': 401,
-                'headers': cors_headers,
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
-                    'success': False,
-                    'error': 'Недействительная сессия'
+                    'token': jwt_token,
+                    'user_id': user_id,
+                    'device_id': device_id
                 }),
                 'isBase64Encoded': False
             }
     
-    # Инициализация OAuth flow
-    if method == 'GET' and not query_params.get('code') and not query_params.get('state'):
-        state = generate_state()
-        code_verifier = generate_code_verifier()
-        code_challenge = generate_code_challenge(code_verifier)
-        device_id = generate_state()  # Генерируем уникальный device_id
-        
-        save_session(state, code_verifier, device_id)
-        
-        auth_params = {
-            'client_id': VK_CLIENT_ID,
-            'redirect_uri': 'https://foto-mix.ru/vk-callback',
-            'response_type': 'code',
-            'scope': 'email phone',
-            'state': state,
-            'code_challenge': code_challenge,
-            'code_challenge_method': 'S256'
-        }
-        
-        redirect_url = f"{VK_AUTH_URL}?{urlencode(auth_params)}"
-        
-        return {
-            'statusCode': 302,
-            'headers': {**cors_headers, 'Location': redirect_url},
-            'body': '',
-            'isBase64Encoded': False
-        }
-    
-    # Обработка callback
-    code = query_params.get('code')
-    state = query_params.get('state')
-    device_id = query_params.get('device_id')  # VK ID возвращает device_id в callback
-    payload = query_params.get('payload')  # Альтернативный способ получения данных
-    
-    print(f"[VK_AUTH] Callback params: code={code}, state={state}, device_id={device_id}, payload={payload[:50] if payload else None}...")
-    
-    # Если payload передан, декодируем его
-    if payload and not device_id:
-        try:
-            payload_data = json.loads(base64.urlsafe_b64decode(payload + '=='))
-            device_id = payload_data.get('device_id')
-            print(f"[VK_AUTH] Extracted from payload: device_id={device_id}")
-        except Exception as e:
-            print(f"[VK_AUTH] Failed to decode payload: {e}")
-    
-    if not code or not state:
-        return {
-            'statusCode': 400,
-            'headers': cors_headers,
-            'body': json.dumps({'success': False, 'error': 'Отсутствуют code или state'}),
-            'isBase64Encoded': False
-        }
-    
-    session = get_session(state)
-    if not session:
-        return {
-            'statusCode': 400,
-            'headers': cors_headers,
-            'body': json.dumps({'success': False, 'error': 'Недействительная сессия'}),
-            'isBase64Encoded': False
-        }
-    
-    try:
-        # Обмен code на токен
-        token_data = {
-            'grant_type': 'authorization_code',
-            'code': code,
-            'code_verifier': session['code_verifier'],
-            'client_id': VK_CLIENT_ID,
-            'redirect_uri': 'https://foto-mix.ru/vk-callback',
-            'state': state
-        }
-        
-        # Добавляем device_id если получили от VK ID
-        if device_id:
-            token_data['device_id'] = device_id
-            print(f"[VK_AUTH] Using device_id from callback: {device_id}")
-        else:
-            print(f"[VK_AUTH] WARNING: No device_id in callback, trying without it")
-        
-        token_request = urllib.request.Request(
-            VK_TOKEN_URL,
-            data=urlencode(token_data).encode(),
-            headers={'Content-Type': 'application/x-www-form-urlencoded'}
-        )
-        
-        try:
-            with urllib.request.urlopen(token_request) as response:
-                token_response = json.loads(response.read().decode())
-        except urllib.error.HTTPError as http_err:
-            error_body = http_err.read().decode() if http_err.fp else 'No error body'
-            print(f"[VK_AUTH] Token exchange failed: {http_err.code} - {error_body}")
-            raise Exception(f'VK token error: {error_body}')
-        
-        print(f"[VK_AUTH] Token response: {json.dumps(token_response)}")
-        
-        user_id = token_response.get('user_id')
-        email = token_response.get('email')
-        phone = token_response.get('phone')
-        
-        if not user_id:
-            print(f"[VK_AUTH] ERROR: user_id not found in response: {token_response}")
-            raise Exception('Не получен user_id от VK')
-        
-        # Получение дополнительной информации о пользователе
-        user_info = fetch_vk_user_info(str(user_id))
-        
-        if not user_info:
-            raise Exception('Не удалось получить информацию о пользователе')
-        
-        first_name = user_info.get('first_name', '')
-        last_name = user_info.get('last_name', '')
-        avatar_url = user_info.get('photo_200', '')
-        is_verified = bool(user_info.get('verified', 0))
-        
-        # IP и User-Agent
-        request_context = event.get('requestContext', {})
-        identity = request_context.get('identity', {})
-        ip_address = identity.get('sourceIp', 'unknown')
-        user_agent = identity.get('userAgent', 'unknown')
-        
-        # Создание/обновление пользователя
-        db_user_id = upsert_vk_user(
-            vk_user_id=str(user_id),
-            first_name=first_name,
-            last_name=last_name,
-            avatar_url=avatar_url,
-            is_verified=is_verified,
-            email=email or '',
-            phone=phone or '',
-            ip_address=ip_address,
-            user_agent=user_agent
-        )
-        
-        delete_session(state)
-        
-        session_token, session_id = generate_jwt_token(db_user_id, ip_address, user_agent)
-        
-        return {
-            'statusCode': 200,
-            'headers': cors_headers,
-            'body': json.dumps({
-                'success': True,
-                'user_id': db_user_id,
-                'session_id': session_token,
-                'token': session_token,  # Добавляем token для совместимости с фронтендом
-                'userData': {
-                    'user_id': db_user_id,
-                    'vk_id': user_id,
-                    'email': email,
-                    'phone': phone,
-                    'name': f"{first_name} {last_name}".strip(),
-                    'avatar': avatar_url,
-                    'verified': is_verified
-                },
-                'profile': {
-                    'vk_id': user_id,
-                    'email': email,
-                    'phone': phone,
-                    'name': f"{first_name} {last_name}".strip(),
-                    'avatar': avatar_url,
-                    'verified': is_verified
-                }
-            }),
-            'isBase64Encoded': False
-        }
-        
-    except Exception as e:
-        import traceback
-        error_msg = str(e)
-        error_trace = traceback.format_exc()
-        
-        print(f"[VK_AUTH] ERROR: {error_msg}")
-        print(f"[VK_AUTH] TRACEBACK: {error_trace}")
-        
-        if error_msg.startswith('USER_BLOCKED:'):
-            reason = error_msg.split(':', 1)[1]
-            return {
-                'statusCode': 403,
-                'headers': cors_headers,
-                'body': json.dumps({
-                    'success': False,
-                    'blocked': True,
-                    'message': reason
-                }),
-                'isBase64Encoded': False
-            }
-        
-        return {
-            'statusCode': 500,
-            'headers': cors_headers,
-            'body': json.dumps({'success': False, 'error': f'Ошибка авторизации: {error_msg}'}),
-            'isBase64Encoded': False
-        }
+    return {
+        'statusCode': 405,
+        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'body': json.dumps({'error': 'Method not allowed'}),
+        'isBase64Encoded': False
+    }
