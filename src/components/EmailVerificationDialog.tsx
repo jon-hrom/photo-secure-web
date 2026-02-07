@@ -26,6 +26,14 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
 
   useEffect(() => {
     if (open) {
+      console.log('[EMAIL_VERIFY] Dialog opened - userId:', userId, 'email:', userEmail);
+      
+      if (!userId || userId === '' || userId === 'undefined') {
+        console.error('[EMAIL_VERIFY] Invalid userId:', userId);
+        toast.error('Ошибка: не удалось определить пользователя');
+        return;
+      }
+      
       const savedExpiry = localStorage.getItem(`email_code_expiry_${userId}`);
       if (savedExpiry) {
         const expiryTime = parseInt(savedExpiry);
@@ -43,7 +51,7 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
       setCode(['', '', '', '', '', '']);
       setError('');
     }
-  }, [open, userId]);
+  }, [open, userId, userEmail]);
 
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -65,6 +73,9 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
     try {
       setLoading(true);
       setError('');
+      
+      console.log('[EMAIL_VERIFY] Sending code via:', method, 'userId:', userId, 'email:', userEmail);
+      
       const res = await fetch(EMAIL_VERIFICATION_API, {
         method: 'POST',
         headers: {
@@ -74,7 +85,9 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
         body: JSON.stringify({ action: method === 'sms' ? 'send_sms_code' : 'send_code' })
       });
 
+      console.log('[EMAIL_VERIFY] Response status:', res.status);
       const data = await res.json();
+      console.log('[EMAIL_VERIFY] Response data:', data);
       
       if (res.ok) {
         toast.success(method === 'sms' ? 'Код отправлен по SMS' : 'Код отправлен на почту');
@@ -86,19 +99,28 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
       } else if (res.status === 429) {
         const retryIn = data.retryInSec || 60;
         setResendCooldown(retryIn);
-        setError(data.error || 'Слишком много попыток');
+        const errorMsg = data.error || 'Слишком много попыток';
+        setError(errorMsg);
+        toast.error(errorMsg);
       } else if (res.status === 409) {
         toast.success('Email уже подтверждён');
         onVerified();
       } else if (res.status === 400) {
-        toast.error(data.error || 'Добавьте email в настройках перед подтверждением');
+        const errorMsg = data.error || 'Добавьте email в настройках перед подтверждением';
+        toast.error(errorMsg);
+        console.error('[EMAIL_VERIFY] 400 error:', errorMsg);
         onClose();
       } else {
-        setError(data.error || 'Ошибка отправки кода');
+        const errorMsg = data.error || 'Ошибка отправки кода';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        console.error('[EMAIL_VERIFY] Error:', res.status, errorMsg);
       }
-    } catch (err: any) {
-      setError('Не удалось отправить код');
-      console.error(err);
+    } catch (err) {
+      const errorMsg = 'Не удалось отправить код';
+      setError(errorMsg);
+      toast.error(errorMsg);
+      console.error('[EMAIL_VERIFY] Exception:', err);
     } finally {
       setLoading(false);
     }
@@ -140,7 +162,7 @@ const EmailVerificationDialog = ({ open, onClose, onVerified, userId, userEmail,
       } else {
         setError(data.error || 'Неверный код');
       }
-    } catch (err: any) {
+    } catch (err) {
       setError('Ошибка проверки кода');
       console.error(err);
     } finally {
