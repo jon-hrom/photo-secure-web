@@ -421,7 +421,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'client_secret': VK_CLIENT_SECRET
             }
             
-            print(f'[VK_AUTH] Token request params (device_id from session): device_id={device_id}')
+            print(f'[VK_AUTH] Token exchange - sending to {VK_TOKEN_URL}')
+            print(f'[VK_AUTH] Token params keys: {list(token_params.keys())}')
+            print(f'[VK_AUTH] Token params (without secret): {dict((k,v if k != "client_secret" else "***") for k,v in token_params.items())}')
             
             try:
                 req = urllib.request.Request(
