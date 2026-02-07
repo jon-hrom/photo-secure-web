@@ -417,6 +417,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'client_id': VK_CLIENT_ID
             }
             
+            print(f'[VK_AUTH] Token request params: {token_params}')
+            
             try:
                 req = urllib.request.Request(
                     VK_TOKEN_URL,
@@ -426,7 +428,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 with urllib.request.urlopen(req) as response:
                     token_data = json.loads(response.read().decode())
+                    print(f'[VK_AUTH] Token response: {token_data}')
+            except urllib.error.HTTPError as e:
+                error_body = e.read().decode()
+                print(f'[VK_AUTH] VK API HTTPError {e.code}: {error_body}')
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': f'VK API error: {error_body}'}),
+                    'isBase64Encoded': False
+                }
             except Exception as e:
+                print(f'[VK_AUTH] Token exchange exception: {str(e)}')
                 return {
                     'statusCode': 500,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -435,6 +448,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             if 'error' in token_data:
+                print(f'[VK_AUTH] VK API error in response: {token_data}')
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
