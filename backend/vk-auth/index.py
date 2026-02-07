@@ -9,6 +9,7 @@ import os
 import hashlib
 import secrets
 import base64
+import uuid
 import urllib.request
 import urllib.error
 from datetime import datetime, timedelta
@@ -353,7 +354,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         action = params.get('action', 'start')
         
         if action == 'start':
-            device_id = 'browser'
+            device_id = str(uuid.uuid4())
             
             state = generate_state()
             code_verifier = generate_code_verifier()
@@ -369,7 +370,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'state': state,
                 'code_challenge': code_challenge,
                 'code_challenge_method': 'S256',
-                'scope': 'email phone'
+                'scope': 'email phone',
+                'device_id': device_id
             }
             
             print(f'[VK_AUTH] Starting auth flow with params: {auth_params}')
@@ -407,7 +409,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            device_id = session.get('device_id', 'browser')
+            device_id = session.get('device_id') or str(uuid.uuid4())
             delete_session(state)
             
             redirect_uri = f'{BASE_URL}/auth/callback/vkid'
@@ -417,7 +419,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'redirect_uri': redirect_uri,
                 'code_verifier': session['code_verifier'],
                 'client_id': VK_CLIENT_ID,
-                'client_secret': VK_CLIENT_SECRET
+                'client_secret': VK_CLIENT_SECRET,
+                'device_id': device_id
             }
             
             print(f'[VK_AUTH] Token request params: {token_params}')
