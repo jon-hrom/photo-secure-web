@@ -77,6 +77,9 @@ export const useContactManager = (
           return;
         } else if (field === 'email') {
           setEditedEmail(finalValue);
+          toast.success('Email сохранен. Теперь подтвердите его.');
+          setShowEmailVerification(true);
+          return;
         } else if (field === 'country' || field === 'region' || field === 'city') {
           return;
         }
