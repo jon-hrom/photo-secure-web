@@ -912,6 +912,7 @@ def list_promo_codes(event: Dict[str, Any]) -> Dict[str, Any]:
                     code,
                     discount_type,
                     discount_value,
+                    subscription_duration_type,
                     duration_months,
                     max_uses,
                     used_count,
@@ -954,6 +955,7 @@ def create_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
     code = body.get('code', '').strip().upper()
     discount_type = body.get('discount_type', 'percent')
     discount_value = body.get('discount_value')
+    subscription_duration_type = body.get('subscription_duration_type', 'fixed_months')
     duration_months = body.get('duration_months')
     max_uses = body.get('max_uses')
     valid_until = body.get('valid_until')
@@ -976,20 +978,22 @@ def create_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
             
             query = f'''
                 INSERT INTO {SCHEMA}.promo_codes (
-                    code, discount_type, discount_value, duration_months, 
-                    max_uses, valid_until, description
+                    code, discount_type, discount_value, subscription_duration_type,
+                    duration_months, max_uses, valid_until, description
                 )
                 VALUES (
                     {escape_sql_string(code)},
                     {escape_sql_string(discount_type)},
                     {discount_value},
+                    {escape_sql_string(subscription_duration_type)},
                     {duration_val},
                     {max_uses_val},
                     {valid_until_val},
                     {escape_sql_string(description)}
                 )
-                RETURNING id, code, discount_type, discount_value, duration_months, 
-                          max_uses, is_active, valid_from, valid_until, created_at, description
+                RETURNING id, code, discount_type, discount_value, subscription_duration_type,
+                          duration_months, max_uses, is_active, valid_from, valid_until, 
+                          created_at, description
             '''
             
             print(f'[CREATE_PROMO_CODE] Creating promo code: {code}')
@@ -1219,4 +1223,3 @@ def cloud_storage_stats(event: Dict[str, Any]) -> Dict[str, Any]:
         }
     finally:
         conn.close()
-

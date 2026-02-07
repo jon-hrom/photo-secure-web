@@ -116,7 +116,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Применяем промокод если указан
             if promo_code:
                 cur.execute(f'''
-                    SELECT id, discount_type, discount_value, max_uses, used_count, valid_until, duration_months
+                    SELECT id, discount_type, discount_value, max_uses, used_count, valid_until, 
+                           duration_months, subscription_duration_type
                     FROM {SCHEMA}.promo_codes
                     WHERE code = {escape_sql_string(promo_code)} AND is_active = TRUE
                 ''')
@@ -173,17 +174,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     final_price = base_price
                 
                 promo_code_id = promo['id']
+                subscription_expires_at = None
                 
-                # Если промокод задает duration, используем его
-                if promo['duration_months']:
+                # Определяем срок подписки на основе типа
+                duration_type = promo.get('subscription_duration_type', 'plan_default')
+                
+                if duration_type == 'fixed_months' and promo['duration_months']:
                     duration_months = promo['duration_months']
+                    subscription_expires_at = datetime.now() + timedelta(days=30 * duration_months)
+                elif duration_type == 'until_date' and promo['valid_until']:
+                    subscription_expires_at = promo['valid_until']
+                    duration_months = max(1, int((subscription_expires_at - datetime.now()).days / 30))
+                else:
+                    # plan_default - используем стандартный срок (duration_months из параметра)
+                    subscription_expires_at = datetime.now() + timedelta(days=30 * duration_months)
                 
-                print(f'[APPLY_TARIFF] Promo applied: type={promo["discount_type"]}, value={discount_value}, discount={discount_percent}%, final={final_price}, duration={duration_months}')
+                print(f'[APPLY_TARIFF] Promo applied: type={promo["discount_type"]}, value={discount_value}, discount={discount_percent}%, final={final_price}, duration_type={duration_type}, expires={subscription_expires_at}')
             
             # Для бесплатного тарифа или с оплатой через промокод применяем сразу
             if final_price == 0:
                 # Создаем подписку
-                expires_at = datetime.now() + timedelta(days=30 * duration_months)
+                # Если промокод задал expires_at, используем его, иначе вычисляем
+                if promo_code_id and subscription_expires_at:
+                    expires_at = subscription_expires_at
+                else:
+                    expires_at = datetime.now() + timedelta(days=30 * duration_months)
                 cur.execute(f'''
                     INSERT INTO {SCHEMA}.user_subscriptions 
                     (user_id, plan_id, expires_at, promo_code_id, discount_percent, price_paid_rub, payment_status, created_at)
@@ -237,7 +252,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Для платных тарифов создаем запись с pending статусом
             # В будущем здесь будет интеграция с платежной системой
-            expires_at = datetime.now() + timedelta(days=30 * duration_months)
+            if promo_code_id and subscription_expires_at:
+                expires_at = subscription_expires_at
+            else:
+                expires_at = datetime.now() + timedelta(days=30 * duration_months)
             cur.execute(f'''
                 INSERT INTO {SCHEMA}.user_subscriptions 
                 (user_id, plan_id, expires_at, promo_code_id, discount_percent, price_paid_rub, payment_status, created_at)

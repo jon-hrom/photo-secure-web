@@ -33,6 +33,7 @@ interface PromoCode {
   code: string;
   discount_type: 'percent' | 'fixed';
   discount_value: number;
+  subscription_duration_type: 'fixed_months' | 'until_date' | 'plan_default';
   duration_months: number | null;
   max_uses: number | null;
   used_count: number;
@@ -60,6 +61,7 @@ export const PromoCodesTab = ({
   const [newPromoCode, setNewPromoCode] = useState<Partial<PromoCode>>({
     discount_type: 'percent',
     discount_value: 10,
+    subscription_duration_type: 'fixed_months',
     duration_months: 1,
     max_uses: null,
     valid_until: null,
@@ -82,6 +84,7 @@ export const PromoCodesTab = ({
       setNewPromoCode({
         discount_type: 'percent',
         discount_value: 10,
+        subscription_duration_type: 'fixed_months',
         duration_months: 1,
         max_uses: null,
         valid_until: null,
@@ -129,7 +132,11 @@ export const PromoCodesTab = ({
                       : `${promo.discount_value} ₽`}
                   </TableCell>
                   <TableCell>
-                    {promo.duration_months ? `${promo.duration_months} мес` : '∞'}
+                    {promo.subscription_duration_type === 'fixed_months' && promo.duration_months
+                      ? `${promo.duration_months} мес`
+                      : promo.subscription_duration_type === 'until_date'
+                      ? `До ${formatDate(promo.valid_until)}`
+                      : 'По тарифу'}
                   </TableCell>
                   <TableCell>
                     {promo.used_count} {promo.max_uses ? `/ ${promo.max_uses}` : ''}
@@ -238,22 +245,48 @@ export const PromoCodesTab = ({
               </div>
 
               <div className="space-y-2">
-                <Label>Срок действия подписки (месяцев)</Label>
-                <Input
-                  type="number"
-                  placeholder="1"
-                  value={newPromoCode.duration_months || ''}
-                  onChange={(e) =>
-                    setNewPromoCode({
-                      ...newPromoCode,
-                      duration_months: e.target.value ? Number(e.target.value) : null,
-                    })
+                <Label>Тип срока подписки</Label>
+                <Select
+                  value={newPromoCode.subscription_duration_type || 'fixed_months'}
+                  onValueChange={(value: 'fixed_months' | 'until_date' | 'plan_default') =>
+                    setNewPromoCode({ ...newPromoCode, subscription_duration_type: value })
                   }
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed_months">Фиксированное количество месяцев</SelectItem>
+                    <SelectItem value="until_date">До конкретной даты</SelectItem>
+                    <SelectItem value="plan_default">Стандартный срок тарифа</SelectItem>
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
-                  Оставьте пустым для 1 месяца
+                  {newPromoCode.subscription_duration_type === 'fixed_months' && 'Подписка будет активна указанное количество месяцев'}
+                  {newPromoCode.subscription_duration_type === 'until_date' && 'Подписка будет активна до даты "Действителен до"'}
+                  {newPromoCode.subscription_duration_type === 'plan_default' && 'Подписка будет на стандартный срок выбранного тарифа'}
                 </p>
               </div>
+
+              {newPromoCode.subscription_duration_type === 'fixed_months' && (
+                <div className="space-y-2">
+                  <Label>Срок действия подписки (месяцев)</Label>
+                  <Input
+                    type="number"
+                    placeholder="1"
+                    value={newPromoCode.duration_months || ''}
+                    onChange={(e) =>
+                      setNewPromoCode({
+                        ...newPromoCode,
+                        duration_months: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Количество месяцев, на которое активируется подписка
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Макс. использований</Label>
