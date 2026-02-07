@@ -390,6 +390,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif action == 'callback':
             code = params.get('code')
             state = params.get('state')
+            device_id_from_vk = params.get('device_id')
+            
+            print(f'[VK_AUTH] Callback params: code={code[:20] if code else None}..., state={state[:20] if state else None}..., device_id={device_id_from_vk}')
             
             if not code or not state:
                 return {
@@ -408,7 +411,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            device_id = session.get('device_id') or str(uuid.uuid4()).replace('-', '')
+            device_id = device_id_from_vk or session.get('device_id') or str(uuid.uuid4()).replace('-', '')
+            print(f'[VK_AUTH] Using device_id: {device_id} (from_vk={device_id_from_vk}, from_session={session.get("device_id")})')
             delete_session(state)
             
             redirect_uri = f'{BASE_URL}/auth/callback/vkid'

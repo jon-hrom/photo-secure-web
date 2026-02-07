@@ -20,8 +20,9 @@ const VKCallback = () => {
     const processCallback = async () => {
       const code = searchParams.get('code');
       const state = searchParams.get('state');
+      const device_id = searchParams.get('device_id');
 
-      console.log('VKCallback: code=', code, 'state=', state);
+      console.log('VKCallback: code=', code, 'state=', state, 'device_id=', device_id);
 
       if (!code || !state) {
         console.error('VKCallback: Missing code or state');
@@ -33,7 +34,8 @@ const VKCallback = () => {
       try {
         const vkAuthUrl = funcUrls['vk-auth'];
         console.log('VKCallback: Calling backend:', vkAuthUrl);
-        const response = await fetch(`${vkAuthUrl}?action=callback&code=${code}&state=${state}`);
+        const callbackUrl = `${vkAuthUrl}?action=callback&code=${code}&state=${state}${device_id ? `&device_id=${device_id}` : ''}`;
+        const response = await fetch(callbackUrl);
         const data = await response.json();
 
         console.log('VKCallback: Backend response:', data);
