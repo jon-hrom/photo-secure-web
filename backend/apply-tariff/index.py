@@ -116,7 +116,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Применяем промокод если указан
             if promo_code:
                 cur.execute(f'''
-                    SELECT id, discount_percent, max_uses, current_uses, valid_until, duration_months
+                    SELECT id, discount_type, discount_value, max_uses, used_count, valid_until, duration_months
                     FROM {SCHEMA}.promo_codes
                     WHERE code = {escape_sql_string(promo_code)} AND is_active = TRUE
                 ''')
@@ -139,7 +139,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                if promo['max_uses'] and promo['current_uses'] >= promo['max_uses']:
+                if promo['max_uses'] and promo['used_count'] >= promo['max_uses']:
                     return {
                         'statusCode': 400,
                         'headers': CORS_HEADERS,
@@ -160,15 +160,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                discount_percent = float(promo['discount_percent'])
+                # Вычисляем скидку на основе типа
+                discount_value = float(promo['discount_value'])
+                if promo['discount_type'] == 'percent':
+                    discount_percent = discount_value
+                    final_price = base_price * (1 - discount_percent / 100)
+                elif promo['discount_type'] == 'fixed':
+                    discount_percent = (discount_value / base_price * 100) if base_price > 0 else 0
+                    final_price = max(0, base_price - discount_value)
+                else:
+                    discount_percent = 0
+                    final_price = base_price
+                
                 promo_code_id = promo['id']
-                final_price = base_price * (1 - discount_percent / 100)
                 
                 # Если промокод задает duration, используем его
                 if promo['duration_months']:
                     duration_months = promo['duration_months']
                 
-                print(f'[APPLY_TARIFF] Promo applied: discount={discount_percent}%, final={final_price}, duration={duration_months}')
+                print(f'[APPLY_TARIFF] Promo applied: type={promo["discount_type"]}, value={discount_value}, discount={discount_percent}%, final={final_price}, duration={duration_months}')
             
             # Для бесплатного тарифа или с оплатой через промокод применяем сразу
             if final_price == 0:
@@ -196,7 +206,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if promo_code_id:
                     cur.execute(f'''
                         UPDATE {SCHEMA}.promo_codes 
-                        SET current_uses = current_uses + 1 
+                        SET used_count = used_count + 1 
                         WHERE id = {promo_code_id}
                     ''')
                     
