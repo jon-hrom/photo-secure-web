@@ -43,6 +43,8 @@ def escape_sql_string(value: Any) -> str:
         return 'TRUE' if value else 'FALSE'
     if isinstance(value, (int, float)):
         return str(value)
+    if isinstance(value, datetime):
+        return "'" + value.strftime('%Y-%m-%d %H:%M:%S') + "'"
     return "'" + str(value).replace("'", "''") + "'"
 
 CORS_HEADERS = {
@@ -220,10 +222,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     expires_at = datetime.now() + timedelta(days=30 * duration_months)
                 cur.execute(f'''
                     INSERT INTO {SCHEMA}.user_subscriptions 
-                    (user_id, plan_id, expires_at, promo_code_id, discount_percent, price_paid_rub, payment_status, created_at)
+                    (user_id, plan_id, expires_at, promo_code_id, discount_percent, price_paid_rub, payment_status, status)
                     VALUES ({user_id}, {plan_id}, {escape_sql_string(expires_at)}, 
                             {promo_code_id if promo_code_id else 'NULL'}, 
-                            {discount_percent}, {final_price}, 'completed', CURRENT_TIMESTAMP)
+                            {discount_percent}, {final_price}, 'completed', 'active')
                     RETURNING id
                 ''')
                 subscription_id = cur.fetchone()['id']
@@ -245,10 +247,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ''')
                     
                     # Записываем использование промокода
+                    discount_amount = base_price - final_price
                     cur.execute(f'''
                         INSERT INTO {SCHEMA}.promo_code_usages 
-                        (user_id, promo_code_id, subscription_id, used_at)
-                        VALUES ({user_id}, {promo_code_id}, {subscription_id}, CURRENT_TIMESTAMP)
+                        (user_id, promo_code_id, subscription_id, discount_amount, original_price, final_price)
+                        VALUES ({user_id}, {promo_code_id}, {subscription_id}, {discount_amount}, {base_price}, {final_price})
                     ''')
                 
                 conn.commit()
