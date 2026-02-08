@@ -15,7 +15,26 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 SCHEMA = 't_p28211681_photo_secure_web'
 
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    # Парсим DATABASE_URL и добавляем параметры для удалённого подключения
+    if DATABASE_URL and 'host=' not in DATABASE_URL.lower():
+        # Если DATABASE_URL в формате postgresql://user:pass@host:port/db
+        return psycopg2.connect(DATABASE_URL)
+    else:
+        # Если неправильный формат, используем параметры напрямую
+        import re
+        match = re.search(r'postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', DATABASE_URL)
+        if match:
+            user, password, host, port, dbname = match.groups()
+            return psycopg2.connect(
+                host=host,
+                port=port,
+                dbname=dbname,
+                user=user,
+                password=password
+            )
+        else:
+            # Fallback - пробуем подключиться как есть
+            return psycopg2.connect(DATABASE_URL)
 
 def escape_sql_string(value: Any) -> str:
     """Экранирует значение для безопасной вставки в SQL запрос"""
