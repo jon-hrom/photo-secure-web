@@ -61,8 +61,8 @@ def list_trash_folders(event: Dict[str, Any]) -> Dict[str, Any]:
                     'folder_name': folder['folder_name'],
                     's3_prefix': folder['s3_prefix'],
                     'trashed_at': folder['trashed_at'].isoformat() if folder['trashed_at'] else None,
-                    'photos_count': folder['photos_count'],
-                    'total_size_mb': round(folder['total_size_bytes'] / 1024 / 1024, 2)
+                    'photos_count': int(folder['photos_count']),
+                    'total_size_mb': float(round(float(folder['total_size_bytes']) / 1024 / 1024, 2))
                 })
             
             return {
