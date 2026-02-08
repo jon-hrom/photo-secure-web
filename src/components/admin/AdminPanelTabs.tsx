@@ -70,41 +70,41 @@ const AdminPanelTabs = ({
           </div>
         </AccordionTrigger>
         <AccordionContent className="px-4 sm:px-6 pb-4">
-          <div className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-blue-500 dark:bg-blue-600 rounded-lg">
-                <Icon name="Database" className="h-8 w-8 text-white" />
+          <div className="p-3 sm:p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-blue-500 dark:bg-blue-600 rounded-lg shrink-0">
+                <Icon name="Database" className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-gray-100">Управление хранилищем</h3>
-                <p className="text-sm text-muted-foreground mb-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-xl font-bold mb-2 text-gray-900 dark:text-gray-100 break-words">Управление хранилищем</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                   Управление тарифными планами, квотами пользователей, статистикой загрузок и финансовой аналитикой
                 </p>
-                <ul className="space-y-2 text-sm text-muted-foreground mb-4">
-                  <li className="flex items-center gap-2">
-                    <Icon name="Check" className="h-4 w-4 text-green-600" />
-                    Создание и редактирование тарифов
+                <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground mb-4">
+                  <li className="flex items-start gap-2">
+                    <Icon name="Check" className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                    <span>Создание и редактирование тарифов</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Icon name="Check" className="h-4 w-4 text-green-600" />
-                    Назначение квот пользователям
+                  <li className="flex items-start gap-2">
+                    <Icon name="Check" className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                    <span>Назначение квот пользователям</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Icon name="Check" className="h-4 w-4 text-green-600" />
-                    Статистика загрузок за 30 дней
+                  <li className="flex items-start gap-2">
+                    <Icon name="Check" className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                    <span>Статистика загрузок за 30 дней</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Icon name="Check" className="h-4 w-4 text-green-600" />
-                    Финансовая аналитика (доходы, расходы, прибыль)
+                  <li className="flex items-start gap-2">
+                    <Icon name="Check" className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                    <span>Финансовая аналитика (доходы, расходы, прибыль)</span>
                   </li>
                 </ul>
                 <Button 
                   onClick={() => navigate('/admin/storage')}
-                  className="w-full sm:w-auto"
-                  size="lg"
+                  className="w-full"
+                  size="default"
                 >
-                  <Icon name="ExternalLink" className="mr-2 h-5 w-5" />
-                  Открыть панель управления хранилищем
+                  <Icon name="ExternalLink" className="mr-2 h-4 w-4" />
+                  <span className="text-sm">Открыть панель управления хранилищем</span>
                 </Button>
               </div>
             </div>
