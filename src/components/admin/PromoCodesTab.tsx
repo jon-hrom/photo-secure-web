@@ -123,8 +123,14 @@ export const PromoCodesTab = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {promoCodes.map((promo) => (
-                <TableRow key={promo.id}>
+              {promoCodes.map((promo) => {
+                const isUsed = promo.used_count > 0;
+                const isExhausted = promo.max_uses && promo.used_count >= promo.max_uses;
+                return (
+                <TableRow 
+                  key={promo.id}
+                  className={isUsed ? 'bg-yellow-500/5 border-l-2 border-yellow-500' : ''}
+                >
                   <TableCell className="font-mono font-bold">{promo.code}</TableCell>
                   <TableCell>
                     {promo.discount_type === 'percent'
@@ -174,7 +180,8 @@ export const PromoCodesTab = ({
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+              })}
               {promoCodes.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
