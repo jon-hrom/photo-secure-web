@@ -100,11 +100,11 @@ const AdminPanelTabs = ({
                 </ul>
                 <Button 
                   onClick={() => navigate('/admin/storage')}
-                  className="w-full"
+                  className="w-full text-xs sm:text-sm"
                   size="default"
                 >
-                  <Icon name="ExternalLink" className="mr-2 h-4 w-4" />
-                  <span className="text-sm">Открыть панель управления хранилищем</span>
+                  <Icon name="ExternalLink" className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="text-center leading-tight">Открыть панель управления</span>
                 </Button>
               </div>
             </div>
