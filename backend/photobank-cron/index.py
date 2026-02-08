@@ -13,6 +13,67 @@ from psycopg2.extras import RealDictCursor
 import boto3
 from botocore.client import Config
 
+SCHEMA = 't_p28211681_photo_secure_web'
+
+def list_trash_folders(event: Dict[str, Any]) -> Dict[str, Any]:
+    db_url = os.environ.get('DATABASE_URL')
+    
+    try:
+        conn = psycopg2.connect(db_url)
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'Database connection failed: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                SELECT 
+                    pf.id,
+                    pf.user_id,
+                    pf.folder_name,
+                    pf.s3_prefix,
+                    pf.trashed_at,
+                    COALESCE(
+                        (SELECT COUNT(*) FROM {SCHEMA}.photo_bank pb
+                         WHERE pb.folder_id = pf.id AND pb.is_trashed = TRUE), 
+                        0
+                    ) as photos_count,
+                    COALESCE(
+                        (SELECT SUM(pb.file_size) FROM {SCHEMA}.photo_bank pb
+                         WHERE pb.folder_id = pf.id AND pb.is_trashed = TRUE), 
+                        0
+                    ) as total_size_bytes
+                FROM {SCHEMA}.photo_folders pf
+                WHERE pf.is_trashed = TRUE
+                ORDER BY pf.trashed_at DESC
+            ''')
+            folders = cur.fetchall()
+            
+            result_folders = []
+            for folder in folders:
+                result_folders.append({
+                    'id': folder['id'],
+                    'user_id': folder['user_id'],
+                    'folder_name': folder['folder_name'],
+                    's3_prefix': folder['s3_prefix'],
+                    'trashed_at': folder['trashed_at'].isoformat() if folder['trashed_at'] else None,
+                    'photos_count': folder['photos_count'],
+                    'total_size_mb': round(folder['total_size_bytes'] / 1024 / 1024, 2)
+                })
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'folders': result_folders}),
+                'isBase64Encoded': False
+            }
+    finally:
+        conn.close()
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'POST')
     
@@ -21,13 +82,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-Cron-Token',
                 'Access-Control-Max-Age': '86400'
             },
             'body': '',
             'isBase64Encoded': False
         }
+    
+    params = event.get('queryStringParameters', {}) or {}
+    action = params.get('action', '')
+    
+    if method == 'GET' and action == 'list-trash':
+        return list_trash_folders(event)
     
     headers = event.get('headers', {})
     cron_token = headers.get('X-Cron-Token') or headers.get('x-cron-token')

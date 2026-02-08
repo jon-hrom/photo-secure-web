@@ -165,16 +165,16 @@ export const StorageBillingTab = ({ adminKey, users }: StorageBillingTabProps) =
           <div className="flex-1">
             <label className="text-sm font-medium mb-2 block">Период</label>
             <Select
-              value={filters.period}
+              value={filters.period || 'all-periods'}
               onValueChange={(value) =>
-                setFilters((prev) => ({ ...prev, period: value, offset: 0 }))
+                setFilters((prev) => ({ ...prev, period: value === 'all-periods' ? '' : value, offset: 0 }))
               }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Все периоды" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все периоды</SelectItem>
+                <SelectItem value="all-periods">Все периоды</SelectItem>
                 <SelectItem value="2026-01">Январь 2026</SelectItem>
                 <SelectItem value="2025-12">Декабрь 2025</SelectItem>
                 <SelectItem value="2025-11">Ноябрь 2025</SelectItem>
@@ -185,16 +185,16 @@ export const StorageBillingTab = ({ adminKey, users }: StorageBillingTabProps) =
           <div className="flex-1">
             <label className="text-sm font-medium mb-2 block">Статус</label>
             <Select
-              value={filters.status}
+              value={filters.status || 'all-statuses'}
               onValueChange={(value) =>
-                setFilters((prev) => ({ ...prev, status: value, offset: 0 }))
+                setFilters((prev) => ({ ...prev, status: value === 'all-statuses' ? '' : value, offset: 0 }))
               }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Все статусы" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все статусы</SelectItem>
+                <SelectItem value="all-statuses">Все статусы</SelectItem>
                 <SelectItem value="pending">Ожидает оплаты</SelectItem>
                 <SelectItem value="paid">Оплачено</SelectItem>
                 <SelectItem value="cancelled">Отменён</SelectItem>

@@ -239,6 +239,38 @@ def update_invoice_status(event: Dict[str, Any]) -> Dict[str, Any]:
     finally:
         conn.close()
 
+def get_daily_usage(event: Dict[str, Any]) -> Dict[str, Any]:
+    params = event.get('queryStringParameters', {}) or {}
+    user_id = params.get('userId')
+    days = int(params.get('days', '30'))
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            where_clause = 'WHERE u.date >= CURRENT_DATE - INTERVAL \'%s days\'' % days
+            if user_id:
+                where_clause += ' AND u.user_id = %s' % user_id
+            
+            cur.execute(f'''
+                SELECT 
+                    u.date, u.user_id, us.email, u.used_gb_end_of_day
+                FROM {SCHEMA}.storage_usage_daily u
+                JOIN {SCHEMA}.users us ON u.user_id = us.id
+                {where_clause}
+                ORDER BY u.date DESC, u.user_id
+            ''')
+            usage = cur.fetchall()
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({
+                    'usage': [dict(u) for u in usage]
+                }, default=str)
+            }
+    finally:
+        conn.close()
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
     
@@ -261,15 +293,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return daily_snapshot(event)
     elif method == 'POST' and action == 'monthly-billing':
         return monthly_billing(event)
-    elif method == 'GET' and action == 'invoices':
+    elif method == 'GET' and action == 'get-invoices':
         return get_invoices(event)
-    elif method == 'PUT' and action == 'invoice-status':
+    elif method == 'POST' and action == 'update-invoice-status':
         return update_invoice_status(event)
+    elif method == 'GET' and action == 'get-daily-usage':
+        return get_daily_usage(event)
     elif method == 'GET' and not action:
         return get_invoices(event)
     
     return {
         'statusCode': 404,
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-        'body': json.dumps({'error': 'Not found'})
+        'body': json.dumps({'error': f'Not found: method={method} action={action}'})
     }
