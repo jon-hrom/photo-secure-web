@@ -157,7 +157,7 @@ export default function PublicGallery() {
         onOpenFavoriteFolders={() => state.setIsFavoritesModalOpen(true)}
         formatFileSize={formatFileSize}
         onPhotoLoad={() => setPhotosLoaded(prev => prev + 1)}
-        clientName={state.clientData?.full_name}
+        clientName={state.clientData?.full_name || state.clientData?.phone || ''}
         onClientLogin={() => state.setIsLoginModalOpen(true)}
         onOpenMyFavorites={() => state.setIsMyFavoritesOpen(true)}
         onOpenChat={() => state.setIsChatOpen(true)}

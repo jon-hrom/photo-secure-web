@@ -163,7 +163,7 @@ export default function GalleryModals({
           isOpen={isMyFavoritesOpen}
           onClose={() => setIsMyFavoritesOpen(false)}
           clientId={clientData.client_id}
-          clientName={clientData.full_name}
+          clientName={clientData.full_name || clientData.phone}
           galleryPhotos={gallery?.photos || []}
           onPhotoClick={(photo) => {
             setSelectedPhoto(photo);
@@ -181,7 +181,7 @@ export default function GalleryModals({
           onClose={() => setIsChatOpen(false)}
           photographerId={gallery.photographer_id}
           clientId={clientData.client_id}
-          clientName={clientData.full_name}
+          clientName={clientData.full_name || clientData.phone}
           senderType="client"
         />
       )}
