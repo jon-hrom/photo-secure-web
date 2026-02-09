@@ -74,8 +74,8 @@ def handler(event: dict, context) -> dict:
                 email = body.get('email')
                 photo_id = body.get('photo_id')
                 
-                # Требуем: gallery_code, photo_id и хотя бы одно из: full_name или phone
-                if not gallery_code or photo_id is None or (not full_name and not phone):
+                # Требуем: gallery_code, photo_id и хотя бы одно из: full_name, phone или email
+                if not gallery_code or photo_id is None or (not full_name and not phone and not email):
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -108,6 +108,14 @@ def handler(event: dict, context) -> dict:
                         WHERE gallery_code = %s AND phone = %s
                         ORDER BY id DESC LIMIT 1
                     ''', (gallery_code, phone))
+                    existing = cur.fetchone()
+                elif email:
+                    # Только email
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                        WHERE gallery_code = %s AND email = %s
+                        ORDER BY id DESC LIMIT 1
+                    ''', (gallery_code, email))
                     existing = cur.fetchone()
                 
                 if existing:
