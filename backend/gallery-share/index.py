@@ -239,7 +239,7 @@ def handler(event: dict, context) -> dict:
             
             cur.execute(
                 """
-                SELECT id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw, is_video, content_type
+                SELECT id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, width, height, file_size, is_raw, is_video, content_type
                 FROM t_p28211681_photo_secure_web.photo_bank
                 WHERE folder_id = %s AND is_trashed = false
                   AND (is_raw = false OR (is_raw = true AND thumbnail_s3_key IS NOT NULL))
@@ -258,7 +258,14 @@ def handler(event: dict, context) -> dict:
                 config=Config(signature_version='s3v4')
             )
             
-            bucket_name = 'foto-mix'
+            poehali_s3 = boto3.client('s3',
+                endpoint_url='https://bucket.poehali.dev',
+                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+            )
+            
+            yc_bucket = 'foto-mix'
+            poehali_bucket = 'files'
             photos_data = []
             total_size = 0
             
@@ -266,32 +273,45 @@ def handler(event: dict, context) -> dict:
             
             for photo in photos:
                 try:
-                    photo_id, file_name, s3_key, thumbnail_s3_key, width, height, file_size, is_raw, is_video, content_type = photo
+                    photo_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, width, height, file_size, is_raw, is_video, content_type = photo
+                    
+                    # Определяем, какой S3 используется по s3_url
+                    use_poehali_s3 = s3_url and 'cdn.poehali.dev' in s3_url
+                    s3_client = poehali_s3 if use_poehali_s3 else yc_s3
+                    bucket = poehali_bucket if use_poehali_s3 else yc_bucket
+                    
+                    print(f'[GALLERY] Photo {photo_id}: using {"poehali" if use_poehali_s3 else "yandex"} S3, s3_url={s3_url[:50] if s3_url else "none"}...')
                     
                     # Для видео используем больший срок действия URL (12 часов)
-                    # чтобы избежать проблем с потоковой загрузкой
                     expires_in = 43200 if is_video else 3600
                     
-                    if is_raw and thumbnail_s3_key:
-                        photo_url = yc_s3.generate_presigned_url(
-                            'get_object',
-                            Params={'Bucket': bucket_name, 'Key': thumbnail_s3_key},
-                            ExpiresIn=expires_in
-                        )
-                        thumbnail_url = photo_url
+                    # Если в БД уже есть CDN URL от poehali.dev - используем его напрямую
+                    if use_poehali_s3 and s3_url:
+                        photo_url = s3_url
+                        thumbnail_url = thumbnail_s3_url if thumbnail_s3_url else None
+                        print(f'[GALLERY] Using stored CDN URLs for photo {photo_id}')
                     else:
-                        photo_url = yc_s3.generate_presigned_url(
-                            'get_object',
-                            Params={'Bucket': bucket_name, 'Key': s3_key},
-                            ExpiresIn=expires_in
-                        )
-                        thumbnail_url = None
-                        if thumbnail_s3_key:
-                            thumbnail_url = yc_s3.generate_presigned_url(
+                        # Генерируем presigned URLs для Yandex S3
+                        if is_raw and thumbnail_s3_key:
+                            photo_url = s3_client.generate_presigned_url(
                                 'get_object',
-                                Params={'Bucket': bucket_name, 'Key': thumbnail_s3_key},
-                                ExpiresIn=3600
+                                Params={'Bucket': bucket, 'Key': thumbnail_s3_key},
+                                ExpiresIn=expires_in
                             )
+                            thumbnail_url = photo_url
+                        else:
+                            photo_url = s3_client.generate_presigned_url(
+                                'get_object',
+                                Params={'Bucket': bucket, 'Key': s3_key},
+                                ExpiresIn=expires_in
+                            )
+                            thumbnail_url = None
+                            if thumbnail_s3_key:
+                                thumbnail_url = s3_client.generate_presigned_url(
+                                    'get_object',
+                                    Params={'Bucket': bucket, 'Key': thumbnail_s3_key},
+                                    ExpiresIn=3600
+                                )
                     
                     photos_data.append({
                         'id': photo_id,
@@ -309,7 +329,7 @@ def handler(event: dict, context) -> dict:
                     
                     total_size += file_size or 0
                 except Exception as e:
-                    print(f'[GALLERY] Error processing photo ID={photo_id}, file={file_name}, s3_key={s3_key}, error: {str(e)}')
+                    print(f'[GALLERY] Error processing photo, error: {str(e)}')
                     continue
             
             cur.execute(
