@@ -1,9 +1,8 @@
 import json
 import os
 from typing import Dict, Any
+from urllib.parse import quote
 import psycopg2
-import boto3
-from botocore.client import Config
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -177,60 +176,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     finally:
         conn.close()
     
-    # Создаем оба S3 клиента
-    yc_s3 = boto3.client(
-        's3',
-        endpoint_url='https://storage.yandexcloud.net',
-        region_name='ru-central1',
-        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
-        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
-        config=Config(signature_version='s3v4')
-    )
+    # Генерируем прокси-URLs через gallery-photo-download endpoint (обход CORS)
+    proxy_endpoint = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215'
     
-    poehali_s3 = boto3.client(
-        's3',
-        endpoint_url='https://bucket.poehali.dev',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
-    )
-    
-    # Генерируем pre-signed URLs для каждого файла
     file_urls = []
     for s3_key, file_name, s3_url in photos:
         try:
-            # Определяем, какой S3 используется
-            use_poehali_s3 = s3_url and 'cdn.poehali.dev' in s3_url
+            # Все файлы скачиваем через прокси (это решает CORS проблемы)
+            proxy_url = f"{proxy_endpoint}?s3_key={quote(s3_key)}"
             
-            if use_poehali_s3:
-                # Для poehali S3 генерируем presigned URL
-                presigned_url = poehali_s3.generate_presigned_url(
-                    'get_object',
-                    Params={
-                        'Bucket': 'files',
-                        'Key': s3_key,
-                        'ResponseContentDisposition': f'attachment; filename="{file_name}"'
-                    },
-                    ExpiresIn=3600
-                )
-                file_urls.append({
-                    'filename': file_name,
-                    'url': presigned_url
-                })
-            else:
-                # Для Yandex S3 генерируем presigned URL
-                presigned_url = yc_s3.generate_presigned_url(
-                    'get_object',
-                    Params={
-                        'Bucket': 'foto-mix',
-                        'Key': s3_key,
-                        'ResponseContentDisposition': f'attachment; filename="{file_name}"'
-                    },
-                    ExpiresIn=3600
-                )
-                file_urls.append({
-                    'filename': file_name,
-                    'url': presigned_url
-                })
+            file_urls.append({
+                'filename': file_name,
+                'url': proxy_url
+            })
         except Exception as e:
             print(f"Failed to generate URL for {file_name}: {e}")
             continue
