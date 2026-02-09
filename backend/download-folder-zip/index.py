@@ -201,11 +201,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Определяем, какой S3 используется
             use_poehali_s3 = s3_url and 'cdn.poehali.dev' in s3_url
             
-            # Если используется poehali CDN - возвращаем URL напрямую
-            if use_poehali_s3 and s3_url:
+            if use_poehali_s3:
+                # Для poehali S3 генерируем presigned URL
+                presigned_url = poehali_s3.generate_presigned_url(
+                    'get_object',
+                    Params={
+                        'Bucket': 'files',
+                        'Key': s3_key,
+                        'ResponseContentDisposition': f'attachment; filename="{file_name}"'
+                    },
+                    ExpiresIn=3600
+                )
                 file_urls.append({
                     'filename': file_name,
-                    'url': s3_url
+                    'url': presigned_url
                 })
             else:
                 # Для Yandex S3 генерируем presigned URL

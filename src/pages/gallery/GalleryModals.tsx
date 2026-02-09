@@ -163,14 +163,15 @@ export default function GalleryModals({
           isOpen={isMyFavoritesOpen}
           onClose={() => setIsMyFavoritesOpen(false)}
           clientId={clientData.client_id}
-          allPhotos={gallery?.photos || []}
+          clientName={clientData.full_name}
+          galleryPhotos={gallery?.photos || []}
           onPhotoClick={(photo) => {
             setSelectedPhoto(photo);
             setViewingFavorites(true);
             setIsMyFavoritesOpen(false);
           }}
-          onRemoveFromFavorites={onRemoveFromFavorites}
-          onRefresh={() => loadClientFavorites(clientData.client_id)}
+          onPhotoRemoved={onRemoveFromFavorites}
+          downloadDisabled={gallery?.download_disabled}
         />
       )}
 
@@ -181,9 +182,7 @@ export default function GalleryModals({
           photographerId={gallery.photographer_id}
           clientId={clientData.client_id}
           clientName={clientData.full_name}
-          isPhotographer={false}
-          unreadCount={unreadCount}
-          onUnreadCountChange={setUnreadCount}
+          senderType="client"
         />
       )}
 
