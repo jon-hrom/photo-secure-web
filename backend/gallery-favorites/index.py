@@ -69,36 +69,70 @@ def handler(event: dict, context) -> dict:
             
             if action == 'add_to_favorites':
                 gallery_code = body.get('gallery_code')
-                full_name = body.get('full_name')
+                full_name = body.get('full_name', '')
                 phone = body.get('phone', '')
                 email = body.get('email')
                 photo_id = body.get('photo_id')
                 
-                if not all([gallery_code, full_name, photo_id is not None]):
+                # Требуем: gallery_code, photo_id и хотя бы одно из: full_name или phone
+                if not gallery_code or photo_id is None or (not full_name and not phone):
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                         'body': json.dumps({'error': 'Missing required fields'})
                     }
                 
-                # Ищем существующего клиента по gallery_code + full_name (без учёта phone)
-                cur.execute('''
-                    SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
-                    WHERE gallery_code = %s AND full_name = %s
-                    ORDER BY id DESC LIMIT 1
-                ''', (gallery_code, full_name))
+                # Ищем существующего клиента по gallery_code и доступным полям
+                existing = None
                 
-                existing = cur.fetchone()
+                if full_name and phone:
+                    # Если есть оба поля - ищем по обоим
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                        WHERE gallery_code = %s AND full_name = %s AND phone = %s
+                        ORDER BY id DESC LIMIT 1
+                    ''', (gallery_code, full_name, phone))
+                    existing = cur.fetchone()
+                elif full_name:
+                    # Только имя
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                        WHERE gallery_code = %s AND full_name = %s
+                        ORDER BY id DESC LIMIT 1
+                    ''', (gallery_code, full_name))
+                    existing = cur.fetchone()
+                elif phone:
+                    # Только телефон
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                        WHERE gallery_code = %s AND phone = %s
+                        ORDER BY id DESC LIMIT 1
+                    ''', (gallery_code, phone))
+                    existing = cur.fetchone()
                 
                 if existing:
                     client_id = existing[0]
-                    # Обновляем email если он изменился
+                    # Обновляем поля если изменились
+                    update_fields = []
+                    update_values = []
+                    
                     if email:
-                        cur.execute('''
+                        update_fields.append('email = %s')
+                        update_values.append(email)
+                    if full_name and not update_fields:
+                        update_fields.append('full_name = %s')
+                        update_values.append(full_name)
+                    if phone and len(update_fields) < 2:
+                        update_fields.append('phone = %s')
+                        update_values.append(phone)
+                    
+                    if update_fields:
+                        update_values.append(client_id)
+                        cur.execute(f'''
                             UPDATE t_p28211681_photo_secure_web.favorite_clients
-                            SET email = %s
+                            SET {', '.join(update_fields)}
                             WHERE id = %s
-                        ''', (email, client_id))
+                        ''', tuple(update_values))
                 else:
                     # Создаём нового клиента
                     cur.execute('''
