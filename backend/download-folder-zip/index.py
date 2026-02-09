@@ -119,13 +119,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
         
-        # Получаем все фотографии из папки с s3_url для определения типа хранилища
+        # Получаем уникальные фотографии из папки (убираем дубликаты по s3_key)
         cur.execute(
             """
-            SELECT s3_key, file_name, s3_url
+            SELECT DISTINCT ON (s3_key) s3_key, file_name, s3_url
             FROM t_p28211681_photo_secure_web.photo_bank 
             WHERE folder_id = %s AND s3_key IS NOT NULL AND is_trashed = false
-            ORDER BY file_name
+            ORDER BY s3_key, id
             """,
             (folder_id,)
         )
