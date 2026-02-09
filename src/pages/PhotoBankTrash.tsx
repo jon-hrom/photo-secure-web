@@ -25,6 +25,8 @@ const PhotoBankTrash = () => {
     loading,
     restoring,
     deleting,
+    autoCleanupInProgress,
+    expiredCount,
     fetchTrash,
     handleRestore,
     handleRestorePhoto,
@@ -162,6 +164,24 @@ const PhotoBankTrash = () => {
           loading={loading}
           onEmptyTrash={handleEmptyTrash}
         />
+        
+        {autoCleanupInProgress && (
+          <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <Icon name="Loader2" size={20} className="text-blue-600 dark:text-blue-400 animate-spin shrink-0" />
+                <div className="text-sm flex-1">
+                  <p className="font-medium text-blue-900 dark:text-blue-100">Идет автоочистка просроченных файлов...</p>
+                  <p className="text-blue-700 dark:text-blue-300 text-xs mt-0.5">
+                    {expiredCount.folders > 0 && `${expiredCount.folders} пап${expiredCount.folders === 1 ? 'ка' : expiredCount.folders < 5 ? 'ки' : 'ок'}`}
+                    {expiredCount.folders > 0 && expiredCount.photos > 0 && ' и '}
+                    {expiredCount.photos > 0 && `${expiredCount.photos} фото`}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         
         <TrashedFoldersList
           folders={trashedFolders}

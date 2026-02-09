@@ -11,6 +11,8 @@ export const useTrashApi = (userId: string | null) => {
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [autoCleanupInProgress, setAutoCleanupInProgress] = useState(false);
+  const [expiredCount, setExpiredCount] = useState({ folders: 0, photos: 0 });
   const autoRefreshRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchTrash = async (isAutoRefresh = false) => {
@@ -41,14 +43,22 @@ export const useTrashApi = (userId: string | null) => {
       
       // Проверяем, есть ли просроченные элементы
       const now = new Date();
-      const hasExpired = [...folders, ...photos].some(item => {
+      const expiredFolders = folders.filter(item => {
         if (!item.auto_delete_date) return false;
         return new Date(item.auto_delete_date) <= now;
       });
+      const expiredPhotos = photos.filter(item => {
+        if (!item.auto_delete_date) return false;
+        return new Date(item.auto_delete_date) <= now;
+      });
+      const hasExpired = expiredFolders.length > 0 || expiredPhotos.length > 0;
+      
+      setExpiredCount({ folders: expiredFolders.length, photos: expiredPhotos.length });
       
       // Если есть просроченные элементы, автоматически перезагружаем через 2 секунды
       if (hasExpired) {
         console.log('[AUTO_CLEANUP] Found expired items, will auto-refresh in 2s');
+        setAutoCleanupInProgress(true);
         if (autoRefreshRef.current) {
           clearTimeout(autoRefreshRef.current);
         }
@@ -58,6 +68,8 @@ export const useTrashApi = (userId: string | null) => {
         }, 2000);
       } else {
         // Очистка таймера если просроченных элементов нет
+        setAutoCleanupInProgress(false);
+        setExpiredCount({ folders: 0, photos: 0 });
         if (autoRefreshRef.current) {
           clearTimeout(autoRefreshRef.current);
           autoRefreshRef.current = null;
@@ -334,6 +346,8 @@ export const useTrashApi = (userId: string | null) => {
     loading,
     restoring,
     deleting,
+    autoCleanupInProgress,
+    expiredCount,
     fetchTrash,
     handleRestore,
     handleRestorePhoto,
