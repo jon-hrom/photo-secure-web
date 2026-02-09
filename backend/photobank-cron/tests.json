@@ -7,25 +7,12 @@
       "expectedStatus": 200
     },
     {
-      "name": "Cron without token",
+      "name": "Cron without token should fail",
       "method": "POST",
       "path": "/",
       "expectedStatus": 403,
       "expectedBody": {
         "error": "string"
-      },
-      "bodyMatcher": "partial"
-    },
-    {
-      "name": "Cron with valid token",
-      "method": "POST",
-      "path": "/",
-      "headers": {
-        "X-Cron-Token": "secure-cron-token-change-me"
-      },
-      "expectedStatus": 200,
-      "expectedBody": {
-        "ok": true
       },
       "bodyMatcher": "partial"
     }

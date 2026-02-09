@@ -62,7 +62,7 @@ def list_trash_folders(event: Dict[str, Any]) -> Dict[str, Any]:
                     's3_prefix': folder['s3_prefix'],
                     'trashed_at': folder['trashed_at'].isoformat() if folder['trashed_at'] else None,
                     'photos_count': int(folder['photos_count']),
-                    'total_size_mb': float(round(float(folder['total_size_bytes']) / 1024 / 1024, 2))
+                    'total_size_mb': round(float(folder['total_size_bytes']) / 1024 / 1024, 2)
                 })
             
             return {
@@ -136,9 +136,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         cutoff_date = datetime.now() - timedelta(days=7)
         
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute('''
+            cur.execute(f'''
                 SELECT id, s3_prefix, user_id, folder_name, trashed_at
-                FROM photo_folders 
+                FROM {SCHEMA}.photo_folders 
                 WHERE is_trashed = TRUE 
                   AND trashed_at < %s
                 ORDER BY trashed_at ASC
@@ -153,29 +153,64 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         for folder in folders_to_delete:
             folder_id = folder['id']
             s3_prefix = folder['s3_prefix']
-            trash_prefix = f'trash/{s3_prefix}'
             
             try:
-                paginator = s3_client.get_paginator('list_objects_v2')
-                pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
+                # Получаем список всех s3_key из БД для этой папки
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(f'''
+                        SELECT s3_key, thumbnail_s3_key
+                        FROM {SCHEMA}.photo_bank 
+                        WHERE folder_id = %s AND is_trashed = TRUE
+                    ''', (folder_id,))
+                    photos = cur.fetchall()
                 
                 file_count = 0
-                for page in pages:
-                    for obj in page.get('Contents', []):
+                
+                # Удаляем файлы из обоих хранилищ (Yandex Cloud + poehali.dev)
+                for photo in photos:
+                    s3_key = photo['s3_key']
+                    thumb_key = photo['thumbnail_s3_key']
+                    
+                    # Определяем хранилище по префиксу
+                    if s3_key.startswith('uploads/'):
+                        # poehali.dev bucket
+                        storage_client = boto3.client(
+                            's3',
+                            endpoint_url='https://bucket.poehali.dev',
+                            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+                        )
+                        storage_bucket = 'files'
+                    else:
+                        # Yandex Cloud foto-mix
+                        storage_client = s3_client
+                        storage_bucket = bucket
+                    
+                    # Удаляем основной файл
+                    try:
+                        storage_client.delete_object(Bucket=storage_bucket, Key=s3_key)
+                        file_count += 1
+                        print(f'[CLEANUP] Deleted S3 file: {s3_key}')
+                    except Exception as e:
+                        errors.append(f'Failed to delete {s3_key}: {str(e)}')
+                    
+                    # Удаляем thumbnail если есть
+                    if thumb_key:
                         try:
-                            s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
+                            storage_client.delete_object(Bucket=storage_bucket, Key=thumb_key)
                             file_count += 1
                         except Exception as e:
-                            errors.append(f'Failed to delete S3 object {obj["Key"]}: {str(e)}')
+                            errors.append(f'Failed to delete thumbnail {thumb_key}: {str(e)}')
                 
+                # Удаляем записи из БД
                 with conn.cursor() as cur:
-                    cur.execute('''
-                        DELETE FROM photo_bank 
+                    cur.execute(f'''
+                        DELETE FROM {SCHEMA}.photo_bank 
                         WHERE folder_id = %s AND is_trashed = TRUE
                     ''', (folder_id,))
                     
-                    cur.execute('''
-                        DELETE FROM photo_folders 
+                    cur.execute(f'''
+                        DELETE FROM {SCHEMA}.photo_folders 
                         WHERE id = %s AND is_trashed = TRUE
                     ''', (folder_id,))
                     
