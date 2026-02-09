@@ -70,26 +70,66 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 # Clean up expired folders first (including their photos)
                 cur.execute('''
-                    SELECT id, s3_prefix
+                    SELECT id, s3_prefix, folder_name
                     FROM t_p28211681_photo_secure_web.photo_folders
                     WHERE is_trashed = TRUE 
                       AND trashed_at < NOW() - INTERVAL '7 days'
                 ''')
                 expired_folders = cur.fetchall()
                 
-                for folder in expired_folders:
-                    if folder['s3_prefix']:
-                        trash_prefix = f'trash/{folder["s3_prefix"]}'
-                        paginator = s3_client.get_paginator('list_objects_v2')
-                        pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
-                        
-                        for page in pages:
-                            for obj in page.get('Contents', []):
-                                try:
-                                    s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
-                                except Exception as e:
-                                    print(f'Failed to delete {obj["Key"]} from S3: {e}')
+                deleted_files_count = 0
                 
+                for folder in expired_folders:
+                    folder_id = folder['id']
+                    
+                    # Получаем все s3_key из БД для этой папки
+                    cur.execute('''
+                        SELECT s3_key, thumbnail_s3_key
+                        FROM t_p28211681_photo_secure_web.photo_bank
+                        WHERE folder_id = %s AND is_trashed = TRUE
+                    ''', (folder_id,))
+                    photos = cur.fetchall()
+                    
+                    # Удаляем файлы из обоих хранилищ (Yandex Cloud + poehali.dev)
+                    for photo in photos:
+                        s3_key = photo['s3_key']
+                        thumb_key = photo['thumbnail_s3_key']
+                        
+                        if not s3_key:
+                            continue
+                        
+                        # Определяем хранилище по префиксу
+                        if s3_key.startswith('uploads/'):
+                            # poehali.dev bucket
+                            storage_client = boto3.client(
+                                's3',
+                                endpoint_url='https://bucket.poehali.dev',
+                                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+                            )
+                            storage_bucket = 'files'
+                        else:
+                            # Yandex Cloud foto-mix
+                            storage_client = s3_client
+                            storage_bucket = bucket
+                        
+                        # Удаляем основной файл
+                        try:
+                            storage_client.delete_object(Bucket=storage_bucket, Key=s3_key)
+                            deleted_files_count += 1
+                            print(f'[AUTO_CLEANUP] Deleted S3 file: {s3_key}')
+                        except Exception as e:
+                            print(f'[AUTO_CLEANUP] Failed to delete {s3_key}: {e}')
+                        
+                        # Удаляем thumbnail если есть
+                        if thumb_key:
+                            try:
+                                storage_client.delete_object(Bucket=storage_bucket, Key=thumb_key)
+                                deleted_files_count += 1
+                            except Exception as e:
+                                print(f'[AUTO_CLEANUP] Failed to delete thumbnail {thumb_key}: {e}')
+                
+                # Удаляем записи из БД
                 if expired_folders:
                     expired_folder_ids = [f['id'] for f in expired_folders]
                     # Delete all trashed photos from these folders first
@@ -104,11 +144,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         WHERE id IN ({','.join(map(str, expired_folder_ids))})
                     ''')
                     conn.commit()
-                    print(f'Auto-deleted {len(expired_folders)} expired folders from trash')
+                    print(f'[AUTO_CLEANUP] Deleted {len(expired_folders)} expired folders ({deleted_files_count} files) from trash')
                 
                 # Clean up expired standalone photos (not in trashed folders)
                 cur.execute('''
-                    SELECT pb.id, pb.s3_key, pb.folder_id
+                    SELECT pb.id, pb.s3_key, pb.thumbnail_s3_key, pb.folder_id
                     FROM t_p28211681_photo_secure_web.photo_bank pb
                     LEFT JOIN t_p28211681_photo_secure_web.photo_folders pf ON pb.folder_id = pf.id
                     WHERE pb.is_trashed = TRUE 
@@ -117,13 +157,44 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 ''')
                 expired_photos = cur.fetchall()
                 
+                deleted_standalone_count = 0
+                
                 for photo in expired_photos:
-                    if photo['s3_key']:
-                        trash_key = f'trash/{photo["s3_key"]}'
+                    s3_key = photo['s3_key']
+                    thumb_key = photo['thumbnail_s3_key']
+                    
+                    if not s3_key:
+                        continue
+                    
+                    # Определяем хранилище по префиксу
+                    if s3_key.startswith('uploads/'):
+                        # poehali.dev bucket
+                        storage_client = boto3.client(
+                            's3',
+                            endpoint_url='https://bucket.poehali.dev',
+                            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+                        )
+                        storage_bucket = 'files'
+                    else:
+                        # Yandex Cloud foto-mix
+                        storage_client = s3_client
+                        storage_bucket = bucket
+                    
+                    # Удаляем основной файл
+                    try:
+                        storage_client.delete_object(Bucket=storage_bucket, Key=s3_key)
+                        deleted_standalone_count += 1
+                        print(f'[AUTO_CLEANUP] Deleted standalone photo: {s3_key}')
+                    except Exception as e:
+                        print(f'[AUTO_CLEANUP] Failed to delete {s3_key}: {e}')
+                    
+                    # Удаляем thumbnail если есть
+                    if thumb_key:
                         try:
-                            s3_client.delete_object(Bucket=bucket, Key=trash_key)
+                            storage_client.delete_object(Bucket=storage_bucket, Key=thumb_key)
                         except Exception as e:
-                            print(f'Failed to delete {trash_key} from S3: {e}')
+                            print(f'[AUTO_CLEANUP] Failed to delete thumbnail {thumb_key}: {e}')
                 
                 if expired_photos:
                     expired_ids = [p['id'] for p in expired_photos]
@@ -132,9 +203,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         WHERE id IN ({','.join(map(str, expired_ids))})
                     ''')
                     conn.commit()
-                    print(f'Auto-deleted {len(expired_photos)} expired standalone photos from trash')
+                    print(f'[AUTO_CLEANUP] Deleted {len(expired_photos)} expired standalone photos from trash')
         except Exception as cleanup_error:
-            print(f'Auto-cleanup failed (non-critical): {cleanup_error}')
+            print(f'[AUTO_CLEANUP] Auto-cleanup failed (non-critical): {cleanup_error}')
             import traceback
             print(f'Traceback: {traceback.format_exc()}')
             # Don't fail the request if cleanup fails
