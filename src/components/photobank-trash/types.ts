@@ -3,6 +3,7 @@ export interface TrashedFolder {
   folder_name: string;
   s3_prefix: string;
   trashed_at: string;
+  auto_delete_date?: string;
   photo_count: number;
 }
 
@@ -15,5 +16,6 @@ export interface TrashedPhoto {
   width: number | null;
   height: number | null;
   trashed_at: string;
+  auto_delete_date?: string;
   folder_name: string;
 }

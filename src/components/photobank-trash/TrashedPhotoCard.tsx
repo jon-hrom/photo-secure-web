@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { TrashedPhoto } from './types';
+import { formatDeleteDate } from './utils';
 
 interface TrashedPhotoCardProps {
   photo: TrashedPhoto;
@@ -106,7 +107,7 @@ const TrashedPhotoCard = ({
       {!selectionMode && (
         <div className="absolute top-2 right-2">
         <Badge 
-          variant={getDaysLeftBadge(photo.trashed_at).variant as any}
+          variant={getDaysLeftBadge(photo.trashed_at).variant as 'default' | 'secondary' | 'destructive'}
           className="text-[10px] px-1.5 py-0.5"
         >
           <Icon name="Clock" size={10} className="mr-0.5" />
@@ -116,7 +117,11 @@ const TrashedPhotoCard = ({
       )}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
         <p className="text-xs text-white truncate">{photo.file_name}</p>
-        <p className="text-[10px] text-white/70">{formatDate(photo.trashed_at)}</p>
+        {photo.auto_delete_date ? (
+          <p className="text-[10px] text-white/70">Удалится: {formatDeleteDate(photo.auto_delete_date)}</p>
+        ) : (
+          <p className="text-[10px] text-white/70">{formatDate(photo.trashed_at)}</p>
+        )}
       </div>
     </div>
   );

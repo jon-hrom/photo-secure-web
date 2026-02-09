@@ -221,6 +221,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pf.folder_name, 
                             pf.s3_prefix,
                             pf.trashed_at,
+                            pf.trashed_at + INTERVAL '7 days' as auto_delete_date,
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank pb
                              WHERE pb.folder_id = pf.id AND pb.is_trashed = TRUE) as photo_count
                         FROM t_p28211681_photo_secure_web.photo_folders pf
@@ -232,6 +233,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     for folder in folders:
                         if folder['trashed_at']:
                             folder['trashed_at'] = folder['trashed_at'].isoformat()
+                        if folder['auto_delete_date']:
+                            folder['auto_delete_date'] = folder['auto_delete_date'].isoformat()
                 
                 return {
                     'statusCode': 200,
@@ -251,6 +254,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pb.width, 
                             pb.height, 
                             pb.trashed_at,
+                            pb.trashed_at + INTERVAL '7 days' as auto_delete_date,
                             pf.folder_name
                         FROM t_p28211681_photo_secure_web.photo_bank pb
                         LEFT JOIN t_p28211681_photo_secure_web.photo_folders pf ON pb.folder_id = pf.id
@@ -265,6 +269,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     for photo in photos:
                         if photo['trashed_at']:
                             photo['trashed_at'] = photo['trashed_at'].isoformat()
+                        if photo['auto_delete_date']:
+                            photo['auto_delete_date'] = photo['auto_delete_date'].isoformat()
                         
                         if photo['s3_key']:
                             try:

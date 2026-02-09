@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { TrashedFolder } from './types';
+import { formatDeleteDate } from './utils';
 
 interface TrashedFoldersListProps {
   folders: TrashedFolder[];
@@ -58,13 +59,17 @@ const TrashedFoldersList = ({
                         {folder.photo_count || 0} фото
                       </Badge>
                       <Badge 
-                        variant={getDaysLeftBadge(folder.trashed_at).variant as any}
+                        variant={getDaysLeftBadge(folder.trashed_at).variant as 'default' | 'secondary' | 'destructive'}
                         className="text-xs"
                       >
                         <Icon name="Clock" size={12} className="mr-1" />
                         {getDaysLeftBadge(folder.trashed_at).text}
                       </Badge>
-                      <span className="truncate">{formatDate(folder.trashed_at)}</span>
+                      {folder.auto_delete_date && (
+                        <span className="truncate">
+                          Удалится: {formatDeleteDate(folder.auto_delete_date)}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <Button

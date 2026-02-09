@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { TrashedPhoto } from './types';
+import { formatDeleteDate } from './utils';
 
 interface TrashedPhotoInfoProps {
   viewPhoto: TrashedPhoto;
@@ -35,7 +36,7 @@ const TrashedPhotoInfo = ({
       <div className="flex items-center gap-2 mb-2">
         <p className="text-white font-medium text-lg">{viewPhoto.file_name}</p>
         <Badge 
-          variant={getDaysLeftBadge(viewPhoto.trashed_at).variant as any}
+          variant={getDaysLeftBadge(viewPhoto.trashed_at).variant as 'default' | 'secondary' | 'destructive'}
           className="text-xs"
         >
           <Icon name="Clock" size={12} className="mr-1" />
@@ -47,7 +48,11 @@ const TrashedPhotoInfo = ({
         {viewPhoto.width && viewPhoto.height && (
           <span>{viewPhoto.width} × {viewPhoto.height}</span>
         )}
-        <span>Удалено: {formatDate(viewPhoto.trashed_at)}</span>
+        {viewPhoto.auto_delete_date ? (
+          <span>Удалится: {formatDeleteDate(viewPhoto.auto_delete_date)}</span>
+        ) : (
+          <span>Удалено: {formatDate(viewPhoto.trashed_at)}</span>
+        )}
       </div>
       <div className="flex gap-2">
         <Button
