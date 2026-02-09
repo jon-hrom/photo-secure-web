@@ -253,18 +253,30 @@ def handler(event: dict, context) -> dict:
             else:
                 print(f'[URL_UPLOAD] ⏭️ Skipping thumbnail for RAW file: {filename}')
             
-            # Сохраняем в БД
-            print(f'[URL_UPLOAD] 📦 Saving to DB: user_id={user_id}, folder_id={folder_id}, file_size={file_size}, width={width}, height={height}, has_thumbnail={thumbnail_s3_url is not None}')
+            # Сохраняем в БД (проверяем дубликат перед вставкой)
+            print(f'[URL_UPLOAD] 📦 Checking for existing photo: folder_id={folder_id}, s3_key={s3_key}')
             cursor.execute(
-                '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
-                   (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                   RETURNING id''',
-                (user_id, folder_id, filename, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
+                '''SELECT id FROM t_p28211681_photo_secure_web.photo_bank 
+                   WHERE folder_id = %s AND s3_key = %s AND is_trashed = false''',
+                (folder_id, s3_key)
             )
-            photo_id = cursor.fetchone()['id']
-            conn.commit()
-            print(f'[URL_UPLOAD] ✅ Committed to DB, photo_id={photo_id}')
+            existing = cursor.fetchone()
+            
+            if existing:
+                photo_id = existing['id']
+                print(f'[URL_UPLOAD] ⚠️ Photo already exists, skipping insert. photo_id={photo_id}')
+            else:
+                print(f'[URL_UPLOAD] 📦 Saving to DB: user_id={user_id}, folder_id={folder_id}, file_size={file_size}, width={width}, height={height}, has_thumbnail={thumbnail_s3_url is not None}')
+                cursor.execute(
+                    '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
+                       (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       RETURNING id''',
+                    (user_id, folder_id, filename, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
+                )
+                photo_id = cursor.fetchone()['id']
+                conn.commit()
+                print(f'[URL_UPLOAD] ✅ Committed to DB, photo_id={photo_id}')
             
             uploaded_files.append({
                 'id': photo_id,
