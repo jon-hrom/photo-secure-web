@@ -78,19 +78,19 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <Icon name="User" size={24} className="text-blue-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Вход</h2>
+            <Icon name="User" size={24} className="text-blue-600 dark:text-blue-400" />
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Вход</h2>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-            <Icon name="X" size={20} className="text-gray-500" />
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+            <Icon name="X" size={20} className="text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
-        <p className="text-sm text-gray-600 mb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
           Введите ФИО и телефон для доступа к вашим избранным фото
         </p>
 
@@ -126,9 +126,9 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
             />
           </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
 
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Введите данные, которые вы указали при добавлении фото в избранное
           </p>
 

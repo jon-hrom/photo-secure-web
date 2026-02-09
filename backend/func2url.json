@@ -29,6 +29,7 @@
   "birthday-cron": "https://functions.poehali.dev/51591e90-6dc7-4bdd-8049-81ebf7a859a2",
   "vk-settings": "https://functions.poehali.dev/f19f02aa-569b-49f2-b9d6-3036bffb9e73",
   "birthday-checker": "https://functions.poehali.dev/e8f71ffe-1b27-4576-b601-7f01793bd5e2",
+  "download-folder-zip": "https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a",
   "url-upload": "https://functions.poehali.dev/f0385237-b64f-49d6-8491-e534ca5056f7",
   "extract-exif": "https://functions.poehali.dev/340b5361-292f-4f16-8d31-f179fa6856b1",
   "background-settings": "https://functions.poehali.dev/27bedb10-0577-4edb-87c8-23b5c01de71c",

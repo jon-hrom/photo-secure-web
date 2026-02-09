@@ -98,7 +98,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Публичный доступ через короткую ссылку
             cur.execute(
                 """
-                SELECT fsl.folder_id, pf.folder_name
+                SELECT fsl.folder_id, pf.folder_name, fsl.download_disabled
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -115,7 +115,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            folder_id, folder_name = folder_result
+            folder_id, folder_name, download_disabled = folder_result
+            
+            # Проверяем, разрешено ли скачивание
+            if download_disabled:
+                return {
+                    'statusCode': 403,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Download disabled for this gallery'}),
+                    'isBase64Encoded': False
+                }
         else:
             # Приватный доступ (авторизованный пользователь)
             try:
@@ -154,10 +163,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
         
-        # Получаем все фотографии из папки
+        # Получаем все фотографии из папки с s3_url для определения типа хранилища
         cur.execute(
             """
-            SELECT s3_key, file_name 
+            SELECT s3_key, file_name, s3_url
             FROM t_p28211681_photo_secure_web.photo_bank 
             WHERE folder_id = %s AND s3_key IS NOT NULL AND is_trashed = false
             ORDER BY file_name
@@ -213,8 +222,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     finally:
         conn.close()
     
-    # Создаем S3 клиент
-    s3_client = boto3.client(
+    # Создаем оба S3 клиента
+    yc_s3 = boto3.client(
         's3',
         endpoint_url='https://storage.yandexcloud.net',
         region_name='ru-central1',
@@ -223,23 +232,41 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         config=Config(signature_version='s3v4')
     )
     
+    poehali_s3 = boto3.client(
+        's3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+    )
+    
     # Генерируем pre-signed URLs для каждого файла
     file_urls = []
-    for s3_key, file_name in photos:
+    for s3_key, file_name, s3_url in photos:
         try:
-            presigned_url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={
-                    'Bucket': 'foto-mix',
-                    'Key': s3_key,
-                    'ResponseContentDisposition': f'attachment; filename="{file_name}"'
-                },
-                ExpiresIn=3600
-            )
-            file_urls.append({
-                'filename': file_name,
-                'url': presigned_url
-            })
+            # Определяем, какой S3 используется
+            use_poehali_s3 = s3_url and 'cdn.poehali.dev' in s3_url
+            
+            # Если используется poehali CDN - возвращаем URL напрямую
+            if use_poehali_s3 and s3_url:
+                file_urls.append({
+                    'filename': file_name,
+                    'url': s3_url
+                })
+            else:
+                # Для Yandex S3 генерируем presigned URL
+                presigned_url = yc_s3.generate_presigned_url(
+                    'get_object',
+                    Params={
+                        'Bucket': 'foto-mix',
+                        'Key': s3_key,
+                        'ResponseContentDisposition': f'attachment; filename="{file_name}"'
+                    },
+                    ExpiresIn=3600
+                )
+                file_urls.append({
+                    'filename': file_name,
+                    'url': presigned_url
+                })
         except Exception as e:
             print(f"Failed to generate URL for {file_name}: {e}")
             continue
