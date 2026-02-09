@@ -96,6 +96,62 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if method == 'GET' and action == 'list-trash':
         return list_trash_folders(event)
     
+    if method == 'GET' and action == 'preview-cleanup':
+        # Публичный просмотр папок старше 7 дней (без удаления)
+        try:
+            conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+            cutoff_date = datetime.now() - timedelta(days=7)
+            
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(f'''
+                    SELECT 
+                        pf.id,
+                        pf.folder_name,
+                        pf.trashed_at,
+                        EXTRACT(DAY FROM (NOW() - pf.trashed_at)) as days_in_trash,
+                        COUNT(pb.id) as photos_count,
+                        COALESCE(SUM(pb.file_size), 0) as total_bytes
+                    FROM {SCHEMA}.photo_folders pf
+                    LEFT JOIN {SCHEMA}.photo_bank pb ON pb.folder_id = pf.id AND pb.is_trashed = TRUE
+                    WHERE pf.is_trashed = TRUE AND pf.trashed_at < %s
+                    GROUP BY pf.id, pf.folder_name, pf.trashed_at
+                    ORDER BY pf.trashed_at ASC
+                ''', (cutoff_date,))
+                folders = cur.fetchall()
+            
+            conn.close()
+            
+            result = []
+            for f in folders:
+                result.append({
+                    'id': f['id'],
+                    'folder_name': f['folder_name'],
+                    'trashed_at': f['trashed_at'].isoformat() if f['trashed_at'] else None,
+                    'days_in_trash': int(f['days_in_trash']) if f['days_in_trash'] else 0,
+                    'photos_count': int(f['photos_count']),
+                    'total_mb': round(float(f['total_bytes']) / 1024 / 1024, 2)
+                })
+            
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({
+                    'folders_to_delete': result,
+                    'total_folders': len(result),
+                    'total_photos': sum(f['photos_count'] for f in result),
+                    'total_mb': sum(f['total_mb'] for f in result),
+                    'cutoff_date': cutoff_date.isoformat()
+                }),
+                'isBase64Encoded': False
+            }
+        except Exception as e:
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': str(e)}),
+                'isBase64Encoded': False
+            }
+    
     headers = event.get('headers', {})
     cron_token = headers.get('X-Cron-Token') or headers.get('x-cron-token')
     expected_token = os.environ.get('CRON_TOKEN', 'secure-cron-token-change-me')
