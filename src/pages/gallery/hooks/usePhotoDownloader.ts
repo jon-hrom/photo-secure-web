@@ -143,6 +143,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
 
       if (supportsFileSystemAccess && writable) {
         const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true });
+        const usedFilenames = new Set<string>();
 
         for (let i = 0; i < data.files.length; i++) {
           if (abortController.signal.aborted) {
@@ -155,7 +156,21 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
           try {
             const fileResponse = await fetch(file.url, { signal: abortController.signal });
             if (fileResponse.ok && fileResponse.body) {
-              await zipWriter.add(file.filename, fileResponse.body, { level: 0 });
+              let filename = file.filename;
+              
+              // Если файл с таким именем уже есть, добавляем счетчик
+              if (usedFilenames.has(filename)) {
+                const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+                const nameWithoutExt = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+                let counter = 1;
+                do {
+                  filename = `${nameWithoutExt}_${counter}${ext}`;
+                  counter++;
+                } while (usedFilenames.has(filename));
+              }
+              
+              usedFilenames.add(filename);
+              await zipWriter.add(filename, fileResponse.body, { level: 0 });
             }
           } catch (err: any) {
             if (err.name === 'AbortError') break;
@@ -184,6 +199,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       } else {
         const zipFileStream = new zip.BlobWriter();
         const zipWriter = new zip.ZipWriter(zipFileStream);
+        const usedFilenames = new Set<string>();
 
         for (let i = 0; i < data.files.length; i++) {
           if (abortController.signal.aborted) break;
@@ -193,7 +209,21 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
           try {
             const fileResponse = await fetch(file.url, { signal: abortController.signal });
             if (fileResponse.ok && fileResponse.body) {
-              await zipWriter.add(file.filename, fileResponse.body, { level: 0 });
+              let filename = file.filename;
+              
+              // Если файл с таким именем уже есть, добавляем счетчик
+              if (usedFilenames.has(filename)) {
+                const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+                const nameWithoutExt = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+                let counter = 1;
+                do {
+                  filename = `${nameWithoutExt}_${counter}${ext}`;
+                  counter++;
+                } while (usedFilenames.has(filename));
+              }
+              
+              usedFilenames.add(filename);
+              await zipWriter.add(filename, fileResponse.body, { level: 0 });
             }
           } catch (err: any) {
             if (err.name === 'AbortError') break;
