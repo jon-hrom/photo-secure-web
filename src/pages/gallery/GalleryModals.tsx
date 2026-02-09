@@ -30,9 +30,31 @@ interface FavoriteFolder {
   photos: Photo[];
 }
 
+interface WatermarkSettings {
+  enabled: boolean;
+  type: string;
+  text?: string;
+  image_url?: string;
+  frequency: number;
+  size: number;
+  opacity: number;
+  rotation?: number;
+}
+
+interface GalleryData {
+  folder_name: string;
+  photos: Photo[];
+  total_size: number;
+  watermark?: WatermarkSettings;
+  screenshot_protection?: boolean;
+  download_disabled?: boolean;
+  favorite_config?: FavoriteFolder | null;
+  photographer_id?: number;
+}
+
 interface GalleryModalsProps {
   selectedPhoto: Photo | null;
-  gallery: any;
+  gallery: GalleryData | null;
   clientData: { client_id: number; full_name: string; phone: string; email?: string } | null;
   clientFavoritePhotoIds: number[];
   viewingFavorites: boolean;
@@ -42,6 +64,7 @@ interface GalleryModalsProps {
   isChatOpen: boolean;
   isWelcomeModalOpen: boolean;
   favoriteFolder: FavoriteFolder | null;
+  photoToAdd: Photo | null;
   unreadCount: number;
   code?: string;
   setSelectedPhoto: (photo: Photo | null) => void;
@@ -52,8 +75,9 @@ interface GalleryModalsProps {
   setIsChatOpen: (open: boolean) => void;
   setIsWelcomeModalOpen: (open: boolean) => void;
   setUnreadCount: (count: number) => void;
-  onFavoritesFolderSelect: (folderId: string, clientInfo: { fullName: string; phone: string; email?: string }) => void;
-  onClientLogin: (fullName: string, phone: string, email?: string) => Promise<boolean>;
+  setPhotoToAdd: (photo: Photo | null) => void;
+  onFavoriteSubmit: (data: { fullName: string; phone: string; email?: string; client_id?: number }) => void;
+  onClientLogin: (clientData: { client_id: number; full_name: string; phone: string; email?: string }) => void;
   onRemoveFromFavorites: (photoId: number) => void;
   onDownloadPhoto: (photo: Photo) => void;
   loadClientFavorites: (clientId: number) => void;
@@ -71,6 +95,7 @@ export default function GalleryModals({
   isChatOpen,
   isWelcomeModalOpen,
   favoriteFolder,
+  photoToAdd,
   unreadCount,
   code,
   setSelectedPhoto,
@@ -81,7 +106,8 @@ export default function GalleryModals({
   setIsChatOpen,
   setIsWelcomeModalOpen,
   setUnreadCount,
-  onFavoritesFolderSelect,
+  setPhotoToAdd,
+  onFavoriteSubmit,
   onClientLogin,
   onRemoveFromFavorites,
   onDownloadPhoto,
@@ -108,20 +134,27 @@ export default function GalleryModals({
         />
       )}
 
-      {isFavoritesModalOpen && favoriteFolder && (
+      {isFavoritesModalOpen && favoriteFolder && photoToAdd && code && (
         <FavoritesModal
           isOpen={isFavoritesModalOpen}
-          onClose={() => setIsFavoritesModalOpen(false)}
+          onClose={() => {
+            setIsFavoritesModalOpen(false);
+            setPhotoToAdd(null);
+          }}
           folder={favoriteFolder}
-          onSelect={onFavoritesFolderSelect}
+          onSubmit={onFavoriteSubmit}
+          galleryCode={code}
+          photoId={photoToAdd.id}
         />
       )}
 
-      {isLoginModalOpen && (
+      {isLoginModalOpen && code && (
         <ClientLoginModal
           isOpen={isLoginModalOpen}
           onClose={() => setIsLoginModalOpen(false)}
           onLogin={onClientLogin}
+          galleryCode={code}
+          favoriteConfig={gallery?.favorite_config}
         />
       )}
 

@@ -126,37 +126,67 @@ def handler(event: dict, context) -> dict:
             
             elif action == 'login':
                 gallery_code = body.get('gallery_code')
-                full_name = body.get('full_name')
+                full_name = body.get('full_name', '')
                 phone = body.get('phone', '')
                 email = body.get('email', '')
                 
-                if not all([gallery_code, full_name, phone]):
+                if not gallery_code:
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'Missing required fields (gallery_code, full_name, phone)'})
+                        'body': json.dumps({'error': 'gallery_code is required'})
                     }
                 
-                # Ищем существующего клиента по gallery_code + full_name + phone
-                cur.execute('''
+                # Строим динамический WHERE запрос в зависимости от заполненных полей
+                where_conditions = ['gallery_code = %s']
+                params = [gallery_code]
+                
+                if full_name:
+                    where_conditions.append('full_name = %s')
+                    params.append(full_name)
+                
+                if phone:
+                    where_conditions.append('phone = %s')
+                    params.append(phone)
+                
+                if email:
+                    where_conditions.append('email = %s')
+                    params.append(email)
+                
+                where_clause = ' AND '.join(where_conditions)
+                
+                query = f'''
                     SELECT id, full_name, phone, email
                     FROM t_p28211681_photo_secure_web.favorite_clients
-                    WHERE gallery_code = %s AND full_name = %s AND phone = %s
+                    WHERE {where_clause}
                     ORDER BY id DESC LIMIT 1
-                ''', (gallery_code, full_name, phone))
+                '''
                 
+                cur.execute(query, tuple(params))
                 existing_client = cur.fetchone()
                 
                 if existing_client:
-                    # Обновляем email если изменился
                     client_id = existing_client[0]
-                    cur.execute('''
-                        UPDATE t_p28211681_photo_secure_web.favorite_clients
-                        SET email = CASE WHEN %s != '' THEN %s ELSE email END
-                        WHERE id = %s
-                        RETURNING id, full_name, phone, email
-                    ''', (email, email, client_id))
-                    client = cur.fetchone()
+                    # Обновляем поля если изменились
+                    update_parts = []
+                    update_params = []
+                    
+                    if email and email != existing_client[3]:
+                        update_parts.append('email = %s')
+                        update_params.append(email)
+                    
+                    if update_parts:
+                        update_params.append(client_id)
+                        update_query = f'''
+                            UPDATE t_p28211681_photo_secure_web.favorite_clients
+                            SET {', '.join(update_parts)}
+                            WHERE id = %s
+                            RETURNING id, full_name, phone, email
+                        '''
+                        cur.execute(update_query, tuple(update_params))
+                        client = cur.fetchone()
+                    else:
+                        client = existing_client
                 else:
                     # Клиент не найден - возвращаем 404
                     return {
@@ -172,9 +202,9 @@ def handler(event: dict, context) -> dict:
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({
                         'client_id': client[0],
-                        'full_name': client[1],
-                        'phone': client[2],
-                        'email': client[3]
+                        'full_name': client[1] or '',
+                        'phone': client[2] or '',
+                        'email': client[3] or ''
                     })
                 }
         

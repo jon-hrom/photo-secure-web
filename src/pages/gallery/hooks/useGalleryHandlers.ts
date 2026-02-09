@@ -26,13 +26,18 @@ interface FavoriteFolder {
   photos: Photo[];
 }
 
+interface GalleryData {
+  photographer_id?: number;
+  favorite_config?: FavoriteFolder | null;
+}
+
 interface GalleryHandlersParams {
   code?: string;
-  gallery: any;
+  gallery: GalleryData | null;
   clientData: { client_id: number; full_name: string; phone: string; email?: string } | null;
   favoriteFolder: FavoriteFolder | null;
   isChatOpen: boolean;
-  setClientData: (data: any) => void;
+  setClientData: (data: { client_id: number; full_name: string; phone: string; email?: string } | null) => void;
   setFavoriteFolder: (folder: FavoriteFolder | null) => void;
   setClientFavoritePhotoIds: (ids: number[] | ((prev: number[]) => number[])) => void;
   setUnreadCount: (count: number) => void;
@@ -177,45 +182,35 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     }
   };
 
-  const handleClientLogin = async (fullName: string, phone: string, email?: string) => {
-    try {
-      const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'client_login',
-          gallery_code: code,
-          full_name: fullName,
-          phone: phone,
-          email: email || null
-        })
-      });
-      
-      const result = await response.json();
-      console.log('[CLIENT_LOGIN] Login response:', result);
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Ошибка входа');
-      }
-      
-      const newClientData = {
-        client_id: result.client_id,
-        full_name: fullName,
-        phone: phone,
-        email: email
-      };
-      
-      setClientData(newClientData);
+  const handleFavoriteSubmit = async (data: { fullName: string; phone: string; email?: string; client_id?: number }) => {
+    if (!data.client_id) {
+      console.error('[FAVORITES] No client_id in response');
+      return;
+    }
+    
+    const newClientData = {
+      client_id: data.client_id,
+      full_name: data.fullName,
+      phone: data.phone,
+      email: data.email
+    };
+    
+    setClientData(newClientData);
+    if (gallery) {
       localStorage.setItem(`client_${gallery.photographer_id}_${code}`, JSON.stringify(newClientData));
-      
-      if (result.client_id) {
-        await loadClientFavorites(result.client_id);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('[CLIENT_LOGIN] Login error:', error);
-      throw error;
+    }
+    
+    await loadClientFavorites(data.client_id);
+  };
+
+  const handleClientLogin = async (clientData: { client_id: number; full_name: string; phone: string; email?: string }) => {
+    setClientData(clientData);
+    if (gallery) {
+      localStorage.setItem(`client_${gallery.photographer_id}_${code}`, JSON.stringify(clientData));
+    }
+    
+    if (clientData.client_id) {
+      await loadClientFavorites(clientData.client_id);
     }
   };
 
@@ -289,6 +284,7 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
 
   return {
     handleAddToFavorites,
+    handleFavoriteSubmit,
     handleClientLogin,
     handleLogout,
     handleRemoveFromFavorites,

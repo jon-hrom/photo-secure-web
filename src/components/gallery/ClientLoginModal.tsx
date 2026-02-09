@@ -4,30 +4,46 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
+interface FavoriteConfig {
+  id: string;
+  name: string;
+  fields: {
+    fullName: boolean;
+    phone: boolean;
+    email: boolean;
+  };
+}
+
 interface ClientLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogin: (clientData: { client_id: number; full_name: string; phone: string; email?: string }) => void;
   galleryCode: string;
+  favoriteConfig?: FavoriteConfig | null;
 }
 
-export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode }: ClientLoginModalProps) {
+export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode, favoriteConfig }: ClientLoginModalProps) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  const showFullName = favoriteConfig?.fields.fullName !== false;
+  const showPhone = favoriteConfig?.fields.phone !== false;
+  const showEmail = favoriteConfig?.fields.email === true;
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!fullName.trim()) {
+    if (showFullName && !fullName.trim()) {
       setError('Введите ФИО');
       return;
     }
 
-    if (!phone.trim()) {
+    if (showPhone && !phone.trim()) {
       setError('Введите номер телефона');
       return;
     }
@@ -43,7 +59,8 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
           action: 'login',
           gallery_code: galleryCode,
           full_name: fullName,
-          phone: phone
+          phone: phone,
+          email: email || null
         })
       });
 
@@ -67,6 +84,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
 
       setFullName('');
       setPhone('');
+      setEmail('');
       setError('');
       onClose();
     } catch (error) {
@@ -91,40 +109,60 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
         </div>
 
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-          Введите ФИО и телефон для доступа к вашим избранным фото
+          Введите данные для доступа к вашим избранным фото
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="fullName">ФИО <span className="text-red-500">*</span></Label>
-            <Input
-              id="fullName"
-              type="text"
-              value={fullName}
-              onChange={(e) => {
-                setFullName(e.target.value);
-                setError('');
-              }}
-              placeholder="Иванов Иван Иванович"
-              className={error && !phone.trim() ? '' : (error ? 'border-red-500' : '')}
-              autoFocus
-            />
-          </div>
+          {showFullName && (
+            <div>
+              <Label htmlFor="fullName">ФИО <span className="text-red-500">*</span></Label>
+              <Input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => {
+                  setFullName(e.target.value);
+                  setError('');
+                }}
+                placeholder="Иванов Иван Иванович"
+                className={error && !phone.trim() ? '' : (error ? 'border-red-500' : '')}
+                autoFocus
+              />
+            </div>
+          )}
 
-          <div>
-            <Label htmlFor="phone">Телефон <span className="text-red-500">*</span></Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                setError('');
-              }}
-              placeholder="+7 (900) 123-45-67"
-              className={error && fullName.trim() ? 'border-red-500' : ''}
-            />
-          </div>
+          {showPhone && (
+            <div>
+              <Label htmlFor="phone">Телефон <span className="text-red-500">*</span></Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setError('');
+                }}
+                placeholder="+7 (900) 123-45-67"
+                className={error && fullName.trim() ? 'border-red-500' : ''}
+              />
+            </div>
+          )}
+
+          {showEmail && (
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError('');
+                }}
+                placeholder="example@mail.com"
+              />
+            </div>
+          )}
 
           {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
 

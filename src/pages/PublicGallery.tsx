@@ -177,6 +177,7 @@ export default function PublicGallery() {
         isChatOpen={state.isChatOpen}
         isWelcomeModalOpen={state.isWelcomeModalOpen}
         favoriteFolder={state.favoriteFolder}
+        photoToAdd={state.photoToAdd}
         unreadCount={state.unreadCount}
         code={code}
         setSelectedPhoto={state.setSelectedPhoto}
@@ -187,7 +188,8 @@ export default function PublicGallery() {
         setIsChatOpen={state.setIsChatOpen}
         setIsWelcomeModalOpen={state.setIsWelcomeModalOpen}
         setUnreadCount={state.setUnreadCount}
-        onFavoritesFolderSelect={handlers.handleFavoritesFolderSelect}
+        setPhotoToAdd={state.setPhotoToAdd}
+        onFavoriteSubmit={handlers.handleFavoriteSubmit}
         onClientLogin={handlers.handleClientLogin}
         onRemoveFromFavorites={handlers.handleRemoveFromFavorites}
         onDownloadPhoto={downloadPhoto}
