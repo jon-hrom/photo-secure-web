@@ -31,7 +31,8 @@ const PhotoBankTrash = () => {
     handleDeletePhotoForever,
     handleBulkRestore,
     handleBulkDelete,
-    handleEmptyTrash
+    handleEmptyTrash,
+    cleanup
   } = useTrashApi(userId);
 
   useEffect(() => {
@@ -75,7 +76,12 @@ const PhotoBankTrash = () => {
     };
     
     checkAuth();
-  }, [navigate]);
+    
+    // Cleanup on unmount
+    return () => {
+      cleanup();
+    };
+  }, [navigate, cleanup]);
 
   const togglePhotoSelection = (photoId: number) => {
     setSelectedPhotoIds(prev => {

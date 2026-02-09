@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { TrashedFolder, TrashedPhoto } from './types';
 
@@ -11,11 +11,15 @@ export const useTrashApi = (userId: string | null) => {
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const autoRefreshRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchTrash = async () => {
+  const fetchTrash = async (isAutoRefresh = false) => {
     if (!userId) return;
     
-    setLoading(true);
+    if (!isAutoRefresh) {
+      setLoading(true);
+    }
+    
     try {
       const [foldersRes, photosRes] = await Promise.all([
         fetch(`${PHOTOBANK_TRASH_API}?action=list`, {
@@ -29,16 +33,48 @@ export const useTrashApi = (userId: string | null) => {
       const foldersData = await foldersRes.json();
       const photosData = await photosRes.json();
       
-      setTrashedFolders(foldersData.trashed_folders || []);
-      setTrashedPhotos(photosData.trashed_photos || []);
-    } catch (error) {
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось загрузить корзину',
-        variant: 'destructive'
+      const folders = foldersData.trashed_folders || [];
+      const photos = photosData.trashed_photos || [];
+      
+      setTrashedFolders(folders);
+      setTrashedPhotos(photos);
+      
+      // Проверяем, есть ли просроченные элементы
+      const now = new Date();
+      const hasExpired = [...folders, ...photos].some(item => {
+        if (!item.auto_delete_date) return false;
+        return new Date(item.auto_delete_date) <= now;
       });
+      
+      // Если есть просроченные элементы, автоматически перезагружаем через 2 секунды
+      if (hasExpired) {
+        console.log('[AUTO_CLEANUP] Found expired items, will auto-refresh in 2s');
+        if (autoRefreshRef.current) {
+          clearTimeout(autoRefreshRef.current);
+        }
+        autoRefreshRef.current = setTimeout(() => {
+          console.log('[AUTO_CLEANUP] Auto-refreshing trash...');
+          fetchTrash(true);
+        }, 2000);
+      } else {
+        // Очистка таймера если просроченных элементов нет
+        if (autoRefreshRef.current) {
+          clearTimeout(autoRefreshRef.current);
+          autoRefreshRef.current = null;
+        }
+      }
+    } catch (error) {
+      if (!isAutoRefresh) {
+        toast({
+          title: 'Ошибка',
+          description: 'Не удалось загрузить корзину',
+          variant: 'destructive'
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!isAutoRefresh) {
+        setLoading(false);
+      }
     }
   };
 
@@ -71,10 +107,10 @@ export const useTrashApi = (userId: string | null) => {
       });
       
       fetchTrash();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось восстановить папку',
+        description: error instanceof Error ? error.message : 'Не удалось восстановить папку',
         variant: 'destructive'
       });
     } finally {
@@ -111,10 +147,10 @@ export const useTrashApi = (userId: string | null) => {
       });
       
       fetchTrash();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось восстановить фото',
+        description: error instanceof Error ? error.message : 'Не удалось восстановить фото',
         variant: 'destructive'
       });
     } finally {
@@ -151,10 +187,10 @@ export const useTrashApi = (userId: string | null) => {
       });
       
       fetchTrash();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось удалить фото',
+        description: error instanceof Error ? error.message : 'Не удалось удалить фото',
         variant: 'destructive'
       });
     } finally {
@@ -274,14 +310,21 @@ export const useTrashApi = (userId: string | null) => {
       });
       
       fetchTrash();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось очистить корзину',
+        description: error instanceof Error ? error.message : 'Не удалось очистить корзину',
         variant: 'destructive'
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cleanup = () => {
+    if (autoRefreshRef.current) {
+      clearTimeout(autoRefreshRef.current);
+      autoRefreshRef.current = null;
     }
   };
 
@@ -297,6 +340,7 @@ export const useTrashApi = (userId: string | null) => {
     handleDeletePhotoForever,
     handleBulkRestore,
     handleBulkDelete,
-    handleEmptyTrash
+    handleEmptyTrash,
+    cleanup
   };
 };
