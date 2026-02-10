@@ -479,32 +479,45 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if folder_ids:
                         print(f'[EMPTY_TRASH] Processing {len(folder_ids)} folders: {folder_ids}')
                         
-                        # Сначала удаляем ВСЕ фото из удалённых папок по одной
-                        for folder_id in folder_ids:
-                            print(f'[EMPTY_TRASH] Deleting photos from folder {folder_id}')
+                        # Получаем все ID фотографий из удаляемых папок
+                        cur.execute('''
+                            SELECT id FROM t_p28211681_photo_secure_web.photo_bank 
+                            WHERE folder_id = ANY(%s)
+                        ''', (folder_ids,))
+                        photo_ids = [row['id'] for row in cur.fetchall()]
+                        print(f'[EMPTY_TRASH] Found {len(photo_ids)} photos to delete')
+                        
+                        if photo_ids:
+                            # 1. Удаляем логи скачиваний
+                            print(f'[EMPTY_TRASH] Deleting download logs...')
                             cur.execute('''
-                                SELECT COUNT(*) as count FROM t_p28211681_photo_secure_web.photo_bank 
-                                WHERE folder_id = %s
-                            ''', (folder_id,))
-                            photo_count = cur.fetchone()['count']
-                            print(f'[EMPTY_TRASH] Found {photo_count} photos in folder {folder_id}')
+                                DELETE FROM t_p28211681_photo_secure_web.download_logs 
+                                WHERE photo_id = ANY(%s)
+                            ''', (photo_ids,))
                             
+                            # 2. Удаляем связи с фотокнигами
+                            print(f'[EMPTY_TRASH] Deleting photobook design links...')
+                            cur.execute('''
+                                DELETE FROM t_p28211681_photo_secure_web.photobook_design_photos 
+                                WHERE photo_bank_id = ANY(%s)
+                            ''', (photo_ids,))
+                            
+                            # 3. Теперь можно безопасно удалить сами фото
+                            print(f'[EMPTY_TRASH] Deleting photos...')
                             cur.execute('''
                                 DELETE FROM t_p28211681_photo_secure_web.photo_bank 
-                                WHERE folder_id = %s
-                            ''', (folder_id,))
-                            print(f'[EMPTY_TRASH] Deleted photos from folder {folder_id}')
+                                WHERE id = ANY(%s)
+                            ''', (photo_ids,))
                         
-                        # Теперь можно безопасно удалить папки
-                        for folder_id in folder_ids:
-                            print(f'[EMPTY_TRASH] Deleting folder {folder_id}')
-                            cur.execute('''
-                                DELETE FROM t_p28211681_photo_secure_web.photo_folders 
-                                WHERE id = %s AND is_trashed = TRUE
-                            ''', (folder_id,))
+                        # 4. Наконец удаляем папки
+                        print(f'[EMPTY_TRASH] Deleting folders...')
+                        cur.execute('''
+                            DELETE FROM t_p28211681_photo_secure_web.photo_folders 
+                            WHERE id = ANY(%s) AND is_trashed = TRUE
+                        ''', (folder_ids,))
                         
                         conn.commit()
-                        print(f'[EMPTY_TRASH] Successfully deleted all folders and photos')
+                        print(f'[EMPTY_TRASH] Successfully deleted {len(photo_ids)} photos and {len(folder_ids)} folders')
                 
                 deleted_count = 0
                 for folder in folders:
