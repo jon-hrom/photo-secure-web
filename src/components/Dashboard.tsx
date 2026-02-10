@@ -236,7 +236,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
               {finalIsAdmin && onOpenAdminPanel && (
                 <button
                   onClick={onOpenAdminPanel}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95 border border-white/20"
                   title="Админ-панель"
                 >
                   <Icon name="ShieldCheck" size={14} className="text-white sm:w-4 sm:h-4" />
@@ -245,28 +245,28 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
               )}
               <button 
                 onClick={onOpenAddClient}
-                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95 border border-white/20"
               >
                 <Icon name="UserPlus" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4" />
                 <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Добавить клиента</span>
               </button>
               <a
                 href="/mobile-upload"
-                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95 border border-green-400/30"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95 border border-white/20"
               >
-                <Icon name="Upload" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4 text-green-100" />
+                <Icon name="Upload" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4 text-white" />
                 <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Загрузить фото</span>
               </a>
               <button 
                 onClick={onNavigateToPhotobook}
-                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95 border border-white/20"
               >
                 <Icon name="BookOpen" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4" />
                 <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Создать фотокнигу</span>
               </button>
               <button 
                 onClick={onNavigateToClients}
-                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95 border border-white/20"
               >
                 <Icon name="FileText" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4" />
                 <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Отчёты</span>
@@ -274,7 +274,7 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
               {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95 border border-white/20"
                   title="Выйти"
                 >
                   <Icon name="LogOut" size={14} className="text-white sm:w-4 sm:h-4" />
