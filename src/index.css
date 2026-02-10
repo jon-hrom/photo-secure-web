@@ -164,6 +164,26 @@
       "Segoe UI",
       sans-serif;
   }
+
+  /* Переопределение стилей автозаполнения для тёмной темы */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px hsl(var(--input)) inset !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    box-shadow: 0 0 0 1000px hsl(var(--input)) inset !important;
+    caret-color: hsl(var(--foreground)) !important;
+  }
+
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px rgb(31, 32, 35) inset !important;
+    -webkit-text-fill-color: rgb(244, 244, 245) !important;
+    box-shadow: 0 0 0 1000px rgb(31, 32, 35) inset !important;
+  }
 }
 
 @layer utilities {
