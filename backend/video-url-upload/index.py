@@ -306,17 +306,22 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
     if not segments:
         raise Exception('Плейлист не содержит сегментов')
     
-    print(f'[M3U8] Found {len(segments)} segments')
+    total_segments = len(segments)
+    max_segments = min(50, total_segments)
+    print(f'[M3U8] Found {total_segments} segments, downloading first {max_segments}')
+    
+    if total_segments > max_segments:
+        print(f'[M3U8] WARNING: Video too long ({total_segments} segments), only first {max_segments} will be downloaded (~{max_segments * 10 // 60} minutes)')
     
     segment_files = []
     base_url = m3u8_url.rsplit('/', 1)[0] + '/'
     
-    for i, segment in enumerate(segments[:100]):
+    for i, segment in enumerate(segments[:max_segments]):
         segment_url = urljoin(base_url, segment.uri)
         segment_path = os.path.join(output_dir, f'segment_{i:04d}.ts')
         
         try:
-            seg_response = session.get(segment_url, timeout=30)
+            seg_response = session.get(segment_url, timeout=10)
             seg_response.raise_for_status()
             
             with open(segment_path, 'wb') as f:
@@ -325,7 +330,7 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
             segment_files.append(segment_path)
             
             if (i + 1) % 10 == 0:
-                print(f'[M3U8] Downloaded {i + 1}/{len(segments)} segments')
+                print(f'[M3U8] Downloaded {i + 1}/{max_segments} segments')
                 
         except Exception as e:
             print(f'[M3U8] Failed segment {i}: {str(e)}')
