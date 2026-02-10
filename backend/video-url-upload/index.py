@@ -217,12 +217,13 @@ def detect_video_type(url: str) -> str:
     if '.m3u8' in url_lower:
         return 'm3u8'
     
-    if 'kinescope' in url_lower and not url_lower.endswith('.m3u8'):
-        return 'kinescope_page'
-    
     video_exts = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv')
-    if any(url_lower.endswith(ext) for ext in video_exts):
-        return 'direct'
+    for ext in video_exts:
+        if ext in url_lower:
+            return 'direct'
+    
+    if 'kinescope' in url_lower:
+        return 'kinescope_page'
     
     return 'unknown'
 
