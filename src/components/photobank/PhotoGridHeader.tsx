@@ -61,10 +61,12 @@ const PhotoGridHeader = ({
               onChange={onUploadPhoto}
               disabled={uploading || isStorageFull}
             />
-            <Button asChild disabled={uploading || isStorageFull} size="sm" title={isStorageFull ? 'Хранилище заполнено. Перейдите на другой тариф' : ''}>
-              <label htmlFor="photo-upload" className={isStorageFull ? 'cursor-not-allowed' : 'cursor-pointer'}>
-                <Icon name={isStorageFull ? 'Ban' : 'Upload'} className="mr-2" size={16} />
-                {isStorageFull ? 'Хранилище заполнено' : uploading ? 'Загрузка...' : 'Загрузить фото / видео'}
+            <Button asChild disabled={uploading || isStorageFull} size="sm" title={isStorageFull ? 'Хранилище заполнено. Перейдите на другой тариф' : ''} className="h-auto min-h-9 py-1.5">
+              <label htmlFor="photo-upload" className={`${isStorageFull ? 'cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-1.5`}>
+                <Icon name={isStorageFull ? 'Ban' : 'Upload'} className="shrink-0" size={16} />
+                <span className="text-xs sm:text-sm leading-tight text-center whitespace-normal max-w-[120px] sm:max-w-none">
+                  {isStorageFull ? 'Хранилище заполнено' : uploading ? 'Загрузка...' : 'Загрузить фото / видео'}
+                </span>
               </label>
             </Button>
           </div>
