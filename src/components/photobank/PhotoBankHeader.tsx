@@ -80,6 +80,8 @@ const PhotoBankHeader = ({
   const navigate = useNavigate();
   const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
   
+  console.log('[PHOTOBANK_HEADER] isAdminViewing:', isAdminViewing, 'onShowVideoUrlUpload:', !!onShowVideoUrlUpload);
+  
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
