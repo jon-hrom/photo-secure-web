@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Upload without auth",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "url": "https://example.com/video.mp4"
+      },
+      "expectedStatus": 401
+    },
+    {
+      "name": "Upload without URL",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "1",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "url": ""
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "URL is required"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

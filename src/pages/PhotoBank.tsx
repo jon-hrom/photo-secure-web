@@ -29,6 +29,7 @@ const PhotoBank = () => {
   const { emailVerified } = useEmailVerification(userId, authChecking);
   const [showCameraUpload, setShowCameraUpload] = useState(false);
   const [showUrlUpload, setShowUrlUpload] = useState(false);
+  const [showVideoUrlUpload, setShowVideoUrlUpload] = useState(false);
   const [shareModalFolder, setShareModalFolder] = useState<{ id: number; name: string } | null>(null);
   const [showFavorites, setShowFavorites] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -247,6 +248,7 @@ const PhotoBank = () => {
           onShowClearConfirm={() => setShowClearConfirm(true)}
           onShowCameraUpload={() => setShowCameraUpload(true)}
           onShowUrlUpload={() => setShowUrlUpload(true)}
+          onShowVideoUrlUpload={() => setShowVideoUrlUpload(true)}
           onShowFavorites={() => setShowFavorites(true)}
           canGoBack={navigation.canGoBack}
           canGoForward={navigation.canGoForward}
@@ -303,16 +305,25 @@ const PhotoBank = () => {
         showFavorites={showFavorites}
         selectedFolder={selectedFolder}
         showStats={showStats}
+        showVideoUrlUpload={showVideoUrlUpload}
         chatClient={chatClient}
         folderChatsId={folderChatsId}
         userId={userId}
         onCloseShareModal={() => setShareModalFolder(null)}
         onCloseFavorites={() => setShowFavorites(false)}
         onCloseStats={() => setShowStats(false)}
+        onCloseVideoUrlUpload={() => setShowVideoUrlUpload(false)}
         onCloseChat={() => setChatClient(null)}
         onCloseFolderChats={() => {
           setFolderChatsId(null);
           fetchFolders();
+        }}
+        onVideoUploadSuccess={() => {
+          if (selectedFolder) {
+            fetchPhotos(selectedFolder.id);
+          }
+          fetchFolders();
+          fetchStorageUsage();
         }}
       />
     </div>

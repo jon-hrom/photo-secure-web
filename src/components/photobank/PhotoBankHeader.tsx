@@ -36,6 +36,7 @@ interface PhotoBankHeaderProps {
   onShowClearConfirm: () => void;
   onShowCameraUpload?: () => void;
   onShowUrlUpload?: () => void;
+  onShowVideoUrlUpload?: () => void;
   onShowFavorites?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -63,6 +64,7 @@ const PhotoBankHeader = ({
   onShowClearConfirm,
   onShowCameraUpload,
   onShowUrlUpload,
+  onShowVideoUrlUpload,
   onShowFavorites,
   canGoBack = false,
   canGoForward = false,
@@ -210,7 +212,17 @@ const PhotoBankHeader = ({
               className="h-[72px] w-[72px] md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-0 p-1.5 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
             >
               <Icon name="Link" size={14} className="md:w-4 md:h-4 shrink-0" />
-              <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none">Загрузить по ссылке</span>
+              <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none">Загрузить фото по ссылке</span>
+            </Button>
+          )}
+          {onShowVideoUrlUpload && isAdminViewing && (
+            <Button 
+              variant="outline"
+              onClick={onShowVideoUrlUpload}
+              className="h-[72px] w-[72px] md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-0 p-1.5 md:px-4 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 border-purple-200 text-purple-900 hover:text-purple-950"
+            >
+              <Icon name="Video" size={14} className="md:w-4 md:h-4 shrink-0" />
+              <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none">Загрузить видео по ссылке</span>
             </Button>
           )}
           <Button 

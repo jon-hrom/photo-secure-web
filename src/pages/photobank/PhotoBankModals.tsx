@@ -3,21 +3,25 @@ import FavoritesViewModal from '@/components/photobank/FavoritesViewModal';
 import DownloadStats from '@/components/photobank/DownloadStats';
 import ChatModal from '@/components/gallery/ChatModal';
 import PhotographerChatsModal from '@/components/photobank/PhotographerChatsModal';
+import VideoUrlUploadDialog from '@/components/photobank/VideoUrlUploadDialog';
 import Icon from '@/components/ui/icon';
 
 interface PhotoBankModalsProps {
   shareModalFolder: { id: number; name: string } | null;
   showFavorites: boolean;
-  selectedFolder: any;
+  selectedFolder: { id: number; folder_name: string } | null;
   showStats: boolean;
+  showVideoUrlUpload: boolean;
   chatClient: { id: number; name: string } | null;
   folderChatsId: number | null;
   userId: string;
   onCloseShareModal: () => void;
   onCloseFavorites: () => void;
   onCloseStats: () => void;
+  onCloseVideoUrlUpload: () => void;
   onCloseChat: () => void;
   onCloseFolderChats: () => void;
+  onVideoUploadSuccess?: () => void;
 }
 
 export const PhotoBankModals = ({
@@ -25,14 +29,17 @@ export const PhotoBankModals = ({
   showFavorites,
   selectedFolder,
   showStats,
+  showVideoUrlUpload,
   chatClient,
   folderChatsId,
   userId,
   onCloseShareModal,
   onCloseFavorites,
   onCloseStats,
+  onCloseVideoUrlUpload,
   onCloseChat,
   onCloseFolderChats,
+  onVideoUploadSuccess,
 }: PhotoBankModalsProps) => {
   return (
     <>
@@ -91,6 +98,14 @@ export const PhotoBankModals = ({
           photographerId={parseInt(userId)}
         />
       )}
+
+      <VideoUrlUploadDialog
+        open={showVideoUrlUpload}
+        onOpenChange={(open) => !open && onCloseVideoUrlUpload()}
+        userId={userId}
+        folderId={selectedFolder?.id || null}
+        onSuccess={onVideoUploadSuccess}
+      />
     </>
   );
 };
