@@ -64,6 +64,12 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
         
         setAllPhotos(photos);
         console.log('[FAVORITES] Loaded', photos.length, 'photos with presigned URLs');
+        console.log('[FAVORITES] Sample photo URLs:', photos.slice(0, 2).map(p => ({
+          id: p.id,
+          file: p.file_name,
+          thumb: p.thumbnail_url,
+          full: p.photo_url
+        })));
       }
     } catch (e) {
       console.error('[FAVORITES] Failed to load photos:', e);
@@ -311,7 +317,14 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                     alt={photo.file_name}
                     className="w-full h-full object-cover"
                     loading="lazy"
+                    onLoad={() => {
+                      console.log('[FAVORITES] Image loaded:', photo.file_name);
+                    }}
                     onError={(e) => {
+                      console.error('[FAVORITES] Image failed to load:', {
+                        file: photo.file_name,
+                        url: photo.thumbnail_url || photo.photo_url
+                      });
                       const target = e.currentTarget;
                       target.style.display = 'none';
                       const icon = target.nextElementSibling;
