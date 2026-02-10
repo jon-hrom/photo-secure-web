@@ -10,9 +10,10 @@ import shutil
 import requests
 import m3u8 as m3u8_parser
 from urllib.parse import urljoin, urlparse
+import subprocess
 
 def handler(event: dict, context) -> dict:
-    '''API для загрузки видео по URL (прямые ссылки, m3u8, Kinescope)'''
+    '''API для загрузки видео по URL (прямые ссылки, m3u8, Kinescope, YouTube, VK)'''
     method = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':
@@ -101,7 +102,10 @@ def handler(event: dict, context) -> dict:
         download_type = detect_video_type(url)
         print(f'[VIDEO_UPLOAD] Detected type: {download_type}')
         
-        if download_type == 'm3u8':
+        if download_type == 'ytdlp':
+            # YouTube, VK, Vimeo и 1000+ других сайтов
+            output_file = download_with_ytdlp(url, temp_dir, custom_headers)
+        elif download_type == 'm3u8':
             # Kinescope, HLS стримы
             output_file = download_m3u8_segments(url, temp_dir, custom_headers)
         elif download_type == 'direct':
@@ -220,13 +224,23 @@ def detect_video_type(url: str) -> str:
     if 'kinescope' in url_lower and not url_lower.endswith('.m3u8'):
         return 'kinescope_page'
     
+    # Платформы с поддержкой yt-dlp
+    ytdlp_platforms = [
+        'youtube.com', 'youtu.be', 'vimeo.com', 'vk.com', 'rutube.ru',
+        'ok.ru', 'dailymotion.com', 'twitch.tv', 'instagram.com', 'tiktok.com',
+        'coub.com', 'facebook.com', 'twitter.com', 'x.com'
+    ]
+    
+    if any(platform in url_lower for platform in ytdlp_platforms):
+        return 'ytdlp'
+    
     # Прямая ссылка на видеофайл
     video_exts = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv')
     if any(url_lower.endswith(ext) for ext in video_exts):
         return 'direct'
     
-    # По умолчанию пробуем как прямую ссылку
-    return 'direct'
+    # По умолчанию пробуем yt-dlp (он поддерживает 1000+ сайтов)
+    return 'ytdlp'
 
 
 def download_direct_file(url: str, output_dir: str, headers: dict = None) -> str:
@@ -381,3 +395,90 @@ def extract_kinescope_m3u8(page_url: str, headers: dict = None) -> str:
     # Не нашли - возвращаем None
     print('[KINESCOPE] m3u8 not found in page')
     return None
+
+
+def download_with_ytdlp(url: str, output_dir: str, headers: dict = None) -> str:
+    '''Скачивает видео через yt-dlp (поддерживает 1000+ сайтов)'''
+    
+    print(f'[YT-DLP] Downloading from: {url}')
+    
+    # Проверяем наличие yt-dlp
+    try:
+        result = subprocess.run(['yt-dlp', '--version'], 
+                              capture_output=True, text=True, timeout=5)
+        print(f'[YT-DLP] Version: {result.stdout.strip()}')
+    except FileNotFoundError:
+        raise Exception('Для этой платформы требуется yt-dlp. Попробуйте указать прямую ссылку на видео или m3u8 плейлист.')
+    except Exception as e:
+        raise Exception(f'Ошибка проверки yt-dlp: {str(e)}')
+    
+    output_template = os.path.join(output_dir, '%(title).50s.%(ext)s')
+    
+    cmd = [
+        'yt-dlp',
+        '--format', 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
+        '--output', output_template,
+        '--no-playlist',
+        '--no-warnings',
+        '--no-check-certificates',
+        '--restrict-filenames',  # Безопасные имена файлов
+        '--max-filesize', '500M',  # Ограничение 500MB
+        url
+    ]
+    
+    # Добавляем кастомные заголовки если есть
+    if headers:
+        for key, value in headers.items():
+            cmd.extend(['--add-header', f'{key}:{value}'])
+    
+    print(f'[YT-DLP] Command: {" ".join(cmd[:8])}...')
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        
+        if result.returncode != 0:
+            error_msg = result.stderr.lower()
+            
+            # Понятные сообщения об ошибках
+            if 'drm' in error_msg or 'encrypted' in error_msg:
+                raise Exception('Видео защищено DRM - скачивание невозможно')
+            elif 'private' in error_msg or 'login' in error_msg:
+                raise Exception('Видео приватное - требуется авторизация')
+            elif 'not available' in error_msg or 'removed' in error_msg:
+                raise Exception('Видео недоступно или удалено')
+            elif 'geo' in error_msg or 'region' in error_msg:
+                raise Exception('Видео недоступно в вашем регионе')
+            elif 'max-filesize' in error_msg:
+                raise Exception('Видео слишком большое (макс. 500MB)')
+            else:
+                print(f'[YT-DLP] Error output: {result.stderr}')
+                raise Exception(f'Не удалось скачать видео: {result.stderr[-200:]}')
+        
+        print(f'[YT-DLP] Output: {result.stdout[:200]}...')
+        
+        # Находим скачанный файл
+        files = [f for f in os.listdir(output_dir) 
+                if f.endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi'))]
+        
+        if not files:
+            raise Exception('Файл не найден после скачивания')
+        
+        downloaded_file = os.path.join(output_dir, files[0])
+        
+        # Переименовываем в .mp4 если нужно
+        if not downloaded_file.endswith('.mp4'):
+            new_path = downloaded_file.rsplit('.', 1)[0] + '.mp4'
+            os.rename(downloaded_file, new_path)
+            downloaded_file = new_path
+        
+        file_size = os.path.getsize(downloaded_file)
+        print(f'[YT-DLP] Downloaded: {os.path.basename(downloaded_file)} ({file_size / 1024 / 1024:.1f} MB)')
+        
+        return downloaded_file
+        
+    except subprocess.TimeoutExpired:
+        raise Exception('Timeout: видео слишком большое или медленное соединение')
+    except Exception as e:
+        if 'yt-dlp' not in str(e).lower():
+            raise
+        raise Exception(f'Ошибка yt-dlp: {str(e)}')
