@@ -84,7 +84,7 @@ const LoginFormFields = ({
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             disabled={isBlocked}
-            className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700 h-11"
+            className="rounded-xl bg-background text-foreground border-input dark:bg-gray-800 dark:text-white dark:border-gray-700 h-11"
           />
         </div>
 
