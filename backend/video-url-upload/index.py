@@ -10,10 +10,9 @@ import shutil
 import requests
 import m3u8 as m3u8_parser
 from urllib.parse import urljoin, urlparse
-import subprocess
 
 def handler(event: dict, context) -> dict:
-    '''API для загрузки видео по URL (прямые ссылки, m3u8, Kinescope, YouTube, VK)'''
+    '''API для загрузки видео по URL (прямые ссылки, m3u8, Kinescope)'''
     method = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':
@@ -58,7 +57,7 @@ def handler(event: dict, context) -> dict:
     
     url = body.get('url', '').strip()
     folder_id = body.get('folder_id')
-    custom_headers = body.get('headers', {})  # Кастомные заголовки (cookies, auth)
+    custom_headers = body.get('headers', {})
     
     if not url:
         cursor.close()
@@ -71,7 +70,6 @@ def handler(event: dict, context) -> dict:
     
     print(f'[VIDEO_UPLOAD] Starting download from: {url}')
     
-    # Создаём папку если нужно
     if not folder_id:
         folder_name = datetime.now().strftime('Видео %d.%m.%Y %H:%M')
         s3_prefix = f'videos/{user_id}/{int(datetime.now().timestamp())}/'
@@ -98,21 +96,14 @@ def handler(event: dict, context) -> dict:
     output_file = None
     
     try:
-        # Определяем тип источника
         download_type = detect_video_type(url)
         print(f'[VIDEO_UPLOAD] Detected type: {download_type}')
         
-        if download_type == 'ytdlp':
-            # YouTube, VK, Vimeo и 1000+ других сайтов
-            output_file = download_with_ytdlp(url, temp_dir, custom_headers)
-        elif download_type == 'm3u8':
-            # Kinescope, HLS стримы
+        if download_type == 'm3u8':
             output_file = download_m3u8_segments(url, temp_dir, custom_headers)
         elif download_type == 'direct':
-            # Прямая ссылка на файл
             output_file = download_direct_file(url, temp_dir, custom_headers)
         elif download_type == 'kinescope_page':
-            # Страница с Kinescope плеером - извлекаем m3u8
             m3u8_url = extract_kinescope_m3u8(url, custom_headers)
             if m3u8_url:
                 output_file = download_m3u8_segments(m3u8_url, temp_dir, custom_headers)
@@ -129,7 +120,6 @@ def handler(event: dict, context) -> dict:
         file_size = os.path.getsize(output_file)
         filename = os.path.basename(output_file)
         
-        # Загружаем в S3
         s3 = boto3.client('s3',
             endpoint_url='https://bucket.poehali.dev',
             aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
@@ -151,7 +141,6 @@ def handler(event: dict, context) -> dict:
         aws_key_id = os.environ['AWS_ACCESS_KEY_ID']
         s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{s3_key}'
         
-        # Сохраняем в БД
         cursor.execute(
             '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
                (user_id, folder_id, file_name, s3_key, s3_url, file_size, 
@@ -189,7 +178,6 @@ def handler(event: dict, context) -> dict:
         cursor.close()
         conn.close()
         
-        # Формируем понятное сообщение об ошибке
         error_msg = str(e)
         if 'DRM' in error_msg.upper() or 'encrypted' in error_msg.lower():
             error_msg = 'Видео защищено DRM - скачивание невозможно'
@@ -224,23 +212,11 @@ def detect_video_type(url: str) -> str:
     if 'kinescope' in url_lower and not url_lower.endswith('.m3u8'):
         return 'kinescope_page'
     
-    # Платформы с поддержкой yt-dlp
-    ytdlp_platforms = [
-        'youtube.com', 'youtu.be', 'vimeo.com', 'vk.com', 'rutube.ru',
-        'ok.ru', 'dailymotion.com', 'twitch.tv', 'instagram.com', 'tiktok.com',
-        'coub.com', 'facebook.com', 'twitter.com', 'x.com'
-    ]
-    
-    if any(platform in url_lower for platform in ytdlp_platforms):
-        return 'ytdlp'
-    
-    # Прямая ссылка на видеофайл
     video_exts = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv')
     if any(url_lower.endswith(ext) for ext in video_exts):
         return 'direct'
     
-    # По умолчанию пробуем yt-dlp (он поддерживает 1000+ сайтов)
-    return 'ytdlp'
+    return 'unknown'
 
 
 def download_direct_file(url: str, output_dir: str, headers: dict = None) -> str:
@@ -266,12 +242,12 @@ def download_direct_file(url: str, output_dir: str, headers: dict = None) -> str
     
     downloaded = 0
     with open(output_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=1024 * 1024):  # 1MB chunks
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
             f.write(chunk)
             downloaded += len(chunk)
             if total_size > 0:
                 progress = (downloaded / total_size) * 100
-                if downloaded % (10 * 1024 * 1024) == 0:  # Каждые 10MB
+                if downloaded % (10 * 1024 * 1024) == 0:
                     print(f'[DIRECT] Progress: {progress:.1f}%')
     
     print(f'[DIRECT] Downloaded: {output_path}')
@@ -287,16 +263,13 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
     if headers:
         session.headers.update(headers)
     
-    # Загружаем плейлист
     response = session.get(m3u8_url, timeout=30)
     response.raise_for_status()
     
     playlist = m3u8_parser.loads(response.text)
     
-    # Если это master playlist (несколько качеств), выбираем лучшее
     if playlist.is_variant:
         print(f'[M3U8] Found {len(playlist.playlists)} quality variants')
-        # Берём первый вариант (обычно лучшее качество)
         best_variant = playlist.playlists[0]
         variant_url = urljoin(m3u8_url, best_variant.uri)
         print(f'[M3U8] Selected variant: {variant_url}')
@@ -312,11 +285,10 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
     
     print(f'[M3U8] Found {len(segments)} segments')
     
-    # Скачиваем сегменты
     segment_files = []
     base_url = m3u8_url.rsplit('/', 1)[0] + '/'
     
-    for i, segment in enumerate(segments[:100]):  # Ограничение 100 сегментов (~5 минут видео)
+    for i, segment in enumerate(segments[:100]):
         segment_url = urljoin(base_url, segment.uri)
         segment_path = os.path.join(output_dir, f'segment_{i:04d}.ts')
         
@@ -334,14 +306,12 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
                 
         except Exception as e:
             print(f'[M3U8] Failed segment {i}: {str(e)}')
-            # Продолжаем со следующим сегментом
     
     if not segment_files:
         raise Exception('Не удалось скачать ни одного сегмента')
     
     print(f'[M3U8] Downloaded {len(segment_files)} segments, merging...')
     
-    # Склеиваем сегменты в один файл
     output_path = os.path.join(output_dir, f'video_{int(datetime.now().timestamp())}.ts')
     
     with open(output_path, 'wb') as outfile:
@@ -349,7 +319,6 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
             with open(segment_file, 'rb') as infile:
                 outfile.write(infile.read())
     
-    # Переименовываем в .mp4 для совместимости
     final_path = output_path.replace('.ts', '.mp4')
     os.rename(output_path, final_path)
     
@@ -371,7 +340,6 @@ def extract_kinescope_m3u8(page_url: str, headers: dict = None) -> str:
     
     html = response.text
     
-    # Ищем паттерны Kinescope
     patterns = [
         r'https://[^"\']+\.kinescope\.io/[^"\']+\.m3u8[^"\']*',
         r'"videoUrl":"(https://[^"]+\.m3u8[^"]*)"',
@@ -386,99 +354,10 @@ def extract_kinescope_m3u8(page_url: str, headers: dict = None) -> str:
             if isinstance(m3u8_url, tuple):
                 m3u8_url = m3u8_url[0]
             
-            # Декодируем escaped символы
             m3u8_url = m3u8_url.replace('\\/', '/')
             
             print(f'[KINESCOPE] Found m3u8: {m3u8_url}')
             return m3u8_url
     
-    # Не нашли - возвращаем None
     print('[KINESCOPE] m3u8 not found in page')
     return None
-
-
-def download_with_ytdlp(url: str, output_dir: str, headers: dict = None) -> str:
-    '''Скачивает видео через yt-dlp (поддерживает 1000+ сайтов)'''
-    
-    print(f'[YT-DLP] Downloading from: {url}')
-    
-    # Проверяем наличие yt-dlp
-    try:
-        result = subprocess.run(['yt-dlp', '--version'], 
-                              capture_output=True, text=True, timeout=5)
-        print(f'[YT-DLP] Version: {result.stdout.strip()}')
-    except FileNotFoundError:
-        raise Exception('Для этой платформы требуется yt-dlp. Попробуйте указать прямую ссылку на видео или m3u8 плейлист.')
-    except Exception as e:
-        raise Exception(f'Ошибка проверки yt-dlp: {str(e)}')
-    
-    output_template = os.path.join(output_dir, '%(title).50s.%(ext)s')
-    
-    cmd = [
-        'yt-dlp',
-        '--format', 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
-        '--output', output_template,
-        '--no-playlist',
-        '--no-warnings',
-        '--no-check-certificates',
-        '--restrict-filenames',  # Безопасные имена файлов
-        '--max-filesize', '500M',  # Ограничение 500MB
-        url
-    ]
-    
-    # Добавляем кастомные заголовки если есть
-    if headers:
-        for key, value in headers.items():
-            cmd.extend(['--add-header', f'{key}:{value}'])
-    
-    print(f'[YT-DLP] Command: {" ".join(cmd[:8])}...')
-    
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-        
-        if result.returncode != 0:
-            error_msg = result.stderr.lower()
-            
-            # Понятные сообщения об ошибках
-            if 'drm' in error_msg or 'encrypted' in error_msg:
-                raise Exception('Видео защищено DRM - скачивание невозможно')
-            elif 'private' in error_msg or 'login' in error_msg:
-                raise Exception('Видео приватное - требуется авторизация')
-            elif 'not available' in error_msg or 'removed' in error_msg:
-                raise Exception('Видео недоступно или удалено')
-            elif 'geo' in error_msg or 'region' in error_msg:
-                raise Exception('Видео недоступно в вашем регионе')
-            elif 'max-filesize' in error_msg:
-                raise Exception('Видео слишком большое (макс. 500MB)')
-            else:
-                print(f'[YT-DLP] Error output: {result.stderr}')
-                raise Exception(f'Не удалось скачать видео: {result.stderr[-200:]}')
-        
-        print(f'[YT-DLP] Output: {result.stdout[:200]}...')
-        
-        # Находим скачанный файл
-        files = [f for f in os.listdir(output_dir) 
-                if f.endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi'))]
-        
-        if not files:
-            raise Exception('Файл не найден после скачивания')
-        
-        downloaded_file = os.path.join(output_dir, files[0])
-        
-        # Переименовываем в .mp4 если нужно
-        if not downloaded_file.endswith('.mp4'):
-            new_path = downloaded_file.rsplit('.', 1)[0] + '.mp4'
-            os.rename(downloaded_file, new_path)
-            downloaded_file = new_path
-        
-        file_size = os.path.getsize(downloaded_file)
-        print(f'[YT-DLP] Downloaded: {os.path.basename(downloaded_file)} ({file_size / 1024 / 1024:.1f} MB)')
-        
-        return downloaded_file
-        
-    except subprocess.TimeoutExpired:
-        raise Exception('Timeout: видео слишком большое или медленное соединение')
-    except Exception as e:
-        if 'yt-dlp' not in str(e).lower():
-            raise
-        raise Exception(f'Ошибка yt-dlp: {str(e)}')
