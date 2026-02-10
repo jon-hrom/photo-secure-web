@@ -257,6 +257,9 @@ def download_direct_file(url: str, output_dir: str, headers: dict = None) -> str
     if headers:
         session.headers.update(headers)
     
+    if 'kinescope.io' in url:
+        session.headers['Referer'] = 'https://kinescope.io/'
+    
     response = session.get(url, stream=True, timeout=60)
     response.raise_for_status()
     
@@ -285,6 +288,9 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
     session = requests.Session()
     if headers:
         session.headers.update(headers)
+    
+    if 'kinescope.io' in m3u8_url:
+        session.headers['Referer'] = 'https://kinescope.io/'
     
     response = session.get(m3u8_url, timeout=30)
     response.raise_for_status()
@@ -355,13 +361,14 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
 
 
 def extract_kinescope_m3u8(page_url: str, headers: dict = None) -> str:
-    '''Извлекает ссылку на m3u8 плейлист со страницы с Kinescope плеером'''
+    '''Извлекает ссылку на m3u8 или mpd плейлист со страницы с Kinescope плеером'''
     
     print(f'[KINESCOPE] Loading page: {page_url}')
     
     session = requests.Session()
     if headers:
         session.headers.update(headers)
+    session.headers['Referer'] = 'https://kinescope.io/'
     
     response = session.get(page_url, timeout=30)
     response.raise_for_status()
@@ -370,22 +377,26 @@ def extract_kinescope_m3u8(page_url: str, headers: dict = None) -> str:
     
     patterns = [
         r'https://[^"\']+\.kinescope\.io/[^"\']+\.m3u8[^"\']*',
+        r'https://[^"\']+\.kinescope\.io/[^"\']+\.mpd[^"\']*',
         r'"videoUrl":"(https://[^"]+\.m3u8[^"]*)"',
+        r'"videoUrl":"(https://[^"]+\.mpd[^"]*)"',
         r"'videoUrl':'(https://[^']+\.m3u8[^']*)'",
+        r"'videoUrl':'(https://[^']+\.mpd[^']*)'",
         r'src="(https://[^"]+\.m3u8[^"]*)"',
+        r'src="(https://[^"]+\.mpd[^"]*)"',
     ]
     
     for pattern in patterns:
         matches = re.findall(pattern, html)
         if matches:
-            m3u8_url = matches[0]
-            if isinstance(m3u8_url, tuple):
-                m3u8_url = m3u8_url[0]
+            video_url = matches[0]
+            if isinstance(video_url, tuple):
+                video_url = video_url[0]
             
-            m3u8_url = m3u8_url.replace('\\/', '/')
+            video_url = video_url.replace('\\/', '/')
             
-            print(f'[KINESCOPE] Found m3u8: {m3u8_url}')
-            return m3u8_url
+            print(f'[KINESCOPE] Found video URL: {video_url}')
+            return video_url
     
-    print('[KINESCOPE] m3u8 not found in page')
+    print('[KINESCOPE] Video URL not found in page')
     return None
