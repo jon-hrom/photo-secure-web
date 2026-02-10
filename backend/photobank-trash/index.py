@@ -477,19 +477,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     folder_ids = [f['id'] for f in folders]
                     
                     if folder_ids:
-                        # Сначала удаляем ВСЕ фото из удалённых папок (включая неудалённые фото)
-                        cur.execute('''
-                            DELETE FROM t_p28211681_photo_secure_web.photo_bank 
-                            WHERE folder_id = ANY(%s)
-                        ''', (folder_ids,))
+                        print(f'[EMPTY_TRASH] Processing {len(folder_ids)} folders: {folder_ids}')
+                        
+                        # Сначала удаляем ВСЕ фото из удалённых папок по одной
+                        for folder_id in folder_ids:
+                            print(f'[EMPTY_TRASH] Deleting photos from folder {folder_id}')
+                            cur.execute('''
+                                SELECT COUNT(*) as count FROM t_p28211681_photo_secure_web.photo_bank 
+                                WHERE folder_id = %s
+                            ''', (folder_id,))
+                            photo_count = cur.fetchone()['count']
+                            print(f'[EMPTY_TRASH] Found {photo_count} photos in folder {folder_id}')
+                            
+                            cur.execute('''
+                                DELETE FROM t_p28211681_photo_secure_web.photo_bank 
+                                WHERE folder_id = %s
+                            ''', (folder_id,))
+                            print(f'[EMPTY_TRASH] Deleted photos from folder {folder_id}')
                         
                         # Теперь можно безопасно удалить папки
-                        cur.execute('''
-                            DELETE FROM t_p28211681_photo_secure_web.photo_folders 
-                            WHERE id = ANY(%s) AND is_trashed = TRUE
-                        ''', (folder_ids,))
+                        for folder_id in folder_ids:
+                            print(f'[EMPTY_TRASH] Deleting folder {folder_id}')
+                            cur.execute('''
+                                DELETE FROM t_p28211681_photo_secure_web.photo_folders 
+                                WHERE id = %s AND is_trashed = TRUE
+                            ''', (folder_id,))
                         
                         conn.commit()
+                        print(f'[EMPTY_TRASH] Successfully deleted all folders and photos')
                 
                 deleted_count = 0
                 for folder in folders:
