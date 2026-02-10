@@ -37,11 +37,12 @@ export default function VideoUrlUploadDialog({
     const trimmedUrl = url.trim();
     
     if (trimmedUrl.includes('.m3u8')) {
-      setError('M3U8 плейлисты нельзя скачать напрямую. Используйте yt-dlp или ffmpeg на компьютере, либо загрузите в фотобанк (будет скачано первые 8 минут)');
+      setError('M3U8 плейлисты нельзя скачать напрямую через браузер. Для длинных видео из Kinescope: скачайте прямую ссылку на .mp4 или используйте кнопку "В фотобанк" (первые 8 минут)');
       return;
     }
 
     window.open(trimmedUrl, '_blank');
+    setError('');
     
     toast({
       title: 'Скачивание начато',
