@@ -88,6 +88,14 @@ export const usePhotoGridGestures = ({
     if (zoom >= 2.0 && viewPhoto && !viewPhoto.is_raw && viewPhoto.s3_url) {
       console.log('[PHOTO_VIEWER] Auto-loading original at 300% zoom:', viewPhoto.file_name);
       setIsLoadingFullRes(true);
+      
+      // Скрываем индикатор через 3 секунды в любом случае (защита от зависания)
+      const timeout = setTimeout(() => {
+        console.log('[PHOTO_VIEWER] Hiding loading indicator after timeout');
+        setIsLoadingFullRes(false);
+      }, 3000);
+      
+      return () => clearTimeout(timeout);
     }
   }, [zoom, viewPhoto]);
 

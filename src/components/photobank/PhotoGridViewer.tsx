@@ -202,8 +202,13 @@ const PhotoGridViewer = ({
                       pointerEvents: 'none',
                       opacity: imageError ? 0.5 : 1
                     }}
-                    onLoad={() => {
+                    onLoad={(e) => {
                       console.log('[PHOTO_VIEWER] Full-res loaded:', viewPhoto.file_name, 's3_url:', viewPhoto.s3_url);
+                      // Скрываем индикатор загрузки сразу после успешной загрузки
+                      const imgElement = e.currentTarget;
+                      if (imgElement.complete && imgElement.naturalHeight !== 0) {
+                        console.log('[PHOTO_VIEWER] Image fully loaded, dimensions:', imgElement.naturalWidth, 'x', imgElement.naturalHeight);
+                      }
                     }}
                     onError={(e) => {
                       console.error('[PHOTO_VIEWER] Image load error:', {
