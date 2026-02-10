@@ -134,32 +134,32 @@ export default function VideoUrlUploadDialog({
     
     return (
       <Dialog open={open} onOpenChange={() => { setShowDownloadInstructions(false); handleClose(); }}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[700px] max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Icon name="Download" size={24} className="text-blue-600" />
-              Как скачать видео на компьютер
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Icon name="Download" size={20} className="text-blue-600 sm:w-6 sm:h-6" />
+              Как скачать видео
             </DialogTitle>
-            <DialogDescription>
-              Пошаговая инструкция для скачивания через yt-dlp
+            <DialogDescription className="text-xs sm:text-sm">
+              Инструкция для скачивания через yt-dlp
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <Alert>
-              <Icon name="Info" size={16} />
+          <div className="space-y-3 sm:space-y-4">
+            <Alert className="text-xs sm:text-sm">
+              <Icon name="Info" size={14} className="sm:w-4 sm:h-4" />
               <AlertDescription>
-                <strong>yt-dlp</strong> — бесплатная программа для скачивания видео с YouTube, Kinescope, VK и 1000+ других сайтов
+                <strong>yt-dlp</strong> — программа для скачивания видео
               </AlertDescription>
             </Alert>
 
-            <div className="space-y-4">
-              <div className="border rounded-lg p-4 bg-muted/50">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+            <div className="space-y-3 sm:space-y-4">
+              <div className="border rounded-lg p-3 sm:p-4 bg-muted/50">
+                <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
+                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm flex-shrink-0">1</span>
                   Установите yt-dlp
                 </h3>
-                <div className="ml-8 space-y-2 text-sm">
+                <div className="ml-7 sm:ml-8 space-y-2 text-xs sm:text-sm">
                   <p><strong>Windows:</strong></p>
                   <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                     <li>Скачайте готовый архив с <a href="https://disk.yandex.ru/d/tQQhq8c3bH9gXA" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Яндекс.Диска</a> (содержит yt-dlp + ffmpeg)</li>
@@ -172,84 +172,84 @@ export default function VideoUrlUploadDialog({
                 </div>
               </div>
 
-              <div className="border rounded-lg p-4 bg-muted/50">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+              <div className="border rounded-lg p-3 sm:p-4 bg-muted/50">
+                <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
+                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm flex-shrink-0">2</span>
                   Откройте командную строку
                 </h3>
-                <div className="ml-8 space-y-2 text-sm text-muted-foreground">
+                <div className="ml-7 sm:ml-8 space-y-2 text-xs sm:text-sm text-muted-foreground">
                   <p><strong>Windows:</strong> Win + R → введите <code className="bg-muted px-1">cmd</code> → Enter</p>
                   <p><strong>Mac/Linux:</strong> Откройте Terminal</p>
                 </div>
               </div>
 
-              <div className="border rounded-lg p-4 bg-muted/50">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
+              <div className="border rounded-lg p-3 sm:p-4 bg-muted/50">
+                <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
+                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm flex-shrink-0">3</span>
                   Перейдите в папку с yt-dlp
                 </h3>
-                <div className="ml-8 space-y-2 text-sm">
-                  <code className="bg-black text-white px-2 py-1 rounded block">cd /d "C:\путь\к\папке\с\yt-dlp"</code>
-                  <p className="text-muted-foreground text-xs">Замените путь на свой. Кавычки нужны, если в пути есть пробелы</p>
+                <div className="ml-7 sm:ml-8 space-y-2 text-xs sm:text-sm">
+                  <code className="bg-black text-white px-2 py-1 rounded block text-[10px] sm:text-xs overflow-x-auto">cd /d "C:\путь\к\папке\с\yt-dlp"</code>
+                  <p className="text-muted-foreground text-[10px] sm:text-xs">Замените путь на свой</p>
                 </div>
               </div>
 
-              <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">4</span>
-                  Скопируйте и выполните команду
+              <div className="border rounded-lg p-3 sm:p-4 bg-green-50 dark:bg-green-950">
+                <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
+                  <span className="bg-green-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm flex-shrink-0">4</span>
+                  Скопируйте команду
                 </h3>
-                <div className="ml-8 space-y-3">
+                <div className="ml-7 sm:ml-8 space-y-3">
                   <div>
-                    <p className="text-sm font-medium mb-2">Простое скачивание (максимальное качество):</p>
+                    <p className="text-xs sm:text-sm font-medium mb-2">Максимальное качество:</p>
                     <div className="relative">
-                      <code className="bg-black text-green-400 px-3 py-2 rounded block text-sm overflow-x-auto">
+                      <code className="bg-black text-green-400 px-2 sm:px-3 py-2 rounded block text-[10px] sm:text-sm overflow-x-auto pr-10">
                         {ytDlpCommand}
                       </code>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="absolute top-1 right-1 h-7"
+                        className="absolute top-1 right-1 h-6 w-6 p-0 sm:h-7 sm:w-7"
                         onClick={() => copyToClipboard(ytDlpCommand)}
                       >
-                        <Icon name="Copy" size={14} />
+                        <Icon name="Copy" size={12} className="sm:w-3.5 sm:h-3.5" />
                       </Button>
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium mb-2">Выбрать качество вручную:</p>
+                    <p className="text-xs sm:text-sm font-medium mb-2">Выбрать качество:</p>
                     <div className="space-y-2">
                       <div className="relative">
-                        <code className="bg-black text-yellow-400 px-3 py-2 rounded block text-sm overflow-x-auto">
+                        <code className="bg-black text-yellow-400 px-2 sm:px-3 py-2 rounded block text-[10px] sm:text-sm overflow-x-auto pr-10">
                           {ytDlpWithFormat}
                         </code>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="absolute top-1 right-1 h-7"
+                          className="absolute top-1 right-1 h-6 w-6 p-0 sm:h-7 sm:w-7"
                           onClick={() => copyToClipboard(ytDlpWithFormat)}
                         >
-                          <Icon name="Copy" size={14} />
+                          <Icon name="Copy" size={12} className="sm:w-3.5 sm:h-3.5" />
                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground">Покажет список форматов с ID. Затем скачайте нужный:</p>
-                      <code className="bg-black text-white px-2 py-1 rounded block text-xs">yt-dlp -f 135+140 "ссылка"</code>
-                      <p className="text-xs text-muted-foreground">где 135 = видео, 140 = аудио (примеры ID)</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Покажет список форматов. Затем:</p>
+                      <code className="bg-black text-white px-2 py-1 rounded block text-[10px] sm:text-xs overflow-x-auto">yt-dlp -f 135+140 "ссылка"</code>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">135 = видео, 140 = аудио</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
-                <Icon name="Sparkles" size={16} className="text-amber-600" />
-                <AlertDescription className="text-sm">
+              <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-xs sm:text-sm">
+                <Icon name="Sparkles" size={14} className="text-amber-600 sm:w-4 sm:h-4" />
+                <AlertDescription className="text-xs sm:text-sm">
                   <strong>Полезные советы:</strong>
-                  <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground text-xs">
-                    <li>Если видео не скачивается — обновите yt-dlp командой: <code className="bg-muted px-1">yt-dlp -U</code></li>
-                    <li>Видео сохраняется в папку, где вы запустили команду</li>
-                    <li>Работает с YouTube, Kinescope, VK, Rutube и 1000+ сайтов</li>
-                    <li>Можно скачать весь плейлист — просто вставьте ссылку на него</li>
+                  <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground text-[10px] sm:text-xs">
+                    <li>Обновите: <code className="bg-muted px-1">yt-dlp -U</code></li>
+                    <li>Видео сохраняется в текущей папке</li>
+                    <li>YouTube, VK, Rutube и 1000+ сайтов</li>
+                    <li>Можно скачать целый плейлист</li>
                   </ul>
                 </AlertDescription>
               </Alert>
@@ -260,8 +260,9 @@ export default function VideoUrlUploadDialog({
             <Button
               variant="outline"
               onClick={() => setShowDownloadInstructions(false)}
+              className="text-xs sm:text-sm h-8 sm:h-9"
             >
-              <Icon name="ArrowLeft" size={16} className="mr-2" />
+              <Icon name="ArrowLeft" size={14} className="mr-1 sm:mr-2 sm:w-4 sm:h-4" />
               Назад
             </Button>
             <Button
@@ -269,6 +270,7 @@ export default function VideoUrlUploadDialog({
                 setShowDownloadInstructions(false);
                 handleClose();
               }}
+              className="text-xs sm:text-sm h-8 sm:h-9"
             >
               Понятно
             </Button>
@@ -280,64 +282,62 @@ export default function VideoUrlUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="Video" size={24} className="text-purple-600" />
-            Загрузить видео по ссылке
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Icon name="Video" size={20} className="text-purple-600 sm:w-6 sm:h-6" />
+            Загрузить видео
           </DialogTitle>
-          <DialogDescription>
-            Поддерживаются: прямые ссылки (.mp4, .mov), HLS потоки (.m3u8), Kinescope
+          <DialogDescription className="text-xs sm:text-sm">
+            .mp4, .mov, HLS (.m3u8), Kinescope
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleUploadToPhotobank} className="space-y-4">
+        <form onSubmit={handleUploadToPhotobank} className="space-y-3 sm:space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="video-url">Ссылка на видео</Label>
+            <Label htmlFor="video-url" className="text-xs sm:text-sm">Ссылка на видео</Label>
             <Input
               id="video-url"
               type="url"
-              placeholder="https://example.com/video.mp4 или https://kinescope.io/..."
+              placeholder="https://example.com/video.mp4"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               disabled={loading}
-              className="font-mono text-sm"
+              className="font-mono text-xs sm:text-sm h-9 sm:h-10"
             />
           </div>
 
           {error && (
-            <Alert variant="destructive">
-              <Icon name="AlertCircle" size={16} />
-              <AlertDescription>{error}</AlertDescription>
+            <Alert variant="destructive" className="text-xs sm:text-sm">
+              <Icon name="AlertCircle" size={14} className="sm:w-4 sm:h-4" />
+              <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
             </Alert>
           )}
 
-          <Alert>
-            <Icon name="Info" size={16} />
-            <AlertDescription className="text-sm space-y-2">
-              <p><strong>Два способа работы с видео:</strong></p>
-              <div className="space-y-2 text-xs">
+          <Alert className="text-xs sm:text-sm">
+            <Icon name="Info" size={14} className="sm:w-4 sm:h-4" />
+            <AlertDescription className="text-xs sm:text-sm space-y-2">
+              <p className="font-medium">Два способа:</p>
+              <div className="space-y-2 text-[10px] sm:text-xs">
                 <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded">
-                  <p className="font-medium text-blue-900 dark:text-blue-100">📥 Скачать на компьютер (любая длина видео)</p>
-                  <p className="text-blue-700 dark:text-blue-300 mt-1">Для Kinescope, YouTube, VK — откроется инструкция по скачиванию через yt-dlp. Для прямых .mp4/.mov — откроется в браузере</p>
+                  <p className="font-medium text-blue-900 dark:text-blue-100">📥 Скачать на компьютер</p>
+                  <p className="text-blue-700 dark:text-blue-300 mt-1">Kinescope, YouTube, VK — инструкция yt-dlp</p>
                 </div>
                 <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded">
-                  <p className="font-medium text-purple-900 dark:text-purple-100">☁️ Загрузить в фотобанк (до 3 минут)</p>
-                  <p className="text-purple-700 dark:text-purple-300 mt-1">Вставьте ссылку на .m3u8 плейлист — будет скачано первые 20 сегментов (~3 минуты видео)</p>
+                  <p className="font-medium text-purple-900 dark:text-purple-100">☁️ В фотобанк (до 3 мин)</p>
+                  <p className="text-purple-700 dark:text-purple-300 mt-1">Ссылка на .m3u8 плейлист</p>
                 </div>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Для Kinescope: F12 → Network → фильтр "m3u8" → Play видео → скопируйте ссылку на master.m3u8
-              </p>
             </AlertDescription>
           </Alert>
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-end flex-wrap">
             <Button
               type="button"
               variant="outline"
               onClick={handleClose}
               disabled={loading}
+              className="text-xs sm:text-sm h-8 sm:h-9"
             >
               Отмена
             </Button>
@@ -346,25 +346,28 @@ export default function VideoUrlUploadDialog({
               variant="secondary"
               onClick={handleDirectDownload}
               disabled={loading || !url.trim()}
+              className="text-xs sm:text-sm h-8 sm:h-9"
             >
-              <Icon name="ExternalLink" size={16} className="mr-2" />
-              Скачать на ПК
+              <Icon name="ExternalLink" size={14} className="mr-1 sm:mr-2 sm:w-4 sm:h-4" />
+              Скачать
             </Button>
             <Button
               type="submit"
               disabled={loading || !url.trim()}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm h-8 sm:h-9"
               onClick={handleUploadToPhotobank}
             >
               {loading ? (
                 <>
-                  <Icon name="Loader2" size={16} className="animate-spin mr-2" />
-                  Загружаем...
+                  <Icon name="Loader2" size={14} className="animate-spin mr-1 sm:mr-2 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Загружаем...</span>
+                  <span className="sm:hidden">...</span>
                 </>
               ) : (
                 <>
-                  <Icon name="CloudUpload" size={16} className="mr-2" />
-                  В фотобанк
+                  <Icon name="CloudUpload" size={14} className="mr-1 sm:mr-2 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">В фотобанк</span>
+                  <span className="sm:hidden">Загрузить</span>
                 </>
               )}
             </Button>
