@@ -37,7 +37,7 @@ export default function VideoUrlUploadDialog({
     const trimmedUrl = url.trim();
     
     if (trimmedUrl.includes('.m3u8')) {
-      setError('M3U8 плейлисты нельзя скачать напрямую через браузер. Для длинных видео из Kinescope: скачайте прямую ссылку на .mp4 или используйте кнопку "В фотобанк" (первые 8 минут)');
+      setError('M3U8 плейлисты нельзя скачать напрямую через браузер. Для длинных видео из Kinescope: скачайте прямую ссылку на .mp4 или используйте кнопку "В фотобанк" (первые 3 минуты)');
       return;
     }
 
@@ -161,8 +161,8 @@ export default function VideoUrlUploadDialog({
                   <p className="text-blue-700 dark:text-blue-300 mt-1">Вставьте прямую ссылку на .mp4 или .mov файл — откроется в браузере для скачивания</p>
                 </div>
                 <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded">
-                  <p className="font-medium text-purple-900 dark:text-purple-100">☁️ Загрузить в фотобанк (до 8 минут)</p>
-                  <p className="text-purple-700 dark:text-purple-300 mt-1">Вставьте ссылку на .m3u8 плейлист — будет скачано первые 50 сегментов (~8 минут видео)</p>
+                  <p className="font-medium text-purple-900 dark:text-purple-100">☁️ Загрузить в фотобанк (до 3 минут)</p>
+                  <p className="text-purple-700 dark:text-purple-300 mt-1">Вставьте ссылку на .m3u8 плейлист — будет скачано первые 20 сегментов (~3 минуты видео)</p>
                 </div>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">

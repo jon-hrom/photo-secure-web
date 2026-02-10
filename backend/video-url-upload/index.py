@@ -313,7 +313,7 @@ def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None)
         raise Exception('Плейлист не содержит сегментов')
     
     total_segments = len(segments)
-    max_segments = min(50, total_segments)
+    max_segments = min(20, total_segments)
     print(f'[M3U8] Found {total_segments} segments, downloading first {max_segments}')
     
     if total_segments > max_segments:
