@@ -507,17 +507,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 deleted_count = 0
                 for folder in folders:
-                    trash_prefix = f'trash/{folder["s3_prefix"]}'
-                    paginator = s3_client.get_paginator('list_objects_v2')
-                    pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
-                    
-                    for page in pages:
-                        for obj in page.get('Contents', []):
-                            try:
-                                s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
-                                deleted_count += 1
-                            except Exception as e:
-                                print(f'Failed to delete {obj["Key"]}: {e}')
+                    if folder["s3_prefix"]:
+                        trash_prefix = f'trash/{folder["s3_prefix"]}'
+                        paginator = s3_client.get_paginator('list_objects_v2')
+                        pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
+                        
+                        for page in pages:
+                            for obj in page.get('Contents', []):
+                                try:
+                                    s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
+                                    deleted_count += 1
+                                except Exception as e:
+                                    print(f'Failed to delete {obj["Key"]}: {e}')
                 
                 return {
                     'statusCode': 200,
