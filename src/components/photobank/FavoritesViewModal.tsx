@@ -277,13 +277,13 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                 variant="default"
                 size="sm"
                 onClick={() => handleDownloadClientPhotos(selectedClient)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 h-auto"
               >
-                <Icon name="Archive" size={16} />
-                Скачать все архивом
+                <Icon name="Archive" size={14} />
+                Скачать архивом
               </Button>
             </div>
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {displayPhotos.map((photo) => (
                 <div
                   key={photo.id}
