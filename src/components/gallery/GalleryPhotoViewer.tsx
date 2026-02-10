@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Icon from '@/components/ui/icon';
 import VideoPlayer from '@/components/photobank/VideoPlayer';
+import { useGalleryGestures } from '@/hooks/useGalleryGestures';
 
 interface Photo {
   id: number;
@@ -50,12 +51,34 @@ export default function GalleryPhotoViewer({
   const [currentIndex, setCurrentIndex] = useState(() => 
     photos.findIndex(p => p.id === initialPhotoId) || 0
   );
-  const [zoom, setZoom] = useState(0);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const currentPhoto = photos[currentIndex];
+
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex >= 0 && newIndex < photos.length) {
+      setCurrentIndex(newIndex);
+    }
+  };
+
+  const {
+    zoom,
+    panOffset,
+    isDragging,
+    isZooming,
+    handleTouchStart,
+    handleTouchEnd,
+    handleTouchMove,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    resetZoom
+  } = useGalleryGestures({
+    currentPhoto,
+    photos,
+    currentIndex,
+    onNavigate: handleNavigate
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,44 +89,6 @@ export default function GalleryPhotoViewer({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex]);
-
-  const handleNavigate = (direction: 'prev' | 'next') => {
-    const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex >= 0 && newIndex < photos.length) {
-      setCurrentIndex(newIndex);
-      setZoom(0);
-      setPanOffset({ x: 0, y: 0 });
-    }
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoom > 0) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && zoom > 0) {
-      setPanOffset({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleImageClick = () => {
-    if (zoom === 0) {
-      setZoom(1);
-    } else {
-      setZoom(0);
-      setPanOffset({ x: 0, y: 0 });
-    }
-  };
 
   if (!currentPhoto) return null;
 
@@ -146,6 +131,15 @@ export default function GalleryPhotoViewer({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {zoom > 0 && (
+              <button
+                onClick={resetZoom}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                title="Сбросить увеличение"
+              >
+                <Icon name="ZoomOut" size={20} className="text-white" />
+              </button>
+            )}
             {!downloadDisabled && onDownload && (
               <button
                 onClick={() => onDownload(currentPhoto)}
@@ -167,7 +161,10 @@ export default function GalleryPhotoViewer({
         {/* Область изображения */}
         <div 
           className="relative w-full h-full flex items-center justify-center overflow-hidden"
-          style={{ cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab') }}
+          style={{ cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'), touchAction: 'none' }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -176,18 +173,17 @@ export default function GalleryPhotoViewer({
           <img
             src={currentPhoto.photo_url}
             alt={currentPhoto.file_name}
-            className="object-contain cursor-move select-none touch-manipulation"
+            className="object-contain select-none touch-manipulation"
             style={{
               transform: zoom > 0 
                 ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)` 
                 : 'none',
               maxWidth: zoom === 0 ? '90vw' : '100%',
               maxHeight: zoom === 0 ? '85vh' : '100vh',
-              transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+              transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
               touchAction: 'none',
               pointerEvents: 'none'
             }}
-            onClick={handleImageClick}
             onContextMenu={(e) => screenshotProtection && e.preventDefault()}
             draggable={false}
           />
