@@ -800,25 +800,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Переносим файлы основной папки в trash
             prefix = folder['s3_prefix']
-            paginator = new_s3_client.get_paginator('list_objects_v2')
-            pages = paginator.paginate(Bucket=new_bucket, Prefix=prefix)
-            
             moved_count = 0
-            for page in pages:
-                for obj in page.get('Contents', []):
-                    src_key = obj['Key']
-                    dst_key = f'trash/{src_key}'
-                    
-                    try:
-                        new_s3_client.copy_object(
-                            Bucket=new_bucket,
-                            CopySource={'Bucket': new_bucket, 'Key': src_key},
-                            Key=dst_key
-                        )
-                        new_s3_client.delete_object(Bucket=new_bucket, Key=src_key)
-                        moved_count += 1
-                    except Exception as e:
-                        print(f'Failed to move {src_key} to trash: {e}')
+            
+            if prefix:
+                paginator = new_s3_client.get_paginator('list_objects_v2')
+                pages = paginator.paginate(Bucket=new_bucket, Prefix=prefix)
+                
+                for page in pages:
+                    for obj in page.get('Contents', []):
+                        src_key = obj['Key']
+                        dst_key = f'trash/{src_key}'
+                        
+                        try:
+                            new_s3_client.copy_object(
+                                Bucket=new_bucket,
+                                CopySource={'Bucket': new_bucket, 'Key': src_key},
+                                Key=dst_key
+                            )
+                            new_s3_client.delete_object(Bucket=new_bucket, Key=src_key)
+                            moved_count += 1
+                        except Exception as e:
+                            print(f'Failed to move {src_key} to trash: {e}')
             
             # Переносим файлы дочерних папок в trash
             if child_folder_ids:
