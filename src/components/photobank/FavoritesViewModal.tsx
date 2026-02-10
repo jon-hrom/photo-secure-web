@@ -490,10 +490,10 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                           e.stopPropagation();
                           handleDownloadClientPhotos(client);
                         }}
-                        className="absolute bottom-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg shadow-md hover:shadow-lg transition-all z-10 hover:scale-110 active:scale-95"
+                        className="absolute bottom-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded-lg shadow-md hover:shadow-lg transition-all z-10 hover:scale-110 active:scale-95"
                         title="Скачать все фото архивом"
                       >
-                        <Icon name="Archive" size={16} />
+                        <Icon name="Archive" size={14} />
                       </button>
                     </div>
                   </div>
