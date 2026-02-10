@@ -91,7 +91,7 @@ export default function GalleryGrid({
                     >
                       <Icon name="MessageCircle" size={16} className="flex-shrink-0" />
                       <span className="hidden sm:inline">Написать фотографу</span>
-                      <span className="sm:hidden">Написать</span>
+                      <span className="sm:hidden text-center leading-tight">Написать<br />фотографу</span>
                       {unreadMessagesCount > 0 && (
                         <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-lg">
                           {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
