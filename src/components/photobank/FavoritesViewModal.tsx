@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import PhotoGridViewer from './PhotoGridViewer';
 
 interface FavoritesViewModalProps {
-  folderId: number;
+  folderId: number | null;
   folderName: string;
   userId: number;
   onClose: () => void;
@@ -45,6 +45,10 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
   }, [folderId]);
 
   const loadPhotos = async () => {
+    if (!folderId) {
+      return; // Skip loading photos if no folder selected
+    }
+    
     try {
       const response = await fetch(
         `https://functions.poehali.dev/647801b3-1db8-4ded-bf80-1f278b3b5f94?action=list_photos&folder_id=${folderId}`,
@@ -70,10 +74,18 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     setLoading(true);
     setError('');
     
+    if (!folderId) {
+      console.log('[FAVORITES] No folder selected, showing message');
+      setError('Выберите папку клиента, чтобы увидеть избранные фото');
+      setLoading(false);
+      return;
+    }
+    
     const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
     console.log('[FAVORITES] Gallery code:', galleryCode);
     
     if (!galleryCode) {
+      setError('Галерея не опубликована. Сначала поделитесь папкой с клиентом.');
       setLoading(false);
       return;
     }

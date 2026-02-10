@@ -52,10 +52,10 @@ export const PhotoBankModals = ({
         />
       )}
 
-      {showFavorites && selectedFolder && (
+      {showFavorites && (
         <FavoritesViewModal
-          folderId={selectedFolder.id}
-          folderName={selectedFolder.folder_name}
+          folderId={selectedFolder?.id || null}
+          folderName={selectedFolder?.folder_name || 'Все папки'}
           userId={userId}
           onClose={onCloseFavorites}
         />
