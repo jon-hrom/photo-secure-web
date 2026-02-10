@@ -36,7 +36,7 @@ interface ExifData {
   MeteringMode?: string;
   MaxApertureValue?: string;
   ExposureBiasValue?: string;
-  [key: string]: any;
+  [key: string]: string | number | undefined;
 }
 
 interface PhotoExifDialogProps {
@@ -50,6 +50,7 @@ interface PhotoExifDialogProps {
 const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: PhotoExifDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [exifData, setExifData] = useState<ExifData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && s3Key) {
@@ -59,6 +60,7 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
 
   const fetchExifData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await fetch(EXTRACT_EXIF_API, {
         method: 'POST',
@@ -69,13 +71,16 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
       });
 
       if (!response.ok) {
-        throw new Error('Не удалось загрузить EXIF данные');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.details || 'Не удалось загрузить EXIF данные');
       }
 
       const data = await response.json();
       setExifData(data.exif || {});
-    } catch (error: any) {
-      toast.error(`Ошибка: ${error.message}`);
+    } catch (error) {
+      console.error('[EXIF_DIALOG] Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось загрузить EXIF данные';
+      setError(errorMessage);
       setExifData(null);
     } finally {
       setLoading(false);
@@ -373,6 +378,22 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
           <div className="text-center py-8 text-muted-foreground">
             <Icon name="AlertCircle" size={32} className="mx-auto mb-2" />
             <p>EXIF данные отсутствуют</p>
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="text-center py-8">
+            <Icon name="AlertCircle" size={32} className="mx-auto mb-2 text-destructive" />
+            <p className="text-destructive font-medium mb-2">Ошибка: Не удалось загрузить EXIF данные</p>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <Button 
+              onClick={fetchExifData} 
+              variant="outline" 
+              className="mt-4"
+            >
+              <Icon name="RefreshCw" size={16} className="mr-2" />
+              Попробовать снова
+            </Button>
           </div>
         )}
 

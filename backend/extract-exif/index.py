@@ -9,16 +9,15 @@ import io
 from datetime import datetime
 import rawpy
 
-S3_BUCKET = 'foto-mix'
-S3_ENDPOINT = 'https://storage.yandexcloud.net'
+S3_BUCKET = 'files'
+S3_ENDPOINT = 'https://bucket.poehali.dev'
 
 def get_s3_client():
     return boto3.client(
         's3',
         endpoint_url=S3_ENDPOINT,
-        region_name='ru-central1',
-        aws_access_key_id=os.environ['YC_S3_KEY_ID'],
-        aws_secret_access_key=os.environ['YC_S3_SECRET'],
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
         config=Config(signature_version='s3v4')
     )
 
