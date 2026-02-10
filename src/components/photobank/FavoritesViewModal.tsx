@@ -283,7 +283,7 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                 Скачать все архивом
               </Button>
             </div>
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {displayPhotos.map((photo) => (
                 <div
                   key={photo.id}
@@ -448,7 +448,7 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
               <p className="text-gray-600 dark:text-gray-400">Клиенты смогут добавлять фото в избранное после получения ссылки на галерею</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {clients.map((client) => {
                 const clientPhotos = client.photos
                   .map(fp => allPhotos.find(p => p.id === fp.photo_id))
@@ -460,17 +460,28 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                     className="relative group cursor-pointer"
                     onClick={() => setSelectedClient(client)}
                   >
-                    <div className="relative bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-xl p-3 shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-105 aspect-square flex flex-col items-center justify-center border border-yellow-200/50 dark:border-yellow-700/50">
-                      <div className="absolute top-2 right-2 z-10">
-                        <Icon name="Star" size={14} className="text-yellow-500 fill-yellow-500 drop-shadow-md" />
+                    <div className="relative bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-200 hover:scale-105 aspect-[3/4] flex flex-col items-center justify-center border-2 border-yellow-200/50 dark:border-yellow-700/50">
+                      <div className="absolute top-3 right-3 z-10">
+                        <Icon name="Star" size={20} className="text-yellow-500 fill-yellow-500 drop-shadow-md" />
                       </div>
                       
-                      <Icon name="Folder" size={48} className="text-yellow-600 dark:text-yellow-500 drop-shadow-sm mb-1" />
+                      <div className="flex-1 flex items-center justify-center mb-3">
+                        <Icon name="Folder" size={72} className="text-yellow-600 dark:text-yellow-500 drop-shadow-sm" />
+                      </div>
+                      
+                      <div className="w-full text-center">
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-1 truncate px-2" title={client.full_name}>
+                          {client.full_name}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate px-2" title={client.phone}>
+                          {client.phone}
+                        </p>
+                      </div>
 
-                      <div className="absolute bottom-2 left-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded px-1.5 py-0.5 shadow-sm">
-                        <div className="flex items-center gap-0.5">
-                          <Icon name="Image" size={10} className="text-gray-600 dark:text-gray-400" />
-                          <span className="text-[10px] font-semibold text-gray-900 dark:text-white">{clientPhotos.length}</span>
+                      <div className="absolute bottom-3 left-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-1">
+                          <Icon name="Image" size={14} className="text-gray-600 dark:text-gray-400" />
+                          <span className="text-xs font-semibold text-gray-900 dark:text-white">{clientPhotos.length}</span>
                         </div>
                       </div>
 
@@ -479,20 +490,11 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                           e.stopPropagation();
                           handleDownloadClientPhotos(client);
                         }}
-                        className="absolute bottom-2 right-2 bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded shadow-md hover:shadow-lg transition-all z-10 hover:scale-110 active:scale-95"
+                        className="absolute bottom-3 right-3 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg shadow-md hover:shadow-lg transition-all z-10 hover:scale-110 active:scale-95"
                         title="Скачать все фото архивом"
                       >
-                        <Icon name="Archive" size={12} />
+                        <Icon name="Archive" size={16} />
                       </button>
-                    </div>
-                    
-                    <div className="mt-1.5 text-center px-1">
-                      <p className="text-xs font-semibold text-gray-900 dark:text-white truncate" title={client.full_name}>
-                        {client.full_name}
-                      </p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-500 truncate" title={client.phone}>
-                        {client.phone}
-                      </p>
                     </div>
                   </div>
                 );
