@@ -28,7 +28,29 @@ export default function VideoUrlUploadDialog({
   const [error, setError] = useState('');
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleDirectDownload = () => {
+    if (!url.trim()) {
+      setError('Введите ссылку на видео');
+      return;
+    }
+
+    const trimmedUrl = url.trim();
+    
+    if (trimmedUrl.includes('.m3u8')) {
+      setError('M3U8 плейлисты нельзя скачать напрямую. Используйте yt-dlp или ffmpeg на компьютере, либо загрузите в фотобанк (будет скачано первые 8 минут)');
+      return;
+    }
+
+    window.open(trimmedUrl, '_blank');
+    
+    toast({
+      title: 'Скачивание начато',
+      description: 'Видео откроется в новой вкладке для скачивания',
+      duration: 3000
+    });
+  };
+
+  const handleUploadToPhotobank = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!url.trim()) {
@@ -131,21 +153,19 @@ export default function VideoUrlUploadDialog({
           <Alert>
             <Icon name="Info" size={16} />
             <AlertDescription className="text-sm space-y-2">
-              <p><strong>Как скачать видео с Kinescope:</strong></p>
-              <ol className="list-decimal list-inside space-y-1 text-xs">
-                <li>Откройте страницу с видео в браузере</li>
-                <li>Откройте инструменты разработчика (F12)</li>
-                <li>Вкладка Network → поставьте фильтр "m3u8"</li>
-                <li>Запустите видео (нажмите Play)</li>
-                <li>Найдите запрос к файлу <code className="bg-muted px-1 py-0.5 rounded">master.m3u8</code></li>
-                <li>ПКМ на запросе → Copy → Copy link address</li>
-                <li>Вставьте URL сюда</li>
-              </ol>
-              <p className="mt-2 text-xs text-amber-600 font-medium">
-                ⚠️ ВАЖНО: Вставляйте только .m3u8 ссылку, НЕ прямую ссылку на .mp4!
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Примечание: DRM-защищённые видео скачать невозможно
+              <p><strong>Два способа работы с видео:</strong></p>
+              <div className="space-y-2 text-xs">
+                <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded">
+                  <p className="font-medium text-blue-900 dark:text-blue-100">📥 Скачать на компьютер (рекомендуется для длинных видео)</p>
+                  <p className="text-blue-700 dark:text-blue-300 mt-1">Вставьте прямую ссылку на .mp4 или .mov файл — откроется в браузере для скачивания</p>
+                </div>
+                <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded">
+                  <p className="font-medium text-purple-900 dark:text-purple-100">☁️ Загрузить в фотобанк (до 8 минут)</p>
+                  <p className="text-purple-700 dark:text-purple-300 mt-1">Вставьте ссылку на .m3u8 плейлист — будет скачано первые 50 сегментов (~8 минут видео)</p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Для Kinescope: F12 → Network → фильтр "m3u8" → Play видео → скопируйте ссылку на master.m3u8
               </p>
             </AlertDescription>
           </Alert>
@@ -160,9 +180,19 @@ export default function VideoUrlUploadDialog({
               Отмена
             </Button>
             <Button
+              type="button"
+              variant="secondary"
+              onClick={handleDirectDownload}
+              disabled={loading || !url.trim()}
+            >
+              <Icon name="ExternalLink" size={16} className="mr-2" />
+              Скачать на ПК
+            </Button>
+            <Button
               type="submit"
               disabled={loading || !url.trim()}
               className="bg-purple-600 hover:bg-purple-700"
+              onClick={handleUploadToPhotobank}
             >
               {loading ? (
                 <>
@@ -171,8 +201,8 @@ export default function VideoUrlUploadDialog({
                 </>
               ) : (
                 <>
-                  <Icon name="Download" size={16} className="mr-2" />
-                  Загрузить
+                  <Icon name="CloudUpload" size={16} className="mr-2" />
+                  В фотобанк
                 </>
               )}
             </Button>
