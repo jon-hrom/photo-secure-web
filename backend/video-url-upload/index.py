@@ -68,6 +68,14 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'URL is required'})
         }
     
+    # Fix common URL issues
+    if url.startswith('ttps://'):
+        url = 'h' + url
+    elif url.startswith('ttp://'):
+        url = 'h' + url
+    elif not url.startswith('http://') and not url.startswith('https://'):
+        url = 'https://' + url
+    
     print(f'[VIDEO_UPLOAD] Starting download from: {url}')
     
     if not folder_id:
