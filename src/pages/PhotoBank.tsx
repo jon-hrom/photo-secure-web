@@ -15,7 +15,7 @@ import { usePhotoBankHandlersExtended } from '@/hooks/usePhotoBankHandlersExtend
 import { usePhotoBankNavigationHistory } from '@/hooks/usePhotoBankNavigationHistory';
 import { usePhotoBankHandlersLocal } from '@/pages/photobank/usePhotoBankHandlersLocal';
 import { usePhotoBankUnreadMessages } from '@/pages/photobank/usePhotoBankUnreadMessages';
-import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewing } from '@/pages/photobank/PhotoBankAuth';
+import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewing, getIsAdmin } from '@/pages/photobank/PhotoBankAuth';
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 
@@ -174,6 +174,7 @@ const PhotoBank = () => {
   });
 
   const isAdminViewing = getIsAdminViewing();
+  const isAdmin = getIsAdmin();
 
   if (authChecking || !userId) {
     return (
@@ -228,6 +229,7 @@ const PhotoBank = () => {
           selectionMode={selectionMode}
           selectedPhotos={selectedPhotos}
           isAdminViewing={isAdminViewing}
+          isAdmin={isAdmin}
           onNavigateBack={() => {
             if (isAdminViewing) {
               handleExitAdminView();

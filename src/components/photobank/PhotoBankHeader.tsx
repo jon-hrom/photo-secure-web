@@ -43,6 +43,7 @@ interface PhotoBankHeaderProps {
   onGoBack?: () => void;
   onGoForward?: () => void;
   isAdminViewing?: boolean;
+  isAdmin?: boolean;
   onDeleteSelectedPhotos?: () => void;
   onRestoreSelectedPhotos?: () => void;
   onShowStats?: () => void;
@@ -71,6 +72,7 @@ const PhotoBankHeader = ({
   onGoBack,
   onGoForward,
   isAdminViewing = false,
+  isAdmin = false,
   onDeleteSelectedPhotos,
   onRestoreSelectedPhotos,
   onShowStats,
@@ -80,7 +82,7 @@ const PhotoBankHeader = ({
   const navigate = useNavigate();
   const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
   
-  console.log('[PHOTOBANK_HEADER] isAdminViewing:', isAdminViewing, 'onShowVideoUrlUpload:', !!onShowVideoUrlUpload);
+  console.log('[PHOTOBANK_HEADER] isAdminViewing:', isAdminViewing, 'isAdmin:', isAdmin, 'onShowVideoUrlUpload:', !!onShowVideoUrlUpload);
   
   return (
     <div className="flex flex-col gap-4">
@@ -217,7 +219,7 @@ const PhotoBankHeader = ({
               <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none">Загрузить фото по ссылке</span>
             </Button>
           )}
-          {onShowVideoUrlUpload && isAdminViewing && (
+          {onShowVideoUrlUpload && (isAdminViewing || isAdmin) && (
             <Button 
               variant="outline"
               onClick={onShowVideoUrlUpload}

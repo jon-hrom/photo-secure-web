@@ -318,3 +318,26 @@ export const getIsAdminViewing = (): boolean => {
   
   return isAdminUser(adminEmail, adminVkData);
 };
+
+export const getIsAdmin = (): boolean => {
+  const authSession = localStorage.getItem('authSession');
+  const vkUser = localStorage.getItem('vk_user');
+  
+  let adminEmail = null;
+  let adminVkData = null;
+  
+  if (authSession) {
+    try {
+      const session = JSON.parse(authSession);
+      adminEmail = session.userEmail;
+    } catch {}
+  }
+  
+  if (vkUser) {
+    try {
+      adminVkData = JSON.parse(vkUser);
+    } catch {}
+  }
+  
+  return isAdminUser(adminEmail, adminVkData);
+};
