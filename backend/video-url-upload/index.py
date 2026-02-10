@@ -78,6 +78,18 @@ def handler(event: dict, context) -> dict:
     
     print(f'[VIDEO_UPLOAD] Starting download from: {url}')
     
+    if 'kinescope' in url.lower() and '.mp4' in url.lower() and '?' in url:
+        cursor.close()
+        conn.close()
+        return {
+            'statusCode': 400,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({
+                'error': 'Прямые ссылки на .mp4 из Kinescope не работают',
+                'details': 'Используйте ссылку на master.m3u8 плейлист из DevTools (F12 → Network → фильтр "m3u8" → Play видео → скопируйте URL запроса master.m3u8)'
+            })
+        }
+    
     if not folder_id:
         folder_name = datetime.now().strftime('Видео %d.%m.%Y %H:%M')
         s3_prefix = f'videos/{user_id}/{int(datetime.now().timestamp())}/'
@@ -138,12 +150,14 @@ def handler(event: dict, context) -> dict:
         s3_key = f'{s3_prefix}{filename}'
         print(f'[VIDEO_UPLOAD] Uploading to S3: {s3_key}')
         
+        content_type = 'video/mp2t' if filename.endswith('.ts') else 'video/mp4'
+        
         with open(output_file, 'rb') as f:
             s3.put_object(
                 Bucket=bucket,
                 Key=s3_key,
                 Body=f,
-                ContentType='video/mp4'
+                ContentType=content_type
             )
         
         aws_key_id = os.environ['AWS_ACCESS_KEY_ID']
@@ -155,7 +169,7 @@ def handler(event: dict, context) -> dict:
                 is_video, content_type)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING id''',
-            (user_id, folder_id, filename, s3_key, s3_url, file_size, True, 'video/mp4')
+            (user_id, folder_id, filename, s3_key, s3_url, file_size, True, content_type)
         )
         video_id = cursor.fetchone()['id']
         conn.commit()

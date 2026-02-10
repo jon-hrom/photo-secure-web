@@ -135,11 +135,16 @@ export default function VideoUrlUploadDialog({
               <ol className="list-decimal list-inside space-y-1 text-xs">
                 <li>Откройте страницу с видео в браузере</li>
                 <li>Откройте инструменты разработчика (F12)</li>
-                <li>Вкладка Network → XHR</li>
-                <li>Найдите запрос к <code className="bg-muted px-1 py-0.5 rounded">.m3u8</code> файлу</li>
-                <li>Скопируйте полный URL и вставьте сюда</li>
+                <li>Вкладка Network → поставьте фильтр "m3u8"</li>
+                <li>Запустите видео (нажмите Play)</li>
+                <li>Найдите запрос к файлу <code className="bg-muted px-1 py-0.5 rounded">master.m3u8</code></li>
+                <li>ПКМ на запросе → Copy → Copy link address</li>
+                <li>Вставьте URL сюда</li>
               </ol>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-amber-600 font-medium">
+                ⚠️ ВАЖНО: Вставляйте только .m3u8 ссылку, НЕ прямую ссылку на .mp4!
+              </p>
+              <p className="text-xs text-muted-foreground">
                 Примечание: DRM-защищённые видео скачать невозможно
               </p>
             </AlertDescription>
