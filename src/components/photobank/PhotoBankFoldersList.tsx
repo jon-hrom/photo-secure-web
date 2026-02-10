@@ -412,6 +412,18 @@ const PhotoBankFoldersList = ({
                               >
                                 <Icon name="FolderOpen" size={14} />
                               </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:scale-110 active:scale-95 transition-all duration-200"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteFolder(subfolder.id, subfolder.folder_name);
+                                }}
+                                title="Удалить"
+                              >
+                                <Icon name="Trash2" size={14} />
+                              </Button>
                             </div>
                           </td>
                         </tr>
