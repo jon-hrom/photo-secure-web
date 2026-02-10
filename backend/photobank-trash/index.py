@@ -40,34 +40,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
-    db_url = os.environ.get('DATABASE_URL')
-    s3_key_id = os.environ.get('YC_S3_KEY_ID')
-    s3_secret = os.environ.get('YC_S3_SECRET')
-    bucket = 'foto-mix'
-    
-    s3_client = boto3.client(
-        's3',
-        endpoint_url='https://storage.yandexcloud.net',
-        region_name='ru-central1',
-        aws_access_key_id=s3_key_id,
-        aws_secret_access_key=s3_secret,
-        config=Config(signature_version='s3v4')
-    )
-    
     try:
+        db_url = os.environ.get('DATABASE_URL')
+        s3_key_id = os.environ.get('YC_S3_KEY_ID')
+        s3_secret = os.environ.get('YC_S3_SECRET')
+        bucket = 'foto-mix'
+        
+        s3_client = boto3.client(
+            's3',
+            endpoint_url='https://storage.yandexcloud.net',
+            region_name='ru-central1',
+            aws_access_key_id=s3_key_id,
+            aws_secret_access_key=s3_secret,
+            config=Config(signature_version='s3v4')
+        )
+        
         conn = psycopg2.connect(db_url)
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': f'Database connection failed: {str(e)}'}),
-            'isBase64Encoded': False
-        }
-    
-    try:
+        
         # Auto-cleanup: delete trashed items older than 7 days
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 # Clean up expired folders first (including their photos)
                 cur.execute('''
                     SELECT id, s3_prefix, folder_name
@@ -204,11 +195,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ''')
                     conn.commit()
                     print(f'[AUTO_CLEANUP] Deleted {len(expired_photos)} expired standalone photos from trash')
-        except Exception as cleanup_error:
-            print(f'[AUTO_CLEANUP] Auto-cleanup failed (non-critical): {cleanup_error}')
-            import traceback
-            print(f'Traceback: {traceback.format_exc()}')
-            # Don't fail the request if cleanup fails
         
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')
