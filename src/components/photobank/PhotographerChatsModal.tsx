@@ -8,6 +8,7 @@ interface Chat {
   client_id: number;
   client_name: string;
   client_phone: string;
+  client_email: string;
   last_message: string;
   last_message_image: string | null;
   last_sender: 'client' | 'photographer';
@@ -29,6 +30,44 @@ export default function PhotographerChatsModal({
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [photographerName, setPhotographerName] = useState<string>('Фотограф');
+
+  // Получаем имя фотографа из localStorage
+  useEffect(() => {
+    const authSession = localStorage.getItem('authSession');
+    const vkUser = localStorage.getItem('vk_user');
+    const googleUser = localStorage.getItem('google_user');
+    
+    if (authSession) {
+      try {
+        const session = JSON.parse(authSession);
+        if (session.userName) {
+          setPhotographerName(session.userName);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    } else if (vkUser) {
+      try {
+        const userData = JSON.parse(vkUser);
+        const name = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
+        if (name) {
+          setPhotographerName(name);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    } else if (googleUser) {
+      try {
+        const userData = JSON.parse(googleUser);
+        if (userData.name) {
+          setPhotographerName(userData.name);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }, []);
 
   const loadChats = async () => {
     try {
@@ -185,9 +224,20 @@ export default function PhotographerChatsModal({
                                 </span>
                               )}
                             </div>
-                            {chat.client_phone && (
-                              <p className="text-sm text-muted-foreground">{chat.client_phone}</p>
-                            )}
+                            <div className="space-y-0.5">
+                              {chat.client_phone && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Icon name="Phone" size={12} />
+                                  {chat.client_phone}
+                                </p>
+                              )}
+                              {chat.client_email && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Icon name="Mail" size={12} />
+                                  {chat.client_email}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <Icon name="ChevronRight" size={16} className="flex-shrink-0 text-muted-foreground" />
                         </div>
@@ -240,6 +290,7 @@ export default function PhotographerChatsModal({
                   photographerId={photographerId}
                   senderType="photographer"
                   clientName={selectedChat.client_name}
+                  photographerName={photographerName}
                   embedded={true}
                   onMessageSent={loadChats}
                 />

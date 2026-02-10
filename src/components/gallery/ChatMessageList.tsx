@@ -20,10 +20,12 @@ interface ChatMessageListProps {
   onImageClick: (imageUrl: string) => void;
   variant?: 'default' | 'embedded';
   isOpponentTyping?: boolean;
+  clientName?: string;
+  photographerName?: string;
 }
 
 const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
-  ({ messages, loading, senderType, onImageClick, variant = 'default', isOpponentTyping = false }, ref) => {
+  ({ messages, loading, senderType, onImageClick, variant = 'default', isOpponentTyping = false, clientName, photographerName }, ref) => {
     const isEmbedded = variant === 'embedded';
 
     if (loading && messages.length === 0) {
@@ -59,6 +61,7 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
               isMyMessage={isMyMessage}
               onImageClick={onImageClick}
               variant={variant}
+              senderName={msg.sender_type === 'client' ? clientName : photographerName}
             />
           );
         })}

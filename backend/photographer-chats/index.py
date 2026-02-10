@@ -61,6 +61,7 @@ def handler(event: dict, context) -> dict:
                     lm.client_id,
                     COALESCE(fc.full_name, lm.author, 'Клиент'),
                     COALESCE(fc.phone, ''),
+                    COALESCE(fc.email, ''),
                     lm.content,
                     lm.image_url,
                     lm.sender_type,
@@ -78,11 +79,12 @@ def handler(event: dict, context) -> dict:
                     'client_id': row[0],
                     'client_name': row[1],
                     'client_phone': row[2],
-                    'last_message': row[3],
-                    'last_message_image': row[4],
-                    'last_sender': row[5],
-                    'last_message_time': row[6].isoformat() if row[6] else None,
-                    'unread_count': row[7]
+                    'client_email': row[3],
+                    'last_message': row[4],
+                    'last_message_image': row[5],
+                    'last_sender': row[6],
+                    'last_message_time': row[7].isoformat() if row[7] else None,
+                    'unread_count': row[8]
                 })
             
             # Сортируем по времени последнего сообщения

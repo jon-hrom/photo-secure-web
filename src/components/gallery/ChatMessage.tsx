@@ -16,17 +16,19 @@ interface ChatMessageProps {
   isMyMessage: boolean;
   onImageClick: (imageUrl: string) => void;
   variant?: 'default' | 'embedded';
+  senderName?: string;
 }
 
 export default function ChatMessage({ 
   message, 
   isMyMessage, 
   onImageClick,
-  variant = 'default'
+  variant = 'default',
+  senderName
 }: ChatMessageProps) {
   const renderMessageText = (text: string) => {
-    return text.split(/(\#\d+|фото\s*\d+|photo\s*\d+)/gi).map((part, i) => {
-      if (/(\#\d+|фото\s*\d+|photo\s*\d+)/i.test(part)) {
+    return text.split(/(#\d+|фото\s*\d+|photo\s*\d+)/gi).map((part, i) => {
+      if (/(#\d+|фото\s*\d+|photo\s*\d+)/i.test(part)) {
         return <span key={i} className="font-semibold underline">{part}</span>;
       }
       return part;
@@ -37,8 +39,13 @@ export default function ChatMessage({
 
   return (
     <div
-      className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
+      className={`flex flex-col ${isMyMessage ? 'items-end' : 'items-start'}`}
     >
+      {senderName && (
+        <span className="text-xs text-muted-foreground mb-1 px-1">
+          {senderName}
+        </span>
+      )}
       <div
         className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 ${
           isEmbedded

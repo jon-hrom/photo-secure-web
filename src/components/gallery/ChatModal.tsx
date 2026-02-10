@@ -22,6 +22,7 @@ interface ChatModalProps {
   photographerId: number;
   senderType: 'client' | 'photographer';
   clientName?: string;
+  photographerName?: string;
   embedded?: boolean;
   onMessageSent?: () => void;
 }
@@ -33,6 +34,7 @@ export default function ChatModal({
   photographerId, 
   senderType,
   clientName,
+  photographerName,
   embedded = false,
   onMessageSent
 }: ChatModalProps) {
@@ -160,7 +162,14 @@ export default function ChatModal({
     try {
       setSending(true);
       
-      const body: any = {
+      const body: {
+        client_id: number;
+        photographer_id: number;
+        message: string;
+        sender_type: string;
+        image?: string;
+        image_name?: string;
+      } = {
         client_id: clientId,
         photographer_id: photographerId,
         message: newMessage.trim(),
@@ -278,6 +287,8 @@ export default function ChatModal({
             onImageClick={setFullscreenImage}
             variant="embedded"
             isOpponentTyping={isOpponentTyping}
+            clientName={clientName}
+            photographerName={photographerName}
             ref={messagesEndRef}
           />
         </div>
@@ -336,6 +347,8 @@ export default function ChatModal({
             onImageClick={setFullscreenImage}
             variant="default"
             isOpponentTyping={isOpponentTyping}
+            clientName={clientName}
+            photographerName={photographerName}
             ref={messagesEndRef}
           />
         </div>

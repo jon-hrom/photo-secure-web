@@ -29,6 +29,40 @@ export default function FolderChatsModal({
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [photographerName, setPhotographerName] = useState<string>('Фотограф');
+
+  // Получаем имя фотографа
+  useEffect(() => {
+    const authSession = localStorage.getItem('authSession');
+    const vkUser = localStorage.getItem('vk_user');
+    const googleUser = localStorage.getItem('google_user');
+    
+    if (authSession) {
+      try {
+        const session = JSON.parse(authSession);
+        if (session.userName) {
+          setPhotographerName(session.userName);
+        }
+      } catch {
+        // Ignore
+      }
+    } else if (vkUser) {
+      try {
+        const userData = JSON.parse(vkUser);
+        const name = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
+        if (name) setPhotographerName(name);
+      } catch {
+        // Ignore
+      }
+    } else if (googleUser) {
+      try {
+        const userData = JSON.parse(googleUser);
+        if (userData.name) setPhotographerName(userData.name);
+      } catch {
+        // Ignore
+      }
+    }
+  }, []);
 
   const loadClients = async () => {
     try {
@@ -181,6 +215,7 @@ export default function FolderChatsModal({
                     photographerId={photographerId}
                     senderType="photographer"
                     clientName={selectedClient.name}
+                    photographerName={photographerName}
                     embedded={true}
                   />
                 </div>
