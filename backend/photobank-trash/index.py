@@ -474,6 +474,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ''', (user_id,))
                     folders = cur.fetchall()
                     
+                    print(f'[EMPTY_TRASH] Found {len(folders)} trashed folders')
+                    for folder in folders:
+                        print(f'[EMPTY_TRASH] Folder {folder["id"]}: s3_prefix={folder["s3_prefix"]}')
+                    
                     folder_ids = [f['id'] for f in folders]
                     photo_ids = []
                     
@@ -537,9 +541,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         print(f'[EMPTY_TRASH] Successfully deleted {len(photo_ids)} photos and {len(folder_ids)} folders')
                 
                 deleted_count = 0
+                folders_with_s3 = 0
                 for folder in folders:
                     if folder["s3_prefix"]:
+                        folders_with_s3 += 1
                         trash_prefix = f'trash/{folder["s3_prefix"]}'
+                        print(f'[EMPTY_TRASH] Checking S3 prefix: {trash_prefix}')
                         paginator = s3_client.get_paginator('list_objects_v2')
                         pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
                         
@@ -548,8 +555,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 try:
                                     s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
                                     deleted_count += 1
+                                    print(f'[EMPTY_TRASH] Deleted from S3: {obj["Key"]}')
                                 except Exception as e:
-                                    print(f'Failed to delete {obj["Key"]}: {e}')
+                                    print(f'[EMPTY_TRASH] Failed to delete {obj["Key"]}: {e}')
+                
+                print(f'[EMPTY_TRASH] S3 cleanup: {folders_with_s3} folders had s3_prefix, {deleted_count} files deleted from S3')
                 
                 return {
                     'statusCode': 200,
