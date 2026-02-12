@@ -401,13 +401,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 print(f'[UPLOAD_DIRECT] File size after decode: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)')
                 
                 file_ext = file_name.split('.')[-1] if '.' in file_name else 'jpg'
-                # Используем новый S3 (cdn.poehali.dev) для всех новых загрузок
-                s3_key = f'photobank/{user_id}/{folder_id}/{uuid.uuid4()}.{file_ext}'
+                # Используем Yandex S3 (как всегда было)
+                s3_key = f'{folder["s3_prefix"]}{uuid.uuid4()}.{file_ext}'
                 
-                print(f'[UPLOAD_DIRECT] Uploading to NEW S3 (Poehali CDN): {s3_key}, size={file_size}')
+                print(f'[UPLOAD_DIRECT] Uploading to Yandex S3: {s3_key}, size={file_size}')
                 try:
-                    new_s3_client.put_object(
-                        Bucket=new_bucket,
+                    old_s3_client.put_object(
+                        Bucket=old_bucket,
                         Key=s3_key,
                         Body=file_bytes,
                         ContentType='image/jpeg',
@@ -423,8 +423,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                # Новый CDN URL (публичный, не истекает)
-                s3_url = f'https://cdn.poehali.dev/projects/{os.environ["AWS_ACCESS_KEY_ID"]}/bucket/{s3_key}'
+                # Yandex S3 URL (будет генерироваться presigned при запросе)
+                s3_url = f'https://storage.yandexcloud.net/{old_bucket}/{s3_key}'
                 
                 # Генерируем thumbnail для JPG/PNG сразу
                 thumbnail_s3_key = None
@@ -439,15 +439,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         img.save(thumb_buffer, format='JPEG', quality=85)
                         thumb_bytes = thumb_buffer.getvalue()
                         
-                        thumbnail_s3_key = f'photobank/{user_id}/{folder_id}/thumbnails/{uuid.uuid4()}.jpg'
-                        new_s3_client.put_object(
-                            Bucket=new_bucket,
+                        thumbnail_s3_key = f'{folder["s3_prefix"]}thumbnails/{uuid.uuid4()}.jpg'
+                        old_s3_client.put_object(
+                            Bucket=old_bucket,
                             Key=thumbnail_s3_key,
                             Body=thumb_bytes,
                             ContentType='image/jpeg'
                         )
-                        thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{os.environ["AWS_ACCESS_KEY_ID"]}/bucket/{thumbnail_s3_key}'
-                        print(f'[UPLOAD_DIRECT] Thumbnail created: {thumbnail_s3_url}')
+                        thumbnail_s3_url = f'https://storage.yandexcloud.net/{old_bucket}/{thumbnail_s3_key}'
+                        print(f'[UPLOAD_DIRECT] Thumbnail created: {thumbnail_s3_key}')
                     except Exception as e:
                         print(f'[UPLOAD_DIRECT] Thumbnail generation failed: {e}')
                 
