@@ -192,7 +192,10 @@ export default function ChatModal({
           return base64Data;
         });
         body.file_names = selectedImages.map(img => img.fileName);
-        console.log('[CHAT_SEND] Sending files:', body.file_names);
+        
+        const totalSize = body.images_base64.reduce((sum, b64) => sum + b64.length, 0);
+        const totalMB = (totalSize / 1024 / 1024).toFixed(2);
+        console.log('[CHAT_SEND] Sending files:', body.file_names, `Total base64 size: ${totalMB} MB`);
       }
       
       const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?v=2`, {
