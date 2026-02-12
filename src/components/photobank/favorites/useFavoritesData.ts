@@ -38,6 +38,7 @@ export function useFavoritesData(folderId: number | null, userId: number) {
     }
     
     try {
+      // Используем photos-presigned для получения свежих presigned URLs (не истекают)
       const response = await fetch(
         `https://functions.poehali.dev/647801b3-1db8-4ded-bf80-1f278b3b5f94?action=list_photos&folder_id=${folderId}`,
         { headers: { 'X-User-Id': userId.toString() } }
@@ -47,16 +48,17 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       if (response.ok) {
         const photos = (result.photos || []).map((photo: Photo) => ({
           ...photo,
+          // Убеждаемся что есть thumbnail_url
           thumbnail_url: photo.thumbnail_url || photo.photo_url
         }));
         
         setAllPhotos(photos);
-        console.log('[FAVORITES] Loaded', photos.length, 'photos with presigned URLs');
+        console.log('[FAVORITES] Loaded', photos.length, 'photos with FRESH presigned URLs');
         console.log('[FAVORITES] Sample photo URLs:', photos.slice(0, 2).map(p => ({
           id: p.id,
           file: p.file_name,
-          thumb: p.thumbnail_url,
-          full: p.photo_url
+          thumb: p.thumbnail_url?.substring(0, 80) + '...',
+          full: p.photo_url?.substring(0, 80) + '...'
         })));
       }
     } catch (e) {

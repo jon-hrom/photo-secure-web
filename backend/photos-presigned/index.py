@@ -76,7 +76,7 @@ def handler(event: dict, context) -> dict:
         elif action == 'list_photos' and folder_id:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
-                    f"SELECT id, folder_id, file_name, s3_key, thumbnail_s3_key, file_size, width, height, created_at, is_video, photo_download_count FROM {schema}.photo_bank WHERE folder_id = %s AND user_id = %s AND (is_trashed IS NULL OR is_trashed = false) ORDER BY created_at DESC",
+                    f"SELECT id, folder_id, file_name, s3_key, thumbnail_s3_key, s3_url, thumbnail_s3_url, file_size, width, height, created_at, is_video, photo_download_count FROM {schema}.photo_bank WHERE folder_id = %s AND user_id = %s AND (is_trashed IS NULL OR is_trashed = false) ORDER BY created_at DESC",
                     (folder_id, user_id)
                 )
                 rows = cur.fetchall()
@@ -86,29 +86,41 @@ def handler(event: dict, context) -> dict:
                 photo = dict(row)
                 photo['created_at'] = photo['created_at'].isoformat() if photo['created_at'] else None
                 
-                # Генерируем presigned URLs (срок действия 1 час)
-                photo_url = s3_client.generate_presigned_url(
-                    'get_object',
-                    Params={
-                        'Bucket': 'foto-mix',
-                        'Key': row['s3_key']
-                    },
-                    ExpiresIn=3600
-                )
-                
-                thumbnail_url = photo_url
-                if row['thumbnail_s3_key']:
-                    thumbnail_url = s3_client.generate_presigned_url(
+                # Если фото хранится в Poehali CDN - используем постоянный URL
+                if row['s3_url'] and 'cdn.poehali.dev' in row['s3_url']:
+                    photo['photo_url'] = row['s3_url']
+                    photo['thumbnail_url'] = row['thumbnail_s3_url'] if row['thumbnail_s3_url'] else row['s3_url']
+                    print(f'[PRESIGNED] Photo {row["id"]} uses Poehali CDN: {row["s3_url"][:80]}...')
+                # Иначе генерируем presigned URLs для Yandex S3
+                elif row['s3_key']:
+                    photo_url = s3_client.generate_presigned_url(
                         'get_object',
                         Params={
                             'Bucket': 'foto-mix',
-                            'Key': row['thumbnail_s3_key']
+                            'Key': row['s3_key']
                         },
                         ExpiresIn=3600
                     )
+                    
+                    thumbnail_url = photo_url
+                    if row['thumbnail_s3_key']:
+                        thumbnail_url = s3_client.generate_presigned_url(
+                            'get_object',
+                            Params={
+                                'Bucket': 'foto-mix',
+                                'Key': row['thumbnail_s3_key']
+                            },
+                            ExpiresIn=3600
+                        )
+                    
+                    photo['photo_url'] = photo_url
+                    photo['thumbnail_url'] = thumbnail_url
+                    print(f'[PRESIGNED] Photo {row["id"]} uses Yandex S3 presigned URL')
+                else:
+                    print(f'[PRESIGNED] Photo {row["id"]} has NO s3_key or s3_url!')
+                    photo['photo_url'] = None
+                    photo['thumbnail_url'] = None
                 
-                photo['photo_url'] = photo_url
-                photo['thumbnail_url'] = thumbnail_url
                 photos.append(photo)
             
             return {
