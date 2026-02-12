@@ -167,8 +167,8 @@ export default function ChatModal({
         photographer_id: number;
         message: string;
         sender_type: string;
-        image?: string;
-        image_name?: string;
+        images_base64?: string[];
+        file_names?: string[];
       } = {
         client_id: clientId,
         photographer_id: photographerId,
@@ -192,6 +192,7 @@ export default function ChatModal({
           return base64Data;
         });
         body.file_names = selectedImages.map(img => img.fileName);
+        console.log('[CHAT_SEND] Sending files:', body.file_names);
       }
       
       const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?v=2`, {
