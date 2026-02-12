@@ -226,15 +226,10 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     if (!clientData || clientData.client_id <= 0) return;
     
     try {
-      const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'remove_from_favorites',
-          client_id: clientData.client_id,
-          photo_id: photoId
-        })
-      });
+      const response = await fetch(
+        `https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?client_id=${clientData.client_id}&photo_id=${photoId}`,
+        { method: 'DELETE' }
+      );
       
       const result = await response.json();
       
