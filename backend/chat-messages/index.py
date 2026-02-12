@@ -10,7 +10,10 @@ from datetime import datetime
 def handler(event: dict, context) -> dict:
     '''API для работы с сообщениями между клиентом и фотографом. Включает отправку уведомлений на email и WhatsApp.'''
     method = event.get('httpMethod', 'GET')
-    print(f'[CHAT_HANDLER] Method={method}, Body={event.get("body", "")}', flush=True)
+    print(f'[CHAT_HANDLER] ===== NEW REQUEST =====', flush=True)
+    print(f'[CHAT_HANDLER] Method={method}', flush=True)
+    print(f'[CHAT_HANDLER] Body length={len(event.get("body", ""))} bytes', flush=True)
+    print(f'[CHAT_HANDLER] Query params={event.get("queryStringParameters")}', flush=True)
     
     if method == 'OPTIONS':
         return {
