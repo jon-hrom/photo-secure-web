@@ -38,6 +38,53 @@ def handler(event: dict, context) -> dict:
             client_id = params.get('client_id')
             photographer_id = params.get('photographer_id')
             
+            # action=get_upload_url - получить presigned URL для загрузки файла
+            if action == 'get_upload_url':
+                if not photographer_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'photographer_id required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                file_name = params.get('file_name', f'{uuid.uuid4()}.jpg')
+                content_type = params.get('content_type', 'image/jpeg')
+                
+                s3 = boto3.client('s3',
+                    endpoint_url='https://bucket.poehali.dev',
+                    aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+                )
+                
+                s3_key = f"chat/{photographer_id}/{uuid.uuid4()}_{file_name}"
+                
+                presigned_url = s3.generate_presigned_url(
+                    'put_object',
+                    Params={
+                        'Bucket': 'files',
+                        'Key': s3_key,
+                        'ContentType': content_type
+                    },
+                    ExpiresIn=300
+                )
+                
+                cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{s3_key}"
+                
+                cur.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({
+                        'upload_url': presigned_url,
+                        'cdn_url': cdn_url,
+                        's3_key': s3_key
+                    }),
+                    'isBase64Encoded': False
+                }
+            
             if not client_id or not photographer_id:
                 return {
                     'statusCode': 400,
@@ -283,7 +330,8 @@ def handler(event: dict, context) -> dict:
             sender_type = body.get('sender_type')
             images_base64 = body.get('images_base64', [])
             file_names = body.get('file_names', [])
-            print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}, images={len(images_base64)}, file_names={file_names}', flush=True)
+            image_urls = body.get('image_urls', [])  # Новый формат: готовые CDN URLs
+            print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}, images_base64={len(images_base64)}, image_urls={len(image_urls)}, file_names={file_names}', flush=True)
             
             if not all([client_id, photographer_id, sender_type]):
                 return {
@@ -293,7 +341,7 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
-            if not message and not images_base64:
+            if not message and not images_base64 and not image_urls:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -342,8 +390,13 @@ def handler(event: dict, context) -> dict:
                 }
             
             # Загружаем изображения в S3 если есть или ищем миниатюры в фотобанке
-            image_urls = []
-            if images_base64:
+            final_image_urls = []
+            
+            # Если пришли готовые URL (новый формат) — используем их
+            if image_urls:
+                print(f'[CHAT] Using pre-uploaded image URLs: {image_urls}', flush=True)
+                final_image_urls = image_urls
+            elif images_base64:
                 print(f'[CHAT] Processing {len(images_base64)} images')
                 try:
                     s3 = boto3.client('s3',
@@ -394,9 +447,9 @@ def handler(event: dict, context) -> dict:
                         # Если нашли миниатюру или видео, используем её
                         if thumbnail_url:
                             if isinstance(thumbnail_url, dict):
-                                image_urls.append(thumbnail_url)  # Словарь с video_url
+                                final_image_urls.append(thumbnail_url)  # Словарь с video_url
                             else:
-                                image_urls.append(thumbnail_url)  # Обычный URL
+                                final_image_urls.append(thumbnail_url)  # Обычный URL
                             print(f'[CHAT] Image {idx+1}: using photobank thumbnail')
                         else:
                             # Иначе загружаем как обычно
@@ -414,13 +467,13 @@ def handler(event: dict, context) -> dict:
                             )
                             
                             image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
-                            image_urls.append(image_url)
+                            final_image_urls.append(image_url)
                             print(f'[CHAT] Image {idx+1}: uploaded to S3: {image_url}')
                 except Exception as e:
                     print(f'[CHAT] Error processing images: {str(e)}')
             
             # Ищем упоминания номеров фото в сообщении (#123, фото 123, photo 123)
-            if not image_urls and message:
+            if not final_image_urls and message:
                 photo_ids = re.findall(r'(?:#|фото\s*|photo\s*)(\d+)', message, re.IGNORECASE)
                 if photo_ids:
                     photo_id = photo_ids[0]
@@ -432,15 +485,15 @@ def handler(event: dict, context) -> dict:
                     photo_row = cur.fetchone()
                     if photo_row:
                         photo_url = photo_row[0] if photo_row[0] else photo_row[1]
-                        image_urls.append(photo_url)
+                        final_image_urls.append(photo_url)
             
             # Создаём сообщения: одно с текстом (если есть) и по одному на каждое изображение
             message_ids = []
             created_timestamps = []
             
-            if message or not image_urls:
+            if message or not final_image_urls:
                 # Основное текстовое сообщение (или пустое если только текст без изображений)
-                first_media = image_urls[0] if image_urls else None
+                first_media = final_image_urls[0] if final_image_urls else None
                 first_image = first_media if first_media and not isinstance(first_media, dict) else (first_media.get('image_url') if isinstance(first_media, dict) else None)
                 first_video = first_media.get('video_url') if isinstance(first_media, dict) else None
                 
@@ -455,7 +508,7 @@ def handler(event: dict, context) -> dict:
                 created_timestamps.append(result[1])
                 
                 # Остальные изображения как отдельные сообщения
-                for media in image_urls[1:]:
+                for media in final_image_urls[1:]:
                     media_image = media if not isinstance(media, dict) else media.get('image_url')
                     media_video = media.get('video_url') if isinstance(media, dict) else None
                     

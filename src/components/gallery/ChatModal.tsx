@@ -42,7 +42,7 @@ export default function ChatModal({
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<{dataUrl: string; fileName: string}[]>([]);
+  const [selectedImages, setSelectedImages] = useState<{dataUrl: string; fileName: string; file?: File}[]>([]);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isOpponentTyping, setIsOpponentTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -144,13 +144,19 @@ export default function ChatModal({
         continue;
       }
       
+      // Для превью создаем data URL
       const reader = new FileReader();
-      const result = await new Promise<string>((resolve) => {
+      const dataUrl = await new Promise<string>((resolve) => {
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
       
-      newImages.push({ dataUrl: result, fileName: file.name });
+      // Сохраняем оригинальный файл для последующей загрузки
+      newImages.push({ 
+        dataUrl, 
+        fileName: file.name,
+        file: file // сохраняем File объект для прямой загрузки
+      });
     }
     
     setSelectedImages(prev => [...prev, ...newImages]);
@@ -162,20 +168,6 @@ export default function ChatModal({
     try {
       setSending(true);
       
-      const body: {
-        client_id: number;
-        photographer_id: number;
-        message: string;
-        sender_type: string;
-        images_base64?: string[];
-        file_names?: string[];
-      } = {
-        client_id: clientId,
-        photographer_id: photographerId,
-        message: newMessage.trim(),
-        sender_type: senderType
-      };
-
       console.log('[CHAT_SEND] Sending message:', {
         client_id: clientId,
         photographer_id: photographerId,
@@ -184,30 +176,78 @@ export default function ChatModal({
         has_images: selectedImages.length > 0
       });
 
+      // Загружаем файлы напрямую в S3, если есть
+      const uploadedImageUrls: string[] = [];
+      
       if (selectedImages.length > 0) {
-        body.images_base64 = selectedImages.map(img => {
-          const base64Data = img.dataUrl.includes('base64,') 
-            ? img.dataUrl.split('base64,')[1] 
-            : img.dataUrl;
-          return base64Data;
-        });
-        body.file_names = selectedImages.map(img => img.fileName);
+        console.log('[CHAT_SEND] Uploading files directly to S3...');
         
-        const totalSize = body.images_base64.reduce((sum, b64) => sum + b64.length, 0);
-        const totalMB = (totalSize / 1024 / 1024).toFixed(2);
-        console.log('[CHAT_SEND] Sending files:', body.file_names, `Total base64 size: ${totalMB} MB`);
+        for (const img of selectedImages) {
+          if (!img.file) {
+            console.warn('[CHAT_SEND] No file object, skipping:', img.fileName);
+            continue;
+          }
+          
+          try {
+            // Получаем presigned URL для загрузки
+            const uploadUrlResponse = await fetch(
+              `https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?action=get_upload_url&photographer_id=${photographerId}&file_name=${encodeURIComponent(img.fileName)}&content_type=${encodeURIComponent(img.file.type)}`
+            );
+            
+            if (!uploadUrlResponse.ok) {
+              throw new Error('Failed to get upload URL');
+            }
+            
+            const uploadData = await uploadUrlResponse.json();
+            console.log('[CHAT_SEND] Got presigned URL for:', img.fileName);
+            
+            // Загружаем файл напрямую в S3
+            const uploadResponse = await fetch(uploadData.upload_url, {
+              method: 'PUT',
+              body: img.file,
+              headers: {
+                'Content-Type': img.file.type
+              }
+            });
+            
+            if (!uploadResponse.ok) {
+              throw new Error(`Upload failed: ${uploadResponse.status}`);
+            }
+            
+            console.log('[CHAT_SEND] File uploaded to S3:', img.fileName, '→', uploadData.cdn_url);
+            uploadedImageUrls.push(uploadData.cdn_url);
+          } catch (uploadError) {
+            console.error('[CHAT_SEND] Failed to upload file:', img.fileName, uploadError);
+            alert(`Не удалось загрузить файл ${img.fileName}`);
+          }
+        }
       }
       
-      const jsonBody = JSON.stringify(body);
-      console.log('[CHAT_SEND] Calling fetch with body size:', (jsonBody.length / 1024).toFixed(2), 'KB');
-      console.log('[CHAT_SEND] Body keys:', Object.keys(body));
+      // Отправляем сообщение с готовыми CDN URLs
+      const body: {
+        client_id: number;
+        photographer_id: number;
+        message: string;
+        sender_type: string;
+        image_urls?: string[];
+      } = {
+        client_id: clientId,
+        photographer_id: photographerId,
+        message: newMessage.trim(),
+        sender_type: senderType
+      };
       
-      const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?v=2`, {
+      if (uploadedImageUrls.length > 0) {
+        body.image_urls = uploadedImageUrls;
+        console.log('[CHAT_SEND] Sending message with image URLs:', uploadedImageUrls);
+      }
+      
+      const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: jsonBody
+        body: JSON.stringify(body)
       });
       
       console.log('[CHAT_SEND] Response status:', response.status);
