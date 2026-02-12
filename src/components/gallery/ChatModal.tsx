@@ -198,12 +198,16 @@ export default function ChatModal({
         console.log('[CHAT_SEND] Sending files:', body.file_names, `Total base64 size: ${totalMB} MB`);
       }
       
+      const jsonBody = JSON.stringify(body);
+      console.log('[CHAT_SEND] Calling fetch with body size:', (jsonBody.length / 1024).toFixed(2), 'KB');
+      console.log('[CHAT_SEND] Body keys:', Object.keys(body));
+      
       const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?v=2`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(body)
+        body: jsonBody
       });
       
       console.log('[CHAT_SEND] Response status:', response.status);
