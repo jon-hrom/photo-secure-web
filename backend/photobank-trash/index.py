@@ -490,31 +490,44 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         print(f'[EMPTY_TRASH] Found {len(photo_ids)} photos to delete')
                         
                         if photo_ids:
-                            # 1. Удаляем логи скачиваний
-                            print(f'[EMPTY_TRASH] Deleting download logs...')
-                            placeholders = ','.join(['%s'] * len(photo_ids))
+                            # 1. Удаляем логи скачиваний по photo_id
+                            print(f'[EMPTY_TRASH] Deleting download logs by photo_id...')
+                            placeholders_photos = ','.join(['%s'] * len(photo_ids))
                             cur.execute(f'''
                                 DELETE FROM t_p28211681_photo_secure_web.download_logs 
-                                WHERE photo_id IN ({placeholders})
+                                WHERE photo_id IN ({placeholders_photos})
                             ''', tuple(photo_ids))
                             
                             # 2. Удаляем связи с фотокнигами
                             print(f'[EMPTY_TRASH] Deleting photobook design links...')
                             cur.execute(f'''
                                 DELETE FROM t_p28211681_photo_secure_web.photobook_design_photos 
-                                WHERE photo_bank_id IN ({placeholders})
+                                WHERE photo_bank_id IN ({placeholders_photos})
                             ''', tuple(photo_ids))
                             
                             # 3. Теперь можно безопасно удалить сами фото
                             print(f'[EMPTY_TRASH] Deleting photos...')
                             cur.execute(f'''
                                 DELETE FROM t_p28211681_photo_secure_web.photo_bank 
-                                WHERE id IN ({placeholders})
+                                WHERE id IN ({placeholders_photos})
                             ''', tuple(photo_ids))
                         
-                        # 4. Наконец удаляем папки
+                        # 4. Удаляем логи скачиваний по folder_id
+                        print(f'[EMPTY_TRASH] Deleting download logs by folder_id...')
+                        cur.execute(f'''
+                            DELETE FROM t_p28211681_photo_secure_web.download_logs 
+                            WHERE folder_id IN ({placeholders})
+                        ''', tuple(folder_ids))
+                        
+                        # 5. Удаляем короткие ссылки на папки
+                        print(f'[EMPTY_TRASH] Deleting folder short links...')
+                        cur.execute(f'''
+                            DELETE FROM t_p28211681_photo_secure_web.folder_short_links 
+                            WHERE folder_id IN ({placeholders})
+                        ''', tuple(folder_ids))
+                        
+                        # 6. Наконец удаляем папки
                         print(f'[EMPTY_TRASH] Deleting folders...')
-                        placeholders = ','.join(['%s'] * len(folder_ids))
                         cur.execute(f'''
                             DELETE FROM t_p28211681_photo_secure_web.photo_folders 
                             WHERE id IN ({placeholders}) AND is_trashed = TRUE
