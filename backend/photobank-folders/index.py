@@ -401,12 +401,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 print(f'[UPLOAD_DIRECT] File size after decode: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)')
                 
                 file_ext = file_name.split('.')[-1] if '.' in file_name else 'jpg'
-                s3_key = f'{folder["s3_prefix"]}{uuid.uuid4()}.{file_ext}'
+                # Используем новый S3 (cdn.poehali.dev) для всех новых загрузок
+                s3_key = f'photobank/{user_id}/{folder_id}/{uuid.uuid4()}.{file_ext}'
                 
-                print(f'[UPLOAD_DIRECT] Uploading to S3: {s3_key}, size={file_size}')
+                print(f'[UPLOAD_DIRECT] Uploading to NEW S3 (Poehali CDN): {s3_key}, size={file_size}')
                 try:
-                    s3_client.put_object(
-                        Bucket=bucket,
+                    new_s3_client.put_object(
+                        Bucket=new_bucket,
                         Key=s3_key,
                         Body=file_bytes,
                         ContentType='image/jpeg',
@@ -422,16 +423,42 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                s3_url = f'https://storage.yandexcloud.net/{bucket}/{s3_key}'
+                # Новый CDN URL (публичный, не истекает)
+                s3_url = f'https://cdn.poehali.dev/projects/{os.environ["AWS_ACCESS_KEY_ID"]}/bucket/{s3_key}'
+                
+                # Генерируем thumbnail для JPG/PNG сразу
+                thumbnail_s3_key = None
+                thumbnail_s3_url = None
+                if file_ext.lower() in ['jpg', 'jpeg', 'png']:
+                    try:
+                        print(f'[UPLOAD_DIRECT] Generating thumbnail for {file_ext}')
+                        img = Image.open(io.BytesIO(file_bytes))
+                        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                        
+                        thumb_buffer = io.BytesIO()
+                        img.save(thumb_buffer, format='JPEG', quality=85)
+                        thumb_bytes = thumb_buffer.getvalue()
+                        
+                        thumbnail_s3_key = f'photobank/{user_id}/{folder_id}/thumbnails/{uuid.uuid4()}.jpg'
+                        new_s3_client.put_object(
+                            Bucket=new_bucket,
+                            Key=thumbnail_s3_key,
+                            Body=thumb_bytes,
+                            ContentType='image/jpeg'
+                        )
+                        thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{os.environ["AWS_ACCESS_KEY_ID"]}/bucket/{thumbnail_s3_key}'
+                        print(f'[UPLOAD_DIRECT] Thumbnail created: {thumbnail_s3_url}')
+                    except Exception as e:
+                        print(f'[UPLOAD_DIRECT] Thumbnail generation failed: {e}')
                 
                 print('[UPLOAD_DIRECT] Inserting to DB')
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
-                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, file_size, width, height)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id, file_name, s3_key, file_size, created_at
-                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height))
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, file_size, width, height))
                     conn.commit()
                     photo = cur.fetchone()
                     print(f'[UPLOAD_DIRECT] DB insert success, photo_id={photo["id"]}')
