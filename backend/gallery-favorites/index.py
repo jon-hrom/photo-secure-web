@@ -39,6 +39,7 @@ def generate_presigned_url(s3_url: str, expiration: int = 3600) -> str:
 def handler(event: dict, context) -> dict:
     '''API для работы с избранными фото клиентов галереи'''
     method = event.get('httpMethod', 'GET')
+    print(f'[FAVORITES] Method: {method}, Event keys: {list(event.keys())}')
     
     if method == 'OPTIONS':
         return {
@@ -371,6 +372,8 @@ def handler(event: dict, context) -> dict:
             client_id = params.get('client_id')
             photo_id = params.get('photo_id')
             
+            print(f'[FAVORITES DELETE] Params: {params}, client_id={client_id}, photo_id={photo_id}')
+            
             if not all([client_id, photo_id]):
                 return {
                     'statusCode': 400,
@@ -391,10 +394,11 @@ def handler(event: dict, context) -> dict:
                 'body': json.dumps({'success': True})
             }
         
+        print(f'[FAVORITES] Unhandled method: {method}')
         return {
             'statusCode': 405,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Method not allowed'})
+            'body': json.dumps({'error': f'Method {method} not allowed'})
         }
     
     except Exception as e:
