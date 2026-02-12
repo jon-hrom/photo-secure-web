@@ -74,21 +74,59 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     if (saved) {
       setShareUrl(saved);
       
-      // Сначала пробуем загрузить настройки из localStorage (быстро)
-      const settingsKey = `folder_${folderId}_link_settings`;
-      const savedSettings = localStorage.getItem(settingsKey);
-      
-      if (savedSettings) {
+      // Загружаем настройки с сервера (source of truth)
+      const galleryCode = saved.split('/').pop();
+      if (galleryCode) {
         try {
-          const settings = JSON.parse(savedSettings);
-          setLinkSettings(prev => ({
-            ...prev,
-            ...settings,
-            password: '' // Не показываем пароль в UI
-          }));
-          console.log('[SHARE_MODAL] Настройки загружены из localStorage');
+          const response = await fetch(`https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${galleryCode}`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('[SHARE_MODAL] Настройки загружены с сервера:', data);
+            
+            // Обновляем favorite_config из БД
+            if (data.favorite_config) {
+              localStorage.setItem(`folder_${folderId}_favorite_config`, JSON.stringify(data.favorite_config));
+              console.log('[SHARE_MODAL] favorite_config обновлен из БД');
+            }
+            
+            // Обновляем link settings
+            if (data.watermark) {
+              setLinkSettings(prev => ({
+                ...prev,
+                downloadDisabled: data.download_disabled || false,
+                watermarkEnabled: data.watermark.enabled || false,
+                watermarkType: data.watermark.type || 'text',
+                watermarkText: data.watermark.text || '',
+                watermarkImageUrl: data.watermark.image_url || '',
+                watermarkFrequency: data.watermark.frequency || 50,
+                watermarkSize: data.watermark.size || 20,
+                watermarkOpacity: data.watermark.opacity || 50,
+                watermarkRotation: data.watermark.rotation || 0,
+                screenshotProtection: data.screenshot_protection || false,
+                password: '' // Не показываем пароль в UI
+              }));
+            }
+          }
         } catch (err) {
-          console.error('[SHARE_MODAL] Ошибка парсинга настроек из localStorage:', err);
+          console.error('[SHARE_MODAL] Ошибка загрузки настроек с сервера:', err);
+          
+          // Fallback на localStorage
+          const settingsKey = `folder_${folderId}_link_settings`;
+          const savedSettings = localStorage.getItem(settingsKey);
+          
+          if (savedSettings) {
+            try {
+              const settings = JSON.parse(savedSettings);
+              setLinkSettings(prev => ({
+                ...prev,
+                ...settings,
+                password: ''
+              }));
+              console.log('[SHARE_MODAL] Настройки загружены из localStorage (fallback)');
+            } catch (err) {
+              console.error('[SHARE_MODAL] Ошибка парсинга настроек из localStorage:', err);
+            }
+          }
         }
       }
     }

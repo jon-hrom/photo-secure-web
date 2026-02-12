@@ -13,6 +13,18 @@ interface FavoriteFolder {
   };
 }
 
+interface Favorite {
+  fullName: string;
+  phone: string;
+  email?: string;
+  photoId: number;
+  photo: {
+    file_name: string;
+    photo_url: string;
+    thumbnail_url?: string;
+  };
+}
+
 interface FavoritesTabProps {
   folderId: number;
   userId: number;
@@ -29,47 +41,79 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
     email: false
   });
 
-  const [favorites, setFavorites] = useState<any[]>([]);
-  const [groupedFavorites, setGroupedFavorites] = useState<Record<string, any[]>>({});
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [groupedFavorites, setGroupedFavorites] = useState<Record<string, Favorite[]>>({});
 
   useEffect(() => {
-    const savedFolder = localStorage.getItem(`folder_${folderId}_favorite_config`);
-    if (savedFolder) {
-      try {
-        const data = JSON.parse(savedFolder);
-        setFolder(data);
-        setFormData({
-          fullName: data.fields.fullName,
-          phone: data.fields.phone,
-          email: data.fields.email
-        });
-      } catch (e) {
-        console.error('Failed to parse folder config:', e);
-      }
-    }
-    
-    const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
-    if (galleryCode) {
-      const savedFavorites = localStorage.getItem(`favorites_${galleryCode}`);
-      if (savedFavorites) {
+    const loadData = async () => {
+      // Загружаем данные с сервера (source of truth)
+      const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
+      
+      if (galleryCode) {
         try {
-          const data = JSON.parse(savedFavorites);
-          setFavorites(data);
+          const response = await fetch(`https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${galleryCode}`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('[FAVORITES_TAB] Данные загружены с сервера:', data);
+            
+            // Обновляем favorite_config из БД
+            if (data.favorite_config) {
+              setFolder(data.favorite_config);
+              setFormData({
+                fullName: data.favorite_config.fields.fullName,
+                phone: data.favorite_config.fields.phone,
+                email: data.favorite_config.fields.email
+              });
+              
+              // Кэшируем в localStorage
+              localStorage.setItem(`folder_${folderId}_favorite_config`, JSON.stringify(data.favorite_config));
+              console.log('[FAVORITES_TAB] favorite_config загружен из БД');
+            }
+          }
+        } catch (err) {
+          console.error('[FAVORITES_TAB] Ошибка загрузки с сервера:', err);
           
-          const grouped = data.reduce((acc: Record<string, any[]>, fav: any) => {
-            const key = fav.fullName;
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(fav);
-            return acc;
-          }, {});
-          setGroupedFavorites(grouped);
-        } catch (e) {
-          console.error('Failed to parse favorites:', e);
+          // Fallback на localStorage
+          const savedFolder = localStorage.getItem(`folder_${folderId}_favorite_config`);
+          if (savedFolder) {
+            try {
+              const data = JSON.parse(savedFolder);
+              setFolder(data);
+              setFormData({
+                fullName: data.fields.fullName,
+                phone: data.fields.phone,
+                email: data.fields.email
+              });
+            } catch (e) {
+              console.error('Failed to parse folder config:', e);
+            }
+          }
+        }
+        
+        // Загружаем избранное (если есть)
+        const savedFavorites = localStorage.getItem(`favorites_${galleryCode}`);
+        if (savedFavorites) {
+          try {
+            const data = JSON.parse(savedFavorites);
+            setFavorites(data);
+            
+            const grouped = data.reduce((acc: Record<string, Favorite[]>, fav: Favorite) => {
+              const key = fav.fullName;
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(fav);
+              return acc;
+            }, {});
+            setGroupedFavorites(grouped);
+          } catch (e) {
+            console.error('Failed to parse favorites:', e);
+          }
         }
       }
-    }
+      
+      setLoading(false);
+    };
     
-    setLoading(false);
+    loadData();
   }, [folderId]);
 
   const handleSave = () => {
@@ -230,7 +274,7 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
                       {items[0].email && ` · ${items[0].email}`}
                     </p>
                     <div className="grid grid-cols-4 gap-1 mt-2">
-                      {items.slice(0, 4).map((item: any, idx: number) => (
+                      {items.slice(0, 4).map((item: Favorite, idx: number) => (
                         <img
                           key={idx}
                           src={item.photo.thumbnail_url || item.photo.photo_url}
