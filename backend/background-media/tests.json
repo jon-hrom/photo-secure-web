@@ -6,8 +6,7 @@
       "path": "/",
       "expectedStatus": 200,
       "expectedBody": {
-        "success": true,
-        "files": "array"
+        "success": true
       },
       "bodyMatcher": "partial"
     },

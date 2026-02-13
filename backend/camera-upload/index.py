@@ -4,15 +4,19 @@ import os
 import base64
 from datetime import datetime
 import mimetypes
+from botocore.client import Config
 
 s3 = boto3.client('s3',
-    endpoint_url='https://bucket.poehali.dev',
-    aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+    endpoint_url='https://storage.yandexcloud.net',
+    region_name='ru-central1',
+    aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+    aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+    config=Config(signature_version='s3v4')
 )
+bucket = 'foto-mix'
 
 def handler(event: dict, context) -> dict:
-    '''API для загрузки фото/видео с камеры прямо на S3'''
+    '''API для загрузки фото/видео с камеры прямо на Yandex S3'''
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
@@ -60,13 +64,17 @@ def handler(event: dict, context) -> dict:
         s3_key = f'camera/{user_id}/{folder_id}/{timestamp}_{file_name}'
         
         s3.put_object(
-            Bucket='files',
+            Bucket=bucket,
             Key=s3_key,
             Body=file_data,
             ContentType=file_type
         )
         
-        cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{s3_key}"
+        cdn_url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket, 'Key': s3_key},
+            ExpiresIn=86400
+        )
         
         return {
             'statusCode': 200,

@@ -133,13 +133,16 @@ def handler(event: dict, context) -> dict:
     
     print(f'[URL_UPLOAD] Found {total_found} images, will process first {len(filtered_urls)}')
     
-    # Настройка S3
+    # Настройка S3 (Yandex Cloud)
+    from botocore.client import Config
     s3 = boto3.client('s3',
-        endpoint_url='https://bucket.poehali.dev',
-        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+        endpoint_url='https://storage.yandexcloud.net',
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4')
     )
-    bucket = 'files'
+    bucket = 'foto-mix'
     
     # Загружаем файлы
     uploaded_files = []
@@ -186,10 +189,7 @@ def handler(event: dict, context) -> dict:
             
             print(f'[URL_UPLOAD] ✅ Uploaded to S3 successfully')
             
-            # Формируем CDN URL с кодированием спецсимволов (скобки, пробелы и т.д.)
-            aws_key_id = os.environ['AWS_ACCESS_KEY_ID']
-            encoded_s3_key = quote(s3_key, safe='/')
-            s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{encoded_s3_key}'
+            s3_url = f'https://storage.yandexcloud.net/{bucket}/{s3_key}'
             
             # Генерируем превью для всех изображений (кроме RAW)
             thumbnail_s3_key = None
@@ -241,9 +241,7 @@ def handler(event: dict, context) -> dict:
                         Body=thumb_buffer.getvalue(),
                         ContentType='image/jpeg'
                     )
-                    # CDN URL с кодированием специальных символов
-                    encoded_thumbnail_key = quote(thumbnail_s3_key, safe='/')
-                    thumbnail_s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{encoded_thumbnail_key}'
+                    thumbnail_s3_url = f'https://storage.yandexcloud.net/{bucket}/{thumbnail_s3_key}'
                     
                     print(f'[URL_UPLOAD] ✅ Generated thumbnail: {thumbnail_s3_key}')
                 except Exception as thumb_error:

@@ -51,25 +51,33 @@ def handler(event: dict, context) -> dict:
                 file_name = params.get('file_name', f'{uuid.uuid4()}.jpg')
                 content_type = params.get('content_type', 'image/jpeg')
                 
+                from botocore.client import Config as BotoConfig
                 s3 = boto3.client('s3',
-                    endpoint_url='https://bucket.poehali.dev',
-                    aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+                    endpoint_url='https://storage.yandexcloud.net',
+                    region_name='ru-central1',
+                    aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+                    config=BotoConfig(signature_version='s3v4')
                 )
+                chat_bucket = 'foto-mix'
                 
                 s3_key = f"chat/{photographer_id}/{uuid.uuid4()}_{file_name}"
                 
                 presigned_url = s3.generate_presigned_url(
                     'put_object',
                     Params={
-                        'Bucket': 'files',
+                        'Bucket': chat_bucket,
                         'Key': s3_key,
                         'ContentType': content_type
                     },
                     ExpiresIn=300
                 )
                 
-                cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{s3_key}"
+                cdn_url = s3.generate_presigned_url(
+                    'get_object',
+                    Params={'Bucket': chat_bucket, 'Key': s3_key},
+                    ExpiresIn=86400
+                )
                 
                 cur.close()
                 conn.close()
@@ -399,11 +407,15 @@ def handler(event: dict, context) -> dict:
             elif images_base64:
                 print(f'[CHAT] Processing {len(images_base64)} images')
                 try:
+                    from botocore.client import Config as BotoConfig
                     s3 = boto3.client('s3',
-                        endpoint_url='https://bucket.poehali.dev',
-                        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+                        endpoint_url='https://storage.yandexcloud.net',
+                        region_name='ru-central1',
+                        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+                        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+                        config=BotoConfig(signature_version='s3v4')
                     )
+                    chat_bucket = 'foto-mix'
                     
                     for idx, img_base64 in enumerate(images_base64):
                         original_file_name = file_names[idx] if idx < len(file_names) else None
@@ -460,13 +472,17 @@ def handler(event: dict, context) -> dict:
                             file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
                             
                             s3.put_object(
-                                Bucket='files',
+                                Bucket=chat_bucket,
                                 Key=file_name,
                                 Body=image_data,
                                 ContentType='image/jpeg'
                             )
                             
-                            image_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{file_name}"
+                            image_url = s3.generate_presigned_url(
+                                'get_object',
+                                Params={'Bucket': chat_bucket, 'Key': file_name},
+                                ExpiresIn=86400
+                            )
                             final_image_urls.append(image_url)
                             print(f'[CHAT] Image {idx+1}: uploaded to S3: {image_url}')
                 except Exception as e:

@@ -140,12 +140,15 @@ def handler(event: dict, context) -> dict:
         file_size = os.path.getsize(output_file)
         filename = os.path.basename(output_file)
         
+        from botocore.client import Config
         s3 = boto3.client('s3',
-            endpoint_url='https://bucket.poehali.dev',
-            aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-            aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
+            endpoint_url='https://storage.yandexcloud.net',
+            region_name='ru-central1',
+            aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+            aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+            config=Config(signature_version='s3v4')
         )
-        bucket = 'files'
+        bucket = 'foto-mix'
         
         s3_key = f'{s3_prefix}{filename}'
         print(f'[VIDEO_UPLOAD] Uploading to S3: {s3_key}')
@@ -160,8 +163,7 @@ def handler(event: dict, context) -> dict:
                 ContentType=content_type
             )
         
-        aws_key_id = os.environ['AWS_ACCESS_KEY_ID']
-        s3_url = f'https://cdn.poehali.dev/projects/{aws_key_id}/bucket/{s3_key}'
+        s3_url = f'https://storage.yandexcloud.net/{bucket}/{s3_key}'
         
         cursor.execute(
             '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 

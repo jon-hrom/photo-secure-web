@@ -1,34 +1,28 @@
 """
 Управление медиа-файлами для фона сайта (изображения и видео).
-Хранит файлы в S3 с CDN для быстрой загрузки.
+Хранит файлы в Yandex S3 с presigned URLs для доступа.
 """
 import json
 import boto3
 import os
 import base64
 from typing import Dict, Any
+from botocore.client import Config
 
 s3 = boto3.client(
     's3',
-    endpoint_url='https://bucket.poehali.dev',
-    aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+    endpoint_url='https://storage.yandexcloud.net',
+    region_name='ru-central1',
+    aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+    aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+    config=Config(signature_version='s3v4')
 )
+bucket = 'foto-mix'
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """
-    Управление медиа-файлами для фона сайта
-    
-    Args:
-        event: HTTP запрос с method, body, queryStringParameters
-        context: контекст с request_id
-    
-    Returns:
-        HTTP ответ с URL медиа-файлов
-    """
+    """Управление медиа-файлами для фона сайта"""
     method: str = event.get('httpMethod', 'GET')
     
-    # CORS
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
@@ -42,27 +36,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
-    # GET - список файлов
     if method == 'GET':
         try:
             params = event.get('queryStringParameters') or {}
-            media_type = params.get('type', 'all')  # 'video', 'image', 'all'
+            media_type = params.get('type', 'all')
             
             print(f'[BG_MEDIA] GET request, type={media_type}')
             
-            # TEMPORARY DEBUG: Попробуем разные подходы к листингу
-            print(f'[BG_MEDIA] Trying list_objects_v2...')
-            response = s3.list_objects_v2(Bucket='files', Prefix='background-media/')
-            print(f'[BG_MEDIA] S3 list response: {response.get("KeyCount", 0)} objects, IsTruncated={response.get("IsTruncated", False)}')
-            print(f'[BG_MEDIA] Response keys: {list(response.keys())}')
-            
-            # Попробуем также list_objects (v1)
-            try:
-                response_v1 = s3.list_objects(Bucket='files', Prefix='background-media/')
-                contents_count = len(response_v1.get('Contents', []))
-                print(f'[BG_MEDIA] S3 list_objects (v1) response: {contents_count} objects')
-            except Exception as e:
-                print(f'[BG_MEDIA] list_objects v1 failed: {e}')
+            response = s3.list_objects_v2(Bucket=bucket, Prefix='background-media/')
+            print(f'[BG_MEDIA] S3 list response: {response.get("KeyCount", 0)} objects')
             
             files = []
             
@@ -74,7 +56,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if filename == '':
                         continue
                     
-                    # Фильтруем по типу
                     is_video = filename.endswith(('.mp4', '.webm', '.mov'))
                     is_image = filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp'))
                     
@@ -83,11 +64,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if media_type == 'image' and not is_image:
                         continue
                     
-                    cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+                    presigned_url = s3.generate_presigned_url(
+                        'get_object',
+                        Params={'Bucket': bucket, 'Key': key},
+                        ExpiresIn=86400
+                    )
                     
                     file_data = {
                         'id': filename.rsplit('.', 1)[0],
-                        'url': cdn_url,
+                        'url': presigned_url,
                         'name': filename,
                         'size': obj['Size'],
                         'type': 'video' if is_video else 'image',
@@ -121,7 +106,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
     
-    # POST - загрузка файла
     if method == 'POST':
         try:
             print('[BG_MEDIA] POST request started')
@@ -133,7 +117,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print(f'[BG_MEDIA] POST data: filename={filename}, type={file_type}, has_file={bool(file_data)}')
             
             if not file_data:
-                print('[BG_MEDIA] POST error: No file data')
                 return {
                     'statusCode': 400,
                     'headers': {
@@ -144,11 +127,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            # Декодируем base64
             file_bytes = base64.b64decode(file_data)
             print(f'[BG_MEDIA] Decoded file size: {len(file_bytes)} bytes')
             
-            # Определяем content type и расширение по имени файла
             filename_lower = filename.lower()
             if file_type == 'video':
                 content_type = 'video/webm'
@@ -166,26 +147,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 content_type = 'image/jpeg'
                 extension = '.jpg'
             
-            # Генерируем уникальное имя
             file_id = f"{context.request_id}"
             key = f"background-media/{file_id}{extension}"
             
-            print(f'[BG_MEDIA] Uploading to S3: bucket=files, key={key}, size={len(file_bytes)}')
+            print(f'[BG_MEDIA] Uploading to Yandex S3: bucket={bucket}, key={key}, size={len(file_bytes)}')
             
-            # Загружаем в S3
             s3.put_object(
-                Bucket='files',
+                Bucket=bucket,
                 Key=key,
                 Body=file_bytes,
                 ContentType=content_type,
-                CacheControl='public, max-age=31536000'  # Кэш на год
+                CacheControl='public, max-age=31536000'
             )
             
             print(f'[BG_MEDIA] S3 upload successful! Key: {key}')
             
-            cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+            presigned_url = s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket, 'Key': key},
+                ExpiresIn=86400
+            )
             
-            print(f'[BG_MEDIA] POST success: id={file_id}, url={cdn_url}')
+            print(f'[BG_MEDIA] POST success: id={file_id}')
             
             return {
                 'statusCode': 200,
@@ -197,7 +180,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'success': True,
                     'file': {
                         'id': file_id,
-                        'url': cdn_url,
+                        'url': presigned_url,
                         'name': f"{file_id}{extension}",
                         'size': len(file_bytes),
                         'type': file_type
@@ -217,10 +200,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
     
-    # DELETE - удаление файла
     if method == 'DELETE':
         try:
-            body = json.loads(event.get('body', '{}'))
+            raw_body = event.get('body', '') or '{}'
+            body = json.loads(raw_body) if raw_body.strip() else {}
             file_id = body.get('fileId')
             
             if not file_id:
@@ -234,12 +217,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            # Ищем файл с любым расширением
-            response = s3.list_objects_v2(Bucket='files', Prefix=f'background-media/{file_id}')
+            response = s3.list_objects_v2(Bucket=bucket, Prefix=f'background-media/{file_id}')
             
             if 'Contents' in response:
                 for obj in response['Contents']:
-                    s3.delete_object(Bucket='files', Key=obj['Key'])
+                    s3.delete_object(Bucket=bucket, Key=obj['Key'])
             
             return {
                 'statusCode': 200,
