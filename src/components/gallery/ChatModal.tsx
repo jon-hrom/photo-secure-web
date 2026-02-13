@@ -178,68 +178,30 @@ export default function ChatModal({
 
       // Загружаем файлы напрямую в S3, если есть
       const uploadedImageUrls: string[] = [];
+      const base64Images: string[] = [];
+      const fileNames: string[] = [];
       
       if (selectedImages.length > 0) {
-        console.log('[CHAT_SEND] Uploading files directly to S3...');
+        console.log('[CHAT_SEND] Preparing files for upload...');
         
         for (const img of selectedImages) {
-          if (!img.file) {
-            console.warn('[CHAT_SEND] No file object, skipping:', img.fileName);
-            continue;
-          }
-          
-          try {
-            // Получаем presigned URL для загрузки
-            const uploadUrlResponse = await fetch(
-              `https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86?action=get_upload_url&photographer_id=${photographerId}&file_name=${encodeURIComponent(img.fileName)}&content_type=${encodeURIComponent(img.file.type)}`
-            );
-            
-            if (!uploadUrlResponse.ok) {
-              throw new Error('Failed to get upload URL');
-            }
-            
-            const uploadData = await uploadUrlResponse.json();
-            console.log('[CHAT_SEND] Got presigned URL for:', img.fileName);
-            
-            // Загружаем файл напрямую в S3
-            const uploadResponse = await fetch(uploadData.upload_url, {
-              method: 'PUT',
-              body: img.file,
-              headers: {
-                'Content-Type': img.file.type
-              }
-            });
-            
-            if (!uploadResponse.ok) {
-              throw new Error(`Upload failed: ${uploadResponse.status}`);
-            }
-            
-            console.log('[CHAT_SEND] File uploaded to S3:', img.fileName, '→', uploadData.cdn_url);
-            uploadedImageUrls.push(uploadData.cdn_url);
-          } catch (uploadError) {
-            console.error('[CHAT_SEND] Failed to upload file:', img.fileName, uploadError);
-            alert(`Не удалось загрузить файл ${img.fileName}`);
-          }
+          base64Images.push(img.dataUrl);
+          fileNames.push(img.fileName);
         }
       }
       
       // Отправляем сообщение с готовыми CDN URLs
-      const body: {
-        client_id: number;
-        photographer_id: number;
-        message: string;
-        sender_type: string;
-        image_urls?: string[];
-      } = {
+      const body: Record<string, unknown> = {
         client_id: clientId,
         photographer_id: photographerId,
         message: newMessage.trim(),
         sender_type: senderType
       };
       
-      if (uploadedImageUrls.length > 0) {
-        body.image_urls = uploadedImageUrls;
-        console.log('[CHAT_SEND] Sending message with image URLs:', uploadedImageUrls);
+      if (base64Images.length > 0) {
+        body.images_base64 = base64Images;
+        body.file_names = fileNames;
+        console.log('[CHAT_SEND] Sending message with', base64Images.length, 'attached files');
       }
       
       const response = await fetch(`https://functions.poehali.dev/a083483c-6e5e-4fbc-a120-e896c9bf0a86`, {

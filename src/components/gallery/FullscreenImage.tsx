@@ -80,6 +80,33 @@ export default function FullscreenImage({ imageUrl, onClose }: FullscreenImagePr
       >
         <Icon name="X" size={28} className="text-white sm:w-6 sm:h-6" />
       </button>
+      <button
+        onClick={async (e) => {
+          e.stopPropagation();
+          try {
+            const res = await fetch(imageUrl);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = imageUrl.split('/').pop() || 'image.jpg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch { 
+            window.open(imageUrl, '_blank');
+          }
+        }}
+        type="button"
+        className="absolute z-10 p-3 sm:p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors touch-manipulation backdrop-blur-sm"
+        style={{ 
+          top: 'max(1rem, env(safe-area-inset-top))',
+          right: '4.5rem'
+        }}
+      >
+        <Icon name="Download" size={28} className="text-white sm:w-6 sm:h-6" />
+      </button>
       
       <div
         className="relative w-full h-full flex items-center justify-center overflow-hidden"

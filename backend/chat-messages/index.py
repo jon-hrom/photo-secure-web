@@ -68,16 +68,13 @@ def handler(event: dict, context) -> dict:
                     Params={
                         'Bucket': chat_bucket,
                         'Key': s3_key,
-                        'ContentType': content_type
+                        'ContentType': content_type,
+                        'ACL': 'public-read'
                     },
                     ExpiresIn=300
                 )
                 
-                cdn_url = s3.generate_presigned_url(
-                    'get_object',
-                    Params={'Bucket': chat_bucket, 'Key': s3_key},
-                    ExpiresIn=86400
-                )
+                cdn_url = f"https://storage.yandexcloud.net/{chat_bucket}/{s3_key}"
                 
                 cur.close()
                 conn.close()
@@ -464,25 +461,48 @@ def handler(event: dict, context) -> dict:
                                 final_image_urls.append(thumbnail_url)  # Обычный URL
                             print(f'[CHAT] Image {idx+1}: using photobank thumbnail')
                         else:
-                            # Иначе загружаем как обычно
                             if 'base64,' in img_base64:
+                                header_part = img_base64.split('base64,')[0]
                                 img_base64 = img_base64.split('base64,')[1]
+                            else:
+                                header_part = ''
                             
                             image_data = base64.b64decode(img_base64)
-                            file_name = f"chat/{photographer_id}/{uuid.uuid4()}.jpg"
+                            
+                            ct = 'image/jpeg'
+                            ext = '.jpg'
+                            if 'image/png' in header_part:
+                                ct = 'image/png'
+                                ext = '.png'
+                            elif 'image/webp' in header_part:
+                                ct = 'image/webp'
+                                ext = '.webp'
+                            elif 'image/gif' in header_part:
+                                ct = 'image/gif'
+                                ext = '.gif'
+                            elif 'image/heic' in header_part or 'image/heif' in header_part:
+                                ct = 'image/heic'
+                                ext = '.heic'
+                            elif original_file_name:
+                                lower_name = original_file_name.lower()
+                                if lower_name.endswith('.png'):
+                                    ct = 'image/png'
+                                    ext = '.png'
+                                elif lower_name.endswith('.webp'):
+                                    ct = 'image/webp'
+                                    ext = '.webp'
+                            
+                            s3_file_key = f"chat/{photographer_id}/{uuid.uuid4()}{ext}"
                             
                             s3.put_object(
                                 Bucket=chat_bucket,
-                                Key=file_name,
+                                Key=s3_file_key,
                                 Body=image_data,
-                                ContentType='image/jpeg'
+                                ContentType=ct,
+                                ACL='public-read'
                             )
                             
-                            image_url = s3.generate_presigned_url(
-                                'get_object',
-                                Params={'Bucket': chat_bucket, 'Key': file_name},
-                                ExpiresIn=86400
-                            )
+                            image_url = f"https://storage.yandexcloud.net/{chat_bucket}/{s3_file_key}"
                             final_image_urls.append(image_url)
                             print(f'[CHAT] Image {idx+1}: uploaded to S3: {image_url}')
                 except Exception as e:

@@ -142,7 +142,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
 
       if (supportsFileSystemAccess && writable) {
-        const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true });
+        const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true, zip64: false });
         const usedFilenames = new Set<string>();
 
         for (let i = 0; i < data.files.length; i++) {
@@ -170,7 +170,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
               }
               
               usedFilenames.add(filename);
-              await zipWriter.add(filename, fileResponse.body, { level: 0 });
+              await zipWriter.add(filename, fileResponse.body, { level: 0, dataDescriptor: false });
             }
           } catch (err: any) {
             if (err.name === 'AbortError') break;
@@ -198,7 +198,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
       } else {
         const zipFileStream = new zip.BlobWriter();
-        const zipWriter = new zip.ZipWriter(zipFileStream);
+        const zipWriter = new zip.ZipWriter(zipFileStream, { zip64: false });
         const usedFilenames = new Set<string>();
 
         for (let i = 0; i < data.files.length; i++) {
@@ -211,7 +211,6 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
             if (fileResponse.ok && fileResponse.body) {
               let filename = file.filename;
               
-              // Если файл с таким именем уже есть, добавляем счетчик
               if (usedFilenames.has(filename)) {
                 const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
                 const nameWithoutExt = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
@@ -223,7 +222,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
               }
               
               usedFilenames.add(filename);
-              await zipWriter.add(filename, fileResponse.body, { level: 0 });
+              await zipWriter.add(filename, fileResponse.body, { level: 0, dataDescriptor: false });
             }
           } catch (err: any) {
             if (err.name === 'AbortError') break;

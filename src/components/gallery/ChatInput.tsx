@@ -70,11 +70,10 @@ export default function ChatInput({
         <input
           type="file"
           ref={fileInputRef}
-          accept="image/*,video/*,.zip,.rar,.7z"
+          accept="image/*,video/*,.zip,.rar,.7z,.pdf,.doc,.docx"
           multiple
           onChange={onImageSelect}
           className="hidden"
-          capture="environment"
         />
         <button
           onClick={() => fileInputRef.current?.click()}

@@ -58,9 +58,9 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
         body: JSON.stringify({
           action: 'login',
           gallery_code: galleryCode,
-          full_name: fullName,
-          phone: phone,
-          email: email || null
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+          email: email.trim() || null
         })
       });
 

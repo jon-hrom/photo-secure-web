@@ -112,18 +112,18 @@ const TrashedPhotosHeader = ({
               placeholder="Поиск по имени..."
               value={searchQuery}
               onChange={(e) => onSetSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full pl-9 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground border-border"
             />
           </div>
         </div>
         <select
           value={sortBy}
           onChange={(e) => onSetSortBy(e.target.value as any)}
-          className="px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground border-border"
         >
-          <option value="date">По дате</option>
-          <option value="name">По имени</option>
-          <option value="size">По размеру</option>
+          <option value="date" className="bg-background text-foreground">По дате</option>
+          <option value="name" className="bg-background text-foreground">По имени</option>
+          <option value="size" className="bg-background text-foreground">По размеру</option>
         </select>
         <Button
           variant={filterCritical ? "default" : "outline"}

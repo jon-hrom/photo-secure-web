@@ -70,9 +70,9 @@ def handler(event: dict, context) -> dict:
             
             if action == 'add_to_favorites':
                 gallery_code = body.get('gallery_code')
-                full_name = body.get('full_name', '')
-                phone = body.get('phone', '')
-                email = body.get('email')
+                full_name = body.get('full_name', '').strip()
+                phone = body.get('phone', '').strip()
+                email = (body.get('email') or '').strip() or None
                 photo_id = body.get('photo_id')
                 
                 # Требуем: gallery_code, photo_id и хотя бы одно из: full_name, phone или email
@@ -169,9 +169,9 @@ def handler(event: dict, context) -> dict:
             
             elif action == 'login':
                 gallery_code = body.get('gallery_code')
-                full_name = body.get('full_name', '')
-                phone = body.get('phone', '')
-                email = body.get('email', '')
+                full_name = body.get('full_name', '').strip()
+                phone = body.get('phone', '').strip()
+                email = body.get('email', '').strip()
                 
                 if not gallery_code:
                     return {
@@ -185,15 +185,15 @@ def handler(event: dict, context) -> dict:
                 params = [gallery_code]
                 
                 if full_name:
-                    where_conditions.append('full_name = %s')
+                    where_conditions.append('TRIM(full_name) = %s')
                     params.append(full_name)
                 
                 if phone:
-                    where_conditions.append('phone = %s')
+                    where_conditions.append('TRIM(phone) = %s')
                     params.append(phone)
                 
                 if email:
-                    where_conditions.append('email = %s')
+                    where_conditions.append('TRIM(email) = %s')
                     params.append(email)
                 
                 where_clause = ' AND '.join(where_conditions)

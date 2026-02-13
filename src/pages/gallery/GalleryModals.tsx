@@ -182,6 +182,7 @@ export default function GalleryModals({
           photographerId={gallery.photographer_id}
           clientId={clientData.client_id}
           clientName={clientData.full_name || clientData.phone}
+          photographerName="Фотограф"
           senderType="client"
         />
       )}
