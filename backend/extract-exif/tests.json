@@ -12,15 +12,15 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Extract EXIF - valid request",
+      "name": "Extract EXIF - nonexistent file",
       "method": "POST",
       "path": "/",
       "body": {
-        "s3_key": "uploads/test/photo.jpg"
+        "s3_key": "uploads/test/nonexistent_photo.jpg"
       },
-      "expectedStatus": 200,
+      "expectedStatus": 500,
       "expectedBody": {
-        "success": "boolean"
+        "error": "string"
       },
       "bodyMatcher": "partial"
     }

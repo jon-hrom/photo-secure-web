@@ -46,17 +46,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     db_url = os.environ.get('DATABASE_URL')
     
-    # НОВЫЙ S3 (bucket.poehali.dev) - используется для всех новых загрузок
-    new_s3_client = boto3.client(
-        's3',
-        endpoint_url='https://bucket.poehali.dev',
-        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
-    )
-    new_bucket = 'files'
-    
-    # СТАРЫЙ S3 (yandexcloud) - fallback для старых фото
-    old_s3_client = boto3.client(
+    yc_s3_client = boto3.client(
         's3',
         endpoint_url='https://storage.yandexcloud.net',
         region_name='ru-central1',
@@ -64,7 +54,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
         config=Config(signature_version='s3v4')
     )
-    old_bucket = 'foto-mix'
+    yc_bucket = 'foto-mix'
+    old_s3_client = yc_s3_client
+    old_bucket = yc_bucket
     
     try:
         conn = psycopg2.connect(db_url)
@@ -510,7 +502,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 print(f'[CONFIRM_UPLOAD] Checking S3 object: {s3_key}')
                 try:
-                    head_response = s3_client.head_object(Bucket=bucket, Key=s3_key)
+                    head_response = yc_s3_client.head_object(Bucket=yc_bucket, Key=s3_key)
                     file_size = head_response['ContentLength']
                     print(f'[CONFIRM_UPLOAD] S3 object found, size={file_size}')
                 except Exception as e:
@@ -525,7 +517,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if not width or not height:
                     print(f'[CONFIRM_UPLOAD] Getting dimensions from S3 image')
                     try:
-                        image_response = s3_client.get_object(Bucket=bucket, Key=s3_key)
+                        image_response = yc_s3_client.get_object(Bucket=yc_bucket, Key=s3_key)
                         image_data = image_response['Body'].read()
                         image = Image.open(io.BytesIO(image_data))
                         width = image.width
@@ -536,7 +528,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         width = None
                         height = None
                 
-                s3_url = f'https://storage.yandexcloud.net/{bucket}/{s3_key}'
+                s3_url = f'https://storage.yandexcloud.net/{yc_bucket}/{s3_key}'
                 
                 print(f'[CONFIRM_UPLOAD] Inserting to DB...')
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -830,8 +822,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             moved_count = 0
             
             if prefix:
-                paginator = new_s3_client.get_paginator('list_objects_v2')
-                pages = paginator.paginate(Bucket=new_bucket, Prefix=prefix)
+                paginator = yc_s3_client.get_paginator('list_objects_v2')
+                pages = paginator.paginate(Bucket=yc_bucket, Prefix=prefix)
                 
                 for page in pages:
                     for obj in page.get('Contents', []):
@@ -839,12 +831,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         dst_key = f'trash/{src_key}'
                         
                         try:
-                            new_s3_client.copy_object(
-                                Bucket=new_bucket,
-                                CopySource={'Bucket': new_bucket, 'Key': src_key},
+                            yc_s3_client.copy_object(
+                                Bucket=yc_bucket,
+                                CopySource={'Bucket': yc_bucket, 'Key': src_key},
                                 Key=dst_key
                             )
-                            new_s3_client.delete_object(Bucket=new_bucket, Key=src_key)
+                            yc_s3_client.delete_object(Bucket=yc_bucket, Key=src_key)
                             moved_count += 1
                         except Exception as e:
                             print(f'Failed to move {src_key} to trash: {e}')
@@ -860,19 +852,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     child_prefixes = [row['s3_prefix'] for row in cur.fetchall() if row['s3_prefix']]
                 
                 for child_prefix in child_prefixes:
-                    child_pages = paginator.paginate(Bucket=bucket, Prefix=child_prefix)
+                    child_pages = paginator.paginate(Bucket=yc_bucket, Prefix=child_prefix)
                     for page in child_pages:
                         for obj in page.get('Contents', []):
                             src_key = obj['Key']
                             dst_key = f'trash/{src_key}'
                             
                             try:
-                                s3_client.copy_object(
-                                    Bucket=bucket,
-                                    CopySource={'Bucket': bucket, 'Key': src_key},
+                                yc_s3_client.copy_object(
+                                    Bucket=yc_bucket,
+                                    CopySource={'Bucket': yc_bucket, 'Key': src_key},
                                     Key=dst_key
                                 )
-                                s3_client.delete_object(Bucket=bucket, Key=src_key)
+                                yc_s3_client.delete_object(Bucket=yc_bucket, Key=src_key)
                                 moved_count += 1
                             except Exception as e:
                                 print(f'Failed to move child {src_key} to trash: {e}')

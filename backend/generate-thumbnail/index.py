@@ -77,18 +77,8 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
         
-        s3_client = boto3.client(
-            's3',
-            endpoint_url='https://bucket.poehali.dev',
-            aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-            aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
-        )
-        
-        print(f'[THUMBNAIL] Downloading RAW file: {photo["s3_key"]}')
-        
-        # Скачиваем из Yandex bucket (файлы загружаются через mobile-upload)
         from botocore.config import Config
-        yandex_s3 = boto3.client(
+        s3_client = boto3.client(
             's3',
             endpoint_url='https://storage.yandexcloud.net',
             aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
@@ -96,7 +86,10 @@ def handler(event: dict, context) -> dict:
             region_name='ru-central1',
             config=Config(signature_version='s3v4')
         )
-        response = yandex_s3.get_object(Bucket='foto-mix', Key=photo['s3_key'])
+        
+        print(f'[THUMBNAIL] Downloading RAW file: {photo["s3_key"]}')
+        
+        response = s3_client.get_object(Bucket='foto-mix', Key=photo['s3_key'])
         raw_data = response['Body'].read()
         
         print(f'[THUMBNAIL] Downloaded {len(raw_data)} bytes, converting to JPEG')
@@ -122,7 +115,7 @@ def handler(event: dict, context) -> dict:
         # Загружаем превью в Yandex S3 (туда же, где оригинал)
         thumbnail_key = photo['s3_key'].rsplit('.', 1)[0] + '_thumb.jpg'
         
-        yandex_s3.put_object(
+        s3_client.put_object(
             Bucket='foto-mix',
             Key=thumbnail_key,
             Body=jpeg_buffer.getvalue(),

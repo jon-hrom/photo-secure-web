@@ -20,8 +20,8 @@ def generate_presigned_url(s3_url: str, expiration: int = 3600) -> str:
         s3_client = boto3.client(
             's3',
             endpoint_url='https://storage.yandexcloud.net',
-            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+            aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
             region_name='ru-central1'
         )
         

@@ -156,7 +156,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
         s3_client.complete_multipart_upload(
-            Bucket='files',
+            Bucket='foto-mix',
             Key=s3_key,
             UploadId=upload_id,
             MultipartUpload=multipart_upload
@@ -181,7 +181,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         s3_client.abort_multipart_upload(
-            Bucket='files',
+            Bucket='foto-mix',
             Key=s3_key,
             UploadId=upload_id
         )
