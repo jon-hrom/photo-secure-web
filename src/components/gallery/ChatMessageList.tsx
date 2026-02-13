@@ -22,10 +22,11 @@ interface ChatMessageListProps {
   isOpponentTyping?: boolean;
   clientName?: string;
   photographerName?: string;
+  timezone?: string;
 }
 
 const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
-  ({ messages, loading, senderType, onImageClick, variant = 'default', isOpponentTyping = false, clientName, photographerName }, ref) => {
+  ({ messages, loading, senderType, onImageClick, variant = 'default', isOpponentTyping = false, clientName, photographerName, timezone }, ref) => {
     const isEmbedded = variant === 'embedded';
 
     if (loading && messages.length === 0) {
@@ -62,6 +63,7 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
               onImageClick={onImageClick}
               variant={variant}
               senderName={msg.sender_type === 'client' ? clientName : photographerName}
+              timezone={timezone}
             />
           );
         })}

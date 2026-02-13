@@ -43,6 +43,7 @@ interface GalleryData {
   screenshot_protection?: boolean;
   download_disabled?: boolean;
   favorite_config?: FavoriteConfig | null;
+  photographer_timezone?: string;
 }
 
 export function useGalleryLoader(code?: string) {

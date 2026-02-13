@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import ChatModal from '@/components/gallery/ChatModal';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
+import { getTimezoneForRegion } from '@/utils/regionTimezone';
 
 interface Chat {
   client_id: number;
@@ -31,6 +32,7 @@ export default function PhotographerChatsModal({
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [photographerName, setPhotographerName] = useState<string>('Фотограф');
+  const [photographerTimezone, setPhotographerTimezone] = useState<string>('Europe/Moscow');
 
   // Получаем имя фотографа из localStorage
   useEffect(() => {
@@ -138,6 +140,19 @@ export default function PhotographerChatsModal({
   useEffect(() => {
     if (isOpen) {
       loadChats();
+      const userId = getAuthUserId();
+      if (userId) {
+        fetch('https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994', {
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId.toString() }
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success && data.settings?.region) {
+              setPhotographerTimezone(getTimezoneForRegion(data.settings.region));
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, [isOpen]);
 
@@ -293,6 +308,7 @@ export default function PhotographerChatsModal({
                   photographerName={photographerName}
                   embedded={true}
                   onMessageSent={loadChats}
+                  timezone={photographerTimezone}
                 />
               </>
             ) : (

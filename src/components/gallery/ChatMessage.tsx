@@ -17,6 +17,7 @@ interface ChatMessageProps {
   onImageClick: (imageUrl: string) => void;
   variant?: 'default' | 'embedded';
   senderName?: string;
+  timezone?: string;
 }
 
 export default function ChatMessage({ 
@@ -24,7 +25,8 @@ export default function ChatMessage({
   isMyMessage, 
   onImageClick,
   variant = 'default',
-  senderName
+  senderName,
+  timezone
 }: ChatMessageProps) {
   const renderMessageText = (text: string) => {
     return text.split(/(#\d+|фото\s*\d+|photo\s*\d+)/gi).map((part, i) => {
@@ -90,11 +92,12 @@ export default function ChatMessage({
               ? isMyMessage ? 'opacity-80' : 'text-muted-foreground'
               : isMyMessage ? 'text-blue-100' : 'text-gray-500'
           }`}>
-            {new Date(message.created_at).toLocaleString('ru-RU', {
+            {new Date(message.created_at + 'Z').toLocaleString('ru-RU', {
               day: '2-digit',
               month: '2-digit',
               hour: '2-digit',
-              minute: '2-digit'
+              minute: '2-digit',
+              timeZone: timezone || undefined
             })}
           </p>
           {isMyMessage && (

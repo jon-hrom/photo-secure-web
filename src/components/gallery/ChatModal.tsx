@@ -25,6 +25,7 @@ interface ChatModalProps {
   photographerName?: string;
   embedded?: boolean;
   onMessageSent?: () => void;
+  timezone?: string;
 }
 
 export default function ChatModal({ 
@@ -36,7 +37,8 @@ export default function ChatModal({
   clientName,
   photographerName,
   embedded = false,
-  onMessageSent
+  onMessageSent,
+  timezone
 }: ChatModalProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -299,6 +301,7 @@ export default function ChatModal({
             isOpponentTyping={isOpponentTyping}
             clientName={clientName}
             photographerName={photographerName}
+            timezone={timezone}
             ref={messagesEndRef}
           />
         </div>
@@ -359,6 +362,7 @@ export default function ChatModal({
             isOpponentTyping={isOpponentTyping}
             clientName={clientName}
             photographerName={photographerName}
+            timezone={timezone}
             ref={messagesEndRef}
           />
         </div>

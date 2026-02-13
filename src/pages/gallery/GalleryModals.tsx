@@ -50,6 +50,7 @@ interface GalleryData {
   download_disabled?: boolean;
   favorite_config?: FavoriteFolder | null;
   photographer_id?: number;
+  photographer_timezone?: string;
 }
 
 interface GalleryModalsProps {
@@ -184,6 +185,7 @@ export default function GalleryModals({
           clientName={clientData.full_name || clientData.phone}
           photographerName="Фотограф"
           senderType="client"
+          timezone={gallery.photographer_timezone}
         />
       )}
 

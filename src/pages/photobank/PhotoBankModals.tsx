@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import ShareFolderModal from '@/components/photobank/ShareFolderModal';
 import FavoritesViewModal from '@/components/photobank/FavoritesViewModal';
 import DownloadStats from '@/components/photobank/DownloadStats';
@@ -5,6 +6,7 @@ import ChatModal from '@/components/gallery/ChatModal';
 import PhotographerChatsModal from '@/components/photobank/PhotographerChatsModal';
 import VideoUrlUploadDialog from '@/components/photobank/VideoUrlUploadDialog';
 import Icon from '@/components/ui/icon';
+import { getTimezoneForRegion } from '@/utils/regionTimezone';
 
 interface PhotoBankModalsProps {
   shareModalFolder: { id: number; name: string } | null;
@@ -41,6 +43,23 @@ export const PhotoBankModals = ({
   onCloseFolderChats,
   onVideoUploadSuccess,
 }: PhotoBankModalsProps) => {
+  const [photographerTimezone, setPhotographerTimezone] = useState<string>('Europe/Moscow');
+
+  useEffect(() => {
+    if (userId) {
+      fetch('https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994', {
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId }
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.settings?.region) {
+            setPhotographerTimezone(getTimezoneForRegion(data.settings.region));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [userId]);
+
   return (
     <>
       {shareModalFolder && (
@@ -88,6 +107,7 @@ export const PhotoBankModals = ({
           photographerId={parseInt(userId)}
           senderType="photographer"
           clientName={chatClient.name}
+          timezone={photographerTimezone}
         />
       )}
 
