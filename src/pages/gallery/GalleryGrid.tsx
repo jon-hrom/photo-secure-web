@@ -192,17 +192,23 @@ export default function GalleryGrid({
     }}>
       {coverPhoto && (
         <div 
-          className="relative w-full overflow-hidden"
-          style={isVerticalCover 
-            ? { height: '100vh', minHeight: 500 }
-            : { 
-                aspectRatio: coverPhoto.width && coverPhoto.height 
-                  ? `${coverPhoto.width}/${coverPhoto.height}` 
-                  : '16/9',
-                maxHeight: '85vh',
-                minHeight: 300
-              }
-          }
+          className="relative overflow-hidden"
+          style={{
+            width: 'calc(100% + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))',
+            marginLeft: 'calc(-1 * env(safe-area-inset-left, 0px))',
+            marginRight: 'calc(-1 * env(safe-area-inset-right, 0px))',
+            marginTop: 'calc(-1 * env(safe-area-inset-top, 0px))',
+            ...(isVerticalCover 
+              ? { height: '100vh', minHeight: 500 }
+              : { 
+                  aspectRatio: coverPhoto.width && coverPhoto.height 
+                    ? `${coverPhoto.width}/${coverPhoto.height}` 
+                    : '16/9',
+                  maxHeight: '85vh',
+                  minHeight: 300
+                }
+            )
+          }}
         >
           <img
             src={coverPhoto.photo_url}
