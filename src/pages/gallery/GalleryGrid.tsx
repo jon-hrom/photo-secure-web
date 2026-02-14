@@ -227,7 +227,14 @@ export default function GalleryGrid({
               : pos === 'bottom-right' ? 'bottom-0 left-0 right-0 flex flex-col items-end text-right px-6 pb-6 sm:pb-10'
               : 'bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-6 sm:pb-10';
             return (
-              <div className={`absolute ${posClasses}`}>
+              <div
+                className={`absolute ${posClasses}`}
+                style={{
+                  opacity: 0,
+                  transform: 'translateY(20px)',
+                  animation: 'coverTextFadeIn 2.5s ease forwards 0.3s'
+                }}
+              >
                 <h1 className="font-bold mb-3 drop-shadow-lg" style={{
                   color: gallery.text_color || '#ffffff',
                   fontSize: `${gallery.cover_font_size || 36}px`
@@ -237,7 +244,11 @@ export default function GalleryGrid({
                 <button
                   onClick={scrollToGrid}
                   className="group inline-flex items-center gap-1.5 text-sm transition-colors"
-                  style={{ color: gallery.text_color ? `${gallery.text_color}cc` : 'rgba(255,255,255,0.8)' }}
+                  style={{
+                    color: gallery.text_color ? `${gallery.text_color}cc` : 'rgba(255,255,255,0.8)',
+                    opacity: 0,
+                    animation: 'coverTextFadeIn 2s ease forwards 1.2s'
+                  }}
                 >
                   <span>Просмотр фото</span>
                   <Icon name="ChevronDown" size={16} className="animate-bounce" />

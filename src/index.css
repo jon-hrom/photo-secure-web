@@ -277,6 +277,17 @@
     animation: pulse-glow 2s ease-in-out infinite;
   }
 
+  @keyframes coverTextFadeIn {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   /* Calendar animations and styles */
   [data-state="date-picker"] button[role="gridcell"] {
     @apply transition-all duration-300 relative;
