@@ -11,17 +11,17 @@ export default function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 sm:p-8 animate-in fade-in zoom-in duration-300">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-md w-full p-6 sm:p-8 animate-in fade-in zoom-in duration-300">
         <div className="flex flex-col items-center text-center space-y-4">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <Icon name="Info" size={32} className="text-blue-600" />
+          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center">
+            <Icon name="Info" size={32} className="text-blue-600 dark:text-blue-400" />
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             Добро пожаловать!
           </h2>
 
-          <div className="space-y-3 text-sm sm:text-base text-gray-700">
+          <div className="space-y-3 text-sm sm:text-base text-gray-700 dark:text-gray-300">
             <p className="leading-relaxed">
               При первом входе нажмите на <span className="inline-flex items-center"><Icon name="Star" size={16} className="text-yellow-500 mx-1" /></span> 
               на фото, которое вам понравилось, для авторизации и добавления в избранное.

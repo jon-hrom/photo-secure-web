@@ -122,7 +122,7 @@ export default function GalleryModals({
     : gallery?.photos || [];
 
   return (
-    <>
+    <div className={isDarkTheme ? 'dark' : ''}>
       {selectedPhoto && (
         <GalleryPhotoViewer
           photos={viewingFavorites ? gallery.photos.filter((p: Photo) => clientFavoritePhotoIds.includes(p.id)) : visiblePhotos}
@@ -205,6 +205,6 @@ export default function GalleryModals({
           }}
         />
       )}
-    </>
+    </div>
   );
 }
