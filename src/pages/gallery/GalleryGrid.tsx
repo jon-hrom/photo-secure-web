@@ -151,7 +151,16 @@ export default function GalleryGrid({
       {coverPhoto && (
         <div 
           className="relative w-full overflow-hidden"
-          style={{ height: isVerticalCover ? '100vh' : '60vh', minHeight: isVerticalCover ? 500 : 300 }}
+          style={isVerticalCover 
+            ? { height: '100vh', minHeight: 500 }
+            : { 
+                aspectRatio: coverPhoto.width && coverPhoto.height 
+                  ? `${coverPhoto.width}/${coverPhoto.height}` 
+                  : '16/9',
+                maxHeight: '85vh',
+                minHeight: 300
+              }
+          }
         >
           <img
             src={coverPhoto.photo_url}
