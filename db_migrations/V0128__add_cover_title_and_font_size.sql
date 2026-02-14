@@ -1,0 +1,3 @@
+ALTER TABLE t_p28211681_photo_secure_web.folder_short_links
+ADD COLUMN IF NOT EXISTS cover_title TEXT DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS cover_font_size INTEGER DEFAULT 36;

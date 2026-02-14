@@ -42,6 +42,8 @@ interface GalleryData {
   bg_image_url?: string | null;
   text_color?: string | null;
   cover_text_position?: string;
+  cover_title?: string | null;
+  cover_font_size?: number;
 }
 
 interface GalleryGridProps {
@@ -169,8 +171,11 @@ export default function GalleryGrid({
               : 'bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-6 sm:pb-10';
             return (
               <div className={`absolute ${posClasses}`}>
-                <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg" style={{ color: gallery.text_color || '#ffffff' }}>
-                  {gallery.folder_name}
+                <h1 className="font-bold mb-3 drop-shadow-lg" style={{
+                  color: gallery.text_color || '#ffffff',
+                  fontSize: `${gallery.cover_font_size || 36}px`
+                }}>
+                  {gallery.cover_title || gallery.folder_name}
                 </h1>
                 <button
                   onClick={scrollToGrid}

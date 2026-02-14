@@ -24,6 +24,8 @@ interface PageDesignSettings {
   bgImageExt: string;
   textColor: string | null;
   coverTextPosition: 'bottom-center' | 'center' | 'bottom-left' | 'bottom-right' | 'top-center';
+  coverTitle: string | null;
+  coverFontSize: number;
 }
 
 interface PageDesignTabProps {
@@ -65,8 +67,11 @@ export default function PageDesignTab({
   const [showTextColorPicker, setShowTextColorPicker] = useState(false);
   const [customColor, setCustomColor] = useState(settings.bgColor || '#1a1a2e');
   const [customTextColor, setCustomTextColor] = useState(settings.textColor || '#ffffff');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState(settings.coverTitle || '');
   const coverImageRef = useRef<HTMLDivElement>(null);
   const bgImageInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const coverPhoto = photos.find(p => p.id === settings.coverPhotoId) || photos[0] || null;
 
@@ -480,6 +485,62 @@ export default function PageDesignTab({
                   </div>
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
+                <div className={`absolute inset-0 flex flex-col pointer-events-none p-3 ${
+                  settings.coverTextPosition === 'center' ? 'items-center justify-center text-center' :
+                  settings.coverTextPosition === 'top-center' ? 'items-center justify-start text-center pt-4' :
+                  settings.coverTextPosition === 'bottom-left' ? 'items-start justify-end' :
+                  settings.coverTextPosition === 'bottom-right' ? 'items-end justify-end text-right' :
+                  'items-center justify-end text-center'
+                }`}>
+                  <div className="pointer-events-auto flex items-center gap-1">
+                    {isEditingTitle ? (
+                      <input
+                        ref={titleInputRef}
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onBlur={() => {
+                          setIsEditingTitle(false);
+                          onSettingsChange({ ...settings, coverTitle: editTitle || null });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            setIsEditingTitle(false);
+                            onSettingsChange({ ...settings, coverTitle: editTitle || null });
+                          }
+                        }}
+                        className="bg-black/40 backdrop-blur-sm text-white font-bold text-sm px-2 py-0.5 rounded border border-white/30 outline-none max-w-[200px]"
+                        style={{ color: settings.textColor || '#ffffff', fontSize: `${Math.max(10, settings.coverFontSize * 0.45)}px` }}
+                        autoFocus
+                        placeholder={folderName}
+                      />
+                    ) : (
+                      <>
+                        <span
+                          className="font-bold drop-shadow-lg truncate max-w-[180px]"
+                          style={{
+                            color: settings.textColor || '#ffffff',
+                            fontSize: `${Math.max(10, settings.coverFontSize * 0.45)}px`
+                          }}
+                        >
+                          {settings.coverTitle || folderName}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setEditTitle(settings.coverTitle || folderName);
+                            setIsEditingTitle(true);
+                            setTimeout(() => titleInputRef.current?.focus(), 50);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="w-5 h-5 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-colors"
+                        >
+                          <Icon name="Pencil" size={10} className="text-white" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 Перетащите точку для выбора центра кадра
@@ -490,6 +551,26 @@ export default function PageDesignTab({
               <span className="text-sm">Нет фото в папке</span>
             </div>
           )}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+              Размер названия
+            </h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{settings.coverFontSize}px</span>
+          </div>
+          <Slider
+            value={[settings.coverFontSize]}
+            onValueChange={(v) => onSettingsChange({ ...settings, coverFontSize: v[0] })}
+            min={16}
+            max={72}
+            step={2}
+          />
+          <div className="flex justify-between mt-1">
+            <span className="text-xs text-gray-400">16px</span>
+            <span className="text-xs text-gray-400">72px</span>
+          </div>
         </div>
 
         <div>
@@ -656,8 +737,11 @@ export default function PageDesignTab({
                     settings.coverTextPosition === 'bottom-right' ? 'items-end justify-end text-right' :
                     'items-center justify-end text-center'
                   }`}>
-                    <h2 className="font-bold text-sm leading-tight" style={{ color: settings.textColor || '#ffffff' }}>
-                      {folderName}
+                    <h2 className="font-bold leading-tight" style={{
+                      color: settings.textColor || '#ffffff',
+                      fontSize: `${Math.max(8, settings.coverFontSize * 0.3)}px`
+                    }}>
+                      {settings.coverTitle || folderName}
                     </h2>
                     <button
                       onClick={scrollToPhotos}
