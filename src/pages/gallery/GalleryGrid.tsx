@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 
 interface Photo {
@@ -140,6 +140,32 @@ export default function GalleryGrid({
   const scrollToGrid = () => {
     document.getElementById('gallery-photo-grid')?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const animatedSet = useRef<Set<Element>>(new Set());
+
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !animatedSet.current.has(entry.target)) {
+            animatedSet.current.add(entry.target);
+            const el = entry.target as HTMLElement;
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: '60px' }
+    );
+    return () => observerRef.current?.disconnect();
+  }, []);
+
+  const photoCardRef = useCallback((node: HTMLDivElement | null) => {
+    if (node && observerRef.current) {
+      observerRef.current.observe(node);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen" style={{
@@ -294,14 +320,18 @@ export default function GalleryGrid({
           className="columns-2 sm:columns-2 md:columns-3 lg:columns-4"
           style={{ gap: `${gridGap}px` }}
         >
-          {gallery.photos.map((photo) => {
+          {gallery.photos.map((photo, index) => {
             return (
               <div
                 key={photo.id}
+                ref={photoCardRef}
                 className="group relative rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation"
                 style={{ 
                   marginBottom: `${gridGap}px`,
-                  background: isDarkBg ? 'rgba(255,255,255,0.06)' : '#f3f4f6'
+                  background: isDarkBg ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+                  opacity: 0,
+                  transform: 'translateY(24px)',
+                  transition: `opacity 0.5s ease ${(index % 8) * 0.06}s, transform 0.5s ease ${(index % 8) * 0.06}s`
                 }}
                 onClick={() => onPhotoClick(photo)}
               >
