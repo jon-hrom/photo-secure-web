@@ -141,29 +141,45 @@ export default function GalleryGrid({
     document.getElementById('gallery-photo-grid')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const observerRef = useRef<IntersectionObserver | null>(null);
+  const pendingNodes = useRef<Set<HTMLDivElement>>(new Set());
   const animatedSet = useRef<Set<Element>>(new Set());
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !animatedSet.current.has(entry.target)) {
-            animatedSet.current.add(entry.target);
-            const el = entry.target as HTMLElement;
-            el.style.opacity = '1';
-            el.style.transform = 'translateY(0)';
-          }
-        });
-      },
-      { threshold: 0.08, rootMargin: '60px' }
-    );
-    return () => observerRef.current?.disconnect();
+  const getObserver = useCallback(() => {
+    if (!observerRef.current) {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && !animatedSet.current.has(entry.target)) {
+              animatedSet.current.add(entry.target);
+              const el = entry.target as HTMLElement;
+              el.style.opacity = '1';
+              el.style.transform = 'translateY(0)';
+            }
+          });
+        },
+        { threshold: 0.05, rootMargin: '80px' }
+      );
+      pendingNodes.current.forEach(n => observerRef.current!.observe(n));
+      pendingNodes.current.clear();
+    }
+    return observerRef.current;
   }, []);
 
+  useEffect(() => {
+    getObserver();
+    return () => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+    };
+  }, [getObserver]);
+
   const photoCardRef = useCallback((node: HTMLDivElement | null) => {
-    if (node && observerRef.current) {
+    if (!node) return;
+    if (observerRef.current) {
       observerRef.current.observe(node);
+    } else {
+      pendingNodes.current.add(node);
     }
   }, []);
 
