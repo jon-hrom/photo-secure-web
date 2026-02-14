@@ -41,6 +41,7 @@ interface GalleryData {
   bg_color?: string | null;
   bg_image_url?: string | null;
   text_color?: string | null;
+  cover_text_position?: string;
 }
 
 interface GalleryGridProps {
@@ -159,19 +160,29 @@ export default function GalleryGrid({
             onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-6 sm:pb-10">
-            <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg" style={{ color: gallery.text_color || '#ffffff' }}>
-              {gallery.folder_name}
-            </h1>
-            <button
-              onClick={scrollToGrid}
-              className="group inline-flex items-center gap-1.5 text-sm transition-colors"
-              style={{ color: gallery.text_color ? `${gallery.text_color}cc` : 'rgba(255,255,255,0.8)' }}
-            >
-              <span>Просмотр фото</span>
-              <Icon name="ChevronDown" size={16} className="animate-bounce" />
-            </button>
-          </div>
+          {(() => {
+            const pos = gallery.cover_text_position || 'bottom-center';
+            const posClasses = pos === 'center' ? 'inset-0 flex flex-col items-center justify-center text-center px-6'
+              : pos === 'top-center' ? 'inset-0 flex flex-col items-center justify-start text-center px-6 pt-12 sm:pt-16'
+              : pos === 'bottom-left' ? 'bottom-0 left-0 right-0 flex flex-col items-start text-left px-6 pb-6 sm:pb-10'
+              : pos === 'bottom-right' ? 'bottom-0 left-0 right-0 flex flex-col items-end text-right px-6 pb-6 sm:pb-10'
+              : 'bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-6 sm:pb-10';
+            return (
+              <div className={`absolute ${posClasses}`}>
+                <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg" style={{ color: gallery.text_color || '#ffffff' }}>
+                  {gallery.folder_name}
+                </h1>
+                <button
+                  onClick={scrollToGrid}
+                  className="group inline-flex items-center gap-1.5 text-sm transition-colors"
+                  style={{ color: gallery.text_color ? `${gallery.text_color}cc` : 'rgba(255,255,255,0.8)' }}
+                >
+                  <span>Просмотр фото</span>
+                  <Icon name="ChevronDown" size={16} className="animate-bounce" />
+                </button>
+              </div>
+            );
+          })()}
         </div>
       )}
       <div className="sticky top-0 z-50" style={{ 

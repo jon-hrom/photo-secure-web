@@ -61,6 +61,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     bgImageData: null as string | null,
     bgImageExt: 'jpg',
     textColor: null as string | null,
+    coverTextPosition: 'bottom-center' as 'bottom-center' | 'center' | 'bottom-left' | 'bottom-right' | 'top-center',
   });
   
   const [linkSettings, setLinkSettings] = useState({
@@ -169,6 +170,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
               bgImageData: null,
               bgImageExt: 'jpg',
               textColor: data.text_color || null,
+              coverTextPosition: data.cover_text_position || 'bottom-center',
             });
             
             if (data.photos && data.photos.length > 0) {
@@ -327,7 +329,8 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           bg_image_url: pageDesign.bgImageData ? null : pageDesign.bgImageUrl,
           bg_image_data: pageDesign.bgImageData,
           bg_image_ext: pageDesign.bgImageExt,
-          text_color: pageDesign.textColor
+          text_color: pageDesign.textColor,
+          cover_text_position: pageDesign.coverTextPosition
         })
       });
 

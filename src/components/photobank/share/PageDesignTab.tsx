@@ -23,6 +23,7 @@ interface PageDesignSettings {
   bgImageData: string | null;
   bgImageExt: string;
   textColor: string | null;
+  coverTextPosition: 'bottom-center' | 'center' | 'bottom-left' | 'bottom-right' | 'top-center';
 }
 
 interface PageDesignTabProps {
@@ -541,6 +542,41 @@ export default function PageDesignTab({
 
         <div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+            Положение названия на обложке
+          </h3>
+          <div className="grid grid-cols-5 gap-2">
+            {([
+              { key: 'top-center' as const, label: 'Сверху', dotPos: 'top-1.5 left-1/2 -translate-x-1/2' },
+              { key: 'center' as const, label: 'Центр', dotPos: 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' },
+              { key: 'bottom-left' as const, label: 'Лево', dotPos: 'bottom-1.5 left-2' },
+              { key: 'bottom-center' as const, label: 'Низ', dotPos: 'bottom-1.5 left-1/2 -translate-x-1/2' },
+              { key: 'bottom-right' as const, label: 'Право', dotPos: 'bottom-1.5 right-2' },
+            ]).map(pos => (
+              <button
+                key={pos.key}
+                onClick={() => onSettingsChange({ ...settings, coverTextPosition: pos.key })}
+                className={`relative p-2 rounded-lg border-2 transition-all ${
+                  settings.coverTextPosition === pos.key
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="relative w-full aspect-video bg-gray-200 dark:bg-gray-700 rounded mb-1">
+                  <div className={`absolute w-3 h-1 bg-gray-500 rounded-full ${pos.dotPos}`} />
+                </div>
+                <span className="text-[9px] font-medium text-gray-600 dark:text-gray-400">{pos.label}</span>
+                {settings.coverTextPosition === pos.key && (
+                  <div className="absolute top-1 right-1 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
+                    <Icon name="Check" size={7} className="text-white" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
             Выбрать фото для обложки
           </h3>
           <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -613,7 +649,13 @@ export default function PageDesignTab({
                     }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+                  <div className={`absolute inset-0 flex flex-col p-3 ${
+                    settings.coverTextPosition === 'center' ? 'items-center justify-center text-center' :
+                    settings.coverTextPosition === 'top-center' ? 'items-center justify-start text-center pt-6' :
+                    settings.coverTextPosition === 'bottom-left' ? 'items-start justify-end' :
+                    settings.coverTextPosition === 'bottom-right' ? 'items-end justify-end text-right' :
+                    'items-center justify-end text-center'
+                  }`}>
                     <h2 className="font-bold text-sm leading-tight" style={{ color: settings.textColor || '#ffffff' }}>
                       {folderName}
                     </h2>

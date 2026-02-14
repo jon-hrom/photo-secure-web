@@ -164,6 +164,7 @@ def handler(event: dict, context) -> dict:
             bg_color = data.get('bg_color')
             bg_image_url = data.get('bg_image_url')
             text_color = data.get('text_color')
+            cover_text_position = data.get('cover_text_position', 'bottom-center')
             
             bg_image_data = data.get('bg_image_data')
             if bg_image_data:
@@ -239,7 +240,8 @@ def handler(event: dict, context) -> dict:
                         favorite_config = %s,
                         cover_photo_id = %s, cover_orientation = %s,
                         cover_focus_x = %s, cover_focus_y = %s, grid_gap = %s,
-                        bg_theme = %s, bg_color = %s, bg_image_url = %s, text_color = %s
+                        bg_theme = %s, bg_color = %s, bg_image_url = %s, text_color = %s,
+                        cover_text_position = %s
                     WHERE short_code = %s
                     """,
                     (expires_at, password_hash, download_disabled,
@@ -249,7 +251,7 @@ def handler(event: dict, context) -> dict:
                      json.dumps(favorite_config) if favorite_config else None,
                      cover_photo_id, cover_orientation,
                      cover_focus_x, cover_focus_y, grid_gap,
-                     bg_theme, bg_color, bg_image_url, text_color, short_code)
+                     bg_theme, bg_color, bg_image_url, text_color, cover_text_position, short_code)
                 )
             else:
                 # Создаём новую ссылку
@@ -261,15 +263,15 @@ def handler(event: dict, context) -> dict:
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
                      watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection, favorite_config,
                      cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
-                     bg_theme, bg_color, bg_image_url, text_color)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     bg_theme, bg_color, bg_image_url, text_color, cover_text_position)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
                      watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
                      json.dumps(favorite_config) if favorite_config else None,
                      cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
-                     bg_theme, bg_color, bg_image_url, text_color)
+                     bg_theme, bg_color, bg_image_url, text_color, cover_text_position)
                 )
             conn.commit()
             
@@ -308,7 +310,7 @@ def handler(event: dict, context) -> dict:
                        fsl.watermark_frequency, fsl.watermark_size, fsl.watermark_opacity, fsl.watermark_rotation, fsl.screenshot_protection,
                        fsl.favorite_config, fsl.user_id,
                        fsl.cover_photo_id, fsl.cover_orientation, fsl.cover_focus_x, fsl.cover_focus_y, fsl.grid_gap,
-                       fsl.bg_theme, fsl.bg_color, fsl.bg_image_url, fsl.text_color
+                       fsl.bg_theme, fsl.bg_color, fsl.bg_image_url, fsl.text_color, fsl.cover_text_position
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -331,7 +333,7 @@ def handler(event: dict, context) -> dict:
              watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
              favorite_config_json, photographer_id,
              cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
-             bg_theme, bg_color, bg_image_url, text_color) = result
+             bg_theme, bg_color, bg_image_url, text_color, cover_text_position) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -523,7 +525,8 @@ def handler(event: dict, context) -> dict:
                     'bg_theme': bg_theme or 'light',
                     'bg_color': bg_color,
                     'bg_image_url': bg_image_url,
-                    'text_color': text_color
+                    'text_color': text_color,
+                    'cover_text_position': cover_text_position or 'bottom-center'
                 })
             }
         
