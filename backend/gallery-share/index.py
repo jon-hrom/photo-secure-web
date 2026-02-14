@@ -317,7 +317,8 @@ def handler(event: dict, context) -> dict:
                        fsl.favorite_config, fsl.user_id,
                        fsl.cover_photo_id, fsl.cover_orientation, fsl.cover_focus_x, fsl.cover_focus_y, fsl.grid_gap,
                        fsl.bg_theme, fsl.bg_color, fsl.bg_image_url, fsl.text_color, fsl.cover_text_position,
-                       fsl.cover_title, fsl.cover_font_size
+                       fsl.cover_title, fsl.cover_font_size,
+                       COALESCE(fsl.is_blocked, FALSE) as is_blocked
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -335,13 +336,34 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Gallery not found'})
                 }
             
+            is_blocked = result[-1]
+            if is_blocked:
+                photographer_id_blocked = result[15]
+                cur.execute(
+                    "SELECT email FROM t_p28211681_photo_secure_web.users WHERE id = %s",
+                    (photographer_id_blocked,)
+                )
+                user_row_blocked = cur.fetchone()
+                photographer_email = user_row_blocked[0] if user_row_blocked else None
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 403,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({
+                        'error': 'Gallery link blocked',
+                        'blocked': True,
+                        'photographer_email': photographer_email
+                    })
+                }
+            
             (folder_id, expires_at, folder_name, password_hash, download_disabled,
              watermark_enabled, watermark_type, watermark_text, watermark_image_url,
              watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
              favorite_config_json, photographer_id,
              cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
              bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
-             cover_title, cover_font_size) = result
+             cover_title, cover_font_size, _is_blocked) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')

@@ -120,19 +120,53 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             except Exception as e:
                                 print(f'[AUTO_CLEANUP] Failed to delete thumbnail {thumb_key}: {e}')
                 
-                # Удаляем записи из БД
                 if expired_folders:
                     expired_folder_ids = [f['id'] for f in expired_folders]
-                    # Delete all trashed photos from these folders first
+                    ids_str = ','.join(map(str, expired_folder_ids))
+                    
+                    cur.execute(f'''
+                        SELECT short_code FROM t_p28211681_photo_secure_web.folder_short_links
+                        WHERE folder_id IN ({ids_str})
+                    ''')
+                    exp_short_codes = [row['short_code'] for row in cur.fetchall()]
+                    
+                    if exp_short_codes:
+                        sc_ph = ','.join(['%s'] * len(exp_short_codes))
+                        cur.execute(f'''
+                            SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                            WHERE gallery_code IN ({sc_ph})
+                        ''', tuple(exp_short_codes))
+                        exp_client_ids = [row['id'] for row in cur.fetchall()]
+                        
+                        if exp_client_ids:
+                            cl_ph = ','.join(['%s'] * len(exp_client_ids))
+                            cur.execute(f'''
+                                DELETE FROM t_p28211681_photo_secure_web.client_messages
+                                WHERE client_id IN ({cl_ph})
+                            ''', tuple(exp_client_ids))
+                            cur.execute(f'''
+                                DELETE FROM t_p28211681_photo_secure_web.favorite_photos
+                                WHERE client_id IN ({cl_ph})
+                            ''', tuple(exp_client_ids))
+                            cur.execute(f'''
+                                DELETE FROM t_p28211681_photo_secure_web.favorite_clients
+                                WHERE id IN ({cl_ph})
+                            ''', tuple(exp_client_ids))
+                            print(f'[AUTO_CLEANUP] Deleted {len(exp_client_ids)} gallery clients from expired folders')
+                    
+                    cur.execute(f'''
+                        DELETE FROM t_p28211681_photo_secure_web.folder_short_links
+                        WHERE folder_id IN ({ids_str})
+                    ''')
+                    
                     cur.execute(f'''
                         DELETE FROM t_p28211681_photo_secure_web.photo_bank 
-                        WHERE folder_id IN ({','.join(map(str, expired_folder_ids))})
+                        WHERE folder_id IN ({ids_str})
                           AND is_trashed = TRUE
                     ''')
-                    # Then delete folders
                     cur.execute(f'''
                         DELETE FROM t_p28211681_photo_secure_web.photo_folders 
-                        WHERE id IN ({','.join(map(str, expired_folder_ids))})
+                        WHERE id IN ({ids_str})
                     ''')
                     conn.commit()
                     print(f'[AUTO_CLEANUP] Deleted {len(expired_folders)} expired folders ({deleted_files_count} files) from trash')
@@ -320,6 +354,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     cur.execute('''
                         UPDATE t_p28211681_photo_secure_web.photo_bank
                         SET is_trashed = FALSE, trashed_at = NULL
+                        WHERE folder_id = %s
+                    ''', (folder_id,))
+                    
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.folder_short_links
+                        SET is_blocked = FALSE, blocked_at = NULL
                         WHERE folder_id = %s
                     ''', (folder_id,))
                     
@@ -523,14 +563,52 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             WHERE folder_id IN ({placeholders})
                         ''', tuple(folder_ids))
                         
-                        # 5. Удаляем короткие ссылки на папки
+                        # 5. Удаляем клиентов галереи и их данные по short_code
+                        print(f'[EMPTY_TRASH] Cleaning up gallery clients...')
+                        cur.execute(f'''
+                            SELECT short_code FROM t_p28211681_photo_secure_web.folder_short_links
+                            WHERE folder_id IN ({placeholders})
+                        ''', tuple(folder_ids))
+                        short_codes = [row['short_code'] for row in cur.fetchall()]
+                        
+                        if short_codes:
+                            sc_placeholders = ','.join(['%s'] * len(short_codes))
+                            
+                            cur.execute(f'''
+                                SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                                WHERE gallery_code IN ({sc_placeholders})
+                            ''', tuple(short_codes))
+                            client_ids = [row['id'] for row in cur.fetchall()]
+                            
+                            if client_ids:
+                                cl_placeholders = ','.join(['%s'] * len(client_ids))
+                                
+                                cur.execute(f'''
+                                    DELETE FROM t_p28211681_photo_secure_web.client_messages
+                                    WHERE client_id IN ({cl_placeholders})
+                                ''', tuple(client_ids))
+                                print(f'[EMPTY_TRASH] Deleted messages for {len(client_ids)} clients')
+                                
+                                cur.execute(f'''
+                                    DELETE FROM t_p28211681_photo_secure_web.favorite_photos
+                                    WHERE client_id IN ({cl_placeholders})
+                                ''', tuple(client_ids))
+                                print(f'[EMPTY_TRASH] Deleted favorite photos for clients')
+                                
+                                cur.execute(f'''
+                                    DELETE FROM t_p28211681_photo_secure_web.favorite_clients
+                                    WHERE id IN ({cl_placeholders})
+                                ''', tuple(client_ids))
+                                print(f'[EMPTY_TRASH] Deleted {len(client_ids)} gallery clients')
+                        
+                        # 6. Удаляем короткие ссылки на папки
                         print(f'[EMPTY_TRASH] Deleting folder short links...')
                         cur.execute(f'''
                             DELETE FROM t_p28211681_photo_secure_web.folder_short_links 
                             WHERE folder_id IN ({placeholders})
                         ''', tuple(folder_ids))
                         
-                        # 6. Наконец удаляем папки
+                        # 7. Наконец удаляем папки
                         print(f'[EMPTY_TRASH] Deleting folders...')
                         cur.execute(f'''
                             DELETE FROM t_p28211681_photo_secure_web.photo_folders 

@@ -75,12 +75,24 @@ def handler(event: dict, context) -> dict:
                 email = (body.get('email') or '').strip() or None
                 photo_id = body.get('photo_id')
                 
-                # Требуем: gallery_code, photo_id и хотя бы одно из: full_name, phone или email
                 if not gallery_code or photo_id is None or (not full_name and not phone and not email):
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                         'body': json.dumps({'error': 'Missing required fields'})
+                    }
+                
+                cur.execute('''
+                    SELECT COALESCE(is_blocked, FALSE)
+                    FROM t_p28211681_photo_secure_web.folder_short_links
+                    WHERE short_code = %s
+                ''', (gallery_code,))
+                link_row = cur.fetchone()
+                if link_row and link_row[0]:
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Gallery link is blocked', 'blocked': True})
                     }
                 
                 # Ищем существующего клиента по gallery_code и доступным полям
@@ -175,6 +187,19 @@ def handler(event: dict, context) -> dict:
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                         'body': json.dumps({'error': 'gallery_code is required'})
+                    }
+                
+                cur.execute('''
+                    SELECT COALESCE(is_blocked, FALSE)
+                    FROM t_p28211681_photo_secure_web.folder_short_links
+                    WHERE short_code = %s
+                ''', (gallery_code,))
+                link_check = cur.fetchone()
+                if link_check and link_check[0]:
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Gallery link is blocked', 'blocked': True})
                     }
                 
                 import re

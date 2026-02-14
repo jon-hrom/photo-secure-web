@@ -815,9 +815,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         WHERE folder_id IN ({','.join(map(str, child_folder_ids))})
                     ''')
                 
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.folder_short_links
+                    SET is_blocked = TRUE, blocked_at = NOW()
+                    WHERE folder_id = %s
+                ''', (folder_id,))
+                
+                if child_folder_ids:
+                    cur.execute(f'''
+                        UPDATE t_p28211681_photo_secure_web.folder_short_links
+                        SET is_blocked = TRUE, blocked_at = NOW()
+                        WHERE folder_id IN ({','.join(map(str, child_folder_ids))})
+                    ''')
+                
                 conn.commit()
             
-            # Переносим файлы основной папки в trash
             prefix = folder['s3_prefix']
             moved_count = 0
             

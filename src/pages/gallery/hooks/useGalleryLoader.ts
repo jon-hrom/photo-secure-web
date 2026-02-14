@@ -60,6 +60,8 @@ export function useGalleryLoader(code?: string) {
   const [passwordError, setPasswordError] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [photosLoaded, setPhotosLoaded] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [photographerEmail, setPhotographerEmail] = useState('');
 
   const loadGallery = async (enteredPassword?: string) => {
     console.log('[PUBLIC_GALLERY] Loading gallery, password provided:', !!enteredPassword);
@@ -79,6 +81,14 @@ export function useGalleryLoader(code?: string) {
         console.log('[PUBLIC_GALLERY] Password required');
         setRequiresPassword(true);
         setPasswordError(enteredPassword ? 'Неверный пароль' : '');
+        setLoading(false);
+        return;
+      }
+      
+      if (response.status === 403 && data.blocked) {
+        console.log('[PUBLIC_GALLERY] Gallery link is blocked');
+        setIsBlocked(true);
+        setPhotographerEmail(data.photographer_email || '');
         setLoading(false);
         return;
       }
@@ -142,6 +152,8 @@ export function useGalleryLoader(code?: string) {
     passwordError,
     loadingProgress,
     photosLoaded,
+    isBlocked,
+    photographerEmail,
     setPassword,
     setPhotosLoaded,
     handlePasswordSubmit
