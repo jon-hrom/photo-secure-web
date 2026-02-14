@@ -266,7 +266,7 @@ export default function GalleryGrid({
               <>
                 <button
                   onClick={onOpenChat}
-                  className="relative flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  className="relative w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-blue-500 text-white rounded-full sm:rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
                 >
                   <Icon name="MessageCircle" size={14} className="flex-shrink-0" />
                   <span className="hidden sm:inline">Написать</span>
@@ -278,7 +278,7 @@ export default function GalleryGrid({
                 </button>
                 <button
                   onClick={onOpenMyFavorites}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-yellow-500 text-white rounded-full sm:rounded-lg hover:bg-yellow-600 active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
                 >
                   <Icon name="Star" size={14} className="flex-shrink-0" />
                   <span className="hidden sm:inline">Избранное</span>
@@ -287,7 +287,7 @@ export default function GalleryGrid({
                   <button
                     onClick={onDownloadAll}
                     disabled={downloadingAll}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                    className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-blue-600 text-white rounded-full sm:rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
                   >
                     <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
                     <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
@@ -438,16 +438,16 @@ export default function GalleryGrid({
                   
                   return watermarks;
                 })()}
-                <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex gap-1.5 sm:gap-2 z-10">
+                <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex gap-1 sm:gap-2 z-10">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddToFavorites(photo);
                     }}
-                    className="p-1.5 sm:p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
+                    className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
                     title="Добавить в избранное"
                   >
-                    <Icon name="Star" size={16} className="text-yellow-500 group-hover/btn:text-white" />
+                    <Icon name="Star" size={14} className="text-yellow-500 group-hover/btn:text-white sm:[&>svg]:w-4 sm:[&>svg]:h-4" />
                   </button>
                   {!gallery.download_disabled && (
                     <button
@@ -455,10 +455,10 @@ export default function GalleryGrid({
                         e.stopPropagation();
                         onDownloadPhoto(photo);
                       }}
-                      className="p-1.5 sm:p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
+                      className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
                       title="Скачать фото"
                     >
-                      <Icon name="Download" size={16} className="text-gray-900 group-hover/btn:text-white" />
+                      <Icon name="Download" size={14} className="text-gray-900 group-hover/btn:text-white sm:[&>svg]:w-4 sm:[&>svg]:h-4" />
                     </button>
                   )}
                 </div>
