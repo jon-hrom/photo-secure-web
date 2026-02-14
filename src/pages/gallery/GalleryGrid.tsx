@@ -444,10 +444,10 @@ export default function GalleryGrid({
                       e.stopPropagation();
                       onAddToFavorites(photo);
                     }}
-                    className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
+                    className="w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
                     title="Добавить в избранное"
                   >
-                    <Icon name="Star" size={12} className="text-yellow-500 group-hover/btn:text-white sm:[&>svg]:w-3.5 sm:[&>svg]:h-3.5" />
+                    <Icon name="Star" size={10} className="text-yellow-500 group-hover/btn:text-white sm:[&>svg]:w-3.5 sm:[&>svg]:h-3.5" />
                   </button>
                   {!gallery.download_disabled && (
                     <button
@@ -455,10 +455,10 @@ export default function GalleryGrid({
                         e.stopPropagation();
                         onDownloadPhoto(photo);
                       }}
-                      className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
+                      className="w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 hover:scale-110 active:scale-95 transition-all shadow-lg group/btn touch-manipulation"
                       title="Скачать фото"
                     >
-                      <Icon name="Download" size={12} className="text-gray-900 group-hover/btn:text-white sm:[&>svg]:w-3.5 sm:[&>svg]:h-3.5" />
+                      <Icon name="Download" size={10} className="text-gray-900 group-hover/btn:text-white sm:[&>svg]:w-3.5 sm:[&>svg]:h-3.5" />
                     </button>
                   )}
                 </div>
