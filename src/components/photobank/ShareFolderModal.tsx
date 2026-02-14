@@ -55,7 +55,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     coverFocusX: 0.5,
     coverFocusY: 0.5,
     gridGap: 8,
-    bgTheme: 'light' as 'light' | 'dark' | 'custom',
+    bgTheme: 'light' as 'light' | 'dark' | 'auto' | 'custom',
     bgColor: null as string | null,
     bgImageUrl: null as string | null,
     bgImageData: null as string | null,

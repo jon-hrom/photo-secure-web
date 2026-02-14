@@ -89,7 +89,7 @@ export default function GalleryGrid({
   const gridGap = gallery.grid_gap ?? 8;
 
   const bgTheme = gallery.bg_theme || 'light';
-  const isDarkBg = bgTheme === 'dark' || (bgTheme === 'custom' && gallery.bg_color && (() => {
+  const isDarkBg = bgTheme === 'dark' || ((bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color && (() => {
     const hex = gallery.bg_color!.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
@@ -105,6 +105,8 @@ export default function GalleryGrid({
   const bgStyles: React.CSSProperties = {};
   if (bgTheme === 'dark') {
     bgStyles.background = '#1a1a2e';
+  } else if (bgTheme === 'auto' && gallery.bg_color) {
+    bgStyles.background = gallery.bg_color;
   } else if (bgTheme === 'custom') {
     if (gallery.bg_image_url) {
       bgStyles.backgroundImage = `url(${gallery.bg_image_url})`;
@@ -120,7 +122,7 @@ export default function GalleryGrid({
 
   useEffect(() => {
     const themeColor = bgTheme === 'dark' ? '#1a1a2e' 
-      : bgTheme === 'custom' && gallery.bg_color ? gallery.bg_color 
+      : (bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color ? gallery.bg_color 
       : '#f9fafb';
     let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement;
     if (!meta) {
@@ -149,7 +151,7 @@ export default function GalleryGrid({
           style={{ height: isVerticalCover ? '100vh' : '60vh', minHeight: isVerticalCover ? 500 : 300 }}
         >
           <img
-            src={coverPhoto.thumbnail_url || coverPhoto.photo_url}
+            src={coverPhoto.photo_url}
             alt={gallery.folder_name}
             className="w-full h-full object-cover"
             style={{ objectPosition: `${focusX * 100}% ${focusY * 100}%` }}
@@ -157,10 +159,8 @@ export default function GalleryGrid({
             onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10" style={{ 
-            paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))'
-          }}>
-            <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg" style={{ color: gallery.text_color || '#ffffff' }}>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+            <h1 className="text-3xl sm:text-5xl font-bold mb-4 drop-shadow-lg" style={{ color: gallery.text_color || '#ffffff' }}>
               {gallery.folder_name}
             </h1>
             <button
@@ -174,108 +174,92 @@ export default function GalleryGrid({
           </div>
         </div>
       )}
-      <div className="sticky top-0 z-50 md:static" style={{ 
-        background: isDarkBg ? 'rgba(26,26,46,0.95)' : 'rgba(255,255,255,0.95)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        boxShadow: isDarkBg ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)'
+      <div className="sticky top-0 z-50" style={{ 
+        background: isDarkBg ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: isDarkBg ? '0 1px 2px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.08)'
       }}>
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4 md:py-8">
-          <div className="rounded-lg p-3 sm:p-4 md:p-6" style={{
-            background: cardBg,
-            boxShadow: cardShadow
-          }}>
-            <div className="flex flex-col gap-3 sm:gap-4">
-            <div className="flex-1">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2" style={{ color: textColor }}>{gallery.folder_name}</h1>
-              <p className="text-sm sm:text-base" style={{ color: secondaryText }}>
-                {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              {clientName ? (
-                <>
-                  <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={onOpenChat}
-                      className="relative flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs sm:text-sm touch-manipulation"
-                    >
-                      <Icon name="MessageCircle" size={16} className="flex-shrink-0" />
-                      <span className="hidden sm:inline">Написать фотографу</span>
-                      <span className="sm:hidden text-center leading-tight">Написать<br />фотографу</span>
-                      {unreadMessagesCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-lg">
-                          {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      onClick={onOpenMyFavorites}
-                      className="flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation"
-                    >
-                      <Icon name="Star" size={16} className="flex-shrink-0" />
-                      <span className="hidden sm:inline">Мой список избранного</span>
-                      <span className="sm:hidden">Избранное</span>
-                    </button>
-                  </div>
-                  {!gallery.download_disabled && (
-                    <button
-                      onClick={onDownloadAll}
-                      disabled={downloadingAll}
-                      className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm touch-manipulation"
-                    >
-                      <Icon name={downloadingAll ? "Loader2" : "Download"} size={18} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
-                      <span className="hidden sm:inline">{downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}</span>
-                      <span className="sm:hidden">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
-                    </button>
+        <div className="max-w-7xl mx-auto px-2 sm:px-4">
+          <div className="flex items-center gap-2 py-2 sm:py-2.5 overflow-x-auto">
+            <p className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0" style={{ color: secondaryText }}>
+              {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
+            </p>
+            <div className="flex-1" />
+            {clientName ? (
+              <>
+                <button
+                  onClick={onOpenChat}
+                  className="relative flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                >
+                  <Icon name="MessageCircle" size={14} className="flex-shrink-0" />
+                  <span className="hidden sm:inline">Написать</span>
+                  {unreadMessagesCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5 shadow-lg">
+                      {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                    </span>
                   )}
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{
-                    background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6'
-                  }}>
-                    <Icon name="User" size={16} className="flex-shrink-0" style={{ color: secondaryText }} />
-                    <span className="text-xs sm:text-sm font-medium truncate" style={{ color: textColor }}>{clientName}</span>
-                  </div>
+                </button>
+                <button
+                  onClick={onOpenMyFavorites}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                >
+                  <Icon name="Star" size={14} className="flex-shrink-0" />
+                  <span className="hidden sm:inline">Избранное</span>
+                </button>
+                {!gallery.download_disabled && (
                   <button
-                    onClick={onLogout}
-                    className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation"
-                    style={{
-                      background: isDarkBg ? 'rgba(239,68,68,0.2)' : '#fee2e2',
-                      color: isDarkBg ? '#fca5a5' : '#b91c1c'
-                    }}
+                    onClick={onDownloadAll}
+                    disabled={downloadingAll}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
                   >
-                    <Icon name="LogOut" size={16} className="flex-shrink-0" />
-                    <span>Выход</span>
+                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
                   </button>
-                </>
-              ) : (
-                <>
+                )}
+                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg flex-shrink-0" style={{
+                  background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6'
+                }}>
+                  <Icon name="User" size={13} className="flex-shrink-0" style={{ color: secondaryText }} />
+                  <span className="text-xs font-medium truncate max-w-[80px] sm:max-w-[120px]" style={{ color: textColor }}>{clientName}</span>
+                </div>
+                <button
+                  onClick={onLogout}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-xs touch-manipulation flex-shrink-0"
+                  style={{
+                    background: isDarkBg ? 'rgba(239,68,68,0.15)' : '#fee2e2',
+                    color: isDarkBg ? '#fca5a5' : '#b91c1c'
+                  }}
+                >
+                  <Icon name="LogOut" size={13} className="flex-shrink-0" />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onClientLogin}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  style={{
+                    background: isDarkBg ? 'rgba(59,130,246,0.2)' : '#dbeafe',
+                    color: isDarkBg ? '#93c5fd' : '#1d4ed8'
+                  }}
+                >
+                  <Icon name="User" size={14} className="flex-shrink-0" />
+                  Войти
+                </button>
+                {!gallery.download_disabled && (
                   <button
-                    onClick={onClientLogin}
-                    className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation"
-                    style={{
-                      background: isDarkBg ? 'rgba(59,130,246,0.2)' : '#dbeafe',
-                      color: isDarkBg ? '#93c5fd' : '#1d4ed8'
-                    }}
+                    onClick={onDownloadAll}
+                    disabled={downloadingAll}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
                   >
-                    <Icon name="User" size={16} className="flex-shrink-0" />
-                    Войти
+                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
                   </button>
-                  {!gallery.download_disabled && (
-                    <button
-                      onClick={onDownloadAll}
-                      disabled={downloadingAll}
-                      className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm touch-manipulation"
-                    >
-                      <Icon name={downloadingAll ? "Loader2" : "Download"} size={18} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
-                      <span className="hidden sm:inline">{downloadingAll ? 'Подготовка...' : 'Скачать всё архивом'}</span>
-                      <span className="sm:hidden">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+                )}
+              </>
+            )}
           </div>
-        </div>
         </div>
       </div>
       <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0"

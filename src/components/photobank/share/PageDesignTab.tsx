@@ -17,7 +17,7 @@ interface PageDesignSettings {
   coverFocusX: number;
   coverFocusY: number;
   gridGap: number;
-  bgTheme: 'light' | 'dark' | 'custom';
+  bgTheme: 'light' | 'dark' | 'auto' | 'custom';
   bgColor: string | null;
   bgImageUrl: string | null;
   bgImageData: string | null;
@@ -71,6 +71,14 @@ export default function PageDesignTab({
 
   const handleSelectCoverPhoto = (photoId: number) => {
     onSettingsChange({ ...settings, coverPhotoId: photoId });
+    if (settings.bgTheme === 'auto') {
+      const photo = photos.find(p => p.id === photoId);
+      if (photo) {
+        extractDominantColor(photo).then(color => {
+          onSettingsChange({ ...settings, coverPhotoId: photoId, bgColor: color });
+        });
+      }
+    }
   };
 
   const handleOrientationChange = (orientation: 'horizontal' | 'vertical') => {
@@ -81,7 +89,34 @@ export default function PageDesignTab({
     onSettingsChange({ ...settings, gridGap: value[0] });
   };
 
-  const handleThemeChange = (theme: 'light' | 'dark' | 'custom') => {
+  const extractDominantColor = useCallback((photo: Photo): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 50;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve('#2d2d3a'); return; }
+        ctx.drawImage(img, 0, 0, size, size);
+        const data = ctx.getImageData(0, 0, size, size).data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 16) {
+          r += data[i]; g += data[i + 1]; b += data[i + 2]; count++;
+        }
+        r = Math.round(r / count * 0.6);
+        g = Math.round(g / count * 0.6);
+        b = Math.round(b / count * 0.6);
+        resolve(`#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`);
+      };
+      img.onerror = () => resolve('#2d2d3a');
+      img.src = photo.thumbnail_url || photo.photo_url;
+    });
+  }, []);
+
+  const handleThemeChange = (theme: 'light' | 'dark' | 'auto' | 'custom') => {
     const updates: Partial<PageDesignSettings> = { bgTheme: theme };
     if (theme === 'light') {
       updates.bgColor = null;
@@ -93,6 +128,18 @@ export default function PageDesignTab({
       updates.textColor = null;
       updates.bgImageUrl = null;
       updates.bgImageData = null;
+    } else if (theme === 'auto') {
+      updates.bgImageUrl = null;
+      updates.bgImageData = null;
+      updates.textColor = null;
+      const targetPhoto = photos.find(p => p.id === settings.coverPhotoId) || photos[0];
+      if (targetPhoto) {
+        extractDominantColor(targetPhoto).then(color => {
+          onSettingsChange({ ...settings, bgTheme: 'auto', bgColor: color, bgImageUrl: null, bgImageData: null, textColor: null });
+        });
+        return;
+      }
+      updates.bgColor = '#2d2d3a';
     }
     onSettingsChange({ ...settings, ...updates });
   };
@@ -167,6 +214,7 @@ export default function PageDesignTab({
 
   const getPreviewBg = (): React.CSSProperties => {
     if (settings.bgTheme === 'dark') return { background: '#1a1a2e' };
+    if (settings.bgTheme === 'auto' && settings.bgColor) return { background: settings.bgColor };
     if (settings.bgTheme === 'custom' && settings.bgImageUrl) {
       return {
         backgroundImage: `url(${settings.bgImageUrl})`,
@@ -178,17 +226,23 @@ export default function PageDesignTab({
     return { background: '#f8f9fa' };
   };
 
-  const getPreviewTextColor = () => {
-    if (settings.textColor) return settings.textColor;
-    if (settings.bgTheme === 'dark') return '#ffffff';
-    if (settings.bgTheme === 'custom' && settings.bgColor) {
+  const isPreviewDark = (() => {
+    const bg = settings.bgTheme;
+    if (bg === 'dark') return true;
+    if (bg === 'light') return false;
+    if ((bg === 'auto' || bg === 'custom') && settings.bgColor) {
       const hex = settings.bgColor.replace('#', '');
       const r = parseInt(hex.substring(0, 2), 16);
       const g = parseInt(hex.substring(2, 4), 16);
       const b = parseInt(hex.substring(4, 6), 16);
-      return (r * 0.299 + g * 0.587 + b * 0.114) > 150 ? '#1a1a2e' : '#ffffff';
+      return (r * 0.299 + g * 0.587 + b * 0.114) < 150;
     }
-    return '#1a1a2e';
+    return false;
+  })();
+
+  const getPreviewTextColor = () => {
+    if (settings.textColor) return settings.textColor;
+    return isPreviewDark ? '#ffffff' : '#1a1a2e';
   };
 
   const previewTextColor = getPreviewTextColor();
@@ -202,66 +256,47 @@ export default function PageDesignTab({
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
             Фон галереи
           </h3>
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            <button
-              onClick={() => handleThemeChange('light')}
-              className={`relative p-3 rounded-lg border-2 transition-all ${
-                settings.bgTheme === 'light'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="w-full aspect-square rounded bg-gray-100 border border-gray-200 mb-2 flex items-center justify-center">
-                <Icon name="Sun" size={18} className="text-yellow-500" />
-              </div>
-              <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300">Светлый</span>
-              {settings.bgTheme === 'light' && (
-                <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                  <Icon name="Check" size={10} className="text-white" />
-                </div>
-              )}
-            </button>
-            <button
-              onClick={() => handleThemeChange('dark')}
-              className={`relative p-3 rounded-lg border-2 transition-all ${
-                settings.bgTheme === 'dark'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="w-full aspect-square rounded bg-gray-900 border border-gray-700 mb-2 flex items-center justify-center">
-                <Icon name="Moon" size={18} className="text-blue-300" />
-              </div>
-              <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300">Тёмный</span>
-              {settings.bgTheme === 'dark' && (
-                <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                  <Icon name="Check" size={10} className="text-white" />
-                </div>
-              )}
-            </button>
-            <button
-              onClick={() => handleThemeChange('custom')}
-              className={`relative p-3 rounded-lg border-2 transition-all ${
-                settings.bgTheme === 'custom'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="w-full aspect-square rounded mb-2 flex items-center justify-center overflow-hidden"
-                style={{
-                  background: settings.bgColor || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                }}
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            {([
+              { key: 'auto' as const, label: 'Авто', icon: 'Wand2', iconColor: 'text-purple-400',
+                bgStyle: { background: settings.bgTheme === 'auto' && settings.bgColor ? settings.bgColor : 'linear-gradient(135deg, #2d2d3a 0%, #4a3f5c 100%)' } },
+              { key: 'light' as const, label: 'Светлый', icon: 'Sun', iconColor: 'text-yellow-500',
+                bgStyle: { background: '#f3f4f6', border: '1px solid #e5e7eb' } },
+              { key: 'dark' as const, label: 'Тёмный', icon: 'Moon', iconColor: 'text-blue-300',
+                bgStyle: { background: '#111827', border: '1px solid #374151' } },
+              { key: 'custom' as const, label: 'Свой', icon: 'Palette', iconColor: 'text-white drop-shadow',
+                bgStyle: { background: (settings.bgTheme === 'custom' && settings.bgColor) || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' } },
+            ]).map(t => (
+              <button
+                key={t.key}
+                onClick={() => handleThemeChange(t.key)}
+                className={`relative p-2 rounded-lg border-2 transition-all ${
+                  settings.bgTheme === t.key
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                }`}
               >
-                <Icon name="Palette" size={18} className="text-white drop-shadow" />
-              </div>
-              <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300">Свой</span>
-              {settings.bgTheme === 'custom' && (
-                <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                  <Icon name="Check" size={10} className="text-white" />
+                <div className="w-full aspect-square rounded mb-1.5 flex items-center justify-center overflow-hidden" style={t.bgStyle}>
+                  <Icon name={t.icon} size={16} className={t.iconColor} />
                 </div>
-              )}
-            </button>
+                <span className="text-[10px] font-medium text-gray-700 dark:text-gray-300">{t.label}</span>
+                {settings.bgTheme === t.key && (
+                  <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center">
+                    <Icon name="Check" size={8} className="text-white" />
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
+
+          {settings.bgTheme === 'auto' && settings.bgColor && (
+            <div className="flex items-center gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(128,128,128,0.1)' }}>
+              <div className="w-6 h-6 rounded border border-gray-300 flex-shrink-0" style={{ background: settings.bgColor }} />
+              <p className="text-xs text-gray-500 dark:text-gray-400 flex-1">
+                Цвет определён из фото: <span className="font-mono">{settings.bgColor}</span>
+              </p>
+            </div>
+          )}
 
           {settings.bgTheme === 'custom' && (
             <div className="space-y-4">
