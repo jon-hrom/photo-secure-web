@@ -438,17 +438,17 @@ export default function GalleryGrid({
                   
                   return watermarks;
                 })()}
-                <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex z-10" style={{ gap: '4px' }}>
+                <div className="absolute bottom-1 sm:bottom-1.5 right-1 sm:right-1.5 flex z-10" style={{ gap: '3px' }}>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddToFavorites(photo);
                     }}
-                    className="flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 transition-all group/btn touch-manipulation"
-                    style={{ width: '26px', height: '26px', minWidth: '26px', minHeight: '26px', maxWidth: '26px', maxHeight: '26px', padding: 0 }}
+                    className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 transition-all group/btn touch-manipulation"
+                    style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
                     title="Добавить в избранное"
                   >
-                    <Icon name="Star" size={13} className="text-yellow-500 group-hover/btn:text-white" />
+                    <Icon name="Star" size={11} className="text-white group-hover/btn:text-white" />
                   </button>
                   {!gallery.download_disabled && (
                     <button
@@ -456,11 +456,11 @@ export default function GalleryGrid({
                         e.stopPropagation();
                         onDownloadPhoto(photo);
                       }}
-                      className="flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 transition-all group/btn touch-manipulation"
-                      style={{ width: '26px', height: '26px', minWidth: '26px', minHeight: '26px', maxWidth: '26px', maxHeight: '26px', padding: 0 }}
+                      className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 transition-all group/btn touch-manipulation"
+                      style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
                       title="Скачать фото"
                     >
-                      <Icon name="Download" size={13} className="text-gray-900 group-hover/btn:text-white" />
+                      <Icon name="Download" size={11} className="text-white group-hover/btn:text-white" />
                     </button>
                   )}
                 </div>

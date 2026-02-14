@@ -137,6 +137,15 @@ export default function PublicGallery() {
     return null;
   }
 
+  const bgTheme = gallery.bg_theme || 'light';
+  const isDarkTheme = bgTheme === 'dark' || ((bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color && (() => {
+    const hex = gallery.bg_color!.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return (r * 0.299 + g * 0.587 + b * 0.114) < 150;
+  })()) || false;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <LoadingIndicators
@@ -194,6 +203,7 @@ export default function PublicGallery() {
         onRemoveFromFavorites={handlers.handleRemoveFromFavorites}
         onDownloadPhoto={downloadPhoto}
         loadClientFavorites={handlers.loadClientFavorites}
+        isDarkTheme={isDarkTheme}
       />
     </div>
   );

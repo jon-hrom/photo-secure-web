@@ -68,6 +68,7 @@ interface GalleryModalsProps {
   photoToAdd: Photo | null;
   unreadCount: number;
   code?: string;
+  isDarkTheme?: boolean;
   setSelectedPhoto: (photo: Photo | null) => void;
   setViewingFavorites: (viewing: boolean) => void;
   setIsFavoritesModalOpen: (open: boolean) => void;
@@ -82,6 +83,7 @@ interface GalleryModalsProps {
   onRemoveFromFavorites: (photoId: number) => void;
   onDownloadPhoto: (photo: Photo) => void;
   loadClientFavorites: (clientId: number) => void;
+  isDarkTheme?: boolean;
 }
 
 export default function GalleryModals({
@@ -99,6 +101,7 @@ export default function GalleryModals({
   photoToAdd,
   unreadCount,
   code,
+  isDarkTheme = false,
   setSelectedPhoto,
   setViewingFavorites,
   setIsFavoritesModalOpen,
@@ -173,6 +176,7 @@ export default function GalleryModals({
           }}
           onPhotoRemoved={onRemoveFromFavorites}
           downloadDisabled={gallery?.download_disabled}
+          isDarkTheme={isDarkTheme}
         />
       )}
 
