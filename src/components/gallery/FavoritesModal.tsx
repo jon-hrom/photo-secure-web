@@ -125,30 +125,30 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full p-6 border border-transparent dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Icon name="Star" size={24} className="text-yellow-500 fill-yellow-500" />
-            <h2 className="text-2xl font-bold text-gray-900">Добавить в избранное</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Добавить в избранное</h2>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-            <Icon name="X" size={20} className="text-gray-500" />
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+            <Icon name="X" size={20} className="text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
-        <p className="text-sm text-gray-600 mb-6">Папка: {folder.name}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Папка: {folder.name}</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {folder.fields.fullName && (
             <div>
-              <Label htmlFor="fullName">ФИО <span className="text-red-500">*</span></Label>
+              <Label htmlFor="fullName" className="text-gray-700 dark:text-gray-300">ФИО <span className="text-red-500">*</span></Label>
               <Input
                 id="fullName"
                 type="text"
                 value={formData.fullName}
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 placeholder="Иванов Иван Иванович"
-                className={errors.fullName ? 'border-red-500' : ''}
+                className={`bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 ${errors.fullName ? 'border-red-500' : ''}`}
               />
               {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
             </div>
@@ -156,14 +156,14 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
 
           {folder.fields.phone && (
             <div>
-              <Label htmlFor="phone">Телефон <span className="text-red-500">*</span></Label>
+              <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300">Телефон <span className="text-red-500">*</span></Label>
               <Input
                 id="phone"
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="+7 (999) 123-45-67"
-                className={errors.phone ? 'border-red-500' : ''}
+                className={`bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 ${errors.phone ? 'border-red-500' : ''}`}
               />
               {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
             </div>
@@ -171,26 +171,26 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
 
           {folder.fields.email && (
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="example@mail.com"
-                className={errors.email ? 'border-red-500' : ''}
+                className={`bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 ${errors.email ? 'border-red-500' : ''}`}
               />
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
             </div>
           )}
 
           <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
               Отмена
             </Button>
             <Button 
               type="submit" 
-              className="flex-1 bg-yellow-500 hover:bg-yellow-600"
+              className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-900"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Добавление...' : 'Добавить'}
