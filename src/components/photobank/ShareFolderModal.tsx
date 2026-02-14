@@ -5,11 +5,21 @@ import LinkSettingsForm from './share/LinkSettingsForm';
 import ShareLinkResult from './share/ShareLinkResult';
 import MaxMessageModal from './share/MaxMessageModal';
 import FavoritesTab from './share/FavoritesTab';
+import PageDesignTab from './share/PageDesignTab';
 
 interface Client {
   id: number;
   name: string;
   phone: string;
+}
+
+interface GalleryPhoto {
+  id: number;
+  file_name: string;
+  photo_url: string;
+  thumbnail_url?: string;
+  width?: number;
+  height?: number;
 }
 
 interface ShareFolderModalProps {
@@ -37,7 +47,15 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [showMaxModal, setShowMaxModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'link' | 'favorites'>('link');
+  const [activeTab, setActiveTab] = useState<'design' | 'link' | 'favorites'>('design');
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
+  const [pageDesign, setPageDesign] = useState({
+    coverPhotoId: null as number | null,
+    coverOrientation: 'horizontal' as 'horizontal' | 'vertical',
+    coverFocusX: 0.5,
+    coverFocusY: 0.5,
+    gridGap: 8
+  });
   
   const [linkSettings, setLinkSettings] = useState({
     password: '',
@@ -60,7 +78,33 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   useEffect(() => {
     loadClients();
     loadSavedLink();
+    loadFolderPhotos();
   }, []);
+
+  const loadFolderPhotos = async () => {
+    try {
+      const res = await fetch(
+        `https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc?action=list_photos&folder_id=${folderId}`,
+        { headers: { 'X-User-Id': userId.toString() } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.photos && data.photos.length > 0) {
+          const mapped = data.photos.map((p: { id: number; file_name: string; s3_url?: string; thumbnail_s3_url?: string; width?: number; height?: number }) => ({
+            id: p.id,
+            file_name: p.file_name,
+            photo_url: p.s3_url || '',
+            thumbnail_url: p.thumbnail_s3_url || p.s3_url || '',
+            width: p.width,
+            height: p.height
+          }));
+          setGalleryPhotos(prev => prev.length > 0 ? prev : mapped);
+        }
+      }
+    } catch (err) {
+      console.error('[SHARE_MODAL] Error loading folder photos:', err);
+    }
+  };
 
   useEffect(() => {
     if (clients.length > 0) {
@@ -103,8 +147,20 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
                 watermarkOpacity: data.watermark.opacity || 50,
                 watermarkRotation: data.watermark.rotation || 0,
                 screenshotProtection: data.screenshot_protection || false,
-                password: '' // Не показываем пароль в UI
+                password: ''
               }));
+            }
+            
+            setPageDesign({
+              coverPhotoId: data.cover_photo_id || null,
+              coverOrientation: data.cover_orientation || 'horizontal',
+              coverFocusX: data.cover_focus_x ?? 0.5,
+              coverFocusY: data.cover_focus_y ?? 0.5,
+              gridGap: data.grid_gap ?? 8
+            });
+            
+            if (data.photos && data.photos.length > 0) {
+              setGalleryPhotos(data.photos);
             }
           }
         } catch (err) {
@@ -248,7 +304,12 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           watermark_opacity: linkSettings.watermarkOpacity,
           watermark_rotation: linkSettings.watermarkRotation,
           screenshot_protection: linkSettings.screenshotProtection,
-          favorite_config: favoriteConfig
+          favorite_config: favoriteConfig,
+          cover_photo_id: pageDesign.coverPhotoId,
+          cover_orientation: pageDesign.coverOrientation,
+          cover_focus_x: pageDesign.coverFocusX,
+          cover_focus_y: pageDesign.coverFocusY,
+          grid_gap: pageDesign.gridGap
         })
       });
 
@@ -359,7 +420,9 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
       <div 
-        className="bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl"
+        className={`bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl transition-all ${
+          activeTab === 'design' ? 'max-w-4xl' : 'max-w-lg'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-white dark:bg-gray-900 border-b dark:border-gray-800 z-10">
@@ -376,37 +439,60 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           
           <div className="flex border-t dark:border-gray-800">
             <button
+              onClick={() => setActiveTab('design')}
+              className={`flex-1 px-3 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'design'
+                  ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <Icon name="Palette" size={16} className="inline mr-1.5" />
+              <span className="hidden sm:inline">Настройка страницы</span>
+              <span className="sm:hidden">Дизайн</span>
+            </button>
+            <button
               onClick={() => setActiveTab('link')}
-              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 px-3 py-3 text-sm font-medium transition-colors ${
                 activeTab === 'link'
                   ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
-              <Icon name="Link" size={16} className="inline mr-2" />
+              <Icon name="Link" size={16} className="inline mr-1.5" />
               Ссылка
             </button>
             <button
               onClick={() => setActiveTab('favorites')}
-              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 px-3 py-3 text-sm font-medium transition-colors ${
                 activeTab === 'favorites'
                   ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
-              <Icon name="Star" size={16} className="inline mr-2" />
+              <Icon name="Star" size={16} className="inline mr-1.5" />
               Избранное
             </button>
           </div>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4">
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Папка</p>
-            <p className="font-medium text-gray-900 dark:text-white break-words">{folderName}</p>
-          </div>
+          {activeTab !== 'design' && (
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Папка</p>
+              <p className="font-medium text-gray-900 dark:text-white break-words">{folderName}</p>
+            </div>
+          )}
 
-          {activeTab === 'link' ? (
+          {activeTab === 'design' ? (
+            <PageDesignTab
+              folderId={folderId}
+              folderName={folderName}
+              userId={userId}
+              photos={galleryPhotos}
+              settings={pageDesign}
+              onSettingsChange={setPageDesign}
+            />
+          ) : activeTab === 'link' ? (
             <>
               <ClientSelector
                 clients={clients}

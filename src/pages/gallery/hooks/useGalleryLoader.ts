@@ -44,6 +44,11 @@ interface GalleryData {
   download_disabled?: boolean;
   favorite_config?: FavoriteConfig | null;
   photographer_timezone?: string;
+  cover_photo_id?: number | null;
+  cover_orientation?: string;
+  cover_focus_x?: number;
+  cover_focus_y?: number;
+  grid_gap?: number;
 }
 
 export function useGalleryLoader(code?: string) {

@@ -31,6 +31,11 @@ interface GalleryData {
   watermark?: WatermarkSettings;
   screenshot_protection?: boolean;
   download_disabled?: boolean;
+  cover_photo_id?: number | null;
+  cover_orientation?: string;
+  cover_focus_x?: number;
+  cover_focus_y?: number;
+  grid_gap?: number;
 }
 
 interface GalleryGridProps {
@@ -69,8 +74,47 @@ export default function GalleryGrid({
   onLogout
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
+  
+  const coverPhoto = gallery.cover_photo_id 
+    ? gallery.photos.find(p => p.id === gallery.cover_photo_id) || gallery.photos[0]
+    : null;
+  const isVerticalCover = gallery.cover_orientation === 'vertical';
+  const focusX = gallery.cover_focus_x ?? 0.5;
+  const focusY = gallery.cover_focus_y ?? 0.5;
+  const gridGap = gallery.grid_gap ?? 8;
+  
+  const scrollToGrid = () => {
+    document.getElementById('gallery-photo-grid')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {coverPhoto && (
+        <div 
+          className="relative w-full overflow-hidden"
+          style={{ height: isVerticalCover ? '100vh' : '60vh', minHeight: isVerticalCover ? 500 : 300 }}
+        >
+          <img
+            src={coverPhoto.thumbnail_url || coverPhoto.photo_url}
+            alt={gallery.folder_name}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: `${focusX * 100}% ${focusY * 100}%` }}
+            draggable={false}
+            onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10 text-white">
+            <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg">{gallery.folder_name}</h1>
+            <button
+              onClick={scrollToGrid}
+              className="group inline-flex items-center gap-1.5 text-sm text-white/80 hover:text-white transition-colors"
+            >
+              <span>Просмотр фото</span>
+              <Icon name="ChevronDown" size={16} className="animate-bounce" />
+            </button>
+          </div>
+        </div>
+      )}
       <div className="sticky top-0 z-50 bg-white shadow-md md:static md:shadow-none">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4 md:py-8">
           <div className="bg-white rounded-lg md:shadow-sm p-3 sm:p-4 md:p-6">
@@ -157,13 +201,17 @@ export default function GalleryGrid({
         </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0">
-        <div className="columns-2 sm:columns-2 md:columns-3 lg:columns-4 gap-2 sm:gap-3 md:gap-4">
+      <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0">
+        <div 
+          className="columns-2 sm:columns-2 md:columns-3 lg:columns-4"
+          style={{ gap: `${gridGap}px` }}
+        >
           {gallery.photos.map((photo) => {
             return (
               <div
                 key={photo.id}
-                className="group relative bg-gray-100 rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid mb-2 sm:mb-3 md:mb-4 touch-manipulation"
+                className="group relative bg-gray-100 rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation"
+                style={{ marginBottom: `${gridGap}px` }}
                 onClick={() => onPhotoClick(photo)}
               >
                 {photo.is_video ? (

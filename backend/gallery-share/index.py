@@ -154,6 +154,12 @@ def handler(event: dict, context) -> dict:
             screenshot_protection = data.get('screenshot_protection', False)
             favorite_config = data.get('favorite_config')
             
+            cover_photo_id = data.get('cover_photo_id')
+            cover_orientation = data.get('cover_orientation', 'horizontal')
+            cover_focus_x = data.get('cover_focus_x', 0.5)
+            cover_focus_y = data.get('cover_focus_y', 0.5)
+            grid_gap = data.get('grid_gap', 8)
+            
             if not folder_id or not user_id:
                 cur.close()
                 conn.close()
@@ -208,14 +214,18 @@ def handler(event: dict, context) -> dict:
                         watermark_enabled = %s, watermark_type = %s, watermark_text = %s,
                         watermark_image_url = %s, watermark_frequency = %s, watermark_size = %s,
                         watermark_opacity = %s, watermark_rotation = %s, screenshot_protection = %s,
-                        favorite_config = %s
+                        favorite_config = %s,
+                        cover_photo_id = %s, cover_orientation = %s,
+                        cover_focus_x = %s, cover_focus_y = %s, grid_gap = %s
                     WHERE short_code = %s
                     """,
                     (expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text,
                      watermark_image_url, watermark_frequency, watermark_size,
                      watermark_opacity, watermark_rotation, screenshot_protection,
-                     json.dumps(favorite_config) if favorite_config else None, short_code)
+                     json.dumps(favorite_config) if favorite_config else None,
+                     cover_photo_id, cover_orientation,
+                     cover_focus_x, cover_focus_y, grid_gap, short_code)
                 )
             else:
                 # Создаём новую ссылку
@@ -225,13 +235,15 @@ def handler(event: dict, context) -> dict:
                     INSERT INTO t_p28211681_photo_secure_web.folder_short_links
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
-                     watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection, favorite_config)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection, favorite_config,
+                     cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
                      watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
-                     json.dumps(favorite_config) if favorite_config else None)
+                     json.dumps(favorite_config) if favorite_config else None,
+                     cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap)
                 )
             conn.commit()
             
@@ -268,7 +280,8 @@ def handler(event: dict, context) -> dict:
                 SELECT fsl.folder_id, fsl.expires_at, pf.folder_name, fsl.password_hash, fsl.download_disabled,
                        fsl.watermark_enabled, fsl.watermark_type, fsl.watermark_text, fsl.watermark_image_url,
                        fsl.watermark_frequency, fsl.watermark_size, fsl.watermark_opacity, fsl.watermark_rotation, fsl.screenshot_protection,
-                       fsl.favorite_config, fsl.user_id
+                       fsl.favorite_config, fsl.user_id,
+                       fsl.cover_photo_id, fsl.cover_orientation, fsl.cover_focus_x, fsl.cover_focus_y, fsl.grid_gap
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -289,7 +302,8 @@ def handler(event: dict, context) -> dict:
             (folder_id, expires_at, folder_name, password_hash, download_disabled,
              watermark_enabled, watermark_type, watermark_text, watermark_image_url,
              watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
-             favorite_config_json, photographer_id) = result
+             favorite_config_json, photographer_id,
+             cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -472,7 +486,12 @@ def handler(event: dict, context) -> dict:
                         'rotation': watermark_rotation
                     },
                     'screenshot_protection': screenshot_protection,
-                    'favorite_config': favorite_config
+                    'favorite_config': favorite_config,
+                    'cover_photo_id': cover_photo_id,
+                    'cover_orientation': cover_orientation or 'horizontal',
+                    'cover_focus_x': float(cover_focus_x) if cover_focus_x is not None else 0.5,
+                    'cover_focus_y': float(cover_focus_y) if cover_focus_y is not None else 0.5,
+                    'grid_gap': grid_gap if grid_gap is not None else 8
                 })
             }
         
