@@ -159,8 +159,8 @@ export default function GalleryGrid({
             onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-            <h1 className="text-3xl sm:text-5xl font-bold mb-4 drop-shadow-lg" style={{ color: gallery.text_color || '#ffffff' }}>
+          <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-6 sm:pb-10">
+            <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg" style={{ color: gallery.text_color || '#ffffff' }}>
               {gallery.folder_name}
             </h1>
             <button
