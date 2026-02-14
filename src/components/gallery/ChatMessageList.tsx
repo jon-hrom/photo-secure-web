@@ -13,6 +13,13 @@ interface Message {
   video_url?: string;
 }
 
+interface GalleryPhoto {
+  id: number;
+  file_name: string;
+  photo_url: string;
+  thumbnail_url?: string;
+}
+
 interface ChatMessageListProps {
   messages: Message[];
   loading: boolean;
@@ -23,10 +30,11 @@ interface ChatMessageListProps {
   clientName?: string;
   photographerName?: string;
   timezone?: string;
+  galleryPhotos?: GalleryPhoto[];
 }
 
 const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
-  ({ messages, loading, senderType, onImageClick, variant = 'default', isOpponentTyping = false, clientName, photographerName, timezone }, ref) => {
+  ({ messages, loading, senderType, onImageClick, variant = 'default', isOpponentTyping = false, clientName, photographerName, timezone, galleryPhotos = [] }, ref) => {
     const isEmbedded = variant === 'embedded';
 
     if (loading && messages.length === 0) {
@@ -64,6 +72,7 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
               variant={variant}
               senderName={msg.sender_type === 'client' ? clientName : photographerName}
               timezone={timezone}
+              galleryPhotos={galleryPhotos}
             />
           );
         })}

@@ -186,6 +186,7 @@ export default function GalleryModals({
           photographerName="Фотограф"
           senderType="client"
           timezone={gallery.photographer_timezone}
+          galleryPhotos={gallery.photos}
         />
       )}
 

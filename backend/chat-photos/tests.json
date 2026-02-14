@@ -1,0 +1,1 @@
+{"tests": [{"name": "Get photos for chat", "method": "GET", "path": "/?client_id=167&photographer_id=12", "expectedStatus": 200, "expectedBody": {}, "bodyMatcher": "partial"}]}

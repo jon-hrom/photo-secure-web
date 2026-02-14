@@ -15,6 +15,13 @@ interface Message {
   image_url?: string;
 }
 
+interface GalleryPhoto {
+  id: number;
+  file_name: string;
+  photo_url: string;
+  thumbnail_url?: string;
+}
+
 interface ChatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +33,7 @@ interface ChatModalProps {
   embedded?: boolean;
   onMessageSent?: () => void;
   timezone?: string;
+  galleryPhotos?: GalleryPhoto[];
 }
 
 export default function ChatModal({ 
@@ -38,7 +46,8 @@ export default function ChatModal({
   photographerName,
   embedded = false,
   onMessageSent,
-  timezone
+  timezone,
+  galleryPhotos = []
 }: ChatModalProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -47,10 +56,24 @@ export default function ChatModal({
   const [selectedImages, setSelectedImages] = useState<{dataUrl: string; fileName: string; file?: File}[]>([]);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isOpponentTyping, setIsOpponentTyping] = useState(false);
+  const [loadedPhotos, setLoadedPhotos] = useState<GalleryPhoto[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef<number>(0);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resolvedPhotos = galleryPhotos.length > 0 ? galleryPhotos : loadedPhotos;
+
+  useEffect(() => {
+    if (isOpen && galleryPhotos.length === 0 && clientId && photographerId) {
+      fetch(`https://functions.poehali.dev/e3fad9a4-861a-401e-b4d2-0cd9dd4d7671?client_id=${clientId}&photographer_id=${photographerId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.photos) setLoadedPhotos(data.photos);
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, clientId, photographerId, galleryPhotos.length]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -302,6 +325,7 @@ export default function ChatModal({
             clientName={clientName}
             photographerName={photographerName}
             timezone={timezone}
+            galleryPhotos={resolvedPhotos}
             ref={messagesEndRef}
           />
         </div>
@@ -363,6 +387,7 @@ export default function ChatModal({
             clientName={clientName}
             photographerName={photographerName}
             timezone={timezone}
+            galleryPhotos={resolvedPhotos}
             ref={messagesEndRef}
           />
         </div>
