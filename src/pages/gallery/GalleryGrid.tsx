@@ -198,27 +198,19 @@ export default function GalleryGrid({
             marginLeft: 'calc(-1 * env(safe-area-inset-left, 0px))',
             marginRight: 'calc(-1 * env(safe-area-inset-right, 0px))',
             marginTop: 'calc(-1 * env(safe-area-inset-top, 0px))',
-            ...(isVerticalCover 
-              ? { height: '100vh', minHeight: 500 }
-              : { 
-                  aspectRatio: coverPhoto.width && coverPhoto.height 
-                    ? `${coverPhoto.width}/${coverPhoto.height}` 
-                    : '16/9',
-                  maxHeight: '85vh',
-                  minHeight: 300
-                }
-            )
+            height: '100vh',
+            minHeight: 500,
+            background: '#0a0a0a'
           }}
         >
           <img
             src={coverPhoto.photo_url}
             alt={gallery.folder_name}
-            className="w-full h-full object-cover"
-            style={{ objectPosition: `${focusX * 100}% ${focusY * 100}%` }}
+            className="w-full h-full object-contain"
             draggable={false}
             onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" style={{ pointerEvents: 'none' }} />
           {(() => {
             const pos = gallery.cover_text_position || 'bottom-center';
             const posClasses = pos === 'center' ? 'inset-0 flex flex-col items-center justify-center text-center px-6'
