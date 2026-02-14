@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Client {
   id: number;
@@ -68,6 +68,97 @@ export default function useShareModalData(folderId: number, folderName: string, 
   });
 
   const [error, setError] = useState('');
+  const [autoSaved, setAutoSaved] = useState(false);
+  const initialLoadDone = useRef(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestPageDesign = useRef(pageDesign);
+  const latestLinkSettings = useRef(linkSettings);
+  latestPageDesign.current = pageDesign;
+  latestLinkSettings.current = linkSettings;
+
+  const autoSaveSettings = useCallback(async () => {
+    const currentShareUrl = shareUrl || localStorage.getItem(`folder_${folderId}_link`) || '';
+    if (!currentShareUrl) return;
+
+    const galleryCode = currentShareUrl.split('/').pop();
+    if (!galleryCode) return;
+
+    const pd = latestPageDesign.current;
+    const ls = latestLinkSettings.current;
+
+    let expiresInDays = null;
+    if (ls.expiresIn === 'day') expiresInDays = 1;
+    else if (ls.expiresIn === 'week') expiresInDays = 7;
+    else if (ls.expiresIn === 'month') expiresInDays = 30;
+    else if (ls.expiresIn === 'custom' && ls.customDate) {
+      const targetDate = new Date(ls.customDate);
+      const now = new Date();
+      expiresInDays = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    const favoriteConfigStr = localStorage.getItem(`folder_${folderId}_favorite_config`);
+    let favoriteConfig = null;
+    if (favoriteConfigStr) {
+      try { favoriteConfig = JSON.parse(favoriteConfigStr); } catch { /* ignore */ }
+    }
+
+    try {
+      await fetch('https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
+        body: JSON.stringify({
+          folder_id: folderId,
+          user_id: userId,
+          expires_days: expiresInDays,
+          password: ls.password || null,
+          download_disabled: ls.downloadDisabled,
+          watermark_enabled: ls.watermarkEnabled,
+          watermark_type: ls.watermarkType,
+          watermark_text: ls.watermarkText,
+          watermark_image_url: ls.watermarkImageUrl,
+          watermark_frequency: ls.watermarkFrequency,
+          watermark_size: ls.watermarkSize,
+          watermark_opacity: ls.watermarkOpacity,
+          watermark_rotation: ls.watermarkRotation,
+          screenshot_protection: ls.screenshotProtection,
+          favorite_config: favoriteConfig,
+          cover_photo_id: pd.coverPhotoId,
+          cover_orientation: pd.coverOrientation,
+          cover_focus_x: pd.coverFocusX,
+          cover_focus_y: pd.coverFocusY,
+          grid_gap: pd.gridGap,
+          bg_theme: pd.bgTheme,
+          bg_color: pd.bgColor,
+          bg_image_url: pd.bgImageData ? null : pd.bgImageUrl,
+          bg_image_data: pd.bgImageData,
+          bg_image_ext: pd.bgImageExt,
+          text_color: pd.textColor,
+          cover_text_position: pd.coverTextPosition,
+          cover_title: pd.coverTitle,
+          cover_font_size: pd.coverFontSize
+        })
+      });
+      console.log('[SHARE_MODAL] Настройки автосохранены');
+      setAutoSaved(true);
+      setTimeout(() => setAutoSaved(false), 2000);
+    } catch (err) {
+      console.error('[SHARE_MODAL] Ошибка автосохранения:', err);
+    }
+  }, [folderId, userId, shareUrl]);
+
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      autoSaveSettings();
+    }, 1500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [pageDesign, linkSettings, autoSaveSettings]);
 
   useEffect(() => {
     loadClients();
@@ -185,6 +276,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
         }
       }
     }
+    setTimeout(() => { initialLoadDone.current = true; }, 500);
   };
 
   const saveLink = (url: string) => {
@@ -437,6 +529,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
     linkSettings,
     setLinkSettings,
     error,
+    autoSaved,
     generateShareLink,
     handleSendViaMax,
     getExpiryText,

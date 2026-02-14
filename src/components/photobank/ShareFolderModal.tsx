@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Icon from '@/components/ui/icon';
 import MaxMessageModal from './share/MaxMessageModal';
 import FavoritesTab from './share/FavoritesTab';
 import PageDesignTab from './share/PageDesignTab';
@@ -29,6 +30,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     linkSettings,
     setLinkSettings,
     error,
+    autoSaved,
     generateShareLink,
     handleSendViaMax,
     getExpiryText,
@@ -54,6 +56,13 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           onTabChange={setActiveTab}
           onClose={onClose}
         />
+
+        {autoSaved && (
+          <div className="mx-4 sm:mx-6 mt-2 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 animate-in fade-in duration-300">
+            <Icon name="Check" size={14} />
+            <span>Настройки сохранены</span>
+          </div>
+        )}
 
         <div className="p-4 sm:p-6 space-y-4">
           {activeTab === 'design' ? (

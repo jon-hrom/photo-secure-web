@@ -226,6 +226,26 @@ export default function CoverSettings({
       </div>
 
       <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+            Отступ между фото в сетке
+          </h3>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{settings.gridGap}px</span>
+        </div>
+        <Slider
+          value={[settings.gridGap]}
+          onValueChange={handleGridGapChange}
+          min={0}
+          max={24}
+          step={1}
+        />
+        <div className="flex justify-between mt-1">
+          <span className="text-xs text-gray-400">0px</span>
+          <span className="text-xs text-gray-400">24px</span>
+        </div>
+      </div>
+
+      <div>
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
           Ориентация обложки
         </h3>
@@ -313,48 +333,53 @@ export default function CoverSettings({
           Выбрать фото для обложки
         </h3>
         <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
-          {photos.filter(p => !p.file_name?.toLowerCase().endsWith('.mp4')).map(photo => (
-            <button
-              key={photo.id}
-              onClick={() => handleSelectCoverPhoto(photo.id)}
-              className={`relative aspect-square rounded-md overflow-hidden border-2 transition-all ${
-                settings.coverPhotoId === photo.id
-                  ? 'border-blue-500 ring-2 ring-blue-200'
-                  : 'border-transparent hover:border-gray-300'
-              }`}
-            >
-              <img
-                src={photo.thumbnail_url || photo.photo_url}
-                alt={photo.file_name}
-                className="w-full h-full object-cover"
-              />
-              {settings.coverPhotoId === photo.id && (
-                <div className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                  <Icon name="Check" size={10} className="text-white" />
+          {photos.filter(p => !p.file_name?.toLowerCase().endsWith('.mp4')).map(photo => {
+            const isHorizontal = photo.width && photo.height && photo.width > photo.height;
+            const isPhotoVertical = photo.width && photo.height && photo.height > photo.width;
+            return (
+              <button
+                key={photo.id}
+                onClick={() => handleSelectCoverPhoto(photo.id)}
+                className={`relative aspect-square rounded-md overflow-hidden border-2 transition-all ${
+                  settings.coverPhotoId === photo.id
+                    ? 'border-blue-500 ring-2 ring-blue-200'
+                    : 'border-transparent hover:border-gray-300'
+                }`}
+              >
+                <img
+                  src={photo.thumbnail_url || photo.photo_url}
+                  alt={photo.file_name}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute bottom-0.5 left-0.5">
+                  <span className={`text-[8px] font-medium px-1 py-0.5 rounded ${
+                    isHorizontal 
+                      ? 'bg-blue-500/80 text-white' 
+                      : isPhotoVertical 
+                        ? 'bg-purple-500/80 text-white' 
+                        : 'bg-gray-500/80 text-white'
+                  }`}>
+                    {isHorizontal ? '⬌' : isPhotoVertical ? '⬍' : '■'}
+                  </span>
                 </div>
-              )}
-            </button>
-          ))}
+                {settings.coverPhotoId === photo.id && (
+                  <div className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                    <Icon name="Check" size={10} className="text-white" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-            Отступ между фото в сетке
-          </h3>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{settings.gridGap}px</span>
-        </div>
-        <Slider
-          value={[settings.gridGap]}
-          onValueChange={handleGridGapChange}
-          min={0}
-          max={24}
-          step={1}
-        />
-        <div className="flex justify-between mt-1">
-          <span className="text-xs text-gray-400">0px</span>
-          <span className="text-xs text-gray-400">24px</span>
+        <div className="flex items-center gap-3 mt-2">
+          <div className="flex items-center gap-1">
+            <span className="text-[8px] font-medium px-1 py-0.5 rounded bg-blue-500/80 text-white">⬌</span>
+            <span className="text-[10px] text-gray-500 dark:text-gray-400">Горизонтальное</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[8px] font-medium px-1 py-0.5 rounded bg-purple-500/80 text-white">⬍</span>
+            <span className="text-[10px] text-gray-500 dark:text-gray-400">Вертикальное</span>
+          </div>
         </div>
       </div>
     </>
