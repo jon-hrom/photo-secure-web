@@ -143,13 +143,13 @@ export default function ChatMessage({
               <div
                 key={photo.id}
                 className="relative rounded-md overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ width: matchedPhotos.length === 1 ? '100%' : 80, height: matchedPhotos.length === 1 ? 'auto' : 80 }}
+                style={{ width: 80, height: 80 }}
                 onClick={() => onImageClick(photo.photo_url)}
               >
                 <img
                   src={photo.thumbnail_url || photo.photo_url}
                   alt={photo.file_name}
-                  className={`object-cover ${matchedPhotos.length === 1 ? 'w-full rounded-md' : 'w-full h-full'}`}
+                  className="object-cover w-full h-full"
                   loading="lazy"
                   style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
                 />
