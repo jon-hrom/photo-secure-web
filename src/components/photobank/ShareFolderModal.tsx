@@ -54,7 +54,13 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     coverOrientation: 'horizontal' as 'horizontal' | 'vertical',
     coverFocusX: 0.5,
     coverFocusY: 0.5,
-    gridGap: 8
+    gridGap: 8,
+    bgTheme: 'light' as 'light' | 'dark' | 'custom',
+    bgColor: null as string | null,
+    bgImageUrl: null as string | null,
+    bgImageData: null as string | null,
+    bgImageExt: 'jpg',
+    textColor: null as string | null,
   });
   
   const [linkSettings, setLinkSettings] = useState({
@@ -156,7 +162,13 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
               coverOrientation: data.cover_orientation || 'horizontal',
               coverFocusX: data.cover_focus_x ?? 0.5,
               coverFocusY: data.cover_focus_y ?? 0.5,
-              gridGap: data.grid_gap ?? 8
+              gridGap: data.grid_gap ?? 8,
+              bgTheme: data.bg_theme || 'light',
+              bgColor: data.bg_color || null,
+              bgImageUrl: data.bg_image_url || null,
+              bgImageData: null,
+              bgImageExt: 'jpg',
+              textColor: data.text_color || null,
             });
             
             if (data.photos && data.photos.length > 0) {
@@ -309,7 +321,13 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           cover_orientation: pageDesign.coverOrientation,
           cover_focus_x: pageDesign.coverFocusX,
           cover_focus_y: pageDesign.coverFocusY,
-          grid_gap: pageDesign.gridGap
+          grid_gap: pageDesign.gridGap,
+          bg_theme: pageDesign.bgTheme,
+          bg_color: pageDesign.bgColor,
+          bg_image_url: pageDesign.bgImageData ? null : pageDesign.bgImageUrl,
+          bg_image_data: pageDesign.bgImageData,
+          bg_image_ext: pageDesign.bgImageExt,
+          text_color: pageDesign.textColor
         })
       });
 

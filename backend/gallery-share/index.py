@@ -160,6 +160,28 @@ def handler(event: dict, context) -> dict:
             cover_focus_y = data.get('cover_focus_y', 0.5)
             grid_gap = data.get('grid_gap', 8)
             
+            bg_theme = data.get('bg_theme', 'light')
+            bg_color = data.get('bg_color')
+            bg_image_url = data.get('bg_image_url')
+            text_color = data.get('text_color')
+            
+            bg_image_data = data.get('bg_image_data')
+            if bg_image_data:
+                import base64
+                import uuid
+                img_bytes = base64.b64decode(bg_image_data)
+                ext = data.get('bg_image_ext', 'jpg')
+                s3_key = f"gallery-bg/{folder_id}/{uuid.uuid4().hex}.{ext}"
+                poehali_s3 = boto3.client('s3',
+                    endpoint_url='https://bucket.poehali.dev',
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
+                content_types = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp'}
+                poehali_s3.put_object(
+                    Bucket='files', Key=s3_key, Body=img_bytes,
+                    ContentType=content_types.get(ext, 'image/jpeg'))
+                bg_image_url = f"https://cdn.poehali.dev/projects/{os.environ.get('AWS_ACCESS_KEY_ID')}/bucket/{s3_key}"
+            
             if not folder_id or not user_id:
                 cur.close()
                 conn.close()
@@ -216,7 +238,8 @@ def handler(event: dict, context) -> dict:
                         watermark_opacity = %s, watermark_rotation = %s, screenshot_protection = %s,
                         favorite_config = %s,
                         cover_photo_id = %s, cover_orientation = %s,
-                        cover_focus_x = %s, cover_focus_y = %s, grid_gap = %s
+                        cover_focus_x = %s, cover_focus_y = %s, grid_gap = %s,
+                        bg_theme = %s, bg_color = %s, bg_image_url = %s, text_color = %s
                     WHERE short_code = %s
                     """,
                     (expires_at, password_hash, download_disabled,
@@ -225,7 +248,8 @@ def handler(event: dict, context) -> dict:
                      watermark_opacity, watermark_rotation, screenshot_protection,
                      json.dumps(favorite_config) if favorite_config else None,
                      cover_photo_id, cover_orientation,
-                     cover_focus_x, cover_focus_y, grid_gap, short_code)
+                     cover_focus_x, cover_focus_y, grid_gap,
+                     bg_theme, bg_color, bg_image_url, text_color, short_code)
                 )
             else:
                 # Создаём новую ссылку
@@ -236,14 +260,16 @@ def handler(event: dict, context) -> dict:
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
                      watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection, favorite_config,
-                     cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
+                     bg_theme, bg_color, bg_image_url, text_color)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
                      watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
                      json.dumps(favorite_config) if favorite_config else None,
-                     cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap)
+                     cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
+                     bg_theme, bg_color, bg_image_url, text_color)
                 )
             conn.commit()
             
@@ -281,7 +307,8 @@ def handler(event: dict, context) -> dict:
                        fsl.watermark_enabled, fsl.watermark_type, fsl.watermark_text, fsl.watermark_image_url,
                        fsl.watermark_frequency, fsl.watermark_size, fsl.watermark_opacity, fsl.watermark_rotation, fsl.screenshot_protection,
                        fsl.favorite_config, fsl.user_id,
-                       fsl.cover_photo_id, fsl.cover_orientation, fsl.cover_focus_x, fsl.cover_focus_y, fsl.grid_gap
+                       fsl.cover_photo_id, fsl.cover_orientation, fsl.cover_focus_x, fsl.cover_focus_y, fsl.grid_gap,
+                       fsl.bg_theme, fsl.bg_color, fsl.bg_image_url, fsl.text_color
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -303,7 +330,8 @@ def handler(event: dict, context) -> dict:
              watermark_enabled, watermark_type, watermark_text, watermark_image_url,
              watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection,
              favorite_config_json, photographer_id,
-             cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap) = result
+             cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
+             bg_theme, bg_color, bg_image_url, text_color) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -491,7 +519,11 @@ def handler(event: dict, context) -> dict:
                     'cover_orientation': cover_orientation or 'horizontal',
                     'cover_focus_x': float(cover_focus_x) if cover_focus_x is not None else 0.5,
                     'cover_focus_y': float(cover_focus_y) if cover_focus_y is not None else 0.5,
-                    'grid_gap': grid_gap if grid_gap is not None else 8
+                    'grid_gap': grid_gap if grid_gap is not None else 8,
+                    'bg_theme': bg_theme or 'light',
+                    'bg_color': bg_color,
+                    'bg_image_url': bg_image_url,
+                    'text_color': text_color
                 })
             }
         

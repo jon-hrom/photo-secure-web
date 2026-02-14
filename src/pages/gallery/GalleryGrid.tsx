@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 
 interface Photo {
@@ -36,6 +37,10 @@ interface GalleryData {
   cover_focus_x?: number;
   cover_focus_y?: number;
   grid_gap?: number;
+  bg_theme?: string;
+  bg_color?: string | null;
+  bg_image_url?: string | null;
+  text_color?: string | null;
 }
 
 interface GalleryGridProps {
@@ -82,13 +87,62 @@ export default function GalleryGrid({
   const focusX = gallery.cover_focus_x ?? 0.5;
   const focusY = gallery.cover_focus_y ?? 0.5;
   const gridGap = gallery.grid_gap ?? 8;
-  
+
+  const bgTheme = gallery.bg_theme || 'light';
+  const isDarkBg = bgTheme === 'dark' || (bgTheme === 'custom' && gallery.bg_color && (() => {
+    const hex = gallery.bg_color!.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return (r * 0.299 + g * 0.587 + b * 0.114) < 150;
+  })());
+
+  const textColor = gallery.text_color || (isDarkBg ? '#ffffff' : '#111827');
+  const secondaryText = isDarkBg ? 'rgba(255,255,255,0.6)' : 'rgba(55,65,81,1)';
+  const cardBg = isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,1)';
+  const cardShadow = isDarkBg ? 'none' : undefined;
+
+  const bgStyles: React.CSSProperties = {};
+  if (bgTheme === 'dark') {
+    bgStyles.background = '#1a1a2e';
+  } else if (bgTheme === 'custom') {
+    if (gallery.bg_image_url) {
+      bgStyles.backgroundImage = `url(${gallery.bg_image_url})`;
+      bgStyles.backgroundSize = 'cover';
+      bgStyles.backgroundPosition = 'center';
+      bgStyles.backgroundAttachment = 'fixed';
+    } else if (gallery.bg_color) {
+      bgStyles.background = gallery.bg_color;
+    }
+  } else {
+    bgStyles.background = '#f9fafb';
+  }
+
+  useEffect(() => {
+    const themeColor = bgTheme === 'dark' ? '#1a1a2e' 
+      : bgTheme === 'custom' && gallery.bg_color ? gallery.bg_color 
+      : '#f9fafb';
+    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = themeColor;
+    return () => { meta.content = '#ffffff'; };
+  }, [bgTheme, gallery.bg_color]);
+
   const scrollToGrid = () => {
     document.getElementById('gallery-photo-grid')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{
+      ...bgStyles,
+      paddingTop: 'env(safe-area-inset-top, 0px)',
+      paddingLeft: 'env(safe-area-inset-left, 0px)',
+      paddingRight: 'env(safe-area-inset-right, 0px)',
+    }}>
       {coverPhoto && (
         <div 
           className="relative w-full overflow-hidden"
@@ -103,11 +157,16 @@ export default function GalleryGrid({
             onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10 text-white">
-            <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg">{gallery.folder_name}</h1>
+          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10" style={{ 
+            paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))'
+          }}>
+            <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg" style={{ color: gallery.text_color || '#ffffff' }}>
+              {gallery.folder_name}
+            </h1>
             <button
               onClick={scrollToGrid}
-              className="group inline-flex items-center gap-1.5 text-sm text-white/80 hover:text-white transition-colors"
+              className="group inline-flex items-center gap-1.5 text-sm transition-colors"
+              style={{ color: gallery.text_color ? `${gallery.text_color}cc` : 'rgba(255,255,255,0.8)' }}
             >
               <span>Просмотр фото</span>
               <Icon name="ChevronDown" size={16} className="animate-bounce" />
@@ -115,13 +174,21 @@ export default function GalleryGrid({
           </div>
         </div>
       )}
-      <div className="sticky top-0 z-50 bg-white shadow-md md:static md:shadow-none">
+      <div className="sticky top-0 z-50 md:static" style={{ 
+        background: isDarkBg ? 'rgba(26,26,46,0.95)' : 'rgba(255,255,255,0.95)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        boxShadow: isDarkBg ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
         <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4 md:py-8">
-          <div className="bg-white rounded-lg md:shadow-sm p-3 sm:p-4 md:p-6">
+          <div className="rounded-lg p-3 sm:p-4 md:p-6" style={{
+            background: cardBg,
+            boxShadow: cardShadow
+          }}>
             <div className="flex flex-col gap-3 sm:gap-4">
             <div className="flex-1">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">{gallery.folder_name}</h1>
-              <p className="text-sm sm:text-base text-gray-600">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2" style={{ color: textColor }}>{gallery.folder_name}</h1>
+              <p className="text-sm sm:text-base" style={{ color: secondaryText }}>
                 {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
               </p>
             </div>
@@ -162,13 +229,19 @@ export default function GalleryGrid({
                       <span className="sm:hidden">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
                     </button>
                   )}
-                  <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
-                    <Icon name="User" size={16} className="text-gray-600 flex-shrink-0" />
-                    <span className="text-xs sm:text-sm font-medium text-gray-900 truncate">{clientName}</span>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{
+                    background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6'
+                  }}>
+                    <Icon name="User" size={16} className="flex-shrink-0" style={{ color: secondaryText }} />
+                    <span className="text-xs sm:text-sm font-medium truncate" style={{ color: textColor }}>{clientName}</span>
                   </div>
                   <button
                     onClick={onLogout}
-                    className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 active:bg-red-300 transition-colors text-xs sm:text-sm touch-manipulation"
+                    className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation"
+                    style={{
+                      background: isDarkBg ? 'rgba(239,68,68,0.2)' : '#fee2e2',
+                      color: isDarkBg ? '#fca5a5' : '#b91c1c'
+                    }}
                   >
                     <Icon name="LogOut" size={16} className="flex-shrink-0" />
                     <span>Выход</span>
@@ -178,7 +251,11 @@ export default function GalleryGrid({
                 <>
                   <button
                     onClick={onClientLogin}
-                    className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 active:bg-blue-300 transition-colors text-xs sm:text-sm touch-manipulation"
+                    className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation"
+                    style={{
+                      background: isDarkBg ? 'rgba(59,130,246,0.2)' : '#dbeafe',
+                      color: isDarkBg ? '#93c5fd' : '#1d4ed8'
+                    }}
                   >
                     <Icon name="User" size={16} className="flex-shrink-0" />
                     Войти
@@ -201,7 +278,9 @@ export default function GalleryGrid({
         </div>
         </div>
       </div>
-      <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0">
+      <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0"
+        style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
+      >
         <div 
           className="columns-2 sm:columns-2 md:columns-3 lg:columns-4"
           style={{ gap: `${gridGap}px` }}
@@ -210,8 +289,11 @@ export default function GalleryGrid({
             return (
               <div
                 key={photo.id}
-                className="group relative bg-gray-100 rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation"
-                style={{ marginBottom: `${gridGap}px` }}
+                className="group relative rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation"
+                style={{ 
+                  marginBottom: `${gridGap}px`,
+                  background: isDarkBg ? 'rgba(255,255,255,0.06)' : '#f3f4f6'
+                }}
                 onClick={() => onPhotoClick(photo)}
               >
                 {photo.is_video ? (
