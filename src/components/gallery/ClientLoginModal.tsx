@@ -35,6 +35,18 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
 
   if (!isOpen) return null;
 
+  const normalizePhone = (raw: string): string => {
+    let cleaned = raw.replace(/[^\d+]/g, '');
+    if (cleaned.startsWith('8')) {
+      cleaned = '+7' + cleaned.substring(1);
+    } else if (cleaned.startsWith('7') && !cleaned.startsWith('+7')) {
+      cleaned = '+7' + cleaned.substring(1);
+    } else if (!cleaned.startsWith('+7') && cleaned.length >= 10) {
+      cleaned = '+7' + cleaned;
+    }
+    return cleaned;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -51,6 +63,8 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
     setIsLoading(true);
     setError('');
 
+    const normalizedPhone = showPhone ? normalizePhone(phone.trim()) : '';
+
     try {
       const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
         method: 'POST',
@@ -59,7 +73,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
           action: 'login',
           gallery_code: galleryCode,
           full_name: fullName.trim(),
-          phone: phone.trim(),
+          phone: normalizedPhone,
           email: email.trim() || null
         })
       });

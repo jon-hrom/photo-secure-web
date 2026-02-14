@@ -87,34 +87,31 @@ def handler(event: dict, context) -> dict:
                 existing = None
                 
                 if full_name and phone:
-                    # Если есть оба поля - ищем по обоим
                     cur.execute('''
                         SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
-                        WHERE gallery_code = %s AND full_name = %s AND phone = %s
+                        WHERE gallery_code = %s AND LOWER(TRIM(full_name)) = LOWER(%s) 
+                          AND REGEXP_REPLACE(TRIM(phone), '[^0-9+]', '', 'g') = %s
                         ORDER BY id DESC LIMIT 1
                     ''', (gallery_code, full_name, phone))
                     existing = cur.fetchone()
                 elif full_name:
-                    # Только имя
                     cur.execute('''
                         SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
-                        WHERE gallery_code = %s AND full_name = %s
+                        WHERE gallery_code = %s AND LOWER(TRIM(full_name)) = LOWER(%s)
                         ORDER BY id DESC LIMIT 1
                     ''', (gallery_code, full_name))
                     existing = cur.fetchone()
                 elif phone:
-                    # Только телефон
                     cur.execute('''
                         SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
-                        WHERE gallery_code = %s AND phone = %s
+                        WHERE gallery_code = %s AND REGEXP_REPLACE(TRIM(phone), '[^0-9+]', '', 'g') = %s
                         ORDER BY id DESC LIMIT 1
                     ''', (gallery_code, phone))
                     existing = cur.fetchone()
                 elif email:
-                    # Только email
                     cur.execute('''
                         SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
-                        WHERE gallery_code = %s AND email = %s
+                        WHERE gallery_code = %s AND LOWER(TRIM(email)) = LOWER(%s)
                         ORDER BY id DESC LIMIT 1
                     ''', (gallery_code, email))
                     existing = cur.fetchone()
@@ -171,7 +168,7 @@ def handler(event: dict, context) -> dict:
                 gallery_code = body.get('gallery_code')
                 full_name = body.get('full_name', '').strip()
                 phone = body.get('phone', '').strip()
-                email = body.get('email', '').strip()
+                email = (body.get('email') or '').strip()
                 
                 if not gallery_code:
                     return {
@@ -180,20 +177,29 @@ def handler(event: dict, context) -> dict:
                         'body': json.dumps({'error': 'gallery_code is required'})
                     }
                 
-                # Строим динамический WHERE запрос в зависимости от заполненных полей
+                import re
+                if phone:
+                    phone = re.sub(r'[^\d+]', '', phone)
+                    if phone.startswith('8'):
+                        phone = '+7' + phone[1:]
+                    elif phone.startswith('7') and not phone.startswith('+7'):
+                        phone = '+7' + phone[1:]
+                    elif not phone.startswith('+7') and len(phone) >= 10:
+                        phone = '+7' + phone
+                
                 where_conditions = ['gallery_code = %s']
                 params = [gallery_code]
                 
                 if full_name:
-                    where_conditions.append('TRIM(full_name) = %s')
+                    where_conditions.append('LOWER(TRIM(full_name)) = LOWER(%s)')
                     params.append(full_name)
                 
                 if phone:
-                    where_conditions.append('TRIM(phone) = %s')
+                    where_conditions.append("REGEXP_REPLACE(TRIM(phone), '[^0-9+]', '', 'g') = %s")
                     params.append(phone)
                 
                 if email:
-                    where_conditions.append('TRIM(email) = %s')
+                    where_conditions.append('LOWER(TRIM(email)) = LOWER(%s)')
                     params.append(email)
                 
                 where_clause = ' AND '.join(where_conditions)
