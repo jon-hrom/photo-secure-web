@@ -215,9 +215,9 @@ export default function GalleryGrid({
             const pos = gallery.cover_text_position || 'bottom-center';
             const posClasses = pos === 'center' ? 'inset-0 flex flex-col items-center justify-center text-center px-6'
               : pos === 'top-center' ? 'inset-0 flex flex-col items-center justify-start text-center px-6 pt-12 sm:pt-16'
-              : pos === 'bottom-left' ? 'bottom-0 left-0 right-0 flex flex-col items-start text-left px-6 pb-6 sm:pb-10'
-              : pos === 'bottom-right' ? 'bottom-0 left-0 right-0 flex flex-col items-end text-right px-6 pb-6 sm:pb-10'
-              : 'bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-6 sm:pb-10';
+              : pos === 'bottom-left' ? 'bottom-0 left-0 right-0 flex flex-col items-start text-left px-6 pb-20 sm:pb-10'
+              : pos === 'bottom-right' ? 'bottom-0 left-0 right-0 flex flex-col items-end text-right px-6 pb-20 sm:pb-10'
+              : 'bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-20 sm:pb-10';
             return (
               <div
                 className={`absolute ${posClasses}`}
