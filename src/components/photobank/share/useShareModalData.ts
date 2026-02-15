@@ -49,6 +49,9 @@ export default function useShareModalData(folderId: number, folderName: string, 
     coverTextPosition: 'bottom-center' as 'bottom-center' | 'center' | 'bottom-left' | 'bottom-right' | 'top-center',
     coverTitle: null as string | null,
     coverFontSize: 36,
+    mobileCoverPhotoId: null as number | null,
+    mobileCoverFocusX: 0.5,
+    mobileCoverFocusY: 0.5,
   });
 
   const [linkSettings, setLinkSettings] = useState({
@@ -138,7 +141,10 @@ export default function useShareModalData(folderId: number, folderName: string, 
           text_color: pd.textColor,
           cover_text_position: pd.coverTextPosition,
           cover_title: pd.coverTitle,
-          cover_font_size: pd.coverFontSize
+          cover_font_size: pd.coverFontSize,
+          mobile_cover_photo_id: pd.mobileCoverPhotoId,
+          mobile_cover_focus_x: pd.mobileCoverFocusX,
+          mobile_cover_focus_y: pd.mobileCoverFocusY
         })
       });
       console.log('[SHARE_MODAL] Настройки автосохранены');
@@ -248,6 +254,9 @@ export default function useShareModalData(folderId: number, folderName: string, 
               coverTextPosition: data.cover_text_position || 'bottom-center',
               coverTitle: data.cover_title || null,
               coverFontSize: data.cover_font_size ?? 36,
+              mobileCoverPhotoId: data.mobile_cover_photo_id || null,
+              mobileCoverFocusX: data.mobile_cover_focus_x ?? 0.5,
+              mobileCoverFocusY: data.mobile_cover_focus_y ?? 0.5,
             });
 
             if (data.photos && data.photos.length > 0) {

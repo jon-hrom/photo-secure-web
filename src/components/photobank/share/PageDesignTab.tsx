@@ -27,6 +27,9 @@ interface PageDesignSettings {
   coverTextPosition: 'bottom-center' | 'center' | 'bottom-left' | 'bottom-right' | 'top-center';
   coverTitle: string | null;
   coverFontSize: number;
+  mobileCoverPhotoId: number | null;
+  mobileCoverFocusX: number;
+  mobileCoverFocusY: number;
 }
 
 interface PageDesignTabProps {

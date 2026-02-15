@@ -160,6 +160,10 @@ def handler(event: dict, context) -> dict:
             cover_focus_y = data.get('cover_focus_y', 0.5)
             grid_gap = data.get('grid_gap', 8)
             
+            mobile_cover_photo_id = data.get('mobile_cover_photo_id')
+            mobile_cover_focus_x = data.get('mobile_cover_focus_x', 0.5)
+            mobile_cover_focus_y = data.get('mobile_cover_focus_y', 0.5)
+            
             bg_theme = data.get('bg_theme', 'light')
             bg_color = data.get('bg_color')
             bg_image_url = data.get('bg_image_url')
@@ -244,7 +248,8 @@ def handler(event: dict, context) -> dict:
                         cover_focus_x = %s, cover_focus_y = %s, grid_gap = %s,
                         bg_theme = %s, bg_color = %s, bg_image_url = %s, text_color = %s,
                         cover_text_position = %s,
-                        cover_title = %s, cover_font_size = %s
+                        cover_title = %s, cover_font_size = %s,
+                        mobile_cover_photo_id = %s, mobile_cover_focus_x = %s, mobile_cover_focus_y = %s
                     WHERE short_code = %s
                     """,
                     (expires_at, password_hash, download_disabled,
@@ -255,7 +260,8 @@ def handler(event: dict, context) -> dict:
                      cover_photo_id, cover_orientation,
                      cover_focus_x, cover_focus_y, grid_gap,
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
-                     cover_title, cover_font_size, short_code)
+                     cover_title, cover_font_size,
+                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y, short_code)
                 )
             else:
                 # Создаём новую ссылку
@@ -268,8 +274,9 @@ def handler(event: dict, context) -> dict:
                      watermark_frequency, watermark_size, watermark_opacity, watermark_rotation, screenshot_protection, favorite_config,
                      cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
-                     cover_title, cover_font_size)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     cover_title, cover_font_size,
+                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
@@ -277,7 +284,8 @@ def handler(event: dict, context) -> dict:
                      json.dumps(favorite_config) if favorite_config else None,
                      cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
-                     cover_title, cover_font_size)
+                     cover_title, cover_font_size,
+                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y)
                 )
             conn.commit()
             
@@ -318,6 +326,7 @@ def handler(event: dict, context) -> dict:
                        fsl.cover_photo_id, fsl.cover_orientation, fsl.cover_focus_x, fsl.cover_focus_y, fsl.grid_gap,
                        fsl.bg_theme, fsl.bg_color, fsl.bg_image_url, fsl.text_color, fsl.cover_text_position,
                        fsl.cover_title, fsl.cover_font_size,
+                       fsl.mobile_cover_photo_id, fsl.mobile_cover_focus_x, fsl.mobile_cover_focus_y,
                        COALESCE(fsl.is_blocked, FALSE) as is_blocked
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
@@ -363,7 +372,8 @@ def handler(event: dict, context) -> dict:
              favorite_config_json, photographer_id,
              cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
              bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
-             cover_title, cover_font_size, _is_blocked) = result
+             cover_title, cover_font_size,
+             mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y, _is_blocked) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -558,7 +568,10 @@ def handler(event: dict, context) -> dict:
                     'text_color': text_color,
                     'cover_text_position': cover_text_position or 'bottom-center',
                     'cover_title': cover_title,
-                    'cover_font_size': cover_font_size if cover_font_size is not None else 36
+                    'cover_font_size': cover_font_size if cover_font_size is not None else 36,
+                    'mobile_cover_photo_id': mobile_cover_photo_id,
+                    'mobile_cover_focus_x': float(mobile_cover_focus_x) if mobile_cover_focus_x is not None else 0.5,
+                    'mobile_cover_focus_y': float(mobile_cover_focus_y) if mobile_cover_focus_y is not None else 0.5
                 })
             }
         

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 
 interface Photo {
@@ -44,6 +44,9 @@ interface GalleryData {
   cover_text_position?: string;
   cover_title?: string | null;
   cover_font_size?: number;
+  mobile_cover_photo_id?: number | null;
+  mobile_cover_focus_x?: number;
+  mobile_cover_focus_y?: number;
 }
 
 interface GalleryGridProps {
@@ -83,12 +86,26 @@ export default function GalleryGrid({
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
   
-  const coverPhoto = gallery.cover_photo_id 
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const desktopCoverPhoto = gallery.cover_photo_id 
     ? gallery.photos.find(p => p.id === gallery.cover_photo_id) || gallery.photos[0]
     : null;
+
+  const mobileCoverPhoto = gallery.mobile_cover_photo_id
+    ? gallery.photos.find(p => p.id === gallery.mobile_cover_photo_id) || desktopCoverPhoto
+    : desktopCoverPhoto;
+
+  const coverPhoto = isMobile ? mobileCoverPhoto : desktopCoverPhoto;
   const isVerticalCover = gallery.cover_orientation === 'vertical';
-  const focusX = gallery.cover_focus_x ?? 0.5;
-  const focusY = gallery.cover_focus_y ?? 0.5;
+  const focusX = isMobile ? (gallery.mobile_cover_focus_x ?? gallery.cover_focus_x ?? 0.5) : (gallery.cover_focus_x ?? 0.5);
+  const focusY = isMobile ? (gallery.mobile_cover_focus_y ?? gallery.cover_focus_y ?? 0.5) : (gallery.cover_focus_y ?? 0.5);
   const gridGap = gallery.grid_gap ?? 8;
 
   const bgTheme = gallery.bg_theme || 'light';
@@ -206,7 +223,8 @@ export default function GalleryGrid({
           <img
             src={coverPhoto.photo_url}
             alt={gallery.folder_name}
-            className="w-full h-full object-contain"
+            className={`w-full h-full ${isMobile ? 'object-cover' : 'object-contain'}`}
+            style={isMobile ? { objectPosition: `${focusX * 100}% ${focusY * 100}%` } : undefined}
             draggable={false}
             onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
           />
