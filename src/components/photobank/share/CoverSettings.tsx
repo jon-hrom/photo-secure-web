@@ -293,32 +293,24 @@ export default function CoverSettings({
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
           Положение названия на обложке
         </h3>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {([
-            { key: 'top-center' as const, label: 'Сверху', dotPos: 'top-1.5 left-1/2 -translate-x-1/2' },
-            { key: 'center' as const, label: 'Центр', dotPos: 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' },
-            { key: 'bottom-left' as const, label: 'Лево', dotPos: 'bottom-1.5 left-2' },
-            { key: 'bottom-center' as const, label: 'Низ', dotPos: 'bottom-1.5 left-1/2 -translate-x-1/2' },
-            { key: 'bottom-right' as const, label: 'Право', dotPos: 'bottom-1.5 right-2' },
+            { key: 'top-center' as const, label: 'Сверху' },
+            { key: 'center' as const, label: 'Центр' },
+            { key: 'bottom-left' as const, label: 'Лево' },
+            { key: 'bottom-center' as const, label: 'Низ' },
+            { key: 'bottom-right' as const, label: 'Право' },
           ]).map(pos => (
             <button
               key={pos.key}
               onClick={() => onSettingsChange({ ...settings, coverTextPosition: pos.key })}
-              className={`relative p-2 rounded-lg border-2 transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
                 settings.coverTextPosition === pos.key
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-600 dark:text-gray-400'
               }`}
             >
-              <div className="relative w-full aspect-video bg-gray-200 dark:bg-gray-700 rounded mb-1">
-                <div className={`absolute w-3 h-1 bg-gray-500 rounded-full ${pos.dotPos}`} />
-              </div>
-              <span className="text-[9px] font-medium text-gray-600 dark:text-gray-400">{pos.label}</span>
-              {settings.coverTextPosition === pos.key && (
-                <div className="absolute top-1 right-1 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
-                  <Icon name="Check" size={7} className="text-white" />
-                </div>
-              )}
+              {pos.label}
             </button>
           ))}
         </div>
