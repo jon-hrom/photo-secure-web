@@ -131,7 +131,7 @@ export default function BackgroundSettings({
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
           Фон галереи
         </h3>
-        <div className="grid grid-cols-4 gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           {([
             { key: 'auto' as const, label: 'Авто', icon: 'Wand2', iconColor: 'text-purple-400',
               bgStyle: { background: settings.bgTheme === 'auto' && settings.bgColor ? settings.bgColor : 'linear-gradient(135deg, #2d2d3a 0%, #4a3f5c 100%)' } },
@@ -145,18 +145,18 @@ export default function BackgroundSettings({
             <button
               key={t.key}
               onClick={() => handleThemeChange(t.key)}
-              className={`relative p-2 rounded-lg border-2 transition-all ${
+              className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border-2 transition-all ${
                 settings.bgTheme === t.key
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
               }`}
             >
-              <div className="w-full aspect-square rounded mb-1.5 flex items-center justify-center overflow-hidden" style={t.bgStyle}>
-                <Icon name={t.icon} size={16} className={t.iconColor} />
+              <div className="w-5 h-5 rounded flex items-center justify-center overflow-hidden flex-shrink-0" style={t.bgStyle}>
+                <Icon name={t.icon} size={12} className={t.iconColor} />
               </div>
-              <span className="text-[10px] font-medium text-gray-700 dark:text-gray-300">{t.label}</span>
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t.label}</span>
               {settings.bgTheme === t.key && (
-                <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center">
+                <div className="w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
                   <Icon name="Check" size={8} className="text-white" />
                 </div>
               )}
