@@ -363,9 +363,7 @@ def handler(event, context):
         }
     
     params = event.get("queryStringParameters") or {}
-    action = params.get("action", "")
     
-    # Парсим body
     body = {}
     if method == "POST":
         raw_body = event.get("body", "{}")
@@ -373,6 +371,8 @@ def handler(event, context):
             body = json.loads(raw_body) if raw_body else {}
         except json.JSONDecodeError:
             return cors_response(400, {"error": "Invalid JSON"})
+    
+    action = params.get("action") or body.get("action", "")
     
     conn = None
     try:
