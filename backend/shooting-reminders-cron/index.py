@@ -386,6 +386,7 @@ def handler(event, context):
                         SELECT 1 FROM {SCHEMA}.shooting_reminders_log
                         WHERE project_id = {escape_sql(proj['project_id'])}
                           AND reminder_type = {escape_sql(reminder_type)}
+                          AND success = TRUE
                     """)
                     if not cur.fetchone():
                         try:

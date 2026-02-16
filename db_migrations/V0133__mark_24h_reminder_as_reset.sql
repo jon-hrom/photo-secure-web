@@ -1,0 +1,1 @@
+UPDATE t_p28211681_photo_secure_web.shooting_reminders_log SET success = false, error_message = 'reset_for_retest' WHERE project_id = 1771254098568 AND reminder_type = '24h';
