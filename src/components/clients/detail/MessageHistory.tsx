@@ -1,10 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Message, Booking, Project, Payment, Client } from '@/components/clients/ClientsTypes';
 import ProjectArchiveDialog from '@/components/clients/ProjectArchiveDialog';
 import { formatLocalDate } from '@/utils/dateFormat';
+
+const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
+
+interface ReminderLog {
+  id: number;
+  project_id: number;
+  project_name: string;
+  reminder_type: string;
+  sent_to: string;
+  sent_at: string;
+  channel: string;
+  success: boolean;
+  error_message: string | null;
+}
 
 interface MessageHistoryProps {
   messages: Message[];
@@ -18,6 +32,31 @@ interface MessageHistoryProps {
 const MessageHistory = ({ messages, bookings, projects = [], payments = [], client, formatDateTime }: MessageHistoryProps) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [reminders, setReminders] = useState<ReminderLog[]>([]);
+  const [loadingReminders, setLoadingReminders] = useState(false);
+
+  useEffect(() => {
+    if (!client?.id) return;
+    const loadReminders = async () => {
+      setLoadingReminders(true);
+      try {
+        const userId = localStorage.getItem('userId');
+        const res = await fetch(CLIENTS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
+          body: JSON.stringify({ action: 'get_reminders_log', clientId: client.id })
+        });
+        const data = await res.json();
+        if (data.reminders) setReminders(data.reminders);
+      } catch (e) {
+        console.error('[RemindersLog] Error:', e);
+      } finally {
+        setLoadingReminders(false);
+      }
+    };
+    loadReminders();
+  }, [client?.id]);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -185,6 +224,50 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
         </Card>
       )}
 
+      {reminders.length > 0 && (
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="Bell" size={20} />
+              Отправленные напоминания
+              <Badge variant="secondary" className="ml-2">{reminders.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {reminders.map((r) => {
+              const typeLabels: Record<string, string> = { '24h': 'За 24 часа', '5h': 'За 5 часов', '1h': 'За 1 час' };
+              const channelLabels: Record<string, string> = { both: 'Все каналы', whatsapp: 'WhatsApp', telegram: 'Telegram', email: 'Email' };
+              const sentDate = new Date(r.sent_at);
+              return (
+                <div key={r.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                  <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${r.success ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                    <Icon name={r.success ? 'CheckCircle' : 'XCircle'} size={18} className={r.success ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium">{r.project_name}</span>
+                      <Badge variant="outline" className="text-xs">{typeLabels[r.reminder_type] || r.reminder_type}</Badge>
+                      <Badge variant="secondary" className="text-xs">{channelLabels[r.channel] || r.channel}</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {sentDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}{' '}
+                      в {sentDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    {r.error_message && (
+                      <div className="text-xs text-red-500 mt-1">{r.error_message}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {loadingReminders && (
+        <div className="text-center py-4 text-muted-foreground text-sm">Загрузка напоминаний...</div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>История взаимодействий</CardTitle>
@@ -210,7 +293,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                   <div
                     key={`project-${project.id}`}
                     onClick={() => handleProjectClick(project)}
-                    className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-white hover:shadow-lg transition-all cursor-pointer"
+                    className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/30 dark:to-card hover:shadow-lg transition-all cursor-pointer"
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0">
@@ -263,7 +346,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
               if (item.type === 'message') {
                 const msg = item.data as Message;
                 return (
-                  <div key={`message-${msg.id}`} className="border rounded-lg p-3 bg-white">
+                  <div key={`message-${msg.id}`} className="border rounded-lg p-3 bg-card">
                     <div className="flex items-center gap-2 mb-2">
                       <Icon
                         name={

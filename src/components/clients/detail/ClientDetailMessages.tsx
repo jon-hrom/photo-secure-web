@@ -177,21 +177,21 @@ const ClientDetailMessages = ({
 
   return (
     <div className="flex flex-col h-[500px]">
-      <div className="flex items-center justify-between px-4 py-2 bg-white border-b">
-        <h3 className="text-sm font-semibold text-gray-700">История переписки</h3>
+      <div className="flex items-center justify-between px-4 py-2 bg-background border-b">
+        <h3 className="text-sm font-semibold text-foreground">История переписки</h3>
         {messages.length > 0 && onDeleteAllMessages && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onDeleteAllMessages}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
           >
             <Icon name="Trash2" size={16} className="mr-1" />
             Очистить переписку
           </Button>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-muted/50 to-muted">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
@@ -219,10 +219,10 @@ const ClientDetailMessages = ({
                 
                 <div className={`flex flex-col max-w-[70%] ${isClient ? 'items-start' : 'items-end'}`}>
                   <div className="flex items-center gap-2 mb-1 px-1">
-                    <span className="text-xs font-semibold text-gray-700">
+                    <span className="text-xs font-semibold text-foreground">
                       {isClient ? clientName : (message.author || photographerName)}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       {new Date(message.date).toLocaleString('ru-RU', {
                         day: '2-digit',
                         month: '2-digit',
@@ -234,20 +234,20 @@ const ClientDetailMessages = ({
                   
                   <div className={`group relative rounded-2xl p-4 shadow-md ${
                     isClient 
-                      ? 'bg-white border-2 border-blue-200 rounded-tl-none' 
+                      ? 'bg-card border-2 border-blue-200 dark:border-blue-800 rounded-tl-none' 
                       : 'bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-tr-none'
                   }`}>
                     <div className="flex items-start gap-2 mb-2">
                       <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                        isClient ? 'bg-blue-100' : 'bg-white/20'
+                        isClient ? 'bg-blue-100 dark:bg-blue-900/50' : 'bg-white/20'
                       }`}>
                         <Icon 
                           name={messageTypeIcons[message.type]} 
                           size={12} 
-                          className={isClient ? 'text-blue-600' : 'text-white'} 
+                          className={isClient ? 'text-blue-600 dark:text-blue-400' : 'text-white'} 
                         />
                       </div>
-                      <span className={`text-xs font-medium ${isClient ? 'text-blue-700' : 'text-white/90'}`}>
+                      <span className={`text-xs font-medium ${isClient ? 'text-blue-700 dark:text-blue-400' : 'text-white/90'}`}>
                         {messageTypeLabels[message.type]}
                       </span>
                       {onDeleteMessage && (
@@ -256,7 +256,7 @@ const ClientDetailMessages = ({
                           size="sm"
                           onClick={() => onDeleteMessage(message.id)}
                           className={`ml-auto h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ${
-                            isClient ? 'hover:bg-red-50' : 'hover:bg-white/20'
+                            isClient ? 'hover:bg-red-50 dark:hover:bg-red-950' : 'hover:bg-white/20'
                           }`}
                         >
                           <Icon name="Trash2" size={14} className={isClient ? 'text-red-500' : 'text-white'} />
@@ -283,7 +283,7 @@ const ClientDetailMessages = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 pb-20 bg-white border-t-2 border-gray-200 rounded-b-2xl shadow-lg">
+      <div className="p-4 pb-20 bg-background border-t-2 border-border rounded-b-2xl shadow-lg">
         <div className="space-y-2">
           {clientId && templates.length > 0 && (
             <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
@@ -314,7 +314,7 @@ const ClientDetailMessages = ({
                   handleAdd();
                 }
               }}
-              className="flex-1 rounded-full border-2 border-gray-300 focus:border-primary"
+              className="flex-1 rounded-full border-2 border-border focus:border-primary"
             />
             <Button 
               onClick={handleAdd}

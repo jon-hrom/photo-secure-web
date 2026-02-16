@@ -722,6 +722,42 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            elif action == 'get_reminders_log':
+                client_id = body.get('clientId')
+                if not client_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'clientId required'}),
+                        'isBase64Encoded': False
+                    }
+                cur.execute(f'''
+                    SELECT rl.id, rl.project_id, rl.reminder_type, rl.sent_to, rl.sent_at, rl.channel, rl.success, rl.error_message,
+                           cp.name as project_name
+                    FROM {DB_SCHEMA}.shooting_reminders_log rl
+                    JOIN {DB_SCHEMA}.client_projects cp ON rl.project_id = cp.id
+                    WHERE cp.client_id = %s
+                    ORDER BY rl.sent_at DESC
+                    LIMIT 50
+                ''', (client_id,))
+                reminders = cur.fetchall()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'reminders': [{
+                        'id': r['id'],
+                        'project_id': r['project_id'],
+                        'project_name': r['project_name'],
+                        'reminder_type': r['reminder_type'],
+                        'sent_to': r['sent_to'],
+                        'sent_at': str(r['sent_at']),
+                        'channel': r['channel'],
+                        'success': r['success'],
+                        'error_message': r['error_message']
+                    } for r in reminders]}),
+                    'isBase64Encoded': False
+                }
+
             elif action == 'delete':
                 client_id = body.get('clientId')
                 
