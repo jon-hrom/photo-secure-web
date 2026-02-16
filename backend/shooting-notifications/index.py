@@ -13,6 +13,7 @@ import telebot
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = 't_p28211681_photo_secure_web'
+BOT_USERNAME = 'FotooMixx_bot'
 
 
 def escape_sql(value):
@@ -82,6 +83,29 @@ def send_via_telegram(telegram_id: str, message: str) -> dict:
         return {'error': str(e)}
 
 
+def create_telegram_invite(conn, client_id: int, photographer_id: int, client_phone: str) -> str:
+    """Создать invite-ссылку для Telegram и вернуть URL"""
+    import secrets as sec
+    invite_code = sec.token_urlsafe(16)
+    expires_at = (datetime.utcnow() + timedelta(days=30)).isoformat()
+    
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            UPDATE {SCHEMA}.telegram_invites
+            SET is_used = TRUE
+            WHERE client_id = {client_id} AND is_used = FALSE
+        """)
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.telegram_invites
+            (invite_code, client_id, photographer_id, client_phone, expires_at)
+            VALUES ({escape_sql(invite_code)}, {client_id}, {photographer_id},
+                    {escape_sql(client_phone)}, {escape_sql(expires_at)})
+        """)
+        conn.commit()
+    
+    return f"https://t.me/{BOT_USERNAME}?start={invite_code}"
+
+
 def format_date_ru(date_str: str) -> str:
     """Форматировать дату в русский формат (15 января 2025)"""
     try:
@@ -93,7 +117,7 @@ def format_date_ru(date_str: str) -> str:
         return date_str
 
 
-def send_client_notification(project_data: dict, client_data: dict, photographer_data: dict) -> dict:
+def send_client_notification(project_data: dict, client_data: dict, photographer_data: dict, conn=None) -> dict:
     """Отправить уведомление клиенту о съёмке"""
     instance_id = photographer_data.get('green_api_instance_id') or ''
     token = photographer_data.get('green_api_token') or ''
@@ -151,6 +175,26 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
         f"📞 Телефон фотографа: {photographer_phone}",
         "",
         "Если у вас есть вопросы или нужно перенести съёмку, свяжитесь с фотографом.",
+    ])
+    
+    if conn and not client_data.get('telegram_chat_id'):
+        try:
+            invite_url = create_telegram_invite(
+                conn,
+                client_data.get('id'),
+                photographer_data.get('id'),
+                client_data.get('phone', '')
+            )
+            message_parts.extend([
+                "",
+                "💬 Подключите Telegram для удобных уведомлений:",
+                invite_url,
+            ])
+            print(f'[SHOOTING_NOTIF] Telegram invite added for client {client_data.get("id")}')
+        except Exception as e:
+            print(f'[SHOOTING_NOTIF] Failed to create telegram invite: {e}')
+    
+    message_parts.extend([
         "",
         "До встречи на съёмке! 📷"
     ])
@@ -439,7 +483,7 @@ def handler(event: dict, context) -> dict:
             
             # Отправляем уведомление клиенту
             if notify_client:
-                client_result = send_client_notification(project_data, client_data, photographer_data)
+                client_result = send_client_notification(project_data, client_data, photographer_data, conn)
                 results['client_notification'] = client_result
             
             # Отправляем уведомление фотографу
