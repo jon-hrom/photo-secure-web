@@ -4,6 +4,7 @@ interface Client {
   id: number;
   name: string;
   phone: string;
+  telegram_chat_id?: string;
 }
 
 interface GalleryPhoto {
@@ -33,6 +34,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [showMaxModal, setShowMaxModal] = useState(false);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [pageDesign, setPageDesign] = useState({
     coverPhotoId: null as number | null,
@@ -491,6 +493,50 @@ export default function useShareModalData(folderId: number, folderName: string, 
     }
   };
 
+  const TELEGRAM_NOTIFY_URL = 'https://functions.poehali.dev/acd42a29-3e28-415f-b82a-b5b29439cc80';
+
+  const handleSendViaTelegram = async (message: string) => {
+    if (!selectedClient) {
+      alert('Выберите клиента');
+      return false;
+    }
+
+    if (!selectedClient.telegram_chat_id) {
+      alert('У клиента не подключен Telegram');
+      return false;
+    }
+
+    try {
+      const response = await fetch(TELEGRAM_NOTIFY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
+        body: JSON.stringify({
+          action: 'send_direct',
+          client_id: selectedClient.id,
+          message: message
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success || data.status === 'sent') {
+        alert('Сообщение отправлено в Telegram ✅');
+        setShowTelegramModal(false);
+        return true;
+      } else {
+        alert('Ошибка отправки: ' + (data.error || 'Неизвестная ошибка'));
+        return false;
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      alert('Ошибка: ' + errorMessage);
+      return false;
+    }
+  };
+
   const getExpiryText = () => {
     if (linkSettings.expiresIn === 'day') return 'сутки';
     if (linkSettings.expiresIn === 'week') return 'неделю';
@@ -532,6 +578,8 @@ export default function useShareModalData(folderId: number, folderName: string, 
     clients,
     showMaxModal,
     setShowMaxModal,
+    showTelegramModal,
+    setShowTelegramModal,
     galleryPhotos,
     pageDesign,
     setPageDesign,
@@ -541,6 +589,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
     autoSaved,
     generateShareLink,
     handleSendViaMax,
+    handleSendViaTelegram,
     getExpiryText,
     handleCopyLink,
     handleClientChange,

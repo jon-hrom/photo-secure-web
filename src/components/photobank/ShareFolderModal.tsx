@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import MaxMessageModal from './share/MaxMessageModal';
+import TelegramMessageModal from './share/TelegramMessageModal';
 import FavoritesTab from './share/FavoritesTab';
 import PageDesignTab from './share/PageDesignTab';
 import ShareModalHeader from './share/ShareModalHeader';
@@ -24,6 +25,8 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     clients,
     showMaxModal,
     setShowMaxModal,
+    showTelegramModal,
+    setShowTelegramModal,
     galleryPhotos,
     pageDesign,
     setPageDesign,
@@ -33,6 +36,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     autoSaved,
     generateShareLink,
     handleSendViaMax,
+    handleSendViaTelegram,
     getExpiryText,
     handleCopyLink,
     handleClientChange,
@@ -40,6 +44,11 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
 
   const onSendViaMax = async (message: string) => {
     const success = await handleSendViaMax(message);
+    if (success) onClose();
+  };
+
+  const onSendViaTelegram = async (message: string) => {
+    const success = await handleSendViaTelegram(message);
     if (success) onClose();
   };
 
@@ -82,6 +91,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
               shareUrl={shareUrl}
               onCopyLink={handleCopyLink}
               onSendViaMax={() => setShowMaxModal(true)}
+              onSendViaTelegram={() => setShowTelegramModal(true)}
               linkSettings={linkSettings}
               setLinkSettings={setLinkSettings}
               loading={loading}
@@ -110,6 +120,16 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           expiryText={getExpiryText()}
           onSend={onSendViaMax}
           onClose={() => setShowMaxModal(false)}
+        />
+      )}
+
+      {showTelegramModal && selectedClient && (
+        <TelegramMessageModal
+          client={selectedClient}
+          shareUrl={shareUrl}
+          expiryText={getExpiryText()}
+          onSend={onSendViaTelegram}
+          onClose={() => setShowTelegramModal(false)}
         />
       )}
     </div>

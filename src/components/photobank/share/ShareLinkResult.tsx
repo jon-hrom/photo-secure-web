@@ -4,6 +4,7 @@ interface Client {
   id: number;
   name: string;
   phone: string;
+  telegram_chat_id?: string;
 }
 
 interface ShareLinkResultProps {
@@ -11,14 +12,18 @@ interface ShareLinkResultProps {
   selectedClient: Client | null;
   onCopyLink: () => void;
   onSendViaMax: () => void;
+  onSendViaTelegram: () => void;
 }
 
 export default function ShareLinkResult({ 
   shareUrl, 
   selectedClient, 
   onCopyLink, 
-  onSendViaMax 
+  onSendViaMax,
+  onSendViaTelegram,
 }: ShareLinkResultProps) {
+  const hasTelegram = !!selectedClient?.telegram_chat_id;
+
   return (
     <>
       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -49,6 +54,16 @@ export default function ShareLinkResult({
         >
           <Icon name="Send" size={20} />
           <span>MAX</span>
+        </button>
+
+        <button
+          onClick={onSendViaTelegram}
+          disabled={!selectedClient || !hasTelegram}
+          title={!hasTelegram ? 'У клиента не подключен Telegram' : 'Отправить в Telegram'}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+        >
+          <Icon name="Send" size={20} />
+          <span>Telegram</span>
         </button>
       </div>
     </>

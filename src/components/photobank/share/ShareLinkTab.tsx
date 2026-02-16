@@ -6,6 +6,7 @@ interface Client {
   id: number;
   name: string;
   phone: string;
+  telegram_chat_id?: string;
 }
 
 interface ShareLinkTabProps {
@@ -15,6 +16,7 @@ interface ShareLinkTabProps {
   shareUrl: string;
   onCopyLink: () => void;
   onSendViaMax: () => void;
+  onSendViaTelegram: () => void;
   linkSettings: {
     password: string;
     downloadDisabled: boolean;
@@ -44,6 +46,7 @@ export default function ShareLinkTab({
   shareUrl,
   onCopyLink,
   onSendViaMax,
+  onSendViaTelegram,
   linkSettings,
   setLinkSettings,
   loading,
@@ -70,6 +73,7 @@ export default function ShareLinkTab({
           selectedClient={selectedClient}
           onCopyLink={onCopyLink}
           onSendViaMax={onSendViaMax}
+          onSendViaTelegram={onSendViaTelegram}
         />
       )}
 

@@ -301,12 +301,36 @@ def flush_pending_messages(conn, client_id: int, telegram_chat_id: str) -> dict:
         }
 
 
+def send_direct_message(conn, client_id: int, user_id: int, message_text: str) -> dict:
+    """Прямая отправка сообщения клиенту в Telegram"""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT telegram_chat_id, telegram_verified, name
+            FROM {SCHEMA}.clients
+            WHERE id = {client_id}
+        """)
+        client = cur.fetchone()
+
+        if not client:
+            return {'success': False, 'error': 'Клиент не найден'}
+
+        if not client['telegram_verified'] or not client['telegram_chat_id']:
+            return {'success': False, 'error': 'У клиента не подключен Telegram'}
+
+        success = send_telegram_message(client['telegram_chat_id'], message_text)
+
+        if success:
+            return {'success': True, 'status': 'sent', 'message': 'Сообщение доставлено'}
+        else:
+            return {'success': False, 'error': 'Не удалось отправить сообщение'}
+
+
 def get_cors_headers() -> dict:
     """CORS заголовки"""
     return {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, X-User-Id",
     }
 
 
@@ -324,6 +348,7 @@ def handler(event, context):
     Обработка отправки уведомлений клиентам
     
     POST ?action=send_booking - отправка уведомления о бронировании
+    POST ?action=send_direct - прямая отправка сообщения клиенту
     GET ?action=status&booking_id=123 - проверка статуса доставки
     POST ?action=flush&client_id=123 - отправка буфера при подключении Telegram
     """
@@ -353,8 +378,20 @@ def handler(event, context):
     try:
         conn = get_db_connection()
         
+        user_id = event.get('headers', {}).get('X-User-Id') or event.get('headers', {}).get('x-user-id') or ''
+
+        if action == "send_direct" and method == "POST":
+            client_id = body.get("client_id")
+            message = body.get("message")
+
+            if not client_id or not message:
+                return cors_response(400, {"error": "Missing client_id or message"})
+
+            result = send_direct_message(conn, int(client_id), int(user_id) if user_id else 0, message)
+            return cors_response(200, result)
+
         # Отправка уведомления о бронировании
-        if action == "send_booking" and method == "POST":
+        elif action == "send_booking" and method == "POST":
             client_id = body.get("client_id")
             photographer_id = body.get("photographer_id")
             booking_id = body.get("booking_id")

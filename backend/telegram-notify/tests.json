@@ -28,6 +28,17 @@
         "status": "string"
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Send direct - missing params",
+      "method": "POST",
+      "path": "/?action=send_direct",
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }
