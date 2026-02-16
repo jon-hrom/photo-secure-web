@@ -1,35 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Icon from '@/components/ui/icon';
-import { Slider } from '@/components/ui/slider';
-
-interface Photo {
-  id: number;
-  file_name: string;
-  photo_url: string;
-  thumbnail_url?: string;
-  width?: number;
-  height?: number;
-}
-
-interface PageDesignSettings {
-  coverPhotoId: number | null;
-  coverOrientation: 'horizontal' | 'vertical';
-  coverFocusX: number;
-  coverFocusY: number;
-  gridGap: number;
-  bgTheme: 'light' | 'dark' | 'auto' | 'custom';
-  bgColor: string | null;
-  bgImageUrl: string | null;
-  bgImageData: string | null;
-  bgImageExt: string;
-  textColor: string | null;
-  coverTextPosition: 'bottom-center' | 'center' | 'bottom-left' | 'bottom-right' | 'top-center';
-  coverTitle: string | null;
-  coverFontSize: number;
-  mobileCoverPhotoId: number | null;
-  mobileCoverFocusX: number;
-  mobileCoverFocusY: number;
-}
+import CoverPreviewDesktop from './cover/CoverPreviewDesktop';
+import CoverControlsPanel from './cover/CoverControlsPanel';
+import CoverPreviewMobile from './cover/CoverPreviewMobile';
+import CoverPhotoSelector from './cover/CoverPhotoSelector';
+import { Photo, PageDesignSettings } from './cover/types';
 
 interface CoverSettingsProps {
   settings: PageDesignSettings;
@@ -46,20 +19,8 @@ export default function CoverSettings({
   folderName,
   extractDominantColor
 }: CoverSettingsProps) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [isMobileDragging, setIsMobileDragging] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editTitle, setEditTitle] = useState(settings.coverTitle || '');
-  const coverImageRef = useRef<HTMLDivElement>(null);
-  const mobileCoverImageRef = useRef<HTMLDivElement>(null);
-  const titleInputRef = useRef<HTMLInputElement>(null);
-
   const coverPhoto = photos.find(p => p.id === settings.coverPhotoId) || photos[0] || null;
-  const coverUrl = coverPhoto?.thumbnail_url || coverPhoto?.photo_url;
-  const isVertical = settings.coverOrientation === 'vertical';
-
   const mobileCoverPhoto = photos.find(p => p.id === settings.mobileCoverPhotoId) || coverPhoto;
-  const mobileCoverUrl = mobileCoverPhoto?.thumbnail_url || mobileCoverPhoto?.photo_url;
 
   const handleSelectCoverPhoto = (photoId: number) => {
     onSettingsChange({ ...settings, coverPhotoId: photoId });
@@ -73,432 +34,51 @@ export default function CoverSettings({
     }
   };
 
-  const handleOrientationChange = (orientation: 'horizontal' | 'vertical') => {
-    onSettingsChange({ ...settings, coverOrientation: orientation });
+  const handleSelectMobileCoverPhoto = (photoId: number) => {
+    onSettingsChange({ ...settings, mobileCoverPhotoId: photoId });
   };
 
-  const handleGridGapChange = (value: number[]) => {
-    onSettingsChange({ ...settings, gridGap: value[0] });
-  };
-
-  const handleFocusPointDrag = useCallback((e: React.MouseEvent | MouseEvent) => {
-    if (!coverImageRef.current) return;
-    const rect = coverImageRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    onSettingsChange({ ...settings, coverFocusX: x, coverFocusY: y });
-  }, [settings, onSettingsChange]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-    handleFocusPointDrag(e);
-  };
-
-  const handleMobileFocusDrag = useCallback((e: React.MouseEvent | MouseEvent) => {
-    if (!mobileCoverImageRef.current) return;
-    const rect = mobileCoverImageRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    onSettingsChange({ ...settings, mobileCoverFocusX: x, mobileCoverFocusY: y });
-  }, [settings, onSettingsChange]);
-
-  const handleMobileMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsMobileDragging(true);
-    handleMobileFocusDrag(e);
-  };
-
-  useEffect(() => {
-    if (!isDragging) return;
-    const handleMove = (e: MouseEvent) => handleFocusPointDrag(e);
-    const handleUp = () => setIsDragging(false);
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-  }, [isDragging, handleFocusPointDrag]);
-
-  useEffect(() => {
-    if (!isMobileDragging) return;
-    const handleMove = (e: MouseEvent) => handleMobileFocusDrag(e);
-    const handleUp = () => setIsMobileDragging(false);
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-  }, [isMobileDragging, handleMobileFocusDrag]);
+  const effectiveMobileSelectedId = settings.mobileCoverPhotoId
+    ? settings.mobileCoverPhotoId
+    : (settings.coverPhotoId || photos[0]?.id || null);
 
   return (
     <>
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Обложка проекта
-        </h3>
-        {coverUrl ? (
-          <div className="relative">
-            <div
-              ref={coverImageRef}
-              className="relative overflow-hidden rounded-lg cursor-crosshair select-none"
-              style={{ 
-                maxHeight: 200,
-                aspectRatio: isVertical ? '9/16' : '16/9'
-              }}
-              onMouseDown={handleMouseDown}
-            >
-              <img
-                src={coverUrl}
-                alt="cover"
-                className="w-full h-full object-cover pointer-events-none"
-                style={{
-                  objectPosition: `${settings.coverFocusX * 100}% ${settings.coverFocusY * 100}%`
-                }}
-                draggable={false}
-              />
-              <div
-                className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
-                style={{
-                  left: `${settings.coverFocusX * 100}%`,
-                  top: `${settings.coverFocusY * 100}%`
-                }}
-              >
-                <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg bg-blue-500/60 flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-white" />
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
-              <div className={`absolute inset-0 flex flex-col pointer-events-none p-3 ${
-                settings.coverTextPosition === 'center' ? 'items-center justify-center text-center' :
-                settings.coverTextPosition === 'top-center' ? 'items-center justify-start text-center pt-4' :
-                settings.coverTextPosition === 'bottom-left' ? 'items-start justify-end' :
-                settings.coverTextPosition === 'bottom-right' ? 'items-end justify-end text-right' :
-                'items-center justify-end text-center'
-              }`}>
-                <div className="pointer-events-auto flex items-center gap-1">
-                  {isEditingTitle ? (
-                    <input
-                      ref={titleInputRef}
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      onBlur={() => {
-                        setIsEditingTitle(false);
-                        onSettingsChange({ ...settings, coverTitle: editTitle || null });
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          setIsEditingTitle(false);
-                          onSettingsChange({ ...settings, coverTitle: editTitle || null });
-                        }
-                      }}
-                      className="bg-black/40 backdrop-blur-sm text-white font-bold text-sm px-2 py-0.5 rounded border border-white/30 outline-none max-w-[200px]"
-                      style={{ color: settings.textColor || '#ffffff', fontSize: `${Math.max(10, settings.coverFontSize * 0.45)}px` }}
-                      autoFocus
-                      placeholder={folderName}
-                    />
-                  ) : (
-                    <>
-                      <span
-                        className="font-bold drop-shadow-lg truncate max-w-[180px]"
-                        style={{
-                          color: settings.textColor || '#ffffff',
-                          fontSize: `${Math.max(10, settings.coverFontSize * 0.45)}px`
-                        }}
-                      >
-                        {settings.coverTitle || folderName}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setEditTitle(settings.coverTitle || folderName);
-                          setIsEditingTitle(true);
-                          setTimeout(() => titleInputRef.current?.focus(), 50);
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        className="w-5 h-5 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/40 transition-colors"
-                      >
-                        <Icon name="Pencil" size={10} className="text-white" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Перетащите точку для выбора центра кадра
-            </p>
-          </div>
-        ) : (
-          <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-400">
-            <span className="text-sm">Нет фото в папке</span>
-          </div>
-        )}
-      </div>
+      <CoverPreviewDesktop
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+        coverPhoto={coverPhoto}
+        folderName={folderName}
+      />
 
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-            Размер названия
-          </h3>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{settings.coverFontSize}px</span>
-        </div>
-        <Slider
-          value={[settings.coverFontSize]}
-          onValueChange={(v) => onSettingsChange({ ...settings, coverFontSize: v[0] })}
-          min={16}
-          max={72}
-          step={2}
-        />
-        <div className="flex justify-between mt-1">
-          <span className="text-xs text-gray-400">16px</span>
-          <span className="text-xs text-gray-400">72px</span>
-        </div>
-      </div>
+      <CoverControlsPanel
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+      />
 
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-            Отступ между фото в сетке
-          </h3>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{settings.gridGap}px</span>
-        </div>
-        <Slider
-          value={[settings.gridGap]}
-          onValueChange={handleGridGapChange}
-          min={0}
-          max={24}
-          step={1}
-        />
-        <div className="flex justify-between mt-1">
-          <span className="text-xs text-gray-400">0px</span>
-          <span className="text-xs text-gray-400">24px</span>
-        </div>
-      </div>
+      <CoverPreviewMobile
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+        mobileCoverPhoto={mobileCoverPhoto}
+        folderName={folderName}
+      />
 
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Ориентация обложки
-        </h3>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleOrientationChange('horizontal')}
-            className={`relative flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all ${
-              !isVertical
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="w-8 h-5 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
-              <Icon name="Image" size={12} className="text-gray-400" />
-            </div>
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Горизонтальная</span>
-            {!isVertical && (
-              <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <Icon name="Check" size={10} className="text-white" />
-              </div>
-            )}
-          </button>
-          <button
-            onClick={() => handleOrientationChange('vertical')}
-            className={`relative flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all ${
-              isVertical
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="w-5 h-8 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
-              <Icon name="Image" size={10} className="text-gray-400" />
-            </div>
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Вертикальная</span>
-            {isVertical && (
-              <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <Icon name="Check" size={10} className="text-white" />
-              </div>
-            )}
-          </button>
-        </div>
-      </div>
+      <CoverPhotoSelector
+        title="Фото для web-обложки"
+        photos={photos}
+        selectedPhotoId={settings.coverPhotoId}
+        onSelect={handleSelectCoverPhoto}
+        accentColor="blue"
+      />
 
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Положение названия на обложке
-        </h3>
-        <div className="flex flex-wrap gap-1.5">
-          {([
-            { key: 'top-center' as const, label: 'Сверху' },
-            { key: 'center' as const, label: 'Центр' },
-            { key: 'bottom-left' as const, label: 'Лево' },
-            { key: 'bottom-center' as const, label: 'Низ' },
-            { key: 'bottom-right' as const, label: 'Право' },
-          ]).map(pos => (
-            <button
-              key={pos.key}
-              onClick={() => onSettingsChange({ ...settings, coverTextPosition: pos.key })}
-              className={`px-2.5 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${
-                settings.coverTextPosition === pos.key
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-600 dark:text-gray-400'
-              }`}
-            >
-              {pos.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Обложка проекта mobile
-        </h3>
-        {mobileCoverUrl ? (
-          <div className="relative">
-            <div
-              ref={mobileCoverImageRef}
-              className="relative overflow-hidden rounded-lg cursor-crosshair select-none mx-auto"
-              style={{ 
-                maxHeight: 240,
-                width: 135,
-                aspectRatio: '9/16'
-              }}
-              onMouseDown={handleMobileMouseDown}
-            >
-              <img
-                src={mobileCoverUrl}
-                alt="mobile cover"
-                className="w-full h-full object-cover pointer-events-none"
-                style={{
-                  objectPosition: `${settings.mobileCoverFocusX * 100}% ${settings.mobileCoverFocusY * 100}%`
-                }}
-                draggable={false}
-              />
-              <div
-                className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
-                style={{
-                  left: `${settings.mobileCoverFocusX * 100}%`,
-                  top: `${settings.mobileCoverFocusY * 100}%`
-                }}
-              >
-                <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg bg-blue-500/60 flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-white" />
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
-              <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none">
-                <span
-                  className="font-bold drop-shadow-lg truncate max-w-[110px] text-center"
-                  style={{
-                    color: settings.textColor || '#ffffff',
-                    fontSize: `${Math.max(8, settings.coverFontSize * 0.3)}px`
-                  }}
-                >
-                  {settings.coverTitle || folderName}
-                </span>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-              Перетащите точку для выбора центра кадра на мобильных
-            </p>
-            {settings.mobileCoverPhotoId && settings.mobileCoverPhotoId !== settings.coverPhotoId && (
-              <button
-                onClick={() => onSettingsChange({ ...settings, mobileCoverPhotoId: null, mobileCoverFocusX: 0.5, mobileCoverFocusY: 0.5 })}
-                className="mt-2 text-xs text-red-500 hover:text-red-600 mx-auto block"
-              >
-                Сбросить (использовать web-обложку)
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-400 mx-auto" style={{ width: 135 }}>
-            <span className="text-sm text-center px-2">Нет фото в папке</span>
-          </div>
-        )}
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Фото для web-обложки
-        </h3>
-        <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
-          {photos.filter(p => !p.file_name?.toLowerCase().endsWith('.mp4')).map(photo => {
-            const w = photo.width || 1;
-            const h = photo.height || 1;
-            const ratio = w / h;
-            const thumbHeight = 80;
-            const thumbWidth = Math.round(thumbHeight * ratio);
-            return (
-              <button
-                key={photo.id}
-                onClick={() => handleSelectCoverPhoto(photo.id)}
-                className={`relative rounded-md overflow-hidden border-2 transition-all flex-shrink-0 ${
-                  settings.coverPhotoId === photo.id
-                    ? 'border-blue-500 ring-2 ring-blue-200'
-                    : 'border-transparent hover:border-gray-300'
-                }`}
-                style={{ width: thumbWidth, height: thumbHeight }}
-              >
-                <img
-                  src={photo.thumbnail_url || photo.photo_url}
-                  alt={photo.file_name}
-                  className="w-full h-full object-cover"
-                />
-                {settings.coverPhotoId === photo.id && (
-                  <div className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                    <Icon name="Check" size={10} className="text-white" />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Фото для mobile-обложки
-        </h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          Если не выбрано — используется web-обложка
-        </p>
-        <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
-          {photos.filter(p => !p.file_name?.toLowerCase().endsWith('.mp4')).map(photo => {
-            const w = photo.width || 1;
-            const h = photo.height || 1;
-            const ratio = w / h;
-            const thumbHeight = 80;
-            const thumbWidth = Math.round(thumbHeight * ratio);
-            const isSelected = settings.mobileCoverPhotoId
-              ? settings.mobileCoverPhotoId === photo.id
-              : (settings.coverPhotoId === photo.id || (!settings.coverPhotoId && photo.id === photos[0]?.id));
-            return (
-              <button
-                key={photo.id}
-                onClick={() => onSettingsChange({ ...settings, mobileCoverPhotoId: photo.id })}
-                className={`relative rounded-md overflow-hidden border-2 transition-all flex-shrink-0 ${
-                  isSelected
-                    ? 'border-green-500 ring-2 ring-green-200'
-                    : 'border-transparent hover:border-gray-300'
-                }`}
-                style={{ width: thumbWidth, height: thumbHeight }}
-              >
-                <img
-                  src={photo.thumbnail_url || photo.photo_url}
-                  alt={photo.file_name}
-                  className="w-full h-full object-cover"
-                />
-                {isSelected && (
-                  <div className="absolute top-1 right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                    <Icon name="Check" size={10} className="text-white" />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <CoverPhotoSelector
+        title="Фото для mobile-обложки"
+        subtitle="Если не выбрано — используется web-обложка"
+        photos={photos}
+        selectedPhotoId={effectiveMobileSelectedId}
+        onSelect={handleSelectMobileCoverPhoto}
+        accentColor="green"
+      />
     </>
   );
 }
