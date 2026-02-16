@@ -268,6 +268,17 @@ const ClientDialogs = ({
                   <p className="text-[11px] sm:text-xs text-muted-foreground">Для поздравлений и сервисных уведомлений</p>
                 </div>
                 <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="edit-telegram" className="text-sm">Telegram Chat ID</Label>
+                  <Input
+                    id="edit-telegram"
+                    value={editingClient.telegram_chat_id || ''}
+                    onChange={(e) => setEditingClient({ ...editingClient, telegram_chat_id: e.target.value })}
+                    placeholder="Например: 123456789"
+                    className="h-10 text-sm sm:text-base"
+                  />
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">Для уведомлений о съёмках в Telegram</p>
+                </div>
+                <div className="space-y-1.5 sm:space-y-2">
                   <Label htmlFor="edit-birthdate" className="text-sm">Дата рождения</Label>
                   <Input
                     id="edit-birthdate"
