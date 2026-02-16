@@ -48,8 +48,8 @@ const UpcomingBookingsList = ({
 
   return (
     <Card className="overflow-hidden border border-blue-200/50 shadow-lg hover:shadow-xl transition-shadow duration-300 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-500">
-      <div className="bg-gradient-to-r from-blue-100 via-cyan-50 to-teal-100 p-3 sm:p-5">
-        <CardTitle className="flex items-center justify-between text-blue-700">
+      <div className="bg-gradient-to-r from-blue-100 via-cyan-50 to-teal-100 dark:from-blue-900/40 dark:via-cyan-900/30 dark:to-teal-900/40 p-3 sm:p-5">
+        <CardTitle className="flex items-center justify-between text-blue-700 dark:text-blue-300">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="p-1.5 sm:p-2 bg-blue-200/40 backdrop-blur-sm rounded-lg flex-shrink-0">
               <Icon name="CalendarDays" size={18} className="text-blue-600 sm:w-5 sm:h-5" />
@@ -93,8 +93,8 @@ const UpcomingBookingsList = ({
                 onClick={() => onBookingClick?.(booking)}
                 className={`group relative overflow-hidden rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-lg transition-all duration-300 border cursor-pointer animate-in fade-in slide-in-from-left-6 duration-500 ${
                   isUrgent 
-                    ? 'bg-gradient-to-br from-white to-orange-50/30 border-orange-200/40 hover:border-orange-300' 
-                    : 'bg-gradient-to-br from-white to-blue-50/30 border-blue-200/40 hover:border-blue-300'
+                    ? 'bg-gradient-to-br from-card to-orange-50/30 dark:to-orange-950/30 border-orange-200/40 hover:border-orange-300' 
+                    : 'bg-gradient-to-br from-card to-blue-50/30 dark:to-blue-950/30 border-blue-200/40 hover:border-blue-300'
                 }`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
@@ -107,7 +107,7 @@ const UpcomingBookingsList = ({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className={`p-2 rounded-lg group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 ${
-                        isUrgent ? 'bg-orange-100' : 'bg-blue-100'
+                        isUrgent ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-blue-100 dark:bg-blue-900/30'
                       }`}>
                         <Icon name="User" size={16} className={isUrgent ? 'text-orange-600' : 'text-blue-600'} />
                       </div>

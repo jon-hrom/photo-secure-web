@@ -53,7 +53,7 @@ const LoadingProgressBar = ({ open, maxTime, onComplete }: LoadingProgressBarPro
         
         <div className="space-y-4 py-6">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 mb-4">
               <svg className="animate-spin h-8 w-8 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -63,7 +63,7 @@ const LoadingProgressBar = ({ open, maxTime, onComplete }: LoadingProgressBarPro
             <p className="text-sm text-muted-foreground mb-4">{Math.round(progress)}%</p>
           </div>
           
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+          <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
             <div 
               className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 transition-all duration-100 ease-linear rounded-full"
               style={{ width: `${progress}%` }}

@@ -21,10 +21,10 @@ const ProjectArchiveDialog = ({ open, onOpenChange, project, client, payments }:
 
   const getStatusBadge = (status: Project['status']) => {
     const variants = {
-      new: { label: 'Новый', color: 'bg-green-100 text-green-800' },
-      in_progress: { label: 'В работе', color: 'bg-yellow-100 text-yellow-800' },
-      completed: { label: 'Завершён', color: 'bg-blue-100 text-blue-800' },
-      cancelled: { label: 'Отменён', color: 'bg-gray-100 text-gray-800' },
+      new: { label: 'Новый', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
+      in_progress: { label: 'В работе', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
+      completed: { label: 'Завершён', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
+      cancelled: { label: 'Отменён', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300' },
     };
     return <Badge className={variants[status].color}>{variants[status].label}</Badge>;
   };
@@ -108,7 +108,7 @@ const ProjectArchiveDialog = ({ open, onOpenChange, project, client, payments }:
                 </h3>
                 <div className="space-y-2">
                   {project.dateHistory.map((history, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm p-2 bg-orange-50 rounded">
+                    <div key={idx} className="flex items-center gap-2 text-sm p-2 bg-orange-50 dark:bg-orange-950/30 rounded">
                       <Icon name="ArrowRight" size={14} className="text-orange-600" />
                       <span>
                         <span className="line-through text-muted-foreground">
@@ -139,7 +139,7 @@ const ProjectArchiveDialog = ({ open, onOpenChange, project, client, payments }:
                 </h3>
                 <div className="space-y-2">
                   {projectPayments.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between p-3 bg-green-50 rounded">
+                    <div key={payment.id} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded">
                       <div className="flex items-center gap-2">
                         <Icon name="CheckCircle" size={16} className="text-green-600" />
                         <div>

@@ -310,7 +310,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                                 {project.status === 'completed' ? 'Завершён' : 'Отменён'}
                               </Badge>
                               {hasDateChanges && (
-                                <Badge variant="outline" className="text-xs bg-orange-50 border-orange-200 text-orange-700">
+                                <Badge variant="outline" className="text-xs bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-400">
                                   <Icon name="CalendarClock" size={12} className="mr-1" />
                                   Дата переносилась
                                 </Badge>

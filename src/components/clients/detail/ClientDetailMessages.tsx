@@ -264,7 +264,7 @@ const ClientDetailMessages = ({
                       )}
                     </div>
                     <p className={`text-sm whitespace-pre-wrap leading-relaxed ${
-                      isClient ? 'text-gray-800' : 'text-white'
+                      isClient ? 'text-foreground' : 'text-white'
                     }`}>
                       {message.content}
                     </p>

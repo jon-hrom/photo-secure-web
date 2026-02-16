@@ -213,7 +213,7 @@ export function ShootingStyleSelector({ value, onChange }: ShootingStyleSelector
                 
                 <DragOverlay>
                   {activeStyle ? (
-                    <div className="flex items-center gap-2 p-3 rounded-lg border bg-white shadow-xl border-purple-300">
+                    <div className="flex items-center gap-2 p-3 rounded-lg border bg-card shadow-xl border-purple-300">
                       <GripVertical className="h-5 w-5 text-muted-foreground" />
                       <span className="flex-1 text-sm">{activeStyle.name}</span>
                     </div>
