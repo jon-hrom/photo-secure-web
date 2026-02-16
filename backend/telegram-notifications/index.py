@@ -333,7 +333,7 @@ def send_shooting_reminders(hours_before: int) -> Dict[str, Any]:
                 c.name as client_name,
                 c.phone as client_phone,
                 c.photographer_id,
-                c.user_id as client_user_id,
+                c.telegram_chat_id as client_telegram,
                 u.name as photographer_name,
                 u.phone_number as photographer_phone,
                 u.telegram_chat_id as photographer_telegram
@@ -363,7 +363,7 @@ def send_shooting_reminders(hours_before: int) -> Dict[str, Any]:
                 'id': row[5],
                 'name': row[6],
                 'phone': row[7],
-                'user_id': row[9]
+                'telegram_chat_id': row[9]
             }
             
             photographer_data = {
@@ -373,20 +373,10 @@ def send_shooting_reminders(hours_before: int) -> Dict[str, Any]:
                 'telegram_chat_id': row[12]
             }
             
-            # Получаем telegram_chat_id клиента
-            cur.execute(f"""
-                SELECT telegram_chat_id
-                FROM {SCHEMA}.users
-                WHERE id = %s AND telegram_chat_id IS NOT NULL
-            """, (client_data['user_id'],))
-            
-            client_telegram_row = cur.fetchone()
-            client_telegram_chat_id = client_telegram_row[0] if client_telegram_row else None
-            
             # Отправка клиенту
-            if client_telegram_chat_id:
+            if client_data.get('telegram_chat_id'):
                 message = format_reminder_for_client(project_data, photographer_data, hours_before)
-                if send_telegram_message(client_telegram_chat_id, message):
+                if send_telegram_message(client_data['telegram_chat_id'], message):
                     sent_count += 1
             
             # Отправка фотографу

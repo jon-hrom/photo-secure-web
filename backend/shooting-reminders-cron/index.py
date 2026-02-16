@@ -349,12 +349,12 @@ def handler(event: dict, context) -> dict:
                     c.id as client_id,
                     c.name as client_name,
                     c.phone as client_phone,
-                    c.telegram_id as client_telegram_id,
+                    c.telegram_chat_id as client_telegram_id,
                     u.id as photographer_id,
                     u.display_name as photographer_name,
                     u.email as photographer_email,
                     u.phone as photographer_phone,
-                    u.telegram_id as photographer_telegram_id
+                    u.telegram_chat_id as photographer_telegram_id
                 FROM {SCHEMA}.client_projects cp
                 JOIN {SCHEMA}.clients c ON cp.client_id = c.id
                 JOIN {SCHEMA}.users u ON c.photographer_id = u.id

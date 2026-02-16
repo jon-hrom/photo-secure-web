@@ -36,6 +36,7 @@
   "camera-upload": "https://functions.poehali.dev/324ca8fc-3f85-427e-9bf0-bfe57b31e540",
   "generate-thumbnail": "https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c",
   "extract-exif": "https://functions.poehali.dev/340b5361-292f-4f16-8d31-f179fa6856b1",
+  "shooting-reminders-cron": "https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c",
   "shooting-notifications": "https://functions.poehali.dev/b2bd6fbd-f4a9-4bec-b6b7-0689b79375ae",
   "background-settings": "https://functions.poehali.dev/27bedb10-0577-4edb-87c8-23b5c01de71c",
   "background-media": "https://functions.poehali.dev/e14599a3-7e42-421d-b200-7e41d0291ad7",
