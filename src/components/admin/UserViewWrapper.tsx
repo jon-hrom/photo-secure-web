@@ -57,7 +57,7 @@ const UserViewWrapper = ({ viewedUser, onExit }: UserViewWrapperProps) => {
       </div>
 
       {/* Навигация по страницам пользователя */}
-      <Card className="border-2 border-amber-200">
+      <Card className="border-2 border-amber-200 dark:border-amber-800">
         <CardContent className="p-4">
           <div className="flex gap-2 flex-wrap">
             <Button
@@ -105,7 +105,7 @@ const UserViewWrapper = ({ viewedUser, onExit }: UserViewWrapperProps) => {
       </Card>
 
       {/* Контент страницы пользователя */}
-      <div className="border-4 border-dashed border-amber-300 rounded-xl p-4 bg-amber-50/50">
+      <div className="border-4 border-dashed border-amber-300 dark:border-amber-700 rounded-xl p-4 bg-amber-50/50 dark:bg-amber-950/20">
         {currentPage === 'dashboard' && (
           <Dashboard
             userRole="user"

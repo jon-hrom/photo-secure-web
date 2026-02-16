@@ -116,14 +116,14 @@ const AuthenticatedLayout = ({
 
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
         {!emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (
-          <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+          <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="mt-0.5">
                 <Icon name="Mail" className="text-amber-600" size={20} />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-amber-900 mb-1">Подтвердите почту</h3>
-                <p className="text-sm text-amber-700 mb-3">
+                <h3 className="font-semibold text-amber-900 dark:text-amber-200 mb-1">Подтвердите почту</h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
                   Для полноценной работы на платформе необходимо подтвердить ваш email-адрес
                 </p>
                 <Button

@@ -176,7 +176,7 @@ const ClientDetailMessages = ({
   );
 
   return (
-    <div className="flex flex-col h-[500px]">
+    <div className="flex flex-col h-[500px] bg-background rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 bg-background border-b">
         <h3 className="text-sm font-semibold text-foreground">История переписки</h3>
         {messages.length > 0 && onDeleteAllMessages && (

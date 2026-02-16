@@ -152,7 +152,7 @@ const AdminPanel = () => {
       )}
 
       {currentRole === 'client' && (
-        <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border-2 border-primary/20 p-8 text-center">
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-2xl border-2 border-primary/20 p-8 text-center">
           <div className="max-w-2xl mx-auto space-y-4">
             <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4">
               <Icon name="User" size={40} className="text-primary" />
