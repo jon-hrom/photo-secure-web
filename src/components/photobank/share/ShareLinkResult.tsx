@@ -38,21 +38,21 @@ export default function ShareLinkResult({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 gap-2">
         <button
           onClick={onCopyLink}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-gray-900 dark:text-white touch-manipulation"
+          className="flex items-center justify-center gap-1.5 px-3 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm text-gray-900 dark:text-white touch-manipulation"
         >
-          <Icon name="Copy" size={20} />
-          <span>Скопировать</span>
+          <Icon name="Copy" size={18} />
+          <span>Копия</span>
         </button>
 
         <button
           onClick={onSendViaMax}
           disabled={!selectedClient}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#FFB800] hover:bg-[#E5A600] text-black rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+          className="flex items-center justify-center gap-1.5 px-3 py-3 bg-[#FFB800] hover:bg-[#E5A600] text-black rounded-lg transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
-          <Icon name="Send" size={20} />
+          <Icon name="Send" size={18} />
           <span>MAX</span>
         </button>
 
@@ -60,10 +60,10 @@ export default function ShareLinkResult({
           onClick={onSendViaTelegram}
           disabled={!selectedClient || !hasTelegram}
           title={!hasTelegram ? 'У клиента не подключен Telegram' : 'Отправить в Telegram'}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+          className="flex items-center justify-center gap-1.5 px-3 py-3 bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-lg transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
-          <Icon name="Send" size={20} />
-          <span>Telegram</span>
+          <Icon name="Send" size={18} />
+          <span>TG</span>
         </button>
       </div>
     </>
