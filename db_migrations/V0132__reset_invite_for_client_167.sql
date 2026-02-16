@@ -1,0 +1,1 @@
+UPDATE t_p28211681_photo_secure_web.telegram_invites SET is_used = FALSE, used_at = NULL WHERE id = 7 AND client_id = 167;
