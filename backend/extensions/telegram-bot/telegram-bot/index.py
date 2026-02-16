@@ -192,19 +192,148 @@ def handle_verify(chat_id: int, code: str) -> None:
         bot.send_message(chat_id, f"❌ Ошибка: {type(e).__name__}")
 
 
+def handle_invite(chat_id: int, invite_code: str) -> None:
+    """Обработка команды /start {invite_code} — привязка Telegram клиента."""
+    import requests as req
+
+    bot = get_bot()
+    invite_url = os.environ.get(
+        "TELEGRAM_INVITE_URL",
+        "https://functions.poehali.dev/3128bc7e-f0d6-4d0a-a73e-91eb657795a0",
+    )
+
+    try:
+        resp = req.post(
+            f"{invite_url}?action=verify",
+            json={"invite_code": invite_code, "telegram_chat_id": str(chat_id)},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            client_name = data.get("client_name", "")
+            bot.send_message(
+                chat_id,
+                f"✅ Telegram успешно подключен!\n\n"
+                f"Добро пожаловать, {client_name}!\n"
+                f"Теперь вы будете получать уведомления о съёмках.",
+            )
+            flush_url = os.environ.get(
+                "TELEGRAM_VERIFY_URL",
+                "https://functions.poehali.dev/46d9b487-dbc7-4472-a333-3b30ed8d2733",
+            )
+            try:
+                req.post(
+                    f"{flush_url}?action=flush",
+                    json={"telegram_chat_id": str(chat_id)},
+                    timeout=5,
+                )
+            except Exception:
+                pass
+        elif resp.status_code == 404:
+            bot.send_message(
+                chat_id,
+                "❌ Ссылка-приглашение не найдена или истекла.\n\n"
+                "Попросите фотографа отправить новую ссылку.",
+            )
+        else:
+            bot.send_message(chat_id, "❌ Не удалось подключить Telegram. Попробуйте позже.")
+    except Exception as e:
+        print(f"[INVITE] Error: {e}")
+        bot.send_message(chat_id, "❌ Ошибка связи с сервером. Попробуйте позже.")
+
+
+def handle_contact(chat_id: int, contact: dict) -> None:
+    """Обработка отправки контакта — привязка Telegram по номеру телефона."""
+    import requests as req
+
+    bot = get_bot()
+    phone = contact.get("phone_number", "")
+    if not phone:
+        bot.send_message(chat_id, "❌ Не удалось получить номер телефона.")
+        return
+
+    clean_phone = "".join(c for c in phone if c.isdigit())
+    if clean_phone.startswith("8") and len(clean_phone) == 11:
+        clean_phone = "7" + clean_phone[1:]
+
+    schema = get_schema()
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f"""
+            SELECT id, name FROM {schema}clients
+            WHERE regexp_replace(phone, '[^0-9]', '', 'g') = '{clean_phone}'
+              AND (telegram_chat_id IS NULL OR telegram_chat_id = '')
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        if row:
+            client_id, client_name = row
+            cursor.execute(f"""
+                UPDATE {schema}clients
+                SET telegram_chat_id = '{chat_id}',
+                    telegram_verified = TRUE,
+                    telegram_verified_at = CURRENT_TIMESTAMP
+                WHERE id = {client_id}
+            """)
+            conn.commit()
+            bot.send_message(
+                chat_id,
+                f"✅ Telegram подключен!\n\n"
+                f"Добро пожаловать, {client_name}!\n"
+                f"Теперь вы будете получать уведомления о съёмках.",
+                reply_markup=telebot.types.ReplyKeyboardRemove(),
+            )
+        else:
+            cursor.execute(f"""
+                SELECT id FROM {schema}users
+                WHERE regexp_replace(COALESCE(phone_number, phone, ''), '[^0-9]', '', 'g') = '{clean_phone}'
+                  AND (telegram_chat_id IS NULL OR telegram_chat_id = '')
+                LIMIT 1
+            """)
+            user_row = cursor.fetchone()
+            if user_row:
+                user_id = user_row[0]
+                cursor.execute(f"""
+                    UPDATE {schema}users
+                    SET telegram_chat_id = '{chat_id}',
+                        telegram_verified = TRUE
+                    WHERE id = {user_id}
+                """)
+                conn.commit()
+                bot.send_message(
+                    chat_id,
+                    "✅ Telegram подключен!\n\n"
+                    "Теперь вы будете получать уведомления.",
+                    reply_markup=telebot.types.ReplyKeyboardRemove(),
+                )
+            else:
+                bot.send_message(
+                    chat_id,
+                    "❌ Номер не найден в системе.\n\n"
+                    "Убедитесь, что фотограф добавил ваш номер в карточку клиента, "
+                    "или попросите ссылку-приглашение.",
+                    reply_markup=telebot.types.ReplyKeyboardRemove(),
+                )
+    except Exception as e:
+        print(f"[CONTACT] Error: {e}")
+        bot.send_message(chat_id, "❌ Ошибка. Попробуйте позже.")
+    finally:
+        conn.close()
+
+
 def handle_start(chat_id: int) -> None:
     """Обработка команды /start без параметров."""
     bot = get_bot()
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(telebot.types.KeyboardButton("📱 Подключить по номеру телефона", request_contact=True))
     bot.send_message(
         chat_id,
         "Привет! 👋\n\n"
         "Этот бот отправляет уведомления о съёмках.\n\n"
-        "Для подключения:\n"
-        "1️⃣ Войдите на сайт Foto-Mix.ru\n"
-        "2️⃣ Зайдите в настройки\n"
-        "3️⃣ Введите номер телефона и получите код\n"
-        "4️⃣ Отправьте мне команду:\n"
-        "/verify <код>"
+        "Чтобы подключиться, нажмите кнопку ниже и поделитесь номером телефона.\n\n"
+        "Или используйте ссылку-приглашение от фотографа.",
+        reply_markup=markup,
     )
 
 
@@ -215,18 +344,30 @@ def process_webhook(body: dict) -> dict:
     if not message:
         return {"statusCode": 200, "body": json.dumps({"ok": True})}
 
-    text = message.get("text", "")
-    user = message.get("from", {})
     chat_id = message.get("chat", {}).get("id")
-
     if not chat_id:
         return {"statusCode": 200, "body": json.dumps({"ok": True})}
+
+    contact = message.get("contact")
+    if contact:
+        try:
+            handle_contact(chat_id, contact)
+        except Exception as e:
+            print(f"Error processing contact: {e}")
+        return {"statusCode": 200, "body": json.dumps({"ok": True})}
+
+    text = message.get("text", "")
+    user = message.get("from", {})
 
     try:
         if text.startswith("/start"):
             parts = text.split(" ", 1)
-            if len(parts) > 1 and parts[1] == "web_auth":
-                handle_web_auth(chat_id, user)
+            if len(parts) > 1:
+                param = parts[1].strip()
+                if param == "web_auth":
+                    handle_web_auth(chat_id, user)
+                else:
+                    handle_invite(chat_id, param)
             else:
                 handle_start(chat_id)
         elif text.startswith("/verify"):
