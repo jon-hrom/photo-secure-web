@@ -976,8 +976,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         project.get('add_to_calendar')
                     ))
                     
-                    # Отправка уведомлений в Telegram при создании нового проекта
                     if is_new_project and start_date and project.get('shooting_time'):
+                        # Telegram
                         try:
                             telegram_notif_url = 'https://functions.poehali.dev/9768a392-3928-4880-bccc-dd33983ce097'
                             requests.post(telegram_notif_url, json={
@@ -987,6 +987,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             print(f'[TELEGRAM_NOTIF] Sent notification for project {project_id}')
                         except Exception as e:
                             print(f'[TELEGRAM_NOTIF] Error: {e}')
+                        # MAX (WhatsApp)
+                        try:
+                            shooting_notif_url = 'https://functions.poehali.dev/b2bd6fbd-f4a9-4bec-b6b7-0689b79375ae'
+                            requests.post(shooting_notif_url, json={
+                                'project_id': project_id,
+                                'client_id': client_id,
+                                'notify_client': True,
+                                'notify_photographer': True
+                            }, headers={'X-User-Id': user_id}, timeout=5)
+                            print(f'[MAX_NOTIF] Sent notification for project {project_id}')
+                        except Exception as e:
+                            print(f'[MAX_NOTIF] Error: {e}')
             
             # Обновляем платежи (upsert)
             if 'payments' in body:

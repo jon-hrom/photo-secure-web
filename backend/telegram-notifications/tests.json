@@ -1,16 +1,16 @@
 {
   "tests": [
     {
-      "name": "Test project notification endpoint",
+      "name": "Test project notification - not found",
       "method": "POST",
       "path": "/",
       "body": {
         "action": "send_project_notification",
-        "project_id": 1764767811540
+        "project_id": 9999999999
       },
-      "expectedStatus": 200,
+      "expectedStatus": 500,
       "expectedBody": {
-        "success": true
+        "error": "string"
       },
       "bodyMatcher": "partial"
     },

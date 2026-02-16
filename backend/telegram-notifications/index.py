@@ -225,10 +225,10 @@ def send_project_notifications(project_id: int) -> Dict[str, Any]:
                 c.name as client_name,
                 c.phone as client_phone,
                 c.photographer_id,
-                u.name as photographer_name,
-                u.phone_number as photographer_phone,
+                COALESCE(u.display_name, u.name, u.email) as photographer_name,
+                COALESCE(u.phone_number, u.phone) as photographer_phone,
                 u.telegram_chat_id as photographer_telegram,
-                c.user_id as client_user_id
+                c.telegram_chat_id as client_telegram_direct
             FROM {SCHEMA}.client_projects cp
             JOIN {SCHEMA}.clients c ON cp.client_id = c.id
             LEFT JOIN {SCHEMA}.users u ON c.photographer_id = u.id
@@ -253,7 +253,7 @@ def send_project_notifications(project_id: int) -> Dict[str, Any]:
             'id': row[6],
             'name': row[7],
             'phone': row[8],
-            'user_id': row[13]
+            'telegram_chat_id': row[13]
         }
         
         photographer_data = {
@@ -263,7 +263,6 @@ def send_project_notifications(project_id: int) -> Dict[str, Any]:
             'telegram_chat_id': row[12]
         }
         
-        # Получаем данные о платеже если есть
         cur.execute(f"""
             SELECT SUM(amount) as total_paid
             FROM {SCHEMA}.client_payments
@@ -278,27 +277,21 @@ def send_project_notifications(project_id: int) -> Dict[str, Any]:
             'prepaid': prepaid
         } if project_data.get('budget') else None
         
-        # Получаем telegram_chat_id клиента
-        cur.execute(f"""
-            SELECT telegram_chat_id
-            FROM {SCHEMA}.users
-            WHERE id = %s AND telegram_chat_id IS NOT NULL
-        """, (client_data['user_id'],))
-        
-        client_telegram_row = cur.fetchone()
-        client_telegram_chat_id = client_telegram_row[0] if client_telegram_row else None
+        client_telegram_chat_id = client_data.get('telegram_chat_id')
         
         results = {
             'client_sent': False,
             'photographer_sent': False
         }
         
+        print(f"[TELEGRAM_NOTIF] Client {client_data['id']} telegram: {client_telegram_chat_id}, Photographer {photographer_data['id']} telegram: {photographer_data.get('telegram_chat_id')}")
+        
         # Отправка клиенту
         if client_telegram_chat_id:
             message = format_project_notification_for_client(project_data, photographer_data, payment_data)
             results['client_sent'] = send_telegram_message(client_telegram_chat_id, message)
         else:
-            print(f"Client {client_data['id']} has no telegram_chat_id")
+            print(f"Client {client_data['id']} has no telegram_chat_id in clients table")
         
         # Отправка фотографу
         if photographer_data.get('telegram_chat_id'):

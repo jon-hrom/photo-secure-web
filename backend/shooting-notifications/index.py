@@ -1,5 +1,5 @@
 """
-API для отправки уведомлений о съёмках через MAX
+API для отправки уведомлений о съёмках через MAX (WhatsApp)
 Отправляет уведомления клиенту и фотографу при создании/изменении проекта
 """
 
@@ -95,7 +95,12 @@ def format_date_ru(date_str: str) -> str:
 
 def send_client_notification(project_data: dict, client_data: dict, photographer_data: dict) -> dict:
     """Отправить уведомление клиенту о съёмке"""
-    creds = get_max_credentials()
+    instance_id = photographer_data.get('green_api_instance_id') or ''
+    token = photographer_data.get('green_api_token') or ''
+    if not instance_id or not token:
+        creds = get_max_credentials()
+    else:
+        creds = {'instance_id': instance_id, 'token': token}
     
     if not creds.get('instance_id') or not creds.get('token'):
         return {'error': 'MAX credentials not configured'}
@@ -178,7 +183,12 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
 
 def send_photographer_notification(project_data: dict, client_data: dict, photographer_data: dict, payment_data: dict = None) -> dict:
     """Отправить уведомление фотографу о съёмке"""
-    creds = get_max_credentials()
+    instance_id = photographer_data.get('green_api_instance_id') or ''
+    token = photographer_data.get('green_api_token') or ''
+    if not instance_id or not token:
+        creds = get_max_credentials()
+    else:
+        creds = {'instance_id': instance_id, 'token': token}
     
     if not creds.get('instance_id') or not creds.get('token'):
         return {'error': 'MAX credentials not configured'}
@@ -379,7 +389,8 @@ def handler(event: dict, context) -> dict:
             # Получаем данные фотографа, стиль съёмки и платежи
             with conn.cursor() as cur:
                 cur.execute(f"""
-                    SELECT id, email, phone, display_name
+                    SELECT id, email, phone, display_name,
+                           green_api_instance_id, green_api_token
                     FROM {SCHEMA}.users
                     WHERE id = {escape_sql(user_id)}
                 """)
