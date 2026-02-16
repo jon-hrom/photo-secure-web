@@ -977,7 +977,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ))
                     
                     if is_new_project and start_date and project.get('shooting_time'):
-                        # Telegram
+                        # Telegram + Email
                         try:
                             telegram_notif_url = 'https://functions.poehali.dev/9768a392-3928-4880-bccc-dd33983ce097'
                             requests.post(telegram_notif_url, json={
@@ -999,6 +999,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             print(f'[MAX_NOTIF] Sent notification for project {project_id}')
                         except Exception as e:
                             print(f'[MAX_NOTIF] Error: {e}')
+                        # Немедленное напоминание если до съёмки < 24 часов
+                        try:
+                            from datetime import time as time_type
+                            shooting_time_str = project.get('shooting_time', '12:00')
+                            if isinstance(shooting_time_str, str) and ':' in shooting_time_str:
+                                parts = shooting_time_str.split(':')
+                                st = time_type(int(parts[0]), int(parts[1]))
+                            else:
+                                st = time_type(12, 0)
+                            shooting_dt = datetime.combine(start_date.date() if hasattr(start_date, 'date') else start_date, st)
+                            hours_until = (shooting_dt - datetime.now()).total_seconds() / 3600
+                            if 0 < hours_until < 24:
+                                reminders_cron_url = 'https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c'
+                                requests.post(reminders_cron_url, json={
+                                    'immediate_project_id': project_id
+                                }, headers={'Content-Type': 'application/json'}, timeout=10)
+                                print(f'[URGENT_REMINDER] Triggered immediate reminders for project {project_id}, {hours_until:.1f}h until shooting')
+                        except Exception as e:
+                            print(f'[URGENT_REMINDER] Error: {e}')
             
             # Обновляем платежи (upsert)
             if 'payments' in body:
