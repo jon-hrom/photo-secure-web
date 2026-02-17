@@ -259,6 +259,7 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
 
     labels = {
         '24h': ('Напоминание о завтрашней съёмке', 'завтра', 'Подготовьтесь заранее! До встречи завтра!', 'Проверьте оборудование заранее!'),
+        'today': ('Напоминание о сегодняшней съёмке', 'сегодня', 'Подготовьтесь заранее! До встречи сегодня!', 'Проверьте оборудование заранее!'),
         '5h': ('Съёмка через 5 часов', 'через 5 часов', 'Выезжайте заранее с учётом пробок!', 'Проверьте флешки, аккумуляторы, объективы. Выезжайте с запасом!'),
         '1h': ('Съёмка через 1 час', 'через 1 час', 'Ждём вас! Будет красиво!', 'В путь! Удачной съёмки!')
     }
@@ -375,7 +376,7 @@ def determine_pending_reminders(hours_until: float, already_sent: set, is_today:
     Отправляет только ОДНО — самое актуальное для текущего момента.
     Если 24h пропущено, но 5h тоже пора — отправляем только 5h (а 24h помечаем как отправленное тихо).
     Не спамим клиента тремя сообщениями подряд.
-    is_today=True — съёмка сегодня, не отправляем "завтрашнее" напоминание (24h).
+    is_today=True — съёмка сегодня, вместо "завтрашнего" (24h) отправляем "сегодняшнее" (today).
     """
     if hours_until <= 0 or hours_until > 25:
         return []
@@ -384,6 +385,8 @@ def determine_pending_reminders(hours_until: float, already_sent: set, is_today:
         return ['1h']
     if hours_until <= 5.5 and '5h' not in already_sent:
         return ['5h']
+    if is_today and hours_until > 5.5 and 'today' not in already_sent:
+        return ['today']
     if hours_until <= 25 and '24h' not in already_sent and not is_today:
         return ['24h']
     return []
