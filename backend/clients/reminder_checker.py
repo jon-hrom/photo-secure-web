@@ -5,7 +5,7 @@
 
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List
 
 
@@ -265,15 +265,21 @@ def check_and_send_reminders(conn, schema: str, user_id: int):
                 reminder_type = None
                 is_today = shooting_date == now.date()
                 
-                # Определяем тип напоминания
-                if 23 <= hours_until < 25 and not is_today:
-                    reminder_type = '24h'
-                elif is_today and hours_until > 5.5:
-                    reminder_type = 'today'
-                elif 4.5 <= hours_until < 5.5:
-                    reminder_type = '5h'
-                elif 0.5 <= hours_until < 1.5:
+                current_quarter = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
+                
+                def quarter_send_time(hrs_before):
+                    ideal = shooting_datetime - timedelta(hours=hrs_before)
+                    aligned = (ideal.minute // 15) * 15
+                    return ideal.replace(minute=aligned, second=0, microsecond=0)
+                
+                if 0 < hours_until <= 1.5 and current_quarter >= quarter_send_time(1):
                     reminder_type = '1h'
+                elif 1.5 < hours_until <= 5.5 and current_quarter >= quarter_send_time(5):
+                    reminder_type = '5h'
+                elif is_today and hours_until > 5.5 and current_quarter >= quarter_send_time(hours_until):
+                    reminder_type = 'today'
+                elif 5.5 < hours_until <= 25 and not is_today and current_quarter >= quarter_send_time(24):
+                    reminder_type = '24h'
                 
                 if not reminder_type:
                     continue

@@ -136,6 +136,12 @@ def get_tz_label(region: str) -> str:
     return f"UTC+{offset_hours}"
 
 
+def get_quarter_send_time(shooting_dt: datetime, hours_before: float) -> datetime:
+    ideal = shooting_dt - timedelta(hours=hours_before)
+    aligned_minute = (ideal.minute // 15) * 15
+    return ideal.replace(minute=aligned_minute, second=0, microsecond=0)
+
+
 def escape_sql(value):
     if value is None:
         return 'NULL'
@@ -370,15 +376,39 @@ def get_sent_reminders(cur, project_id):
     return set(row['reminder_type'] for row in cur.fetchall())
 
 
-def determine_pending_reminders(hours_until: float, already_sent: set, is_today: bool = False) -> list:
+def determine_pending_reminders(hours_until: float, already_sent: set, is_today: bool = False, now_local: datetime = None, shooting_dt: datetime = None) -> list:
     """
     Каскадная логика: определяет какое напоминание нужно отправить СЕЙЧАС.
     Отправляет только ОДНО — самое актуальное для текущего момента.
-    Если 24h пропущено, но 5h тоже пора — отправляем только 5h (а 24h помечаем как отправленное тихо).
-    Не спамим клиента тремя сообщениями подряд.
-    is_today=True — съёмка сегодня, вместо "завтрашнего" (24h) отправляем "сегодняшнее" (today).
+    Привязка к четвертям часа (:00, :15, :30, :45) — отправляем только когда
+    текущее время >= ровной четверти, на которую приходится отправка.
     """
     if hours_until <= 0 or hours_until > 25:
+        return []
+
+    if now_local and shooting_dt:
+        current_quarter = now_local.replace(minute=(now_local.minute // 15) * 15, second=0, microsecond=0)
+
+        if hours_until <= 1.5 and '1h' not in already_sent:
+            send_at = get_quarter_send_time(shooting_dt, 1)
+            if current_quarter >= send_at:
+                return ['1h']
+            return []
+        if hours_until <= 5.5 and '5h' not in already_sent:
+            send_at = get_quarter_send_time(shooting_dt, 5)
+            if current_quarter >= send_at:
+                return ['5h']
+            return []
+        if is_today and hours_until > 5.5 and 'today' not in already_sent:
+            send_at = get_quarter_send_time(shooting_dt, hours_until)
+            if current_quarter >= send_at:
+                return ['today']
+            return []
+        if hours_until <= 25 and '24h' not in already_sent and not is_today:
+            send_at = get_quarter_send_time(shooting_dt, 24)
+            if current_quarter >= send_at:
+                return ['24h']
+            return []
         return []
 
     if hours_until <= 1.5 and '1h' not in already_sent:
@@ -551,7 +581,7 @@ def handler(event, context):
                     print(f"[CRON] Project {proj['project_id']}: already sent = {already_sent}")
 
                 is_today = proj['start_date'] == now_local.date()
-                pending = determine_pending_reminders(hours_until, already_sent, is_today=is_today)
+                pending = determine_pending_reminders(hours_until, already_sent, is_today=is_today, now_local=now_local, shooting_dt=shooting_datetime)
 
                 if not pending:
                     reason = 'already passed' if hours_until <= 0 else ('too far' if hours_until > 25 else 'all sent')
