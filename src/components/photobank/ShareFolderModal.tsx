@@ -102,8 +102,8 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
             />
           ) : activeTab === 'features' ? (
             <FeaturesTab
-              clientUploadEnabled={linkSettings.clientUploadEnabled}
-              onClientUploadChange={(enabled) => setLinkSettings({ ...linkSettings, clientUploadEnabled: enabled })}
+              galleryCode={shareUrl ? shareUrl.split('/').pop() || '' : ''}
+              userId={userId}
             />
           ) : (
             <>

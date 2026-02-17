@@ -17,7 +17,7 @@ interface FavoriteConfig {
 interface ClientLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (clientData: { client_id: number; full_name: string; phone: string; email?: string }) => void;
+  onLogin: (clientData: { client_id: number; full_name: string; phone: string; email?: string; upload_enabled?: boolean }) => void;
   galleryCode: string;
   favoriteConfig?: FavoriteConfig | null;
 }
@@ -93,7 +93,8 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
         client_id: result.client_id,
         full_name: result.full_name,
         phone: result.phone,
-        email: result.email
+        email: result.email,
+        upload_enabled: result.upload_enabled || false
       });
 
       setFullName('');

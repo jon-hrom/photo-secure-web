@@ -31,7 +31,7 @@ export function useGalleryState() {
   const [favoriteFolder, setFavoriteFolder] = useState<FavoriteFolder | null>(null);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
   const [photoToAdd, setPhotoToAdd] = useState<Photo | null>(null);
-  const [clientData, setClientData] = useState<{ client_id: number; full_name: string; phone: string; email?: string } | null>(null);
+  const [clientData, setClientData] = useState<{ client_id: number; full_name: string; phone: string; email?: string; upload_enabled?: boolean } | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isMyFavoritesOpen, setIsMyFavoritesOpen] = useState(false);
   const [clientFavoritePhotoIds, setClientFavoritePhotoIds] = useState<number[]>([]);

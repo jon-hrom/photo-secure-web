@@ -34,10 +34,10 @@ interface GalleryData {
 interface GalleryHandlersParams {
   code?: string;
   gallery: GalleryData | null;
-  clientData: { client_id: number; full_name: string; phone: string; email?: string } | null;
+  clientData: { client_id: number; full_name: string; phone: string; email?: string; upload_enabled?: boolean } | null;
   favoriteFolder: FavoriteFolder | null;
   isChatOpen: boolean;
-  setClientData: (data: { client_id: number; full_name: string; phone: string; email?: string } | null) => void;
+  setClientData: (data: { client_id: number; full_name: string; phone: string; email?: string; upload_enabled?: boolean } | null) => void;
   setFavoriteFolder: (folder: FavoriteFolder | null) => void;
   setClientFavoritePhotoIds: (ids: number[] | ((prev: number[]) => number[])) => void;
   setUnreadCount: (count: number) => void;
@@ -203,14 +203,14 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     await loadClientFavorites(data.client_id);
   };
 
-  const handleClientLogin = async (clientData: { client_id: number; full_name: string; phone: string; email?: string }) => {
-    setClientData(clientData);
+  const handleClientLogin = async (loginData: { client_id: number; full_name: string; phone: string; email?: string; upload_enabled?: boolean }) => {
+    setClientData(loginData);
     if (gallery) {
-      localStorage.setItem(`client_${gallery.photographer_id}_${code}`, JSON.stringify(clientData));
+      localStorage.setItem(`client_${gallery.photographer_id}_${code}`, JSON.stringify(loginData));
     }
     
-    if (clientData.client_id) {
-      await loadClientFavorites(clientData.client_id);
+    if (loginData.client_id) {
+      await loadClientFavorites(loginData.client_id);
     }
   };
 

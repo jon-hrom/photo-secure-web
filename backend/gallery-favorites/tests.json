@@ -65,6 +65,33 @@
         "photos": "array"
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "List registered clients - no auth",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "list_registered_clients",
+        "gallery_code": "test123"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Toggle upload - missing params",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "toggle_upload"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "tests": [
     {
-      "name": "Create folder without code",
+      "name": "Create folder without required fields",
       "method": "POST",
       "path": "/",
       "body": {
@@ -15,10 +15,10 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "List folders with invalid code",
+      "name": "List folders missing client_id",
       "method": "GET",
       "path": "/?code=invalid123&action=list_folders",
-      "expectedStatus": 404,
+      "expectedStatus": 400,
       "expectedBody": {
         "error": "string"
       },

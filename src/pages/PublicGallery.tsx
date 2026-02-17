@@ -228,7 +228,7 @@ export default function PublicGallery() {
         onOpenChat={() => state.setIsChatOpen(true)}
         unreadMessagesCount={state.unreadCount}
         onLogout={handlers.handleLogout}
-        clientUploadEnabled={gallery?.client_upload_enabled}
+        clientUploadEnabled={!!state.clientData?.upload_enabled}
         onOpenUpload={() => setIsUploadOpen(true)}
       />
 
@@ -264,11 +264,12 @@ export default function PublicGallery() {
         isDarkTheme={isDarkTheme}
       />
 
-      {gallery.client_upload_enabled && code && (
+      {state.clientData?.upload_enabled && code && state.clientData?.client_id && (
         <ClientUploadModal
           isOpen={isUploadOpen}
           onClose={() => setIsUploadOpen(false)}
           shortCode={code}
+          clientId={state.clientData.client_id}
           existingFolders={clientUploadFolders}
           onFoldersUpdate={setClientUploadFolders}
           isDarkTheme={isDarkTheme}

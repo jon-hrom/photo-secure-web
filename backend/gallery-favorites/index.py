@@ -176,6 +176,89 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'success': True, 'client_id': client_id})
                 }
             
+            elif action == 'list_registered_clients':
+                gallery_code = body.get('gallery_code')
+                user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+                
+                if not gallery_code or not user_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'gallery_code and auth required'})
+                    }
+                
+                cur.execute('''
+                    SELECT fsl.id FROM t_p28211681_photo_secure_web.folder_short_links fsl
+                    WHERE fsl.short_code = %s AND fsl.user_id = %s
+                ''', (gallery_code, user_id))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                
+                cur.execute('''
+                    SELECT id, full_name, phone, email, created_at, COALESCE(upload_enabled, FALSE)
+                    FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE gallery_code = %s
+                    ORDER BY created_at DESC
+                ''', (gallery_code,))
+                
+                registered = []
+                for row in cur.fetchall():
+                    registered.append({
+                        'id': row[0],
+                        'full_name': row[1] or '',
+                        'phone': row[2] or '',
+                        'email': row[3] or '',
+                        'created_at': row[4].isoformat() if row[4] else None,
+                        'upload_enabled': row[5]
+                    })
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'clients': registered})
+                }
+            
+            elif action == 'toggle_upload':
+                client_id = body.get('client_id')
+                upload_enabled = body.get('upload_enabled', False)
+                gallery_code = body.get('gallery_code')
+                user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+                
+                if not client_id or not gallery_code or not user_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'client_id, gallery_code and auth required'})
+                    }
+                
+                cur.execute('''
+                    SELECT fsl.id FROM t_p28211681_photo_secure_web.folder_short_links fsl
+                    WHERE fsl.short_code = %s AND fsl.user_id = %s
+                ''', (gallery_code, user_id))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.favorite_clients
+                    SET upload_enabled = %s
+                    WHERE id = %s AND gallery_code = %s
+                ''', (upload_enabled, client_id, gallery_code))
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True, 'upload_enabled': upload_enabled})
+                }
+            
             elif action == 'login':
                 gallery_code = body.get('gallery_code')
                 full_name = body.get('full_name', '').strip()
@@ -230,7 +313,7 @@ def handler(event: dict, context) -> dict:
                 where_clause = ' AND '.join(where_conditions)
                 
                 query = f'''
-                    SELECT id, full_name, phone, email
+                    SELECT id, full_name, phone, email, COALESCE(upload_enabled, FALSE)
                     FROM t_p28211681_photo_secure_web.favorite_clients
                     WHERE {where_clause}
                     ORDER BY id DESC LIMIT 1
@@ -255,7 +338,7 @@ def handler(event: dict, context) -> dict:
                             UPDATE t_p28211681_photo_secure_web.favorite_clients
                             SET {', '.join(update_parts)}
                             WHERE id = %s
-                            RETURNING id, full_name, phone, email
+                            RETURNING id, full_name, phone, email, COALESCE(upload_enabled, FALSE)
                         '''
                         cur.execute(update_query, tuple(update_params))
                         client = cur.fetchone()
@@ -278,7 +361,8 @@ def handler(event: dict, context) -> dict:
                         'client_id': client[0],
                         'full_name': client[1] or '',
                         'phone': client[2] or '',
-                        'email': client[3] or ''
+                        'email': client[3] or '',
+                        'upload_enabled': client[4] if len(client) > 4 else False
                     })
                 }
         

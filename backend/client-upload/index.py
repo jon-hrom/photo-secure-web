@@ -66,12 +66,16 @@ def handler(event: dict, context) -> dict:
                 return photographer_download_photos(cur, conn, params, user_id)
             else:
                 short_code = params.get('code')
-                if not short_code:
-                    return error_response(400, 'code required')
+                client_id = params.get('client_id')
+                if not short_code or not client_id:
+                    return error_response(400, 'code and client_id required')
                 
-                link = get_link_with_upload_check(cur, short_code)
+                link = get_link_info(cur, short_code)
                 if not link:
-                    return error_response(404, 'Gallery not found or upload disabled')
+                    return error_response(404, 'Gallery not found')
+                
+                if not check_client_upload_allowed(cur, int(client_id), short_code):
+                    return error_response(403, 'Upload not allowed for this client')
                 
                 link_id, folder_id = link
                 
@@ -79,10 +83,10 @@ def handler(event: dict, context) -> dict:
                     f"""
                     SELECT id, folder_name, client_name, photo_count, created_at
                     FROM {SCHEMA}.client_upload_folders
-                    WHERE parent_folder_id = %s AND short_link_id = %s
+                    WHERE parent_folder_id = %s AND short_link_id = %s AND client_id = %s
                     ORDER BY created_at DESC
                     """,
-                    (folder_id, link_id)
+                    (folder_id, link_id, client_id)
                 )
                 folders = []
                 for row in cur.fetchall():
@@ -130,18 +134,29 @@ def handler(event: dict, context) -> dict:
         return error_response(500, str(e))
 
 
-def get_link_with_upload_check(cur, short_code):
+def get_link_info(cur, short_code):
     cur.execute(
         f"""
         SELECT fsl.id, fsl.folder_id
         FROM {SCHEMA}.folder_short_links fsl
-        WHERE fsl.short_code = %s AND COALESCE(fsl.client_upload_enabled, FALSE) = TRUE
+        WHERE fsl.short_code = %s
           AND COALESCE(fsl.is_blocked, FALSE) = FALSE
           AND (fsl.expires_at IS NULL OR fsl.expires_at > NOW())
         """,
         (short_code,)
     )
     return cur.fetchone()
+
+
+def check_client_upload_allowed(cur, client_id, gallery_code):
+    cur.execute(
+        f"""
+        SELECT id FROM {SCHEMA}.favorite_clients
+        WHERE id = %s AND gallery_code = %s AND COALESCE(upload_enabled, FALSE) = TRUE
+        """,
+        (client_id, gallery_code)
+    )
+    return cur.fetchone() is not None
 
 
 def verify_photographer_owns_folder(cur, upload_folder_id, user_id):
@@ -361,13 +376,17 @@ def create_client_folder(cur, conn, data):
     short_code = data.get('short_code')
     folder_name = data.get('folder_name', '').strip()
     client_name = data.get('client_name', '').strip()
+    client_id = data.get('client_id')
     
-    if not short_code or not folder_name:
-        return error_response(400, 'short_code and folder_name required')
+    if not short_code or not folder_name or not client_id:
+        return error_response(400, 'short_code, folder_name and client_id required')
     
-    link = get_link_with_upload_check(cur, short_code)
+    link = get_link_info(cur, short_code)
     if not link:
-        return error_response(403, 'Upload not allowed')
+        return error_response(404, 'Gallery not found')
+    
+    if not check_client_upload_allowed(cur, client_id, short_code):
+        return error_response(403, 'Upload not allowed for this client')
     
     link_id, parent_folder_id = link
     
@@ -385,11 +404,11 @@ def create_client_folder(cur, conn, data):
     cur.execute(
         f"""
         INSERT INTO {SCHEMA}.client_upload_folders
-        (parent_folder_id, short_link_id, folder_name, client_name, s3_prefix)
-        VALUES (%s, %s, %s, %s, %s)
+        (parent_folder_id, short_link_id, folder_name, client_name, s3_prefix, client_id)
+        VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
-        (parent_folder_id, link_id, folder_name, client_name or None, s3_prefix)
+        (parent_folder_id, link_id, folder_name, client_name or None, s3_prefix, client_id)
     )
     folder_id = cur.fetchone()[0]
     conn.commit()
@@ -410,16 +429,20 @@ def upload_client_photo(cur, conn, data):
     file_name = data.get('file_name', '')
     file_data = data.get('file_data')
     content_type = data.get('content_type', 'image/jpeg')
+    client_id = data.get('client_id')
     
-    if not short_code or not upload_folder_id or not file_data:
-        return error_response(400, 'short_code, upload_folder_id and file_data required')
+    if not short_code or not upload_folder_id or not file_data or not client_id:
+        return error_response(400, 'short_code, upload_folder_id, client_id and file_data required')
     
     if len(file_data) > 20 * 1024 * 1024:
         return error_response(413, 'File too large. Maximum size is 15MB')
     
-    link = get_link_with_upload_check(cur, short_code)
+    link = get_link_info(cur, short_code)
     if not link:
-        return error_response(403, 'Upload not allowed')
+        return error_response(404, 'Gallery not found')
+    
+    if not check_client_upload_allowed(cur, client_id, short_code):
+        return error_response(403, 'Upload not allowed for this client')
     
     link_id, parent_folder_id = link
     

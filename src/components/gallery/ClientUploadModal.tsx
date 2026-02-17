@@ -18,6 +18,7 @@ interface ClientUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   shortCode: string;
+  clientId: number;
   existingFolders: ClientUploadFolder[];
   onFoldersUpdate: (folders: ClientUploadFolder[]) => void;
   isDarkTheme?: boolean;
@@ -27,6 +28,7 @@ export default function ClientUploadModal({
   isOpen,
   onClose,
   shortCode,
+  clientId,
   existingFolders,
   onFoldersUpdate,
   isDarkTheme = false
@@ -52,6 +54,7 @@ export default function ClientUploadModal({
         body: JSON.stringify({
           action: 'create_folder',
           short_code: shortCode,
+          client_id: clientId,
           folder_name: newFolderName.trim(),
           client_name: clientName.trim() || null
         })
@@ -130,6 +133,7 @@ export default function ClientUploadModal({
           body: JSON.stringify({
             action: 'upload_photo',
             short_code: shortCode,
+            client_id: clientId,
             upload_folder_id: activeFolderId,
             file_name: file.name,
             file_data: base64,

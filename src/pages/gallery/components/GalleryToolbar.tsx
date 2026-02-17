@@ -119,15 +119,6 @@ export default function GalleryToolbar({
                 <Icon name="User" size={14} className="flex-shrink-0" />
                 Войти
               </button>
-              {clientUploadEnabled && onOpenUpload && (
-                <button
-                  onClick={onOpenUpload}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 active:bg-green-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                >
-                  <Icon name="Upload" size={14} className="flex-shrink-0" />
-                  <span className="hidden sm:inline">Загрузить фото</span>
-                </button>
-              )}
               {!gallery.download_disabled && (
                 <button
                   onClick={onDownloadAll}
