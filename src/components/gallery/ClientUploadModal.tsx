@@ -40,7 +40,8 @@ export default function ClientUploadModal({
   const [activeFolderName, setActiveFolderName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
-  const [uploadedPhotos, setUploadedPhotos] = useState<{ file_name: string; s3_url: string }[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ photo_id: number; file_name: string; s3_url: string }[]>([]);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -108,7 +109,7 @@ export default function ClientUploadModal({
 
     setUploading(true);
     setUploadProgress({ current: 0, total: files.length });
-    const uploaded: { file_name: string; s3_url: string }[] = [];
+    const uploaded: { photo_id: number; file_name: string; s3_url: string }[] = [];
     const errors: string[] = [];
 
     for (let i = 0; i < files.length; i++) {
@@ -166,7 +167,7 @@ export default function ClientUploadModal({
 
         if (confirmRes.ok) {
           const data = await confirmRes.json();
-          uploaded.push({ file_name: data.file_name, s3_url: data.s3_url });
+          uploaded.push({ photo_id: data.photo_id ?? data.id ?? 0, file_name: data.file_name, s3_url: data.s3_url });
         } else {
           errors.push(`${file.name}: ошибка подтверждения`);
         }
@@ -198,6 +199,38 @@ export default function ClientUploadModal({
     }
   }, [activeFolderId, shortCode, clientId, existingFolders, onFoldersUpdate, activeFolderName, toast]);
 
+  const handleDeletePhoto = async (photoId: number) => {
+    if (!window.confirm('Удалить это фото?')) return;
+    try {
+      setDeletingPhotoId(photoId);
+      const res = await fetch(CLIENT_UPLOAD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'client_delete_photo',
+          photo_id: photoId,
+          short_code: shortCode,
+          client_id: clientId,
+        })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Ошибка удаления');
+      }
+      setUploadedPhotos(prev => prev.filter(p => p.photo_id !== photoId));
+      const updatedFolders = existingFolders.map(f =>
+        f.id === activeFolderId ? { ...f, photo_count: Math.max(0, f.photo_count - 1) } : f
+      );
+      onFoldersUpdate(updatedFolders);
+      toast({ title: 'Фото удалено' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Ошибка';
+      toast({ title: 'Ошибка', description: message, variant: 'destructive' });
+    } finally {
+      setDeletingPhotoId(null);
+    }
+  };
+
   if (!isOpen) return null;
 
   const themeClasses = isDarkTheme
@@ -211,12 +244,12 @@ export default function ClientUploadModal({
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
       <div className={`${themeClasses} rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl`}>
-        <div className="sticky top-0 z-10 px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between" style={{ backgroundColor: 'inherit' }}>
+        <div className={`sticky top-0 z-10 px-4 sm:px-6 py-4 border-b flex items-center justify-between ${isDarkTheme ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
           <div className="flex items-center gap-3">
             {step !== 'folders' && (
               <button
                 onClick={() => { setStep('folders'); setUploadedPhotos([]); }}
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className={`p-1.5 rounded-lg transition-colors ${isDarkTheme ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
               >
                 <Icon name="ArrowLeft" size={20} />
               </button>
@@ -225,7 +258,7 @@ export default function ClientUploadModal({
               {step === 'folders' ? 'Загрузить фото' : step === 'create' ? 'Новая папка' : `Загрузка в "${activeFolderName}"`}
             </h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+          <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${isDarkTheme ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
             <Icon name="X" size={20} />
           </button>
         </div>
@@ -239,7 +272,7 @@ export default function ClientUploadModal({
 
               <Button
                 onClick={() => setStep('create')}
-                className="w-full h-12 border-dashed border-2"
+                className={`w-full h-12 border-dashed border-2 ${isDarkTheme ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : ''}`}
                 variant="outline"
               >
                 <Icon name="FolderPlus" size={20} className="mr-2" />
@@ -288,7 +321,7 @@ export default function ClientUploadModal({
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   placeholder="Например: Фото от Ивановых"
-                  className="h-11"
+                  className={`h-11 ${isDarkTheme ? 'bg-gray-800 border-gray-600 text-white placeholder:text-gray-500' : ''}`}
                   autoFocus
                 />
               </div>
@@ -300,7 +333,7 @@ export default function ClientUploadModal({
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   placeholder="Как вас зовут?"
-                  className="h-11"
+                  className={`h-11 ${isDarkTheme ? 'bg-gray-800 border-gray-600 text-white placeholder:text-gray-500' : ''}`}
                 />
               </div>
               <Button
@@ -350,7 +383,7 @@ export default function ClientUploadModal({
               </div>
 
               {uploading && (
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div className={`w-full rounded-full h-2 ${isDarkTheme ? 'bg-gray-700' : 'bg-gray-200'}`}>
                   <div
                     className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
@@ -364,9 +397,23 @@ export default function ClientUploadModal({
                     Загружено: {uploadedPhotos.length} фото
                   </p>
                   <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                    {uploadedPhotos.map((photo, idx) => (
-                      <div key={idx} className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                    {uploadedPhotos.map((photo) => (
+                      <div key={photo.photo_id} className={`relative group aspect-square rounded-lg overflow-hidden ${isDarkTheme ? 'bg-gray-800' : 'bg-gray-100'}`}>
                         <img src={photo.s3_url} alt={photo.file_name} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => handleDeletePhoto(photo.photo_id)}
+                          disabled={deletingPhotoId === photo.photo_id}
+                          className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          {deletingPhotoId === photo.photo_id ? (
+                            <Icon name="Loader2" size={12} className="animate-spin" />
+                          ) : (
+                            <Icon name="X" size={12} />
+                          )}
+                        </button>
+                        <p className={`absolute bottom-0 left-0 right-0 text-[9px] truncate px-1 py-0.5 bg-black/50 text-white`}>
+                          {photo.file_name}
+                        </p>
                       </div>
                     ))}
                   </div>

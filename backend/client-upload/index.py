@@ -80,6 +80,8 @@ def handler(event: dict, context) -> dict:
                 return get_presigned_upload_url(cur, conn, data)
             elif action == 'confirm_upload':
                 return confirm_client_upload(cur, conn, data)
+            elif action == 'client_delete_photo':
+                return client_delete_photo(cur, conn, data)
             elif action == 'list_folders':
                 return list_client_folders(cur, conn, data)
             else:
@@ -652,6 +654,58 @@ def confirm_client_upload(cur, conn, data):
         's3_url': presigned,
         'file_name': file_name
     })
+
+
+def client_delete_photo(cur, conn, data):
+    photo_id = data.get('photo_id')
+    short_code = data.get('short_code')
+    client_id = data.get('client_id')
+
+    if not photo_id or not short_code or not client_id:
+        return error_response(400, 'photo_id, short_code and client_id required')
+
+    if not check_client_upload_allowed(cur, client_id, short_code):
+        return error_response(403, 'Not allowed')
+
+    link = get_link_info(cur, short_code)
+    if not link:
+        return error_response(404, 'Gallery not found')
+
+    link_id = link[0]
+
+    cur.execute(
+        f"""
+        SELECT cup.id, cup.upload_folder_id, cup.s3_key
+        FROM {SCHEMA}.client_upload_photos cup
+        JOIN {SCHEMA}.client_upload_folders cuf ON cuf.id = cup.upload_folder_id
+        WHERE cup.id = %s AND cuf.short_link_id = %s AND cuf.client_id = %s
+        """,
+        (photo_id, link_id, client_id)
+    )
+    row = cur.fetchone()
+    if not row:
+        return error_response(404, 'Photo not found')
+
+    upload_folder_id = row[1]
+    s3_key = row[2]
+
+    if s3_key:
+        try:
+            s3 = get_yc_s3_client()
+            s3.delete_object(Bucket=S3_BUCKET, Key=s3_key)
+        except Exception as e:
+            print(f'[CLIENT_UPLOAD] S3 delete error: {e}')
+
+    cur.execute(f"DELETE FROM {SCHEMA}.client_upload_photos WHERE id = %s", (photo_id,))
+    cur.execute(
+        f"UPDATE {SCHEMA}.client_upload_folders SET photo_count = GREATEST(photo_count - 1, 0) WHERE id = %s",
+        (upload_folder_id,)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return success_response({'deleted': True})
 
 
 def list_client_folders(cur, conn, data):

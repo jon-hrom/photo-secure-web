@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import * as zip from "@zip.js/zip.js";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import { useToast } from "@/hooks/use-toast";
@@ -84,14 +85,27 @@ const Lightbox = ({ photos, startIndex, onClose }: LightboxProps) => {
 
   if (!photo) return null;
 
-  const handleDownloadOne = () => {
-    const link = document.createElement("a");
-    link.href = photo.s3_url;
-    link.download = photo.file_name;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadOne = async () => {
+    try {
+      const res = await fetch(photo.s3_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = photo.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      const link = document.createElement("a");
+      link.href = photo.s3_url;
+      link.download = photo.file_name;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   return (
@@ -278,21 +292,54 @@ const ClientUploadViewer = ({
         return;
       }
 
+      const totalFiles = data.totalFiles ?? data.files.length;
       toast({
-        title: "Скачивание",
-        description: `Начинается скачивание ${data.totalFiles ?? data.files.length} файлов...`,
+        title: "Создание архива",
+        description: `Скачивание 0/${totalFiles} файлов...`,
       });
 
-      for (const file of data.files) {
-        const link = document.createElement("a");
-        link.href = file.url;
-        link.download = file.filename;
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        await new Promise((r) => setTimeout(r, 300));
+      const blobWriter = new zip.BlobWriter("application/zip");
+      const zipWriter = new zip.ZipWriter(blobWriter);
+
+      for (let i = 0; i < data.files.length; i++) {
+        const file = data.files[i];
+        try {
+          const fileRes = await fetch(file.url);
+          const blob = await fileRes.blob();
+          await zipWriter.add(file.filename, new zip.BlobReader(blob), {
+            level: 0,
+          });
+        } catch {
+          // skip failed files
+        }
+        if ((i + 1) % 3 === 0 || i === data.files.length - 1) {
+          toast({
+            title: "Создание архива",
+            description: `Скачивание ${i + 1}/${totalFiles} файлов...`,
+          });
+        }
       }
+
+      const zipBlob = await zipWriter.close();
+
+      const folderObj = folders.find((f) => f.id === uploadFolderId);
+      const zipName = folderObj
+        ? `${folderObj.folder_name}.zip`
+        : `client_photos_${uploadFolderId}.zip`;
+
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = zipName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Готово",
+        description: `Архив ${zipName} скачан`,
+      });
     } catch {
       toast({
         title: "Ошибка",
@@ -367,14 +414,27 @@ const ClientUploadViewer = ({
   };
 
   /* -- download single photo -- */
-  const downloadSingle = (photo: ClientPhoto) => {
-    const link = document.createElement("a");
-    link.href = photo.s3_url;
-    link.download = photo.file_name;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadSingle = async (photo: ClientPhoto) => {
+    try {
+      const res = await fetch(photo.s3_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = photo.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      const link = document.createElement("a");
+      link.href = photo.s3_url;
+      link.download = photo.file_name;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   /* ---------- render ---------- */
