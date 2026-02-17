@@ -24,7 +24,11 @@ export default function FeaturesTab({ galleryCode, userId }: FeaturesTabProps) {
   const [toggling, setToggling] = useState<number | null>(null);
 
   const loadClients = useCallback(async () => {
-    if (!galleryCode) return;
+    console.log('[FeaturesTab] loadClients called, galleryCode:', galleryCode, 'userId:', userId);
+    if (!galleryCode) {
+      console.log('[FeaturesTab] No galleryCode, skipping');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(FAVORITES_URL, {
@@ -38,9 +42,14 @@ export default function FeaturesTab({ galleryCode, userId }: FeaturesTabProps) {
           gallery_code: galleryCode
         })
       });
+      console.log('[FeaturesTab] Response status:', res.status);
       if (res.ok) {
         const data = await res.json();
+        console.log('[FeaturesTab] Clients loaded:', data.clients?.length || 0);
         setClients(data.clients || []);
+      } else {
+        const text = await res.text();
+        console.error('[FeaturesTab] Error response:', res.status, text);
       }
     } catch (err) {
       console.error('[FeaturesTab] Error loading clients:', err);
