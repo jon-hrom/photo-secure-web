@@ -9,7 +9,7 @@ from datetime import datetime
 SCHEMA = 't_p28211681_photo_secure_web'
 
 def handler(event: dict, context) -> dict:
-    """API для загрузки фото клиентом через общую ссылку на галерею"""
+    """API для загрузки фото клиентом и просмотра фотографом клиентских загрузок"""
     method = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':
@@ -17,7 +17,7 @@ def handler(event: dict, context) -> dict:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
                 'Access-Control-Max-Age': '86400'
             },
@@ -48,39 +48,65 @@ def handler(event: dict, context) -> dict:
         elif method == 'GET':
             params = event.get('queryStringParameters', {}) or {}
             action = params.get('action', 'list_folders')
-            short_code = params.get('code')
+            headers = event.get('headers', {})
+            user_id = headers.get('x-user-id') or headers.get('X-User-Id')
             
-            if not short_code:
-                return error_response(400, 'code required')
+            if action == 'photographer_folders':
+                return photographer_list_folders(cur, conn, params, user_id)
+            elif action == 'photographer_photos':
+                return photographer_list_photos(cur, conn, params, user_id)
+            elif action == 'photographer_download':
+                return photographer_download_photos(cur, conn, params, user_id)
+            else:
+                short_code = params.get('code')
+                if not short_code:
+                    return error_response(400, 'code required')
+                
+                link = get_link_with_upload_check(cur, short_code)
+                if not link:
+                    return error_response(404, 'Gallery not found or upload disabled')
+                
+                link_id, folder_id = link
+                
+                cur.execute(
+                    f"""
+                    SELECT id, folder_name, client_name, photo_count, created_at
+                    FROM {SCHEMA}.client_upload_folders
+                    WHERE parent_folder_id = %s AND short_link_id = %s
+                    ORDER BY created_at DESC
+                    """,
+                    (folder_id, link_id)
+                )
+                folders = []
+                for row in cur.fetchall():
+                    folders.append({
+                        'id': row[0],
+                        'folder_name': row[1],
+                        'client_name': row[2],
+                        'photo_count': row[3],
+                        'created_at': row[4].isoformat() if row[4] else None
+                    })
+                
+                cur.close()
+                conn.close()
+                return success_response({'folders': folders})
+        
+        elif method == 'DELETE':
+            headers = event.get('headers', {})
+            user_id = headers.get('x-user-id') or headers.get('X-User-Id')
+            params = event.get('queryStringParameters', {}) or {}
+            upload_folder_id = params.get('upload_folder_id')
+            photo_id = params.get('photo_id')
             
-            link = get_link_with_upload_check(cur, short_code)
-            if not link:
-                return error_response(404, 'Gallery not found or upload disabled')
+            if not user_id:
+                return error_response(401, 'Unauthorized')
             
-            link_id, folder_id = link
-            
-            cur.execute(
-                f"""
-                SELECT id, folder_name, client_name, photo_count, created_at
-                FROM {SCHEMA}.client_upload_folders
-                WHERE parent_folder_id = %s AND short_link_id = %s
-                ORDER BY created_at DESC
-                """,
-                (folder_id, link_id)
-            )
-            folders = []
-            for row in cur.fetchall():
-                folders.append({
-                    'id': row[0],
-                    'folder_name': row[1],
-                    'client_name': row[2],
-                    'photo_count': row[3],
-                    'created_at': row[4].isoformat() if row[4] else None
-                })
-            
-            cur.close()
-            conn.close()
-            return success_response({'folders': folders})
+            if photo_id:
+                return photographer_delete_photo(cur, conn, int(photo_id), int(user_id))
+            elif upload_folder_id:
+                return photographer_delete_folder(cur, conn, int(upload_folder_id), int(user_id))
+            else:
+                return error_response(400, 'upload_folder_id or photo_id required')
         
         else:
             cur.close()
@@ -108,6 +134,219 @@ def get_link_with_upload_check(cur, short_code):
         (short_code,)
     )
     return cur.fetchone()
+
+
+def verify_photographer_owns_folder(cur, upload_folder_id, user_id):
+    cur.execute(
+        f"""
+        SELECT cuf.id, cuf.parent_folder_id, pf.user_id
+        FROM {SCHEMA}.client_upload_folders cuf
+        JOIN {SCHEMA}.photo_folders pf ON pf.id = cuf.parent_folder_id
+        WHERE cuf.id = %s AND pf.user_id = %s
+        """,
+        (upload_folder_id, user_id)
+    )
+    return cur.fetchone()
+
+
+def photographer_list_folders(cur, conn, params, user_id):
+    if not user_id:
+        return error_response(401, 'Unauthorized')
+    
+    parent_folder_id = params.get('parent_folder_id')
+    if not parent_folder_id:
+        return error_response(400, 'parent_folder_id required')
+    
+    cur.execute(
+        f"SELECT id FROM {SCHEMA}.photo_folders WHERE id = %s AND user_id = %s",
+        (parent_folder_id, user_id)
+    )
+    if not cur.fetchone():
+        cur.close()
+        conn.close()
+        return error_response(403, 'Access denied')
+    
+    cur.execute(
+        f"""
+        SELECT cuf.id, cuf.folder_name, cuf.client_name, cuf.photo_count, cuf.created_at, cuf.s3_prefix
+        FROM {SCHEMA}.client_upload_folders cuf
+        WHERE cuf.parent_folder_id = %s
+        ORDER BY cuf.created_at DESC
+        """,
+        (parent_folder_id,)
+    )
+    folders = []
+    for row in cur.fetchall():
+        folders.append({
+            'id': row[0],
+            'folder_name': row[1],
+            'client_name': row[2],
+            'photo_count': row[3],
+            'created_at': row[4].isoformat() if row[4] else None,
+            's3_prefix': row[5]
+        })
+    
+    cur.close()
+    conn.close()
+    return success_response({'folders': folders})
+
+
+def photographer_list_photos(cur, conn, params, user_id):
+    if not user_id:
+        return error_response(401, 'Unauthorized')
+    
+    upload_folder_id = params.get('upload_folder_id')
+    if not upload_folder_id:
+        return error_response(400, 'upload_folder_id required')
+    
+    row = verify_photographer_owns_folder(cur, upload_folder_id, user_id)
+    if not row:
+        cur.close()
+        conn.close()
+        return error_response(403, 'Access denied')
+    
+    cur.execute(
+        f"""
+        SELECT id, file_name, s3_key, s3_url, thumbnail_s3_url, content_type,
+               file_size, width, height, created_at
+        FROM {SCHEMA}.client_upload_photos
+        WHERE upload_folder_id = %s
+        ORDER BY created_at DESC
+        """,
+        (upload_folder_id,)
+    )
+    
+    photos = []
+    for r in cur.fetchall():
+        photos.append({
+            'id': r[0],
+            'file_name': r[1],
+            's3_key': r[2],
+            's3_url': r[3],
+            'thumbnail_s3_url': r[4] or r[3],
+            'content_type': r[5],
+            'file_size': r[6] or 0,
+            'width': r[7],
+            'height': r[8],
+            'created_at': r[9].isoformat() if r[9] else None
+        })
+    
+    cur.close()
+    conn.close()
+    return success_response({'photos': photos})
+
+
+def photographer_download_photos(cur, conn, params, user_id):
+    if not user_id:
+        return error_response(401, 'Unauthorized')
+    
+    upload_folder_id = params.get('upload_folder_id')
+    if not upload_folder_id:
+        return error_response(400, 'upload_folder_id required')
+    
+    row = verify_photographer_owns_folder(cur, upload_folder_id, user_id)
+    if not row:
+        cur.close()
+        conn.close()
+        return error_response(403, 'Access denied')
+    
+    cur.execute(
+        f"""
+        SELECT cuf.folder_name FROM {SCHEMA}.client_upload_folders cuf WHERE cuf.id = %s
+        """,
+        (upload_folder_id,)
+    )
+    folder_row = cur.fetchone()
+    folder_name = folder_row[0] if folder_row else 'client-photos'
+    
+    cur.execute(
+        f"""
+        SELECT s3_key, file_name, s3_url
+        FROM {SCHEMA}.client_upload_photos
+        WHERE upload_folder_id = %s
+        ORDER BY created_at DESC
+        """,
+        (upload_folder_id,)
+    )
+    
+    proxy_url = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215'
+    files = []
+    for r in cur.fetchall():
+        s3_key, file_name, s3_url = r
+        if s3_url and 'cdn.poehali.dev' in s3_url:
+            files.append({'filename': file_name, 'url': s3_url})
+        elif s3_key:
+            files.append({
+                'filename': file_name,
+                'url': f"{proxy_url}?s3_key={s3_key}"
+            })
+    
+    cur.close()
+    conn.close()
+    
+    return success_response({
+        'folderName': folder_name,
+        'files': files,
+        'totalFiles': len(files)
+    })
+
+
+def photographer_delete_photo(cur, conn, photo_id, user_id):
+    cur.execute(
+        f"""
+        SELECT cup.id, cup.upload_folder_id, cup.s3_key
+        FROM {SCHEMA}.client_upload_photos cup
+        JOIN {SCHEMA}.client_upload_folders cuf ON cuf.id = cup.upload_folder_id
+        JOIN {SCHEMA}.photo_folders pf ON pf.id = cuf.parent_folder_id
+        WHERE cup.id = %s AND pf.user_id = %s
+        """,
+        (photo_id, user_id)
+    )
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        conn.close()
+        return error_response(403, 'Access denied')
+    
+    upload_folder_id = row[1]
+    
+    cur.execute(
+        f"DELETE FROM {SCHEMA}.client_upload_photos WHERE id = %s",
+        (photo_id,)
+    )
+    cur.execute(
+        f"""
+        UPDATE {SCHEMA}.client_upload_folders
+        SET photo_count = GREATEST(photo_count - 1, 0)
+        WHERE id = %s
+        """,
+        (upload_folder_id,)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return success_response({'deleted': True})
+
+
+def photographer_delete_folder(cur, conn, upload_folder_id, user_id):
+    row = verify_photographer_owns_folder(cur, upload_folder_id, user_id)
+    if not row:
+        cur.close()
+        conn.close()
+        return error_response(403, 'Access denied')
+    
+    cur.execute(
+        f"DELETE FROM {SCHEMA}.client_upload_photos WHERE upload_folder_id = %s",
+        (upload_folder_id,)
+    )
+    cur.execute(
+        f"DELETE FROM {SCHEMA}.client_upload_folders WHERE id = %s",
+        (upload_folder_id,)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return success_response({'deleted': True})
 
 
 def create_client_folder(cur, conn, data):

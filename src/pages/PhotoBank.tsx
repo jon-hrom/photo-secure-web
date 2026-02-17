@@ -18,6 +18,7 @@ import { usePhotoBankUnreadMessages } from '@/pages/photobank/usePhotoBankUnread
 import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewing, getIsAdmin } from '@/pages/photobank/PhotoBankAuth';
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
+import ClientUploadViewer from '@/components/photobank/ClientUploadViewer';
 
 const PhotoBank = () => {
   const navigate = useNavigate();
@@ -279,24 +280,32 @@ const PhotoBank = () => {
             onOpenFolderChats={handleOpenFolderChats}
           />
         ) : (
-          <PhotoBankPhotoGrid
-            selectedFolder={selectedFolder}
-            photos={photos}
-            loading={loading}
-            uploading={uploading}
-            uploadProgress={uploadProgress}
-            selectionMode={selectionMode}
-            selectedPhotos={selectedPhotos}
-            emailVerified={emailVerified}
-            onUploadPhoto={handleUploadPhoto}
-            onDeletePhoto={handleDeletePhoto}
-            onTogglePhotoSelection={togglePhotoSelection}
-            onCancelUpload={handleCancelUpload}
-            onRestorePhoto={handleRestorePhoto}
-            isAdminViewing={isAdminViewing}
-            onRenameFolder={handleRenameFolder}
-            storageUsage={storageUsage}
-          />
+          <>
+            <PhotoBankPhotoGrid
+              selectedFolder={selectedFolder}
+              photos={photos}
+              loading={loading}
+              uploading={uploading}
+              uploadProgress={uploadProgress}
+              selectionMode={selectionMode}
+              selectedPhotos={selectedPhotos}
+              emailVerified={emailVerified}
+              onUploadPhoto={handleUploadPhoto}
+              onDeletePhoto={handleDeletePhoto}
+              onTogglePhotoSelection={togglePhotoSelection}
+              onCancelUpload={handleCancelUpload}
+              onRestorePhoto={handleRestorePhoto}
+              isAdminViewing={isAdminViewing}
+              onRenameFolder={handleRenameFolder}
+              storageUsage={storageUsage}
+            />
+            {userId && selectedFolder && (
+              <ClientUploadViewer
+                parentFolderId={selectedFolder.id}
+                userId={parseInt(userId, 10)}
+              />
+            )}
+          </>
         )}
       </div>
 
