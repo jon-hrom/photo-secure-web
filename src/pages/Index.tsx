@@ -99,6 +99,29 @@ const Index = () => {
   }, [isAuthenticated, userId]);
 
   useEffect(() => {
+    if (!isAuthenticated || !userId) return;
+    const CRON_URL = 'https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c';
+    const lastCronCall = localStorage.getItem('last_reminders_cron');
+    const now = Date.now();
+    const INTERVAL = 15 * 60 * 1000;
+    if (!lastCronCall || now - parseInt(lastCronCall) > INTERVAL) {
+      localStorage.setItem('last_reminders_cron', now.toString());
+      fetch(CRON_URL, { method: 'GET' })
+        .then(r => r.json())
+        .then(data => console.log('[REMINDERS_CRON] Triggered:', data.reminders_sent_count, 'sent'))
+        .catch(() => {});
+    }
+    const interval = setInterval(() => {
+      localStorage.setItem('last_reminders_cron', Date.now().toString());
+      fetch(CRON_URL, { method: 'GET' })
+        .then(r => r.json())
+        .then(data => console.log('[REMINDERS_CRON] Periodic:', data.reminders_sent_count, 'sent'))
+        .catch(() => {});
+    }, INTERVAL);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, userId]);
+
+  useEffect(() => {
     settingsSync.onUpdate(() => {
       toast.info('Доступны обновления настроек', {
         description: 'Перезагрузите страницу, чтобы применить изменения',

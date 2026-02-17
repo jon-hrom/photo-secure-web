@@ -2,6 +2,7 @@
 Cron-задача для отправки автоматических напоминаний о съёмках.
 За 24 часа, 5 часов и 1 час. Каналы: WhatsApp (MAX), Telegram, Email.
 Время рассчитывается по часовому поясу фотографа (из его региона).
+Каскадная логика: при каждом вызове отправляет ВСЕ пропущенные напоминания.
 """
 
 import json
@@ -312,12 +313,15 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
         try:
             send_via_green_api(creds['instance_id'], creds['token'], client['phone'], client_msg)
             results['client']['whatsapp'] = True
+            print(f"[WA] Client {client['name']} OK")
         except Exception as e:
             results['client']['whatsapp_error'] = str(e)
+            print(f"[WA] Client {client['name']} FAIL: {e}")
 
     if client.get('telegram_id'):
         result = send_via_telegram(client['telegram_id'], client_msg)
         results['client']['telegram'] = result.get('success', False)
+        print(f"[TG] Client {client['name']}: {result}")
 
     if client.get('email'):
         results['client']['email'] = send_via_email(client['email'], client_email_subject, client_email_html)
@@ -326,12 +330,15 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
         try:
             send_via_green_api(creds['instance_id'], creds['token'], photographer['phone'], photographer_msg)
             results['photographer']['whatsapp'] = True
+            print(f"[WA] Photographer {photographer['display_name']} OK")
         except Exception as e:
             results['photographer']['whatsapp_error'] = str(e)
+            print(f"[WA] Photographer {photographer['display_name']} FAIL: {e}")
 
     if photographer.get('telegram_id'):
         result = send_via_telegram(photographer['telegram_id'], photographer_msg)
         results['photographer']['telegram'] = result.get('success', False)
+        print(f"[TG] Photographer {photographer['display_name']}: {result}")
 
     if photographer.get('email'):
         results['photographer']['email'] = send_via_email(photographer['email'], photographer_email_subject, photographer_email_html)
@@ -353,8 +360,36 @@ def log_reminder(conn, project_id, reminder_type, sent_to='both', success=True, 
         conn.rollback()
 
 
+def get_sent_reminders(cur, project_id):
+    cur.execute(f"""
+        SELECT reminder_type FROM {SCHEMA}.shooting_reminders_log
+        WHERE project_id = {escape_sql(project_id)}
+          AND success = TRUE
+    """)
+    return set(row['reminder_type'] for row in cur.fetchall())
+
+
+def determine_pending_reminders(hours_until: float, already_sent: set) -> list:
+    """
+    Каскадная логика: определяет какое напоминание нужно отправить СЕЙЧАС.
+    Отправляет только ОДНО — самое актуальное для текущего момента.
+    Если 24h пропущено, но 5h тоже пора — отправляем только 5h (а 24h помечаем как отправленное тихо).
+    Не спамим клиента тремя сообщениями подряд.
+    """
+    if hours_until <= 0 or hours_until > 25:
+        return []
+
+    if hours_until <= 1.5 and '1h' not in already_sent:
+        return ['1h']
+    if hours_until <= 5.5 and '5h' not in already_sent:
+        return ['5h']
+    if hours_until <= 25 and '24h' not in already_sent:
+        return ['24h']
+    return []
+
+
 def handler(event, context):
-    """Крон напоминаний о съёмках: 24ч, 5ч, 1ч. WhatsApp + Telegram + Email. Учитывает часовой пояс фотографа."""
+    """Крон напоминаний о съёмках: 24ч, 5ч, 1ч. WhatsApp + Telegram + Email. Каскадная логика — догоняет пропущенные напоминания."""
 
     method = event.get('httpMethod', 'GET')
     if method == 'OPTIONS':
@@ -363,6 +398,8 @@ def handler(event, context):
             'headers': {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type'},
             'body': '', 'isBase64Encoded': False
         }
+
+    print("[CRON] === Shooting reminders cron started ===")
 
     conn = get_db_connection()
     creds = get_max_credentials()
@@ -457,13 +494,14 @@ def handler(event, context):
             }
 
     try:
-        results = {'24h_reminders': [], '5h_reminders': [], '1h_reminders': []}
+        results = {'reminders_sent': [], 'projects_checked': 0, 'skipped': []}
 
         with conn.cursor() as cur:
             cur.execute(f"""
                 SELECT 
                     cp.id as project_id, cp.name as project_name,
                     cp.start_date, cp.shooting_time, cp.shooting_address,
+                    cp.status,
                     c.id as client_id, c.name as client_name,
                     c.phone as client_phone, c.telegram_chat_id as client_telegram_id,
                     c.email as client_email,
@@ -482,13 +520,36 @@ def handler(event, context):
             """)
             projects = cur.fetchall()
 
+            print(f"[CRON] Found {len(projects)} projects to check")
+
             for proj in projects:
                 region = proj.get('photographer_region') or ''
                 now_local = get_photographer_now(region)
                 tz_label = get_tz_label(region)
                 shooting_datetime = datetime.combine(proj['start_date'], proj['shooting_time'])
-                time_diff = shooting_datetime - now_local
-                hours_until = time_diff.total_seconds() / 3600
+                hours_until = (shooting_datetime - now_local).total_seconds() / 3600
+
+                results['projects_checked'] += 1
+                print(f"[CRON] Project {proj['project_id']} '{proj['project_name']}': region={region}, tz={tz_label}, now_local={now_local.strftime('%Y-%m-%d %H:%M')}, shooting={shooting_datetime.strftime('%Y-%m-%d %H:%M')}, hours_until={hours_until:.1f}, status={proj['status']}")
+
+                already_sent = get_sent_reminders(cur, proj['project_id'])
+                if already_sent:
+                    print(f"[CRON] Project {proj['project_id']}: already sent = {already_sent}")
+
+                pending = determine_pending_reminders(hours_until, already_sent)
+
+                if not pending:
+                    reason = 'already passed' if hours_until <= 0 else ('too far' if hours_until > 25 else 'all sent')
+                    results['skipped'].append({
+                        'project_id': proj['project_id'],
+                        'project_name': proj['project_name'],
+                        'hours_until': round(hours_until, 1),
+                        'reason': reason,
+                        'already_sent': list(already_sent)
+                    })
+                    continue
+
+                print(f"[CRON] Project {proj['project_id']}: will send {pending}")
 
                 project_data = dict(proj)
                 client_data = {
@@ -502,43 +563,48 @@ def handler(event, context):
                     'telegram_id': proj['photographer_telegram_id']
                 }
 
-                reminder_type = None
-                if 23 <= hours_until < 25:
-                    reminder_type = '24h'
-                elif 4.5 <= hours_until < 5.5:
-                    reminder_type = '5h'
-                elif 0.5 <= hours_until < 1.5:
-                    reminder_type = '1h'
+                skipped_types = []
+                if hours_until <= 5.5 and '24h' not in already_sent:
+                    skipped_types.append('24h')
+                if hours_until <= 1.5 and '5h' not in already_sent:
+                    skipped_types.append('5h')
+                for st in skipped_types:
+                    if st not in pending:
+                        log_reminder(conn, proj['project_id'], st, 'both', True, 'skipped_catchup')
+                        print(f"[SKIP] {st} for project {proj['project_id']} — marked as sent (catchup)")
 
-                if reminder_type:
-                    cur.execute(f"""
-                        SELECT 1 FROM {SCHEMA}.shooting_reminders_log
-                        WHERE project_id = {escape_sql(proj['project_id'])}
-                          AND reminder_type = {escape_sql(reminder_type)}
-                          AND success = TRUE
-                    """)
-                    if not cur.fetchone():
-                        try:
-                            result = send_reminder(reminder_type, project_data, client_data, photographer_data, creds, tz_label)
-                            log_reminder(conn, proj['project_id'], reminder_type, 'both', True)
-                            results[f'{reminder_type}_reminders'].append({
-                                'project_id': proj['project_id'],
-                                'project_name': proj['project_name'],
-                                'timezone': tz_label,
-                                'hours_until': round(hours_until, 1),
-                                'result': result
-                            })
-                            print(f"[{reminder_type.upper()}] Sent for project {proj['project_id']} ({tz_label})")
-                        except Exception as e:
-                            log_reminder(conn, proj['project_id'], reminder_type, 'both', False, str(e))
-                            print(f"[{reminder_type.upper()}_ERROR] {proj['project_id']}: {e}")
+                for reminder_type in pending:
+                    try:
+                        result = send_reminder(reminder_type, project_data, client_data, photographer_data, creds, tz_label)
+                        log_reminder(conn, proj['project_id'], reminder_type, 'both', True)
+                        results['reminders_sent'].append({
+                            'project_id': proj['project_id'],
+                            'project_name': proj['project_name'],
+                            'reminder_type': reminder_type,
+                            'timezone': tz_label,
+                            'hours_until': round(hours_until, 1),
+                            'result': result
+                        })
+                        print(f"[SENT] {reminder_type} for project {proj['project_id']} '{proj['project_name']}' ({tz_label}, {hours_until:.1f}h)")
+                    except Exception as e:
+                        log_reminder(conn, proj['project_id'], reminder_type, 'both', False, str(e))
+                        print(f"[ERROR] {reminder_type} for project {proj['project_id']}: {e}")
 
         conn.close()
         now_utc = datetime.now(timezone.utc)
+        summary = {
+            'success': True,
+            'timestamp_utc': now_utc.isoformat(),
+            'projects_checked': results['projects_checked'],
+            'reminders_sent_count': len(results['reminders_sent']),
+            'reminders_sent': results['reminders_sent'],
+            'skipped': results['skipped']
+        }
+        print(f"[CRON] === Done. Sent {len(results['reminders_sent'])} reminders, checked {results['projects_checked']} projects ===")
         return {
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'success': True, 'timestamp_utc': now_utc.isoformat(), 'reminders_sent': results}),
+            'body': json.dumps(summary),
             'isBase64Encoded': False
         }
 
