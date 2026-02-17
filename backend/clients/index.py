@@ -939,9 +939,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Удаляем проекты, которых нет в новом списке
                 ids_to_delete = existing_ids - incoming_ids
                 if ids_to_delete:
-                    # Сначала удаляем все платежи этих проектов
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.shooting_reminders_log WHERE project_id = ANY(%s)', (list(ids_to_delete),))
                     cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE project_id = ANY(%s)', (list(ids_to_delete),))
-                    # Потом удаляем сами проекты
                     cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_projects WHERE id = ANY(%s)', (list(ids_to_delete),))
                 
                 # Вставляем или обновляем проекты
@@ -1410,12 +1409,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             client_info = cur.fetchone()
             
             # Удаляем в правильном порядке (сначала зависимости, потом родителей)
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.shooting_reminders_log WHERE project_id IN (SELECT id FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s)', (client_id,))
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.bookings WHERE client_id = %s', (client_id,))
-            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE client_id = %s', (client_id,))  # Сначала платежи
-            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s', (client_id,))  # Потом проекты
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_documents WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_comments WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_messages WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.telegram_invites WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.telegram_message_queue WHERE client_id = %s', (client_id,))
+            cur.execute('DELETE FROM t_p28211681_photo_secure_web.birthday_notifications_log WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
             
             # Удаляем все встречи этого клиента из таблицы meetings
