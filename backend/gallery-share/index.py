@@ -352,7 +352,7 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Gallery not found'})
                 }
             
-            is_blocked = result[-1]
+            is_blocked = result[31]
             if is_blocked:
                 photographer_id_blocked = result[15]
                 cur.execute(
