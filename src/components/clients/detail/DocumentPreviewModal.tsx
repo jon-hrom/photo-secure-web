@@ -264,7 +264,7 @@ const DocumentPreviewModal = ({
 
   return (
     <Dialog open={!!previewDocument} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] sm:w-full p-0 overflow-hidden bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 backdrop-blur-sm">
+      <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] sm:w-full p-0 overflow-hidden bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 dark:from-purple-950/40 dark:via-pink-950/40 dark:to-rose-950/40 backdrop-blur-sm">
         {previewDocument && (
           <div className="flex flex-col h-full">
             {/* Заголовок */}

@@ -162,7 +162,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                           <td className="hidden md:table-cell py-3 px-3 text-sm">
                             <div className="font-medium">{project.budget.toLocaleString('ru-RU')} ₽</div>
                             {totalPaid > 0 && (
-                              <div className="text-xs text-green-600">Оплачено: {totalPaid.toLocaleString('ru-RU')} ₽</div>
+                              <div className="text-xs text-green-600 dark:text-green-400">Оплачено: {totalPaid.toLocaleString('ru-RU')} ₽</div>
                             )}
                           </td>
                           
@@ -209,7 +209,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                               <div className="flex items-center justify-between pt-1 border-t">
                                 <div className="font-medium text-sm">{project.budget.toLocaleString('ru-RU')} ₽</div>
                                 {totalPaid > 0 && (
-                                  <div className="text-xs text-green-600">Оплачено: {totalPaid.toLocaleString('ru-RU')} ₽</div>
+                                  <div className="text-xs text-green-600 dark:text-green-400">Оплачено: {totalPaid.toLocaleString('ru-RU')} ₽</div>
                                 )}
                               </div>
                             </div>
@@ -240,7 +240,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
               const sentDate = new Date(r.sent_at);
               return (
                 <div key={r.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
-                  <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${r.success ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                  <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${r.success ? 'bg-green-100 dark:bg-green-900/50' : 'bg-red-100 dark:bg-red-900/50'}`}>
                     <Icon name={r.success ? 'CheckCircle' : 'XCircle'} size={18} className={r.success ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -275,9 +275,9 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
         <CardContent className="space-y-3">
           {allHistoryItems.length === 0 ? (
             <div className="text-center py-8">
-              <Icon name="History" size={48} className="mx-auto text-muted-foreground dark:text-gray-500 mb-3" />
-              <p className="text-muted-foreground dark:text-gray-400">История пуста</p>
-              <p className="text-sm text-muted-foreground dark:text-gray-400 mt-1">
+              <Icon name="History" size={48} className="mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">История пуста</p>
+              <p className="text-sm text-muted-foreground mt-1">
                 Здесь будет отображаться история проектов, встреч и общения с клиентом
               </p>
             </div>
@@ -293,7 +293,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                   <div
                     key={`project-${project.id}`}
                     onClick={() => handleProjectClick(project)}
-                    className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/30 dark:to-card hover:shadow-lg transition-all cursor-pointer"
+                    className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/50 dark:to-card hover:shadow-lg transition-all cursor-pointer"
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0">
@@ -304,7 +304,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div>
-                            <h4 className="font-semibold text-gray-900 dark:text-white">{project.name}</h4>
+                            <h4 className="font-semibold text-foreground">{project.name}</h4>
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <Badge variant={project.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
                                 {project.status === 'completed' ? 'Завершён' : 'Отменён'}
@@ -317,24 +317,24 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                               )}
                             </div>
                           </div>
-                          <Icon name="ChevronRight" size={20} className="text-muted-foreground dark:text-gray-400" />
+                          <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
                         </div>
                         <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
                           <div>
-                            <span className="text-muted-foreground dark:text-gray-400">Дата:</span>
+                            <span className="text-muted-foreground">Дата:</span>
                             <span className="ml-1 font-medium">
                               {new Date(project.startDate).toLocaleDateString('ru-RU')}
                             </span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground dark:text-gray-400">Бюджет:</span>
+                            <span className="text-muted-foreground">Бюджет:</span>
                             <span className="ml-1 font-medium">{project.budget.toLocaleString('ru-RU')} ₽</span>
                           </div>
                         </div>
                         {totalPaid > 0 && (
                           <div className="text-sm mt-2">
-                            <span className="text-muted-foreground dark:text-gray-400">Оплачено:</span>
-                            <span className="ml-1 font-medium text-green-600">{totalPaid.toLocaleString('ru-RU')} ₽</span>
+                            <span className="text-muted-foreground">Оплачено:</span>
+                            <span className="ml-1 font-medium text-green-600 dark:text-green-400">{totalPaid.toLocaleString('ru-RU')} ₽</span>
                           </div>
                         )}
                       </div>
@@ -358,7 +358,7 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                         className="text-primary"
                       />
                       <span className="text-sm font-medium">{msg.author}</span>
-                      <span className="text-xs text-muted-foreground dark:text-gray-400 ml-auto">
+                      <span className="text-xs text-muted-foreground ml-auto">
                         {formatDateTime(msg.date)}
                       </span>
                     </div>

@@ -71,7 +71,7 @@ const ClientDetailPayments = ({
               </Label>
             </div>
             {newPayment.splitAcrossProjects && (
-              <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg text-xs text-blue-700 dark:text-blue-300">
                 <Icon name="Info" size={14} className="mt-0.5 shrink-0" />
                 <p className="leading-tight">
                   Сумма будет автоматически распределена между всеми услугами пропорционально недостающим оплатам. 
@@ -208,7 +208,7 @@ const ClientDetailPayments = ({
                     </div>
                     {!payment.projectId && projects.length > 0 && (
                       <div className="mt-2 pt-2 border-t">
-                        <p className="text-xs text-orange-600 mb-1">⚠️ Платёж не привязан к проекту</p>
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mb-1">⚠️ Платёж не привязан к проекту</p>
                       </div>
                     )}
                     {project && (

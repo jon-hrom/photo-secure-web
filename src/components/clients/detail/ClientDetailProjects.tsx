@@ -188,7 +188,7 @@ const ClientDetailProjects = ({
             <Card 
               key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}
               className={`animate-in slide-in-from-top-4 fade-in duration-500 ${
-                !project.startDate ? 'border-2 border-orange-500 bg-orange-50/50 dark:bg-orange-950/20' : ''
+                !project.startDate ? 'border-2 border-orange-500 bg-orange-50/50 dark:bg-orange-950/40' : ''
               }`}
               onTouchStart={(e) => handleTouchStart(e, project.id)}
               onTouchEnd={(e) => handleTouchEnd(e, project.id)}
@@ -214,8 +214,8 @@ const ClientDetailProjects = ({
                       <>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm">
                           <span className="text-muted-foreground">Бюджет: <span className="font-medium text-foreground">{project.budget.toLocaleString('ru-RU')} ₽</span></span>
-                          <span className="text-muted-foreground">Оплачено: <span key={`paid-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-green-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectPaid(project.id).toLocaleString('ru-RU')} ₽</span></span>
-                          <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-orange-600 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
+                          <span className="text-muted-foreground">Оплачено: <span key={`paid-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-green-600 dark:text-green-400 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectPaid(project.id).toLocaleString('ru-RU')} ₽</span></span>
+                          <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKeys[project.id] || 0}`} className="font-medium text-orange-600 dark:text-orange-400 inline-block animate-in fade-in zoom-in-50 duration-500">{getProjectRemaining(project.id, project.budget).toLocaleString('ru-RU')} ₽</span></span>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <Label className="text-xs text-muted-foreground">Дата съёмки:</Label>
@@ -340,10 +340,10 @@ const ClientDetailProjects = ({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="new" className="text-green-600 font-medium focus:text-green-700 focus:bg-green-50">Новый</SelectItem>
-                        <SelectItem value="in_progress" className="text-orange-600 font-medium focus:text-orange-700 focus:bg-orange-50">В работе</SelectItem>
-                        <SelectItem value="completed" className="text-red-600 font-medium focus:text-red-700 focus:bg-red-50">Завершён</SelectItem>
-                        <SelectItem value="cancelled" className="text-gray-900 font-medium focus:text-gray-950 focus:bg-gray-100">Отменён</SelectItem>
+                        <SelectItem value="new" className="text-green-600 dark:text-green-400 font-medium focus:text-green-700 dark:focus:text-green-300 focus:bg-green-50 dark:focus:bg-green-950/30">Новый</SelectItem>
+                        <SelectItem value="in_progress" className="text-orange-600 dark:text-orange-400 font-medium focus:text-orange-700 dark:focus:text-orange-300 focus:bg-orange-50 dark:focus:bg-orange-950/30">В работе</SelectItem>
+                        <SelectItem value="completed" className="text-red-600 dark:text-red-400 font-medium focus:text-red-700 dark:focus:text-red-300 focus:bg-red-50 dark:focus:bg-red-950/30">Завершён</SelectItem>
+                        <SelectItem value="cancelled" className="text-muted-foreground font-medium focus:text-foreground focus:bg-muted">Отменён</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
