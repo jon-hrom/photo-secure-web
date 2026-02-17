@@ -238,9 +238,11 @@ def check_and_send_reminders(conn, schema: str, user_id: int):
                 hours_until = time_diff.total_seconds() / 3600
                 
                 reminder_type = None
+                is_today = shooting_date == now.date()
                 
                 # Определяем тип напоминания
-                if 23 <= hours_until < 25:
+                # 24h напоминание не отправляем если съёмка сегодня (иначе придёт "завтра" когда съёмка сегодня)
+                if 23 <= hours_until < 25 and not is_today:
                     reminder_type = '24h'
                 elif 4.5 <= hours_until < 5.5:
                     reminder_type = '5h'

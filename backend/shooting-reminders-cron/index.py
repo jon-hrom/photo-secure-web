@@ -369,12 +369,13 @@ def get_sent_reminders(cur, project_id):
     return set(row['reminder_type'] for row in cur.fetchall())
 
 
-def determine_pending_reminders(hours_until: float, already_sent: set) -> list:
+def determine_pending_reminders(hours_until: float, already_sent: set, is_today: bool = False) -> list:
     """
     Каскадная логика: определяет какое напоминание нужно отправить СЕЙЧАС.
     Отправляет только ОДНО — самое актуальное для текущего момента.
     Если 24h пропущено, но 5h тоже пора — отправляем только 5h (а 24h помечаем как отправленное тихо).
     Не спамим клиента тремя сообщениями подряд.
+    is_today=True — съёмка сегодня, не отправляем "завтрашнее" напоминание (24h).
     """
     if hours_until <= 0 or hours_until > 25:
         return []
@@ -383,7 +384,7 @@ def determine_pending_reminders(hours_until: float, already_sent: set) -> list:
         return ['1h']
     if hours_until <= 5.5 and '5h' not in already_sent:
         return ['5h']
-    if hours_until <= 25 and '24h' not in already_sent:
+    if hours_until <= 25 and '24h' not in already_sent and not is_today:
         return ['24h']
     return []
 
@@ -445,6 +446,8 @@ def handler(event, context):
 
                 print(f"[IMMEDIATE] Region: {region}, TZ: {tz_label}, now_local: {now_local}, shooting: {shooting_datetime}, hours_until: {hours_until:.1f}")
 
+                is_today = proj['start_date'] == now_local.date()
+
                 if 0 < hours_until < 24:
                     client_data = {
                         'id': proj['client_id'], 'name': proj['client_name'],
@@ -461,8 +464,16 @@ def handler(event, context):
                         rtype = '1h'
                     elif hours_until < 5.5:
                         rtype = '5h'
-                    else:
+                    elif not is_today:
                         rtype = '24h'
+                    else:
+                        conn.close()
+                        return {
+                            'statusCode': 200,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'success': True, 'immediate': True, 'skipped': True, 'reason': 'Shooting is today, 24h reminder not applicable'}),
+                            'isBase64Encoded': False
+                        }
 
                     result = send_reminder(rtype, dict(proj), client_data, photographer_data, creds, tz_label)
                     log_reminder(conn, proj['project_id'], rtype, 'both', True)
@@ -536,7 +547,8 @@ def handler(event, context):
                 if already_sent:
                     print(f"[CRON] Project {proj['project_id']}: already sent = {already_sent}")
 
-                pending = determine_pending_reminders(hours_until, already_sent)
+                is_today = proj['start_date'] == now_local.date()
+                pending = determine_pending_reminders(hours_until, already_sent, is_today=is_today)
 
                 if not pending:
                     reason = 'already passed' if hours_until <= 0 else ('too far' if hours_until > 25 else 'all sent')
