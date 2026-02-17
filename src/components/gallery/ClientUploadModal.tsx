@@ -92,18 +92,6 @@ export default function ClientUploadModal({
     setStep('upload');
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleFilesSelected = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0 || !activeFolderId) return;
 
@@ -112,7 +100,7 @@ export default function ClientUploadModal({
     if (tooLargeFiles.length > 0) {
       toast({ 
         title: 'Файлы слишком большие', 
-        description: `${tooLargeFiles.length} файлов превышают 50 МБ. Сожмите их перед загрузкой.`,
+        description: `${tooLargeFiles.length} файлов превышают 50 МБ.`,
         variant: 'destructive'
       });
       return;
@@ -126,27 +114,61 @@ export default function ClientUploadModal({
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        const base64 = await fileToBase64(file);
-        const res = await fetch(CLIENT_UPLOAD_URL, {
+        const urlRes = await fetch(CLIENT_UPLOAD_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'upload_photo',
+            action: 'get_upload_url',
             short_code: shortCode,
             client_id: clientId,
             upload_folder_id: activeFolderId,
             file_name: file.name,
-            file_data: base64,
             content_type: file.type || 'image/jpeg'
           })
         });
 
-        if (res.ok) {
-          const data = await res.json();
+        if (!urlRes.ok) {
+          const errData = await urlRes.json();
+          errors.push(`${file.name}: ${errData.error || 'ошибка'}`);
+          setUploadProgress({ current: i + 1, total: files.length });
+          continue;
+        }
+
+        const { upload_url, s3_key, cdn_url } = await urlRes.json();
+
+        const putRes = await fetch(upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'image/jpeg' },
+          body: file
+        });
+
+        if (!putRes.ok) {
+          errors.push(`${file.name}: ошибка загрузки в хранилище`);
+          setUploadProgress({ current: i + 1, total: files.length });
+          continue;
+        }
+
+        const confirmRes = await fetch(CLIENT_UPLOAD_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'confirm_upload',
+            short_code: shortCode,
+            client_id: clientId,
+            upload_folder_id: activeFolderId,
+            file_name: file.name,
+            s3_key,
+            cdn_url,
+            content_type: file.type || 'image/jpeg',
+            file_size: file.size
+          })
+        });
+
+        if (confirmRes.ok) {
+          const data = await confirmRes.json();
           uploaded.push({ file_name: data.file_name, s3_url: data.s3_url });
         } else {
-          const errData = await res.json();
-          errors.push(`${file.name}: ${errData.error || 'ошибка'}`);
+          errors.push(`${file.name}: ошибка подтверждения`);
         }
       } catch (err) {
         console.error('Upload error:', err);
@@ -170,11 +192,11 @@ export default function ClientUploadModal({
     if (errors.length > 0) {
       toast({ 
         title: `${errors.length} файлов не загружено`, 
-        description: 'Проверьте размер файлов (макс. 15 МБ)',
+        description: errors[0],
         variant: 'destructive'
       });
     }
-  }, [activeFolderId, shortCode, existingFolders, onFoldersUpdate, activeFolderName, toast]);
+  }, [activeFolderId, shortCode, clientId, existingFolders, onFoldersUpdate, activeFolderName, toast]);
 
   if (!isOpen) return null;
 

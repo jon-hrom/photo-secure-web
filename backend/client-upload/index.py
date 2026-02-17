@@ -55,6 +55,10 @@ def handler(event: dict, context) -> dict:
                 return create_client_folder(cur, conn, data)
             elif action == 'upload_photo':
                 return upload_client_photo(cur, conn, data)
+            elif action == 'get_upload_url':
+                return get_presigned_upload_url(cur, conn, data)
+            elif action == 'confirm_upload':
+                return confirm_client_upload(cur, conn, data)
             elif action == 'list_folders':
                 return list_client_folders(cur, conn, data)
             else:
@@ -509,6 +513,111 @@ def upload_client_photo(cur, conn, data):
     cur.close()
     conn.close()
     
+    return success_response({
+        'photo_id': photo_id,
+        's3_url': cdn_url,
+        'file_name': file_name
+    })
+
+
+def get_presigned_upload_url(cur, conn, data):
+    short_code = data.get('short_code')
+    upload_folder_id = data.get('upload_folder_id')
+    file_name = data.get('file_name', '')
+    content_type = data.get('content_type', 'image/jpeg')
+    client_id = data.get('client_id')
+
+    if not short_code or not upload_folder_id or not file_name or not client_id:
+        return error_response(400, 'short_code, upload_folder_id, client_id and file_name required')
+
+    link = get_link_info(cur, short_code)
+    if not link:
+        return error_response(404, 'Gallery not found')
+
+    if not check_client_upload_allowed(cur, client_id, short_code):
+        return error_response(403, 'Upload not allowed for this client')
+
+    link_id = link[0]
+
+    cur.execute(
+        f"SELECT id, s3_prefix FROM {SCHEMA}.client_upload_folders WHERE id = %s AND short_link_id = %s",
+        (upload_folder_id, link_id)
+    )
+    folder_row = cur.fetchone()
+    if not folder_row:
+        return error_response(404, 'Upload folder not found')
+
+    s3_prefix = folder_row[1]
+    ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else 'jpg'
+    s3_key = f"{s3_prefix}{uuid.uuid4().hex}.{ext}"
+
+    s3 = boto3.client('s3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
+
+    presigned_url = s3.generate_presigned_url(
+        'put_object',
+        Params={
+            'Bucket': 'files',
+            'Key': s3_key,
+            'ContentType': content_type
+        },
+        ExpiresIn=600
+    )
+
+    cdn_url = f"https://cdn.poehali.dev/projects/{os.environ.get('AWS_ACCESS_KEY_ID')}/bucket/{s3_key}"
+
+    cur.close()
+    conn.close()
+
+    return success_response({
+        'upload_url': presigned_url,
+        's3_key': s3_key,
+        'cdn_url': cdn_url
+    })
+
+
+def confirm_client_upload(cur, conn, data):
+    upload_folder_id = data.get('upload_folder_id')
+    file_name = data.get('file_name', '')
+    s3_key = data.get('s3_key')
+    cdn_url = data.get('cdn_url')
+    content_type = data.get('content_type', 'image/jpeg')
+    file_size = data.get('file_size', 0)
+    short_code = data.get('short_code')
+    client_id = data.get('client_id')
+
+    if not upload_folder_id or not s3_key or not cdn_url or not short_code or not client_id:
+        return error_response(400, 'Missing required fields')
+
+    link = get_link_info(cur, short_code)
+    if not link:
+        return error_response(404, 'Gallery not found')
+
+    if not check_client_upload_allowed(cur, client_id, short_code):
+        return error_response(403, 'Upload not allowed for this client')
+
+    cur.execute(
+        f"""
+        INSERT INTO {SCHEMA}.client_upload_photos
+        (upload_folder_id, file_name, s3_key, s3_url, content_type, file_size)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id
+        """,
+        (upload_folder_id, file_name, s3_key, cdn_url, content_type, file_size)
+    )
+    photo_id = cur.fetchone()[0]
+
+    cur.execute(
+        f"UPDATE {SCHEMA}.client_upload_folders SET photo_count = photo_count + 1 WHERE id = %s",
+        (upload_folder_id,)
+    )
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
     return success_response({
         'photo_id': photo_id,
         's3_url': cdn_url,
