@@ -161,22 +161,25 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     sendHeartbeat();
     const interval = setInterval(sendHeartbeat, 30000);
 
+    const offlinePayload = JSON.stringify({ action: 'go_offline', client_id: clientData.client_id, gallery_code: code });
+
     const sendOffline = () => {
-      navigator.sendBeacon?.(
-        'https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723',
-        JSON.stringify({ action: 'go_offline', client_id: clientData.client_id, gallery_code: code })
-      );
+      const blob = new Blob([offlinePayload], { type: 'application/json' });
+      navigator.sendBeacon?.('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', blob);
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) sendOffline();
+      else sendHeartbeat();
     };
 
     window.addEventListener('beforeunload', sendOffline);
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) sendOffline();
-      else sendHeartbeat();
-    });
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('beforeunload', sendOffline);
+      document.removeEventListener('visibilitychange', onVisibility);
       sendOffline();
     };
   }, [clientData?.client_id, code, sendHeartbeat]);

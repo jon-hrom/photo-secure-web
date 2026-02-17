@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import psycopg2
 import boto3
 from datetime import timedelta
@@ -66,7 +67,15 @@ def handler(event: dict, context) -> dict:
     
     try:
         if method == 'POST':
-            body = json.loads(event.get('body', '{}'))
+            raw_body = event.get('body', '{}')
+            try:
+                body = json.loads(raw_body) if raw_body else {}
+            except (json.JSONDecodeError, TypeError):
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Invalid JSON body'})
+                }
             action = body.get('action')
             
             if action == 'add_to_favorites':
@@ -347,7 +356,6 @@ def handler(event: dict, context) -> dict:
                         'body': json.dumps({'error': 'Gallery link is blocked', 'blocked': True})
                     }
                 
-                import re
                 if phone:
                     phone = re.sub(r'[^\d+]', '', phone)
                     if phone.startswith('8'):
@@ -422,6 +430,13 @@ def handler(event: dict, context) -> dict:
                         'email': client[3] or '',
                         'upload_enabled': client[4] if len(client) > 4 else False
                     })
+                }
+            
+            else:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': f'Unknown action: {action}'})
                 }
         
         elif method == 'GET':
