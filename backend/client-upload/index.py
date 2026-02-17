@@ -28,6 +28,13 @@ def handler(event: dict, context) -> dict:
     if not dsn:
         return error_response(500, 'Database not configured')
     
+    try:
+        body = event.get('body', '{}')
+        if len(body) > 20 * 1024 * 1024:
+            return error_response(413, 'File too large. Maximum size is 15MB')
+    except:
+        pass
+    
     conn = psycopg2.connect(dsn)
     cur = conn.cursor()
     
@@ -119,6 +126,7 @@ def handler(event: dict, context) -> dict:
             conn.close()
         except:
             pass
+        print(f'[CLIENT_UPLOAD] Error: {str(e)}')
         return error_response(500, str(e))
 
 
@@ -406,6 +414,9 @@ def upload_client_photo(cur, conn, data):
     if not short_code or not upload_folder_id or not file_data:
         return error_response(400, 'short_code, upload_folder_id and file_data required')
     
+    if len(file_data) > 20 * 1024 * 1024:
+        return error_response(413, 'File too large. Maximum size is 15MB')
+    
     link = get_link_with_upload_check(cur, short_code)
     if not link:
         return error_response(403, 'Upload not allowed')
@@ -427,6 +438,9 @@ def upload_client_photo(cur, conn, data):
     
     img_bytes = base64.b64decode(file_data)
     file_size = len(img_bytes)
+    
+    if file_size > 15 * 1024 * 1024:
+        return error_response(413, 'File too large. Maximum size is 15MB')
     
     ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else 'jpg'
     s3_key = f"{s3_prefix}{uuid.uuid4().hex}.{ext}"

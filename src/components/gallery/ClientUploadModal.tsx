@@ -104,9 +104,21 @@ export default function ClientUploadModal({
   const handleFilesSelected = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0 || !activeFolderId) return;
 
+    const MAX_FILE_SIZE = 15 * 1024 * 1024;
+    const tooLargeFiles = Array.from(files).filter(f => f.size > MAX_FILE_SIZE);
+    if (tooLargeFiles.length > 0) {
+      toast({ 
+        title: 'Файлы слишком большие', 
+        description: `${tooLargeFiles.length} файлов превышают 15 МБ. Сожмите их перед загрузкой.`,
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setUploading(true);
     setUploadProgress({ current: 0, total: files.length });
     const uploaded: { file_name: string; s3_url: string }[] = [];
+    const errors: string[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -128,9 +140,13 @@ export default function ClientUploadModal({
         if (res.ok) {
           const data = await res.json();
           uploaded.push({ file_name: data.file_name, s3_url: data.s3_url });
+        } else {
+          const errData = await res.json();
+          errors.push(`${file.name}: ${errData.error || 'ошибка'}`);
         }
       } catch (err) {
         console.error('Upload error:', err);
+        errors.push(`${file.name}: ошибка сети`);
       }
 
       setUploadProgress({ current: i + 1, total: files.length });
@@ -145,6 +161,14 @@ export default function ClientUploadModal({
       );
       onFoldersUpdate(updatedFolders);
       toast({ title: `${uploaded.length} фото загружено`, description: `В папку "${activeFolderName}"` });
+    }
+
+    if (errors.length > 0) {
+      toast({ 
+        title: `${errors.length} файлов не загружено`, 
+        description: 'Проверьте размер файлов (макс. 15 МБ)',
+        variant: 'destructive'
+      });
     }
   }, [activeFolderId, shortCode, existingFolders, onFoldersUpdate, activeFolderName, toast]);
 
@@ -275,24 +299,29 @@ export default function ClientUploadModal({
                 onChange={(e) => handleFilesSelected(e.target.files)}
               />
 
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full h-14 text-base"
-                variant="default"
-              >
-                {uploading ? (
-                  <>
-                    <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
-                    Загрузка {uploadProgress.current}/{uploadProgress.total}...
-                  </>
-                ) : (
-                  <>
-                    <Icon name="ImagePlus" size={20} className="mr-2" />
-                    Выбрать фото
-                  </>
-                )}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full h-14 text-base"
+                  variant="default"
+                >
+                  {uploading ? (
+                    <>
+                      <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                      Загрузка {uploadProgress.current}/{uploadProgress.total}...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="ImagePlus" size={20} className="mr-2" />
+                      Выбрать фото
+                    </>
+                  )}
+                </Button>
+                <p className={`text-xs text-center ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Максимальный размер одного файла: 15 МБ
+                </p>
+              </div>
 
               {uploading && (
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
