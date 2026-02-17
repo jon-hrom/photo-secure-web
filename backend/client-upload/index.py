@@ -5,8 +5,11 @@ import boto3
 import base64
 import uuid
 from datetime import datetime
+from botocore.client import Config
 
 SCHEMA = 't_p28211681_photo_secure_web'
+S3_ENDPOINT = 'https://storage.yandexcloud.net'
+S3_BUCKET = 'foto-mix'
 
 def get_cors_headers(event):
     headers = event.get('headers', {})
@@ -481,13 +484,15 @@ def upload_client_photo(cur, conn, data):
     s3_key = f"{s3_prefix}{uuid.uuid4().hex}.{ext}"
     
     s3 = boto3.client('s3',
-        endpoint_url='https://bucket.poehali.dev',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
+        endpoint_url=S3_ENDPOINT,
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4'))
     
-    s3.put_object(Bucket='files', Key=s3_key, Body=img_bytes, ContentType=content_type)
+    s3.put_object(Bucket=S3_BUCKET, Key=s3_key, Body=img_bytes, ContentType=content_type)
     
-    cdn_url = f"https://cdn.poehali.dev/projects/{os.environ.get('AWS_ACCESS_KEY_ID')}/bucket/{s3_key}"
+    cdn_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{s3_key}"
     
     cur.execute(
         f"""
@@ -552,21 +557,23 @@ def get_presigned_upload_url(cur, conn, data):
     s3_key = f"{s3_prefix}{uuid.uuid4().hex}.{ext}"
 
     s3 = boto3.client('s3',
-        endpoint_url='https://bucket.poehali.dev',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
+        endpoint_url=S3_ENDPOINT,
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4'))
 
     presigned_url = s3.generate_presigned_url(
         'put_object',
         Params={
-            'Bucket': 'files',
+            'Bucket': S3_BUCKET,
             'Key': s3_key,
             'ContentType': content_type
         },
-        ExpiresIn=600
+        ExpiresIn=900
     )
 
-    cdn_url = f"https://cdn.poehali.dev/projects/{os.environ.get('AWS_ACCESS_KEY_ID')}/bucket/{s3_key}"
+    s3_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{s3_key}"
 
     cur.close()
     conn.close()
@@ -574,7 +581,7 @@ def get_presigned_upload_url(cur, conn, data):
     return success_response({
         'upload_url': presigned_url,
         's3_key': s3_key,
-        'cdn_url': cdn_url
+        'cdn_url': s3_url
     })
 
 
