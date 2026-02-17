@@ -91,6 +91,13 @@ export const useSettingsData = () => {
         setBio(s.bio || '');
         setInterests(s.interests || '');
         
+        if (s.region) {
+          localStorage.setItem('user_region', s.region);
+        }
+        if (s.city) {
+          localStorage.setItem('user_city', s.city);
+        }
+        
         return s;
       } else {
         toast.error(data.error || 'Ошибка загрузки настроек');

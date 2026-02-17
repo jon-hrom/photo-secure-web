@@ -1,19 +1,138 @@
 """
 Cron-задача для отправки автоматических напоминаний о съёмках.
 За 24 часа, 5 часов и 1 час. Каналы: WhatsApp (MAX), Telegram, Email.
+Время рассчитывается по часовому поясу фотографа (из его региона).
 """
 
 import json
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import requests
 import boto3
 from botocore.exceptions import ClientError
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = 't_p28211681_photo_secure_web'
+
+REGION_TIMEZONE = {
+    "Калининградская область": "Europe/Kaliningrad",
+    "Москва": "Europe/Moscow", "Московская область": "Europe/Moscow",
+    "Санкт-Петербург": "Europe/Moscow", "Ленинградская область": "Europe/Moscow",
+    "Адыгея": "Europe/Moscow", "Республика Адыгея": "Europe/Moscow",
+    "Архангельская область": "Europe/Moscow",
+    "Белгородская область": "Europe/Moscow",
+    "Брянская область": "Europe/Moscow",
+    "Владимирская область": "Europe/Moscow",
+    "Вологодская область": "Europe/Moscow",
+    "Воронежская область": "Europe/Moscow",
+    "Ивановская область": "Europe/Moscow",
+    "Калужская область": "Europe/Moscow",
+    "Карелия": "Europe/Moscow", "Республика Карелия": "Europe/Moscow",
+    "Коми": "Europe/Moscow", "Республика Коми": "Europe/Moscow",
+    "Костромская область": "Europe/Moscow",
+    "Краснодарский край": "Europe/Moscow",
+    "Курская область": "Europe/Moscow",
+    "Липецкая область": "Europe/Moscow",
+    "Марий Эл": "Europe/Moscow", "Республика Марий Эл": "Europe/Moscow",
+    "Мордовия": "Europe/Moscow", "Республика Мордовия": "Europe/Moscow",
+    "Мурманская область": "Europe/Moscow",
+    "Ненецкий автономный округ": "Europe/Moscow",
+    "Нижегородская область": "Europe/Moscow",
+    "Новгородская область": "Europe/Moscow",
+    "Орловская область": "Europe/Moscow",
+    "Пензенская область": "Europe/Moscow",
+    "Псковская область": "Europe/Moscow",
+    "Ростовская область": "Europe/Moscow",
+    "Рязанская область": "Europe/Moscow",
+    "Смоленская область": "Europe/Moscow",
+    "Тамбовская область": "Europe/Moscow",
+    "Тверская область": "Europe/Moscow",
+    "Тульская область": "Europe/Moscow",
+    "Ярославская область": "Europe/Moscow",
+    "Кабардино-Балкария": "Europe/Moscow", "Кабардино-Балкарская Республика": "Europe/Moscow",
+    "Карачаево-Черкесия": "Europe/Moscow", "Карачаево-Черкесская Республика": "Europe/Moscow",
+    "Северная Осетия": "Europe/Moscow", "Республика Северная Осетия — Алания": "Europe/Moscow",
+    "Чечня": "Europe/Moscow", "Чеченская Республика": "Europe/Moscow",
+    "Ингушетия": "Europe/Moscow", "Республика Ингушетия": "Europe/Moscow",
+    "Дагестан": "Europe/Moscow", "Республика Дагестан": "Europe/Moscow",
+    "Ставропольский край": "Europe/Moscow",
+    "Крым": "Europe/Moscow", "Республика Крым": "Europe/Moscow",
+    "Севастополь": "Europe/Moscow",
+    "Волгоградская область": "Europe/Moscow",
+    "Кировская область": "Europe/Moscow",
+    "Татарстан": "Europe/Moscow", "Республика Татарстан": "Europe/Moscow",
+    "Чувашия": "Europe/Moscow", "Чувашская Республика": "Europe/Moscow",
+    "Астраханская область": "Europe/Samara",
+    "Самарская область": "Europe/Samara",
+    "Саратовская область": "Europe/Samara",
+    "Удмуртия": "Europe/Samara", "Удмуртская Республика": "Europe/Samara",
+    "Ульяновская область": "Europe/Samara",
+    "Башкортостан": "Asia/Yekaterinburg", "Республика Башкортостан": "Asia/Yekaterinburg",
+    "Курганская область": "Asia/Yekaterinburg",
+    "Оренбургская область": "Asia/Yekaterinburg",
+    "Пермский край": "Asia/Yekaterinburg",
+    "Свердловская область": "Asia/Yekaterinburg",
+    "Тюменская область": "Asia/Yekaterinburg",
+    "Челябинская область": "Asia/Yekaterinburg",
+    "Ханты-Мансийский автономный округ": "Asia/Yekaterinburg",
+    "Ямало-Ненецкий автономный округ": "Asia/Yekaterinburg",
+    "Алтайский край": "Asia/Barnaul",
+    "Республика Алтай": "Asia/Barnaul",
+    "Кемеровская область": "Asia/Novokuznetsk",
+    "Новосибирская область": "Asia/Novosibirsk",
+    "Омская область": "Asia/Omsk",
+    "Томская область": "Asia/Tomsk",
+    "Красноярский край": "Asia/Krasnoyarsk",
+    "Тыва": "Asia/Krasnoyarsk", "Республика Тыва": "Asia/Krasnoyarsk",
+    "Хакасия": "Asia/Krasnoyarsk", "Республика Хакасия": "Asia/Krasnoyarsk",
+    "Иркутская область": "Asia/Irkutsk",
+    "Бурятия": "Asia/Irkutsk", "Республика Бурятия": "Asia/Irkutsk",
+    "Забайкальский край": "Asia/Chita",
+    "Амурская область": "Asia/Yakutsk",
+    "Саха (Якутия)": "Asia/Yakutsk", "Республика Саха (Якутия)": "Asia/Yakutsk",
+    "Еврейская автономная область": "Asia/Vladivostok",
+    "Приморский край": "Asia/Vladivostok",
+    "Хабаровский край": "Asia/Vladivostok",
+    "Магаданская область": "Asia/Magadan",
+    "Сахалинская область": "Asia/Sakhalin",
+    "Камчатский край": "Asia/Kamchatka",
+    "Чукотский автономный округ": "Asia/Kamchatka",
+}
+
+TZ_OFFSETS = {
+    "Europe/Kaliningrad": 2,
+    "Europe/Moscow": 3,
+    "Europe/Samara": 4,
+    "Asia/Yekaterinburg": 5,
+    "Asia/Omsk": 6,
+    "Asia/Barnaul": 7,
+    "Asia/Novosibirsk": 7,
+    "Asia/Novokuznetsk": 7,
+    "Asia/Tomsk": 7,
+    "Asia/Krasnoyarsk": 7,
+    "Asia/Irkutsk": 8,
+    "Asia/Chita": 9,
+    "Asia/Yakutsk": 9,
+    "Asia/Vladivostok": 10,
+    "Asia/Magadan": 11,
+    "Asia/Sakhalin": 11,
+    "Asia/Kamchatka": 12,
+}
+
+
+def get_photographer_now(region: str) -> datetime:
+    tz_name = REGION_TIMEZONE.get(region, "Europe/Moscow")
+    offset_hours = TZ_OFFSETS.get(tz_name, 3)
+    tz = timezone(timedelta(hours=offset_hours))
+    return datetime.now(tz).replace(tzinfo=None)
+
+
+def get_tz_label(region: str) -> str:
+    tz_name = REGION_TIMEZONE.get(region, "Europe/Moscow")
+    offset_hours = TZ_OFFSETS.get(tz_name, 3)
+    return f"UTC+{offset_hours}"
 
 
 def escape_sql(value):
@@ -127,8 +246,10 @@ FotoMix — foto-mix.ru
 </div></body></html>'''
 
 
-def send_reminder(reminder_type: str, project: dict, client: dict, photographer: dict, creds: dict) -> dict:
+def send_reminder(reminder_type: str, project: dict, client: dict, photographer: dict, creds: dict, tz_label: str = '') -> dict:
     time_str = format_time(project['shooting_time'])
+    if tz_label:
+        time_str = f"{time_str} ({tz_label})"
     address = project['shooting_address'] or 'не указано'
     photographer_name = photographer.get('display_name') or photographer.get('email', 'Фотограф')
     photographer_phone = photographer.get('phone', 'не указан')
@@ -233,7 +354,7 @@ def log_reminder(conn, project_id, reminder_type, sent_to='both', success=True, 
 
 
 def handler(event, context):
-    """Крон напоминаний о съёмках: 24ч, 5ч, 1ч. WhatsApp + Telegram + Email."""
+    """Крон напоминаний о съёмках: 24ч, 5ч, 1ч. WhatsApp + Telegram + Email. Учитывает часовой пояс фотографа."""
 
     method = event.get('httpMethod', 'GET')
     if method == 'OPTIONS':
@@ -249,7 +370,6 @@ def handler(event, context):
     if not creds['instance_id'] or not creds['token']:
         print("[WARN] MAX credentials not configured, will skip WhatsApp")
 
-    # Немедленная отправка для конкретного проекта (< 24ч до съёмки)
     body = {}
     if event.get('body'):
         try:
@@ -270,7 +390,8 @@ def handler(event, context):
                         c.email as client_email,
                         u.id as photographer_id, u.display_name as photographer_name,
                         u.email as photographer_email, u.phone as photographer_phone,
-                        u.telegram_chat_id as photographer_telegram_id
+                        u.telegram_chat_id as photographer_telegram_id,
+                        u.region as photographer_region
                     FROM {SCHEMA}.client_projects cp
                     JOIN {SCHEMA}.clients c ON cp.client_id = c.id
                     JOIN {SCHEMA}.users u ON c.photographer_id = u.id
@@ -279,8 +400,13 @@ def handler(event, context):
                 proj = cur.fetchone()
 
             if proj and proj['start_date'] and proj['shooting_time']:
+                region = proj.get('photographer_region') or ''
+                now_local = get_photographer_now(region)
+                tz_label = get_tz_label(region)
                 shooting_datetime = datetime.combine(proj['start_date'], proj['shooting_time'])
-                hours_until = (shooting_datetime - datetime.now()).total_seconds() / 3600
+                hours_until = (shooting_datetime - now_local).total_seconds() / 3600
+
+                print(f"[IMMEDIATE] Region: {region}, TZ: {tz_label}, now_local: {now_local}, shooting: {shooting_datetime}, hours_until: {hours_until:.1f}")
 
                 if 0 < hours_until < 24:
                     client_data = {
@@ -301,7 +427,7 @@ def handler(event, context):
                     else:
                         rtype = '24h'
 
-                    result = send_reminder(rtype, dict(proj), client_data, photographer_data, creds)
+                    result = send_reminder(rtype, dict(proj), client_data, photographer_data, creds, tz_label)
                     log_reminder(conn, proj['project_id'], rtype, 'both', True)
                     print(f"[IMMEDIATE] Sent {rtype} reminder for project {proj['project_id']}, {hours_until:.1f}h until shooting")
 
@@ -309,7 +435,7 @@ def handler(event, context):
                     return {
                         'statusCode': 200,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'success': True, 'immediate': True, 'project_id': immediate_project_id, 'reminder_type': rtype, 'hours_until': round(hours_until, 1), 'result': result}),
+                        'body': json.dumps({'success': True, 'immediate': True, 'project_id': immediate_project_id, 'reminder_type': rtype, 'hours_until': round(hours_until, 1), 'timezone': tz_label, 'result': result}),
                         'isBase64Encoded': False
                     }
 
@@ -331,7 +457,6 @@ def handler(event, context):
             }
 
     try:
-        now = datetime.now()
         results = {'24h_reminders': [], '5h_reminders': [], '1h_reminders': []}
 
         with conn.cursor() as cur:
@@ -344,21 +469,25 @@ def handler(event, context):
                     c.email as client_email,
                     u.id as photographer_id, u.display_name as photographer_name,
                     u.email as photographer_email, u.phone as photographer_phone,
-                    u.telegram_chat_id as photographer_telegram_id
+                    u.telegram_chat_id as photographer_telegram_id,
+                    u.region as photographer_region
                 FROM {SCHEMA}.client_projects cp
                 JOIN {SCHEMA}.clients c ON cp.client_id = c.id
                 JOIN {SCHEMA}.users u ON c.photographer_id = u.id
                 WHERE cp.start_date IS NOT NULL
                   AND cp.shooting_time IS NOT NULL
                   AND cp.status IN ('new', 'in_progress', 'scheduled')
-                  AND cp.start_date >= CURRENT_DATE
+                  AND cp.start_date >= CURRENT_DATE - INTERVAL '1 day'
                   AND cp.start_date <= CURRENT_DATE + INTERVAL '2 days'
             """)
             projects = cur.fetchall()
 
             for proj in projects:
+                region = proj.get('photographer_region') or ''
+                now_local = get_photographer_now(region)
+                tz_label = get_tz_label(region)
                 shooting_datetime = datetime.combine(proj['start_date'], proj['shooting_time'])
-                time_diff = shooting_datetime - now
+                time_diff = shooting_datetime - now_local
                 hours_until = time_diff.total_seconds() / 3600
 
                 project_data = dict(proj)
@@ -390,23 +519,26 @@ def handler(event, context):
                     """)
                     if not cur.fetchone():
                         try:
-                            result = send_reminder(reminder_type, project_data, client_data, photographer_data, creds)
+                            result = send_reminder(reminder_type, project_data, client_data, photographer_data, creds, tz_label)
                             log_reminder(conn, proj['project_id'], reminder_type, 'both', True)
                             results[f'{reminder_type}_reminders'].append({
                                 'project_id': proj['project_id'],
                                 'project_name': proj['project_name'],
+                                'timezone': tz_label,
+                                'hours_until': round(hours_until, 1),
                                 'result': result
                             })
-                            print(f"[{reminder_type.upper()}] Sent for project {proj['project_id']}")
+                            print(f"[{reminder_type.upper()}] Sent for project {proj['project_id']} ({tz_label})")
                         except Exception as e:
                             log_reminder(conn, proj['project_id'], reminder_type, 'both', False, str(e))
                             print(f"[{reminder_type.upper()}_ERROR] {proj['project_id']}: {e}")
 
         conn.close()
+        now_utc = datetime.now(timezone.utc)
         return {
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'success': True, 'timestamp': now.isoformat(), 'reminders_sent': results}),
+            'body': json.dumps({'success': True, 'timestamp_utc': now_utc.isoformat(), 'reminders_sent': results}),
             'isBase64Encoded': False
         }
 

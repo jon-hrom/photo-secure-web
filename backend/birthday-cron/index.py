@@ -1,9 +1,31 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone as dt_timezone
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
+
+REGION_TIMEZONE_OFFSET = {
+    "Калининградская область": 2,
+    "Москва": 3, "Московская область": 3,
+    "Санкт-Петербург": 3, "Ленинградская область": 3,
+    "Краснодарский край": 3, "Ростовская область": 3,
+    "Татарстан": 3, "Республика Татарстан": 3,
+    "Самарская область": 4, "Саратовская область": 4,
+    "Удмуртия": 4, "Удмуртская Республика": 4,
+    "Башкортостан": 5, "Республика Башкортостан": 5,
+    "Свердловская область": 5, "Челябинская область": 5,
+    "Новосибирская область": 7, "Красноярский край": 7,
+    "Иркутская область": 8, "Забайкальский край": 9,
+    "Приморский край": 10, "Хабаровский край": 10,
+    "Камчатский край": 12,
+}
+
+
+def get_now_for_region(region: str):
+    offset = REGION_TIMEZONE_OFFSET.get(region or '', 3)
+    tz = dt_timezone(timedelta(hours=offset))
+    return datetime.now(tz)
 
 def handler(event: dict, context):
     '''Автоматическая проверка дней рождения и отправка уведомлений (запускается ежедневно)'''
@@ -25,7 +47,7 @@ def handler(event: dict, context):
     try:
         # Получаем всех пользователей с включенными уведомлениями о днях рождения
         cur.execute(f'''
-            SELECT DISTINCT u.id, u.email
+            SELECT DISTINCT u.id, u.email, u.region
             FROM {schema}.users u
             INNER JOIN {schema}.birthday_notification_settings bns ON bns.user_id = u.id::text
             WHERE bns.enabled = TRUE
@@ -90,7 +112,7 @@ def handler(event: dict, context):
                 })
         
         summary = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now(dt_timezone.utc).isoformat(),
             'users_checked': total_checked,
             'notifications_sent': total_sent,
             'results': results

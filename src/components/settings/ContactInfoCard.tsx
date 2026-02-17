@@ -7,6 +7,7 @@ import { formatPhoneNumber as formatPhone } from '@/utils/phoneFormat';
 import LocationSelector from './LocationSelector';
 import TelegramVerificationCard from './TelegramVerificationCard';
 import { useState } from 'react';
+import { getUserTimezoneLabel } from '@/utils/regionTimezone';
 
 interface UserSettings {
   email: string;
@@ -211,6 +212,12 @@ const ContactInfoCard = ({
             }}
             autoOpen={false}
           />
+          {settings.region && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg mt-2">
+              <Icon name="Globe" size={14} />
+              <span>Часовой пояс: <span className="font-medium text-foreground">{getUserTimezoneLabel()}</span></span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">

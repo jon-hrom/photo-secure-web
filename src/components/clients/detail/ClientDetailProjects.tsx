@@ -10,6 +10,7 @@ import { Project, Payment } from '@/components/clients/ClientsTypes';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { ShootingStyleSelector } from '@/components/clients/dialog/ShootingStyleSelector';
 import { getShootingStyles } from '@/data/shootingStyles';
+import { getUserTimezoneShort } from '@/utils/regionTimezone';
 
 interface ClientDetailProjectsProps {
   projects: Project[];
@@ -279,7 +280,7 @@ const ClientDetailProjects = ({
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label className="text-xs">⏰ Время съёмки</Label>
+                      <Label className="text-xs">⏰ Время съёмки <span className="text-muted-foreground font-normal">({getUserTimezoneShort()})</span></Label>
                       <Input
                         type="time"
                         value={project.shooting_time || ''}
@@ -393,7 +394,7 @@ const ClientDetailProjects = ({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="space-y-1">
-              <Label className="text-xs">Время съёмки</Label>
+              <Label className="text-xs">Время съёмки <span className="text-muted-foreground font-normal">({getUserTimezoneShort()})</span></Label>
               <Input
                 type="time"
                 value={newProject.shooting_time || ''}

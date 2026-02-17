@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import Icon from '@/components/ui/icon';
 import { Client, Booking } from '@/components/clients/ClientsTypes';
 import { formatLocalDate } from '@/utils/dateFormat';
+import { getUserTimezoneShort } from '@/utils/regionTimezone';
 
 interface BookingDialogsProps {
   isBookingDialogOpen: boolean;
@@ -97,7 +98,7 @@ const BookingDialogs = ({
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Время</Label>
+                  <Label>Время <span className="text-muted-foreground font-normal text-xs">({getUserTimezoneShort()})</span></Label>
                   <Select
                     value={newBooking.time}
                     onValueChange={(value) => setNewBooking({ ...newBooking, time: value })}

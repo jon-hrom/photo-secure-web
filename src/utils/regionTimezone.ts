@@ -88,4 +88,40 @@ export function getTimezoneForRegion(region?: string): string {
   return REGION_TIMEZONE[region] || "Europe/Moscow";
 }
 
+const TZ_OFFSETS: Record<string, number> = {
+  "Europe/Kaliningrad": 2,
+  "Europe/Moscow": 3,
+  "Europe/Samara": 4,
+  "Asia/Yekaterinburg": 5,
+  "Asia/Omsk": 6,
+  "Asia/Barnaul": 7,
+  "Asia/Novosibirsk": 7,
+  "Asia/Novokuznetsk": 7,
+  "Asia/Tomsk": 7,
+  "Asia/Krasnoyarsk": 7,
+  "Asia/Irkutsk": 8,
+  "Asia/Chita": 9,
+  "Asia/Yakutsk": 9,
+  "Asia/Vladivostok": 10,
+  "Asia/Magadan": 11,
+  "Asia/Sakhalin": 11,
+  "Asia/Kamchatka": 12,
+};
+
+export function getUserTimezoneLabel(): string {
+  const region = localStorage.getItem('user_region') || '';
+  const city = localStorage.getItem('user_city') || '';
+  const tz = getTimezoneForRegion(region);
+  const offset = TZ_OFFSETS[tz] ?? 3;
+  const cityLabel = city || region || 'Москва';
+  return `UTC+${offset}, ${cityLabel}`;
+}
+
+export function getUserTimezoneShort(): string {
+  const region = localStorage.getItem('user_region') || '';
+  const tz = getTimezoneForRegion(region);
+  const offset = TZ_OFFSETS[tz] ?? 3;
+  return `UTC+${offset}`;
+}
+
 export default REGION_TIMEZONE;

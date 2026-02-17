@@ -83,6 +83,22 @@ const Index = () => {
   }, [searchParams, isAuthenticated, setCurrentPage]);
 
   useEffect(() => {
+    if (isAuthenticated && userId && !localStorage.getItem('user_region')) {
+      fetch('https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994', {
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId.toString() }
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.settings) {
+            if (data.settings.region) localStorage.setItem('user_region', data.settings.region);
+            if (data.settings.city) localStorage.setItem('user_city', data.settings.city);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isAuthenticated, userId]);
+
+  useEffect(() => {
     settingsSync.onUpdate(() => {
       toast.info('Доступны обновления настроек', {
         description: 'Перезагрузите страницу, чтобы применить изменения',

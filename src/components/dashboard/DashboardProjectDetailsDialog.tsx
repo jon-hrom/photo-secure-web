@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Client, Project } from '@/components/clients/ClientsTypes';
+import { getUserTimezoneShort } from '@/utils/regionTimezone';
 
 interface DashboardProjectDetailsDialogProps {
   open: boolean;
@@ -87,7 +88,10 @@ const DashboardProjectDetailsDialog = ({
                 <Icon name="Clock" size={18} className="text-blue-600 dark:text-blue-400 sm:w-5 sm:h-5 flex-shrink-0" />
                 <div>
                   <p className="text-xs sm:text-sm text-muted-foreground">Время</p>
-                  <p className="font-semibold text-sm sm:text-base text-foreground">{project.shooting_time}</p>
+                  <p className="font-semibold text-sm sm:text-base text-foreground">
+                    {project.shooting_time}
+                    <span className="text-xs font-normal text-muted-foreground ml-1.5">({getUserTimezoneShort()})</span>
+                  </p>
                 </div>
               </div>
             )}
