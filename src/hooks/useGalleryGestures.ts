@@ -273,7 +273,8 @@ export const useGalleryGestures = ({
       e.preventDefault();
       const distance = getTouchDistance(e.touches);
       const scale = distance / pinchStart.distance;
-      const newZoom = Math.max(0, Math.min(2, pinchStart.zoom * scale));
+      const baseZoom = pinchStart.zoom === 0 ? 1 : pinchStart.zoom;
+      const newZoom = Math.max(0, Math.min(3, baseZoom * scale - (pinchStart.zoom === 0 ? 1 : 0)));
       setZoom(newZoom);
       return;
     }

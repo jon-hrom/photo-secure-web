@@ -226,23 +226,21 @@ export default function useShareModalData(folderId: number, folderName: string, 
               console.log('[SHARE_MODAL] favorite_config обновлен из БД');
             }
 
-            if (data.watermark) {
-              setLinkSettings(prev => ({
-                ...prev,
-                downloadDisabled: data.download_disabled || false,
-                watermarkEnabled: data.watermark.enabled || false,
-                watermarkType: data.watermark.type || 'text',
-                watermarkText: data.watermark.text || '',
-                watermarkImageUrl: data.watermark.image_url || '',
-                watermarkFrequency: data.watermark.frequency || 50,
-                watermarkSize: data.watermark.size || 20,
-                watermarkOpacity: data.watermark.opacity || 50,
-                watermarkRotation: data.watermark.rotation || 0,
-                screenshotProtection: data.screenshot_protection || false,
-                clientUploadEnabled: data.client_upload_enabled || false,
-                password: ''
-              }));
-            }
+            setLinkSettings(prev => ({
+              ...prev,
+              downloadDisabled: data.download_disabled || false,
+              screenshotProtection: data.screenshot_protection || false,
+              clientUploadEnabled: data.client_upload_enabled || false,
+              watermarkEnabled: data.watermark?.enabled || false,
+              watermarkType: data.watermark?.type || 'text',
+              watermarkText: data.watermark?.text || '',
+              watermarkImageUrl: data.watermark?.image_url || '',
+              watermarkFrequency: data.watermark?.frequency || 50,
+              watermarkSize: data.watermark?.size || 20,
+              watermarkOpacity: data.watermark?.opacity || 50,
+              watermarkRotation: data.watermark?.rotation || 0,
+              password: ''
+            }));
 
             setPageDesign({
               coverPhotoId: data.cover_photo_id || null,

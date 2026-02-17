@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Icon from '@/components/ui/icon';
+import GalleryCover from './components/GalleryCover';
+import GalleryToolbar from './components/GalleryToolbar';
+import GalleryPhotoCard from './components/GalleryPhotoCard';
 
-interface Photo {
+export interface Photo {
   id: number;
   file_name: string;
   photo_url: string;
@@ -14,7 +16,7 @@ interface Photo {
   content_type?: string;
 }
 
-interface WatermarkSettings {
+export interface WatermarkSettings {
   enabled: boolean;
   type: string;
   text?: string;
@@ -25,7 +27,7 @@ interface WatermarkSettings {
   rotation?: number;
 }
 
-interface GalleryData {
+export interface GalleryData {
   folder_name: string;
   photos: Photo[];
   total_size: number;
@@ -49,7 +51,7 @@ interface GalleryData {
   mobile_cover_focus_y?: number;
 }
 
-interface GalleryGridProps {
+export interface GalleryGridProps {
   gallery: GalleryData;
   downloadingAll: boolean;
   onDownloadAll: () => void;
@@ -212,172 +214,32 @@ export default function GalleryGrid({
       paddingRight: 'env(safe-area-inset-right, 0px)',
     }}>
       {coverPhoto && (
-        <div 
-          className="relative overflow-hidden"
-          style={{
-            width: 'calc(100% + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))',
-            marginLeft: 'calc(-1 * env(safe-area-inset-left, 0px))',
-            marginRight: 'calc(-1 * env(safe-area-inset-right, 0px))',
-            marginTop: 'calc(-1 * env(safe-area-inset-top, 0px))',
-            height: '100vh',
-            minHeight: 500,
-            background: '#0a0a0a'
-          }}
-        >
-          <img
-            src={coverPhoto.photo_url}
-            alt={gallery.folder_name}
-            className={`w-full h-full ${isMobile ? 'object-cover' : 'object-contain'}`}
-            style={isMobile ? { objectPosition: `${focusX * 100}% ${focusY * 100}%` } : undefined}
-            draggable={false}
-            onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" style={{ pointerEvents: 'none' }} />
-          {(() => {
-            const pos = gallery.cover_text_position || 'bottom-center';
-            const posClasses = pos === 'center' ? 'inset-0 flex flex-col items-center justify-center text-center px-6'
-              : pos === 'top-center' ? 'inset-0 flex flex-col items-center justify-start text-center px-6 pt-12 sm:pt-16'
-              : pos === 'bottom-left' ? 'bottom-0 left-0 right-0 flex flex-col items-start text-left px-6 pb-20 sm:pb-10'
-              : pos === 'bottom-right' ? 'bottom-0 left-0 right-0 flex flex-col items-end text-right px-6 pb-20 sm:pb-10'
-              : 'bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-20 sm:pb-10';
-            return (
-              <div
-                className={`absolute ${posClasses}`}
-                style={{
-                  opacity: 0,
-                  transform: 'translateY(20px)',
-                  animation: 'coverTextFadeIn 2.5s ease forwards 0.3s'
-                }}
-              >
-                <h1 className="font-bold mb-3 drop-shadow-lg" style={{
-                  color: gallery.text_color || '#ffffff',
-                  fontSize: `${gallery.cover_font_size || 36}px`
-                }}>
-                  {gallery.cover_title || gallery.folder_name}
-                </h1>
-                <button
-                  onClick={scrollToGrid}
-                  className="group inline-flex items-center gap-1.5 text-sm transition-colors"
-                  style={{
-                    color: gallery.text_color ? `${gallery.text_color}cc` : 'rgba(255,255,255,0.8)',
-                    opacity: 0,
-                    animation: 'coverTextFadeIn 2s ease forwards 1.2s'
-                  }}
-                >
-                  <span>Просмотр фото</span>
-                  <Icon name="ChevronDown" size={16} className="animate-bounce" />
-                </button>
-              </div>
-            );
-          })()}
-        </div>
+        <GalleryCover
+          coverPhoto={coverPhoto}
+          gallery={gallery}
+          isMobile={isMobile}
+          focusX={focusX}
+          focusY={focusY}
+          scrollToGrid={scrollToGrid}
+        />
       )}
-      <div className="sticky top-0 z-50" style={{ 
-        background: isDarkBg ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        boxShadow: isDarkBg ? '0 1px 2px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.08)'
-      }}>
-        <div className="max-w-7xl mx-auto px-2 sm:px-4">
-          <div className="flex items-center gap-2 py-2 sm:py-2.5 overflow-x-auto">
-            <p className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0" style={{ color: secondaryText }}>
-              {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
-            </p>
-            <div className="flex-1" />
-            {clientName ? (
-              <>
-                <button
-                  onClick={onOpenChat}
-                  className="relative w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-blue-500 text-white rounded-full sm:rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                >
-                  <Icon name="MessageCircle" size={14} className="flex-shrink-0" />
-                  <span className="hidden sm:inline">Написать</span>
-                  {unreadMessagesCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5 shadow-lg">
-                      {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={onOpenMyFavorites}
-                  className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-yellow-500 text-white rounded-full sm:rounded-lg hover:bg-yellow-600 active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                >
-                  <Icon name="Star" size={14} className="flex-shrink-0" />
-                  <span className="hidden sm:inline">Избранное</span>
-                </button>
-                {clientUploadEnabled && onOpenUpload && (
-                  <button
-                    onClick={onOpenUpload}
-                    className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-green-500 text-white rounded-full sm:rounded-lg hover:bg-green-600 active:bg-green-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                  >
-                    <Icon name="Upload" size={14} className="flex-shrink-0" />
-                    <span className="hidden sm:inline">Загрузить фото</span>
-                  </button>
-                )}
-                {!gallery.download_disabled && (
-                  <button
-                    onClick={onDownloadAll}
-                    disabled={downloadingAll}
-                    className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-blue-600 text-white rounded-full sm:rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                  >
-                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
-                    <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
-                  </button>
-                )}
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg flex-shrink-0" style={{
-                  background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6'
-                }}>
-                  <Icon name="User" size={13} className="flex-shrink-0" style={{ color: secondaryText }} />
-                  <span className="text-xs font-medium truncate max-w-[80px] sm:max-w-[120px]" style={{ color: textColor }}>{clientName}</span>
-                </div>
-                <button
-                  onClick={onLogout}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-xs touch-manipulation flex-shrink-0"
-                  style={{
-                    background: isDarkBg ? 'rgba(239,68,68,0.15)' : '#fee2e2',
-                    color: isDarkBg ? '#fca5a5' : '#b91c1c'
-                  }}
-                >
-                  <Icon name="LogOut" size={13} className="flex-shrink-0" />
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={onClientLogin}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                  style={{
-                    background: isDarkBg ? 'rgba(59,130,246,0.2)' : '#dbeafe',
-                    color: isDarkBg ? '#93c5fd' : '#1d4ed8'
-                  }}
-                >
-                  <Icon name="User" size={14} className="flex-shrink-0" />
-                  Войти
-                </button>
-                {clientUploadEnabled && onOpenUpload && (
-                  <button
-                    onClick={onOpenUpload}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 active:bg-green-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                  >
-                    <Icon name="Upload" size={14} className="flex-shrink-0" />
-                    <span className="hidden sm:inline">Загрузить фото</span>
-                  </button>
-                )}
-                {!gallery.download_disabled && (
-                  <button
-                    onClick={onDownloadAll}
-                    disabled={downloadingAll}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                  >
-                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
-                    <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      <GalleryToolbar
+        gallery={gallery}
+        isDarkBg={!!isDarkBg}
+        textColor={textColor}
+        secondaryText={secondaryText}
+        formatFileSize={formatFileSize}
+        clientName={clientName}
+        onOpenChat={onOpenChat}
+        unreadMessagesCount={unreadMessagesCount}
+        onOpenMyFavorites={onOpenMyFavorites}
+        clientUploadEnabled={clientUploadEnabled}
+        onOpenUpload={onOpenUpload}
+        downloadingAll={downloadingAll}
+        onDownloadAll={onDownloadAll}
+        onLogout={onLogout}
+        onClientLogin={onClientLogin}
+      />
       <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0"
         style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
       >
@@ -387,124 +249,21 @@ export default function GalleryGrid({
         >
           {gallery.photos.map((photo, index) => {
             return (
-              <div
+              <GalleryPhotoCard
                 key={photo.id}
                 ref={photoCardRef}
-                className="group relative rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation"
-                style={{ 
-                  marginBottom: `${gridGap}px`,
-                  background: isDarkBg ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
-                  opacity: 0,
-                  transform: 'translateY(24px)',
-                  transition: `opacity 0.5s ease ${(index % 8) * 0.06}s, transform 0.5s ease ${(index % 8) * 0.06}s`
-                }}
-                onClick={() => onPhotoClick(photo)}
-              >
-                {photo.is_video ? (
-                  <video
-                    src={`${photo.photo_url}#t=0.1`}
-                    className="w-full h-auto transition-transform group-hover:scale-105"
-                    preload="metadata"
-                    onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
-                    onLoadedData={() => onPhotoLoad?.()}
-                    onError={() => onPhotoLoad?.()}
-                    muted={true}
-                    playsInline={true}
-                  />
-                ) : (
-                  <img
-                    src={photo.thumbnail_url || photo.photo_url}
-                    alt={photo.file_name}
-                    className="w-full h-auto transition-transform group-hover:scale-105"
-                    loading="lazy"
-                    onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
-                    draggable={false}
-                    onLoad={() => onPhotoLoad?.()}
-                    onError={() => onPhotoLoad?.()}
-                  />
-                )}
-                {photo.is_video && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                      <Icon name="Play" size={24} className="text-white sm:w-8 sm:h-8" />
-                    </div>
-                  </div>
-                )}
-                {gallery.watermark?.enabled && (() => {
-                  const frequency = gallery.watermark.frequency || 50;
-                  const count = Math.ceil((frequency / 10) * 10);
-                  const watermarks = [];
-                  
-                  for (let i = 0; i < count; i++) {
-                    const top = (i * (100 / count)) % 100;
-                    const left = ((i * 37) % 100);
-                    
-                    watermarks.push(
-                      <div
-                        key={i}
-                        className="absolute pointer-events-none"
-                        style={{
-                          top: `${top}%`,
-                          left: `${left}%`,
-                          transform: 'translate(-50%, -50%)',
-                          opacity: (gallery.watermark.opacity || 50) / 100
-                        }}
-                      >
-                        {gallery.watermark.type === 'text' ? (
-                          <p 
-                            className="text-white font-bold text-center px-2 whitespace-nowrap" 
-                            style={{ 
-                              fontSize: `${gallery.watermark.size || 20}px`,
-                              textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                              transform: `rotate(${gallery.watermark.rotation || 0}deg)`
-                            }}
-                          >
-                            {gallery.watermark.text}
-                          </p>
-                        ) : (
-                          <img 
-                            src={gallery.watermark.image_url} 
-                            alt="Watermark" 
-                            style={{ 
-                              maxWidth: `${gallery.watermark.size}px`,
-                              maxHeight: `${gallery.watermark.size}px`,
-                              transform: `rotate(${gallery.watermark.rotation || 0}deg)` 
-                            }}
-                          />
-                        )}
-                      </div>
-                    );
-                  }
-                  
-                  return watermarks;
-                })()}
-                <div className="absolute bottom-1 sm:bottom-1.5 right-1 sm:right-1.5 flex z-10" style={{ gap: '3px' }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddToFavorites(photo);
-                    }}
-                    className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 transition-all group/btn touch-manipulation"
-                    style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
-                    title="Добавить в избранное"
-                  >
-                    <Icon name="Star" size={11} className="text-white group-hover/btn:text-white" />
-                  </button>
-                  {!gallery.download_disabled && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDownloadPhoto(photo);
-                      }}
-                      className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 transition-all group/btn touch-manipulation"
-                      style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
-                      title="Скачать фото"
-                    >
-                      <Icon name="Download" size={11} className="text-white group-hover/btn:text-white" />
-                    </button>
-                  )}
-                </div>
-              </div>
+                photo={photo}
+                index={index}
+                gridGap={gridGap}
+                isDarkBg={!!isDarkBg}
+                screenshotProtection={gallery.screenshot_protection}
+                downloadDisabled={gallery.download_disabled}
+                watermark={gallery.watermark}
+                onPhotoClick={onPhotoClick}
+                onDownloadPhoto={onDownloadPhoto}
+                onAddToFavorites={onAddToFavorites}
+                onPhotoLoad={onPhotoLoad}
+              />
             );
           })}
         </div>
