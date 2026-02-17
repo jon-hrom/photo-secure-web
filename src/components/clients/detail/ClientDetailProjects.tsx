@@ -55,6 +55,7 @@ const ClientDetailProjects = ({
   const [selectorKeys, setSelectorKeys] = useState<Record<number, number>>({});
   const [expandedProjects, setExpandedProjects] = useState<Record<number, boolean>>({});
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; projectId: number } | null>(null);
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   
   // Используем ref чтобы всегда иметь актуальную функцию
   const updateProjectShootingStyleRef = useRef(updateProjectShootingStyle);
@@ -375,9 +376,23 @@ const ClientDetailProjects = ({
       )}
       </div>
 
-      <Card className="mt-4">
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm sm:text-base">Добавить новую услугу</CardTitle>
+      <div className="mt-4">
+        {!isNewProjectOpen ? (
+          <Button
+            variant="outline"
+            className="w-full h-12 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all"
+            onClick={() => setIsNewProjectOpen(true)}
+          >
+            <Icon name="Plus" size={18} className="mr-2" />
+            Добавить новую услугу
+          </Button>
+        ) : (
+        <Card>
+        <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setIsNewProjectOpen(false)}>
+          <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+            <Icon name="ChevronDown" size={18} />
+            Добавить новую услугу
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 py-3 pb-20 max-h-[60vh] md:max-h-none overflow-y-auto md:overflow-visible">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -515,13 +530,15 @@ const ClientDetailProjects = ({
           </div>
           <div className="h-16"></div>
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t md:static md:border-0 md:p-0">
-            <Button onClick={handleAddProject} className="w-full md:w-auto h-11 md:h-9 text-sm md:text-xs shadow-lg md:shadow-none">
+            <Button onClick={() => { handleAddProject(); setIsNewProjectOpen(false); }} className="w-full md:w-auto h-11 md:h-9 text-sm md:text-xs shadow-lg md:shadow-none">
               <Icon name="Plus" size={16} className="mr-2" />
               Создать услугу
             </Button>
           </div>
         </CardContent>
       </Card>
+        )}
+      </div>
     </>
   );
 };
