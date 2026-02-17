@@ -35,17 +35,23 @@ const TelegramCallback = () => {
           throw new Error(data.error || 'Ошибка авторизации');
         }
 
-        // Сохраняем токены и сессию в правильном формате
-        localStorage.setItem('auth_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-        localStorage.setItem('userId', data.user.id.toString());
+        const userId = data.userId || data.user?.id;
+        const userEmail = data.user?.email || '';
         
-        // Сохраняем сессию в формате приложения (как в useAuth.ts)
+        localStorage.setItem('auth_token', data.token);
+        if (data.session_id) {
+          localStorage.setItem('auth_session_id', data.session_id);
+        }
+        localStorage.setItem('userId', userId.toString());
+        
+        const ADMIN_EMAILS = ['jonhrom2012@gmail.com'];
+        const isAdmin = ADMIN_EMAILS.includes(userEmail);
+        
         const authSession = {
           isAuthenticated: true,
-          userId: data.user.id,
-          userEmail: data.user.email || '',
-          isAdmin: false, // Telegram пользователи не админы по умолчанию
+          userId: userId,
+          userEmail: userEmail,
+          isAdmin: isAdmin,
           currentPage: 'dashboard',
           lastActivity: Date.now(),
         };

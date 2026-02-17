@@ -476,6 +476,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     "INSERT INTO user_profiles (user_id) VALUES (%s)",
                     (user_id,)
                 )
+                
+                cursor.execute(
+                    "INSERT INTO user_emails (user_id, email, provider, is_primary, is_verified, added_at, last_used_at) VALUES (%s, %s, 'email', TRUE, FALSE, NOW(), NOW()) ON CONFLICT DO NOTHING",
+                    (user_id, email)
+                )
                 conn.commit()
                 
                 return {

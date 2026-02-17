@@ -1,0 +1,6 @@
+UPDATE t_p28211681_photo_secure_web.users SET avatar_url = 'https://lh3.googleusercontent.com/a/ACg8ocLgzcF5dd8DPAceOdJfGpqBSHwYrhhQxR4AA81rpFD9hC_IKvWG=s96-c' WHERE id = 12 AND avatar_url IS NULL;
+UPDATE t_p28211681_photo_secure_web.users SET avatar_url = 'https://lh3.googleusercontent.com/a/ACg8ocIPKzKmNNdyJ843ZSy_deXyDhSQ7gzd4Fy1WP4kxFjpWWvp=s96-c' WHERE id = 18 AND avatar_url IS NULL;
+UPDATE t_p28211681_photo_secure_web.users SET avatar_url = 'https://lh3.googleusercontent.com/a/ACg8ocJxf5aYJ8-FlQX-4sq2_HavwBgmskrhdyyLdNa9DGpXpWYHHg=s96-c' WHERE id = 20 AND avatar_url IS NULL;
+UPDATE t_p28211681_photo_secure_web.users SET avatar_url = 'https://lh3.googleusercontent.com/a/ACg8ocIUmrj7KaVzqqRU5_FWFa8uJYhwMdg-GjI1nFxiex84az8mYQ=s96-c' WHERE id = 22 AND avatar_url IS NULL;
+UPDATE t_p28211681_photo_secure_web.users SET avatar_url = 'https://lh3.googleusercontent.com/a/ACg8ocJToARRhFOusurrjzUXO2ZbHD7NobJPgEubiBsrfTZlDEGqEpY=s96-c' WHERE id = 23 AND avatar_url IS NULL;
+UPDATE t_p28211681_photo_secure_web.users SET role = 'user' WHERE role = 'client';

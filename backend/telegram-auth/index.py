@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import jwt
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'fallback-secret-change-me')
@@ -46,14 +45,36 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
-def create_jwt(user_id: int, expires_in: int = 900) -> str:
-    """Создание JWT токена"""
-    payload = {
-        "user_id": user_id,
-        "exp": datetime.utcnow() + timedelta(seconds=expires_in),
-        "iat": datetime.utcnow(),
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+def create_session_token(user_id: int, ip_address: str = None, user_agent: str = None) -> tuple:
+    """Создание токена и сессии в active_sessions (совместимо с validate-session)"""
+    import uuid
+    import hmac
+    
+    session_id = str(uuid.uuid4())
+    issued_at = int(datetime.now().timestamp())
+    expires_at = issued_at + (30 * 24 * 60 * 60)  # 30 days
+    
+    payload = f"{user_id}:{session_id}:{issued_at}:{expires_at}"
+    signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    token = f"{payload}:{signature}"
+    
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.active_sessions 
+                (session_id, user_id, token_hash, created_at, expires_at, last_activity, ip_address, user_agent, is_valid)
+                VALUES ({escape_sql(session_id)}, {user_id}, {escape_sql(token_hash)}, 
+                        CURRENT_TIMESTAMP, TO_TIMESTAMP({expires_at}), CURRENT_TIMESTAMP,
+                        {escape_sql(ip_address)}, {escape_sql(user_agent)}, TRUE)
+            """)
+        conn.commit()
+    finally:
+        conn.close()
+    
+    return token, session_id
 
 
 def get_auth_token(conn, token: str) -> Optional[dict]:
@@ -153,22 +174,6 @@ def create_or_update_user(
             return user_id
 
 
-def save_refresh_token(conn, user_id: int, token_hash: str, expires_at: datetime) -> None:
-    """Сохранить refresh token"""
-    import uuid
-    token_id = str(uuid.uuid4())
-    session_id = str(uuid.uuid4())
-    
-    with conn.cursor() as cur:
-        cur.execute(f"""
-            INSERT INTO {SCHEMA}.refresh_tokens 
-            (token_id, user_id, token_hash, session_id, expires_at, created_at)
-            VALUES ({escape_sql(token_id)}, {user_id}, {escape_sql(token_hash)}, 
-                    {escape_sql(session_id)}, {escape_sql(expires_at.isoformat())}, CURRENT_TIMESTAMP)
-        """)
-        conn.commit()
-
-
 def cleanup_expired_tokens(conn) -> None:
     """Очистка просроченных токенов"""
     with conn.cursor() as cur:
@@ -261,13 +266,8 @@ def handle_callback(conn, body: dict, ip_address: str = None, user_agent: str = 
     # Помечаем токен как использованный
     mark_token_used(conn, token)
     
-    # Генерируем JWT токены
-    access_token = create_jwt(user_id, expires_in=900)  # 15 минут
-    refresh_token = secrets.token_urlsafe(48)
-    refresh_token_hash = hash_token(refresh_token)
-    refresh_expires = datetime.utcnow() + timedelta(days=30)
-    
-    save_refresh_token(conn, user_id, refresh_token_hash, refresh_expires)
+    # Создаём сессию в active_sessions (совместимо с validate-session)
+    token, session_id = create_session_token(user_id, ip_address, user_agent)
     
     # Получаем данные пользователя
     with conn.cursor() as cur:
@@ -279,13 +279,14 @@ def handle_callback(conn, body: dict, ip_address: str = None, user_agent: str = 
         user_data = cur.fetchone()
     
     response_data = {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "expires_in": 900,
+        "success": True,
+        "token": token,
+        "session_id": session_id,
+        "userId": user_id,
         "user": dict(user_data) if user_data else {"id": user_id}
     }
     
-    print(f"[TG_AUTH] Success! Returning tokens for user {user_id}")
+    print(f"[TG_AUTH] Success! Returning session token for user {user_id}")
     return cors_response(200, response_data)
 
 

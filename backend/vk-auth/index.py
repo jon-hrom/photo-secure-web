@@ -222,7 +222,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
             if not user_id and phone:
                 cur.execute(f"""
                     SELECT id FROM {SCHEMA}.users 
-                    WHERE phone_number = {escape_sql(phone)}
+                    WHERE phone = {escape_sql(phone)}
                     ORDER BY created_at ASC
                     LIMIT 1
                 """)
@@ -236,8 +236,8 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     UPDATE {SCHEMA}.users 
                     SET vk_id = {escape_sql(vk_user_id)},
                         email = COALESCE(NULLIF({escape_sql(email)}, ''), email),
-                        phone_number = COALESCE(NULLIF({escape_sql(phone)}, ''), phone_number),
-                        full_name = COALESCE(NULLIF({escape_sql(full_name)}, ''), full_name),
+                        phone = COALESCE(NULLIF({escape_sql(phone)}, ''), phone),
+                        display_name = COALESCE(NULLIF({escape_sql(full_name)}, ''), display_name),
                         avatar_url = COALESCE(NULLIF({escape_sql(avatar_url)}, ''), avatar_url),
                         last_login = CURRENT_TIMESTAMP,
                         updated_at = CURRENT_TIMESTAMP
@@ -263,9 +263,9 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 return user_id
             
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.users (vk_id, email, phone_number, full_name, avatar_url, role, is_active, created_at, last_login, ip_address, user_agent)
+                INSERT INTO {SCHEMA}.users (vk_id, email, phone, display_name, avatar_url, role, is_active, source, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
                 VALUES ({escape_sql(vk_user_id)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(full_name)}, 
-                        {escape_sql(avatar_url)}, 'client', {escape_sql(True)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
+                        {escape_sql(avatar_url)}, 'user', {escape_sql(True)}, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
                         {escape_sql(ip_address)}, {escape_sql(user_agent)})
                 RETURNING id
             """)
@@ -292,45 +292,35 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
         conn.close()
 
 
-def create_jwt(user_id: int, device_id: str) -> str:
-    """Создание JWT токена с уникальным session_id"""
+def create_jwt(user_id: int, device_id: str, ip_address: str = None, user_agent: str = None) -> str:
+    """Создание токена и сессии в active_sessions (совместимо с validate-session)"""
     import hmac
     
-    session_id = str(secrets.randbits(128))
+    session_id = str(uuid.uuid4())
     issued_at = int(datetime.now().timestamp())
     expires_at = issued_at + (30 * 24 * 60 * 60)
     
-    header = base64.urlsafe_b64encode(json.dumps({'alg': 'HS256', 'typ': 'JWT'}).encode()).decode().rstrip('=')
-    payload_data = {
-        'user_id': user_id,
-        'session_id': session_id,
-        'device_id': device_id,
-        'iat': issued_at,
-        'exp': expires_at
-    }
-    payload = base64.urlsafe_b64encode(json.dumps(payload_data).encode()).decode().rstrip('=')
+    payload = f"{user_id}:{session_id}:{issued_at}:{expires_at}"
+    signature = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    token = f"{payload}:{signature}"
     
-    message = f'{header}.{payload}'
-    signature = base64.urlsafe_b64encode(
-        hmac.new(JWT_SECRET.encode(), message.encode(), hashlib.sha256).digest()
-    ).decode().rstrip('=')
-    
-    jwt_token = f'{header}.{payload}.{signature}'
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
     
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.user_sessions 
-                (session_id, user_id, device_id, jwt_token, issued_at, expires_at, is_active)
-                VALUES ({escape_sql(session_id)}, {user_id}, {escape_sql(device_id)}, {escape_sql(jwt_token)}, 
-                        TO_TIMESTAMP({issued_at}), TO_TIMESTAMP({expires_at}), {escape_sql(True)})
+                INSERT INTO {SCHEMA}.active_sessions 
+                (session_id, user_id, token_hash, created_at, expires_at, last_activity, ip_address, user_agent, device_id, is_valid)
+                VALUES ({escape_sql(session_id)}, {user_id}, {escape_sql(token_hash)}, 
+                        CURRENT_TIMESTAMP, TO_TIMESTAMP({expires_at}), CURRENT_TIMESTAMP,
+                        {escape_sql(ip_address)}, {escape_sql(user_agent)}, {escape_sql(device_id)}, TRUE)
             """)
         conn.commit()
     finally:
         conn.close()
     
-    return jwt_token
+    return token
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -503,7 +493,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 raise
             
-            jwt_token = create_jwt(user_id, device_id)
+            jwt_token = create_jwt(user_id, device_id, ip_address, user_agent)
             
             full_name = f'{first_name} {last_name}'.strip() or 'Пользователь VK'
             

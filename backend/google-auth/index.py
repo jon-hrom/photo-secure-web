@@ -146,11 +146,12 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                     WHERE google_sub = {escape_sql(google_sub)}
                 """)
                 
-                # Обновляем display_name в users если он пустой
                 cur.execute(f"""
                     UPDATE {SCHEMA}.users 
-                    SET display_name = {escape_sql(name)},
+                    SET display_name = COALESCE(display_name, {escape_sql(name)}),
+                        avatar_url = COALESCE(avatar_url, {escape_sql(picture)}),
                         last_login = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP,
                         email_verified_at = CASE WHEN email_verified_at IS NULL 
                                                 THEN CURRENT_TIMESTAMP ELSE email_verified_at END
                     WHERE id = {user_id}
@@ -193,11 +194,12 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                 cur.execute(f"""SELECT two_factor_email, two_factor_sms, phone, email FROM {SCHEMA}.users WHERE id = {escape_sql(user_id)}""")
                 existing_user = cur.fetchone()
                 
-                # Обновляем display_name если пустой
                 cur.execute(f"""
                     UPDATE {SCHEMA}.users 
                     SET display_name = COALESCE(display_name, {escape_sql(name)}),
+                        avatar_url = COALESCE(avatar_url, {escape_sql(picture)}),
                         last_login = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP,
                         email_verified_at = CASE WHEN email_verified_at IS NULL 
                                                 THEN CURRENT_TIMESTAMP ELSE email_verified_at END
                     WHERE id = {user_id}
