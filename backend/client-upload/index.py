@@ -11,6 +11,24 @@ SCHEMA = 't_p28211681_photo_secure_web'
 S3_ENDPOINT = 'https://storage.yandexcloud.net'
 S3_BUCKET = 'foto-mix'
 
+def get_yc_s3_client():
+    return boto3.client('s3',
+        endpoint_url=S3_ENDPOINT,
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4'))
+
+def generate_presigned_get(s3_key, expiration=3600):
+    if not s3_key:
+        return ''
+    s3 = get_yc_s3_client()
+    return s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': S3_BUCKET, 'Key': s3_key},
+        ExpiresIn=expiration
+    )
+
 def get_cors_headers(event):
     headers = event.get('headers', {})
     origin = headers.get('origin') or headers.get('Origin') or '*'
@@ -254,14 +272,20 @@ def photographer_list_photos(cur, conn, params, user_id):
         (upload_folder_id,)
     )
     
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    
     photos = []
-    for r in cur.fetchall():
+    for r in rows:
+        s3_key = r[2]
+        presigned = generate_presigned_get(s3_key) if s3_key else (r[3] or '')
         photos.append({
             'id': r[0],
             'file_name': r[1],
-            's3_key': r[2],
-            's3_url': r[3],
-            'thumbnail_s3_url': r[4] or r[3],
+            's3_key': s3_key,
+            's3_url': presigned,
+            'thumbnail_s3_url': presigned,
             'content_type': r[5],
             'file_size': r[6] or 0,
             'width': r[7],
@@ -269,8 +293,6 @@ def photographer_list_photos(cur, conn, params, user_id):
             'created_at': r[9].isoformat() if r[9] else None
         })
     
-    cur.close()
-    conn.close()
     return success_response({'photos': photos})
 
 
@@ -307,17 +329,15 @@ def photographer_download_photos(cur, conn, params, user_id):
         (upload_folder_id,)
     )
     
-    proxy_url = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215'
+    rows = cur.fetchall()
     files = []
-    for r in cur.fetchall():
+    for r in rows:
         s3_key, file_name, s3_url = r
-        if s3_url and 'cdn.poehali.dev' in s3_url:
+        if s3_key:
+            presigned = generate_presigned_get(s3_key, expiration=7200)
+            files.append({'filename': file_name, 'url': presigned})
+        elif s3_url:
             files.append({'filename': file_name, 'url': s3_url})
-        elif s3_key:
-            files.append({
-                'filename': file_name,
-                'url': f"{proxy_url}?s3_key={s3_key}"
-            })
     
     cur.close()
     conn.close()
@@ -625,9 +645,11 @@ def confirm_client_upload(cur, conn, data):
     cur.close()
     conn.close()
 
+    presigned = generate_presigned_get(s3_key)
+
     return success_response({
         'photo_id': photo_id,
-        's3_url': cdn_url,
+        's3_url': presigned,
         'file_name': file_name
     })
 

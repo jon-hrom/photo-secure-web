@@ -345,7 +345,7 @@ export default function ClientUploadModal({
                   )}
                 </Button>
                 <p className={`text-xs text-center ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Максимальный размер одного файла: 15 МБ
+                  Максимальный размер одного файла: 50 МБ
                 </p>
               </div>
 
