@@ -82,6 +82,8 @@ def handler(event: dict, context) -> dict:
                 return confirm_client_upload(cur, conn, data)
             elif action == 'client_delete_photo':
                 return client_delete_photo(cur, conn, data)
+            elif action == 'client_list_photos':
+                return client_list_photos(cur, conn, data)
             elif action == 'list_folders':
                 return list_client_folders(cur, conn, data)
             else:
@@ -654,6 +656,55 @@ def confirm_client_upload(cur, conn, data):
         's3_url': presigned,
         'file_name': file_name
     })
+
+
+def client_list_photos(cur, conn, data):
+    short_code = data.get('short_code')
+    client_id = data.get('client_id')
+    upload_folder_id = data.get('upload_folder_id')
+
+    if not short_code or not client_id or not upload_folder_id:
+        return error_response(400, 'short_code, client_id and upload_folder_id required')
+
+    link = get_link_info(cur, short_code)
+    if not link:
+        return error_response(404, 'Gallery not found')
+
+    link_id = link[0]
+
+    cur.execute(
+        f"SELECT id FROM {SCHEMA}.client_upload_folders WHERE id = %s AND short_link_id = %s AND client_id = %s",
+        (upload_folder_id, link_id, client_id)
+    )
+    if not cur.fetchone():
+        return error_response(403, 'Access denied')
+
+    cur.execute(
+        f"""
+        SELECT id, file_name, s3_key, s3_url, content_type, file_size, created_at
+        FROM {SCHEMA}.client_upload_photos
+        WHERE upload_folder_id = %s
+        ORDER BY created_at DESC
+        """,
+        (upload_folder_id,)
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    photos = []
+    for r in rows:
+        s3_key = r[2]
+        presigned = generate_presigned_get(s3_key) if s3_key else (r[3] or '')
+        photos.append({
+            'photo_id': r[0],
+            'file_name': r[1],
+            's3_url': presigned,
+            'file_size': r[5] or 0,
+            'created_at': r[6].isoformat() if r[6] else None
+        })
+
+    return success_response({'photos': photos})
 
 
 def client_delete_photo(cur, conn, data):

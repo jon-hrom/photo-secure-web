@@ -69,6 +69,7 @@ export default function ClientUploadModal({
       const data = await res.json();
       setActiveFolderId(data.folder_id);
       setActiveFolderName(newFolderName.trim());
+      setUploadedPhotos([]);
       setStep('upload');
 
       const newFolder: ClientUploadFolder = {
@@ -87,10 +88,40 @@ export default function ClientUploadModal({
     }
   };
 
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
+
+  const loadFolderPhotos = useCallback(async (folderId: number) => {
+    setLoadingPhotos(true);
+    try {
+      const res = await fetch(CLIENT_UPLOAD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'client_list_photos',
+          short_code: shortCode,
+          client_id: clientId,
+          upload_folder_id: folderId
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const photos = (data.photos || []).map((p: { photo_id: number; file_name: string; s3_url: string }) => ({
+          photo_id: p.photo_id,
+          file_name: p.file_name,
+          s3_url: p.s3_url
+        }));
+        setUploadedPhotos(photos);
+      }
+    } catch (e) { void e; }
+    setLoadingPhotos(false);
+  }, [shortCode, clientId]);
+
   const handleSelectFolder = (folder: ClientUploadFolder) => {
     setActiveFolderId(folder.id);
     setActiveFolderName(folder.folder_name);
+    setUploadedPhotos([]);
     setStep('upload');
+    loadFolderPhotos(folder.id);
   };
 
   const handleFilesSelected = useCallback(async (files: FileList | null) => {
@@ -391,10 +422,17 @@ export default function ClientUploadModal({
                 </div>
               )}
 
-              {uploadedPhotos.length > 0 && (
+              {loadingPhotos && (
+                <div className="flex items-center justify-center py-4">
+                  <Icon name="Loader2" size={20} className="animate-spin text-gray-400 mr-2" />
+                  <span className={`text-sm ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>Загрузка фото...</span>
+                </div>
+              )}
+
+              {!loadingPhotos && uploadedPhotos.length > 0 && (
                 <div className="space-y-2">
                   <p className={`text-xs font-medium ${isDarkTheme ? 'text-green-400' : 'text-green-600'}`}>
-                    Загружено: {uploadedPhotos.length} фото
+                    Фото в папке: {uploadedPhotos.length}
                   </p>
                   <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
                     {uploadedPhotos.map((photo) => (
