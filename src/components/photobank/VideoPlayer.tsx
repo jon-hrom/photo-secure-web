@@ -273,7 +273,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
   if (useNativePlayer) {
     return (
       <div className="fixed inset-0 bg-black z-50 flex flex-col">
-        <div className="flex items-center justify-between p-3 md:p-4 bg-gradient-to-b from-black/80 to-transparent shrink-0">
+        <div className="flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,env(safe-area-inset-top))] bg-gradient-to-b from-black/80 to-transparent shrink-0">
           <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
             <Icon name="Video" className="text-white shrink-0" size={isMobile ? 20 : 24} />
             <h3 className="text-white font-medium truncate text-sm md:text-base">
@@ -296,9 +296,9 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="text-white hover:bg-white/10 h-8 w-8 md:h-10 md:w-10"
+              className="text-white hover:bg-white/10 h-10 w-10 md:h-10 md:w-10 min-w-[44px] min-h-[44px] animate-pulse-once"
             >
-              <Icon name="X" size={isMobile ? 20 : 24} />
+              <Icon name="X" size={isMobile ? 22 : 24} />
             </Button>
           </div>
         </div>
@@ -357,7 +357,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 flex flex-col">
-      <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent shrink-0">
+      <div className="flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] bg-gradient-to-b from-black/80 to-transparent shrink-0">
         <div className="flex items-center gap-3">
           <Icon name="Video" className="text-white" size={24} />
           <h3 className="text-white font-medium truncate max-w-md">
@@ -380,7 +380,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-white hover:bg-white/10"
+            className="text-white hover:bg-white/10 min-w-[44px] min-h-[44px] animate-pulse-once"
           >
             <Icon name="X" size={24} />
           </Button>

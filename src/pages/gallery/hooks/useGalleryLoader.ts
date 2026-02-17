@@ -52,6 +52,15 @@ interface GalleryData {
   mobile_cover_photo_id?: number | null;
   mobile_cover_focus_x?: number;
   mobile_cover_focus_y?: number;
+  client_upload_enabled?: boolean;
+  client_upload_folders?: Array<{
+    id: number;
+    folder_name: string;
+    client_name: string | null;
+    photo_count: number;
+    created_at: string | null;
+  }>;
+  link_id?: number;
 }
 
 export function useGalleryLoader(code?: string) {

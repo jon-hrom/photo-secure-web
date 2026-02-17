@@ -47,6 +47,9 @@ const PhotoGridViewer = ({
 }: PhotoGridViewerProps) => {
   const [showExif, setShowExif] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
+  const [showHelp, setShowHelp] = useState(() => {
+    return !localStorage.getItem('photobank-viewer-help-seen');
+  });
 
   // Блокируем скролл body когда диалог открыт
   useEffect(() => {
@@ -248,6 +251,78 @@ const PhotoGridViewer = ({
             onShowExif={() => setShowExif(true)}
             formatBytes={formatBytes}
           />
+
+          {/* Подсказка по жестам */}
+          {showHelp && viewPhoto && (
+            <div className="absolute inset-0 bg-black/95 z-[100] flex items-center justify-center p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full space-y-6">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    Управление просмотром
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                    Жесты для удобного просмотра фото
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center flex-shrink-0">
+                      <Icon name="ArrowLeftRight" size={20} className="text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Свайп влево/вправо</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Переключение между фото</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center flex-shrink-0">
+                      <Icon name="ZoomIn" size={20} className="text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Два пальца (pinch)</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Сведите/разведите для масштабирования</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center flex-shrink-0">
+                      <Icon name="ArrowUp" size={20} className="text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Свайп вверх</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Быстрое увеличение до 300%</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center flex-shrink-0">
+                      <Icon name="Move" size={20} className="text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Перетаскивание</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Перемещение увеличенного фото</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center flex-shrink-0">
+                      <Icon name="MousePointerClick" size={20} className="text-red-600 dark:text-red-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Двойной тап</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Сбросить масштаб до 100%</p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('photobank-viewer-help-seen', 'true');
+                    setShowHelp(false);
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 rounded-lg transition-colors"
+                >
+                  Понятно
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Уведомление о копировании */}
           {showCopied && (

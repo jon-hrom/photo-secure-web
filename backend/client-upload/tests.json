@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Create folder without code",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "create_folder",
+        "folder_name": "Test folder"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "List folders with invalid code",
+      "method": "GET",
+      "path": "/?code=invalid123&action=list_folders",
+      "expectedStatus": 404,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -50,7 +50,7 @@ const PhotoGridControls = ({
   return (
     <>
       {!isLandscape && (
-        <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-50">
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 z-50 pt-[max(1rem,env(safe-area-inset-top))]">
           <div className="flex items-center gap-2">
             <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
               {currentPhotoIndex + 1} / {photos.length}
@@ -99,9 +99,9 @@ const PhotoGridControls = ({
             </button>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+              className="w-10 h-10 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 animate-pulse-once"
             >
-              <Icon name="X" size={18} className="text-white" />
+              <Icon name="X" size={20} className="text-white" />
             </button>
           </div>
         </div>
@@ -118,9 +118,9 @@ const PhotoGridControls = ({
           </div>
           <button
             onClick={onClose}
-            className="absolute top-2 right-2 z-50 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+            className="absolute top-[max(0.5rem,env(safe-area-inset-top))] right-[max(0.5rem,env(safe-area-inset-right))] z-50 w-10 h-10 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 animate-pulse-once"
           >
-            <Icon name="X" size={16} className="text-white" />
+            <Icon name="X" size={20} className="text-white" />
           </button>
         </>
       )}

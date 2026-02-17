@@ -65,6 +65,8 @@ interface GalleryGridProps {
   onOpenChat?: () => void;
   unreadMessagesCount?: number;
   onLogout?: () => void;
+  clientUploadEnabled?: boolean;
+  onOpenUpload?: () => void;
 }
 
 export default function GalleryGrid({ 
@@ -82,7 +84,9 @@ export default function GalleryGrid({
   onOpenMyFavorites,
   onOpenChat,
   unreadMessagesCount = 0,
-  onLogout
+  onLogout,
+  clientUploadEnabled = false,
+  onOpenUpload
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
   
@@ -301,6 +305,15 @@ export default function GalleryGrid({
                   <Icon name="Star" size={14} className="flex-shrink-0" />
                   <span className="hidden sm:inline">Избранное</span>
                 </button>
+                {clientUploadEnabled && onOpenUpload && (
+                  <button
+                    onClick={onOpenUpload}
+                    className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-green-500 text-white rounded-full sm:rounded-lg hover:bg-green-600 active:bg-green-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  >
+                    <Icon name="Upload" size={14} className="flex-shrink-0" />
+                    <span className="hidden sm:inline">Загрузить фото</span>
+                  </button>
+                )}
                 {!gallery.download_disabled && (
                   <button
                     onClick={onDownloadAll}
@@ -341,6 +354,15 @@ export default function GalleryGrid({
                   <Icon name="User" size={14} className="flex-shrink-0" />
                   Войти
                 </button>
+                {clientUploadEnabled && onOpenUpload && (
+                  <button
+                    onClick={onOpenUpload}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 active:bg-green-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  >
+                    <Icon name="Upload" size={14} className="flex-shrink-0" />
+                    <span className="hidden sm:inline">Загрузить фото</span>
+                  </button>
+                )}
                 {!gallery.download_disabled && (
                   <button
                     onClick={onDownloadAll}

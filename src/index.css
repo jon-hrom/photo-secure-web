@@ -236,6 +236,25 @@
     animation: scale-in 0.3s ease-out forwards;
   }
 
+  @keyframes pulse-once {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+    }
+    50% {
+      transform: scale(1.15);
+      box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+  }
+
+  .animate-pulse-once {
+    animation: pulse-once 0.6s ease-out 0.3s 1;
+  }
+
   @keyframes shimmer {
     0% {
       transform: translateX(-100%);

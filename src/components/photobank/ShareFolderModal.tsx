@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import MaxMessageModal from './share/MaxMessageModal';
 import TelegramMessageModal from './share/TelegramMessageModal';
 import FavoritesTab from './share/FavoritesTab';
+import FeaturesTab from './share/FeaturesTab';
 import PageDesignTab from './share/PageDesignTab';
 import ShareModalHeader from './share/ShareModalHeader';
 import ShareLinkTab from './share/ShareLinkTab';
@@ -16,7 +17,7 @@ interface ShareFolderModalProps {
 }
 
 export default function ShareFolderModal({ folderId, folderName, userId, onClose }: ShareFolderModalProps) {
-  const [activeTab, setActiveTab] = useState<'design' | 'link' | 'favorites'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'link' | 'favorites' | 'features'>('design');
 
   const {
     loading,
@@ -56,7 +57,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
       <div 
         className={`bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl transition-all ${
-          activeTab === 'design' ? 'max-w-4xl' : 'max-w-lg'
+          activeTab === 'design' ? 'max-w-4xl' : activeTab === 'features' ? 'max-w-md' : 'max-w-lg'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -98,6 +99,11 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
               error={error}
               onGenerateLink={generateShareLink}
               folderName={folderName}
+            />
+          ) : activeTab === 'features' ? (
+            <FeaturesTab
+              clientUploadEnabled={linkSettings.clientUploadEnabled}
+              onClientUploadChange={(enabled) => setLinkSettings({ ...linkSettings, clientUploadEnabled: enabled })}
             />
           ) : (
             <>

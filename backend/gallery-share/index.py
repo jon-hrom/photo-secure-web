@@ -153,6 +153,7 @@ def handler(event: dict, context) -> dict:
             watermark_rotation = data.get('watermark_rotation', 0)
             screenshot_protection = data.get('screenshot_protection', False)
             favorite_config = data.get('favorite_config')
+            client_upload_enabled = data.get('client_upload_enabled', False)
             
             cover_photo_id = data.get('cover_photo_id')
             cover_orientation = data.get('cover_orientation', 'horizontal')
@@ -249,7 +250,8 @@ def handler(event: dict, context) -> dict:
                         bg_theme = %s, bg_color = %s, bg_image_url = %s, text_color = %s,
                         cover_text_position = %s,
                         cover_title = %s, cover_font_size = %s,
-                        mobile_cover_photo_id = %s, mobile_cover_focus_x = %s, mobile_cover_focus_y = %s
+                        mobile_cover_photo_id = %s, mobile_cover_focus_x = %s, mobile_cover_focus_y = %s,
+                        client_upload_enabled = %s
                     WHERE short_code = %s
                     """,
                     (expires_at, password_hash, download_disabled,
@@ -261,7 +263,8 @@ def handler(event: dict, context) -> dict:
                      cover_focus_x, cover_focus_y, grid_gap,
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
                      cover_title, cover_font_size,
-                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y, short_code)
+                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
+                     client_upload_enabled, short_code)
                 )
             else:
                 # Создаём новую ссылку
@@ -275,8 +278,9 @@ def handler(event: dict, context) -> dict:
                      cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
                      cover_title, cover_font_size,
-                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
+                     client_upload_enabled)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
@@ -285,7 +289,8 @@ def handler(event: dict, context) -> dict:
                      cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
                      cover_title, cover_font_size,
-                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y)
+                     mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
+                     client_upload_enabled)
                 )
             conn.commit()
             
@@ -327,7 +332,9 @@ def handler(event: dict, context) -> dict:
                        fsl.bg_theme, fsl.bg_color, fsl.bg_image_url, fsl.text_color, fsl.cover_text_position,
                        fsl.cover_title, fsl.cover_font_size,
                        fsl.mobile_cover_photo_id, fsl.mobile_cover_focus_x, fsl.mobile_cover_focus_y,
-                       COALESCE(fsl.is_blocked, FALSE) as is_blocked
+                       COALESCE(fsl.is_blocked, FALSE) as is_blocked,
+                       COALESCE(fsl.client_upload_enabled, FALSE) as client_upload_enabled,
+                       fsl.id as link_id
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -373,7 +380,8 @@ def handler(event: dict, context) -> dict:
              cover_photo_id, cover_orientation, cover_focus_x, cover_focus_y, grid_gap,
              bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
              cover_title, cover_font_size,
-             mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y, _is_blocked) = result
+             mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
+             _is_blocked, client_upload_enabled, link_id) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -525,6 +533,26 @@ def handler(event: dict, context) -> dict:
             user_row = cur.fetchone()
             photographer_timezone = get_timezone_for_region(user_row[0] if user_row else None)
             
+            client_folders_data = []
+            if client_upload_enabled:
+                cur.execute(
+                    """
+                    SELECT id, folder_name, client_name, photo_count, created_at
+                    FROM t_p28211681_photo_secure_web.client_upload_folders
+                    WHERE parent_folder_id = %s AND short_link_id = %s
+                    ORDER BY created_at DESC
+                    """,
+                    (folder_id, link_id)
+                )
+                for row in cur.fetchall():
+                    client_folders_data.append({
+                        'id': row[0],
+                        'folder_name': row[1],
+                        'client_name': row[2],
+                        'photo_count': row[3],
+                        'created_at': row[4].isoformat() if row[4] else None
+                    })
+            
             cur.close()
             conn.close()
             
@@ -571,7 +599,10 @@ def handler(event: dict, context) -> dict:
                     'cover_font_size': cover_font_size if cover_font_size is not None else 36,
                     'mobile_cover_photo_id': mobile_cover_photo_id,
                     'mobile_cover_focus_x': float(mobile_cover_focus_x) if mobile_cover_focus_x is not None else 0.5,
-                    'mobile_cover_focus_y': float(mobile_cover_focus_y) if mobile_cover_focus_y is not None else 0.5
+                    'mobile_cover_focus_y': float(mobile_cover_focus_y) if mobile_cover_focus_y is not None else 0.5,
+                    'client_upload_enabled': client_upload_enabled,
+                    'client_upload_folders': client_folders_data,
+                    'link_id': link_id
                 })
             }
         

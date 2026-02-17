@@ -69,7 +69,8 @@ export default function useShareModalData(folderId: number, folderName: string, 
     watermarkSize: 20,
     watermarkOpacity: 50,
     watermarkRotation: 0,
-    screenshotProtection: false
+    screenshotProtection: false,
+    clientUploadEnabled: false
   });
 
   const [error, setError] = useState('');
@@ -146,7 +147,8 @@ export default function useShareModalData(folderId: number, folderName: string, 
           cover_font_size: pd.coverFontSize,
           mobile_cover_photo_id: pd.mobileCoverPhotoId,
           mobile_cover_focus_x: pd.mobileCoverFocusX,
-          mobile_cover_focus_y: pd.mobileCoverFocusY
+          mobile_cover_focus_y: pd.mobileCoverFocusY,
+          client_upload_enabled: ls.clientUploadEnabled
         })
       });
       console.log('[SHARE_MODAL] Настройки автосохранены');
@@ -237,6 +239,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
                 watermarkOpacity: data.watermark.opacity || 50,
                 watermarkRotation: data.watermark.rotation || 0,
                 screenshotProtection: data.screenshot_protection || false,
+                clientUploadEnabled: data.client_upload_enabled || false,
                 password: ''
               }));
             }

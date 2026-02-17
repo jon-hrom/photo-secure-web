@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import PasswordForm from './gallery/PasswordForm';
 import GalleryGrid from './gallery/GalleryGrid';
 import LoadingIndicators from './gallery/LoadingIndicators';
 import GalleryModals from './gallery/GalleryModals';
+import ClientUploadModal from '@/components/gallery/ClientUploadModal';
 import { useGalleryProtection } from './gallery/hooks/useGalleryProtection';
 import { useGalleryLoader } from './gallery/hooks/useGalleryLoader';
 import { usePhotoDownloader } from './gallery/hooks/usePhotoDownloader';
@@ -69,6 +70,21 @@ export default function PublicGallery() {
     setIsFavoritesModalOpen: state.setIsFavoritesModalOpen,
     previousUnreadCount: state.previousUnreadCount
   });
+
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [clientUploadFolders, setClientUploadFolders] = useState<Array<{
+    id: number;
+    folder_name: string;
+    client_name: string | null;
+    photo_count: number;
+    created_at: string | null;
+  }>>(gallery?.client_upload_folders || []);
+
+  useEffect(() => {
+    if (gallery?.client_upload_folders) {
+      setClientUploadFolders(gallery.client_upload_folders);
+    }
+  }, [gallery?.client_upload_folders]);
 
   const visiblePhotos = (state.clientData && state.clientData.client_id > 0 && gallery)
     ? gallery.photos.filter((p: Photo) => !state.clientFavoritePhotoIds.includes(p.id))
@@ -212,6 +228,8 @@ export default function PublicGallery() {
         onOpenChat={() => state.setIsChatOpen(true)}
         unreadMessagesCount={state.unreadCount}
         onLogout={handlers.handleLogout}
+        clientUploadEnabled={gallery?.client_upload_enabled}
+        onOpenUpload={() => setIsUploadOpen(true)}
       />
 
       <GalleryModals
@@ -245,6 +263,17 @@ export default function PublicGallery() {
         loadClientFavorites={handlers.loadClientFavorites}
         isDarkTheme={isDarkTheme}
       />
+
+      {gallery.client_upload_enabled && code && (
+        <ClientUploadModal
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          shortCode={code}
+          existingFolders={clientUploadFolders}
+          onFoldersUpdate={setClientUploadFolders}
+          isDarkTheme={isDarkTheme}
+        />
+      )}
     </div>
   );
 }

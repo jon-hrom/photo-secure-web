@@ -1,8 +1,8 @@
 import Icon from '@/components/ui/icon';
 
 interface ShareModalHeaderProps {
-  activeTab: 'design' | 'link' | 'favorites';
-  onTabChange: (tab: 'design' | 'link' | 'favorites') => void;
+  activeTab: 'design' | 'link' | 'favorites' | 'features';
+  onTabChange: (tab: 'design' | 'link' | 'favorites' | 'features') => void;
   onClose: () => void;
 }
 
@@ -53,7 +53,20 @@ export default function ShareModalHeader({ activeTab, onTabChange, onClose }: Sh
           }`}
         >
           <Icon name="Star" size={16} className="inline mr-1.5" />
-          Избранное
+          <span className="hidden sm:inline">Избранное</span>
+          <span className="sm:hidden">Изб.</span>
+        </button>
+        <button
+          onClick={() => onTabChange('features')}
+          className={`flex-1 px-3 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'features'
+              ? 'text-green-600 dark:text-green-400 border-b-2 border-green-600 dark:border-green-400'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          }`}
+        >
+          <Icon name="Settings2" size={16} className="inline mr-1.5" />
+          <span className="hidden sm:inline">Возможности</span>
+          <span className="sm:hidden">Доп.</span>
         </button>
       </div>
     </div>
