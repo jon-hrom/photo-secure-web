@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 
@@ -11,6 +11,8 @@ interface RegisteredClient {
   email: string;
   created_at: string | null;
   upload_enabled: boolean;
+  is_online: boolean;
+  last_seen_at: string | null;
 }
 
 interface FeaturesTabProps {
@@ -22,14 +24,11 @@ export default function FeaturesTab({ galleryCode, userId }: FeaturesTabProps) {
   const [clients, setClients] = useState<RegisteredClient[]>([]);
   const [loading, setLoading] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
+  const isFirstLoad = useRef(true);
 
-  const loadClients = useCallback(async () => {
-    console.log('[FeaturesTab] loadClients called, galleryCode:', galleryCode, 'userId:', userId);
-    if (!galleryCode) {
-      console.log('[FeaturesTab] No galleryCode, skipping');
-      return;
-    }
-    setLoading(true);
+  const loadClients = useCallback(async (silent = false) => {
+    if (!galleryCode) return;
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(FAVORITES_URL, {
         method: 'POST',
@@ -42,23 +41,23 @@ export default function FeaturesTab({ galleryCode, userId }: FeaturesTabProps) {
           gallery_code: galleryCode
         })
       });
-      console.log('[FeaturesTab] Response status:', res.status);
       if (res.ok) {
         const data = await res.json();
-        console.log('[FeaturesTab] Clients loaded:', data.clients?.length || 0);
         setClients(data.clients || []);
-      } else {
-        const text = await res.text();
-        console.error('[FeaturesTab] Error response:', res.status, text);
       }
     } catch (err) {
       console.error('[FeaturesTab] Error loading clients:', err);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [galleryCode, userId]);
 
   useEffect(() => {
-    loadClients();
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      loadClients();
+    }
+    const interval = setInterval(() => loadClients(true), 10000);
+    return () => clearInterval(interval);
   }, [loadClients]);
 
   const handleToggleUpload = async (clientId: number, enabled: boolean) => {
@@ -86,6 +85,22 @@ export default function FeaturesTab({ galleryCode, userId }: FeaturesTabProps) {
       console.error('[FeaturesTab] Toggle error:', err);
     }
     setToggling(null);
+  };
+
+  const formatLastSeen = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 2) return 'только что';
+    if (diffMin < 60) return `${diffMin} мин назад`;
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    if (diffDays < 7) return `${diffDays} дн назад`;
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -132,26 +147,44 @@ export default function FeaturesTab({ galleryCode, userId }: FeaturesTabProps) {
           {clients.map(client => (
             <div key={client.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  client.upload_enabled
-                    ? 'bg-green-100 dark:bg-green-900/40'
-                    : 'bg-gray-200 dark:bg-gray-700'
-                }`}>
-                  <Icon
-                    name="User"
-                    size={16}
-                    className={client.upload_enabled ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}
-                  />
+                <div className="relative flex-shrink-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    client.is_online
+                      ? 'bg-green-100 dark:bg-green-900/40'
+                      : 'bg-gray-200 dark:bg-gray-700'
+                  }`}>
+                    <Icon
+                      name="User"
+                      size={16}
+                      className={client.is_online ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}
+                    />
+                  </div>
+                  {client.is_online && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full" />
+                  )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {client.full_name || client.phone || client.email || 'Без имени'}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {client.full_name || client.phone || client.email || 'Без имени'}
+                    </p>
+                    {client.is_online && (
+                      <span className="text-[10px] text-green-600 dark:text-green-400 font-medium whitespace-nowrap">
+                        онлайн
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     {client.phone && <span>{client.phone}</span>}
                     {client.phone && client.email && <span>·</span>}
                     {client.email && <span className="truncate">{client.email}</span>}
-                    {client.created_at && (
+                    {!client.is_online && client.last_seen_at && (
+                      <>
+                        <span>·</span>
+                        <span className="text-gray-400 dark:text-gray-500">{formatLastSeen(client.last_seen_at)}</span>
+                      </>
+                    )}
+                    {!client.is_online && !client.last_seen_at && client.created_at && (
                       <>
                         <span>·</span>
                         <span>{formatDate(client.created_at)}</span>

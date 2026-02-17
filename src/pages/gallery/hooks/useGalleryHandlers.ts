@@ -135,6 +135,52 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     }
   }, [clientData, gallery, loadUnreadCount]);
 
+  const sendHeartbeat = useCallback(async () => {
+    if (!clientData?.client_id || !code) return;
+    try {
+      const res = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'heartbeat', client_id: clientData.client_id, gallery_code: code })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.upload_enabled === 'boolean' && data.upload_enabled !== clientData.upload_enabled) {
+          const updated = { ...clientData, upload_enabled: data.upload_enabled };
+          setClientData(updated);
+          if (gallery) {
+            localStorage.setItem(`client_${gallery.photographer_id}_${code}`, JSON.stringify(updated));
+          }
+        }
+      }
+    } catch (e) { void e; }
+  }, [clientData, code, gallery, setClientData]);
+
+  useEffect(() => {
+    if (!clientData?.client_id || !code) return;
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000);
+
+    const sendOffline = () => {
+      navigator.sendBeacon?.(
+        'https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723',
+        JSON.stringify({ action: 'go_offline', client_id: clientData.client_id, gallery_code: code })
+      );
+    };
+
+    window.addEventListener('beforeunload', sendOffline);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) sendOffline();
+      else sendHeartbeat();
+    });
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', sendOffline);
+      sendOffline();
+    };
+  }, [clientData?.client_id, code, sendHeartbeat]);
+
   const handleAddToFavorites = async (photo: Photo) => {
     if (!favoriteFolder) {
       alert('Фотограф ещё не настроил папку избранного');
@@ -215,6 +261,13 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
   };
 
   const handleLogout = () => {
+    if (clientData?.client_id && code) {
+      fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'go_offline', client_id: clientData.client_id, gallery_code: code })
+      }).catch(() => {});
+    }
     if (gallery) {
       localStorage.removeItem(`client_${gallery.photographer_id}_${code}`);
     }

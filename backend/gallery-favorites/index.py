@@ -145,19 +145,18 @@ def handler(event: dict, context) -> dict:
                         update_fields.append('phone = %s')
                         update_values.append(phone)
                     
-                    if update_fields:
-                        update_values.append(client_id)
-                        cur.execute(f'''
-                            UPDATE t_p28211681_photo_secure_web.favorite_clients
-                            SET {', '.join(update_fields)}
-                            WHERE id = %s
-                        ''', tuple(update_values))
+                    update_fields.extend(['is_online = TRUE', 'last_seen_at = NOW()'])
+                    update_values.append(client_id)
+                    cur.execute(f'''
+                        UPDATE t_p28211681_photo_secure_web.favorite_clients
+                        SET {', '.join(update_fields)}
+                        WHERE id = %s
+                    ''', tuple(update_values))
                 else:
-                    # Создаём нового клиента
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
-                        (gallery_code, full_name, phone, email)
-                        VALUES (%s, %s, %s, %s)
+                        (gallery_code, full_name, phone, email, is_online, last_seen_at)
+                        VALUES (%s, %s, %s, %s, TRUE, NOW())
                         RETURNING id
                     ''', (gallery_code, full_name, phone, email))
                     client_id = cur.fetchone()[0]
@@ -200,10 +199,19 @@ def handler(event: dict, context) -> dict:
                     }
                 
                 cur.execute('''
-                    SELECT id, full_name, phone, email, created_at, COALESCE(upload_enabled, FALSE)
+                    UPDATE t_p28211681_photo_secure_web.favorite_clients
+                    SET is_online = FALSE
+                    WHERE gallery_code = %s AND is_online = TRUE
+                      AND last_seen_at < NOW() - INTERVAL '60 seconds'
+                ''', (gallery_code,))
+                conn.commit()
+                
+                cur.execute('''
+                    SELECT id, full_name, phone, email, created_at, COALESCE(upload_enabled, FALSE),
+                           COALESCE(is_online, FALSE), last_seen_at
                     FROM t_p28211681_photo_secure_web.favorite_clients
                     WHERE gallery_code = %s
-                    ORDER BY created_at DESC
+                    ORDER BY is_online DESC, last_seen_at DESC NULLS LAST, created_at DESC
                 ''', (gallery_code,))
                 
                 registered = []
@@ -214,7 +222,9 @@ def handler(event: dict, context) -> dict:
                         'phone': row[2] or '',
                         'email': row[3] or '',
                         'created_at': row[4].isoformat() if row[4] else None,
-                        'upload_enabled': row[5]
+                        'upload_enabled': row[5],
+                        'is_online': row[6],
+                        'last_seen_at': row[7].isoformat() if row[7] else None
                     })
                 
                 return {
@@ -258,6 +268,57 @@ def handler(event: dict, context) -> dict:
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({'success': True, 'upload_enabled': upload_enabled})
+                }
+            
+            elif action == 'heartbeat':
+                client_id = body.get('client_id')
+                gallery_code = body.get('gallery_code')
+                
+                if not client_id or not gallery_code:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'client_id and gallery_code required'})
+                    }
+                
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.favorite_clients
+                    SET is_online = TRUE, last_seen_at = NOW()
+                    WHERE id = %s AND gallery_code = %s
+                    RETURNING COALESCE(upload_enabled, FALSE)
+                ''', (client_id, gallery_code))
+                row = cur.fetchone()
+                conn.commit()
+                
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Client not found'})
+                    }
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'ok': True, 'upload_enabled': row[0]})
+                }
+            
+            elif action == 'go_offline':
+                client_id = body.get('client_id')
+                gallery_code = body.get('gallery_code')
+                
+                if client_id and gallery_code:
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.favorite_clients
+                        SET is_online = FALSE
+                        WHERE id = %s AND gallery_code = %s
+                    ''', (client_id, gallery_code))
+                    conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'ok': True})
                 }
             
             elif action == 'login':
@@ -325,26 +386,22 @@ def handler(event: dict, context) -> dict:
                 
                 if existing_client:
                     client_id = existing_client[0]
-                    # Обновляем поля если изменились
-                    update_parts = []
+                    update_parts = ['is_online = TRUE', 'last_seen_at = NOW()']
                     update_params = []
                     
                     if email and email != existing_client[3]:
                         update_parts.append('email = %s')
                         update_params.append(email)
                     
-                    if update_parts:
-                        update_params.append(client_id)
-                        update_query = f'''
-                            UPDATE t_p28211681_photo_secure_web.favorite_clients
-                            SET {', '.join(update_parts)}
-                            WHERE id = %s
-                            RETURNING id, full_name, phone, email, COALESCE(upload_enabled, FALSE)
-                        '''
-                        cur.execute(update_query, tuple(update_params))
-                        client = cur.fetchone()
-                    else:
-                        client = existing_client
+                    update_params.append(client_id)
+                    update_query = f'''
+                        UPDATE t_p28211681_photo_secure_web.favorite_clients
+                        SET {', '.join(update_parts)}
+                        WHERE id = %s
+                        RETURNING id, full_name, phone, email, COALESCE(upload_enabled, FALSE)
+                    '''
+                    cur.execute(update_query, tuple(update_params))
+                    client = cur.fetchone()
                 else:
                     # Клиент не найден - возвращаем 404
                     return {
