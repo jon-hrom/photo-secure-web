@@ -321,6 +321,22 @@ const ClientDetailProjects = ({
                           <SelectItem value="360">6 часов</SelectItem>
                           <SelectItem value="420">7 часов</SelectItem>
                           <SelectItem value="480">8 часов</SelectItem>
+                          <SelectItem value="540">9 часов</SelectItem>
+                          <SelectItem value="600">10 часов</SelectItem>
+                          <SelectItem value="660">11 часов</SelectItem>
+                          <SelectItem value="720">12 часов</SelectItem>
+                          <SelectItem value="780">13 часов</SelectItem>
+                          <SelectItem value="840">14 часов</SelectItem>
+                          <SelectItem value="900">15 часов</SelectItem>
+                          <SelectItem value="960">16 часов</SelectItem>
+                          <SelectItem value="1020">17 часов</SelectItem>
+                          <SelectItem value="1080">18 часов</SelectItem>
+                          <SelectItem value="1140">19 часов</SelectItem>
+                          <SelectItem value="1200">20 часов</SelectItem>
+                          <SelectItem value="1260">21 час</SelectItem>
+                          <SelectItem value="1320">22 часа</SelectItem>
+                          <SelectItem value="1380">23 часа</SelectItem>
+                          <SelectItem value="1440">24 часа</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -435,6 +451,22 @@ const ClientDetailProjects = ({
                   <SelectItem value="360">6 часов</SelectItem>
                   <SelectItem value="420">7 часов</SelectItem>
                   <SelectItem value="480">8 часов</SelectItem>
+                  <SelectItem value="540">9 часов</SelectItem>
+                  <SelectItem value="600">10 часов</SelectItem>
+                  <SelectItem value="660">11 часов</SelectItem>
+                  <SelectItem value="720">12 часов</SelectItem>
+                  <SelectItem value="780">13 часов</SelectItem>
+                  <SelectItem value="840">14 часов</SelectItem>
+                  <SelectItem value="900">15 часов</SelectItem>
+                  <SelectItem value="960">16 часов</SelectItem>
+                  <SelectItem value="1020">17 часов</SelectItem>
+                  <SelectItem value="1080">18 часов</SelectItem>
+                  <SelectItem value="1140">19 часов</SelectItem>
+                  <SelectItem value="1200">20 часов</SelectItem>
+                  <SelectItem value="1260">21 час</SelectItem>
+                  <SelectItem value="1320">22 часа</SelectItem>
+                  <SelectItem value="1380">23 часа</SelectItem>
+                  <SelectItem value="1440">24 часа</SelectItem>
                 </SelectContent>
               </Select>
             </div>
