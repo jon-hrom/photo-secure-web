@@ -36,6 +36,8 @@ interface ContactInfoCardProps {
   isSavingPhone: boolean;
   phoneVerified: boolean;
   handleUpdateContact: (field: 'email' | 'phone' | 'display_name' | 'country' | 'region' | 'city', value: string) => Promise<void>;
+  handleUpdateLocation: (country: string, region: string, city: string) => Promise<void>;
+  isSavingLocation: boolean;
   loadSettings: () => Promise<void>;
   setShowEmailVerification: (value: boolean) => void;
   setShowPhoneVerification: (value: boolean) => void;
@@ -61,6 +63,8 @@ const ContactInfoCard = ({
   isSavingPhone,
   phoneVerified,
   handleUpdateContact,
+  handleUpdateLocation,
+  isSavingLocation,
   loadSettings,
   setShowEmailVerification,
   setShowPhoneVerification,
@@ -199,17 +203,14 @@ const ContactInfoCard = ({
             region={settings.region || ''}
             city={settings.city || ''}
             onLocationChange={async (country, region, city) => {
-              if (country && country !== settings.country) {
-                await handleUpdateContact('country', country);
-              }
-              if (region && region !== settings.region) {
-                await handleUpdateContact('region', region);
-              }
-              if (city && city !== settings.city) {
-                await handleUpdateContact('city', city);
-              }
+              const newCountry = country || settings.country || 'Россия';
+              const regionChanged = region && region !== settings.region;
+              const newRegion = region || settings.region || '';
+              const newCity = regionChanged ? (city || '') : (city || settings.city || '');
+              await handleUpdateLocation(newCountry, newRegion, newCity);
               await loadSettings();
             }}
+            isSaving={isSavingLocation}
             autoOpen={false}
           />
           {settings.region && (

@@ -22,6 +22,7 @@ export const useContactManager = (
   const [editedDisplayName, setEditedDisplayName] = useState('');
   const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
   const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
 
   const initializeContactData = (s: UserSettings) => {
     setEditedEmail(s.email || '');
@@ -42,6 +43,8 @@ export const useContactManager = (
       setIsSavingPhone(true);
     } else if (field === 'display_name') {
       setIsSavingDisplayName(true);
+    } else if (field === 'country' || field === 'region' || field === 'city') {
+      setIsSavingLocation(true);
     }
     
     if (field === 'phone' && !validatePhone(value)) {
@@ -80,7 +83,13 @@ export const useContactManager = (
           toast.success('Email сохранен. Теперь подтвердите его.');
           setShowEmailVerification(true);
           return;
-        } else if (field === 'country' || field === 'region' || field === 'city') {
+        } else if (field === 'region') {
+          toast.success('Область сохранена');
+          return;
+        } else if (field === 'city') {
+          toast.success('Город сохранён');
+          return;
+        } else if (field === 'country') {
           return;
         }
         toast.success('Контактные данные обновлены');
@@ -96,7 +105,41 @@ export const useContactManager = (
         setIsSavingPhone(false);
       } else if (field === 'display_name') {
         setIsSavingDisplayName(false);
+      } else if (field === 'country' || field === 'region' || field === 'city') {
+        setIsSavingLocation(false);
       }
+    }
+  };
+
+  const handleUpdateLocation = async (country: string, region: string, city: string) => {
+    const userId = getUserId();
+    if (!userId) {
+      toast.error('Требуется авторизация');
+      return;
+    }
+    setIsSavingLocation(true);
+    try {
+      const response = await fetch(USER_SETTINGS_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
+        body: JSON.stringify({ country, region, city }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        if (settings) {
+          setSettings({ ...settings, country, region, city });
+        }
+        toast.success('Местоположение сохранено');
+      } else {
+        toast.error(data.error || 'Ошибка обновления');
+      }
+    } catch {
+      toast.error('Ошибка подключения к серверу');
+    } finally {
+      setIsSavingLocation(false);
     }
   };
 
@@ -115,6 +158,7 @@ export const useContactManager = (
     setIsEditingPhone,
     isSavingEmail,
     isSavingPhone,
+    isSavingLocation,
     phoneVerified,
     setPhoneVerified,
     editedDisplayName,
@@ -123,6 +167,7 @@ export const useContactManager = (
     setIsEditingDisplayName,
     isSavingDisplayName,
     initializeContactData,
-    handleUpdateContact
+    handleUpdateContact,
+    handleUpdateLocation
   };
 };

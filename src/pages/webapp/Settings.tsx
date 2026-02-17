@@ -69,8 +69,10 @@ const Settings = () => {
     isEditingDisplayName,
     setIsEditingDisplayName,
     isSavingDisplayName,
+    isSavingLocation,
     initializeContactData,
-    handleUpdateContact
+    handleUpdateContact,
+    handleUpdateLocation
   } = useContactManager(settings, setSettings, getUserId);
 
   const {
@@ -236,6 +238,8 @@ const Settings = () => {
                 isSavingPhone={isSavingPhone}
                 phoneVerified={phoneVerified}
                 handleUpdateContact={handleUpdateContact}
+                handleUpdateLocation={handleUpdateLocation}
+                isSavingLocation={isSavingLocation}
                 loadSettings={loadSettings}
                 setShowEmailVerification={setShowEmailVerification}
                 setShowPhoneVerification={setShowPhoneVerification}

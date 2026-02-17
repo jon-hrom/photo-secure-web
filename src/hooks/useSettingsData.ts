@@ -55,10 +55,16 @@ export const useSettingsData = () => {
     if (authSession) {
       try {
         const session = JSON.parse(authSession);
-        return session.userId || null;
+        if (session.userId) return session.userId;
       } catch (e) {
         console.error('Failed to parse authSession:', e);
       }
+    }
+
+    const rawUserId = localStorage.getItem('userId');
+    if (rawUserId) {
+      const parsed = parseInt(rawUserId, 10);
+      if (!isNaN(parsed)) return parsed;
     }
 
     return null;

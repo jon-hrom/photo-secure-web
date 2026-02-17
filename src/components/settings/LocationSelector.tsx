@@ -12,6 +12,7 @@ interface LocationSelectorProps {
   city: string;
   onLocationChange: (country: string, region: string, city: string) => void;
   autoOpen?: boolean;
+  isSaving?: boolean;
 }
 
 const LocationSelector = ({
@@ -19,7 +20,8 @@ const LocationSelector = ({
   region,
   city,
   onLocationChange,
-  autoOpen = false
+  autoOpen = false,
+  isSaving = false
 }: LocationSelectorProps) => {
   const [showRegionModal, setShowRegionModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
@@ -79,12 +81,13 @@ const LocationSelector = ({
         <Button
           variant="outline"
           onClick={() => setShowRegionModal(true)}
+          disabled={isSaving}
           className="w-full justify-between rounded-xl text-sm md:text-base h-10"
         >
           <span className={region ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400'}>
-            {region || 'Выберите область'}
+            {isSaving ? 'Сохранение...' : (region || 'Выберите область')}
           </span>
-          <Icon name="ChevronRight" size={18} />
+          {isSaving ? <Icon name="Loader2" size={18} className="animate-spin" /> : <Icon name="ChevronRight" size={18} />}
         </Button>
       </div>
 
@@ -96,7 +99,7 @@ const LocationSelector = ({
         <Button
           variant="outline"
           onClick={() => setShowCityModal(true)}
-          disabled={!region}
+          disabled={!region || isSaving}
           className="w-full justify-between rounded-xl text-sm md:text-base h-10"
         >
           <span className={city ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400'}>
