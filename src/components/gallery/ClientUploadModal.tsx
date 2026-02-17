@@ -189,7 +189,7 @@ export default function ClientUploadModal({
           <div className="flex items-center gap-3">
             {step !== 'folders' && (
               <button
-                onClick={() => { setStep(step === 'upload' ? 'folders' : 'folders'); setUploadedPhotos([]); }}
+                onClick={() => { setStep('folders'); setUploadedPhotos([]); }}
                 className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
                 <Icon name="ArrowLeft" size={20} />
