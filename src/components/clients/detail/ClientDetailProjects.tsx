@@ -257,7 +257,9 @@ const ClientDetailProjects = ({
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteProject(project.id);
+                      if (confirm(`Удалить проект "${project.name || 'Без названия'}"?`)) {
+                        handleDeleteProject(project.id);
+                      }
                     }}
                     className="shrink-0"
                   >
