@@ -107,12 +107,12 @@ export default function ClientUploadModal({
   const handleFilesSelected = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0 || !activeFolderId) return;
 
-    const MAX_FILE_SIZE = 15 * 1024 * 1024;
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
     const tooLargeFiles = Array.from(files).filter(f => f.size > MAX_FILE_SIZE);
     if (tooLargeFiles.length > 0) {
       toast({ 
         title: 'Файлы слишком большие', 
-        description: `${tooLargeFiles.length} файлов превышают 15 МБ. Сожмите их перед загрузкой.`,
+        description: `${tooLargeFiles.length} файлов превышают 50 МБ. Сожмите их перед загрузкой.`,
         variant: 'destructive'
       });
       return;

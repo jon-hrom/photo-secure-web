@@ -8,19 +8,27 @@ from datetime import datetime
 
 SCHEMA = 't_p28211681_photo_secure_web'
 
+def get_cors_headers(event):
+    headers = event.get('headers', {})
+    origin = headers.get('origin') or headers.get('Origin') or '*'
+    return {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400'
+    }
+
 def handler(event: dict, context) -> dict:
     """API для загрузки фото клиентом и просмотра фотографом клиентских загрузок"""
     method = event.get('httpMethod', 'GET')
+    global _cors_headers
+    _cors_headers = get_cors_headers(event)
     
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
-                'Access-Control-Max-Age': '86400'
-            },
+            'headers': _cors_headers,
             'body': ''
         }
     
@@ -30,8 +38,8 @@ def handler(event: dict, context) -> dict:
     
     try:
         body = event.get('body', '{}')
-        if len(body) > 20 * 1024 * 1024:
-            return error_response(413, 'File too large. Maximum size is 15MB')
+        if body and len(body) > 70 * 1024 * 1024:
+            return error_response(413, 'File too large. Maximum size is 50MB')
     except:
         pass
     
@@ -434,8 +442,8 @@ def upload_client_photo(cur, conn, data):
     if not short_code or not upload_folder_id or not file_data or not client_id:
         return error_response(400, 'short_code, upload_folder_id, client_id and file_data required')
     
-    if len(file_data) > 20 * 1024 * 1024:
-        return error_response(413, 'File too large. Maximum size is 15MB')
+    if len(file_data) > 70 * 1024 * 1024:
+        return error_response(413, 'File too large. Maximum size is 50MB')
     
     link = get_link_info(cur, short_code)
     if not link:
@@ -462,8 +470,8 @@ def upload_client_photo(cur, conn, data):
     img_bytes = base64.b64decode(file_data)
     file_size = len(img_bytes)
     
-    if file_size > 15 * 1024 * 1024:
-        return error_response(413, 'File too large. Maximum size is 15MB')
+    if file_size > 50 * 1024 * 1024:
+        return error_response(413, 'File too large. Maximum size is 50MB')
     
     ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else 'jpg'
     s3_key = f"{s3_prefix}{uuid.uuid4().hex}.{ext}"
@@ -513,9 +521,9 @@ def list_client_folders(cur, conn, data):
     if not short_code:
         return error_response(400, 'short_code required')
     
-    link = get_link_with_upload_check(cur, short_code)
+    link = get_link_info(cur, short_code)
     if not link:
-        return error_response(404, 'Gallery not found or upload disabled')
+        return error_response(404, 'Gallery not found')
     
     link_id, folder_id = link
     
@@ -543,10 +551,12 @@ def list_client_folders(cur, conn, data):
     return success_response({'folders': folders})
 
 
+_cors_headers = {'Access-Control-Allow-Origin': '*'}
+
 def error_response(status, message):
     return {
         'statusCode': status,
-        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'headers': {**_cors_headers, 'Content-Type': 'application/json'},
         'body': json.dumps({'error': message})
     }
 
@@ -554,6 +564,6 @@ def error_response(status, message):
 def success_response(data):
     return {
         'statusCode': 200,
-        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+        'headers': {**_cors_headers, 'Content-Type': 'application/json'},
         'body': json.dumps(data)
     }

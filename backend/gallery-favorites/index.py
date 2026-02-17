@@ -42,15 +42,20 @@ def handler(event: dict, context) -> dict:
     method = event.get('httpMethod', 'GET')
     print(f'[FAVORITES] Method: {method}, Event keys: {list(event.keys())}')
     
+    headers = event.get('headers', {})
+    origin = headers.get('origin') or headers.get('Origin') or '*'
+    cors_headers = {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-Auth-Token, X-Session-Id',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400'
+    }
+    
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-Auth-Token, X-Session-Id',
-                'Access-Control-Max-Age': '86400'
-            },
+            'headers': cors_headers,
             'body': ''
         }
     
@@ -58,7 +63,7 @@ def handler(event: dict, context) -> dict:
     if not dsn:
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': {**cors_headers, 'Content-Type': 'application/json'},
             'body': json.dumps({'error': 'DATABASE_URL not configured'})
         }
     
@@ -73,7 +78,7 @@ def handler(event: dict, context) -> dict:
             except (json.JSONDecodeError, TypeError):
                 return {
                     'statusCode': 400,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'error': 'Invalid JSON body'})
                 }
             action = body.get('action')
@@ -88,7 +93,7 @@ def handler(event: dict, context) -> dict:
                 if not gallery_code or photo_id is None or (not full_name and not phone and not email):
                     return {
                         'statusCode': 400,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'Missing required fields'})
                     }
                 
@@ -101,7 +106,7 @@ def handler(event: dict, context) -> dict:
                 if link_row and link_row[0]:
                     return {
                         'statusCode': 403,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'Gallery link is blocked', 'blocked': True})
                     }
                 
@@ -181,7 +186,7 @@ def handler(event: dict, context) -> dict:
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'success': True, 'client_id': client_id})
                 }
             
@@ -192,7 +197,7 @@ def handler(event: dict, context) -> dict:
                 if not gallery_code or not user_id:
                     return {
                         'statusCode': 400,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'gallery_code and auth required'})
                     }
                 
@@ -203,7 +208,7 @@ def handler(event: dict, context) -> dict:
                 if not cur.fetchone():
                     return {
                         'statusCode': 403,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'Access denied'})
                     }
                 
@@ -238,7 +243,7 @@ def handler(event: dict, context) -> dict:
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'clients': registered})
                 }
             
@@ -251,7 +256,7 @@ def handler(event: dict, context) -> dict:
                 if not client_id or not gallery_code or not user_id:
                     return {
                         'statusCode': 400,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'client_id, gallery_code and auth required'})
                     }
                 
@@ -262,7 +267,7 @@ def handler(event: dict, context) -> dict:
                 if not cur.fetchone():
                     return {
                         'statusCode': 403,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'Access denied'})
                     }
                 
@@ -275,7 +280,7 @@ def handler(event: dict, context) -> dict:
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'success': True, 'upload_enabled': upload_enabled})
                 }
             
@@ -286,7 +291,7 @@ def handler(event: dict, context) -> dict:
                 if not client_id or not gallery_code:
                     return {
                         'statusCode': 400,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'client_id and gallery_code required'})
                     }
                 
@@ -302,13 +307,13 @@ def handler(event: dict, context) -> dict:
                 if not row:
                     return {
                         'statusCode': 404,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'Client not found'})
                     }
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'ok': True, 'upload_enabled': row[0]})
                 }
             
@@ -326,7 +331,7 @@ def handler(event: dict, context) -> dict:
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'ok': True})
                 }
             
@@ -339,7 +344,7 @@ def handler(event: dict, context) -> dict:
                 if not gallery_code:
                     return {
                         'statusCode': 400,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'gallery_code is required'})
                     }
                 
@@ -352,7 +357,7 @@ def handler(event: dict, context) -> dict:
                 if link_check and link_check[0]:
                     return {
                         'statusCode': 403,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'Gallery link is blocked', 'blocked': True})
                     }
                 
@@ -414,7 +419,7 @@ def handler(event: dict, context) -> dict:
                     # Клиент не найден - возвращаем 404
                     return {
                         'statusCode': 404,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
                         'body': json.dumps({'error': 'Client not found. Add photos to favorites first.'})
                     }
                 
@@ -422,7 +427,7 @@ def handler(event: dict, context) -> dict:
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({
                         'client_id': client[0],
                         'full_name': client[1] or '',
@@ -435,7 +440,7 @@ def handler(event: dict, context) -> dict:
             else:
                 return {
                     'statusCode': 400,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'error': f'Unknown action: {action}'})
                 }
         
@@ -484,7 +489,7 @@ def handler(event: dict, context) -> dict:
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'photos': photos})
                 }
             
@@ -523,7 +528,7 @@ def handler(event: dict, context) -> dict:
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'clients': list(clients.values())})
                 }
             
@@ -544,14 +549,14 @@ def handler(event: dict, context) -> dict:
                 
                 return {
                     'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'photos': photos})
                 }
             
             else:
                 return {
                     'statusCode': 400,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'error': 'client_id or gallery_code required'})
                 }
         
@@ -565,7 +570,7 @@ def handler(event: dict, context) -> dict:
             if not all([client_id, photo_id]):
                 return {
                     'statusCode': 400,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
                     'body': json.dumps({'error': 'client_id and photo_id required'})
                 }
             
@@ -578,14 +583,14 @@ def handler(event: dict, context) -> dict:
             
             return {
                 'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'headers': {**cors_headers, 'Content-Type': 'application/json'},
                 'body': json.dumps({'success': True})
             }
         
         print(f'[FAVORITES] Unhandled method: {method}')
         return {
             'statusCode': 405,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': {**cors_headers, 'Content-Type': 'application/json'},
             'body': json.dumps({'error': f'Method {method} not allowed'})
         }
     
@@ -593,7 +598,7 @@ def handler(event: dict, context) -> dict:
         conn.rollback()
         return {
             'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': {**cors_headers, 'Content-Type': 'application/json'},
             'body': json.dumps({'error': str(e)})
         }
     finally:
