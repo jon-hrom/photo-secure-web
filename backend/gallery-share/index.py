@@ -115,7 +115,7 @@ def handler(event: dict, context) -> dict:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
             },
             'body': ''
@@ -297,7 +297,7 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             
-            base_url = os.environ.get('BASE_URL', 'http://localhost:5173')
+            base_url = os.environ.get('SITE_URL', 'http://localhost:5173')
             share_url = f"{base_url}/g/{short_code}"
             
             return {
@@ -353,14 +353,17 @@ def handler(event: dict, context) -> dict:
                 }
             
             is_blocked = result[31]
-            if is_blocked:
-                photographer_id_blocked = result[15]
-                cur.execute(
-                    "SELECT email FROM t_p28211681_photo_secure_web.users WHERE id = %s",
-                    (photographer_id_blocked,)
-                )
-                user_row_blocked = cur.fetchone()
-                photographer_email = user_row_blocked[0] if user_row_blocked else None
+            photographer_id_for_check = result[15]
+            
+            cur.execute(
+                "SELECT is_blocked, email FROM t_p28211681_photo_secure_web.users WHERE id = %s",
+                (photographer_id_for_check,)
+            )
+            user_check = cur.fetchone()
+            user_is_blocked = user_check[0] if user_check else False
+            photographer_email_check = user_check[1] if user_check else None
+            
+            if is_blocked or user_is_blocked:
                 cur.close()
                 conn.close()
                 return {
@@ -369,7 +372,7 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({
                         'error': 'Gallery link blocked',
                         'blocked': True,
-                        'photographer_email': photographer_email
+                        'photographer_email': photographer_email_check
                     })
                 }
             
@@ -406,7 +409,11 @@ def handler(event: dict, context) -> dict:
                 return {
                     'statusCode': 410,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Gallery link expired'})
+                    'body': json.dumps({
+                        'error': 'Gallery link expired',
+                        'expired': True,
+                        'photographer_email': photographer_email_check
+                    })
                 }
             
             cur.execute(
@@ -604,6 +611,50 @@ def handler(event: dict, context) -> dict:
                     'client_upload_folders': client_folders_data,
                     'link_id': link_id
                 })
+            }
+        
+        elif method == 'PUT':
+            data = json.loads(event.get('body', '{}'))
+            action = data.get('action')
+            
+            if action == 'update_favorite_config':
+                folder_id = data.get('folder_id')
+                user_id = data.get('user_id') or event.get('headers', {}).get('x-user-id')
+                favorite_config = data.get('favorite_config')
+                
+                if not folder_id or not user_id:
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id and user_id required'})
+                    }
+                
+                cur.execute(
+                    """
+                    UPDATE t_p28211681_photo_secure_web.folder_short_links
+                    SET favorite_config = %s
+                    WHERE folder_id = %s AND user_id = %s
+                    """,
+                    (json.dumps(favorite_config) if favorite_config else None, folder_id, user_id)
+                )
+                conn.commit()
+                
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True})
+                }
+            
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'Unknown action'})
             }
         
         else:

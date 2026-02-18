@@ -20,6 +20,30 @@
       "expectedBody": {
         "error": "Gallery not found"
       }
+    },
+    {
+      "name": "PUT update favorite config without params",
+      "method": "PUT",
+      "path": "/",
+      "body": {
+        "action": "update_favorite_config"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "folder_id and user_id required"
+      }
+    },
+    {
+      "name": "PUT unknown action",
+      "method": "PUT",
+      "path": "/",
+      "body": {
+        "action": "unknown"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "Unknown action"
+      }
     }
   ]
 }

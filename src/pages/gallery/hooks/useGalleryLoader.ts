@@ -105,6 +105,14 @@ export function useGalleryLoader(code?: string) {
         return;
       }
       
+      if (response.status === 410 && data.expired) {
+        console.log('[PUBLIC_GALLERY] Gallery link expired');
+        setIsBlocked(true);
+        setPhotographerEmail(data.photographer_email || '');
+        setLoading(false);
+        return;
+      }
+      
       if (!response.ok) {
         throw new Error(data.error || 'Галерея не найдена');
       }

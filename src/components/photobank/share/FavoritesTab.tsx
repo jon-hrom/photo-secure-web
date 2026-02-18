@@ -116,7 +116,7 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
     loadData();
   }, [folderId]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newFolder = {
       id: folderId.toString(),
       name: 'Избранное',
@@ -128,12 +128,31 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
     };
     
     localStorage.setItem(`folder_${folderId}_favorite_config`, JSON.stringify(newFolder));
-    console.log('[FAVORITES_TAB] Настройки сохранены локально, будут отправлены на сервер при создании ссылки');
-    
     setFolder(newFolder);
     setIsEditing(false);
     
-    alert('Настройки сохранены! При создании/обновлении ссылки они будут доступны клиентам.');
+    try {
+      const response = await fetch('https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString()
+        },
+        body: JSON.stringify({
+          action: 'update_favorite_config',
+          folder_id: folderId,
+          user_id: userId,
+          favorite_config: newFolder
+        })
+      });
+      if (response.ok) {
+        console.log('[FAVORITES_TAB] Настройки сохранены в БД');
+      } else {
+        console.error('[FAVORITES_TAB] Ошибка сохранения в БД');
+      }
+    } catch (err) {
+      console.error('[FAVORITES_TAB] Ошибка отправки на сервер:', err);
+    }
   };
 
   if (loading) {
