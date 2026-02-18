@@ -211,9 +211,12 @@ export default function useShareModalData(folderId: number, folderName: string, 
     const key = `folder_${folderId}_link`;
     const saved = localStorage.getItem(key);
     if (saved) {
-      setShareUrl(saved);
-
       const galleryCode = saved.split('/').pop();
+      const correctUrl = galleryCode ? `https://foto-mix.ru/g/${galleryCode}` : saved;
+      if (correctUrl !== saved) {
+        localStorage.setItem(key, correctUrl);
+      }
+      setShareUrl(correctUrl);
       if (galleryCode) {
         try {
           const response = await fetch(`https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${galleryCode}`);
