@@ -55,6 +55,9 @@ export default function GalleryPhotoViewer({
     const hasSeenHelp = localStorage.getItem('gallery-help-seen');
     return !hasSeenHelp;
   });
+  const [fullImageLoaded, setFullImageLoaded] = useState(false);
+  const [showFullImage, setShowFullImage] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   const handleCloseHelp = () => {
     localStorage.setItem('gallery-help-seen', 'true');
@@ -99,7 +102,44 @@ export default function GalleryPhotoViewer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex]);
 
+  // Reset image quality state when photo changes
+  useEffect(() => {
+    setFullImageLoaded(false);
+    setShowFullImage(false);
+  }, [currentPhoto?.id]);
+
+  // Reset download modal when photo changes
+  useEffect(() => {
+    setShowDownloadModal(false);
+  }, [currentIndex]);
+
+  // When zoom > 0, start loading full quality image
+  useEffect(() => {
+    if (zoom > 0 && currentPhoto?.thumbnail_url && !fullImageLoaded) {
+      setShowFullImage(true);
+      const img = new Image();
+      img.onload = () => setFullImageLoaded(true);
+      img.src = currentPhoto.photo_url;
+    }
+  }, [zoom, currentPhoto, fullImageLoaded]);
+
+  // Preload adjacent thumbnails
+  useEffect(() => {
+    const preloadIndexes = [currentIndex - 1, currentIndex + 1].filter(
+      i => i >= 0 && i < photos.length
+    );
+    preloadIndexes.forEach(i => {
+      const src = photos[i].thumbnail_url || photos[i].photo_url;
+      const img = new Image();
+      img.src = src;
+    });
+  }, [currentIndex, photos]);
+
   if (!currentPhoto) return null;
+
+  const displaySrc = (!currentPhoto.thumbnail_url || showFullImage) 
+    ? currentPhoto.photo_url 
+    : currentPhoto.thumbnail_url;
 
   if (currentPhoto.is_video) {
     console.log('[GALLERY_PHOTO_VIEWER] Opening video:', currentPhoto);
@@ -151,7 +191,7 @@ export default function GalleryPhotoViewer({
             )}
             {!downloadDisabled && onDownload && (
               <button
-                onClick={() => onDownload(currentPhoto)}
+                onClick={() => setShowDownloadModal(true)}
                 className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
                 title="Скачать фото"
               >
@@ -180,7 +220,7 @@ export default function GalleryPhotoViewer({
           onMouseLeave={handleMouseUp}
         >
           <img
-            src={currentPhoto.photo_url}
+            src={displaySrc}
             alt={currentPhoto.file_name}
             className="object-contain select-none touch-manipulation"
             style={{
@@ -196,6 +236,11 @@ export default function GalleryPhotoViewer({
             onContextMenu={(e) => screenshotProtection && e.preventDefault()}
             draggable={false}
           />
+          {zoom > 0 && showFullImage && !fullImageLoaded && (
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
+              Загрузка полного качества...
+            </div>
+          )}
         </div>
 
         {/* Кнопки навигации */}
@@ -298,6 +343,81 @@ export default function GalleryPhotoViewer({
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors"
               >
                 ОК, понятно
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Модалка выбора качества скачивания */}
+        {showDownloadModal && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowDownloadModal(false)}>
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Скачать фото</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{currentPhoto.file_name}</p>
+              
+              <div className="space-y-3">
+                {currentPhoto.thumbnail_url && (
+                  <button
+                    onClick={async () => {
+                      setShowDownloadModal(false);
+                      try {
+                        const response = await fetch(currentPhoto.thumbnail_url!);
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `web_${currentPhoto.file_name.replace(/\.[^.]+$/, '.jpg')}`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                      } catch {
+                        const a = document.createElement('a');
+                        a.href = currentPhoto.thumbnail_url!;
+                        a.download = `web_${currentPhoto.file_name.replace(/\.[^.]+$/, '.jpg')}`;
+                        a.target = '_blank';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }
+                    }}
+                    className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                      <Icon name="Smartphone" size={20} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">Для соцсетей</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Оптимизировано, до 1200px</div>
+                    </div>
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => {
+                    setShowDownloadModal(false);
+                    if (onDownload) onDownload(currentPhoto);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
+                >
+                  <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0">
+                    <Icon name="Printer" size={20} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">Для печати (оригинал)</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Полное качество{currentPhoto.width && currentPhoto.height ? `, ${currentPhoto.width}x${currentPhoto.height}` : ''}
+                      {currentPhoto.file_size ? ` · ${(currentPhoto.file_size / 1024 / 1024).toFixed(1)} МБ` : ''}
+                    </div>
+                  </div>
+                </button>
+              </div>
+              
+              <button
+                onClick={() => setShowDownloadModal(false)}
+                className="w-full mt-4 py-2.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              >
+                Отмена
               </button>
             </div>
           </div>

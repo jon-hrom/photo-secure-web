@@ -43,16 +43,31 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
       onClick={() => onPhotoClick(photo)}
     >
       {photo.is_video ? (
-        <video
-          src={`${photo.photo_url}#t=0.1`}
-          className="w-full h-auto transition-transform group-hover:scale-105"
-          preload="metadata"
-          onContextMenu={(e) => screenshotProtection && e.preventDefault()}
-          onLoadedData={() => onPhotoLoad?.()}
-          onError={() => onPhotoLoad?.()}
-          muted={true}
-          playsInline={true}
-        />
+        <>
+          {photo.thumbnail_url ? (
+            <img
+              src={photo.thumbnail_url}
+              alt={photo.file_name}
+              className="w-full h-auto transition-transform group-hover:scale-105"
+              loading="lazy"
+              onContextMenu={(e) => screenshotProtection && e.preventDefault()}
+              draggable={false}
+              onLoad={() => onPhotoLoad?.()}
+              onError={() => onPhotoLoad?.()}
+            />
+          ) : (
+            <video
+              src={`${photo.photo_url}#t=0.1`}
+              className="w-full h-auto transition-transform group-hover:scale-105"
+              preload="metadata"
+              onContextMenu={(e) => screenshotProtection && e.preventDefault()}
+              onLoadedData={() => onPhotoLoad?.()}
+              onError={() => onPhotoLoad?.()}
+              muted={true}
+              playsInline={true}
+            />
+          )}
+        </>
       ) : (
         <img
           src={photo.thumbnail_url || photo.photo_url}

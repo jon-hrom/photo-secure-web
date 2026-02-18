@@ -14,6 +14,19 @@ interface VideoPlayerProps {
   downloadDisabled?: boolean;
 }
 
+const getVideoMimeType = (url: string): string => {
+  const ext = url.split('.').pop()?.toLowerCase().split('?')[0] || '';
+  const mimeMap: Record<string, string> = {
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    'mov': 'video/quicktime',
+    'avi': 'video/x-msvideo',
+    'mkv': 'video/x-matroska',
+    'm4v': 'video/mp4',
+  };
+  return mimeMap[ext] || 'video/mp4';
+};
+
 export default function VideoPlayer({ src, poster, onClose, fileName, downloadDisabled = false }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -332,7 +345,6 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
           ) : (
             <video
               ref={nativeVideoRef}
-              src={src}
               poster={poster}
               controls
               controlsList="nodownload"
@@ -342,11 +354,12 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
               x5-video-player-type="h5"
               x5-video-player-fullscreen="true"
               x-webkit-airplay="allow"
-              preload="auto"
+              preload="metadata"
+              autoPlay={false}
               className="w-full h-full object-contain max-w-full max-h-full"
               style={{ maxHeight: isMobile ? '100%' : 'calc(100vh - 180px)' }}
             >
-              <source src={src} type="video/mp4" />
+              <source src={src} type={getVideoMimeType(src)} />
               Ваш браузер не поддерживает воспроизведение видео.
             </video>
           )}

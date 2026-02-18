@@ -88,6 +88,7 @@ export default function ClientUploadModal({
     }
   };
 
+  const [isDragOver, setIsDragOver] = useState(false);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   const loadFolderPhotos = useCallback(async (folderId: number) => {
@@ -229,6 +230,28 @@ export default function ClientUploadModal({
       });
     }
   }, [activeFolderId, shortCode, clientId, existingFolders, onFoldersUpdate, activeFolderName, toast]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFilesSelected(files);
+    }
+  }, [handleFilesSelected]);
 
   const handleDeletePhoto = async (photoId: number) => {
     if (!window.confirm('Удалить это фото?')) return;
@@ -383,34 +406,44 @@ export default function ClientUploadModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 className="hidden"
                 onChange={(e) => handleFilesSelected(e.target.files)}
               />
 
-              <div className="space-y-2">
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="w-full h-14 text-base"
-                  variant="default"
-                >
-                  {uploading ? (
-                    <>
-                      <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
-                      Загрузка {uploadProgress.current}/{uploadProgress.total}...
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="ImagePlus" size={20} className="mr-2" />
-                      Выбрать фото
-                    </>
-                  )}
-                </Button>
-                <p className={`text-xs text-center ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Максимальный размер одного файла: 50 МБ
-                </p>
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                  isDragOver ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300'
+                }`}
+              >
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full h-14 text-base"
+                    variant="default"
+                  >
+                    {uploading ? (
+                      <>
+                        <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                        Загрузка {uploadProgress.current}/{uploadProgress.total}...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="ImagePlus" size={20} className="mr-2" />
+                        Выбрать фото
+                      </>
+                    )}
+                  </Button>
+                  <p className={`text-xs text-center ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Максимальный размер одного файла: 50 МБ
+                  </p>
+                </div>
+                <p className="text-sm text-gray-500 mt-2">или перетащите файлы сюда</p>
               </div>
 
               {uploading && (
@@ -459,7 +492,7 @@ export default function ClientUploadModal({
               )}
 
               <p className={`text-xs text-center ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
-                Поддерживаются JPG, PNG, HEIC и другие форматы изображений
+                Поддерживаются JPG, PNG, HEIC, MP4, MOV и другие форматы
               </p>
             </>
           )}
