@@ -227,8 +227,8 @@ export default function GalleryPhotoViewer({
               transform: zoom > 0 
                 ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)` 
                 : 'none',
-              maxWidth: zoom === 0 ? '90vw' : '100%',
-              maxHeight: zoom === 0 ? '85vh' : '100vh',
+              maxWidth: zoom === 0 ? '96vw' : '100%',
+              maxHeight: zoom === 0 ? 'calc(100vh - 100px)' : '100vh',
               transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
               touchAction: 'none',
               pointerEvents: 'none'
