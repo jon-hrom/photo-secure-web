@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import GalleryPhotoViewer from '@/components/gallery/GalleryPhotoViewer';
 
 const CLIENT_UPLOAD_URL = 'https://functions.poehali.dev/06dd3267-2ef6-45bc-899c-50f86e9d36e1';
 
@@ -36,6 +37,7 @@ export default function ClientUploadModal({
 }: ClientUploadModalProps) {
   const [step, setStep] = useState<'folders' | 'create' | 'upload' | 'view'>('folders');
   const [viewingOtherFolder, setViewingOtherFolder] = useState(false);
+  const [viewerPhotoId, setViewerPhotoId] = useState<number | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
   const [clientName, setClientName] = useState('');
   const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
@@ -299,6 +301,13 @@ export default function ClientUploadModal({
 
   if (!isOpen) return null;
 
+  const viewerPhotos = uploadedPhotos.map(p => ({
+    id: p.photo_id,
+    file_name: p.file_name,
+    photo_url: p.s3_url,
+    file_size: 0
+  }));
+
   const themeClasses = isDarkTheme
     ? 'bg-gray-900 text-white'
     : 'bg-white text-gray-900';
@@ -308,6 +317,7 @@ export default function ClientUploadModal({
     : 'bg-gray-50 border-gray-200';
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
       <div className={`${themeClasses} rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl`}>
         <div className={`sticky top-0 z-10 px-4 sm:px-6 py-4 border-b flex items-center justify-between ${isDarkTheme ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
@@ -534,8 +544,13 @@ export default function ClientUploadModal({
                   </p>
                   <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
                     {uploadedPhotos.map((photo) => (
-                      <div key={photo.photo_id} className={`relative group aspect-square rounded-lg overflow-hidden ${isDarkTheme ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                        <img src={photo.s3_url} alt={photo.file_name} className="w-full h-full object-cover" />
+                      <div key={photo.photo_id} className={`relative group aspect-square rounded-lg overflow-hidden cursor-pointer ${isDarkTheme ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                        <img
+                          src={photo.s3_url}
+                          alt={photo.file_name}
+                          className="w-full h-full object-cover"
+                          onClick={() => setViewerPhotoId(photo.photo_id)}
+                        />
                         <button
                           onClick={() => handleDeletePhoto(photo.photo_id)}
                           disabled={deletingPhotoId === photo.photo_id}
@@ -547,9 +562,6 @@ export default function ClientUploadModal({
                             <Icon name="X" size={12} />
                           )}
                         </button>
-                        <p className={`absolute bottom-0 left-0 right-0 text-[9px] truncate px-1 py-0.5 bg-black/50 text-white`}>
-                          {photo.file_name}
-                        </p>
                       </div>
                     ))}
                   </div>
@@ -589,8 +601,12 @@ export default function ClientUploadModal({
                   </p>
                   <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto">
                     {uploadedPhotos.map((photo) => (
-                      <div key={photo.photo_id} className={`relative aspect-square rounded-lg overflow-hidden ${isDarkTheme ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                        <img src={photo.s3_url} alt={photo.file_name} className="w-full h-full object-cover" />
+                      <div
+                        key={photo.photo_id}
+                        className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer ${isDarkTheme ? 'bg-gray-800' : 'bg-gray-100'}`}
+                        onClick={() => setViewerPhotoId(photo.photo_id)}
+                      >
+                        <img src={photo.s3_url} alt={photo.file_name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
                       </div>
                     ))}
                   </div>
@@ -603,5 +619,15 @@ export default function ClientUploadModal({
         <div className="h-safe-bottom sm:hidden" />
       </div>
     </div>
+
+    {viewerPhotoId !== null && viewerPhotos.length > 0 && (
+      <GalleryPhotoViewer
+        photos={viewerPhotos}
+        initialPhotoId={viewerPhotoId}
+        onClose={() => setViewerPhotoId(null)}
+        downloadDisabled={viewingOtherFolder}
+      />
+    )}
+    </>
   );
 }
