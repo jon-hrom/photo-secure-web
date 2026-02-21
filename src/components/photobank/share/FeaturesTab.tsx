@@ -18,9 +18,11 @@ interface RegisteredClient {
 interface FeaturesTabProps {
   galleryCode: string;
   userId: number;
+  clientFoldersVisibility?: boolean;
+  onClientFoldersVisibilityChange?: (value: boolean) => void;
 }
 
-export default function FeaturesTab({ galleryCode, userId }: FeaturesTabProps) {
+export default function FeaturesTab({ galleryCode, userId, clientFoldersVisibility = false, onClientFoldersVisibilityChange }: FeaturesTabProps) {
   const [clients, setClients] = useState<RegisteredClient[]>([]);
   const [loading, setLoading] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
@@ -122,6 +124,26 @@ export default function FeaturesTab({ galleryCode, userId }: FeaturesTabProps) {
               Включите загрузку напротив нужного клиента. Только он увидит кнопку «Загрузить фото».
             </p>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+              <Icon name="Users" size={20} className="text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900 dark:text-white text-sm">Видимость папок других клиентов</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Клиенты, загрузившие свои фото, смогут видеть папки друг друга
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={clientFoldersVisibility}
+            onCheckedChange={onClientFoldersVisibilityChange}
+          />
         </div>
       </div>
 

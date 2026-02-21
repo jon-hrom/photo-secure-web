@@ -43,8 +43,9 @@ export default function PublicGallery() {
     photographerEmail,
     setPassword,
     setPhotosLoaded,
-    handlePasswordSubmit
-  } = useGalleryLoader(code);
+    handlePasswordSubmit,
+    reloadClientFolders
+  } = useGalleryLoader(code, state.clientData?.client_id || undefined);
 
   useGalleryProtection(gallery?.screenshot_protection);
 
@@ -85,6 +86,12 @@ export default function PublicGallery() {
       setClientUploadFolders(gallery.client_upload_folders);
     }
   }, [gallery?.client_upload_folders]);
+
+  useEffect(() => {
+    if (state.clientData?.client_id && gallery?.client_upload_enabled) {
+      reloadClientFolders(state.clientData.client_id);
+    }
+  }, [state.clientData?.client_id]);
 
   const visiblePhotos = (state.clientData && state.clientData.client_id > 0 && gallery)
     ? gallery.photos.filter((p: Photo) => !state.clientFavoritePhotoIds.includes(p.id))

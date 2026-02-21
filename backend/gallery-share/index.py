@@ -154,6 +154,7 @@ def handler(event: dict, context) -> dict:
             screenshot_protection = data.get('screenshot_protection', False)
             favorite_config = data.get('favorite_config')
             client_upload_enabled = data.get('client_upload_enabled', False)
+            client_folders_visibility = data.get('client_folders_visibility', False)
             
             cover_photo_id = data.get('cover_photo_id')
             cover_orientation = data.get('cover_orientation', 'horizontal')
@@ -251,7 +252,7 @@ def handler(event: dict, context) -> dict:
                         cover_text_position = %s,
                         cover_title = %s, cover_font_size = %s,
                         mobile_cover_photo_id = %s, mobile_cover_focus_x = %s, mobile_cover_focus_y = %s,
-                        client_upload_enabled = %s
+                        client_upload_enabled = %s, client_folders_visibility = %s
                     WHERE short_code = %s
                     """,
                     (expires_at, password_hash, download_disabled,
@@ -264,7 +265,7 @@ def handler(event: dict, context) -> dict:
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
                      cover_title, cover_font_size,
                      mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
-                     client_upload_enabled, short_code)
+                     client_upload_enabled, client_folders_visibility, short_code)
                 )
             else:
                 # Создаём новую ссылку
@@ -279,8 +280,8 @@ def handler(event: dict, context) -> dict:
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
                      cover_title, cover_font_size,
                      mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
-                     client_upload_enabled)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     client_upload_enabled, client_folders_visibility)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
@@ -290,7 +291,7 @@ def handler(event: dict, context) -> dict:
                      bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
                      cover_title, cover_font_size,
                      mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
-                     client_upload_enabled)
+                     client_upload_enabled, client_folders_visibility)
                 )
             conn.commit()
             
@@ -334,7 +335,8 @@ def handler(event: dict, context) -> dict:
                        fsl.mobile_cover_photo_id, fsl.mobile_cover_focus_x, fsl.mobile_cover_focus_y,
                        COALESCE(fsl.is_blocked, FALSE) as is_blocked,
                        COALESCE(fsl.client_upload_enabled, FALSE) as client_upload_enabled,
-                       fsl.id as link_id
+                       fsl.id as link_id,
+                       COALESCE(fsl.client_folders_visibility, FALSE) as client_folders_visibility
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -384,7 +386,7 @@ def handler(event: dict, context) -> dict:
              bg_theme, bg_color, bg_image_url, text_color, cover_text_position,
              cover_title, cover_font_size,
              mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
-             _is_blocked, client_upload_enabled, link_id) = result
+             _is_blocked, client_upload_enabled, link_id, client_folders_visibility) = result
             
             if password_hash:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -540,25 +542,75 @@ def handler(event: dict, context) -> dict:
             user_row = cur.fetchone()
             photographer_timezone = get_timezone_for_region(user_row[0] if user_row else None)
             
+            client_id_param = event.get('queryStringParameters', {}).get('client_id', '')
+            try:
+                client_id_int = int(client_id_param) if client_id_param else None
+            except (ValueError, TypeError):
+                client_id_int = None
+            
             client_folders_data = []
             if client_upload_enabled:
-                cur.execute(
-                    """
-                    SELECT id, folder_name, client_name, photo_count, created_at
-                    FROM t_p28211681_photo_secure_web.client_upload_folders
-                    WHERE parent_folder_id = %s AND short_link_id = %s
-                    ORDER BY created_at DESC
-                    """,
-                    (folder_id, link_id)
-                )
-                for row in cur.fetchall():
-                    client_folders_data.append({
-                        'id': row[0],
-                        'folder_name': row[1],
-                        'client_name': row[2],
-                        'photo_count': row[3],
-                        'created_at': row[4].isoformat() if row[4] else None
-                    })
+                if client_folders_visibility and client_id_int:
+                    # Включена видимость чужих папок:
+                    # Клиент видит свои папки + папки других участников, кто тоже загружал
+                    cur.execute(
+                        """
+                        SELECT id, folder_name, client_name, photo_count, created_at, client_id
+                        FROM t_p28211681_photo_secure_web.client_upload_folders
+                        WHERE parent_folder_id = %s AND short_link_id = %s
+                        ORDER BY CASE WHEN client_id = %s THEN 0 ELSE 1 END, created_at DESC
+                        """,
+                        (folder_id, link_id, client_id_int)
+                    )
+                    for row in cur.fetchall():
+                        client_folders_data.append({
+                            'id': row[0],
+                            'folder_name': row[1],
+                            'client_name': row[2],
+                            'photo_count': row[3],
+                            'created_at': row[4].isoformat() if row[4] else None,
+                            'is_own': row[5] == client_id_int
+                        })
+                elif client_id_int:
+                    # Видимость чужих папок выключена — только свои
+                    cur.execute(
+                        """
+                        SELECT id, folder_name, client_name, photo_count, created_at, client_id
+                        FROM t_p28211681_photo_secure_web.client_upload_folders
+                        WHERE parent_folder_id = %s AND short_link_id = %s AND client_id = %s
+                        ORDER BY created_at DESC
+                        """,
+                        (folder_id, link_id, client_id_int)
+                    )
+                    for row in cur.fetchall():
+                        client_folders_data.append({
+                            'id': row[0],
+                            'folder_name': row[1],
+                            'client_name': row[2],
+                            'photo_count': row[3],
+                            'created_at': row[4].isoformat() if row[4] else None,
+                            'is_own': True
+                        })
+                else:
+                    # Нет client_id — для совместимости показываем все папки
+                    cur.execute(
+                        """
+                        SELECT id, folder_name, client_name, photo_count, created_at
+                        FROM t_p28211681_photo_secure_web.client_upload_folders
+                        WHERE parent_folder_id = %s AND short_link_id = %s
+                        ORDER BY created_at DESC
+                        """,
+                        (folder_id, link_id)
+                    )
+                    for row in cur.fetchall():
+                        client_folders_data.append({
+                            'id': row[0],
+                            'folder_name': row[1],
+                            'client_name': row[2],
+                            'photo_count': row[3],
+                            'created_at': row[4].isoformat() if row[4] else None,
+                            'is_own': False
+                        })
             
             cur.close()
             conn.close()
@@ -609,6 +661,7 @@ def handler(event: dict, context) -> dict:
                     'mobile_cover_focus_y': float(mobile_cover_focus_y) if mobile_cover_focus_y is not None else 0.5,
                     'client_upload_enabled': client_upload_enabled,
                     'client_upload_folders': client_folders_data,
+                    'client_folders_visibility': client_folders_visibility,
                     'link_id': link_id
                 })
             }

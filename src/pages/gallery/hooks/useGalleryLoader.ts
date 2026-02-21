@@ -59,11 +59,13 @@ interface GalleryData {
     client_name: string | null;
     photo_count: number;
     created_at: string | null;
+    is_own?: boolean;
   }>;
+  client_folders_visibility?: boolean;
   link_id?: number;
 }
 
-export function useGalleryLoader(code?: string) {
+export function useGalleryLoader(code?: string, clientId?: number) {
   const [gallery, setGallery] = useState<GalleryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,13 +77,32 @@ export function useGalleryLoader(code?: string) {
   const [isBlocked, setIsBlocked] = useState(false);
   const [photographerEmail, setPhotographerEmail] = useState('');
 
+  const buildUrl = (enteredPassword?: string, cid?: number) => {
+    const passwordParam = enteredPassword || password;
+    const params = new URLSearchParams({ code: code || '' });
+    if (passwordParam) params.set('password', passwordParam);
+    if (cid) params.set('client_id', String(cid));
+    return `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?${params.toString()}`;
+  };
+
+  const reloadClientFolders = async (cid: number) => {
+    if (!code || !gallery) return;
+    try {
+      const url = buildUrl(password, cid);
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setGallery(prev => prev ? { ...prev, client_upload_folders: data.client_upload_folders || [] } : prev);
+      }
+    } catch (err) {
+      console.error('[PUBLIC_GALLERY] Error reloading client folders:', err);
+    }
+  };
+
   const loadGallery = async (enteredPassword?: string) => {
     console.log('[PUBLIC_GALLERY] Loading gallery, password provided:', !!enteredPassword);
     try {
-      const passwordParam = enteredPassword || password;
-      const url = passwordParam 
-        ? `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}&password=${encodeURIComponent(passwordParam)}`
-        : `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${code}`;
+      const url = buildUrl(enteredPassword, clientId);
       
       console.log('[PUBLIC_GALLERY] Fetching URL:', url);
       const response = await fetch(url);
@@ -126,9 +147,9 @@ export function useGalleryLoader(code?: string) {
         setPhotosLoaded(0);
         setLoadingProgress(0);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[PUBLIC_GALLERY] Error:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки');
     } finally {
       setLoading(false);
     }
@@ -165,6 +186,7 @@ export function useGalleryLoader(code?: string) {
 
   return {
     gallery,
+    setGallery,
     loading,
     error,
     requiresPassword,
@@ -176,6 +198,7 @@ export function useGalleryLoader(code?: string) {
     photographerEmail,
     setPassword,
     setPhotosLoaded,
-    handlePasswordSubmit
+    handlePasswordSubmit,
+    reloadClientFolders
   };
 }
