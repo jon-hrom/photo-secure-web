@@ -625,7 +625,7 @@ export default function ClientUploadModal({
         photos={viewerPhotos}
         initialPhotoId={viewerPhotoId}
         onClose={() => setViewerPhotoId(null)}
-        downloadDisabled={viewingOtherFolder}
+        downloadDisabled={false}
       />
     )}
     </>
