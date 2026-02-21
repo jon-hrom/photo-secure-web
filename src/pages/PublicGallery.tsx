@@ -79,6 +79,7 @@ export default function PublicGallery() {
     client_name: string | null;
     photo_count: number;
     created_at: string | null;
+    is_own?: boolean;
   }>>(gallery?.client_upload_folders || []);
 
   useEffect(() => {

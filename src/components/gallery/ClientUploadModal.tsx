@@ -12,6 +12,7 @@ interface ClientUploadFolder {
   client_name: string | null;
   photo_count: number;
   created_at: string | null;
+  is_own?: boolean;
 }
 
 interface ClientUploadModalProps {
@@ -335,31 +336,77 @@ export default function ClientUploadModal({
 
               {existingFolders.length > 0 && (
                 <div className="space-y-2">
-                  <p className={`text-xs font-medium ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Существующие папки
-                  </p>
-                  {existingFolders.map(folder => (
-                    <button
-                      key={folder.id}
-                      onClick={() => handleSelectFolder(folder)}
-                      className={`w-full text-left p-3 rounded-lg border ${cardClasses} hover:border-blue-400 transition-colors`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Icon name="Folder" size={20} className="text-blue-500" />
-                          <div>
-                            <p className="font-medium text-sm">{folder.folder_name}</p>
-                            {folder.client_name && (
-                              <p className={`text-xs ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>{folder.client_name}</p>
-                            )}
-                          </div>
-                        </div>
-                        <span className={`text-xs ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {folder.photo_count} фото
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                  {(() => {
+                    const ownFolders = existingFolders.filter(f => f.is_own !== false);
+                    const otherFolders = existingFolders.filter(f => f.is_own === false);
+                    const hasGroups = otherFolders.length > 0;
+
+                    return (
+                      <>
+                        {hasGroups && ownFolders.length > 0 && (
+                          <p className={`text-xs font-medium uppercase tracking-wide ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Мои папки
+                          </p>
+                        )}
+                        {!hasGroups && (
+                          <p className={`text-xs font-medium ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Существующие папки
+                          </p>
+                        )}
+                        {ownFolders.map(folder => (
+                          <button
+                            key={folder.id}
+                            onClick={() => handleSelectFolder(folder)}
+                            className={`w-full text-left p-3 rounded-lg border ${cardClasses} hover:border-blue-400 transition-colors`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Icon name="Folder" size={20} className="text-blue-500" />
+                                <div>
+                                  <p className="font-medium text-sm">{folder.folder_name}</p>
+                                  {folder.client_name && (
+                                    <p className={`text-xs ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>{folder.client_name}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <span className={`text-xs ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {folder.photo_count} фото
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+
+                        {otherFolders.length > 0 && (
+                          <>
+                            <p className={`text-xs font-medium uppercase tracking-wide pt-2 ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                              Фото других участников
+                            </p>
+                            {otherFolders.map(folder => (
+                              <div
+                                key={folder.id}
+                                className={`w-full text-left p-3 rounded-lg border ${isDarkTheme ? 'bg-gray-800/40 border-gray-700' : 'bg-gray-50 border-gray-200'} opacity-75`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <Icon name="FolderOpen" size={20} className={isDarkTheme ? 'text-gray-500' : 'text-gray-400'} />
+                                    <div>
+                                      <p className={`font-medium text-sm ${isDarkTheme ? 'text-gray-300' : 'text-gray-700'}`}>{folder.folder_name}</p>
+                                      {folder.client_name && (
+                                        <p className={`text-xs ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>{folder.client_name}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className={`text-xs ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    {folder.photo_count} фото
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </>
