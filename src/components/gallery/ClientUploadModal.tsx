@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,6 +94,17 @@ export default function ClientUploadModal({
 
   const [isDragOver, setIsDragOver] = useState(false);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
+
+  // При открытии — если есть своя папка, сразу открываем её
+  const hasAutoOpened = useRef(false);
+  useEffect(() => {
+    if (!isOpen || hasAutoOpened.current) return;
+    const ownFolders = existingFolders.filter(f => f.is_own !== false);
+    if (ownFolders.length > 0) {
+      hasAutoOpened.current = true;
+      handleSelectFolder(ownFolders[0]);
+    }
+  }, [isOpen, existingFolders]);
 
   const loadFolderPhotos = useCallback(async (folderId: number) => {
     setLoadingPhotos(true);
@@ -337,7 +348,7 @@ export default function ClientUploadModal({
                 : `Загрузка в "${activeFolderName}"`}
             </h2>
           </div>
-          <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${isDarkTheme ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
+          <button onClick={() => { hasAutoOpened.current = false; onClose(); }} className={`p-2 rounded-lg transition-colors ${isDarkTheme ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
             <Icon name="X" size={20} />
           </button>
         </div>
@@ -571,6 +582,14 @@ export default function ClientUploadModal({
               <p className={`text-xs text-center ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
                 Поддерживаются JPG, PNG, HEIC, MP4, MOV и другие форматы
               </p>
+
+              <button
+                onClick={() => setStep('create')}
+                className={`w-full text-sm py-2 rounded-lg border border-dashed transition-colors ${isDarkTheme ? 'border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300' : 'border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600'}`}
+              >
+                <Icon name="FolderPlus" size={14} className="inline mr-1.5" />
+                Создать новую папку
+              </button>
             </>
           )}
 
