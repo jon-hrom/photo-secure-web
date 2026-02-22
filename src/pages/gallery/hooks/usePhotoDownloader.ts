@@ -60,13 +60,16 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       // Для presigned URL получаем JSON с ссылкой
       if (isLargeFile) {
         const data = await response.json();
+        const fileResponse = await fetch(data.download_url);
+        const blob = await fileResponse.blob();
+        const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = data.download_url;
+        a.href = url;
         a.download = photo.file_name;
-        a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
       } else {
         // Для маленьких файлов получаем blob напрямую
         const blob = await response.blob();

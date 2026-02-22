@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import GalleryCover from './components/GalleryCover';
 import GalleryToolbar from './components/GalleryToolbar';
 import GalleryPhotoCard from './components/GalleryPhotoCard';
+import Icon from '@/components/ui/icon';
+import * as zip from '@zip.js/zip.js';
 
 export interface Photo {
   id: number;
@@ -104,7 +106,73 @@ export default function GalleryGrid({
   onOpenClientFolder
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
-  
+
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [downloadingSelected, setDownloadingSelected] = useState(false);
+  const [selectedProgress, setSelectedProgress] = useState(0);
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(prev => !prev);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelect = (photo: Photo) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(photo.id)) next.delete(photo.id);
+      else next.add(photo.id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(gallery.photos.map(p => p.id)));
+  };
+
+  const downloadSelected = async () => {
+    const photos = gallery.photos.filter(p => selectedIds.has(p.id));
+    if (!photos.length) return;
+    setDownloadingSelected(true);
+    setSelectedProgress(0);
+    try {
+      const zipFileStream = new zip.BlobWriter();
+      const zipWriter = new zip.ZipWriter(zipFileStream, { zip64: false });
+      const usedFilenames = new Set<string>();
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        try {
+          const fileResponse = await fetch(photo.photo_url);
+          if (fileResponse.ok && fileResponse.body) {
+            let filename = photo.file_name;
+            if (usedFilenames.has(filename)) {
+              const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+              const base = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+              let counter = 1;
+              do { filename = `${base}_${counter}${ext}`; counter++; } while (usedFilenames.has(filename));
+            }
+            usedFilenames.add(filename);
+            await zipWriter.add(filename, fileResponse.body, { level: 0, dataDescriptor: false });
+          }
+        } catch { /* skip */ }
+        setSelectedProgress(Math.round(((i + 1) / photos.length) * 100));
+      }
+      await zipWriter.close();
+      const blob = await zipFileStream.getData();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${gallery.folder_name || 'photos'}_selected.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+    } catch { /* ignore */ }
+    setDownloadingSelected(false);
+  };
+
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
 
   useEffect(() => {
@@ -255,9 +323,11 @@ export default function GalleryGrid({
         clientFolders={clientFolders}
         showClientFolders={showClientFolders}
         onOpenClientFolder={onOpenClientFolder}
+        selectionMode={selectionMode}
+        onToggleSelectionMode={toggleSelectionMode}
       />
-      <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0"
-        style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
+      <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 md:pt-0"
+        style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
       >
         <div 
           className="columns-2 sm:columns-2 md:columns-3 lg:columns-4"
@@ -279,11 +349,58 @@ export default function GalleryGrid({
                 onDownloadPhoto={onDownloadPhoto}
                 onAddToFavorites={onAddToFavorites}
                 onPhotoLoad={onPhotoLoad}
+                selectionMode={selectionMode}
+                isSelected={selectedIds.has(photo.id)}
+                onToggleSelect={toggleSelect}
               />
             );
           })}
         </div>
       </div>
+
+      {selectionMode && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 flex flex-col gap-2 px-4 py-3"
+          style={{
+            background: isDarkBg ? 'rgba(15,15,30,0.97)' : 'rgba(255,255,255,0.97)',
+            backdropFilter: 'blur(16px)',
+            boxShadow: '0 -2px 16px rgba(0,0,0,0.15)',
+            paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0.75rem))'
+          }}
+        >
+          {downloadingSelected && (
+            <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${selectedProgress}%` }}
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium flex-1" style={{ color: textColor }}>
+              {selectedIds.size > 0 ? `Выбрано: ${selectedIds.size}` : 'Выберите фото'}
+            </span>
+            <button
+              onClick={selectAll}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors"
+              style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6', color: textColor }}
+            >
+              <Icon name="CheckSquare" size={15} />
+              Выбрать все
+            </button>
+            <button
+              onClick={downloadSelected}
+              disabled={selectedIds.size === 0 || downloadingSelected}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm bg-indigo-600 text-white disabled:opacity-40 transition-colors hover:bg-indigo-700"
+            >
+              {downloadingSelected
+                ? <><Icon name="Loader2" size={15} className="animate-spin" />{selectedProgress}%</>
+                : <><Icon name="Download" size={15} />Скачать</>
+              }
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

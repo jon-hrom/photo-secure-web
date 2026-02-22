@@ -14,6 +14,9 @@ interface GalleryPhotoCardProps {
   onDownloadPhoto: (photo: Photo) => void;
   onAddToFavorites: (photo: Photo) => void;
   onPhotoLoad?: () => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (photo: Photo) => void;
 }
 
 const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>(({
@@ -27,7 +30,10 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
   onPhotoClick,
   onDownloadPhoto,
   onAddToFavorites,
-  onPhotoLoad
+  onPhotoLoad,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect
 }, ref) => {
   return (
     <div
@@ -38,9 +44,11 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
         background: isDarkBg ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
         opacity: 0,
         transform: 'translateY(24px)',
-        transition: `opacity 0.5s ease ${(index % 8) * 0.06}s, transform 0.5s ease ${(index % 8) * 0.06}s`
+        transition: `opacity 0.5s ease ${(index % 8) * 0.06}s, transform 0.5s ease ${(index % 8) * 0.06}s`,
+        outline: isSelected ? '3px solid #6366f1' : 'none',
+        outlineOffset: '-3px'
       }}
-      onClick={() => onPhotoClick(photo)}
+      onClick={() => selectionMode ? onToggleSelect?.(photo) : onPhotoClick(photo)}
     >
       {photo.is_video ? (
         <>
@@ -135,32 +143,42 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
         
         return watermarks;
       })()}
-      <div className="absolute bottom-1 sm:bottom-1.5 right-1 sm:right-1.5 flex z-10" style={{ gap: '3px' }}>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddToFavorites(photo);
-          }}
-          className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 transition-all group/btn touch-manipulation"
-          style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
-          title="Добавить в избранное"
-        >
-          <Icon name="Star" size={11} className="text-white group-hover/btn:text-white" />
-        </button>
-        {!downloadDisabled && (
+      {selectionMode ? (
+        <div className="absolute top-1.5 right-1.5 z-10">
+          <div
+            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-black/30 border-white/70'}`}
+          >
+            {isSelected && <Icon name="Check" size={13} className="text-white" />}
+          </div>
+        </div>
+      ) : (
+        <div className="absolute bottom-1 sm:bottom-1.5 right-1 sm:right-1.5 flex z-10" style={{ gap: '3px' }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onDownloadPhoto(photo);
+              onAddToFavorites(photo);
             }}
-            className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 transition-all group/btn touch-manipulation"
+            className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 transition-all group/btn touch-manipulation"
             style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
-            title="Скачать фото"
+            title="Добавить в избранное"
           >
-            <Icon name="Download" size={11} className="text-white group-hover/btn:text-white" />
+            <Icon name="Star" size={11} className="text-white group-hover/btn:text-white" />
           </button>
-        )}
-      </div>
+          {!downloadDisabled && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDownloadPhoto(photo);
+              }}
+              className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 transition-all group/btn touch-manipulation"
+              style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
+              title="Скачать фото"
+            >
+              <Icon name="Download" size={11} className="text-white group-hover/btn:text-white" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 });

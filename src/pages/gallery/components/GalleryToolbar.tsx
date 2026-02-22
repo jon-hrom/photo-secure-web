@@ -27,6 +27,8 @@ interface GalleryToolbarProps {
   clientFolders?: ClientFolder[];
   showClientFolders?: boolean;
   onOpenClientFolder?: (folder: ClientFolder) => void;
+  selectionMode?: boolean;
+  onToggleSelectionMode?: () => void;
 }
 
 export default function GalleryToolbar({
@@ -47,7 +49,9 @@ export default function GalleryToolbar({
   onClientLogin,
   clientFolders = [],
   showClientFolders = false,
-  onOpenClientFolder
+  onOpenClientFolder,
+  selectionMode = false,
+  onToggleSelectionMode
 }: GalleryToolbarProps) {
   const hasFolders = showClientFolders && clientFolders.length > 0;
 
@@ -95,14 +99,23 @@ export default function GalleryToolbar({
                 </button>
               )}
               {!gallery.download_disabled && (
-                <button
-                  onClick={onDownloadAll}
-                  disabled={downloadingAll}
-                  className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-blue-600 text-white rounded-full sm:rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                >
-                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
-                  <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
-                </button>
+                <>
+                  <button
+                    onClick={onToggleSelectionMode}
+                    className={`w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 rounded-full sm:rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0 ${selectionMode ? 'bg-indigo-600 text-white' : (isDarkBg ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700')}`}
+                  >
+                    <Icon name="CheckSquare" size={14} className="flex-shrink-0" />
+                    <span className="hidden sm:inline">{selectionMode ? 'Отмена' : 'Выбрать'}</span>
+                  </button>
+                  <button
+                    onClick={onDownloadAll}
+                    disabled={downloadingAll}
+                    className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-blue-600 text-white rounded-full sm:rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  >
+                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
+                  </button>
+                </>
               )}
               <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg flex-shrink-0" style={{
                 background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6'
@@ -135,14 +148,23 @@ export default function GalleryToolbar({
                 Войти
               </button>
               {!gallery.download_disabled && (
-                <button
-                  onClick={onDownloadAll}
-                  disabled={downloadingAll}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                >
-                  <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
-                  <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
-                </button>
+                <>
+                  <button
+                    onClick={onToggleSelectionMode}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0 ${selectionMode ? 'bg-indigo-600 text-white' : (isDarkBg ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700')}`}
+                  >
+                    <Icon name="CheckSquare" size={14} className="flex-shrink-0" />
+                    <span>{selectionMode ? 'Отмена' : 'Выбрать'}</span>
+                  </button>
+                  <button
+                    onClick={onDownloadAll}
+                    disabled={downloadingAll}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  >
+                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
+                  </button>
+                </>
               )}
             </>
           )}
