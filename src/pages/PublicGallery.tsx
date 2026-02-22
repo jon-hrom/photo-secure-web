@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import PasswordForm from './gallery/PasswordForm';
@@ -6,6 +6,7 @@ import GalleryGrid from './gallery/GalleryGrid';
 import LoadingIndicators from './gallery/LoadingIndicators';
 import GalleryModals from './gallery/GalleryModals';
 import ClientUploadModal from '@/components/gallery/ClientUploadModal';
+import ClientFolderPage from '@/components/gallery/ClientFolderPage';
 import { useGalleryProtection } from './gallery/hooks/useGalleryProtection';
 import { useGalleryLoader } from './gallery/hooks/useGalleryLoader';
 import { usePhotoDownloader } from './gallery/hooks/usePhotoDownloader';
@@ -74,6 +75,7 @@ export default function PublicGallery() {
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [folderToOpen, setFolderToOpen] = useState<{ id: number; folder_name: string } | null>(null);
+  const [viewingClientFolder, setViewingClientFolder] = useState<{ id: number; folder_name: string } | null>(null);
   const [clientUploadFolders, setClientUploadFolders] = useState<Array<{
     id: number;
     folder_name: string;
@@ -213,6 +215,41 @@ export default function PublicGallery() {
     return (r * 0.299 + g * 0.587 + b * 0.114) < 150;
   })()) || false;
 
+  const galleryBgStyles: React.CSSProperties = {};
+  if (bgTheme === 'dark') {
+    galleryBgStyles.background = '#1a1a2e';
+  } else if (bgTheme === 'auto' && gallery.bg_color) {
+    galleryBgStyles.background = gallery.bg_color;
+  } else if (bgTheme === 'custom') {
+    if (gallery.bg_image_url) {
+      galleryBgStyles.backgroundImage = `url(${gallery.bg_image_url})`;
+      galleryBgStyles.backgroundSize = 'cover';
+      galleryBgStyles.backgroundPosition = 'center';
+      galleryBgStyles.backgroundAttachment = 'fixed';
+    } else if (gallery.bg_color) {
+      galleryBgStyles.background = gallery.bg_color;
+    }
+  } else {
+    galleryBgStyles.background = '#f9fafb';
+  }
+
+  const galleryTextColor = gallery.text_color || (isDarkTheme ? '#ffffff' : '#111827');
+
+  if (viewingClientFolder && state.clientData?.client_id && code) {
+    return (
+      <ClientFolderPage
+        folderId={viewingClientFolder.id}
+        folderName={viewingClientFolder.folder_name}
+        shortCode={code}
+        clientId={state.clientData.client_id}
+        onBack={() => setViewingClientFolder(null)}
+        bgStyles={galleryBgStyles}
+        isDarkBg={isDarkTheme}
+        textColor={galleryTextColor}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <LoadingIndicators
@@ -244,8 +281,12 @@ export default function PublicGallery() {
         clientFolders={clientUploadFolders}
         showClientFolders={!!(clientUploadFolders.length > 0 && (gallery.client_folders_visibility || clientUploadFolders.some(f => f.is_own !== false)))}
         onOpenClientFolder={(folder) => {
-          setFolderToOpen(folder);
-          setIsUploadOpen(true);
+          if (state.clientData?.client_id) {
+            setViewingClientFolder(folder);
+          } else {
+            setFolderToOpen(folder);
+            setIsUploadOpen(true);
+          }
         }}
       />
 
