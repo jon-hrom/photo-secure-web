@@ -92,6 +92,8 @@ export default function PublicGallery() {
   useEffect(() => {
     if (state.clientData?.client_id) {
       reloadClientFolders(state.clientData.client_id);
+    } else {
+      setClientUploadFolders([]);
     }
   }, [state.clientData?.client_id]);
 
