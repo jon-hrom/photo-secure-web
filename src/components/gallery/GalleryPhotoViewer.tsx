@@ -51,10 +51,7 @@ export default function GalleryPhotoViewer({
   const [currentIndex, setCurrentIndex] = useState(() => 
     photos.findIndex(p => p.id === initialPhotoId) || 0
   );
-  const [showHelp, setShowHelp] = useState(() => {
-    const hasSeenHelp = localStorage.getItem('gallery-help-seen');
-    return !hasSeenHelp;
-  });
+  const [showHelp, setShowHelp] = useState(false);
   const [fullImageLoaded, setFullImageLoaded] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -63,10 +60,7 @@ export default function GalleryPhotoViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showUI, setShowUI] = useState(true);
 
-  const handleCloseHelp = () => {
-    localStorage.setItem('gallery-help-seen', 'true');
-    setShowHelp(false);
-  };
+  const handleCloseHelp = () => setShowHelp(false);
 
   const currentPhoto = photos[currentIndex];
 
@@ -306,6 +300,14 @@ export default function GalleryPhotoViewer({
               </button>
             )}
             <button
+              onClick={() => setShowHelp(true)}
+              className="flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all"
+              style={{ width: 44, height: 44 }}
+              title="Справка"
+            >
+              <Icon name="HelpCircle" size={20} className="text-white" />
+            </button>
+            <button
               onClick={onClose}
               className="flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all"
               style={{ width: 44, height: 44 }}
@@ -411,89 +413,172 @@ export default function GalleryPhotoViewer({
           </div>
         </div>
 
-        {/* Подсказка по жестам */}
+        {/* Справка */}
         {showHelp && (
-          <div className="absolute inset-0 bg-black/95 z-[100] flex items-end sm:items-center justify-center"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-            <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 max-w-md w-full space-y-4 sm:space-y-6 sm:mx-4">
-              <div className="text-center">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  Как пользоваться просмотром
-                </h3>
-                <p className="text-gray-600 text-sm">
-                  Используйте жесты для удобного просмотра фотографий
-                </p>
+          <div
+            className="absolute inset-0 z-[100] flex items-end sm:items-center justify-center overflow-hidden"
+            style={{ background: 'rgba(0,0,0,0.85)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+            onClick={handleCloseHelp}
+          >
+            <div
+              className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md sm:mx-4 flex flex-col"
+              style={{ maxHeight: '90vh' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Заголовок */}
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 shrink-0">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Управление просмотром</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Жесты и кнопки</p>
+                </div>
+                <button onClick={handleCloseHelp} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 active:bg-gray-200">
+                  <Icon name="X" size={16} className="text-gray-600" />
+                </button>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="ArrowLeftRight" size={20} className="text-blue-600" />
+              {/* Прокручиваемый список */}
+              <div className="overflow-y-auto flex-1 px-5 py-4 space-y-1">
+
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Жесты</p>
+
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                    <Icon name="ArrowLeftRight" size={20} className="text-blue-500" />
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Свайп влево/вправо</p>
-                    <p className="text-sm text-gray-600">Переключение между фото</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Свайп влево / вправо</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Переключение между фотографиями</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="Hand" size={20} className="text-gray-600" />
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                    <Icon name="Hand" size={20} className="text-gray-500" />
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Один тап</p>
-                    <p className="text-sm text-gray-600">Скрыть / показать кнопки управления</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="Maximize2" size={20} className="text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Два тапа</p>
-                    <p className="text-sm text-gray-600">Полный экран / выйти из полного экрана</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Один тап по экрану</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Скрыть или показать все кнопки управления</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="ZoomIn" size={20} className="text-purple-600" />
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+                    <Icon name="ZoomIn" size={20} className="text-violet-500" />
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Два пальца</p>
-                    <p className="text-sm text-gray-600">Pinch-zoom для точного масштабирования</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="Smartphone" size={20} className="text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Поворот телефона</p>
-                    <p className="text-sm text-gray-600">Горизонтально — автоматически полный экран</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Два пальца (pinch)</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Сведите или разведите пальцы для точного масштабирования фото</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="X" size={20} className="text-red-600" />
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+                    <Icon name="Move" size={20} className="text-orange-500" />
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Крестик (правый верхний угол)</p>
-                    <p className="text-sm text-gray-600">Выйти из полного экрана или закрыть просмотр</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Перетаскивание пальцем</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Когда фото увеличено — перемещайте его по экрану</p>
                   </div>
                 </div>
+
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
+                    <Icon name="Smartphone" size={20} className="text-teal-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Поворот телефона горизонтально</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Автоматически включает полноэкранный режим, скрывает все кнопки</p>
+                  </div>
+                </div>
+
+                <div className="h-px bg-gray-100 my-3" />
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Кнопки</p>
+
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                    <Icon name="X" size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Крестик — правый верхний угол</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Закрыть просмотр фотографии</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                    <Icon name="Maximize2" size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Развернуть — правый нижний угол</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Открыть полноэкранный режим поверх браузера. Повторное нажатие — выход</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                    <Icon name="Minimize2" size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Свернуть — правый верхний угол</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Выйти из полноэкранного режима (появляется когда экран развёрнут)</p>
+                  </div>
+                </div>
+
+                {!downloadDisabled && onDownload && (
+                  <div className="flex items-start gap-3 py-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                      <Icon name="Download" size={18} className="text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm">Скачать — верхний правый угол</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Сохранить текущее фото на устройство. Можно выбрать веб-версию или оригинал в полном качестве</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                    <Icon name="ZoomOut" size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Сбросить масштаб — верхний правый угол</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Вернуть фото к исходному размеру (появляется только когда фото увеличено)</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                    <Icon name="ChevronLeft" size={20} className="text-white" />
+                    <Icon name="ChevronRight" size={20} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Стрелки — левый и правый край</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Переключение между фотографиями нажатием</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 py-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                    <Icon name="HelpCircle" size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">Справка — верхний правый угол</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Открыть это окно с описанием всех функций</p>
+                  </div>
+                </div>
+
               </div>
 
-              <button
-                onClick={handleCloseHelp}
-                className="w-full bg-blue-600 active:bg-blue-700 text-white font-medium rounded-xl transition-colors touch-manipulation"
-                style={{ minHeight: 48 }}
-              >
-                ОК, понятно
-              </button>
+              {/* Кнопка */}
+              <div className="px-5 pb-5 pt-3 shrink-0 border-t border-gray-100">
+                <button
+                  onClick={handleCloseHelp}
+                  className="w-full bg-gray-900 active:bg-black text-white font-semibold rounded-xl transition-colors touch-manipulation"
+                  style={{ minHeight: 50 }}
+                >
+                  Понятно
+                </button>
+              </div>
             </div>
           </div>
         )}
