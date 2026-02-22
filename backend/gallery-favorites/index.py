@@ -192,9 +192,11 @@ def handler(event: dict, context) -> dict:
             
             elif action == 'register_client':
                 gallery_code = body.get('gallery_code')
-                full_name = body.get('full_name', '').strip()
-                phone = body.get('phone', '').strip()
+                full_name = (body.get('full_name') or '').strip()
+                phone = (body.get('phone') or '').strip()
                 email = (body.get('email') or '').strip() or None
+                
+                print(f'[REGISTER_CLIENT] gallery_code={gallery_code}, full_name={full_name!r}, phone={phone!r}, email={email!r}')
                 
                 if not gallery_code or (not full_name and not phone and not email):
                     return {
@@ -217,13 +219,15 @@ def handler(event: dict, context) -> dict:
                     }
                 
                 existing = None
+                norm_phone = re.sub(r'[^0-9+]', '', phone) if phone else ''
+                
                 if full_name and phone:
                     cur.execute('''
                         SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
                         WHERE gallery_code = %s AND LOWER(TRIM(full_name)) = LOWER(%s) 
                           AND REGEXP_REPLACE(TRIM(phone), '[^0-9+]', '', 'g') = %s
                         ORDER BY id DESC LIMIT 1
-                    ''', (gallery_code, full_name, phone))
+                    ''', (gallery_code, full_name, norm_phone))
                     existing = cur.fetchone()
                 elif full_name:
                     cur.execute('''
@@ -237,7 +241,7 @@ def handler(event: dict, context) -> dict:
                         SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
                         WHERE gallery_code = %s AND REGEXP_REPLACE(TRIM(phone), '[^0-9+]', '', 'g') = %s
                         ORDER BY id DESC LIMIT 1
-                    ''', (gallery_code, phone))
+                    ''', (gallery_code, norm_phone))
                     existing = cur.fetchone()
                 elif email:
                     cur.execute('''
@@ -247,6 +251,8 @@ def handler(event: dict, context) -> dict:
                     ''', (gallery_code, email))
                     existing = cur.fetchone()
                 
+                print(f'[REGISTER_CLIENT] existing={existing}')
+                
                 if existing:
                     client_id = existing[0]
                     cur.execute('''
@@ -254,14 +260,16 @@ def handler(event: dict, context) -> dict:
                         SET is_online = TRUE, last_seen_at = NOW()
                         WHERE id = %s
                     ''', (client_id,))
+                    print(f'[REGISTER_CLIENT] Updated existing client_id={client_id}')
                 else:
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
                         (gallery_code, full_name, phone, email, is_online, last_seen_at)
                         VALUES (%s, %s, %s, %s, TRUE, NOW())
                         RETURNING id
-                    ''', (gallery_code, full_name, phone, email))
+                    ''', (gallery_code, full_name or '', phone or '', email))
                     client_id = cur.fetchone()[0]
+                    print(f'[REGISTER_CLIENT] Inserted new client_id={client_id}')
                 
                 conn.commit()
                 

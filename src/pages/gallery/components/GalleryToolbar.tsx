@@ -158,6 +158,18 @@ export default function GalleryToolbar({
                 <Icon name="User" size={15} className="flex-shrink-0" />
                 Войти
               </button>
+              <button
+                onClick={onRegisterToDownload}
+                className="flex items-center gap-1.5 px-3 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                style={{
+                  background: isDarkBg ? 'rgba(34,197,94,0.2)' : '#dcfce7',
+                  color: isDarkBg ? '#86efac' : '#15803d',
+                  minHeight: 40
+                }}
+              >
+                <Icon name="UserPlus" size={15} className="flex-shrink-0" />
+                <span>Регистрация</span>
+              </button>
               {!gallery.download_disabled && (
                 <button
                   onClick={onRegisterToDownload}
