@@ -72,96 +72,107 @@ export default function GalleryToolbar({
             <>
               <button
                 onClick={onOpenChat}
-                className="relative w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-blue-500 text-white rounded-full sm:rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                className="relative flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-blue-500 text-white rounded-full sm:rounded-lg active:bg-blue-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                style={{ minWidth: 40, minHeight: 40 }}
               >
-                <Icon name="MessageCircle" size={14} className="flex-shrink-0" />
-                <span className="hidden sm:inline">Написать</span>
+                <Icon name="MessageCircle" size={16} className="flex-shrink-0" />
+                <span className="hidden sm:inline pr-0.5">Написать</span>
                 {unreadMessagesCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5 shadow-lg">
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-0.5 shadow-lg">
                     {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
                   </span>
                 )}
               </button>
               <button
                 onClick={onOpenMyFavorites}
-                className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-yellow-500 text-white rounded-full sm:rounded-lg hover:bg-yellow-600 active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                className="flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-yellow-500 text-white rounded-full sm:rounded-lg active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                style={{ minWidth: 40, minHeight: 40 }}
               >
-                <Icon name="Star" size={14} className="flex-shrink-0" />
-                <span className="hidden sm:inline">Избранное</span>
+                <Icon name="Star" size={16} className="flex-shrink-0" />
+                <span className="hidden sm:inline pr-0.5">Избранное</span>
               </button>
               {clientUploadEnabled && onOpenUpload && (
                 <button
                   onClick={onOpenUpload}
-                  className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-green-500 text-white rounded-full sm:rounded-lg hover:bg-green-600 active:bg-green-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  className="flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-green-500 text-white rounded-full sm:rounded-lg active:bg-green-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  style={{ minWidth: 40, minHeight: 40 }}
                 >
-                  <Icon name="Upload" size={14} className="flex-shrink-0" />
-                  <span className="hidden sm:inline">Загрузить фото</span>
+                  <Icon name="Upload" size={16} className="flex-shrink-0" />
+                  <span className="hidden sm:inline pr-0.5">Загрузить фото</span>
                 </button>
               )}
               {!gallery.download_disabled && (
                 <>
                   <button
                     onClick={onToggleSelectionMode}
-                    className={`w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 rounded-full sm:rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0 ${selectionMode ? 'bg-indigo-600 text-white' : (isDarkBg ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700')}`}
+                    className={`flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-full sm:rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0 ${selectionMode ? 'bg-indigo-600 text-white' : (isDarkBg ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700')}`}
+                    style={{ minWidth: 40, minHeight: 40 }}
                   >
-                    <Icon name="CheckSquare" size={14} className="flex-shrink-0" />
-                    <span className="hidden sm:inline">{selectionMode ? 'Отмена' : 'Выбрать'}</span>
+                    <Icon name="CheckSquare" size={16} className="flex-shrink-0" />
+                    <span className="hidden sm:inline pr-0.5">{selectionMode ? 'Отмена' : 'Выбрать'}</span>
                   </button>
                   <button
                     onClick={onDownloadAll}
                     disabled={downloadingAll}
-                    className="w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 sm:py-2 bg-blue-600 text-white rounded-full sm:rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                    className="flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-blue-600 text-white rounded-full sm:rounded-lg active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                    style={{ minWidth: 40, minHeight: 40 }}
                   >
-                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
-                    <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
+                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={16} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline pr-0.5">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
                   </button>
                 </>
               )}
-              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg flex-shrink-0" style={{
-                background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6'
+              <div className="flex items-center gap-1 px-2 rounded-lg flex-shrink-0" style={{
+                background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6',
+                minHeight: 36
               }}>
                 <Icon name="User" size={13} className="flex-shrink-0" style={{ color: secondaryText }} />
-                <span className="text-xs font-medium truncate max-w-[80px] sm:max-w-[120px]" style={{ color: textColor }}>{clientName}</span>
+                <span className="text-xs font-medium truncate max-w-[70px] sm:max-w-[140px]" style={{ color: textColor }}>{clientName}</span>
               </div>
               <button
                 onClick={onLogout}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-xs touch-manipulation flex-shrink-0"
+                className="flex items-center justify-center rounded-lg transition-colors touch-manipulation flex-shrink-0"
                 style={{
                   background: isDarkBg ? 'rgba(239,68,68,0.15)' : '#fee2e2',
-                  color: isDarkBg ? '#fca5a5' : '#b91c1c'
+                  color: isDarkBg ? '#fca5a5' : '#b91c1c',
+                  minWidth: 40,
+                  minHeight: 40
                 }}
               >
-                <Icon name="LogOut" size={13} className="flex-shrink-0" />
+                <Icon name="LogOut" size={15} className="flex-shrink-0" />
               </button>
             </>
           ) : (
             <>
               <button
                 onClick={onClientLogin}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
                 style={{
                   background: isDarkBg ? 'rgba(59,130,246,0.2)' : '#dbeafe',
-                  color: isDarkBg ? '#93c5fd' : '#1d4ed8'
+                  color: isDarkBg ? '#93c5fd' : '#1d4ed8',
+                  minHeight: 40
                 }}
               >
-                <Icon name="User" size={14} className="flex-shrink-0" />
+                <Icon name="User" size={15} className="flex-shrink-0" />
                 Войти
               </button>
               {!gallery.download_disabled && (
                 <>
                   <button
                     onClick={onToggleSelectionMode}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0 ${selectionMode ? 'bg-indigo-600 text-white' : (isDarkBg ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700')}`}
+                    className={`flex items-center gap-1.5 px-3 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0 ${selectionMode ? 'bg-indigo-600 text-white' : (isDarkBg ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700')}`}
+                    style={{ minHeight: 40 }}
                   >
-                    <Icon name="CheckSquare" size={14} className="flex-shrink-0" />
+                    <Icon name="CheckSquare" size={15} className="flex-shrink-0" />
                     <span>{selectionMode ? 'Отмена' : 'Выбрать'}</span>
                   </button>
                   <button
                     onClick={onDownloadAll}
                     disabled={downloadingAll}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                    className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-lg active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                    style={{ minHeight: 40 }}
                   >
-                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={14} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
+                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={15} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
                     <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
                   </button>
                 </>

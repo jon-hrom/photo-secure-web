@@ -170,20 +170,22 @@ export default function GalleryPhotoViewer({
         </VisuallyHidden>
 
         {/* Верхняя панель */}
-        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 z-50 pt-[max(1rem,env(safe-area-inset-top))]">
-          <div className="flex items-center gap-2">
-            <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 z-50"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-2">
+            <div className="text-white/80 text-xs bg-black/40 backdrop-blur-sm px-2.5 py-1.5 rounded-full flex-shrink-0">
               {currentIndex + 1} / {photos.length}
             </div>
-            <div className="text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full max-w-xs truncate">
+            <div className="text-white/70 text-xs bg-black/30 backdrop-blur-sm px-2.5 py-1.5 rounded-full truncate hidden sm:block">
               {currentPhoto.file_name}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {zoom > 0 && (
               <button
                 onClick={resetZoom}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                className="flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all"
+                style={{ width: 44, height: 44 }}
                 title="Сбросить увеличение"
               >
                 <Icon name="ZoomOut" size={20} className="text-white" />
@@ -192,7 +194,8 @@ export default function GalleryPhotoViewer({
             {!downloadDisabled && onDownload && (
               <button
                 onClick={() => setShowDownloadModal(true)}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+                className="flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all"
+                style={{ width: 44, height: 44 }}
                 title="Скачать фото"
               >
                 <Icon name="Download" size={20} className="text-white" />
@@ -200,9 +203,10 @@ export default function GalleryPhotoViewer({
             )}
             <button
               onClick={onClose}
-              className="w-10 h-10 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 animate-pulse-once"
+              className="flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all"
+              style={{ width: 44, height: 44 }}
             >
-              <Icon name="X" size={20} className="text-white" />
+              <Icon name="X" size={22} className="text-white" />
             </button>
           </div>
         </div>
@@ -247,25 +251,28 @@ export default function GalleryPhotoViewer({
         {currentIndex > 0 && (
           <button
             onClick={() => handleNavigate('prev')}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
+            style={{ width: 44, height: 44 }}
           >
-            <Icon name="ChevronLeft" size={28} className="text-white" />
+            <Icon name="ChevronLeft" size={26} className="text-white" />
           </button>
         )}
 
         {currentIndex < photos.length - 1 && (
           <button
             onClick={() => handleNavigate('next')}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
+            style={{ width: 44, height: 44 }}
           >
             <Icon name="ChevronRight" size={28} className="text-white" />
           </button>
         )}
 
         {/* Нижняя панель с информацией */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 md:p-6">
-          <p className="text-white font-medium text-lg mb-2">{currentPhoto.file_name}</p>
-          <div className="flex items-center gap-4 text-white/70 text-sm">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pt-8"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <p className="text-white font-medium text-base mb-1 truncate">{currentPhoto.file_name}</p>
+          <div className="flex items-center gap-4 text-white/60 text-xs">
             {currentPhoto.file_size && <span>{(currentPhoto.file_size / 1024 / 1024).toFixed(2)} МБ</span>}
             {currentPhoto.width && currentPhoto.height && (
               <span>{currentPhoto.width} × {currentPhoto.height}</span>
@@ -275,8 +282,9 @@ export default function GalleryPhotoViewer({
 
         {/* Подсказка по жестам */}
         {showHelp && (
-          <div className="absolute inset-0 bg-black/95 z-[100] flex items-center justify-center p-6">
-            <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-6">
+          <div className="absolute inset-0 bg-black/95 z-[100] flex items-end sm:items-center justify-center"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 max-w-md w-full space-y-4 sm:space-y-6 sm:mx-4">
               <div className="text-center">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">
                   Как пользоваться просмотром
@@ -340,7 +348,8 @@ export default function GalleryPhotoViewer({
 
               <button
                 onClick={handleCloseHelp}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors"
+                className="w-full bg-blue-600 active:bg-blue-700 text-white font-medium rounded-xl transition-colors touch-manipulation"
+                style={{ minHeight: 48 }}
               >
                 ОК, понятно
               </button>

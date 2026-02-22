@@ -43,17 +43,18 @@ export default function GalleryCover({
       {(() => {
         const pos = gallery.cover_text_position || 'bottom-center';
         const posClasses = pos === 'center' ? 'inset-0 flex flex-col items-center justify-center text-center px-6'
-          : pos === 'top-center' ? 'inset-0 flex flex-col items-center justify-start text-center px-6 pt-12 sm:pt-16'
-          : pos === 'bottom-left' ? 'bottom-0 left-0 right-0 flex flex-col items-start text-left px-6 pb-20 sm:pb-10'
-          : pos === 'bottom-right' ? 'bottom-0 left-0 right-0 flex flex-col items-end text-right px-6 pb-20 sm:pb-10'
-          : 'bottom-0 left-0 right-0 flex flex-col items-center text-center px-6 pb-20 sm:pb-10';
+          : pos === 'top-center' ? 'inset-0 flex flex-col items-center justify-start text-center px-6 pt-[max(3rem,env(safe-area-inset-top,3rem))]'
+          : pos === 'bottom-left' ? 'bottom-0 left-0 right-0 flex flex-col items-start text-left px-6'
+          : pos === 'bottom-right' ? 'bottom-0 left-0 right-0 flex flex-col items-end text-right px-6'
+          : 'bottom-0 left-0 right-0 flex flex-col items-center text-center px-6';
         return (
           <div
             className={`absolute ${posClasses}`}
             style={{
               opacity: 0,
               transform: 'translateY(20px)',
-              animation: 'coverTextFadeIn 2.5s ease forwards 0.3s'
+              animation: 'coverTextFadeIn 2.5s ease forwards 0.3s',
+              paddingBottom: pos.startsWith('bottom') ? 'max(5rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))' : undefined
             }}
           >
             <h1 className="font-bold mb-3 drop-shadow-lg" style={{
@@ -64,11 +65,13 @@ export default function GalleryCover({
             </h1>
             <button
               onClick={scrollToGrid}
-              className="group inline-flex items-center gap-1.5 text-sm transition-colors"
+              className="inline-flex items-center gap-1.5 text-sm active:opacity-70 transition-opacity touch-manipulation"
               style={{
                 color: gallery.text_color ? `${gallery.text_color}cc` : 'rgba(255,255,255,0.8)',
                 opacity: 0,
-                animation: 'coverTextFadeIn 2s ease forwards 1.2s'
+                animation: 'coverTextFadeIn 2s ease forwards 1.2s',
+                minHeight: 44,
+                minWidth: 44
               }}
             >
               <span>Просмотр фото</span>

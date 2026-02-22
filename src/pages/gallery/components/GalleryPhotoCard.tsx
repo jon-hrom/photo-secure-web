@@ -144,25 +144,25 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
         return watermarks;
       })()}
       {selectionMode ? (
-        <div className="absolute top-1.5 right-1.5 z-10">
+        <div className="absolute top-2 right-2 z-10">
           <div
-            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-black/30 border-white/70'}`}
+            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all shadow-md ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-black/40 border-white/80'}`}
           >
-            {isSelected && <Icon name="Check" size={13} className="text-white" />}
+            {isSelected && <Icon name="Check" size={14} className="text-white" />}
           </div>
         </div>
       ) : (
-        <div className="absolute bottom-1 sm:bottom-1.5 right-1 sm:right-1.5 flex z-10" style={{ gap: '3px' }}>
+        <div className="absolute bottom-0 right-0 flex z-10 p-1" style={{ gap: '2px' }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
               onAddToFavorites(photo);
             }}
-            className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-yellow-500 active:bg-yellow-600 transition-all group/btn touch-manipulation"
-            style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
+            className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full active:bg-yellow-500 transition-all touch-manipulation"
+            style={{ width: 34, height: 34 }}
             title="Добавить в избранное"
           >
-            <Icon name="Star" size={11} className="text-white group-hover/btn:text-white" />
+            <Icon name="Star" size={13} className="text-white" />
           </button>
           {!downloadDisabled && (
             <button
@@ -170,11 +170,11 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
                 e.stopPropagation();
                 onDownloadPhoto(photo);
               }}
-              className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full hover:bg-blue-500 active:bg-blue-600 transition-all group/btn touch-manipulation"
-              style={{ width: '22px', height: '22px', minWidth: '22px', minHeight: '22px', maxWidth: '22px', maxHeight: '22px', padding: 0 }}
+              className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full active:bg-blue-500 transition-all touch-manipulation"
+              style={{ width: 34, height: 34 }}
               title="Скачать фото"
             >
-              <Icon name="Download" size={11} className="text-white group-hover/btn:text-white" />
+              <Icon name="Download" size={13} className="text-white" />
             </button>
           )}
         </div>
