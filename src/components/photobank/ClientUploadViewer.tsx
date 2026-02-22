@@ -199,6 +199,22 @@ const ClientUploadViewer = ({
     }
   };
 
+  const renameFolder = async (folderId: number, newName: string) => {
+    try {
+      const res = await fetch(
+        `${API_URL}?action=photographer_rename&upload_folder_id=${folderId}&folder_name=${encodeURIComponent(newName)}`,
+        { method: "PATCH", headers: { "X-User-Id": userId.toString() } }
+      );
+      if (!res.ok) throw new Error("Rename failed");
+      setFolders((prev) =>
+        prev.map((f) => (f.id === folderId ? { ...f, folder_name: newName } : f))
+      );
+      toast({ title: "Папка переименована" });
+    } catch {
+      toast({ title: "Ошибка", description: "Не удалось переименовать папку", variant: "destructive" });
+    }
+  };
+
   const deletePhoto = async (photoId: number, folderId: number) => {
     try {
       setDeletingPhotoId(photoId);
@@ -296,6 +312,7 @@ const ClientUploadViewer = ({
           onConfirmDeleteFolder={setConfirmDeleteFolderId}
           onDeletePhoto={deletePhoto}
           onDownloadSingle={downloadSingle}
+          onRenameFolder={renameFolder}
           onOpenLightbox={(folderId, index) =>
             setLightbox({ folderId, index })
           }

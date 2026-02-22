@@ -157,7 +157,25 @@ def handler(event: dict, context) -> dict:
                 return photographer_delete_folder(cur, conn, int(upload_folder_id), int(user_id))
             else:
                 return error_response(400, 'upload_folder_id or photo_id required')
-        
+
+        elif method == 'PATCH':
+            headers = event.get('headers', {})
+            user_id = headers.get('x-user-id') or headers.get('X-User-Id')
+            params = event.get('queryStringParameters', {}) or {}
+            action = params.get('action', '')
+            
+            if not user_id:
+                return error_response(401, 'Unauthorized')
+            
+            if action == 'photographer_rename':
+                upload_folder_id = params.get('upload_folder_id')
+                folder_name = params.get('folder_name', '').strip()
+                if not upload_folder_id or not folder_name:
+                    return error_response(400, 'upload_folder_id and folder_name required')
+                return photographer_rename_folder(cur, conn, int(upload_folder_id), int(user_id), folder_name)
+            else:
+                return error_response(400, 'Unknown action')
+
         else:
             cur.close()
             conn.close()
@@ -822,6 +840,21 @@ def list_client_folders(cur, conn, data):
     cur.close()
     conn.close()
     return success_response({'folders': folders})
+
+
+def photographer_rename_folder(cur, conn, upload_folder_id, user_id, folder_name):
+    row = verify_photographer_owns_folder(cur, upload_folder_id, user_id)
+    if not row:
+        return error_response(403, 'Access denied or folder not found')
+
+    cur.execute(
+        f"UPDATE {SCHEMA}.client_upload_folders SET folder_name = %s WHERE id = %s",
+        (folder_name, upload_folder_id)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return success_response({'renamed': True, 'folder_name': folder_name})
 
 
 def rename_client_folder(cur, conn, data):

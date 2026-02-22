@@ -746,10 +746,26 @@ export default function ClientUploadModal({
                     {uploadedPhotos.map((photo) => (
                       <div
                         key={photo.photo_id}
-                        className="relative aspect-square rounded-lg overflow-hidden cursor-pointer bg-white/8"
+                        className="relative group aspect-square rounded-lg overflow-hidden cursor-pointer bg-white/8"
                         onClick={() => setViewerPhotoId(photo.photo_id)}
                       >
                         <img src={photo.s3_url} alt={photo.file_name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const a = document.createElement('a');
+                            a.href = photo.s3_url;
+                            a.download = photo.file_name;
+                            a.target = '_blank';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                          }}
+                          className="absolute bottom-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-blue-600 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Скачать"
+                        >
+                          <Icon name="Download" size={12} />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -768,7 +784,7 @@ export default function ClientUploadModal({
         photos={viewerPhotos}
         initialPhotoId={viewerPhotoId}
         onClose={() => setViewerPhotoId(null)}
-        downloadDisabled={viewingOtherFolder}
+        downloadDisabled={false}
       />
     )}
     </>
