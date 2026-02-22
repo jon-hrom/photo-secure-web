@@ -29,6 +29,7 @@ interface GalleryToolbarProps {
   onOpenClientFolder?: (folder: ClientFolder) => void;
   selectionMode?: boolean;
   onToggleSelectionMode?: () => void;
+  onRegisterToDownload?: () => void;
 }
 
 export default function GalleryToolbar({
@@ -51,7 +52,8 @@ export default function GalleryToolbar({
   showClientFolders = false,
   onOpenClientFolder,
   selectionMode = false,
-  onToggleSelectionMode
+  onToggleSelectionMode,
+  onRegisterToDownload
 }: GalleryToolbarProps) {
   const hasFolders = showClientFolders && clientFolders.length > 0;
 
@@ -157,25 +159,14 @@ export default function GalleryToolbar({
                 Войти
               </button>
               {!gallery.download_disabled && (
-                <>
-                  <button
-                    onClick={onToggleSelectionMode}
-                    className={`flex items-center gap-1.5 px-3 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0 ${selectionMode ? 'bg-indigo-600 text-white' : (isDarkBg ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700')}`}
-                    style={{ minHeight: 40 }}
-                  >
-                    <Icon name="CheckSquare" size={15} className="flex-shrink-0" />
-                    <span>{selectionMode ? 'Отмена' : 'Выбрать'}</span>
-                  </button>
-                  <button
-                    onClick={onDownloadAll}
-                    disabled={downloadingAll}
-                    className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-lg active:bg-blue-800 disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                    style={{ minHeight: 40 }}
-                  >
-                    <Icon name={downloadingAll ? "Loader2" : "Download"} size={15} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
-                    <span className="hidden sm:inline">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
-                  </button>
-                </>
+                <button
+                  onClick={onRegisterToDownload}
+                  className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-lg active:bg-blue-800 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  style={{ minHeight: 40 }}
+                >
+                  <Icon name="Download" size={15} className="flex-shrink-0" />
+                  <span>Скачать</span>
+                </button>
               )}
             </>
           )}

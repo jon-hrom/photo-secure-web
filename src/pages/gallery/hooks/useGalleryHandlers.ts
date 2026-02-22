@@ -340,6 +340,10 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     handleLogout,
     handleRemoveFromFavorites,
     handleFavoritesFolderSelect,
-    loadClientFavorites
+    loadClientFavorites,
+    handleRegisterToDownload: () => {
+      setPhotoToAdd(null);
+      setIsFavoritesModalOpen(true);
+    }
   };
 }

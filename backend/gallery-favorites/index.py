@@ -190,6 +190,87 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'success': True, 'client_id': client_id})
                 }
             
+            elif action == 'register_client':
+                gallery_code = body.get('gallery_code')
+                full_name = body.get('full_name', '').strip()
+                phone = body.get('phone', '').strip()
+                email = (body.get('email') or '').strip() or None
+                
+                if not gallery_code or (not full_name and not phone and not email):
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Missing required fields'})
+                    }
+                
+                cur.execute('''
+                    SELECT COALESCE(is_blocked, FALSE)
+                    FROM t_p28211681_photo_secure_web.folder_short_links
+                    WHERE short_code = %s
+                ''', (gallery_code,))
+                link_row = cur.fetchone()
+                if link_row and link_row[0]:
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Gallery link is blocked', 'blocked': True})
+                    }
+                
+                existing = None
+                if full_name and phone:
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                        WHERE gallery_code = %s AND LOWER(TRIM(full_name)) = LOWER(%s) 
+                          AND REGEXP_REPLACE(TRIM(phone), '[^0-9+]', '', 'g') = %s
+                        ORDER BY id DESC LIMIT 1
+                    ''', (gallery_code, full_name, phone))
+                    existing = cur.fetchone()
+                elif full_name:
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                        WHERE gallery_code = %s AND LOWER(TRIM(full_name)) = LOWER(%s)
+                        ORDER BY id DESC LIMIT 1
+                    ''', (gallery_code, full_name))
+                    existing = cur.fetchone()
+                elif phone:
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                        WHERE gallery_code = %s AND REGEXP_REPLACE(TRIM(phone), '[^0-9+]', '', 'g') = %s
+                        ORDER BY id DESC LIMIT 1
+                    ''', (gallery_code, phone))
+                    existing = cur.fetchone()
+                elif email:
+                    cur.execute('''
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                        WHERE gallery_code = %s AND LOWER(TRIM(email)) = LOWER(%s)
+                        ORDER BY id DESC LIMIT 1
+                    ''', (gallery_code, email))
+                    existing = cur.fetchone()
+                
+                if existing:
+                    client_id = existing[0]
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.favorite_clients
+                        SET is_online = TRUE, last_seen_at = NOW()
+                        WHERE id = %s
+                    ''', (client_id,))
+                else:
+                    cur.execute('''
+                        INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
+                        (gallery_code, full_name, phone, email, is_online, last_seen_at)
+                        VALUES (%s, %s, %s, %s, TRUE, NOW())
+                        RETURNING id
+                    ''', (gallery_code, full_name, phone, email))
+                    client_id = cur.fetchone()[0]
+                
+                conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'success': True, 'client_id': client_id})
+                }
+            
             elif action == 'list_registered_clients':
                 gallery_code = body.get('gallery_code')
                 user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')

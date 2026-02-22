@@ -288,6 +288,7 @@ export default function PublicGallery() {
             setIsUploadOpen(true);
           }
         }}
+        onRegisterToDownload={handlers.handleRegisterToDownload}
       />
 
       <GalleryModals

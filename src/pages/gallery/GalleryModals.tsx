@@ -138,17 +138,18 @@ export default function GalleryModals({
         />
       )}
 
-      {isFavoritesModalOpen && favoriteFolder && photoToAdd && code && (
+      {isFavoritesModalOpen && code && (photoToAdd ? favoriteFolder : true) && (
         <FavoritesModal
           isOpen={isFavoritesModalOpen}
           onClose={() => {
             setIsFavoritesModalOpen(false);
             setPhotoToAdd(null);
           }}
-          folder={favoriteFolder}
+          folder={favoriteFolder || { id: 'default', name: '', fields: { fullName: true, phone: true, email: false } }}
           onSubmit={onFavoriteSubmit}
           galleryCode={code}
-          photoId={photoToAdd.id}
+          photoId={photoToAdd?.id ?? null}
+          mode={photoToAdd ? 'favorites' : 'register'}
         />
       )}
 

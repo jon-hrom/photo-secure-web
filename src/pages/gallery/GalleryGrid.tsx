@@ -81,6 +81,7 @@ export interface GalleryGridProps {
   clientFolders?: ClientFolder[];
   showClientFolders?: boolean;
   onOpenClientFolder?: (folder: ClientFolder) => void;
+  onRegisterToDownload?: () => void;
 }
 
 export default function GalleryGrid({
@@ -103,7 +104,8 @@ export default function GalleryGrid({
   onOpenUpload,
   clientFolders = [],
   showClientFolders = false,
-  onOpenClientFolder
+  onOpenClientFolder,
+  onRegisterToDownload
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
 
@@ -325,6 +327,7 @@ export default function GalleryGrid({
         onOpenClientFolder={onOpenClientFolder}
         selectionMode={selectionMode}
         onToggleSelectionMode={toggleSelectionMode}
+        onRegisterToDownload={onRegisterToDownload}
       />
       <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 md:pt-0"
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
