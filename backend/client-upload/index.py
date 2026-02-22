@@ -693,11 +693,12 @@ def client_list_photos(cur, conn, data):
     link_id = link[0]
 
     cur.execute(
-        f"SELECT id FROM {SCHEMA}.client_upload_folders WHERE id = %s AND short_link_id = %s AND client_id = %s",
-        (upload_folder_id, link_id, client_id)
+        f"SELECT id, client_id FROM {SCHEMA}.client_upload_folders WHERE id = %s AND short_link_id = %s",
+        (upload_folder_id, link_id)
     )
-    if not cur.fetchone():
-        return error_response(403, 'Access denied')
+    folder_row = cur.fetchone()
+    if not folder_row:
+        return error_response(404, 'Folder not found')
 
     cur.execute(
         f"""

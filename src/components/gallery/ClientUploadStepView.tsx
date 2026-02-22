@@ -67,7 +67,7 @@ export default function ClientUploadStepView({
                     a.click();
                     document.body.removeChild(a);
                   }}
-                  className="absolute bottom-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-blue-600 transition-colors opacity-0 group-hover:opacity-100"
+                  className="absolute bottom-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-blue-600 transition-colors"
                   title="Скачать"
                 >
                   <Icon name="Download" size={12} />
