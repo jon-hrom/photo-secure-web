@@ -90,7 +90,7 @@ export default function PublicGallery() {
   }, [gallery?.client_upload_folders]);
 
   useEffect(() => {
-    if (state.clientData?.client_id && gallery?.client_upload_enabled) {
+    if (state.clientData?.client_id) {
       reloadClientFolders(state.clientData.client_id);
     }
   }, [state.clientData?.client_id]);
@@ -240,7 +240,7 @@ export default function PublicGallery() {
         clientUploadEnabled={!!state.clientData?.upload_enabled}
         onOpenUpload={() => setIsUploadOpen(true)}
         clientFolders={clientUploadFolders}
-        showClientFolders={!!(gallery.client_folders_visibility && clientUploadFolders.length > 0)}
+        showClientFolders={!!(clientUploadFolders.length > 0 && (gallery.client_folders_visibility || clientUploadFolders.some(f => f.is_own !== false)))}
         onOpenClientFolder={(folder) => {
           setFolderToOpen(folder);
           setIsUploadOpen(true);
