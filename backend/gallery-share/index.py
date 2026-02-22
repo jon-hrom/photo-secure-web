@@ -550,9 +550,9 @@ def handler(event: dict, context) -> dict:
             
             client_folders_data = []
             if client_upload_enabled:
-                if client_folders_visibility and client_id_int:
+                if client_folders_visibility:
                     # Включена видимость чужих папок:
-                    # Клиент видит свои папки + папки других участников, кто тоже загружал
+                    # Показываем все папки всем, своя помечается is_own=True
                     cur.execute(
                         """
                         SELECT id, folder_name, client_name, photo_count, created_at, client_id
@@ -569,7 +569,7 @@ def handler(event: dict, context) -> dict:
                             'client_name': row[2],
                             'photo_count': row[3],
                             'created_at': row[4].isoformat() if row[4] else None,
-                            'is_own': row[5] == client_id_int
+                            'is_own': client_id_int is not None and row[5] == client_id_int
                         })
                 elif client_id_int:
                     # Видимость чужих папок выключена — только свои
@@ -590,26 +590,6 @@ def handler(event: dict, context) -> dict:
                             'photo_count': row[3],
                             'created_at': row[4].isoformat() if row[4] else None,
                             'is_own': True
-                        })
-                else:
-                    # Нет client_id — для совместимости показываем все папки
-                    cur.execute(
-                        """
-                        SELECT id, folder_name, client_name, photo_count, created_at
-                        FROM t_p28211681_photo_secure_web.client_upload_folders
-                        WHERE parent_folder_id = %s AND short_link_id = %s
-                        ORDER BY created_at DESC
-                        """,
-                        (folder_id, link_id)
-                    )
-                    for row in cur.fetchall():
-                        client_folders_data.append({
-                            'id': row[0],
-                            'folder_name': row[1],
-                            'client_name': row[2],
-                            'photo_count': row[3],
-                            'created_at': row[4].isoformat() if row[4] else None,
-                            'is_own': False
                         })
             
             cur.close()
