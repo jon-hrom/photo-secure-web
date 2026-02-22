@@ -1,6 +1,13 @@
 import Icon from '@/components/ui/icon';
 import type { GalleryData } from '../GalleryGrid';
 
+interface ClientFolder {
+  id: number;
+  folder_name: string;
+  client_name: string | null;
+  photo_count: number;
+}
+
 interface GalleryToolbarProps {
   gallery: GalleryData;
   isDarkBg: boolean;
@@ -17,6 +24,9 @@ interface GalleryToolbarProps {
   onDownloadAll: () => void;
   onLogout?: () => void;
   onClientLogin?: () => void;
+  clientFolders?: ClientFolder[];
+  showClientFolders?: boolean;
+  onOpenClientFolder?: (folder: ClientFolder) => void;
 }
 
 export default function GalleryToolbar({
@@ -34,8 +44,13 @@ export default function GalleryToolbar({
   downloadingAll,
   onDownloadAll,
   onLogout,
-  onClientLogin
+  onClientLogin,
+  clientFolders = [],
+  showClientFolders = false,
+  onOpenClientFolder
 }: GalleryToolbarProps) {
+  const hasFolders = showClientFolders && clientFolders.length > 0;
+
   return (
     <div className="sticky top-0 z-50" style={{ 
       background: isDarkBg ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
@@ -132,6 +147,33 @@ export default function GalleryToolbar({
             </>
           )}
         </div>
+
+        {hasFolders && (
+          <div className="flex items-center gap-2 pb-2 overflow-x-auto scrollbar-none">
+            <span className="text-xs flex-shrink-0" style={{ color: secondaryText }}>
+              <Icon name="Users" size={12} className="inline mr-1" />
+              Загружено:
+            </span>
+            {clientFolders.map(folder => (
+              <button
+                key={folder.id}
+                onClick={() => onOpenClientFolder?.(folder)}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all active:scale-95"
+                style={{
+                  background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                  color: isDarkBg ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)',
+                  border: isDarkBg ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)'
+                }}
+              >
+                <Icon name="Folder" size={12} />
+                <span>{folder.folder_name}</span>
+                {folder.photo_count > 0 && (
+                  <span className="opacity-60">{folder.photo_count}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

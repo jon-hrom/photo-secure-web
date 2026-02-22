@@ -24,6 +24,8 @@ interface ClientUploadModalProps {
   existingFolders: ClientUploadFolder[];
   onFoldersUpdate: (folders: ClientUploadFolder[]) => void;
   isDarkTheme?: boolean;
+  initialFolderId?: number;
+  initialFolderName?: string;
 }
 
 export default function ClientUploadModal({
@@ -33,9 +35,11 @@ export default function ClientUploadModal({
   clientId,
   existingFolders,
   onFoldersUpdate,
-  isDarkTheme = false
+  isDarkTheme = false,
+  initialFolderId,
+  initialFolderName
 }: ClientUploadModalProps) {
-  const [step, setStep] = useState<'folders' | 'create' | 'upload' | 'view'>('folders');
+  const [step, setStep] = useState<'folders' | 'create' | 'upload' | 'view' | 'rename'>('folders');
   const [viewingOtherFolder, setViewingOtherFolder] = useState(false);
   const [viewerPhotoId, setViewerPhotoId] = useState<number | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
@@ -46,6 +50,8 @@ export default function ClientUploadModal({
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [uploadedPhotos, setUploadedPhotos] = useState<{ photo_id: number; file_name: string; s3_url: string }[]>([]);
   const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null);
+  const [renamingFolder, setRenamingFolder] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -92,13 +98,59 @@ export default function ClientUploadModal({
     }
   };
 
+  const handleRenameFolder = async () => {
+    if (!renameValue.trim() || !activeFolderId) return;
+    setRenamingFolder(true);
+    try {
+      const res = await fetch(CLIENT_UPLOAD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'rename_folder',
+          short_code: shortCode,
+          client_id: clientId,
+          upload_folder_id: activeFolderId,
+          folder_name: renameValue.trim()
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Ошибка переименования');
+      }
+      const updatedFolders = existingFolders.map(f =>
+        f.id === activeFolderId ? { ...f, folder_name: renameValue.trim() } : f
+      );
+      onFoldersUpdate(updatedFolders);
+      setActiveFolderName(renameValue.trim());
+      toast({ title: 'Папка переименована' });
+      setStep('upload');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Ошибка';
+      toast({ title: 'Ошибка', description: message, variant: 'destructive' });
+    } finally {
+      setRenamingFolder(false);
+    }
+  };
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [checkingOwnFolder, setCheckingOwnFolder] = useState(false);
 
-  // При открытии — загружаем папки с client_id и сразу открываем свою
   useEffect(() => {
     if (!isOpen) return;
+
+    // Если открыли через клик по папке другого участника — сразу в режим просмотра
+    if (initialFolderId && initialFolderName) {
+      setActiveFolderId(initialFolderId);
+      setActiveFolderName(initialFolderName);
+      setUploadedPhotos([]);
+      setViewingOtherFolder(true);
+      setStep('view');
+      loadFolderPhotos(initialFolderId);
+      setCheckingOwnFolder(false);
+      return;
+    }
+
     setStep('folders');
     setCheckingOwnFolder(true);
 
@@ -337,61 +389,76 @@ export default function ClientUploadModal({
     file_size: 0
   }));
 
-  const themeClasses = isDarkTheme
-    ? 'bg-gray-900 text-white'
-    : 'bg-white text-gray-900';
+  // Всегда тёмная тема для клиентской модалки
+  const bg = 'bg-[#1a1a2e]';
+  const headerBg = 'bg-[#1a1a2e] border-white/10';
+  const text = 'text-white';
+  const subText = 'text-gray-400';
+  const cardBg = 'bg-white/8 border-white/10';
+  const inputCls = 'bg-white/10 border-white/15 text-white placeholder:text-gray-500 focus:border-blue-400';
+  const hoverCard = 'hover:border-blue-400/60 hover:bg-white/12';
+  const hoverBtn = 'hover:bg-white/10';
 
-  const cardClasses = isDarkTheme
-    ? 'bg-gray-800 border-gray-700'
-    : 'bg-gray-50 border-gray-200';
+  const getStepTitle = () => {
+    if (step === 'folders') return 'Загрузить фото';
+    if (step === 'create') return 'Новая папка';
+    if (step === 'rename') return 'Переименовать папку';
+    if (step === 'view') return activeFolderName;
+    return `"${activeFolderName}"`;
+  };
 
   return (
     <>
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
-      <div className={`${themeClasses} rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl`}>
-        <div className={`sticky top-0 z-10 px-4 sm:px-6 py-4 border-b flex items-center justify-between ${isDarkTheme ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
+      <div className={`${bg} ${text} rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl border border-white/10`}>
+        {/* Header */}
+        <div className={`sticky top-0 z-10 px-4 sm:px-6 py-4 border-b ${headerBg} flex items-center justify-between`}>
           <div className="flex items-center gap-3">
             {step !== 'folders' && (
               <button
-                onClick={() => { setStep('folders'); setUploadedPhotos([]); setViewingOtherFolder(false); }}
-                className={`p-1.5 rounded-lg transition-colors ${isDarkTheme ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+                onClick={() => {
+                  if (step === 'rename') {
+                    setStep('upload');
+                  } else {
+                    setStep('folders');
+                    setUploadedPhotos([]);
+                    setViewingOtherFolder(false);
+                  }
+                }}
+                className={`p-1.5 rounded-lg transition-colors ${hoverBtn}`}
               >
                 <Icon name="ArrowLeft" size={20} />
               </button>
             )}
-            <h2 className="text-lg font-semibold">
-              {step === 'folders' ? 'Загрузить фото'
-                : step === 'create' ? 'Новая папка'
-                : step === 'view' ? activeFolderName
-                : `Загрузка в "${activeFolderName}"`}
-            </h2>
+            <h2 className="text-lg font-semibold">{getStepTitle()}</h2>
           </div>
-          <button onClick={() => { onClose(); }} className={`p-2 rounded-lg transition-colors ${isDarkTheme ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
+          <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${hoverBtn}`}>
             <Icon name="X" size={20} />
           </button>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4">
+          {/* Loading state */}
           {checkingOwnFolder && (
-            <div className="flex items-center justify-center py-12">
-              <Icon name="Loader2" size={28} className="animate-spin text-gray-400" />
+            <div className="flex items-center justify-center py-16">
+              <Icon name="Loader2" size={28} className="animate-spin text-gray-500" />
             </div>
           )}
 
+          {/* STEP: folders */}
           {!checkingOwnFolder && step === 'folders' && (
             <>
-              <p className={`text-sm ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm ${subText}`}>
                 Создайте папку и загрузите свои фото. Фотограф увидит вашу папку отдельно от своих фото.
               </p>
 
-              <Button
+              <button
                 onClick={() => setStep('create')}
-                className={`w-full h-12 border-dashed border-2 ${isDarkTheme ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : ''}`}
-                variant="outline"
+                className="w-full h-12 border border-dashed border-white/20 rounded-xl flex items-center justify-center gap-2 text-sm text-gray-300 hover:border-blue-400/60 hover:text-blue-300 hover:bg-blue-500/10 transition-all"
               >
-                <Icon name="FolderPlus" size={20} className="mr-2" />
+                <Icon name="FolderPlus" size={18} />
                 Создать новую папку
-              </Button>
+              </button>
 
               {existingFolders.length > 0 && (
                 <div className="space-y-2">
@@ -403,64 +470,60 @@ export default function ClientUploadModal({
                     return (
                       <>
                         {hasGroups && ownFolders.length > 0 && (
-                          <p className={`text-xs font-medium uppercase tracking-wide ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <p className={`text-xs font-medium uppercase tracking-wide ${subText}`}>
                             Мои папки
                           </p>
                         )}
-                        {!hasGroups && (
-                          <p className={`text-xs font-medium ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
-                            Существующие папки
+                        {!hasGroups && ownFolders.length > 0 && (
+                          <p className={`text-xs font-medium ${subText}`}>
+                            Мои папки
                           </p>
                         )}
                         {ownFolders.map(folder => (
                           <button
                             key={folder.id}
                             onClick={() => handleSelectFolder(folder)}
-                            className={`w-full text-left p-3 rounded-lg border ${cardClasses} hover:border-blue-400 transition-colors`}
+                            className={`w-full text-left p-3 rounded-xl border ${cardBg} ${hoverCard} transition-all`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <Icon name="Folder" size={20} className="text-blue-500" />
+                                <Icon name="Folder" size={20} className="text-blue-400" />
                                 <div>
-                                  <p className="font-medium text-sm">{folder.folder_name}</p>
+                                  <p className="font-medium text-sm text-white">{folder.folder_name}</p>
                                   {folder.client_name && (
-                                    <p className={`text-xs ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>{folder.client_name}</p>
+                                    <p className={`text-xs ${subText}`}>{folder.client_name}</p>
                                   )}
                                 </div>
                               </div>
-                              <span className={`text-xs ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {folder.photo_count} фото
-                              </span>
+                              <span className={`text-xs ${subText}`}>{folder.photo_count} фото</span>
                             </div>
                           </button>
                         ))}
 
                         {otherFolders.length > 0 && (
                           <>
-                            <p className={`text-xs font-medium uppercase tracking-wide pt-2 ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                            <p className={`text-xs font-medium uppercase tracking-wide pt-2 ${subText}`}>
                               Фото других участников
                             </p>
                             {otherFolders.map(folder => (
                               <button
                                 key={folder.id}
                                 onClick={() => handleViewOtherFolder(folder)}
-                                className={`w-full text-left p-3 rounded-lg border transition-colors ${isDarkTheme ? 'bg-gray-800/40 border-gray-700 hover:border-purple-500' : 'bg-gray-50 border-gray-200 hover:border-purple-400'}`}
+                                className="w-full text-left p-3 rounded-xl border border-white/8 bg-white/4 hover:border-purple-400/50 hover:bg-purple-500/10 transition-all"
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3">
-                                    <Icon name="FolderOpen" size={20} className={isDarkTheme ? 'text-purple-400' : 'text-purple-500'} />
+                                    <Icon name="FolderOpen" size={20} className="text-purple-400" />
                                     <div>
-                                      <p className={`font-medium text-sm ${isDarkTheme ? 'text-gray-300' : 'text-gray-700'}`}>{folder.folder_name}</p>
+                                      <p className="font-medium text-sm text-gray-200">{folder.folder_name}</p>
                                       {folder.client_name && (
-                                        <p className={`text-xs ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>{folder.client_name}</p>
+                                        <p className="text-xs text-gray-500">{folder.client_name}</p>
                                       )}
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className={`text-xs ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>
-                                      {folder.photo_count} фото
-                                    </span>
-                                    <Icon name="ChevronRight" size={16} className={isDarkTheme ? 'text-gray-600' : 'text-gray-400'} />
+                                    <span className="text-xs text-gray-500">{folder.photo_count} фото</span>
+                                    <Icon name="ChevronRight" size={16} className="text-gray-600" />
                                   </div>
                                 </div>
                               </button>
@@ -475,35 +538,33 @@ export default function ClientUploadModal({
             </>
           )}
 
+          {/* STEP: create */}
           {step === 'create' && (
             <>
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${isDarkTheme ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Название папки *
-                </label>
+                <label className="text-sm font-medium text-gray-300">Название папки *</label>
                 <Input
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   placeholder="Например: Фото от Ивановых"
-                  className={`h-11 ${isDarkTheme ? 'bg-gray-800 border-gray-600 text-white placeholder:text-gray-500' : ''}`}
+                  className={`h-11 ${inputCls}`}
                   autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
                 />
               </div>
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${isDarkTheme ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Ваше имя
-                </label>
+                <label className="text-sm font-medium text-gray-300">Ваше имя</label>
                 <Input
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   placeholder="Как вас зовут?"
-                  className={`h-11 ${isDarkTheme ? 'bg-gray-800 border-gray-600 text-white placeholder:text-gray-500' : ''}`}
+                  className={`h-11 ${inputCls}`}
                 />
               </div>
               <Button
                 onClick={handleCreateFolder}
                 disabled={!newFolderName.trim()}
-                className="w-full h-11"
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Icon name="FolderPlus" size={18} className="mr-2" />
                 Создать и перейти к загрузке
@@ -511,6 +572,36 @@ export default function ClientUploadModal({
             </>
           )}
 
+          {/* STEP: rename */}
+          {step === 'rename' && (
+            <>
+              <p className={`text-sm ${subText}`}>Введите новое название папки</p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Новое название *</label>
+                <Input
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  placeholder="Название папки"
+                  className={`h-11 ${inputCls}`}
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleRenameFolder()}
+                />
+              </div>
+              <Button
+                onClick={handleRenameFolder}
+                disabled={!renameValue.trim() || renamingFolder}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {renamingFolder ? (
+                  <><Icon name="Loader2" size={18} className="mr-2 animate-spin" />Сохранение...</>
+                ) : (
+                  <><Icon name="Pencil" size={18} className="mr-2" />Сохранить название</>
+                )}
+              </Button>
+            </>
+          )}
+
+          {/* STEP: upload */}
           {step === 'upload' && (
             <>
               <input
@@ -522,20 +613,28 @@ export default function ClientUploadModal({
                 onChange={(e) => handleFilesSelected(e.target.files)}
               />
 
+              {/* Rename button */}
+              <button
+                onClick={() => { setRenameValue(activeFolderName); setStep('rename'); }}
+                className={`flex items-center gap-1.5 text-xs ${subText} hover:text-gray-200 transition-colors`}
+              >
+                <Icon name="Pencil" size={12} />
+                Переименовать папку
+              </button>
+
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
-                  isDragOver ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300'
+                className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${
+                  isDragOver ? 'border-blue-400 bg-blue-500/10' : 'border-white/15'
                 }`}
               >
                 <div className="space-y-2">
                   <Button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="w-full h-14 text-base"
-                    variant="default"
+                    className="w-full h-14 text-base bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     {uploading ? (
                       <>
@@ -549,17 +648,17 @@ export default function ClientUploadModal({
                       </>
                     )}
                   </Button>
-                  <p className={`text-xs text-center ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>
+                  <p className={`text-xs text-center ${subText}`}>
                     Максимальный размер одного файла: 50 МБ
                   </p>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">или перетащите файлы сюда</p>
+                <p className="text-sm text-gray-600 mt-2">или перетащите файлы сюда</p>
               </div>
 
               {uploading && (
-                <div className={`w-full rounded-full h-2 ${isDarkTheme ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                <div className="w-full rounded-full h-1.5 bg-white/10">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
                     style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                   />
                 </div>
@@ -567,19 +666,19 @@ export default function ClientUploadModal({
 
               {loadingPhotos && (
                 <div className="flex items-center justify-center py-4">
-                  <Icon name="Loader2" size={20} className="animate-spin text-gray-400 mr-2" />
-                  <span className={`text-sm ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>Загрузка фото...</span>
+                  <Icon name="Loader2" size={20} className="animate-spin text-gray-500 mr-2" />
+                  <span className={`text-sm ${subText}`}>Загрузка фото...</span>
                 </div>
               )}
 
               {!loadingPhotos && uploadedPhotos.length > 0 && (
                 <div className="space-y-2">
-                  <p className={`text-xs font-medium ${isDarkTheme ? 'text-green-400' : 'text-green-600'}`}>
+                  <p className="text-xs font-medium text-green-400">
                     Фото в папке: {uploadedPhotos.length}
                   </p>
-                  <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-4 gap-2 max-h-52 overflow-y-auto">
                     {uploadedPhotos.map((photo) => (
-                      <div key={photo.photo_id} className={`relative group aspect-square rounded-lg overflow-hidden cursor-pointer ${isDarkTheme ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                      <div key={photo.photo_id} className="relative group aspect-square rounded-lg overflow-hidden cursor-pointer bg-white/8">
                         <img
                           src={photo.s3_url}
                           alt={photo.file_name}
@@ -603,13 +702,13 @@ export default function ClientUploadModal({
                 </div>
               )}
 
-              <p className={`text-xs text-center ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-xs text-center ${subText}`}>
                 Поддерживаются JPG, PNG, HEIC, MP4, MOV и другие форматы
               </p>
 
               <button
                 onClick={() => setStep('create')}
-                className={`w-full text-sm py-2 rounded-lg border border-dashed transition-colors ${isDarkTheme ? 'border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300' : 'border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600'}`}
+                className="w-full text-sm py-2 rounded-lg border border-dashed border-white/12 text-gray-600 hover:border-white/25 hover:text-gray-400 transition-all"
               >
                 <Icon name="FolderPlus" size={14} className="inline mr-1.5" />
                 Создать новую папку
@@ -617,36 +716,37 @@ export default function ClientUploadModal({
             </>
           )}
 
+          {/* STEP: view (other's folder) */}
           {step === 'view' && (
             <>
-              <p className={`text-sm ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-sm ${subText}`}>
                 Фото загруженные участником
               </p>
 
               {loadingPhotos && (
                 <div className="flex items-center justify-center py-8">
-                  <Icon name="Loader2" size={24} className="animate-spin text-gray-400 mr-2" />
-                  <span className={`text-sm ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>Загрузка фото...</span>
+                  <Icon name="Loader2" size={24} className="animate-spin text-gray-500 mr-2" />
+                  <span className={`text-sm ${subText}`}>Загрузка фото...</span>
                 </div>
               )}
 
               {!loadingPhotos && uploadedPhotos.length === 0 && (
-                <div className={`rounded-xl p-8 text-center ${isDarkTheme ? 'bg-gray-800/50' : 'bg-gray-50'}`}>
-                  <Icon name="ImageOff" size={32} className={`mx-auto mb-2 ${isDarkTheme ? 'text-gray-600' : 'text-gray-300'}`} />
-                  <p className={`text-sm ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>Фото ещё не добавлены</p>
+                <div className="rounded-xl p-8 text-center bg-white/5">
+                  <Icon name="ImageOff" size={32} className="mx-auto mb-2 text-gray-600" />
+                  <p className={`text-sm ${subText}`}>Фото ещё не добавлены</p>
                 </div>
               )}
 
               {!loadingPhotos && uploadedPhotos.length > 0 && (
                 <div className="space-y-2">
-                  <p className={`text-xs font-medium ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p className={`text-xs font-medium ${subText}`}>
                     Фото в папке: {uploadedPhotos.length}
                   </p>
                   <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto">
                     {uploadedPhotos.map((photo) => (
                       <div
                         key={photo.photo_id}
-                        className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer ${isDarkTheme ? 'bg-gray-800' : 'bg-gray-100'}`}
+                        className="relative aspect-square rounded-lg overflow-hidden cursor-pointer bg-white/8"
                         onClick={() => setViewerPhotoId(photo.photo_id)}
                       >
                         <img src={photo.s3_url} alt={photo.file_name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
@@ -668,7 +768,7 @@ export default function ClientUploadModal({
         photos={viewerPhotos}
         initialPhotoId={viewerPhotoId}
         onClose={() => setViewerPhotoId(null)}
-        downloadDisabled={false}
+        downloadDisabled={viewingOtherFolder}
       />
     )}
     </>

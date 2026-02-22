@@ -51,6 +51,13 @@ export interface GalleryData {
   mobile_cover_focus_y?: number;
 }
 
+interface ClientFolder {
+  id: number;
+  folder_name: string;
+  client_name: string | null;
+  photo_count: number;
+}
+
 export interface GalleryGridProps {
   gallery: GalleryData;
   downloadingAll: boolean;
@@ -69,9 +76,12 @@ export interface GalleryGridProps {
   onLogout?: () => void;
   clientUploadEnabled?: boolean;
   onOpenUpload?: () => void;
+  clientFolders?: ClientFolder[];
+  showClientFolders?: boolean;
+  onOpenClientFolder?: (folder: ClientFolder) => void;
 }
 
-export default function GalleryGrid({ 
+export default function GalleryGrid({
   gallery, 
   downloadingAll, 
   onDownloadAll, 
@@ -88,7 +98,10 @@ export default function GalleryGrid({
   unreadMessagesCount = 0,
   onLogout,
   clientUploadEnabled = false,
-  onOpenUpload
+  onOpenUpload,
+  clientFolders = [],
+  showClientFolders = false,
+  onOpenClientFolder
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
   
@@ -239,6 +252,9 @@ export default function GalleryGrid({
         onDownloadAll={onDownloadAll}
         onLogout={onLogout}
         onClientLogin={onClientLogin}
+        clientFolders={clientFolders}
+        showClientFolders={showClientFolders}
+        onOpenClientFolder={onOpenClientFolder}
       />
       <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pb-4 sm:pb-8 pt-2 md:pt-0"
         style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 0px))' }}

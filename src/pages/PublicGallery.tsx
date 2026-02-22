@@ -73,6 +73,7 @@ export default function PublicGallery() {
   });
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [folderToOpen, setFolderToOpen] = useState<{ id: number; folder_name: string } | null>(null);
   const [clientUploadFolders, setClientUploadFolders] = useState<Array<{
     id: number;
     folder_name: string;
@@ -238,6 +239,12 @@ export default function PublicGallery() {
         onLogout={handlers.handleLogout}
         clientUploadEnabled={!!state.clientData?.upload_enabled}
         onOpenUpload={() => setIsUploadOpen(true)}
+        clientFolders={clientUploadFolders}
+        showClientFolders={!!(gallery.client_folders_visibility && clientUploadFolders.length > 0)}
+        onOpenClientFolder={(folder) => {
+          setFolderToOpen(folder);
+          setIsUploadOpen(true);
+        }}
       />
 
       <GalleryModals
@@ -275,12 +282,14 @@ export default function PublicGallery() {
       {state.clientData?.upload_enabled && code && state.clientData?.client_id && (
         <ClientUploadModal
           isOpen={isUploadOpen}
-          onClose={() => setIsUploadOpen(false)}
+          onClose={() => { setIsUploadOpen(false); setFolderToOpen(null); }}
           shortCode={code}
           clientId={state.clientData.client_id}
           existingFolders={clientUploadFolders}
           onFoldersUpdate={setClientUploadFolders}
           isDarkTheme={isDarkTheme}
+          initialFolderId={folderToOpen?.id}
+          initialFolderName={folderToOpen?.folder_name}
         />
       )}
     </div>

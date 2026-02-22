@@ -86,6 +86,8 @@ def handler(event: dict, context) -> dict:
                 return client_list_photos(cur, conn, data)
             elif action == 'list_folders':
                 return list_client_folders(cur, conn, data)
+            elif action == 'rename_folder':
+                return rename_client_folder(cur, conn, data)
             else:
                 return error_response(400, 'Unknown action')
         
@@ -820,6 +822,41 @@ def list_client_folders(cur, conn, data):
     cur.close()
     conn.close()
     return success_response({'folders': folders})
+
+
+def rename_client_folder(cur, conn, data):
+    upload_folder_id = data.get('upload_folder_id')
+    short_code = data.get('short_code')
+    client_id = data.get('client_id')
+    folder_name = data.get('folder_name', '').strip()
+
+    if not upload_folder_id or not short_code or not client_id or not folder_name:
+        return error_response(400, 'upload_folder_id, short_code, client_id and folder_name required')
+
+    if not check_client_upload_allowed(cur, client_id, short_code):
+        return error_response(403, 'Not allowed')
+
+    link = get_link_info(cur, short_code)
+    if not link:
+        return error_response(404, 'Gallery not found')
+
+    link_id = link[0]
+
+    cur.execute(
+        f"""
+        UPDATE {SCHEMA}.client_upload_folders
+        SET folder_name = %s
+        WHERE id = %s AND short_link_id = %s AND client_id = %s
+        """,
+        (folder_name, upload_folder_id, link_id, client_id)
+    )
+    if cur.rowcount == 0:
+        return error_response(404, 'Folder not found or access denied')
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return success_response({'renamed': True, 'folder_name': folder_name})
 
 
 _cors_headers = {'Access-Control-Allow-Origin': '*'}
