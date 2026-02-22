@@ -148,13 +148,8 @@ export default function GalleryPhotoViewer({
   }, []);
 
   const handleDoubleTap = useCallback(() => {
-    if (isFullscreen) {
-      exitFullscreen();
-    } else {
-      enterFullscreen();
-      setShowUI(false);
-    }
-  }, [isFullscreen, enterFullscreen, exitFullscreen]);
+    // Double tap only resets zoom, never exits fullscreen
+  }, []);
 
   const {
     zoom,
@@ -382,6 +377,21 @@ export default function GalleryPhotoViewer({
             </button>
           )}
         </div>
+
+        {/* Кнопка полного экрана — правый нижний угол */}
+        <button
+          onClick={() => isFullscreen ? exitFullscreen() : enterFullscreen()}
+          className="absolute z-50 flex items-center justify-center rounded-full bg-black/40 active:bg-black/70 backdrop-blur-sm transition-all"
+          style={{
+            width: 44,
+            height: 44,
+            right: 12,
+            bottom: 'max(12px, env(safe-area-inset-bottom))',
+          }}
+          title={isFullscreen ? 'Выйти из полного экрана' : 'Полный экран'}
+        >
+          <Icon name={isFullscreen ? 'Minimize2' : 'Maximize2'} size={20} className="text-white" />
+        </button>
 
         {/* Нижняя панель с информацией */}
         <div 

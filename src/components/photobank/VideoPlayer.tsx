@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import '@videojs/themes/dist/fantasy/index.css';
@@ -32,7 +32,39 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [lastTap, setLastTap] = useState<{ time: number; x: number } | null>(null);
+
+  type ExtEl = HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> };
+  type ExtDoc = Document & { webkitExitFullscreen?: () => Promise<void>; webkitFullscreenElement?: Element | null };
+
+  const enterFullscreen = useCallback(async () => {
+    const el = containerRef.current as ExtEl | null;
+    if (!el) return;
+    if (el.requestFullscreen) { el.requestFullscreen().catch(() => {}); }
+    else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen().catch(() => {}); }
+  }, []);
+
+  const exitNativeFullscreen = useCallback(() => {
+    const doc = document as ExtDoc;
+    if (document.exitFullscreen && document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }
+    else if (doc.webkitExitFullscreen && doc.webkitFullscreenElement) { doc.webkitExitFullscreen().catch(() => {}); }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => {
+      const doc = document as ExtDoc;
+      const isFull = !!(document.fullscreenElement || doc.webkitFullscreenElement);
+      setIsNativeFullscreen(isFull);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    };
+  }, []);
   const [useNativePlayer, setUseNativePlayer] = useState(false);
   const [hasDecodeError, setHasDecodeError] = useState(false);
   const [corruptedSegments, setCorruptedSegments] = useState<Array<{start: number, end: number}>>([]);
@@ -285,7 +317,7 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
   // Нативный HTML5 плеер для мобильных устройств и fallback
   if (useNativePlayer) {
     return (
-      <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      <div ref={containerRef} className="fixed inset-0 bg-black z-50 flex flex-col">
         <div className="flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,env(safe-area-inset-top))] bg-gradient-to-b from-black/80 to-transparent shrink-0">
           <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
             <Icon name="Video" className="text-white shrink-0" size={isMobile ? 20 : 24} />
@@ -364,6 +396,16 @@ export default function VideoPlayer({ src, poster, onClose, fileName, downloadDi
             </video>
           )}
         </div>
+
+        {/* Кнопка полного экрана — правый нижний угол */}
+        <button
+          onClick={() => isNativeFullscreen ? exitNativeFullscreen() : enterFullscreen()}
+          className="absolute z-50 flex items-center justify-center rounded-full bg-black/40 active:bg-black/70 backdrop-blur-sm transition-all"
+          style={{ width: 44, height: 44, right: 12, bottom: 'max(12px, env(safe-area-inset-bottom))' }}
+          title={isNativeFullscreen ? 'Выйти из полного экрана' : 'Полный экран'}
+        >
+          <Icon name={isNativeFullscreen ? 'Minimize2' : 'Maximize2'} size={20} className="text-white" />
+        </button>
       </div>
     );
   }
