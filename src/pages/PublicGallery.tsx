@@ -86,7 +86,7 @@ export default function PublicGallery() {
   }>>(gallery?.client_upload_folders || []);
 
   useEffect(() => {
-    if (gallery?.client_upload_folders) {
+    if (gallery?.client_upload_folders && state.clientData?.client_id) {
       setClientUploadFolders(gallery.client_upload_folders);
     }
   }, [gallery?.client_upload_folders]);
