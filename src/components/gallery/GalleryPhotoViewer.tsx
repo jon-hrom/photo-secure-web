@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Icon from '@/components/ui/icon';
@@ -59,6 +59,14 @@ export default function GalleryPhotoViewer({
   const [showFullImage, setShowFullImage] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
 
+  // Fullscreen / UI visibility state
+  const [isFullscreen, setIsFullscreen] = useState(
+    () => window.matchMedia('(orientation: landscape)').matches
+  );
+  const [showUI, setShowUI] = useState(
+    () => !window.matchMedia('(orientation: landscape)').matches
+  );
+
   const handleCloseHelp = () => {
     localStorage.setItem('gallery-help-seen', 'true');
     setShowHelp(false);
@@ -72,6 +80,34 @@ export default function GalleryPhotoViewer({
       setCurrentIndex(newIndex);
     }
   };
+
+  // Detect orientation change → auto fullscreen in landscape
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: landscape)');
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        setIsFullscreen(true);
+        setShowUI(false);
+      } else {
+        setIsFullscreen(false);
+        setShowUI(true);
+      }
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const handleSingleTap = useCallback(() => {
+    setShowUI(prev => !prev);
+  }, []);
+
+  const handleDoubleTap = useCallback(() => {
+    setIsFullscreen(prev => {
+      const next = !prev;
+      setShowUI(!next);
+      return next;
+    });
+  }, []);
 
   const {
     zoom,
@@ -89,18 +125,27 @@ export default function GalleryPhotoViewer({
     currentPhoto,
     photos,
     currentIndex,
-    onNavigate: handleNavigate
+    onNavigate: handleNavigate,
+    onSingleTap: handleSingleTap,
+    onDoubleTap: handleDoubleTap,
   });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+          setShowUI(true);
+        } else {
+          onClose();
+        }
+      }
       if (e.key === 'ArrowLeft') handleNavigate('prev');
       if (e.key === 'ArrowRight') handleNavigate('next');
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex]);
+  }, [currentIndex, isFullscreen]);
 
   // Reset image quality state when photo changes
   useEffect(() => {
@@ -143,10 +188,7 @@ export default function GalleryPhotoViewer({
 
   if (currentPhoto.is_video) {
     console.log('[GALLERY_PHOTO_VIEWER] Opening video:', currentPhoto);
-    
-    // Для видео используем photo_url (это оригинальный файл с CDN)
     const videoSrc = currentPhoto.photo_url;
-    
     return (
       <VideoPlayer
         src={videoSrc}
@@ -158,11 +200,15 @@ export default function GalleryPhotoViewer({
     );
   }
 
+  // In fullscreen: photo fills entire screen, object-fit: contain, no padding
+  const imgMaxWidth = isFullscreen ? '100vw' : (zoom === 0 ? '96vw' : '100%');
+  const imgMaxHeight = isFullscreen ? '100vh' : (zoom === 0 ? 'calc(100vh - 100px)' : '100vh');
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent 
         hideCloseButton 
-        className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none" 
+        className="max-w-full max-h-full w-full h-full p-0 bg-black border-0 rounded-none" 
         style={{ touchAction: 'none' }}
       >
         <VisuallyHidden>
@@ -170,8 +216,14 @@ export default function GalleryPhotoViewer({
         </VisuallyHidden>
 
         {/* Верхняя панель */}
-        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 z-50"
-          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+        <div 
+          className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 z-50 transition-opacity duration-300"
+          style={{ 
+            paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+            opacity: showUI ? 1 : 0,
+            pointerEvents: showUI ? 'auto' : 'none'
+          }}
+        >
           <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-2">
             <div className="text-white/80 text-xs bg-black/40 backdrop-blur-sm px-2.5 py-1.5 rounded-full flex-shrink-0">
               {currentIndex + 1} / {photos.length}
@@ -181,6 +233,16 @@ export default function GalleryPhotoViewer({
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            {isFullscreen && (
+              <button
+                onClick={() => { setIsFullscreen(false); setShowUI(true); }}
+                className="flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all"
+                style={{ width: 44, height: 44 }}
+                title="Выйти из полного экрана"
+              >
+                <Icon name="Minimize2" size={20} className="text-white" />
+              </button>
+            )}
             {zoom > 0 && (
               <button
                 onClick={resetZoom}
@@ -214,7 +276,7 @@ export default function GalleryPhotoViewer({
         {/* Область изображения */}
         <div 
           className="relative w-full h-full flex items-center justify-center overflow-hidden"
-          style={{ cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'), touchAction: 'none' }}
+          style={{ cursor: zoom === 0 ? 'default' : (isDragging ? 'grabbing' : 'grab'), touchAction: 'none' }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -231,9 +293,11 @@ export default function GalleryPhotoViewer({
               transform: zoom > 0 
                 ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)` 
                 : 'none',
-              maxWidth: zoom === 0 ? '96vw' : '100%',
-              maxHeight: zoom === 0 ? 'calc(100vh - 100px)' : '100vh',
-              transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
+              maxWidth: imgMaxWidth,
+              maxHeight: imgMaxHeight,
+              width: isFullscreen ? '100vw' : undefined,
+              height: isFullscreen ? '100vh' : undefined,
+              transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out, max-width 0.3s ease, max-height 0.3s ease'),
               touchAction: 'none',
               pointerEvents: 'none'
             }}
@@ -248,29 +312,39 @@ export default function GalleryPhotoViewer({
         </div>
 
         {/* Кнопки навигации */}
-        {currentIndex > 0 && (
-          <button
-            onClick={() => handleNavigate('prev')}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
-            style={{ width: 44, height: 44 }}
-          >
-            <Icon name="ChevronLeft" size={26} className="text-white" />
-          </button>
-        )}
-
-        {currentIndex < photos.length - 1 && (
-          <button
-            onClick={() => handleNavigate('next')}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
-            style={{ width: 44, height: 44 }}
-          >
-            <Icon name="ChevronRight" size={28} className="text-white" />
-          </button>
-        )}
+        <div
+          className="transition-opacity duration-300"
+          style={{ opacity: showUI ? 1 : 0, pointerEvents: showUI ? 'auto' : 'none' }}
+        >
+          {currentIndex > 0 && (
+            <button
+              onClick={() => handleNavigate('prev')}
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
+              style={{ width: 44, height: 44 }}
+            >
+              <Icon name="ChevronLeft" size={26} className="text-white" />
+            </button>
+          )}
+          {currentIndex < photos.length - 1 && (
+            <button
+              onClick={() => handleNavigate('next')}
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
+              style={{ width: 44, height: 44 }}
+            >
+              <Icon name="ChevronRight" size={28} className="text-white" />
+            </button>
+          )}
+        </div>
 
         {/* Нижняя панель с информацией */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pt-8"
-          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div 
+          className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pt-8 transition-opacity duration-300"
+          style={{ 
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+            opacity: showUI ? 1 : 0,
+            pointerEvents: showUI ? 'auto' : 'none'
+          }}
+        >
           <p className="text-white font-medium text-base mb-1 truncate">{currentPhoto.file_name}</p>
           <div className="flex items-center gap-4 text-white/60 text-xs">
             {currentPhoto.file_size && <span>{(currentPhoto.file_size / 1024 / 1024).toFixed(2)} МБ</span>}
@@ -306,12 +380,22 @@ export default function GalleryPhotoViewer({
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="ArrowUp" size={20} className="text-green-600" />
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <Icon name="Hand" size={20} className="text-gray-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Свайп вверх</p>
-                    <p className="text-sm text-gray-600">Увеличить фото (300%)</p>
+                    <p className="font-medium text-gray-900">Один тап</p>
+                    <p className="text-sm text-gray-600">Скрыть / показать кнопки управления</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <Icon name="Maximize2" size={20} className="text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Два тапа</p>
+                    <p className="text-sm text-gray-600">Полный экран / выйти из полного экрана</p>
                   </div>
                 </div>
 
@@ -327,21 +411,21 @@ export default function GalleryPhotoViewer({
 
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="Move" size={20} className="text-orange-600" />
+                    <Icon name="Smartphone" size={20} className="text-orange-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Перетаскивание</p>
-                    <p className="text-sm text-gray-600">Перемещайте увеличенное фото пальцем</p>
+                    <p className="font-medium text-gray-900">Поворот телефона</p>
+                    <p className="text-sm text-gray-600">Горизонтально — автоматически полный экран</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                    <Icon name="ArrowDown" size={20} className="text-red-600" />
+                    <Icon name="X" size={20} className="text-red-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Уменьшить</p>
-                    <p className="text-sm text-gray-600">Свайп вниз с верхней части экрана или двойной тап</p>
+                    <p className="font-medium text-gray-900">Крестик (правый верхний угол)</p>
+                    <p className="text-sm text-gray-600">Выйти из полного экрана или закрыть просмотр</p>
                   </div>
                 </div>
               </div>
@@ -392,39 +476,58 @@ export default function GalleryPhotoViewer({
                     }}
                     className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                   >
-                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                      <Icon name="Smartphone" size={20} className="text-blue-600" />
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                      <Icon name="Image" size={20} className="text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900 dark:text-white">Для соцсетей</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Оптимизировано, до 1200px</div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">Веб-версия</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Оптимизированное для интернета</p>
                     </div>
                   </button>
                 )}
-                
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowDownloadModal(false);
-                    if (onDownload) onDownload(currentPhoto);
+                    if (onDownload) {
+                      onDownload(currentPhoto);
+                    } else {
+                      try {
+                        const response = await fetch(currentPhoto.photo_url);
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = currentPhoto.file_name;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                      } catch {
+                        const a = document.createElement('a');
+                        a.href = currentPhoto.photo_url;
+                        a.download = currentPhoto.file_name;
+                        a.target = '_blank';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }
+                    }
                   }}
                   className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                 >
-                  <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0">
-                    <Icon name="Printer" size={20} className="text-purple-600" />
+                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+                    <Icon name="Download" size={20} className="text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <div className="font-medium text-gray-900 dark:text-white">Для печати (оригинал)</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Полное качество{currentPhoto.width && currentPhoto.height ? `, ${currentPhoto.width}x${currentPhoto.height}` : ''}
-                      {currentPhoto.file_size ? ` · ${(currentPhoto.file_size / 1024 / 1024).toFixed(1)} МБ` : ''}
-                    </div>
+                    <p className="font-medium text-gray-900 dark:text-white text-sm">Оригинал</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Полное качество, оригинальный файл</p>
                   </div>
                 </button>
               </div>
-              
+
               <button
                 onClick={() => setShowDownloadModal(false)}
-                className="w-full mt-4 py-2.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                className="mt-4 w-full text-center text-sm text-gray-500 dark:text-gray-400 py-2"
               >
                 Отмена
               </button>

@@ -35,17 +35,23 @@ interface UseGalleryGesturesProps {
   photos: Photo[];
   currentIndex: number;
   onNavigate: (direction: 'prev' | 'next') => void;
+  onSingleTap?: () => void;
+  onDoubleTap?: () => void;
 }
 
 export const useGalleryGestures = ({
   currentPhoto,
   photos,
   currentIndex,
-  onNavigate
+  onNavigate,
+  onSingleTap,
+  onDoubleTap,
 }: UseGalleryGesturesProps): GestureState & GestureHandlers => {
   const [zoom, setZoom] = useState(0);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
   const [lastTapTime, setLastTapTime] = useState(0);
+  const lastTapTimeRef = useRef(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isZooming, setIsZooming] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -160,17 +166,30 @@ export const useGalleryGestures = ({
 
     const now = Date.now();
     if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
-      if (now - lastTapTime < 300) {
+      if (now - lastTapTimeRef.current < 300) {
+        // Double tap
+        if (singleTapTimerRef.current) {
+          clearTimeout(singleTapTimerRef.current);
+          singleTapTimerRef.current = null;
+        }
         setZoom(0);
         setPanOffset({ x: 0, y: 0 });
+        lastTapTimeRef.current = 0;
         setLastTapTime(0);
         setTouchStart(null);
         setDragStart(null);
+        onDoubleTap?.();
         return;
       }
+      lastTapTimeRef.current = now;
       setLastTapTime(now);
       setTouchStart(null);
       setDragStart(null);
+      // Single tap: fire after delay if no second tap follows
+      singleTapTimerRef.current = setTimeout(() => {
+        singleTapTimerRef.current = null;
+        onSingleTap?.();
+      }, 310);
       return;
     }
 
@@ -237,7 +256,7 @@ export const useGalleryGestures = ({
 
     setTouchStart(null);
     setDragStart(null);
-  }, [touchStart, currentPhoto, zoom, lastTapTime, hasPrev, hasNext, onNavigate]);
+  }, [touchStart, currentPhoto, zoom, lastTapTime, hasPrev, hasNext, onNavigate, onSingleTap, onDoubleTap]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const currentZoom = zoomRef.current;
