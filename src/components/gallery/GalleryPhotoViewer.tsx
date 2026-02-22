@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Icon from '@/components/ui/icon';
@@ -59,13 +59,9 @@ export default function GalleryPhotoViewer({
   const [showFullImage, setShowFullImage] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
 
-  // Fullscreen / UI visibility state
-  const [isFullscreen, setIsFullscreen] = useState(
-    () => window.matchMedia('(orientation: landscape)').matches
-  );
-  const [showUI, setShowUI] = useState(
-    () => !window.matchMedia('(orientation: landscape)').matches
-  );
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showUI, setShowUI] = useState(true);
 
   const handleCloseHelp = () => {
     localStorage.setItem('gallery-help-seen', 'true');
@@ -81,33 +77,84 @@ export default function GalleryPhotoViewer({
     }
   };
 
-  // Detect orientation change → auto fullscreen in landscape
+  // Helpers: enter / exit real fullscreen
+  type ExtendedElement = HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> };
+  type ExtendedDocument = Document & {
+    webkitExitFullscreen?: () => Promise<void>;
+    webkitFullscreenElement?: Element | null;
+  };
+
+  const enterFullscreen = useCallback(async () => {
+    const el = containerRef.current as ExtendedElement | null;
+    if (!el) return;
+    try {
+      if (el.requestFullscreen) {
+        await el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        await el.webkitRequestFullscreen();
+      }
+    } catch (_) { /* browser denied */ }
+  }, []);
+
+  const exitFullscreen = useCallback(async () => {
+    const doc = document as ExtendedDocument;
+    try {
+      if (document.exitFullscreen && document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (doc.webkitExitFullscreen && doc.webkitFullscreenElement) {
+        await doc.webkitExitFullscreen();
+      }
+    } catch (_) { /* ignore */ }
+  }, []);
+
+  // Sync isFullscreen state with native fullscreen events
+  useEffect(() => {
+    const onFsChange = () => {
+      const doc = document as ExtendedDocument;
+      const isFull = !!(document.fullscreenElement || doc.webkitFullscreenElement);
+      setIsFullscreen(isFull);
+      if (!isFull) setShowUI(true);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    };
+  }, []);
+
+  // Auto fullscreen on landscape orientation
   useEffect(() => {
     const mq = window.matchMedia('(orientation: landscape)');
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) {
-        setIsFullscreen(true);
+        enterFullscreen();
         setShowUI(false);
       } else {
-        setIsFullscreen(false);
-        setShowUI(true);
+        exitFullscreen();
       }
     };
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
-  }, []);
+  }, [enterFullscreen, exitFullscreen]);
+
+  // Exit fullscreen on unmount
+  useEffect(() => {
+    return () => { exitFullscreen(); };
+  }, [exitFullscreen]);
 
   const handleSingleTap = useCallback(() => {
     setShowUI(prev => !prev);
   }, []);
 
   const handleDoubleTap = useCallback(() => {
-    setIsFullscreen(prev => {
-      const next = !prev;
-      setShowUI(!next);
-      return next;
-    });
-  }, []);
+    if (isFullscreen) {
+      exitFullscreen();
+    } else {
+      enterFullscreen();
+      setShowUI(false);
+    }
+  }, [isFullscreen, enterFullscreen, exitFullscreen]);
 
   const {
     zoom,
@@ -134,8 +181,7 @@ export default function GalleryPhotoViewer({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (isFullscreen) {
-          setIsFullscreen(false);
-          setShowUI(true);
+          exitFullscreen();
         } else {
           onClose();
         }
@@ -214,6 +260,7 @@ export default function GalleryPhotoViewer({
         <VisuallyHidden>
           <DialogTitle>Просмотр фото {currentPhoto.file_name}</DialogTitle>
         </VisuallyHidden>
+        <div ref={containerRef} className="absolute inset-0 bg-black" style={{ touchAction: 'none' }}>
 
         {/* Верхняя панель */}
         <div 
@@ -235,7 +282,7 @@ export default function GalleryPhotoViewer({
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {isFullscreen && (
               <button
-                onClick={() => { setIsFullscreen(false); setShowUI(true); }}
+                onClick={() => exitFullscreen()}
                 className="flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all"
                 style={{ width: 44, height: 44 }}
                 title="Выйти из полного экрана"
@@ -534,6 +581,7 @@ export default function GalleryPhotoViewer({
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
