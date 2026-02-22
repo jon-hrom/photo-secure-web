@@ -761,6 +761,7 @@ def client_delete_photo(cur, conn, data):
 
 def list_client_folders(cur, conn, data):
     short_code = data.get('short_code')
+    client_id = data.get('client_id')
     if not short_code:
         return error_response(400, 'short_code required')
     
@@ -769,25 +770,52 @@ def list_client_folders(cur, conn, data):
         return error_response(404, 'Gallery not found')
     
     link_id, folder_id = link
-    
-    cur.execute(
-        f"""
-        SELECT cuf.id, cuf.folder_name, cuf.client_name, cuf.photo_count, cuf.created_at
-        FROM {SCHEMA}.client_upload_folders cuf
-        WHERE cuf.parent_folder_id = %s AND cuf.short_link_id = %s
-        ORDER BY cuf.created_at DESC
-        """,
-        (folder_id, link_id)
-    )
-    folders = []
-    for row in cur.fetchall():
-        folders.append({
-            'id': row[0],
-            'folder_name': row[1],
-            'client_name': row[2],
-            'photo_count': row[3],
-            'created_at': row[4].isoformat() if row[4] else None
-        })
+
+    try:
+        client_id_int = int(client_id) if client_id else None
+    except (ValueError, TypeError):
+        client_id_int = None
+
+    if client_id_int:
+        cur.execute(
+            f"""
+            SELECT cuf.id, cuf.folder_name, cuf.client_name, cuf.photo_count, cuf.created_at, cuf.client_id
+            FROM {SCHEMA}.client_upload_folders cuf
+            WHERE cuf.parent_folder_id = %s AND cuf.short_link_id = %s AND cuf.client_id = %s
+            ORDER BY cuf.created_at DESC
+            """,
+            (folder_id, link_id, client_id_int)
+        )
+        folders = []
+        for row in cur.fetchall():
+            folders.append({
+                'id': row[0],
+                'folder_name': row[1],
+                'client_name': row[2],
+                'photo_count': row[3],
+                'created_at': row[4].isoformat() if row[4] else None,
+                'is_own': True
+            })
+    else:
+        cur.execute(
+            f"""
+            SELECT cuf.id, cuf.folder_name, cuf.client_name, cuf.photo_count, cuf.created_at
+            FROM {SCHEMA}.client_upload_folders cuf
+            WHERE cuf.parent_folder_id = %s AND cuf.short_link_id = %s
+            ORDER BY cuf.created_at DESC
+            """,
+            (folder_id, link_id)
+        )
+        folders = []
+        for row in cur.fetchall():
+            folders.append({
+                'id': row[0],
+                'folder_name': row[1],
+                'client_name': row[2],
+                'photo_count': row[3],
+                'created_at': row[4].isoformat() if row[4] else None,
+                'is_own': False
+            })
     
     cur.close()
     conn.close()

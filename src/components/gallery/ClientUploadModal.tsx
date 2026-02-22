@@ -94,17 +94,35 @@ export default function ClientUploadModal({
 
   const [isDragOver, setIsDragOver] = useState(false);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const [checkingOwnFolder, setCheckingOwnFolder] = useState(false);
 
-  // При открытии — если есть своя папка, сразу открываем её
-  const hasAutoOpened = useRef(false);
+  // При открытии — загружаем папки с client_id и сразу открываем свою
   useEffect(() => {
-    if (!isOpen || hasAutoOpened.current) return;
-    const ownFolders = existingFolders.filter(f => f.is_own !== false);
-    if (ownFolders.length > 0) {
-      hasAutoOpened.current = true;
-      handleSelectFolder(ownFolders[0]);
-    }
-  }, [isOpen, existingFolders]);
+    if (!isOpen) return;
+    setStep('folders');
+    setCheckingOwnFolder(true);
+
+    fetch(CLIENT_UPLOAD_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'list_folders',
+        short_code: shortCode,
+        client_id: clientId
+      })
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const folders: ClientUploadFolder[] = data?.folders || [];
+        onFoldersUpdate(folders);
+        const ownFolder = folders.find(f => f.is_own !== false);
+        if (ownFolder) {
+          handleSelectFolder(ownFolder);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCheckingOwnFolder(false));
+  }, [isOpen]);
 
   const loadFolderPhotos = useCallback(async (folderId: number) => {
     setLoadingPhotos(true);
@@ -348,13 +366,19 @@ export default function ClientUploadModal({
                 : `Загрузка в "${activeFolderName}"`}
             </h2>
           </div>
-          <button onClick={() => { hasAutoOpened.current = false; onClose(); }} className={`p-2 rounded-lg transition-colors ${isDarkTheme ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
+          <button onClick={() => { onClose(); }} className={`p-2 rounded-lg transition-colors ${isDarkTheme ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
             <Icon name="X" size={20} />
           </button>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4">
-          {step === 'folders' && (
+          {checkingOwnFolder && (
+            <div className="flex items-center justify-center py-12">
+              <Icon name="Loader2" size={28} className="animate-spin text-gray-400" />
+            </div>
+          )}
+
+          {!checkingOwnFolder && step === 'folders' && (
             <>
               <p className={`text-sm ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>
                 Создайте папку и загрузите свои фото. Фотограф увидит вашу папку отдельно от своих фото.
