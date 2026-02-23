@@ -56,10 +56,10 @@ const LocationWarningBanner = ({ userId, onNavigateToSettings }: LocationWarning
         <div className="space-y-3">
           <div>
             <p className="font-semibold text-orange-900 mb-1">
-              Укажите ваш город в настройках
+              Укажите ваш регион в настройках
             </p>
             <p className="text-sm text-orange-700">
-              Это необходимо для правильной работы системы клиентов. Укажите область и город, где вы работаете.
+              Без региона уведомления будут приходить по московскому времени. Укажите область — и время в сообщениях будет вашим.
             </p>
           </div>
           <div className="flex gap-2">
@@ -76,7 +76,7 @@ const LocationWarningBanner = ({ userId, onNavigateToSettings }: LocationWarning
               onClick={handleNavigate}
               className="bg-orange-600 hover:bg-orange-700 text-white"
             >
-              Перейти в настройки
+              Указать регион
             </Button>
           </div>
         </div>

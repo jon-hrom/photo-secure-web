@@ -197,7 +197,16 @@ const ContactInfoCard = ({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-sm md:text-base text-gray-900 dark:text-gray-100">Местоположение</Label>
+          <div className="flex items-center gap-1">
+            <Label className="text-sm md:text-base text-gray-900 dark:text-gray-100">Местоположение</Label>
+            <span className="text-red-500 text-sm">*</span>
+          </div>
+          {!settings.region && (
+            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-3 py-2 rounded-lg">
+              <Icon name="AlertTriangle" size={14} />
+              <span>Укажите регион — это нужно для корректного времени в уведомлениях</span>
+            </div>
+          )}
           <LocationSelector
             country={settings.country || 'Россия'}
             region={settings.region || ''}
