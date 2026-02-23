@@ -5,7 +5,7 @@ import boto3
 import base64
 import uuid
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def handler(event: dict, context) -> dict:
     '''API для работы с сообщениями между клиентом и фотографом. Включает отправку уведомлений на email и WhatsApp.'''
