@@ -277,7 +277,7 @@ export default function ChatModal({
         loadMessages(true);
         markAsRead();
         checkOpponentTyping();
-      }, 3000);
+      }, 6000);
       
       return () => {
         clearInterval(interval);

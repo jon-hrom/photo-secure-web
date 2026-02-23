@@ -563,7 +563,7 @@ def handler(event: dict, context) -> dict:
             
             # Отправляем уведомления фотографу если сообщение от клиента
             if sender_type == 'client':
-                print(f'[NOTIFICATION] Client message detected, sender_type={sender_type}', flush=True)
+                print(f'===NOTIF=== START msg_id={message_id} client={client_id} photographer={photographer_id}', flush=True)
                 try:
                     from datetime import timezone as tz
                     
@@ -577,7 +577,7 @@ def handler(event: dict, context) -> dict:
                     ''', (photographer_id,))
                     
                     photographer_data = cur.fetchone()
-                    print(f'[NOTIFICATION] Photographer data: {photographer_data}', flush=True)
+                    print(f'===NOTIF=== photographer_data={photographer_data}', flush=True)
                     if photographer_data:
                         photographer_email = photographer_data[0]
                         photographer_name = photographer_data[1] or 'Фотограф'
@@ -597,7 +597,7 @@ def handler(event: dict, context) -> dict:
                             last_seen_naive = photographer_last_seen
                             diff_seconds = (now_utc - last_seen_naive).total_seconds()
                             photographer_is_online = diff_seconds < 300  # 5 минут
-                            print(f'[NOTIFICATION] Photographer last_seen={photographer_last_seen}, diff={diff_seconds:.0f}s, online={photographer_is_online}', flush=True)
+                            print(f'===NOTIF=== last_seen={photographer_last_seen}, diff={diff_seconds:.0f}s, online={photographer_is_online}', flush=True)
                         else:
                             print(f'[NOTIFICATION] Photographer never seen online', flush=True)
                         
@@ -738,13 +738,13 @@ def handler(event: dict, context) -> dict:
                         max_token = os.environ.get('MAX_TOKEN', '')
                         
                         if photographer_is_online:
-                            print(f'[NOTIFICATION] Photographer is ONLINE — skipping MAX notification', flush=True)
+                            print(f'===NOTIF=== ONLINE — skip MAX', flush=True)
                         elif not photographer_phone:
-                            print(f'[NOTIFICATION] No phone number for MAX', flush=True)
+                            print(f'===NOTIF=== NO PHONE — skip MAX', flush=True)
                         elif not max_instance_id or not max_token:
-                            print(f'[NOTIFICATION] MAX admin credentials not configured', flush=True)
+                            print(f'===NOTIF=== NO MAX CREDS instance={bool(max_instance_id)} token={bool(max_token)}', flush=True)
                         else:
-                            print(f'[NOTIFICATION] Photographer is OFFLINE — sending MAX to {photographer_phone}', flush=True)
+                            print(f'===NOTIF=== OFFLINE — sending MAX to phone={photographer_phone}', flush=True)
                             try:
                                 import requests as req
                                 
@@ -778,15 +778,15 @@ def handler(event: dict, context) -> dict:
                                     "chatId": f"{clean_phone}@c.us",
                                     "message": whatsapp_text
                                 }
-                                print(f'[NOTIFICATION] GREEN-API URL: {green_url}, chatId: {clean_phone}@c.us', flush=True)
+                                print(f'===NOTIF=== GREEN-API URL={green_url} chatId={clean_phone}@c.us', flush=True)
                                 
                                 green_response = req.post(green_url, json=green_payload, timeout=15)
-                                print(f'[NOTIFICATION] GREEN-API status: {green_response.status_code}, body: {green_response.text[:200]}', flush=True)
+                                print(f'===NOTIF=== GREEN-API status={green_response.status_code} body={green_response.text[:300]}', flush=True)
                                 
                                 if green_response.status_code == 200:
-                                    print(f'[NOTIFICATION] MAX sent successfully to {photographer_phone}', flush=True)
+                                    print(f'===NOTIF=== MAX OK sent to {photographer_phone}', flush=True)
                                 else:
-                                    print(f'[NOTIFICATION] MAX failed: {green_response.status_code} {green_response.text[:200]}', flush=True)
+                                    print(f'===NOTIF=== MAX FAIL {green_response.status_code} {green_response.text[:300]}', flush=True)
                             except Exception as e:
                                 print(f'[NOTIFICATION] MAX error: {str(e)}', flush=True)
                         
