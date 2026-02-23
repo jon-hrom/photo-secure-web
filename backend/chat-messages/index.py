@@ -570,7 +570,8 @@ def handler(event: dict, context) -> dict:
                     # Получаем данные фотографа (включая last_seen_at и GREEN-API credentials)
                     cur.execute('''
                         SELECT u.email, u.display_name, u.phone, u.last_seen_at,
-                               u.green_api_instance_id, u.green_api_token, u.max_connected
+                               u.green_api_instance_id, u.green_api_token, u.max_connected,
+                               u.region
                         FROM t_p28211681_photo_secure_web.users u
                         WHERE u.id = %s
                     ''', (photographer_id,))
@@ -585,6 +586,7 @@ def handler(event: dict, context) -> dict:
                         green_api_instance_id = photographer_data[4]
                         green_api_token = photographer_data[5]
                         max_connected = photographer_data[6]
+                        photographer_region = photographer_data[7] or ''
                         client_name = author_name
                         
                         # Проверяем онлайн-статус фотографа
@@ -746,13 +748,22 @@ def handler(event: dict, context) -> dict:
                             try:
                                 import requests as req
                                 
-                                moscow_time = datetime.utcnow()
-                                try:
-                                    from datetime import timedelta
-                                    moscow_time = datetime.utcnow() + timedelta(hours=3)
-                                except:
-                                    pass
-                                time_str = moscow_time.strftime('%d.%m.%Y %H:%M') + ' (МСК)'
+                                REGION_TIMEZONE = {
+                                    "Калининградская область": 2,
+                                    "Самарская область": 4, "Астраханская область": 4, "Саратовская область": 4, "Удмуртия": 4, "Удмуртская Республика": 4, "Ульяновская область": 4,
+                                    "Башкортостан": 5, "Республика Башкортостан": 5, "Курганская область": 5, "Оренбургская область": 5, "Пермский край": 5, "Свердловская область": 5, "Тюменская область": 5, "Челябинская область": 5, "Ханты-Мансийский автономный округ": 5, "Ямало-Ненецкий автономный округ": 5,
+                                    "Омская область": 6,
+                                    "Алтайский край": 7, "Республика Алтай": 7, "Кемеровская область": 7, "Новосибирская область": 7, "Томская область": 7, "Красноярский край": 7, "Тыва": 7, "Республика Тыва": 7, "Хакасия": 7, "Республика Хакасия": 7,
+                                    "Иркутская область": 8, "Бурятия": 8, "Республика Бурятия": 8,
+                                    "Забайкальский край": 9, "Амурская область": 9, "Саха (Якутия)": 9, "Республика Саха (Якутия)": 9,
+                                    "Еврейская автономная область": 10, "Приморский край": 10, "Хабаровский край": 10,
+                                    "Магаданская область": 11, "Сахалинская область": 11,
+                                    "Камчатский край": 12, "Чукотский автономный округ": 12,
+                                }
+                                offset_hours = REGION_TIMEZONE.get(photographer_region, 3)
+                                local_time = datetime.utcnow() + timedelta(hours=offset_hours)
+                                tz_label = f"UTC+{offset_hours}" if offset_hours != 3 else "МСК"
+                                time_str = local_time.strftime('%d.%m.%Y %H:%M') + f' ({tz_label})'
                                 
                                 whatsapp_text = f'📬 *Новое сообщение в Foto-Mix*\n🕐 *Время:* {time_str}\n\n{client_info_str}\n📁 *Проект:* {folder_name}\n\n💬 *Сообщение:*\n{message_preview}\n\n➡️ Войдите на foto-mix.ru чтобы ответить клиенту'
                                 
