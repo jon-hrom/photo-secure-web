@@ -569,7 +569,7 @@ def handler(event: dict, context) -> dict:
                     
                     # Получаем данные фотографа (включая last_seen_at для проверки онлайн-статуса)
                     cur.execute('''
-                        SELECT u.email, u.username, u.phone, u.last_seen_at
+                        SELECT u.email, u.display_name, u.phone, u.last_seen_at
                         FROM t_p28211681_photo_secure_web.users u
                         WHERE u.id = %s
                     ''', (photographer_id,))
