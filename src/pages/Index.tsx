@@ -58,6 +58,7 @@ const Index = () => {
     setShowEmailVerification,
     emailVerified,
     setEmailVerified,
+    verificationChecked,
     hasEmail,
     hasVerifiedPhone,
   } = useVerificationChecks({
@@ -272,6 +273,7 @@ const Index = () => {
         setShowEmailVerification={setShowEmailVerification}
         emailVerified={emailVerified}
         setEmailVerified={setEmailVerified}
+        verificationChecked={verificationChecked}
         hasEmail={hasEmail}
         hasVerifiedPhone={hasVerifiedPhone}
         onLogout={handleLogout}

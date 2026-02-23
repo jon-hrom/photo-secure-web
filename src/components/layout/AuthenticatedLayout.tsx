@@ -36,6 +36,7 @@ interface AuthenticatedLayoutProps {
   setShowEmailVerification: (show: boolean) => void;
   emailVerified: boolean;
   setEmailVerified: (verified: boolean) => void;
+  verificationChecked: boolean;
   hasEmail: boolean;
   hasVerifiedPhone: boolean;
   onLogout: () => void;
@@ -58,6 +59,7 @@ const AuthenticatedLayout = ({
   setShowEmailVerification,
   emailVerified,
   setEmailVerified,
+  verificationChecked,
   hasEmail,
   hasVerifiedPhone,
   onLogout,
@@ -115,7 +117,7 @@ const AuthenticatedLayout = ({
       )}
 
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
-        {!emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (
+        {verificationChecked && !emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (
           <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="mt-0.5">

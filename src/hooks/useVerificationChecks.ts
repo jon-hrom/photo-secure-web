@@ -15,7 +15,8 @@ export const useVerificationChecks = ({
   isAdmin 
 }: UseVerificationChecksProps) => {
   const [showEmailVerification, setShowEmailVerification] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(true);
+  const [verificationChecked, setVerificationChecked] = useState(false);
   const [userSource, setUserSource] = useState<'email' | 'vk' | 'google' | 'yandex'>('email');
   const [hasEmail, setHasEmail] = useState(true);
   const [hasVerifiedPhone, setHasVerifiedPhone] = useState(false);
@@ -68,13 +69,13 @@ export const useVerificationChecks = ({
         try {
           const session = JSON.parse(authSession);
           userEmail = session.userEmail;
-        } catch {}
+        } catch (_e) { /* ignore parse error */ }
       }
       
       if (vkUser) {
         try {
           vkUserData = JSON.parse(vkUser);
-        } catch {}
+        } catch (_e) { /* ignore parse error */ }
       }
       
       if (isAdminUser(userEmail, vkUserData)) {
@@ -102,13 +103,18 @@ export const useVerificationChecks = ({
           setEmailVerified(true);
           setShowEmailVerification(false);
           localStorage.removeItem(dismissedKey);
-        } else if (!dismissed && data.email && data.email.trim()) {
-          setShowEmailVerification(true);
         } else {
-          setShowEmailVerification(false);
+          setEmailVerified(false);
+          if (!dismissed && data.email && data.email.trim()) {
+            setShowEmailVerification(true);
+          } else {
+            setShowEmailVerification(false);
+          }
         }
+        setVerificationChecked(true);
       } catch (err) {
         console.error('Failed to check email verification:', err);
+        setVerificationChecked(true);
       }
     };
     
@@ -120,6 +126,7 @@ export const useVerificationChecks = ({
     setShowEmailVerification,
     emailVerified,
     setEmailVerified,
+    verificationChecked,
     userSource,
     hasEmail,
     hasVerifiedPhone
