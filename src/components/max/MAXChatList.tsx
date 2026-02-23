@@ -23,6 +23,8 @@ interface MAXChatListProps {
   onChatSelect: (chat: MAXChat) => void;
   onNewChatClick: () => void;
   formatTime: (dateString: string) => string;
+  isMobile?: boolean;
+  mobileView?: 'list' | 'chat';
 }
 
 const MAXChatList = ({
@@ -33,14 +35,20 @@ const MAXChatList = ({
   onChatSelect,
   onNewChatClick,
   formatTime,
+  isMobile = false,
+  mobileView = 'list',
 }: MAXChatListProps) => {
   const filteredChats = chats.filter(chat => 
     (chat.contact_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (chat.phone_number?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  if (isMobile && mobileView === 'chat') {
+    return null;
+  }
+
   return (
-    <div className="w-1/3 border-r flex flex-col">
+    <div className={isMobile ? 'w-full flex flex-col h-full' : 'w-1/3 border-r flex flex-col'}>
       <DialogHeader className="p-4 border-b">
         <div className="flex items-center justify-between">
           <DialogTitle className="flex items-center gap-3">
@@ -90,7 +98,7 @@ const MAXChatList = ({
               >
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                       <Icon name="User" size={20} className="text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -103,7 +111,7 @@ const MAXChatList = ({
                     </div>
                   </div>
                   {chat.unread_count > 0 && (
-                    <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs border-0">
+                    <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs border-0 flex-shrink-0">
                       {chat.unread_count}
                     </Badge>
                   )}

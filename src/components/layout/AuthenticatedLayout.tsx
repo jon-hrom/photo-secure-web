@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
 import Dashboard from '@/components/Dashboard';
+import MAXMessenger from '@/components/MAXMessenger';
 import ClientsPage from '@/components/ClientsPage';
 import PhotobookPage from '@/components/PhotobookPage';
 import SettingsPage from '@/components/SettingsPage';
@@ -69,6 +71,8 @@ const AuthenticatedLayout = ({
   const [shouldOpenAddClient, setShouldOpenAddClient] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
+  const [showMAXChat, setShowMAXChat] = useState(false);
+  const unreadCount = useUnreadCount(userId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30 dark:via-purple-900/10 dark:to-blue-900/10">
@@ -80,6 +84,8 @@ const AuthenticatedLayout = ({
         userAvatar={userAvatar}
         isVerified={isVerified}
         onLogout={onLogout}
+        unreadCount={unreadCount}
+        onOpenChat={() => setShowMAXChat(true)}
       />
 
       {showEmailVerification && userId && !isAdmin && (
@@ -216,6 +222,14 @@ const AuthenticatedLayout = ({
       </main>
       
       <MobileNavigation onNavigate={setCurrentPage} currentPage={currentPage} />
+
+      {userId && (
+        <MAXMessenger
+          userId={Number(userId)}
+          isOpen={showMAXChat}
+          onClose={() => setShowMAXChat(false)}
+        />
+      )}
     </div>
   );
 };

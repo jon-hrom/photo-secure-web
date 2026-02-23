@@ -8,6 +8,16 @@ import MAXChatList from '@/components/max/MAXChatList';
 import MAXMessageView from '@/components/max/MAXMessageView';
 import MAXNewChatDialog from '@/components/max/MAXNewChatDialog';
 
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isMobile;
+};
+
 interface MAXChat {
   id: number;
   phone_number: string;
@@ -62,8 +72,10 @@ const MAXMessenger = ({ userId, isOpen = false, onClose }: MAXMessengerProps) =>
   const [newChatPhone, setNewChatPhone] = useState('');
   const [newChatName, setNewChatName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileChatView, setMobileChatView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     const createBeep = () => {
@@ -270,6 +282,12 @@ const MAXMessenger = ({ userId, isOpen = false, onClose }: MAXMessengerProps) =>
   const handleChatSelect = (chat: MAXChat) => {
     setSelectedChat(chat);
     fetchMessages(chat.id);
+    if (isMobile) setMobileChatView('chat');
+  };
+
+  const handleMobileBack = () => {
+    setMobileChatView('list');
+    setSelectedChat(null);
   };
 
   const formatTime = (dateString: string) => {
@@ -356,34 +374,45 @@ const MAXMessenger = ({ userId, isOpen = false, onClose }: MAXMessengerProps) =>
 
       <Dialog open={showDialog} onOpenChange={(open) => {
         setShowDialog(open);
-        if (!open && onClose) onClose();
+        if (!open) {
+          setMobileChatView('list');
+          if (onClose) onClose();
+        }
       }}>
-        <DialogContent className="max-w-5xl max-h-[85vh] p-0">
-          <div className="flex h-[80vh]">
-            <MAXChatList
-              chats={chats}
-              selectedChat={selectedChat}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onChatSelect={handleChatSelect}
-              onNewChatClick={() => setShowNewChatDialog(true)}
-              formatTime={formatTime}
-            />
-
-            <div className="flex-1 flex flex-col">
-              <MAXMessageView
+        <DialogContent className={`${isMobile ? 'max-w-full w-full h-[100dvh] max-h-[100dvh] rounded-none m-0 inset-0' : 'max-w-5xl max-h-[85vh]'} p-0`}>
+          <div className={`flex ${isMobile ? 'h-[100dvh]' : 'h-[80vh]'}`}>
+            {(!isMobile || mobileChatView === 'list') && (
+              <MAXChatList
+                chats={chats}
                 selectedChat={selectedChat}
-                messages={messages}
-                loading={loading}
-                messageText={messageText}
-                sending={sending}
-                messagesEndRef={messagesEndRef}
-                onMessageChange={setMessageText}
-                onSendMessage={sendMessage}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onChatSelect={handleChatSelect}
+                onNewChatClick={() => setShowNewChatDialog(true)}
                 formatTime={formatTime}
-                formatDate={formatDate}
+                isMobile={isMobile}
+                mobileView={mobileChatView}
               />
-            </div>
+            )}
+
+            {(!isMobile || mobileChatView === 'chat') && (
+              <div className={`${isMobile ? 'w-full' : 'flex-1'} flex flex-col`}>
+                <MAXMessageView
+                  selectedChat={selectedChat}
+                  messages={messages}
+                  loading={loading}
+                  messageText={messageText}
+                  sending={sending}
+                  messagesEndRef={messagesEndRef}
+                  onMessageChange={setMessageText}
+                  onSendMessage={sendMessage}
+                  formatTime={formatTime}
+                  formatDate={formatDate}
+                  isMobile={isMobile}
+                  onBack={handleMobileBack}
+                />
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

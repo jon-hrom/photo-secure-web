@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -18,6 +19,8 @@ interface AppNavigationProps {
   isVerified: boolean;
   hasVerifiedPhone?: boolean;
   onLogout: () => void;
+  unreadCount?: number;
+  onOpenChat?: () => void;
 }
 
 const AppNavigation = ({
@@ -27,7 +30,9 @@ const AppNavigation = ({
   userEmail,
   userAvatar,
   isVerified,
-  onLogout
+  onLogout,
+  unreadCount = 0,
+  onOpenChat,
 }: AppNavigationProps) => {
   const navigate = useNavigate();
   
@@ -78,7 +83,6 @@ const AppNavigation = ({
                   Фотокниги
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
-                  console.log('[APP_NAV] Navigating to photo-bank from dropdown');
                   navigate('/photo-bank');
                 }} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
                   <Icon name="Images" size={18} className="mr-2" />
@@ -92,11 +96,45 @@ const AppNavigation = ({
                   <Icon name="Settings" size={18} className="mr-2" />
                   Настройки
                 </DropdownMenuItem>
+                {onOpenChat && (
+                  <DropdownMenuItem onClick={onOpenChat} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
+                    <div className="relative mr-2">
+                      <Icon name="Mail" size={18} />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full h-3.5 w-3.5 flex items-center justify-center leading-none">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    Чат с клиентами
+                    {unreadCount > 0 && (
+                      <Badge className="ml-auto bg-red-500 text-white text-xs border-0 h-5 min-w-5 flex items-center justify-center px-1">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
           
           <div className="flex items-center space-x-3">
+            {onOpenChat && (
+              <Button
+                variant="ghost"
+                onClick={onOpenChat}
+                className="relative rounded-full hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-300"
+                title="Чат с клиентами"
+              >
+                <Icon name="Mail" size={20} />
+                {unreadCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 bg-red-500 text-white h-5 min-w-5 flex items-center justify-center p-0 text-xs border-0 animate-pulse">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Badge>
+                )}
+              </Button>
+            )}
+
             <Button
               variant="ghost"
               onClick={() => setCurrentPage('help')}

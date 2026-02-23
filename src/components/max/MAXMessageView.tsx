@@ -33,6 +33,8 @@ interface MAXMessageViewProps {
   onSendMessage: () => void;
   formatTime: (dateString: string) => string;
   formatDate: (dateString: string) => string;
+  isMobile?: boolean;
+  onBack?: () => void;
 }
 
 const MAXMessageView = ({
@@ -46,8 +48,11 @@ const MAXMessageView = ({
   onSendMessage,
   formatTime,
   formatDate,
+  isMobile = false,
+  onBack,
 }: MAXMessageViewProps) => {
   if (!selectedChat) {
+    if (isMobile) return null;
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
         <div className="text-center">
@@ -62,14 +67,24 @@ const MAXMessageView = ({
     <>
       <div className="p-4 border-b bg-gray-50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+          {isMobile && onBack && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="p-1 h-8 w-8 rounded-full flex-shrink-0"
+            >
+              <Icon name="ArrowLeft" size={20} />
+            </Button>
+          )}
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
             <Icon name="User" size={20} className="text-blue-600" />
           </div>
-          <div>
-            <h3 className="font-semibold">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold truncate">
               {selectedChat.contact_name || selectedChat.phone_number}
             </h3>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate">
               {selectedChat.phone_number}
             </p>
           </div>
