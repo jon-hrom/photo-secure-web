@@ -298,7 +298,7 @@ export default function ChatModal({
           <div className="flex items-center gap-2">
             <Icon name="MessageCircle" size={24} className="text-primary" />
             <h2 className="text-xl font-semibold">
-              {senderType === 'photographer' ? clientName || 'Чат с клиентом' : 'Чат с фотографом'}
+              {senderType === 'photographer' ? clientName || 'Чат с клиентом' : 'ЧАТ С ФОТОГРАФОМ'}
             </h2>
           </div>
           <button
@@ -360,7 +360,7 @@ export default function ChatModal({
           <div className="flex items-center gap-2">
             <Icon name="MessageCircle" size={24} className="text-blue-500" />
             <h2 className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white truncate">
-              {senderType === 'photographer' ? clientName || 'Чат с клиентом' : 'Чат с фотографом'}
+              {senderType === 'photographer' ? clientName || 'Чат с клиентом' : 'ЧАТ С ФОТОГРАФОМ'}
             </h2>
           </div>
           <button

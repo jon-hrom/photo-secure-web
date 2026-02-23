@@ -110,6 +110,11 @@ def check_session_in_db(token: str, user_id: int, session_id: str) -> Optional[D
                     expires_at = {escape_sql(new_expires_at.isoformat())}
                 WHERE session_id = {escape_sql(session_id)}
             """)
+            cur.execute(f"""
+                UPDATE {SCHEMA}.users
+                SET last_seen_at = CURRENT_TIMESTAMP
+                WHERE id = {user_id}
+            """)
             conn.commit()
             
             return dict(session)

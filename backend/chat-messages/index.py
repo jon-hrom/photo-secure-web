@@ -565,9 +565,11 @@ def handler(event: dict, context) -> dict:
             if sender_type == 'client':
                 print(f'[NOTIFICATION] Client message detected, sender_type={sender_type}', flush=True)
                 try:
-                    # Получаем данные фотографа и название папки проекта
+                    from datetime import timezone as tz
+                    
+                    # Получаем данные фотографа (включая last_seen_at для проверки онлайн-статуса)
                     cur.execute('''
-                        SELECT u.email, u.username, u.phone
+                        SELECT u.email, u.username, u.phone, u.last_seen_at
                         FROM t_p28211681_photo_secure_web.users u
                         WHERE u.id = %s
                     ''', (photographer_id,))
@@ -578,12 +580,46 @@ def handler(event: dict, context) -> dict:
                         photographer_email = photographer_data[0]
                         photographer_name = photographer_data[1] or 'Фотограф'
                         photographer_phone = photographer_data[2]
+                        photographer_last_seen = photographer_data[3]
                         client_name = author_name
+                        
+                        # Проверяем онлайн-статус фотографа
+                        # Онлайн = last_seen_at было менее 5 минут назад
+                        photographer_is_online = False
+                        if photographer_last_seen:
+                            now_utc = datetime.utcnow()
+                            last_seen_naive = photographer_last_seen
+                            diff_seconds = (now_utc - last_seen_naive).total_seconds()
+                            photographer_is_online = diff_seconds < 300  # 5 минут
+                            print(f'[NOTIFICATION] Photographer last_seen={photographer_last_seen}, diff={diff_seconds:.0f}s, online={photographer_is_online}', flush=True)
+                        else:
+                            print(f'[NOTIFICATION] Photographer never seen online', flush=True)
+                        
+                        # Получаем данные клиента для полного описания в уведомлении
+                        client_phone = None
+                        client_email = None
+                        try:
+                            cur.execute('''
+                                SELECT phone, email FROM t_p28211681_photo_secure_web.clients WHERE id = %s
+                            ''', (client_id,))
+                            client_info = cur.fetchone()
+                            if client_info:
+                                client_phone = client_info[0]
+                                client_email = client_info[1]
+                            else:
+                                cur.execute('''
+                                    SELECT phone, email FROM t_p28211681_photo_secure_web.favorite_clients WHERE id = %s
+                                ''', (client_id,))
+                                client_info = cur.fetchone()
+                                if client_info:
+                                    client_phone = client_info[0]
+                                    client_email = client_info[1]
+                        except Exception as e:
+                            print(f'[NOTIFICATION] Error getting client details: {str(e)}', flush=True)
                         
                         # Находим название папки проекта через которую клиент связался
                         folder_name = 'Проект'
                         try:
-                            # Ищем папку по client_id (если клиент добавлен через интеграцию)
                             cur.execute('''
                                 SELECT f.folder_name
                                 FROM t_p28211681_photo_secure_web.photo_folders f
@@ -594,7 +630,6 @@ def handler(event: dict, context) -> dict:
                             if folder_row:
                                 folder_name = folder_row[0]
                             else:
-                                # Если не нашли по client_id, берём последнюю папку фотографа
                                 cur.execute('''
                                     SELECT folder_name
                                     FROM t_p28211681_photo_secure_web.photo_folders
@@ -611,16 +646,31 @@ def handler(event: dict, context) -> dict:
                         # Формируем текст для уведомлений
                         if message:
                             message_preview = message[:150] + ('...' if len(message) > 150 else '')
-                        elif len(image_urls) > 1:
-                            message_preview = f'Отправил(а) {len(image_urls)} изображений'
+                        elif len(final_image_urls) > 1:
+                            message_preview = f'Отправил(а) {len(final_image_urls)} изображений'
                         else:
                             message_preview = 'Отправил(а) изображение'
                         
-                        # Email уведомление
+                        # Формируем блок с данными клиента
+                        now_str = datetime.utcnow().strftime('%d.%m.%Y %H:%M') + ' UTC'
+                        client_info_lines = [f'👤 *Клиент:* {client_name}']
+                        if client_phone:
+                            client_info_lines.append(f'📞 *Телефон:* {client_phone}')
+                        if client_email:
+                            client_info_lines.append(f'📧 *Email:* {client_email}')
+                        client_info_str = '\n'.join(client_info_lines)
+                        
+                        # Email уведомление (отправляем всегда)
                         if photographer_email:
                             print(f'[NOTIFICATION] Sending email to {photographer_email}', flush=True)
                             try:
                                 from shared_email import send_email
+                                
+                                client_details_html = f'<p style="margin: 0; color: #111827; font-size: 20px; font-weight: 600;">{client_name}</p>'
+                                if client_phone:
+                                    client_details_html += f'<p style="margin: 4px 0 0 0; color: #6b7280; font-size: 14px;">📞 {client_phone}</p>'
+                                if client_email:
+                                    client_details_html += f'<p style="margin: 2px 0 0 0; color: #6b7280; font-size: 14px;">📧 {client_email}</p>'
                                 
                                 html_body = f'''
 <!DOCTYPE html>
@@ -633,12 +683,13 @@ def handler(event: dict, context) -> dict:
     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
             <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">📬 Новое сообщение</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0 0; font-size: 14px;">{now_str}</p>
         </div>
         
         <div style="background-color: white; padding: 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
             <div style="margin-bottom: 25px;">
                 <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">От клиента</p>
-                <p style="margin: 0; color: #111827; font-size: 20px; font-weight: 600;">{client_name}</p>
+                {client_details_html}
             </div>
             
             <div style="margin-bottom: 25px;">
@@ -653,7 +704,7 @@ def handler(event: dict, context) -> dict:
             
             <div style="text-align: center; margin-top: 30px;">
                 <a href="https://foto-mix.ru" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
-                    Открыть Foto-Mix
+                    Открыть Foto-Mix и ответить
                 </a>
             </div>
             
@@ -676,21 +727,23 @@ def handler(event: dict, context) -> dict:
                             except Exception as email_err:
                                 print(f'[NOTIFICATION] Email error: {str(email_err)}', flush=True)
                         
-                        # WhatsApp уведомление через МаКС
-                        if photographer_phone:
-                            print(f'[NOTIFICATION] Sending WhatsApp to {photographer_phone}', flush=True)
+                        # WhatsApp/MAX уведомление — только если фотограф НЕ онлайн
+                        if photographer_is_online:
+                            print(f'[NOTIFICATION] Photographer is ONLINE — skipping MAX notification', flush=True)
+                        elif photographer_phone:
+                            print(f'[NOTIFICATION] Photographer is OFFLINE — sending MAX to {photographer_phone}', flush=True)
                             try:
                                 whatsapp_text = f'''📬 *Новое сообщение в Foto-Mix*
+🕐 *Время:* {now_str}
 
-👤 *От клиента:* {client_name}
+{client_info_str}
 📁 *Проект:* {folder_name}
 
 💬 *Сообщение:*
 {message_preview}
 
-Войдите на foto-mix.ru чтобы ответить'''
+➡️ Войдите на foto-mix.ru чтобы ответить клиенту'''
                                 
-                                # Отправляем через WhatsApp API (МаКС)
                                 import requests
                                 whatsapp_api_url = 'https://functions.poehali.dev/0a053c97-18f2-42c4-95e3-8f02894ee0c1'
                                 whatsapp_response = requests.post(whatsapp_api_url, json={
@@ -699,13 +752,13 @@ def handler(event: dict, context) -> dict:
                                 }, timeout=10)
                                 
                                 if whatsapp_response.status_code == 200:
-                                    print(f'[CHAT] WhatsApp notification sent to {photographer_phone}', flush=True)
+                                    print(f'[CHAT] MAX notification sent to {photographer_phone}', flush=True)
                                 else:
-                                    print(f'[CHAT] WhatsApp notification failed: {whatsapp_response.status_code}', flush=True)
+                                    print(f'[CHAT] MAX notification failed: {whatsapp_response.status_code}', flush=True)
                             except Exception as e:
-                                print(f'[CHAT] WhatsApp notification error: {str(e)}', flush=True)
+                                print(f'[CHAT] MAX notification error: {str(e)}', flush=True)
                         else:
-                            print(f'[NOTIFICATION] No phone number for WhatsApp', flush=True)
+                            print(f'[NOTIFICATION] No phone number for MAX', flush=True)
                         
                 except Exception as e:
                     print(f'[CHAT] Notification error: {str(e)}', flush=True)

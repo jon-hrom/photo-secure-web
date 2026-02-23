@@ -78,7 +78,7 @@ export default function GalleryToolbar({
                 style={{ minWidth: 40, minHeight: 40 }}
               >
                 <Icon name="MessageCircle" size={16} className="flex-shrink-0" />
-                <span className="hidden sm:inline pr-0.5">Написать</span>
+                <span className="hidden sm:inline pr-0.5">Чат</span>
                 {unreadMessagesCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-0.5 shadow-lg">
                     {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
