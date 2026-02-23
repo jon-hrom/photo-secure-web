@@ -567,9 +567,10 @@ def handler(event: dict, context) -> dict:
                 try:
                     from datetime import timezone as tz
                     
-                    # Получаем данные фотографа (включая last_seen_at для проверки онлайн-статуса)
+                    # Получаем данные фотографа (включая last_seen_at и GREEN-API credentials)
                     cur.execute('''
-                        SELECT u.email, u.display_name, u.phone, u.last_seen_at
+                        SELECT u.email, u.display_name, u.phone, u.last_seen_at,
+                               u.green_api_instance_id, u.green_api_token, u.max_connected
                         FROM t_p28211681_photo_secure_web.users u
                         WHERE u.id = %s
                     ''', (photographer_id,))
@@ -581,6 +582,9 @@ def handler(event: dict, context) -> dict:
                         photographer_name = photographer_data[1] or 'Фотограф'
                         photographer_phone = photographer_data[2]
                         photographer_last_seen = photographer_data[3]
+                        green_api_instance_id = photographer_data[4]
+                        green_api_token = photographer_data[5]
+                        max_connected = photographer_data[6]
                         client_name = author_name
                         
                         # Проверяем онлайн-статус фотографа
@@ -727,12 +731,17 @@ def handler(event: dict, context) -> dict:
                             except Exception as email_err:
                                 print(f'[NOTIFICATION] Email error: {str(email_err)}', flush=True)
                         
-                        # WhatsApp/MAX уведомление — только если фотограф НЕ онлайн
+                        # MAX/WhatsApp уведомление — только если фотограф НЕ онлайн
                         if photographer_is_online:
                             print(f'[NOTIFICATION] Photographer is ONLINE — skipping MAX notification', flush=True)
-                        elif photographer_phone:
-                            print(f'[NOTIFICATION] Photographer is OFFLINE — sending MAX to {photographer_phone}', flush=True)
+                        elif not photographer_phone:
+                            print(f'[NOTIFICATION] No phone number for MAX', flush=True)
+                        elif not max_connected or not green_api_instance_id or not green_api_token:
+                            print(f'[NOTIFICATION] MAX not connected for photographer {photographer_id} (max_connected={max_connected})', flush=True)
+                        else:
+                            print(f'[NOTIFICATION] Photographer OFFLINE — sending MAX to {photographer_phone}', flush=True)
                             try:
+                                import requests as req
                                 whatsapp_text = f'''📬 *Новое сообщение в Foto-Mix*
 🕐 *Время:* {now_str}
 
@@ -744,21 +753,29 @@ def handler(event: dict, context) -> dict:
 
 ➡️ Войдите на foto-mix.ru чтобы ответить клиенту'''
                                 
-                                import requests
-                                whatsapp_api_url = 'https://functions.poehali.dev/0a053c97-18f2-42c4-95e3-8f02894ee0c1'
-                                whatsapp_response = requests.post(whatsapp_api_url, json={
-                                    'phone': photographer_phone,
-                                    'message': whatsapp_text
-                                }, timeout=10)
+                                # Отправляем напрямую через GREEN-API (как делает max/index.py)
+                                media_server = green_api_instance_id[:4] if len(green_api_instance_id) >= 4 else '7103'
+                                green_url = f"https://{media_server}.api.green-api.com/v3/waInstance{green_api_instance_id}/sendMessage/{green_api_token}"
                                 
-                                if whatsapp_response.status_code == 200:
-                                    print(f'[CHAT] MAX notification sent to {photographer_phone}', flush=True)
+                                clean_phone = ''.join(filter(str.isdigit, photographer_phone))
+                                if not clean_phone.startswith('7'):
+                                    clean_phone = '7' + clean_phone.lstrip('8')
+                                
+                                green_payload = {
+                                    "chatId": f"{clean_phone}@c.us",
+                                    "message": whatsapp_text
+                                }
+                                print(f'[NOTIFICATION] GREEN-API URL: {green_url}, chatId: {clean_phone}@c.us', flush=True)
+                                
+                                green_response = req.post(green_url, json=green_payload, timeout=15)
+                                print(f'[NOTIFICATION] GREEN-API status: {green_response.status_code}, body: {green_response.text[:200]}', flush=True)
+                                
+                                if green_response.status_code == 200:
+                                    print(f'[NOTIFICATION] MAX sent successfully to {photographer_phone}', flush=True)
                                 else:
-                                    print(f'[CHAT] MAX notification failed: {whatsapp_response.status_code}', flush=True)
+                                    print(f'[NOTIFICATION] MAX failed: {green_response.status_code} {green_response.text[:200]}', flush=True)
                             except Exception as e:
-                                print(f'[CHAT] MAX notification error: {str(e)}', flush=True)
-                        else:
-                            print(f'[NOTIFICATION] No phone number for MAX', flush=True)
+                                print(f'[NOTIFICATION] MAX error: {str(e)}', flush=True)
                         
                 except Exception as e:
                     print(f'[CHAT] Notification error: {str(e)}', flush=True)
