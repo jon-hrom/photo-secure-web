@@ -736,8 +736,8 @@ def handler(event: dict, context) -> dict:
                             print(f'[NOTIFICATION] Photographer is ONLINE — skipping MAX notification', flush=True)
                         elif not photographer_phone:
                             print(f'[NOTIFICATION] No phone number for MAX', flush=True)
-                        elif not max_connected or not green_api_instance_id or not green_api_token:
-                            print(f'[NOTIFICATION] MAX not connected for photographer {photographer_id} (max_connected={max_connected})', flush=True)
+                        elif not green_api_instance_id or not green_api_token:
+                            print(f'[NOTIFICATION] MAX credentials not configured (no green_api_instance_id or token)', flush=True)
                         else:
                             print(f'[NOTIFICATION] Photographer OFFLINE — sending MAX to {photographer_phone}', flush=True)
                             try:
