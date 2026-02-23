@@ -731,31 +731,33 @@ def handler(event: dict, context) -> dict:
                             except Exception as email_err:
                                 print(f'[NOTIFICATION] Email error: {str(email_err)}', flush=True)
                         
-                        # MAX/WhatsApp уведомление — только если фотограф НЕ онлайн
+                        # MAX/WhatsApp уведомление через admin credentials — только если фотограф НЕ онлайн
+                        max_instance_id = os.environ.get('MAX_INSTANCE_ID', '')
+                        max_token = os.environ.get('MAX_TOKEN', '')
+                        
                         if photographer_is_online:
                             print(f'[NOTIFICATION] Photographer is ONLINE — skipping MAX notification', flush=True)
                         elif not photographer_phone:
                             print(f'[NOTIFICATION] No phone number for MAX', flush=True)
-                        elif not green_api_instance_id or not green_api_token:
-                            print(f'[NOTIFICATION] MAX credentials not configured (no green_api_instance_id or token)', flush=True)
+                        elif not max_instance_id or not max_token:
+                            print(f'[NOTIFICATION] MAX admin credentials not configured', flush=True)
                         else:
-                            print(f'[NOTIFICATION] Photographer OFFLINE — sending MAX to {photographer_phone}', flush=True)
+                            print(f'[NOTIFICATION] Photographer is OFFLINE — sending MAX to {photographer_phone}', flush=True)
                             try:
                                 import requests as req
-                                whatsapp_text = f'''📬 *Новое сообщение в Foto-Mix*
-🕐 *Время:* {now_str}
-
-{client_info_str}
-📁 *Проект:* {folder_name}
-
-💬 *Сообщение:*
-{message_preview}
-
-➡️ Войдите на foto-mix.ru чтобы ответить клиенту'''
                                 
-                                # Отправляем напрямую через GREEN-API (как делает max/index.py)
-                                media_server = green_api_instance_id[:4] if len(green_api_instance_id) >= 4 else '7103'
-                                green_url = f"https://{media_server}.api.green-api.com/v3/waInstance{green_api_instance_id}/sendMessage/{green_api_token}"
+                                moscow_time = datetime.utcnow()
+                                try:
+                                    from datetime import timedelta
+                                    moscow_time = datetime.utcnow() + timedelta(hours=3)
+                                except:
+                                    pass
+                                time_str = moscow_time.strftime('%d.%m.%Y %H:%M') + ' (МСК)'
+                                
+                                whatsapp_text = f'📬 *Новое сообщение в Foto-Mix*\n🕐 *Время:* {time_str}\n\n{client_info_str}\n📁 *Проект:* {folder_name}\n\n💬 *Сообщение:*\n{message_preview}\n\n➡️ Войдите на foto-mix.ru чтобы ответить клиенту'
+                                
+                                media_server = max_instance_id[:4] if len(max_instance_id) >= 4 else '7103'
+                                green_url = f"https://{media_server}.api.green-api.com/v3/waInstance{max_instance_id}/sendMessage/{max_token}"
                                 
                                 clean_phone = ''.join(filter(str.isdigit, photographer_phone))
                                 if not clean_phone.startswith('7'):
