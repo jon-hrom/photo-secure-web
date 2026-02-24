@@ -115,23 +115,32 @@ def format_time(shooting_time) -> str:
 def format_project_notification_for_client(project_data: Dict, photographer_data: Dict, payment_data: Dict = None) -> str:
     date_str = format_date(project_data.get('start_date'))
     time_str = format_time(project_data.get('shooting_time'))
-    message = f"""📸 <b>Новая съёмка запланирована!</b>
+    duration_minutes = project_data.get('shooting_duration') or 120
+    duration_hours = int(duration_minutes) // 60 or 1
+    message = f"""📸 <b>Новая бронь на фотосессию!</b>
 
+🎬 <b>Услуга:</b> {project_data.get('name') or 'Съёмка'}
 📅 <b>Дата:</b> {date_str}
 🕐 <b>Время:</b> {time_str}
-📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}
+⏱ <b>Длительность:</b> {duration_hours} ч
+📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}"""
+    description = project_data.get('description', '')
+    if description:
+        message += f"\n\n📝 <b>Пожелания:</b> {description}"
+    message += f"""
 
-👤 <b>Ваш фотограф:</b> {photographer_data.get('name') or 'Фотограф'}
-📞 <b>Телефон:</b> {photographer_data.get('phone') or 'не указан'}
-"""
+👤 <b>Фотограф:</b> {photographer_data.get('name') or 'Фотограф'}
+📞 <b>Телефон фотографа:</b> {photographer_data.get('phone') or 'не указан'}"""
     if payment_data:
         budget = float(payment_data.get('budget', 0))
         prepaid = float(payment_data.get('prepaid', 0))
         remaining = budget - prepaid
-        message += f"\n💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽"
+        message += f"\n\n💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽"
         if prepaid > 0:
             message += f"\n✅ <b>Предоплата:</b> {prepaid:,.0f} ₽\n💳 <b>Остаток к оплате:</b> {remaining:,.0f} ₽"
-    message += "\n\n✨ Ждём вас! Будет красиво! 📷"
+        else:
+            message += f"\n💳 <b>К оплате:</b> {budget:,.0f} ₽"
+    message += "\n\nЕсли есть вопросы или нужно перенести съёмку — свяжитесь с фотографом.\n\nДо встречи! 📷"
     return message
 
 
@@ -248,18 +257,37 @@ def send_project_notifications(project_id: int) -> Dict[str, Any]:
         if client_data.get('email'):
             date_str = format_date(project_data.get('start_date'))
             time_str = format_time(project_data.get('shooting_time'))
+            duration_minutes = project_data.get('shooting_duration') or 120
+            duration_hours = int(duration_minutes) // 60 or 1
             lines = [
+                f"🎬 <b>Услуга:</b> {project_data.get('name') or 'Съёмка'}",
                 f"📅 <b>Дата:</b> {date_str}",
                 f"🕐 <b>Время:</b> {time_str}",
+                f"⏱ <b>Длительность:</b> {duration_hours} ч",
                 f"📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}",
-                f"👤 <b>Фотограф:</b> {photographer_data.get('name') or 'Фотограф'}",
-                f"📞 <b>Телефон:</b> {photographer_data.get('phone') or 'не указан'}",
             ]
+            description = project_data.get('description', '')
+            if description:
+                lines.append(f"📝 <b>Пожелания:</b> {description}")
+            lines.extend([
+                "",
+                f"👤 <b>Фотограф:</b> {photographer_data.get('name') or 'Фотограф'}",
+                f"📞 <b>Телефон фотографа:</b> {photographer_data.get('phone') or 'не указан'}",
+            ])
             if payment_data:
                 budget = float(payment_data.get('budget', 0))
-                lines.append(f"💰 <b>Стоимость:</b> {budget:,.0f} ₽")
-            lines.append("✨ Ждём вас! Будет красиво!")
-            html = build_email_html("📸 Новая съёмка запланирована!", lines)
+                prepaid = float(payment_data.get('prepaid', 0))
+                remaining = budget - prepaid
+                lines.append("")
+                lines.append(f"💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽".replace(',', ' '))
+                if prepaid > 0:
+                    lines.append(f"✅ <b>Предоплата:</b> {prepaid:,.0f} ₽".replace(',', ' '))
+                    lines.append(f"💳 <b>Остаток к оплате:</b> {remaining:,.0f} ₽".replace(',', ' '))
+                else:
+                    lines.append(f"💳 <b>К оплате:</b> {budget:,.0f} ₽".replace(',', ' '))
+            lines.append("")
+            lines.append("До встречи на съёмке! 📷")
+            html = build_email_html("📸 Новая бронь на фотосессию!", lines)
             results['client_email'] = send_via_email(client_data['email'], f"📸 Съёмка {date_str} в {time_str}", html)
 
         # Telegram фотографу
