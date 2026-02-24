@@ -325,8 +325,9 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
             results['client']['whatsapp_error'] = str(e)
             print(f"[WA] Client {client['name']} FAIL: {e}")
 
-    if client.get('telegram_id'):
-        result = send_via_telegram(client['telegram_id'], client_msg)
+    client_tg = client.get('telegram_chat_id') or client.get('telegram_id')
+    if client_tg:
+        result = send_via_telegram(client_tg, client_msg)
         results['client']['telegram'] = result.get('success', False)
         print(f"[TG] Client {client['name']}: {result}")
 
@@ -342,8 +343,9 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
             results['photographer']['whatsapp_error'] = str(e)
             print(f"[WA] Photographer {photographer['display_name']} FAIL: {e}")
 
-    if photographer.get('telegram_id'):
-        result = send_via_telegram(photographer['telegram_id'], photographer_msg)
+    photographer_tg = photographer.get('telegram_chat_id') or photographer.get('telegram_id')
+    if photographer_tg:
+        result = send_via_telegram(photographer_tg, photographer_msg)
         results['photographer']['telegram'] = result.get('success', False)
         print(f"[TG] Photographer {photographer['display_name']}: {result}")
 
@@ -378,48 +380,23 @@ def get_sent_reminders(cur, project_id):
 
 def determine_pending_reminders(hours_until: float, already_sent: set, is_today: bool = False, now_local: datetime = None, shooting_dt: datetime = None) -> list:
     """
-    Каскадная логика: определяет какое напоминание нужно отправить СЕЙЧАС.
-    Отправляет только ОДНО — самое актуальное для текущего момента.
-    Привязка к четвертям часа (:00, :15, :30, :45) — отправляем только когда
-    текущее время >= ровной четверти, на которую приходится отправка.
+    Каскадная логика: определяет какие напоминания нужно отправить СЕЙЧАС.
+    Каскад: сначала самое срочное (1h), потом 5h, потом 24h.
+    Пропущенные напоминания тоже догоняются и отправляются.
     """
-    if hours_until <= 0 or hours_until > 25:
+    if hours_until <= 0 or hours_until > 49:
         return []
 
-    if now_local and shooting_dt:
-        current_quarter = now_local.replace(minute=(now_local.minute // 15) * 15, second=0, microsecond=0)
+    pending = []
 
-        if hours_until <= 1.5 and '1h' not in already_sent:
-            send_at = get_quarter_send_time(shooting_dt, 1)
-            if current_quarter >= send_at:
-                return ['1h']
-            return []
-        if hours_until <= 5.5 and '5h' not in already_sent:
-            send_at = get_quarter_send_time(shooting_dt, 5)
-            if current_quarter >= send_at:
-                return ['5h']
-            return []
-        if is_today and hours_until > 5.5 and 'today' not in already_sent:
-            send_at = get_quarter_send_time(shooting_dt, hours_until)
-            if current_quarter >= send_at:
-                return ['today']
-            return []
-        if hours_until <= 25 and '24h' not in already_sent and not is_today:
-            send_at = get_quarter_send_time(shooting_dt, 24)
-            if current_quarter >= send_at:
-                return ['24h']
-            return []
-        return []
+    if '24h' not in already_sent and not is_today and hours_until <= 25:
+        pending.append('24h')
+    if '5h' not in already_sent and hours_until <= 5.5:
+        pending.append('5h')
+    if '1h' not in already_sent and hours_until <= 1.5:
+        pending.append('1h')
 
-    if hours_until <= 1.5 and '1h' not in already_sent:
-        return ['1h']
-    if hours_until <= 5.5 and '5h' not in already_sent:
-        return ['5h']
-    if is_today and hours_until > 5.5 and 'today' not in already_sent:
-        return ['today']
-    if hours_until <= 25 and '24h' not in already_sent and not is_today:
-        return ['24h']
-    return []
+    return pending
 
 
 def handler(event, context):
@@ -479,7 +456,8 @@ def handler(event, context):
 
                 print(f"[IMMEDIATE] Region: {region}, TZ: {tz_label}, now_local: {now_local}, shooting: {shooting_datetime}, hours_until: {hours_until:.1f}")
 
-                is_today = proj['start_date'] == now_local.date()
+                start_date_only = proj['start_date'].date() if hasattr(proj['start_date'], 'date') else proj['start_date']
+                is_today = start_date_only == now_local.date()
 
                 if 0 < hours_until < 24:
                     client_data = {
@@ -580,7 +558,8 @@ def handler(event, context):
                 if already_sent:
                     print(f"[CRON] Project {proj['project_id']}: already sent = {already_sent}")
 
-                is_today = proj['start_date'] == now_local.date()
+                start_date_only = proj['start_date'].date() if hasattr(proj['start_date'], 'date') else proj['start_date']
+                is_today = start_date_only == now_local.date()
                 pending = determine_pending_reminders(hours_until, already_sent, is_today=is_today, now_local=now_local, shooting_dt=shooting_datetime)
 
                 if not pending:
@@ -607,16 +586,6 @@ def handler(event, context):
                     'email': proj['photographer_email'], 'phone': proj['photographer_phone'],
                     'telegram_id': proj['photographer_telegram_id']
                 }
-
-                skipped_types = []
-                if hours_until <= 5.5 and '24h' not in already_sent:
-                    skipped_types.append('24h')
-                if hours_until <= 1.5 and '5h' not in already_sent:
-                    skipped_types.append('5h')
-                for st in skipped_types:
-                    if st not in pending:
-                        log_reminder(conn, proj['project_id'], st, 'both', True, 'skipped_catchup')
-                        print(f"[SKIP] {st} for project {proj['project_id']} — marked as sent (catchup)")
 
                 for reminder_type in pending:
                     try:
