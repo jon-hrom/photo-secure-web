@@ -21,7 +21,7 @@ interface ClientDetailProjectsProps {
     add_to_calendar?: boolean;
   };
   setNewProject: (project: any) => void;
-  handleAddProject: () => void;
+  handleAddProject: () => Promise<void> | void;
   handleDeleteProject: (projectId: number) => void;
   handleUpdateProject: (projectId: number, updates: Partial<Project>) => void;
   updateProjectStatus: (projectId: number, status: Project['status']) => void;

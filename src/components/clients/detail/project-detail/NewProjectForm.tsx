@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,8 +26,8 @@ interface NewProjectFormProps {
   isOpen: boolean;
   onToggle: () => void;
   newProject: NewProjectData;
-  setNewProject: (project: any) => void;
-  handleAddProject: () => void;
+  setNewProject: (project: NewProjectData) => void;
+  handleAddProject: () => Promise<void> | void;
 }
 
 const NewProjectForm = ({
@@ -36,6 +37,19 @@ const NewProjectForm = ({
   setNewProject,
   handleAddProject,
 }: NewProjectFormProps) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await handleAddProject();
+      onToggle();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!isOpen) {
     return (
       <Button
@@ -150,9 +164,9 @@ const NewProjectForm = ({
         </div>
         <div className="h-16"></div>
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t md:static md:border-0 md:p-0">
-          <Button onClick={() => { handleAddProject(); onToggle(); }} className="w-full md:w-auto h-11 md:h-9 text-sm md:text-xs shadow-lg md:shadow-none">
-            <Icon name="Plus" size={16} className="mr-2" />
-            Создать услугу
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full md:w-auto h-11 md:h-9 text-sm md:text-xs shadow-lg md:shadow-none">
+            <Icon name={isSubmitting ? "Loader2" : "Plus"} size={16} className={`mr-2${isSubmitting ? " animate-spin" : ""}`} />
+            {isSubmitting ? "Создаём..." : "Создать услугу"}
           </Button>
         </div>
       </CardContent>
