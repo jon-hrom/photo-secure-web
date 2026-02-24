@@ -138,22 +138,31 @@ def format_project_notification_for_client(project_data: Dict, photographer_data
 def format_project_notification_for_photographer(project_data: Dict, client_data: Dict, payment_data: Dict = None) -> str:
     date_str = format_date(project_data.get('start_date'))
     time_str = format_time(project_data.get('shooting_time'))
+    duration_minutes = project_data.get('shooting_duration') or 120
+    duration_hours = int(duration_minutes) // 60 or 1
     message = f"""📸 <b>Новый заказ!</b>
 
 📅 <b>Дата съёмки:</b> {date_str}
 🕐 <b>Время:</b> {time_str}
+⏱ <b>Длительность:</b> {duration_hours} ч
 📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}
 
 👤 <b>Клиент:</b> {client_data.get('name') or 'Клиент'}
-📞 <b>Телефон:</b> {client_data.get('phone') or 'не указан'}
-"""
+📞 <b>Телефон:</b> {client_data.get('phone') or 'не указан'}"""
+    if client_data.get('email'):
+        message += f"\n📧 <b>Email:</b> {client_data['email']}"
     if payment_data:
         budget = float(payment_data.get('budget', 0))
         prepaid = float(payment_data.get('prepaid', 0))
         remaining = budget - prepaid
-        message += f"\n💰 <b>Стоимость:</b> {budget:,.0f} ₽"
+        message += f"\n\n💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽"
         if prepaid > 0:
-            message += f"\n✅ <b>Получена предоплата:</b> {prepaid:,.0f} ₽\n💳 <b>Осталось получить:</b> {remaining:,.0f} ₽"
+            message += f"\n✅ <b>Предоплата:</b> {prepaid:,.0f} ₽\n💳 <b>Остаток к получению:</b> {remaining:,.0f} ₽"
+        else:
+            message += f"\n💳 <b>К оплате:</b> {budget:,.0f} ₽"
+    description = project_data.get('description', '')
+    if description:
+        message += f"\n\n📝 <b>Пожелания:</b> {description}"
     message += "\n\n🎯 Удачной съёмки!"
     return message
 
