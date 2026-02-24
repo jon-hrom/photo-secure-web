@@ -335,11 +335,6 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
             print(f'[SHOOTING_NOTIF] WhatsApp error: {str(e)}')
             results['whatsapp'] = {'error': str(e)}
     
-    # Отправляем в Telegram если есть telegram_id
-    if photographer_data.get('telegram_id'):
-        telegram_result = send_via_telegram(photographer_data['telegram_id'], message)
-        results['telegram'] = telegram_result
-    
     return results if results else {'error': 'No contact methods available'}
 
 

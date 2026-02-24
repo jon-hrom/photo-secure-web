@@ -203,7 +203,8 @@ def send_project_notifications(project_id: int) -> Dict[str, Any]:
                 COALESCE(u.phone_number, u.phone) as photographer_phone,
                 u.telegram_chat_id as photographer_telegram,
                 c.telegram_chat_id as client_telegram_direct,
-                u.email as photographer_email
+                u.email as photographer_email,
+                cp.shooting_duration, cp.description
             FROM {SCHEMA}.client_projects cp
             JOIN {SCHEMA}.clients c ON cp.client_id = c.id
             LEFT JOIN {SCHEMA}.users u ON c.photographer_id = u.id
@@ -215,7 +216,7 @@ def send_project_notifications(project_id: int) -> Dict[str, Any]:
             conn.close()
             return {'success': False, 'error': 'Project not found'}
 
-        project_data = {'id': row[0], 'name': row[1], 'budget': row[2], 'start_date': row[3], 'shooting_time': row[4], 'shooting_address': row[5]}
+        project_data = {'id': row[0], 'name': row[1], 'budget': row[2], 'start_date': row[3], 'shooting_time': row[4], 'shooting_address': row[5], 'shooting_duration': row[16], 'description': row[17]}
         client_data = {'id': row[6], 'name': row[7], 'phone': row[8], 'telegram_chat_id': row[14], 'email': row[10]}
         photographer_data = {'id': row[9], 'name': row[11], 'phone': row[12], 'telegram_chat_id': row[13], 'email': row[15]}
 
@@ -261,16 +262,35 @@ def send_project_notifications(project_id: int) -> Dict[str, Any]:
         if photographer_data.get('email'):
             date_str = format_date(project_data.get('start_date'))
             time_str = format_time(project_data.get('shooting_time'))
+            duration_minutes = project_data.get('shooting_duration') or 120
+            duration_hours = int(duration_minutes) // 60 or 1
             lines = [
-                f"📅 <b>Дата:</b> {date_str}",
+                f"📅 <b>Дата съёмки:</b> {date_str}",
                 f"🕐 <b>Время:</b> {time_str}",
+                f"⏱ <b>Длительность:</b> {duration_hours} ч",
                 f"📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}",
+                "",
                 f"👤 <b>Клиент:</b> {client_data.get('name') or 'Клиент'}",
                 f"📞 <b>Телефон:</b> {client_data.get('phone') or 'не указан'}",
             ]
+            if client_data.get('email'):
+                lines.append(f"📧 <b>Email:</b> {client_data['email']}")
             if payment_data:
                 budget = float(payment_data.get('budget', 0))
-                lines.append(f"💰 <b>Стоимость:</b> {budget:,.0f} ₽")
+                prepaid = float(payment_data.get('prepaid', 0))
+                remaining = budget - prepaid
+                lines.append("")
+                lines.append(f"💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽".replace(',', ' '))
+                if prepaid > 0:
+                    lines.append(f"✅ <b>Предоплата:</b> {prepaid:,.0f} ₽".replace(',', ' '))
+                    lines.append(f"💳 <b>Остаток к получению:</b> {remaining:,.0f} ₽".replace(',', ' '))
+                else:
+                    lines.append(f"💳 <b>К оплате:</b> {budget:,.0f} ₽".replace(',', ' '))
+            description = project_data.get('description', '')
+            if description:
+                lines.append("")
+                lines.append(f"📝 <b>Пожелания:</b> {description}")
+            lines.append("")
             lines.append("🎯 Удачной съёмки!")
             html = build_email_html("📸 Новый заказ!", lines)
             results['photographer_email'] = send_via_email(photographer_data['email'], f"📸 Новый заказ — {date_str} в {time_str}", html)
