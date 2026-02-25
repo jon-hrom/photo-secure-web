@@ -1,10 +1,12 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const WATERMARK_UPLOAD_URL = 'https://functions.poehali.dev/74fcfd0b-6b2e-459a-9f6d-0ea541a586d5';
+
+interface SavedLogo { id: number; url: string; created_at: string; }
 
 interface LinkSettings {
   password: string;
@@ -41,10 +43,28 @@ export default function LinkSettingsForm({
 }: LinkSettingsFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savedLogos, setSavedLogos] = useState<SavedLogo[]>([]);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const loadLogos = useCallback(async () => {
+    const res = await fetch(WATERMARK_UPLOAD_URL, {
+      headers: { 'X-User-Id': String(userId) },
+    });
+    const data = await res.json();
+    if (data.logos) setSavedLogos(data.logos);
+  }, [userId]);
+
+  useEffect(() => {
+    if (linkSettings.watermarkEnabled && linkSettings.watermarkType === 'image') {
+      loadLogos();
+    }
+  }, [linkSettings.watermarkEnabled, linkSettings.watermarkType, loadLogos]);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Сбрасываем input чтобы можно было загрузить тот же файл повторно
+    e.target.value = '';
     setUploadingLogo(true);
     try {
       const reader = new FileReader();
@@ -56,8 +76,9 @@ export default function LinkSettingsForm({
           body: JSON.stringify({ file_data: base64, content_type: file.type }),
         });
         const data = await res.json();
-        if (data.url) {
-          setLinkSettings({ ...linkSettings, watermarkImageUrl: data.url });
+        if (data.logo) {
+          setSavedLogos(prev => [data.logo, ...prev]);
+          setLinkSettings({ ...linkSettings, watermarkImageUrl: data.logo.url });
         }
         setUploadingLogo(false);
       };
@@ -65,6 +86,20 @@ export default function LinkSettingsForm({
     } catch {
       setUploadingLogo(false);
     }
+  };
+
+  const handleDeleteLogo = async (logo: SavedLogo) => {
+    setDeletingId(logo.id);
+    await fetch(WATERMARK_UPLOAD_URL, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+      body: JSON.stringify({ id: logo.id }),
+    });
+    setSavedLogos(prev => prev.filter(l => l.id !== logo.id));
+    if (linkSettings.watermarkImageUrl === logo.url) {
+      setLinkSettings({ ...linkSettings, watermarkImageUrl: '' });
+    }
+    setDeletingId(null);
   };
 
   return (
@@ -180,7 +215,7 @@ export default function LinkSettingsForm({
                   className="w-full px-3 py-2 border dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-[#FFB800] focus:border-transparent transition-all"
                 />
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -188,53 +223,67 @@ export default function LinkSettingsForm({
                     className="hidden"
                     onChange={handleLogoUpload}
                   />
-                  {linkSettings.watermarkImageUrl ? (
-                    <div className="flex items-center gap-3 p-3 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
-                      <img
-                        src={linkSettings.watermarkImageUrl}
-                        alt="Логотип"
-                        className="w-12 h-12 object-contain rounded bg-gray-100 dark:bg-gray-700 p-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-700 dark:text-gray-300 truncate">Логотип загружен</p>
-                        <p className="text-xs text-gray-400">PNG/JPG/SVG с тёмным логотипом на прозрачном фоне</p>
-                      </div>
-                      <div className="flex flex-col gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploadingLogo}
-                          className="text-xs text-[#FFB800] hover:underline"
-                        >
-                          {uploadingLogo ? 'Загружаем...' : 'Заменить'}
-                        </button>
-                        <button
-                          onClick={() => setLinkSettings({ ...linkSettings, watermarkImageUrl: '' })}
-                          className="text-xs text-red-400 hover:underline"
-                        >
-                          Удалить
-                        </button>
+
+                  {/* Сохранённые логотипы */}
+                  {savedLogos.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Мои логотипы — нажмите чтобы выбрать:</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {savedLogos.map(logo => (
+                          <div
+                            key={logo.id}
+                            className={`relative group cursor-pointer rounded-lg border-2 transition-all ${
+                              linkSettings.watermarkImageUrl === logo.url
+                                ? 'border-[#FFB800] bg-[#FFB800]/10'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-[#FFB800]/60'
+                            }`}
+                            style={{ width: 64, height: 64 }}
+                            onClick={() => setLinkSettings({ ...linkSettings, watermarkImageUrl: logo.url })}
+                          >
+                            <img
+                              src={logo.url}
+                              alt="Логотип"
+                              className="w-full h-full object-contain rounded-md p-1 bg-white dark:bg-gray-800"
+                            />
+                            {linkSettings.watermarkImageUrl === logo.url && (
+                              <div className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#FFB800] flex items-center justify-center">
+                                <Icon name="Check" size={10} className="text-white" />
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteLogo(logo); }}
+                              disabled={deletingId === logo.id}
+                              className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center shadow-sm hover:bg-red-600 transition-all"
+                            >
+                              {deletingId === logo.id
+                                ? <Icon name="Loader2" size={10} className="animate-spin" />
+                                : <Icon name="X" size={10} />
+                              }
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ) : (
+                  )}
+
+                  {/* Кнопка загрузки нового */}
+                  {savedLogos.length < 3 ? (
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingLogo}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:border-[#FFB800] hover:text-[#FFB800] transition-all disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:border-[#FFB800] hover:text-[#FFB800] transition-all disabled:opacity-50"
                     >
                       {uploadingLogo ? (
-                        <>
-                          <Icon name="Loader2" size={16} className="animate-spin" />
-                          Загружаем...
-                        </>
+                        <><Icon name="Loader2" size={15} className="animate-spin" />Загружаем...</>
                       ) : (
-                        <>
-                          <Icon name="Upload" size={16} />
-                          Загрузить логотип
-                        </>
+                        <><Icon name="Upload" size={15} />Загрузить логотип ({savedLogos.length}/3)</>
                       )}
                     </button>
+                  ) : (
+                    <p className="text-xs text-amber-500 dark:text-amber-400 text-center">Максимум 3 логотипа. Удалите один чтобы загрузить новый.</p>
                   )}
-                  <p className="text-xs text-gray-400 dark:text-gray-500">Загрузите PNG с прозрачным фоном — логотип будет виден поверх фото. Белый фон останется белым.</p>
+
+                  <p className="text-xs text-gray-400 dark:text-gray-500">PNG с прозрачным фоном — логотип виден поверх фото</p>
                 </div>
               )}
 
