@@ -13,9 +13,11 @@ interface NavItem {
 interface MobileNavigationProps {
   onNavigate?: (page: string) => void;
   currentPage?: string;
+  unreadCount?: number;
+  onOpenChat?: () => void;
 }
 
-const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) => {
+const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat }: MobileNavigationProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -132,9 +134,17 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
     }
   };
 
+  const handleChatClick = () => {
+    vibrate(15);
+    setIsExpanded(false);
+    onOpenChat?.();
+  };
+
   const isActive = (path: string) => {
     return location.pathname === path;
   };
+
+  const badgeLabel = unreadCount > 99 ? '99+' : unreadCount > 0 ? String(unreadCount) : null;
 
   return (
     <>
@@ -194,6 +204,37 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
             </Button>
           ))}
 
+          {/* Кнопка Чат с клиентами */}
+          {isExpanded && onOpenChat && (
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-0.5 h-auto py-2 px-3 relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 backdrop-blur-xl border-2 border-border/50 dark:border-gray-700/50 shadow-2xl hover:shadow-3xl"
+              onClick={handleChatClick}
+              style={{
+                animation: `slide-in-from-bottom 0.4s ease-out ${(navItems.length - 1) * 0.1}s both`,
+                transformOrigin: 'bottom center'
+              }}
+            >
+              <div className="p-2 rounded-lg transition-all duration-300 relative hover:bg-gray-100 dark:hover:bg-gray-700">
+                <Icon name="Mail" size={18} className="text-gray-600 dark:text-gray-300" />
+                {badgeLabel && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full h-4 w-4 flex items-center justify-center leading-none">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                Чат с клиентами
+              </span>
+              {badgeLabel && (
+                <span className="absolute top-1 right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none">
+                  {badgeLabel}
+                </span>
+              )}
+            </Button>
+          )}
+
+          {/* Основная кнопка МЕНЮ */}
           <Button
             variant="ghost"
             className={cn(
@@ -222,9 +263,15 @@ const MobileNavigation = ({ onNavigate, currentPage }: MobileNavigationProps) =>
                 )}
               />
             </div>
+            {/* Бейдж непрочитанных на кнопке МЕНЮ */}
+            {badgeLabel && !isExpanded && (
+              <span className="absolute top-0 left-0 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none z-10">
+                {badgeLabel}
+              </span>
+            )}
             <div className={cn(
               'p-2 rounded-lg transition-all duration-300 relative',
-              isActive('dashboard') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg animate-pulse-active' : 'hover:bg-gray-100/50 dark:hover:bg-gray-700/50'
+              isActive('dashboard') ? 'bg-gradient-to-br from-primary to-secondary shadow-lg animate-pulse-active' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
             )}>
               <Icon 
                 name={navItems[0].icon} 

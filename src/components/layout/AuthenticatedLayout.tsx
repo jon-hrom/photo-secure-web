@@ -221,7 +221,12 @@ const AuthenticatedLayout = ({
         {currentPage === 'admin' && isAdmin && <AdminPanel />}
       </main>
       
-      <MobileNavigation onNavigate={setCurrentPage} currentPage={currentPage} />
+      <MobileNavigation
+        onNavigate={setCurrentPage}
+        currentPage={currentPage}
+        unreadCount={unreadCount}
+        onOpenChat={() => setShowMAXChat(true)}
+      />
 
       {userId && (
         <PhotographerChatsModal
