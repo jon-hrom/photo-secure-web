@@ -102,6 +102,20 @@ export default function GalleryPhotoViewer({
     } catch (_) { /* ignore */ }
   }, []);
 
+  // Устанавливаем --dvh CSS-переменную для корректного vh на мобиле (адресбар iOS/Android)
+  useEffect(() => {
+    const setDvh = () => {
+      document.documentElement.style.setProperty('--dvh', `${window.innerHeight * 0.01}px`);
+    };
+    setDvh();
+    window.addEventListener('resize', setDvh);
+    window.addEventListener('orientationchange', setDvh);
+    return () => {
+      window.removeEventListener('resize', setDvh);
+      window.removeEventListener('orientationchange', setDvh);
+    };
+  }, []);
+
   // Sync isFullscreen state with native fullscreen events
   useEffect(() => {
     const onFsChange = () => {
@@ -118,20 +132,21 @@ export default function GalleryPhotoViewer({
     };
   }, []);
 
-  // Auto fullscreen on landscape orientation
+  // На мобиле landscape — только скрываем UI, без принудительного fullscreen (iOS не поддерживает)
   useEffect(() => {
+    const isTouch = 'ontouchstart' in window;
+    if (!isTouch) return;
     const mq = window.matchMedia('(orientation: landscape)');
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) {
-        enterFullscreen();
         setShowUI(false);
       } else {
-        exitFullscreen();
+        setShowUI(true);
       }
     };
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
-  }, [enterFullscreen, exitFullscreen]);
+  }, []);
 
   // Exit fullscreen on unmount
   useEffect(() => {

@@ -69,8 +69,15 @@ export default function GalleryViewerImage({
   onMouseMove,
   onMouseUp,
 }: GalleryViewerImageProps) {
-  const imgMaxWidth = isFullscreen ? '100vw' : (zoom === 0 ? '96vw' : '100%');
-  const imgMaxHeight = isFullscreen ? '100vh' : (zoom === 0 ? 'calc(100vh - 100px)' : '100vh');
+  // dvh — dynamic viewport height (учитывает скрывающийся адресбар на Android/iOS)
+  // fallback на 100vh для браузеров без поддержки dvh
+  const vh = 'calc(var(--dvh, 1vh) * 100)';
+  const imgMaxWidth = isFullscreen
+    ? 'calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))'
+    : (zoom === 0 ? '96vw' : '100%');
+  const imgMaxHeight = isFullscreen
+    ? vh
+    : (zoom === 0 ? `calc(${vh} - 100px)` : vh);
 
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
@@ -212,19 +219,19 @@ export default function GalleryViewerImage({
         {currentIndex > 0 && (
           <button
             onClick={onNavigatePrev}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
-            style={{ width: 44, height: 44 }}
+            className="absolute top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all w-9 h-9 sm:w-11 sm:h-11"
+            style={{ left: 'max(8px, env(safe-area-inset-left))' }}
           >
-            <Icon name="ChevronLeft" size={26} className="text-white" />
+            <Icon name="ChevronLeft" size={22} className="text-white" />
           </button>
         )}
         {currentIndex < totalCount - 1 && (
           <button
             onClick={onNavigateNext}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all"
-            style={{ width: 44, height: 44 }}
+            className="absolute top-1/2 -translate-y-1/2 z-50 rounded-full bg-black/30 active:bg-black/60 backdrop-blur-sm flex items-center justify-center transition-all w-9 h-9 sm:w-11 sm:h-11"
+            style={{ right: 'max(8px, env(safe-area-inset-right))' }}
           >
-            <Icon name="ChevronRight" size={28} className="text-white" />
+            <Icon name="ChevronRight" size={22} className="text-white" />
           </button>
         )}
       </div>
@@ -232,29 +239,29 @@ export default function GalleryViewerImage({
       {/* Кнопка полного экрана — правый нижний угол */}
       <button
         onClick={onToggleFullscreen}
-        className="absolute z-50 flex items-center justify-center rounded-full bg-black/40 active:bg-black/70 backdrop-blur-sm transition-all"
+        className="absolute z-50 flex items-center justify-center rounded-full bg-black/40 active:bg-black/70 backdrop-blur-sm transition-all w-9 h-9 sm:w-11 sm:h-11"
         style={{
-          width: 44,
-          height: 44,
-          right: 12,
+          right: 'max(12px, env(safe-area-inset-right))',
           bottom: 'max(12px, env(safe-area-inset-bottom))',
         }}
         title={isFullscreen ? 'Выйти из полного экрана' : 'Полный экран'}
       >
-        <Icon name={isFullscreen ? 'Minimize2' : 'Maximize2'} size={20} className="text-white" />
+        <Icon name={isFullscreen ? 'Minimize2' : 'Maximize2'} size={18} className="text-white" />
       </button>
 
       {/* Нижняя панель с информацией */}
       <div
         className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pt-8 transition-opacity duration-300"
         style={{
-          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+          paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+          paddingRight: 'max(4rem, env(safe-area-inset-right))',
           opacity: showUI ? 1 : 0,
           pointerEvents: showUI ? 'auto' : 'none',
         }}
       >
-        <p className="text-white font-medium text-base mb-1 truncate">{fileName}</p>
-        <div className="flex items-center gap-4 text/60 text-xs">
+        <p className="text-white font-medium text-sm sm:text-base mb-0.5 truncate">{fileName}</p>
+        <div className="flex items-center gap-4 text-xs">
           {fileSize && <span className="text-white/60">{(fileSize / 1024 / 1024).toFixed(2)} МБ</span>}
           {width && height && <span className="text-white/60">{width} × {height}</span>}
         </div>
