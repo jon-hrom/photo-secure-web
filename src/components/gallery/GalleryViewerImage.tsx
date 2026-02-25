@@ -1,5 +1,16 @@
 import Icon from '@/components/ui/icon';
 
+interface WatermarkSettings {
+  enabled: boolean;
+  type: string;
+  text?: string;
+  image_url?: string;
+  frequency: number;
+  size: number;
+  opacity: number;
+  rotation?: number;
+}
+
 interface GalleryViewerImageProps {
   src: string;
   fileName: string;
@@ -17,6 +28,7 @@ interface GalleryViewerImageProps {
   currentIndex: number;
   totalCount: number;
   showUI: boolean;
+  watermark?: WatermarkSettings;
   onNavigatePrev: () => void;
   onNavigateNext: () => void;
   onToggleFullscreen: () => void;
@@ -45,6 +57,7 @@ export default function GalleryViewerImage({
   currentIndex,
   totalCount,
   showUI,
+  watermark,
   onNavigatePrev,
   onNavigateNext,
   onToggleFullscreen,
@@ -96,6 +109,51 @@ export default function GalleryViewerImage({
             Загрузка полного качества...
           </div>
         )}
+        {watermark?.enabled && (() => {
+          const frequency = watermark.frequency || 50;
+          const count = Math.ceil((frequency / 10) * 10);
+          const items = [];
+          for (let i = 0; i < count; i++) {
+            const top = (i * (100 / count)) % 100;
+            const left = ((i * 37) % 100);
+            items.push(
+              <div
+                key={i}
+                className="absolute pointer-events-none"
+                style={{
+                  top: `${top}%`,
+                  left: `${left}%`,
+                  transform: 'translate(-50%, -50%)',
+                  opacity: (watermark.opacity || 50) / 100,
+                }}
+              >
+                {watermark.type === 'text' ? (
+                  <p
+                    className="text-white font-bold text-center px-2 whitespace-nowrap"
+                    style={{
+                      fontSize: `${watermark.size || 20}px`,
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                      transform: `rotate(${watermark.rotation || 0}deg)`,
+                    }}
+                  >
+                    {watermark.text}
+                  </p>
+                ) : (
+                  <img
+                    src={watermark.image_url}
+                    alt="Watermark"
+                    style={{
+                      maxWidth: `${watermark.size}px`,
+                      maxHeight: `${watermark.size}px`,
+                      transform: `rotate(${watermark.rotation || 0}deg)`,
+                    }}
+                  />
+                )}
+              </div>
+            );
+          }
+          return items;
+        })()}
       </div>
 
       {/* Кнопки навигации */}

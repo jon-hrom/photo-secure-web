@@ -280,6 +280,7 @@ export default function GalleryPhotoViewer({
             currentIndex={currentIndex}
             totalCount={photos.length}
             showUI={showUI}
+            watermark={watermark}
             onNavigatePrev={() => handleNavigate('prev')}
             onNavigateNext={() => handleNavigate('next')}
             onToggleFullscreen={() => isFullscreen ? exitFullscreen() : enterFullscreen()}
