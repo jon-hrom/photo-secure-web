@@ -63,27 +63,28 @@ export default function LinkSettingsForm({
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Сбрасываем input чтобы можно было загрузить тот же файл повторно
     e.target.value = '';
     setUploadingLogo(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = (reader.result as string).split(',')[1];
-        const res = await fetch(WATERMARK_UPLOAD_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
-          body: JSON.stringify({ file_data: base64, content_type: file.type }),
-        });
-        const data = await res.json();
-        if (data.logo) {
-          setSavedLogos(prev => [data.logo, ...prev]);
-          setLinkSettings({ ...linkSettings, watermarkImageUrl: data.logo.url });
-        }
-        setUploadingLogo(false);
-      };
-      reader.readAsDataURL(file);
-    } catch {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(WATERMARK_UPLOAD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+        body: JSON.stringify({ file_data: base64, content_type: file.type }),
+      });
+      const data = await res.json();
+      if (data.logo) {
+        setSavedLogos(prev => [data.logo, ...prev]);
+        setLinkSettings({ ...linkSettings, watermarkImageUrl: data.logo.url });
+      }
+    } catch (err) {
+      console.error('Logo upload error:', err);
+    } finally {
       setUploadingLogo(false);
     }
   };
