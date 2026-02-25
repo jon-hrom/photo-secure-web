@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Unauthorized without user id",
+      "method": "POST",
+      "path": "/",
+      "body": {"file_data": "iVBORw0KGgo=", "content_type": "image/png"},
+      "expectedStatus": 401
+    }
+  ]
+}

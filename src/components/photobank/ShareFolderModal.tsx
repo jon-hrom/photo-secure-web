@@ -99,6 +99,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
               error={error}
               onGenerateLink={generateShareLink}
               folderName={folderName}
+              userId={userId}
             />
           ) : activeTab === 'features' ? (
             <FeaturesTab

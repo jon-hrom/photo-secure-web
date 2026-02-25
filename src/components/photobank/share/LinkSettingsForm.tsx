@@ -1,7 +1,10 @@
+import { useRef, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const WATERMARK_UPLOAD_URL = 'https://functions.poehali.dev/74fcfd0b-6b2e-459a-9f6d-0ea541a586d5';
 
 interface LinkSettings {
   password: string;
@@ -25,6 +28,7 @@ interface LinkSettingsFormProps {
   loading: boolean;
   error: string;
   onGenerateLink: () => void;
+  userId: number;
 }
 
 export default function LinkSettingsForm({ 
@@ -32,8 +36,37 @@ export default function LinkSettingsForm({
   setLinkSettings, 
   loading, 
   error, 
-  onGenerateLink 
+  onGenerateLink,
+  userId,
 }: LinkSettingsFormProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        const res = await fetch(WATERMARK_UPLOAD_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+          body: JSON.stringify({ file_data: base64, content_type: file.type }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          setLinkSettings({ ...linkSettings, watermarkImageUrl: data.url });
+        }
+        setUploadingLogo(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setUploadingLogo(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-4 border-t dark:border-gray-800 pt-4">
@@ -147,13 +180,53 @@ export default function LinkSettingsForm({
                   className="w-full px-3 py-2 border dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-[#FFB800] focus:border-transparent transition-all"
                 />
               ) : (
-                <input
-                  type="url"
-                  placeholder="URL картинки"
-                  value={linkSettings.watermarkImageUrl}
-                  onChange={(e) => setLinkSettings({ ...linkSettings, watermarkImageUrl: e.target.value })}
-                  className="w-full px-3 py-2 border dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-[#FFB800] focus:border-transparent transition-all"
-                />
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                  />
+                  {linkSettings.watermarkImageUrl ? (
+                    <div className="flex items-center gap-3 p-3 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
+                      <img
+                        src={linkSettings.watermarkImageUrl}
+                        alt="Логотип"
+                        className="w-12 h-12 object-contain rounded bg-gray-100 dark:bg-gray-700 p-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-700 dark:text-gray-300 truncate">Логотип загружен</p>
+                        <p className="text-xs text-gray-400">PNG/JPG/SVG с тёмным логотипом на прозрачном фоне</p>
+                      </div>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-xs text-[#FFB800] hover:underline flex-shrink-0"
+                      >
+                        Заменить
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingLogo}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:border-[#FFB800] hover:text-[#FFB800] transition-all disabled:opacity-50"
+                    >
+                      {uploadingLogo ? (
+                        <>
+                          <Icon name="Loader2" size={16} className="animate-spin" />
+                          Загружаем...
+                        </>
+                      ) : (
+                        <>
+                          <Icon name="Upload" size={16} />
+                          Загрузить логотип
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Используйте тёмный (чёрный/серый) логотип на прозрачном фоне — он корректно отобразится поверх фото</p>
+                </div>
               )}
 
               <div className="space-y-2">
@@ -261,7 +334,8 @@ export default function LinkSettingsForm({
                               style={{ 
                                 maxWidth: `${linkSettings.watermarkSize / 2}px`,
                                 maxHeight: `${linkSettings.watermarkSize / 2}px`,
-                                transform: `rotate(${linkSettings.watermarkRotation}deg)`
+                                transform: `rotate(${linkSettings.watermarkRotation}deg)`,
+                                mixBlendMode: 'multiply',
                               }}
                               onError={(e) => (e.currentTarget.style.display = 'none')}
                             />

@@ -146,6 +146,7 @@ export default function GalleryViewerImage({
                       maxWidth: `${watermark.size}px`,
                       maxHeight: `${watermark.size}px`,
                       transform: `rotate(${watermark.rotation || 0}deg)`,
+                      mixBlendMode: 'multiply',
                     }}
                   />
                 )}

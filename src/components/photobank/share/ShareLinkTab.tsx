@@ -37,6 +37,7 @@ interface ShareLinkTabProps {
   error: string;
   onGenerateLink: () => void;
   folderName: string;
+  userId: number;
 }
 
 export default function ShareLinkTab({
@@ -52,7 +53,8 @@ export default function ShareLinkTab({
   loading,
   error,
   onGenerateLink,
-  folderName
+  folderName,
+  userId,
 }: ShareLinkTabProps) {
   return (
     <>
@@ -83,6 +85,7 @@ export default function ShareLinkTab({
         loading={loading}
         error={error}
         onGenerateLink={onGenerateLink}
+        userId={userId}
       />
     </>
   );

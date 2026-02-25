@@ -133,7 +133,8 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
                   style={{ 
                     maxWidth: `${watermark.size}px`,
                     maxHeight: `${watermark.size}px`,
-                    transform: `rotate(${watermark.rotation || 0}deg)` 
+                    transform: `rotate(${watermark.rotation || 0}deg)`,
+                    mixBlendMode: 'multiply',
                   }}
                 />
               )}
