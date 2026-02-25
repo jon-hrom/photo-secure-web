@@ -131,8 +131,8 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
                   src={watermark.image_url} 
                   alt="Watermark" 
                   style={{ 
-                    width: `${watermark.size * 0.5}vw`,
-                    maxWidth: `${watermark.size * 0.5}vw`,
+                    width: `${watermark.size}%`,
+                    maxWidth: `${watermark.size}%`,
                     height: 'auto',
                     transform: `rotate(${watermark.rotation || 0}deg)`,
                   }}

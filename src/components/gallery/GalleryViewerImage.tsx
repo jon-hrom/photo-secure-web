@@ -75,7 +75,7 @@ export default function GalleryViewerImage({
     <>
       {/* Область изображения */}
       <div
-        className="relative w-full h-full flex items-center justify-center overflow-hidden"
+        className="w-full h-full flex items-center justify-center overflow-hidden"
         style={{ cursor: zoom === 0 ? 'default' : (isDragging ? 'grabbing' : 'grab'), touchAction: 'none' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -85,76 +85,87 @@ export default function GalleryViewerImage({
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
       >
-        <img
-          src={src}
-          alt={fileName}
-          className="object-contain select-none touch-manipulation"
+        {/* Обёртка по размеру фото — watermark позиционируется внутри неё */}
+        <div
+          className="relative inline-block"
           style={{
             transform: zoom > 0
               ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`
               : 'none',
             maxWidth: imgMaxWidth,
             maxHeight: imgMaxHeight,
-            width: isFullscreen ? '100vw' : undefined,
-            height: isFullscreen ? '100vh' : undefined,
             transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out, max-width 0.3s ease, max-height 0.3s ease'),
             touchAction: 'none',
-            pointerEvents: 'none',
           }}
-          onContextMenu={(e) => screenshotProtection && e.preventDefault()}
-          draggable={false}
-        />
+        >
+          <img
+            src={src}
+            alt={fileName}
+            className="object-contain select-none touch-manipulation block"
+            style={{
+              maxWidth: imgMaxWidth,
+              maxHeight: imgMaxHeight,
+              width: isFullscreen ? '100vw' : undefined,
+              height: isFullscreen ? '100vh' : undefined,
+              touchAction: 'none',
+              pointerEvents: 'none',
+            }}
+            onContextMenu={(e) => screenshotProtection && e.preventDefault()}
+            draggable={false}
+          />
+          {watermark?.enabled && (() => {
+            const frequency = watermark.frequency || 50;
+            const count = Math.ceil((frequency / 10) * 10);
+            const items = [];
+            for (let i = 0; i < count; i++) {
+              const top = (i * (100 / count)) % 100;
+              const left = ((i * 37) % 100);
+              items.push(
+                <div
+                  key={i}
+                  className="absolute pointer-events-none"
+                  style={{
+                    top: `${top}%`,
+                    left: `${left}%`,
+                    transform: 'translate(-50%, -50%)',
+                    opacity: (watermark.opacity || 50) / 100,
+                  }}
+                >
+                  {watermark.type === 'text' ? (
+                    <p
+                      className="text-white font-bold text-center px-2 whitespace-nowrap"
+                      style={{
+                        fontSize: `${watermark.size || 20}px`,
+                        textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                        transform: `rotate(${watermark.rotation || 0}deg)`,
+                      }}
+                    >
+                      {watermark.text}
+                    </p>
+                  ) : (
+                    <img
+                      src={watermark.image_url}
+                      alt="Watermark"
+                      style={{
+                        width: `${watermark.size}%`,
+                        maxWidth: `${watermark.size}%`,
+                        height: 'auto',
+                        transform: `rotate(${watermark.rotation || 0}deg)`,
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            }
+            return items;
+          })()}
+        </div>
+
         {zoom > 0 && showFullImage && !fullImageLoaded && (
           <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
             Загрузка полного качества...
           </div>
         )}
-        {watermark?.enabled && (() => {
-          const frequency = watermark.frequency || 50;
-          const count = Math.ceil((frequency / 10) * 10);
-          const items = [];
-          for (let i = 0; i < count; i++) {
-            const top = (i * (100 / count)) % 100;
-            const left = ((i * 37) % 100);
-            items.push(
-              <div
-                key={i}
-                className="absolute pointer-events-none"
-                style={{
-                  top: `${top}%`,
-                  left: `${left}%`,
-                  transform: 'translate(-50%, -50%)',
-                  opacity: (watermark.opacity || 50) / 100,
-                }}
-              >
-                {watermark.type === 'text' ? (
-                  <p
-                    className="text-white font-bold text-center px-2 whitespace-nowrap"
-                    style={{
-                      fontSize: `${watermark.size || 20}px`,
-                      textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                      transform: `rotate(${watermark.rotation || 0}deg)`,
-                    }}
-                  >
-                    {watermark.text}
-                  </p>
-                ) : (
-                  <img
-                    src={watermark.image_url}
-                    alt="Watermark"
-                    style={{
-                      width: `${watermark.size * 0.5}vw`,
-                      maxWidth: `${watermark.size * 0.5}vw`,
-                      height: 'auto',
-                      transform: `rotate(${watermark.rotation || 0}deg)`,
-                    }}
-                  />
-                )}
-              </div>
-            );
-          }
-          return items;
-        })()}
       </div>
 
       {/* Кнопки навигации */}
