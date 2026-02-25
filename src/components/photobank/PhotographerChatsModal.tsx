@@ -199,20 +199,22 @@ export default function PhotographerChatsModal({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setShowSupport(true); onOpenSupport?.(); }}
-              className="relative flex items-center gap-2 text-sm"
-            >
-              <Icon name="Settings" size={16} />
-              <span className="hidden sm:inline">Тех поддержка</span>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowSupport(true); onOpenSupport?.(); }}
+                className="flex items-center gap-2 text-sm"
+              >
+                <Icon name="Settings" size={16} />
+                <span className="hidden sm:inline">Тех поддержка</span>
+              </Button>
               {supportUnread > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none pointer-events-none z-10">
                   {supportUnread > 9 ? '9+' : supportUnread}
                 </span>
               )}
-            </Button>
+            </div>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <Icon name="X" size={20} />
             </Button>
