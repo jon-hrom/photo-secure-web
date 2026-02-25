@@ -87,7 +87,8 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       const audio = new Audio(soundUrl);
       audio.volume = 0.5;
       audio.play().catch(() => {});
-    } catch (error) {
+    } catch {
+      // ignore sound errors
     }
   };
 
@@ -161,7 +162,7 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
     }
   };
 
-  const sendResponse = async (appeal: Appeal) => {
+  const sendResponse = async (appeal: Appeal, mode: 'email' | 'chat' = 'email') => {
     if (!responseText.trim()) {
       toast.error('Введите текст ответа');
       return;
@@ -169,27 +170,51 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
 
     setLoading(true);
     try {
-      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'respond_to_appeal',
-          appeal_id: appeal.id,
-          admin_user_id: userId,
-          admin_response: responseText.trim()
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast.success(`Ответ отправлен на ${appeal.user_email}`);
-        setResponseText('');
-        setRespondingTo(null);
-        setSelectedAppeal(null);
-        await fetchAppeals();
+      if (mode === 'chat' && appeal.is_support) {
+        // Отправляем через respond_to_appeal — оно пишет admin_response в БД
+        // и пользователь увидит ответ в SupportChatModal
+        const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'respond_to_appeal',
+            appeal_id: appeal.id,
+            admin_user_id: userId,
+            admin_response: responseText.trim(),
+            skip_email: true
+          }),
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          toast.success('Ответ отправлен в чат пользователю');
+          setResponseText('');
+          setRespondingTo(null);
+          setSelectedAppeal(null);
+          await fetchAppeals();
+        } else {
+          toast.error(data.error || 'Ошибка при отправке');
+        }
       } else {
-        toast.error(data.error || 'Ошибка при отправке ответа');
+        const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'respond_to_appeal',
+            appeal_id: appeal.id,
+            admin_user_id: userId,
+            admin_response: responseText.trim()
+          }),
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          toast.success(`Ответ отправлен на ${appeal.user_email || 'email'}`);
+          setResponseText('');
+          setRespondingTo(null);
+          setSelectedAppeal(null);
+          await fetchAppeals();
+        } else {
+          toast.error(data.error || 'Ошибка при отправке ответа');
+        }
       }
     } catch (error) {
       console.error('Error sending response:', error);
@@ -362,7 +387,7 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden sm:max-w-[95vw]">
+        <DialogContent className="max-w-5xl h-[92vh] max-h-[92vh] overflow-hidden sm:max-w-[95vw] flex flex-col">
           <DialogHeader className="border-b pb-3">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 sm:gap-3 text-base sm:text-xl">
@@ -387,23 +412,25 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
             </div>
           </DialogHeader>
 
-          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4 h-[calc(85vh-160px)]">
-            <AppealsListSidebar
-              appeals={appeals}
-              showArchived={showArchived}
-              selectedAppeal={selectedAppeal}
-              expandedUser={expandedUser}
-              loading={loading}
-              onToggleArchive={setShowArchived}
-              onSelectAppeal={setSelectedAppeal}
-              onToggleUserExpanded={setExpandedUser}
-              onMarkAsRead={markAsRead}
-              onMarkAllAsRead={markAllAsRead}
-              groupAppealsByUser={groupAppealsByUser}
-              formatDate={formatDate}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-[calc(90vh-140px)]">
+            <div className="flex flex-col min-h-0 overflow-hidden">
+              <AppealsListSidebar
+                appeals={appeals}
+                showArchived={showArchived}
+                selectedAppeal={selectedAppeal}
+                expandedUser={expandedUser}
+                loading={loading}
+                onToggleArchive={setShowArchived}
+                onSelectAppeal={setSelectedAppeal}
+                onToggleUserExpanded={setExpandedUser}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                groupAppealsByUser={groupAppealsByUser}
+                formatDate={formatDate}
+              />
+            </div>
 
-            <div className={`border-l-0 sm:border-l-2 pl-0 sm:pl-4 ${
+            <div className={`border-l-0 sm:border-l sm:border-border sm:pl-4 min-h-0 overflow-hidden ${
               selectedAppeal ? 'block' : 'hidden sm:block'
             }`}>
               <AppealDetail

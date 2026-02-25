@@ -1047,6 +1047,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 appeal_id = body.get('appeal_id')
                 admin_user_id = body.get('admin_user_id')
                 admin_response = body.get('admin_response')
+                skip_email = body.get('skip_email', False)
                 
                 if not admin_user_id or not appeal_id or not admin_response:
                     return {
@@ -1092,7 +1093,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Enabled': False
                     }
                 
-                if not appeal['user_email']:
+                if not skip_email and not appeal['user_email']:
                     return {
                         'statusCode': 400,
                         'headers': headers,
@@ -1107,6 +1108,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     (admin_response, appeal_id)
                 )
                 conn.commit()
+                
+                if skip_email:
+                    return {
+                        'statusCode': 200,
+                        'headers': headers,
+                        'body': json.dumps({'success': True, 'message': 'Ответ сохранён в чат пользователя'}),
+                        'isBase64Encoded': False
+                    }
                 
                 try:
                     ses_client = get_ses_client()

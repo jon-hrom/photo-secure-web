@@ -1,7 +1,7 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { Appeal } from './types';
 
@@ -14,7 +14,7 @@ interface AppealDetailProps {
   onArchive: (appealId: number) => void;
   onDelete: (appealId: number) => void;
   onResponseChange: (text: string) => void;
-  onSendResponse: (appeal: Appeal) => void;
+  onSendResponse: (appeal: Appeal, mode: 'email' | 'chat') => void;
   formatDate: (dateString: string) => string;
 }
 
@@ -30,6 +30,8 @@ const AppealDetail = ({
   onSendResponse,
   formatDate,
 }: AppealDetailProps) => {
+  const [replyMode, setReplyMode] = useState<'email' | 'chat'>('email');
+
   if (!selectedAppeal) {
     return (
       <div className="h-full items-center justify-center text-muted-foreground hidden sm:flex">
@@ -42,35 +44,46 @@ const AppealDetail = ({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       <Button
         variant="ghost"
         size="sm"
         onClick={onBack}
-        className="sm:hidden mb-3 self-start -ml-2"
+        className="sm:hidden mb-3 self-start -ml-2 shrink-0"
       >
         <Icon name="ArrowLeft" size={20} className="mr-2" />
         Назад
       </Button>
-      <div className="flex-1 overflow-auto">
-        <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b">
-          <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+
+      {/* Скроллируемый контент */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-border">
+          {/* Заголовок с кнопками */}
+          <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              {selectedAppeal.is_support
-                ? <Icon name="Settings" size={18} className="text-orange-500 sm:hidden flex-shrink-0" />
-                : <Icon name="User" size={18} className="text-blue-600 sm:hidden flex-shrink-0" />
-              }
-              {selectedAppeal.is_support
-                ? <Icon name="Settings" size={20} className="text-orange-500 hidden sm:block flex-shrink-0" />
-                : <Icon name="User" size={20} className="text-blue-600 hidden sm:block flex-shrink-0" />
-              }
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                selectedAppeal.is_support
+                  ? 'bg-orange-100 dark:bg-orange-950/50'
+                  : 'bg-blue-100 dark:bg-blue-950/50'
+              }`}>
+                <Icon
+                  name={selectedAppeal.is_support ? 'Settings' : 'User'}
+                  size={18}
+                  className={selectedAppeal.is_support ? 'text-orange-500' : 'text-blue-500'}
+                />
+              </div>
               <div className="min-w-0">
-                <h3 className="font-bold text-base sm:text-lg truncate">
+                <h3 className="font-bold text-sm sm:text-base truncate text-foreground">
                   {selectedAppeal.user_name || selectedAppeal.user_email || selectedAppeal.user_identifier}
                 </h3>
-                {selectedAppeal.is_support && (
-                  <span className="text-xs text-orange-500 font-medium">Тех поддержка</span>
-                )}
+                <div className="flex items-center gap-1 flex-wrap">
+                  {selectedAppeal.is_support && (
+                    <span className="text-xs text-orange-500 font-medium">Тех поддержка</span>
+                  )}
+                  {selectedAppeal.user_email && (
+                    <span className="text-xs text-muted-foreground truncate">{selectedAppeal.user_email}</span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -80,10 +93,10 @@ const AppealDetail = ({
                   variant="outline"
                   onClick={() => onMarkAsRead(selectedAppeal.id)}
                   disabled={loading}
-                  className="h-7 text-xs"
+                  className="h-7 w-7 p-0"
                   title="Отметить как прочитанное"
                 >
-                  <Icon name="Check" size={12} />
+                  <Icon name="Check" size={13} />
                 </Button>
               )}
               {!selectedAppeal.is_archived ? (
@@ -92,15 +105,15 @@ const AppealDetail = ({
                   variant="outline"
                   onClick={() => onArchive(selectedAppeal.id)}
                   disabled={loading}
-                  className="h-7 text-xs"
+                  className="h-7 w-7 p-0"
                   title="В архив"
                 >
-                  <Icon name="Archive" size={12} />
+                  <Icon name="Archive" size={13} />
                 </Button>
               ) : (
                 <Badge variant="secondary" className="text-xs">
                   <Icon name="Archive" size={10} className="mr-1" />
-                  В архиве
+                  Архив
                 </Badge>
               )}
               <Button
@@ -108,92 +121,123 @@ const AppealDetail = ({
                 variant="outline"
                 onClick={() => onDelete(selectedAppeal.id)}
                 disabled={loading}
-                className="h-7 text-xs text-red-600 hover:text-red-700"
-                title="Удалить обращение"
+                className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:border-red-300"
+                title="Удалить"
               >
-                <Icon name="Trash2" size={12} />
+                <Icon name="Trash2" size={13} />
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm mb-3 sm:mb-4">
-            <div className="flex items-center gap-2">
-              <Icon name="Mail" size={16} className="text-muted-foreground" />
-              <span>{selectedAppeal.user_email || 'Нет email'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Icon name="Clock" size={16} className="text-muted-foreground" />
-              <span>{formatDate(selectedAppeal.created_at)}</span>
-            </div>
+          {/* Мета-инфо */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+            <span className="flex items-center gap-1">
+              <Icon name="Clock" size={12} />
+              {formatDate(selectedAppeal.created_at)}
+            </span>
           </div>
 
+          {/* Блокировка */}
           {selectedAppeal.is_blocked && selectedAppeal.block_reason && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-3">
               <div className="flex items-start gap-2">
-                <Icon name="ShieldAlert" size={18} className="text-red-600 mt-0.5" />
+                <Icon name="ShieldAlert" size={16} className="text-red-500 mt-0.5 shrink-0" />
                 <div>
-                  <p className="font-semibold text-sm text-red-900 mb-1">Причина блокировки:</p>
-                  <p className="text-sm text-red-700">{selectedAppeal.block_reason}</p>
+                  <p className="font-semibold text-xs text-red-700 dark:text-red-400 mb-1">Причина блокировки:</p>
+                  <p className="text-xs text-red-600 dark:text-red-300">{selectedAppeal.block_reason}</p>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-            <p className="font-semibold text-xs sm:text-sm text-blue-900 mb-2">
-              Сообщение от пользователя:
-            </p>
-            <p className="text-xs sm:text-sm text-blue-800 whitespace-pre-wrap break-words">
+          {/* Сообщение */}
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
+            <p className="font-semibold text-xs text-blue-700 dark:text-blue-400 mb-2">Сообщение:</p>
+            <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap break-words">
               {selectedAppeal.message}
             </p>
           </div>
 
+          {/* Ответ */}
           {selectedAppeal.admin_response && (
-            <div className="mt-3 sm:mt-4 bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+            <div className="mt-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3 sm:p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Icon name="CheckCircle" size={18} className="text-green-600" />
-                <p className="font-semibold text-xs sm:text-sm text-green-900">Ваш ответ:</p>
+                <Icon name="CheckCircle" size={16} className="text-green-600 dark:text-green-400" />
+                <p className="font-semibold text-xs text-green-700 dark:text-green-400">Ваш ответ:</p>
               </div>
-              <p className="text-xs sm:text-sm text-green-800 whitespace-pre-wrap break-words">
+              <p className="text-xs sm:text-sm text-green-800 dark:text-green-200 whitespace-pre-wrap break-words">
                 {selectedAppeal.admin_response}
               </p>
-              <p className="text-xs text-green-600 mt-2">
-                Отправлено: {formatDate(selectedAppeal.responded_at!)}
+              <p className="text-xs text-green-600 dark:text-green-500 mt-2">
+                {formatDate(selectedAppeal.responded_at!)}
               </p>
             </div>
           )}
         </div>
       </div>
 
-      <div className="mt-auto pt-3 sm:pt-4 border-t">
-        <Label htmlFor="response" className="text-xs sm:text-sm font-semibold mb-2 block">
-          Ответ пользователю (будет отправлен на email):
-        </Label>
+      {/* Форма ответа — всегда внизу */}
+      <div className="shrink-0 pt-3 border-t border-border">
+        {/* Переключатель способа отправки */}
+        <div className="flex items-center gap-1 mb-3 p-1 bg-muted rounded-lg w-full">
+          <button
+            onClick={() => setReplyMode('email')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
+              replyMode === 'email'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Icon name="Mail" size={13} />
+            На email
+          </button>
+          <button
+            onClick={() => setReplyMode('chat')}
+            disabled={!selectedAppeal.is_support}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
+              replyMode === 'chat'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            <Icon name="MessageCircle" size={13} />
+            В чат
+          </button>
+        </div>
+
+        <p className="text-xs text-muted-foreground mb-2">
+          {replyMode === 'email'
+            ? 'Ответ будет отправлен на email пользователя'
+            : 'Ответ появится в чате тех. поддержки у пользователя'
+          }
+        </p>
+
         <Textarea
-          id="response"
           value={responseText}
           onChange={(e) => onResponseChange(e.target.value)}
           placeholder="Напишите ответ пользователю..."
-          className="min-h-[100px] sm:min-h-[120px] resize-none mb-3 text-sm"
+          className="min-h-[80px] sm:min-h-[100px] resize-none mb-3 text-sm bg-background"
           disabled={loading}
         />
         <Button
-          onClick={() => onSendResponse(selectedAppeal)}
+          onClick={() => onSendResponse(selectedAppeal, replyMode)}
           disabled={loading || !responseText.trim()}
-          className="w-full text-sm sm:text-base"
-          size="default"
+          className="w-full text-sm"
         >
           {loading ? (
             <>
-              <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-              <span className="hidden sm:inline">Отправка...</span>
-              <span className="sm:hidden">Отправка</span>
+              <Icon name="Loader2" size={15} className="mr-2 animate-spin" />
+              Отправка...
+            </>
+          ) : replyMode === 'email' ? (
+            <>
+              <Icon name="Send" size={15} className="mr-2" />
+              Отправить на email
             </>
           ) : (
             <>
-              <Icon name="Send" size={16} className="mr-2" />
-              <span className="hidden sm:inline">Отправить ответ на email</span>
-              <span className="sm:hidden">Отправить</span>
+              <Icon name="MessageCircle" size={15} className="mr-2" />
+              Отправить в чат
             </>
           )}
         </Button>
