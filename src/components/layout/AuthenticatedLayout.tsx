@@ -5,7 +5,7 @@ import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import Dashboard from '@/components/Dashboard';
-import MAXMessenger from '@/components/MAXMessenger';
+import PhotographerChatsModal from '@/components/photobank/PhotographerChatsModal';
 import ClientsPage from '@/components/ClientsPage';
 import PhotobookPage from '@/components/PhotobookPage';
 import SettingsPage from '@/components/SettingsPage';
@@ -224,10 +224,10 @@ const AuthenticatedLayout = ({
       <MobileNavigation onNavigate={setCurrentPage} currentPage={currentPage} />
 
       {userId && (
-        <MAXMessenger
-          userId={Number(userId)}
+        <PhotographerChatsModal
           isOpen={showMAXChat}
           onClose={() => setShowMAXChat(false)}
+          photographerId={Number(userId)}
         />
       )}
     </div>
