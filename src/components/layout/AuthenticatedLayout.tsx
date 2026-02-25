@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { useSupportUnread } from '@/hooks/useSupportUnread';
 import Dashboard from '@/components/Dashboard';
 import PhotographerChatsModal from '@/components/photobank/PhotographerChatsModal';
 import ClientsPage from '@/components/ClientsPage';
@@ -73,6 +74,8 @@ const AuthenticatedLayout = ({
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [showMAXChat, setShowMAXChat] = useState(false);
   const unreadCount = useUnreadCount(userId);
+  const { unreadCount: supportUnread, markRead: markSupportRead } = useSupportUnread(userId);
+  const totalUnread = unreadCount + supportUnread;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30 dark:via-purple-900/10 dark:to-blue-900/10">
@@ -84,8 +87,8 @@ const AuthenticatedLayout = ({
         userAvatar={userAvatar}
         isVerified={isVerified}
         onLogout={onLogout}
-        unreadCount={unreadCount}
-        onOpenChat={() => setShowMAXChat(true)}
+        unreadCount={totalUnread}
+        onOpenChat={() => { setShowMAXChat(true); markSupportRead(); }}
       />
 
       {showEmailVerification && userId && !isAdmin && (
@@ -224,8 +227,8 @@ const AuthenticatedLayout = ({
       <MobileNavigation
         onNavigate={setCurrentPage}
         currentPage={currentPage}
-        unreadCount={unreadCount}
-        onOpenChat={() => setShowMAXChat(true)}
+        unreadCount={totalUnread}
+        onOpenChat={() => { setShowMAXChat(true); markSupportRead(); }}
       />
 
       {userId && (
@@ -233,6 +236,7 @@ const AuthenticatedLayout = ({
           isOpen={showMAXChat}
           onClose={() => setShowMAXChat(false)}
           photographerId={Number(userId)}
+          onOpenSupport={markSupportRead}
         />
       )}
     </div>

@@ -22,12 +22,14 @@ interface PhotographerChatsModalProps {
   isOpen: boolean;
   onClose: () => void;
   photographerId: number;
+  onOpenSupport?: () => void;
 }
 
 export default function PhotographerChatsModal({ 
   isOpen, 
   onClose, 
-  photographerId 
+  photographerId,
+  onOpenSupport,
 }: PhotographerChatsModalProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
@@ -198,7 +200,7 @@ export default function PhotographerChatsModal({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowSupport(true)}
+              onClick={() => { setShowSupport(true); onOpenSupport?.(); }}
               className="flex items-center gap-2 text-sm"
             >
               <Icon name="Settings" size={16} />

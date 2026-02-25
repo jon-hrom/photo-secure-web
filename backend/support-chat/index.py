@@ -34,6 +34,37 @@ def handler(event: dict, context) -> dict:
 
     user_identifier = str(user_id_str)
 
+    # GET ?action=unread — количество непрочитанных ответов от поддержки
+    if method == 'GET' and params.get('action') == 'unread':
+        conn = get_conn()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            f"SELECT COUNT(*) as cnt FROM {SCHEMA}.blocked_user_appeals "
+            f"WHERE user_identifier = %s AND is_support = true "
+            f"AND admin_response IS NOT NULL AND user_read_at IS NULL",
+            (user_identifier,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        return resp(200, {'unread_count': row['cnt'] if row else 0})
+
+    # GET ?action=mark_read — пользователь открыл чат, отмечаем ответы как прочитанные
+    if method == 'GET' and params.get('action') == 'mark_read':
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE {SCHEMA}.blocked_user_appeals "
+            f"SET user_read_at = NOW() "
+            f"WHERE user_identifier = %s AND is_support = true "
+            f"AND admin_response IS NOT NULL AND user_read_at IS NULL",
+            (user_identifier,)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return resp(200, {'success': True})
+
     # GET — получить историю сообщений пользователя в тех.поддержку
     if method == 'GET':
         conn = get_conn()
@@ -46,6 +77,15 @@ def handler(event: dict, context) -> dict:
             (user_identifier,)
         )
         rows = cur.fetchall()
+        # Помечаем прочитанными при открытии чата
+        cur.execute(
+            f"UPDATE {SCHEMA}.blocked_user_appeals "
+            f"SET user_read_at = NOW() "
+            f"WHERE user_identifier = %s AND is_support = true "
+            f"AND admin_response IS NOT NULL AND user_read_at IS NULL",
+            (user_identifier,)
+        )
+        conn.commit()
         cur.close()
         conn.close()
         messages = []
