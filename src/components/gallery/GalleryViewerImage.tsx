@@ -143,8 +143,8 @@ export default function GalleryViewerImage({
                     src={watermark.image_url}
                     alt="Watermark"
                     style={{
-                      width: `${watermark.size}vw`,
-                      maxWidth: `${watermark.size}vw`,
+                      width: `${watermark.size * 0.5}vw`,
+                      maxWidth: `${watermark.size * 0.5}vw`,
                       height: 'auto',
                       transform: `rotate(${watermark.rotation || 0}deg)`,
                     }}

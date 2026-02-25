@@ -261,8 +261,8 @@ export default function LinkSettingsForm({
                 </div>
                 <input
                   type="range"
-                  min="10"
-                  max="50"
+                  min="5"
+                  max="80"
                   step="5"
                   value={linkSettings.watermarkSize}
                   onChange={(e) => setLinkSettings({ ...linkSettings, watermarkSize: parseInt(e.target.value) })}
@@ -341,8 +341,8 @@ export default function LinkSettingsForm({
                               src={linkSettings.watermarkImageUrl}
                               alt="Watermark preview"
                               style={{ 
-                                width: `${linkSettings.watermarkSize / 2}%`,
-                                maxWidth: `${linkSettings.watermarkSize / 2}%`,
+                                width: `${linkSettings.watermarkSize * 0.5}vw`,
+                                maxWidth: `${linkSettings.watermarkSize * 0.5}vw`,
                                 height: 'auto',
                                 transform: `rotate(${linkSettings.watermarkRotation}deg)`,
                               }}
