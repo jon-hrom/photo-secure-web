@@ -341,8 +341,8 @@ export default function LinkSettingsForm({
                               src={linkSettings.watermarkImageUrl}
                               alt="Watermark preview"
                               style={{ 
-                                width: `${linkSettings.watermarkSize * 0.5}vw`,
-                                maxWidth: `${linkSettings.watermarkSize * 0.5}vw`,
+                                width: `${linkSettings.watermarkSize}%`,
+                                maxWidth: `${linkSettings.watermarkSize}%`,
                                 height: 'auto',
                                 transform: `rotate(${linkSettings.watermarkRotation}deg)`,
                               }}

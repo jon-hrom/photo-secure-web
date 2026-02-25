@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 
 interface WatermarkSettings {
@@ -71,6 +72,36 @@ export default function GalleryViewerImage({
   const imgMaxWidth = isFullscreen ? '100vw' : (zoom === 0 ? '96vw' : '100%');
   const imgMaxHeight = isFullscreen ? '100vh' : (zoom === 0 ? 'calc(100vh - 100px)' : '100vh');
 
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
+
+  // Измеряем реальный размер картинки после загрузки и при ресайзе
+  useEffect(() => {
+    const measure = () => {
+      if (imgRef.current) {
+        const rect = imgRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          setImgSize({ w: rect.width, h: rect.height });
+        }
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (imgRef.current) ro.observe(imgRef.current);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [src]);
+
+  // Сбрасываем размер при смене фото
+  useEffect(() => {
+    setImgSize(null);
+  }, [src]);
+
+  const logoSizePx = imgSize ? (imgSize.w * (watermark?.size || 20)) / 100 : null;
+
   return (
     <>
       {/* Область изображения */}
@@ -92,13 +123,13 @@ export default function GalleryViewerImage({
             transform: zoom > 0
               ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`
               : 'none',
-            maxWidth: imgMaxWidth,
-            maxHeight: imgMaxHeight,
-            transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out, max-width 0.3s ease, max-height 0.3s ease'),
+            transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
             touchAction: 'none',
+            lineHeight: 0,
           }}
         >
           <img
+            ref={imgRef}
             src={src}
             alt={fileName}
             className="object-contain select-none touch-manipulation block"
@@ -110,10 +141,16 @@ export default function GalleryViewerImage({
               touchAction: 'none',
               pointerEvents: 'none',
             }}
+            onLoad={() => {
+              if (imgRef.current) {
+                const rect = imgRef.current.getBoundingClientRect();
+                if (rect.width > 0) setImgSize({ w: rect.width, h: rect.height });
+              }
+            }}
             onContextMenu={(e) => screenshotProtection && e.preventDefault()}
             draggable={false}
           />
-          {watermark?.enabled && (() => {
+          {watermark?.enabled && logoSizePx !== null && (() => {
             const frequency = watermark.frequency || 50;
             const count = Math.ceil((frequency / 10) * 10);
             const items = [];
@@ -135,7 +172,7 @@ export default function GalleryViewerImage({
                     <p
                       className="text-white font-bold text-center px-2 whitespace-nowrap"
                       style={{
-                        fontSize: `${watermark.size || 20}px`,
+                        fontSize: `${logoSizePx * 0.3}px`,
                         textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
                         transform: `rotate(${watermark.rotation || 0}deg)`,
                       }}
@@ -147,8 +184,7 @@ export default function GalleryViewerImage({
                       src={watermark.image_url}
                       alt="Watermark"
                       style={{
-                        width: `${watermark.size}%`,
-                        maxWidth: `${watermark.size}%`,
+                        width: `${logoSizePx}px`,
                         height: 'auto',
                         transform: `rotate(${watermark.rotation || 0}deg)`,
                       }}
@@ -218,9 +254,9 @@ export default function GalleryViewerImage({
         }}
       >
         <p className="text-white font-medium text-base mb-1 truncate">{fileName}</p>
-        <div className="flex items-center gap-4 text-white/60 text-xs">
-          {fileSize && <span>{(fileSize / 1024 / 1024).toFixed(2)} МБ</span>}
-          {width && height && <span>{width} × {height}</span>}
+        <div className="flex items-center gap-4 text/60 text-xs">
+          {fileSize && <span className="text-white/60">{(fileSize / 1024 / 1024).toFixed(2)} МБ</span>}
+          {width && height && <span className="text-white/60">{width} × {height}</span>}
         </div>
       </div>
     </>
