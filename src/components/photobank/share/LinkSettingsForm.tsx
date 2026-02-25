@@ -199,12 +199,21 @@ export default function LinkSettingsForm({
                         <p className="text-sm text-gray-700 dark:text-gray-300 truncate">Логотип загружен</p>
                         <p className="text-xs text-gray-400">PNG/JPG/SVG с тёмным логотипом на прозрачном фоне</p>
                       </div>
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="text-xs text-[#FFB800] hover:underline flex-shrink-0"
-                      >
-                        Заменить
-                      </button>
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingLogo}
+                          className="text-xs text-[#FFB800] hover:underline"
+                        >
+                          {uploadingLogo ? 'Загружаем...' : 'Заменить'}
+                        </button>
+                        <button
+                          onClick={() => setLinkSettings({ ...linkSettings, watermarkImageUrl: '' })}
+                          className="text-xs text-red-400 hover:underline"
+                        >
+                          Удалить
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button
