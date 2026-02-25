@@ -23,6 +23,7 @@ interface PhotographerChatsModalProps {
   onClose: () => void;
   photographerId: number;
   onOpenSupport?: () => void;
+  supportUnread?: number;
 }
 
 export default function PhotographerChatsModal({ 
@@ -30,6 +31,7 @@ export default function PhotographerChatsModal({
   onClose, 
   photographerId,
   onOpenSupport,
+  supportUnread = 0,
 }: PhotographerChatsModalProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
@@ -201,10 +203,15 @@ export default function PhotographerChatsModal({
               variant="outline"
               size="sm"
               onClick={() => { setShowSupport(true); onOpenSupport?.(); }}
-              className="flex items-center gap-2 text-sm"
+              className="relative flex items-center gap-2 text-sm"
             >
               <Icon name="Settings" size={16} />
               <span className="hidden sm:inline">Тех поддержка</span>
+              {supportUnread > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                  {supportUnread > 9 ? '9+' : supportUnread}
+                </span>
+              )}
             </Button>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <Icon name="X" size={20} />

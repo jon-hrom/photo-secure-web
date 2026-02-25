@@ -237,6 +237,7 @@ const AuthenticatedLayout = ({
           onClose={() => setShowMAXChat(false)}
           photographerId={Number(userId)}
           onOpenSupport={markSupportRead}
+          supportUnread={supportUnread}
         />
       )}
     </div>
