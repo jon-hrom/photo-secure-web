@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 
 const SUPPORT_URL = 'https://functions.poehali.dev/d007b2e4-7b81-49f7-b426-06c2a7aa7d12';
+const POLL_INTERVAL = 15000;
 
 interface SupportMessage {
   id: number | string;
@@ -24,36 +25,58 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [newReply, setNewReply] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef(0);
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
-  const loadMessages = async () => {
-    setLoading(true);
+  const fetchMessages = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(SUPPORT_URL, {
         headers: { 'X-User-Id': String(userId) },
       });
       const data = await res.json();
-      setMessages(data.messages || []);
+      const msgs: SupportMessage[] = data.messages || [];
+      setMessages(prev => {
+        // Если появился новый ответ от поддержки — показать уведомление
+        const prevAdminCount = prev.filter(m => m.sender === 'admin').length;
+        const newAdminCount = msgs.filter(m => m.sender === 'admin').length;
+        if (!silent && prevAdminCount < newAdminCount && prevCountRef.current > 0) {
+          setNewReply(true);
+        }
+        prevCountRef.current = msgs.length;
+        return msgs;
+      });
     } catch (err) {
       console.error('[SUPPORT] load error:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [userId]);
 
+  // Начальная загрузка + поллинг
   useEffect(() => {
-    if (isOpen) {
-      loadMessages();
+    if (!isOpen) return;
+    prevCountRef.current = 0;
+    fetchMessages(false);
+    const interval = setInterval(() => {
+      if (isOpenRef.current) fetchMessages(true);
+    }, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [isOpen, fetchMessages]);
+
+  // Скролл вниз при новых сообщениях
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom(messages.length === 1 ? 'instant' : 'smooth');
     }
-  }, [isOpen]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  }, [messages.length]);
 
   const handleSend = async () => {
     const text = newMessage.trim();
@@ -69,6 +92,7 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
       const data = await res.json();
       if (data.success && data.message) {
         setMessages(prev => [...prev, data.message]);
+        prevCountRef.current += 1;
       }
     } catch (err) {
       console.error('[SUPPORT] send error:', err);
@@ -114,8 +138,20 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
           </Button>
         </div>
 
+        {/* Уведомление о новом ответе */}
+        {newReply && (
+          <div
+            className="mx-4 mt-3 flex items-center gap-2 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 rounded-xl px-4 py-2.5 text-sm cursor-pointer animate-in fade-in slide-in-from-top-2 duration-300"
+            onClick={() => { setNewReply(false); scrollToBottom(); }}
+          >
+            <Icon name="MessageCircleCheck" size={16} className="flex-shrink-0" />
+            <span className="flex-1 font-medium">Поддержка ответила на ваш вопрос</span>
+            <Icon name="ArrowDown" size={14} className="flex-shrink-0 opacity-60" />
+          </div>
+        )}
+
         {/* Сообщения */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3" onScroll={() => newReply && setNewReply(false)}>
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
