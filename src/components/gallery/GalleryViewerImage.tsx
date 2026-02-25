@@ -143,10 +143,10 @@ export default function GalleryViewerImage({
                     src={watermark.image_url}
                     alt="Watermark"
                     style={{
-                      maxWidth: `${watermark.size}px`,
-                      maxHeight: `${watermark.size}px`,
+                      width: `${watermark.size}vw`,
+                      maxWidth: `${watermark.size}vw`,
+                      height: 'auto',
                       transform: `rotate(${watermark.rotation || 0}deg)`,
-                      mixBlendMode: 'multiply',
                     }}
                   />
                 )}

@@ -234,7 +234,7 @@ export default function LinkSettingsForm({
                       )}
                     </button>
                   )}
-                  <p className="text-xs text-gray-400 dark:text-gray-500">Используйте тёмный (чёрный/серый) логотип на прозрачном фоне — он корректно отобразится поверх фото</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Загрузите PNG с прозрачным фоном — логотип будет виден поверх фото. Белый фон останется белым.</p>
                 </div>
               )}
 
@@ -341,10 +341,10 @@ export default function LinkSettingsForm({
                               src={linkSettings.watermarkImageUrl}
                               alt="Watermark preview"
                               style={{ 
-                                maxWidth: `${linkSettings.watermarkSize / 2}px`,
-                                maxHeight: `${linkSettings.watermarkSize / 2}px`,
+                                width: `${linkSettings.watermarkSize / 2}%`,
+                                maxWidth: `${linkSettings.watermarkSize / 2}%`,
+                                height: 'auto',
                                 transform: `rotate(${linkSettings.watermarkRotation}deg)`,
-                                mixBlendMode: 'multiply',
                               }}
                               onError={(e) => (e.currentTarget.style.display = 'none')}
                             />
