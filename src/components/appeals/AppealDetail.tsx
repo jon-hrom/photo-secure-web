@@ -56,11 +56,22 @@ const AppealDetail = ({
         <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b">
           <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <Icon name="User" size={18} className="text-blue-600 sm:hidden" />
-              <Icon name="User" size={20} className="text-blue-600 hidden sm:block" />
-              <h3 className="font-bold text-base sm:text-lg truncate">
-                {selectedAppeal.user_email || selectedAppeal.user_identifier}
-              </h3>
+              {selectedAppeal.is_support
+                ? <Icon name="Settings" size={18} className="text-orange-500 sm:hidden flex-shrink-0" />
+                : <Icon name="User" size={18} className="text-blue-600 sm:hidden flex-shrink-0" />
+              }
+              {selectedAppeal.is_support
+                ? <Icon name="Settings" size={20} className="text-orange-500 hidden sm:block flex-shrink-0" />
+                : <Icon name="User" size={20} className="text-blue-600 hidden sm:block flex-shrink-0" />
+              }
+              <div className="min-w-0">
+                <h3 className="font-bold text-base sm:text-lg truncate">
+                  {selectedAppeal.user_name || selectedAppeal.user_email || selectedAppeal.user_identifier}
+                </h3>
+                {selectedAppeal.is_support && (
+                  <span className="text-xs text-orange-500 font-medium">Тех поддержка</span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {!selectedAppeal.is_read && (

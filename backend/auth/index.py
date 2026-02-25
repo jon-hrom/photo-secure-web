@@ -878,7 +878,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 cursor.execute("""
                     SELECT id, user_identifier, user_email, user_phone, auth_method, 
                            message, block_reason, is_blocked, is_read, is_archived,
-                           created_at, read_at, admin_response, responded_at
+                           created_at, read_at, admin_response, responded_at,
+                           COALESCE(is_support, false) as is_support,
+                           user_name
                     FROM t_p28211681_photo_secure_web.blocked_user_appeals
                     ORDER BY is_archived ASC, is_read ASC, created_at DESC
                     LIMIT 200

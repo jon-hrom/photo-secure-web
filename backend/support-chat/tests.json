@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "POST message - with auth",
+      "method": "POST",
+      "path": "/",
+      "headers": { "X-User-Id": "1000", "Content-Type": "application/json" },
+      "body": { "message": "Тест техподдержки", "user_name": "Тест" },
+      "expectedStatus": 200,
+      "expectedBody": { "success": true },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

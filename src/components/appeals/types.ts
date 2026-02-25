@@ -3,12 +3,14 @@ export interface Appeal {
   user_identifier: string;
   user_email: string | null;
   user_phone: string | null;
+  user_name: string | null;
   auth_method: string;
   message: string;
   block_reason: string | null;
   is_blocked: boolean;
   is_read: boolean;
   is_archived: boolean;
+  is_support: boolean;
   created_at: string;
   read_at: string | null;
   admin_response: string | null;

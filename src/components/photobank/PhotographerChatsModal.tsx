@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import ChatModal from '@/components/gallery/ChatModal';
+import SupportChatModal from '@/components/support/SupportChatModal';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import { getTimezoneForRegion } from '@/utils/regionTimezone';
 
@@ -33,6 +34,8 @@ export default function PhotographerChatsModal({
   const [loading, setLoading] = useState(false);
   const [photographerName, setPhotographerName] = useState<string>('Фотограф');
   const [photographerTimezone, setPhotographerTimezone] = useState<string>('Europe/Moscow');
+  const [showSupport, setShowSupport] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
 
   // Получаем имя фотографа из localStorage
   useEffect(() => {
@@ -43,9 +46,8 @@ export default function PhotographerChatsModal({
     if (authSession) {
       try {
         const session = JSON.parse(authSession);
-        if (session.userName) {
-          setPhotographerName(session.userName);
-        }
+        if (session.userName) setPhotographerName(session.userName);
+        if (session.userEmail) setUserEmail(session.userEmail);
       } catch {
         // Ignore parse errors
       }
@@ -53,18 +55,15 @@ export default function PhotographerChatsModal({
       try {
         const userData = JSON.parse(vkUser);
         const name = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
-        if (name) {
-          setPhotographerName(name);
-        }
+        if (name) setPhotographerName(name);
       } catch {
         // Ignore parse errors
       }
     } else if (googleUser) {
       try {
         const userData = JSON.parse(googleUser);
-        if (userData.name) {
-          setPhotographerName(userData.name);
-        }
+        if (userData.name) setPhotographerName(userData.name);
+        if (userData.email) setUserEmail(userData.email);
       } catch {
         // Ignore parse errors
       }
@@ -180,6 +179,7 @@ export default function PhotographerChatsModal({
   };
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex" onClick={onClose}>
       <div 
         className="bg-background w-full h-full md:m-4 md:rounded-xl shadow-2xl flex flex-col overflow-hidden md:max-w-7xl md:mx-auto" 
@@ -194,9 +194,20 @@ export default function PhotographerChatsModal({
               <p className="text-sm text-muted-foreground">Чатов: {chats.length}</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <Icon name="X" size={20} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSupport(true)}
+              className="flex items-center gap-2 text-sm"
+            >
+              <Icon name="Settings" size={16} />
+              <span className="hidden sm:inline">Тех поддержка</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <Icon name="X" size={20} />
+            </Button>
+          </div>
         </div>
 
         {/* Контент */}
@@ -323,5 +334,14 @@ export default function PhotographerChatsModal({
         </div>
       </div>
     </div>
+
+    <SupportChatModal
+      isOpen={showSupport}
+      onClose={() => setShowSupport(false)}
+      userId={photographerId}
+      userName={photographerName}
+      userEmail={userEmail}
+    />
+    </>
   );
 }
