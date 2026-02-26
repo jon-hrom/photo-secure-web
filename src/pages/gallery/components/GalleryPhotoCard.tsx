@@ -58,8 +58,8 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
               src={photo.thumbnail_url}
               alt={photo.file_name}
               className="w-full h-auto transition-transform group-hover:scale-105"
-              loading={index < 6 ? 'eager' : 'lazy'}
-              decoding="async"
+              loading={index < 20 ? 'eager' : 'lazy'}
+              decoding={index < 6 ? 'sync' : 'async'}
               onContextMenu={(e) => screenshotProtection && e.preventDefault()}
               draggable={false}
               onLoad={() => onPhotoLoad?.()}
@@ -69,7 +69,7 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
             <video
               src={`${photo.photo_url}#t=0.1`}
               className="w-full h-auto transition-transform group-hover:scale-105"
-              preload={index < 4 ? 'metadata' : 'none'}
+              preload="metadata"
               onContextMenu={(e) => screenshotProtection && e.preventDefault()}
               onLoadedData={() => onPhotoLoad?.()}
               onError={() => onPhotoLoad?.()}
@@ -83,8 +83,8 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
           src={photo.grid_thumbnail_url || photo.thumbnail_url || photo.photo_url}
           alt={photo.file_name}
           className="w-full h-auto transition-transform group-hover:scale-105"
-          loading={index < 6 ? 'eager' : 'lazy'}
-          decoding="async"
+          loading={index < 20 ? 'eager' : 'lazy'}
+          decoding={index < 6 ? 'sync' : 'async'}
           onContextMenu={(e) => screenshotProtection && e.preventDefault()}
           draggable={false}
           onLoad={() => onPhotoLoad?.()}
