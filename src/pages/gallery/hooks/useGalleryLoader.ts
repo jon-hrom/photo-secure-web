@@ -172,6 +172,14 @@ export function useGalleryLoader(code?: string, clientId?: number) {
     }
   }, [photosLoaded, gallery]);
 
+  // Аварийный таймаут — скрываем оверлей через 8 сек если не завершился
+  useEffect(() => {
+    if (loadingProgress > 0 && loadingProgress < 100) {
+      const timer = setTimeout(() => setLoadingProgress(0), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingProgress]);
+
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('[PUBLIC_GALLERY] Password submit, value:', password);
