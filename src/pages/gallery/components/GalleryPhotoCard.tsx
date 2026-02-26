@@ -45,9 +45,11 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
         marginBottom: `${gridGap}px`,
         opacity: 0,
         transform: 'translateY(12px)',
-        transition: `opacity 0.3s ease, transform 0.3s ease`,
+        transition: `opacity 0.25s ease, transform 0.25s ease`,
         outline: isSelected ? '3px solid #6366f1' : 'none',
-        outlineOffset: '-3px'
+        outlineOffset: '-3px',
+        willChange: 'opacity, transform',
+        contain: 'layout style paint',
       }}
       onClick={() => selectionMode ? onToggleSelect?.(photo) : onPhotoClick(photo)}
     >

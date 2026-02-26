@@ -298,6 +298,7 @@ export default function GalleryGrid({
       paddingTop: 'env(safe-area-inset-top, 0px)',
       paddingLeft: 'env(safe-area-inset-left, 0px)',
       paddingRight: 'env(safe-area-inset-right, 0px)',
+      WebkitOverflowScrolling: 'touch',
     }}>
       {coverPhoto && (
         <GalleryCover
