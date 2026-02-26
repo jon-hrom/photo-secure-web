@@ -24,13 +24,17 @@ export default function CoverPreviewDesktop({
   const coverUrl = coverPhoto?.thumbnail_url || coverPhoto?.photo_url;
   const isVertical = settings.coverOrientation === 'vertical';
 
-  const handleFocusPointDrag = useCallback((e: React.MouseEvent | MouseEvent) => {
+  const calcFocusPosition = useCallback((clientX: number, clientY: number) => {
     if (!coverImageRef.current) return;
     const rect = coverImageRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
     onSettingsChange({ ...settings, coverFocusX: x, coverFocusY: y });
   }, [settings, onSettingsChange]);
+
+  const handleFocusPointDrag = useCallback((e: React.MouseEvent | MouseEvent) => {
+    calcFocusPosition(e.clientX, e.clientY);
+  }, [calcFocusPosition]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -38,17 +42,36 @@ export default function CoverPreviewDesktop({
     handleFocusPointDrag(e);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const t = e.touches[0];
+    calcFocusPosition(t.clientX, t.clientY);
+  };
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    calcFocusPosition(t.clientX, t.clientY);
+  }, [calcFocusPosition]);
+
+  const handleTouchEnd = useCallback(() => setIsDragging(false), []);
+
   useEffect(() => {
     if (!isDragging) return;
     const handleMove = (e: MouseEvent) => handleFocusPointDrag(e);
     const handleUp = () => setIsDragging(false);
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     return () => {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isDragging, handleFocusPointDrag]);
+  }, [isDragging, handleFocusPointDrag, handleTouchMove, handleTouchEnd]);
 
   if (!coverUrl) {
     return (
@@ -77,6 +100,7 @@ export default function CoverPreviewDesktop({
             aspectRatio: isVertical ? '9/16' : '16/9'
           }}
           onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
         >
           <img
             src={coverUrl}

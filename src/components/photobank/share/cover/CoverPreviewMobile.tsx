@@ -19,13 +19,17 @@ export default function CoverPreviewMobile({
 
   const mobileCoverUrl = mobileCoverPhoto?.thumbnail_url || mobileCoverPhoto?.photo_url;
 
-  const handleMobileFocusDrag = useCallback((e: React.MouseEvent | MouseEvent) => {
+  const calcPosition = useCallback((clientX: number, clientY: number) => {
     if (!mobileCoverImageRef.current) return;
     const rect = mobileCoverImageRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
     onSettingsChange({ ...settings, mobileCoverFocusX: x, mobileCoverFocusY: y });
   }, [settings, onSettingsChange]);
+
+  const handleMobileFocusDrag = useCallback((e: React.MouseEvent | MouseEvent) => {
+    calcPosition(e.clientX, e.clientY);
+  }, [calcPosition]);
 
   const handleMobileMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -33,17 +37,36 @@ export default function CoverPreviewMobile({
     handleMobileFocusDrag(e);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    setIsMobileDragging(true);
+    const t = e.touches[0];
+    calcPosition(t.clientX, t.clientY);
+  };
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    calcPosition(t.clientX, t.clientY);
+  }, [calcPosition]);
+
+  const handleTouchEnd = useCallback(() => setIsMobileDragging(false), []);
+
   useEffect(() => {
     if (!isMobileDragging) return;
     const handleMove = (e: MouseEvent) => handleMobileFocusDrag(e);
     const handleUp = () => setIsMobileDragging(false);
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     return () => {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isMobileDragging, handleMobileFocusDrag]);
+  }, [isMobileDragging, handleMobileFocusDrag, handleTouchMove, handleTouchEnd]);
 
   return (
     <div>
@@ -61,6 +84,7 @@ export default function CoverPreviewMobile({
               aspectRatio: '9/16'
             }}
             onMouseDown={handleMobileMouseDown}
+            onTouchStart={handleTouchStart}
           >
             <img
               src={mobileCoverUrl}
