@@ -209,15 +209,18 @@ export default function GalleryPhotoViewer({
     setShowDownloadModal(false);
   }, [currentIndex]);
 
-  // When zoom > 0, start loading full quality image
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // На мобильных показываем thumbnail (2000px), оригинал грузим только при зуме
+  // На десктопе сразу показываем оригинал
   useEffect(() => {
-    if (zoom > 0 && currentPhoto?.thumbnail_url && !fullImageLoaded) {
+    if (zoom > 0 && currentPhoto?.thumbnail_url && !fullImageLoaded && isMobile) {
       setShowFullImage(true);
       const img = new Image();
       img.onload = () => setFullImageLoaded(true);
       img.src = currentPhoto.photo_url;
     }
-  }, [zoom, currentPhoto, fullImageLoaded]);
+  }, [zoom, currentPhoto, fullImageLoaded, isMobile]);
 
   // Preload adjacent thumbnails
   useEffect(() => {
@@ -225,17 +228,21 @@ export default function GalleryPhotoViewer({
       i => i >= 0 && i < photos.length
     );
     preloadIndexes.forEach(i => {
-      const src = photos[i].thumbnail_url || photos[i].photo_url;
+      const src = isMobile
+        ? (photos[i].thumbnail_url || photos[i].photo_url)
+        : photos[i].photo_url;
       const img = new Image();
       img.src = src;
     });
-  }, [currentIndex, photos]);
+  }, [currentIndex, photos, isMobile]);
 
   if (!currentPhoto) return null;
 
-  const displaySrc = (!currentPhoto.thumbnail_url || showFullImage) 
-    ? currentPhoto.photo_url 
-    : currentPhoto.thumbnail_url;
+  // Мобильные: thumbnail_url (2000px) → при зуме оригинал
+  // Десктоп: сразу оригинал
+  const displaySrc = isMobile
+    ? ((!currentPhoto.thumbnail_url || showFullImage) ? currentPhoto.photo_url : currentPhoto.thumbnail_url)
+    : currentPhoto.photo_url;
 
   if (currentPhoto.is_video) {
     console.log('[GALLERY_PHOTO_VIEWER] Opening video:', currentPhoto);

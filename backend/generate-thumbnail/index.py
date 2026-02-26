@@ -103,9 +103,9 @@ def handler(event: dict, context) -> dict:
                 output_bps=8
             )
         
-        # Создаем PIL Image и сжимаем до 1920px по длинной стороне
+        # Создаем PIL Image и сжимаем до 2000px по длинной стороне
         img = Image.fromarray(rgb)
-        img.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
+        img.thumbnail((2000, 2000), Image.Resampling.LANCZOS)
         
         # Сохраняем в JPEG с хорошим качеством
         jpeg_buffer = BytesIO()

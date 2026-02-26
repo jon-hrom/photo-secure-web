@@ -208,8 +208,8 @@ def handler(event: dict, context) -> dict:
                     
                     print(f'[URL_UPLOAD] Image dimensions: {width}x{height}, size: {file_size} bytes')
                     
-                    # Увеличенный размер thumbnail для чёткости лиц (1200px вместо 800px)
-                    max_thumb_size = 1200
+                    # 2000px по длинной стороне для чёткого просмотра на мобильных
+                    max_thumb_size = 2000
                     img.thumbnail((max_thumb_size, max_thumb_size), Image.Resampling.LANCZOS)
                     
                     print(f'[URL_UPLOAD] Thumbnail size: {img.size}, max: {max_thumb_size}px')
