@@ -1,0 +1,1 @@
+ALTER TABLE t_p28211681_photo_secure_web.photo_bank ADD COLUMN IF NOT EXISTS regen_2000 boolean DEFAULT false;
