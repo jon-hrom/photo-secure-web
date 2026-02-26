@@ -194,6 +194,8 @@ def handler(event: dict, context) -> dict:
             # Генерируем превью для всех изображений (кроме RAW)
             thumbnail_s3_key = None
             thumbnail_s3_url = None
+            grid_thumbnail_s3_key = None
+            grid_thumbnail_s3_url = None
             width = None
             height = None
             is_raw = filename.lower().endswith(('.cr2', '.nef', '.arw', '.dng', '.raw'))
@@ -242,8 +244,18 @@ def handler(event: dict, context) -> dict:
                         ContentType='image/jpeg'
                     )
                     thumbnail_s3_url = f'https://storage.yandexcloud.net/{bucket}/{thumbnail_s3_key}'
-                    
                     print(f'[URL_UPLOAD] ✅ Generated thumbnail: {thumbnail_s3_key}')
+
+                    grid_img = Image.open(BytesIO(file_content))
+                    grid_img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+                    if grid_img.mode != 'RGB':
+                        grid_img = grid_img.convert('RGB')
+                    grid_buffer = BytesIO()
+                    grid_img.save(grid_buffer, format='JPEG', quality=60, optimize=True)
+                    grid_thumbnail_s3_key = f'{s3_prefix}thumbnails/grid_{base_name}.jpg'
+                    s3.put_object(Bucket=bucket, Key=grid_thumbnail_s3_key, Body=grid_buffer.getvalue(), ContentType='image/jpeg')
+                    grid_thumbnail_s3_url = f'https://storage.yandexcloud.net/{bucket}/{grid_thumbnail_s3_key}'
+                    print(f'[URL_UPLOAD] ✅ Generated grid thumbnail: {grid_thumbnail_s3_key}')
                 except Exception as thumb_error:
                     print(f'[URL_UPLOAD] ⚠️ Could not generate thumbnail: {str(thumb_error)}')
                     import traceback
@@ -267,10 +279,10 @@ def handler(event: dict, context) -> dict:
                 print(f'[URL_UPLOAD] 📦 Saving to DB: user_id={user_id}, folder_id={folder_id}, file_size={file_size}, width={width}, height={height}, has_thumbnail={thumbnail_s3_url is not None}')
                 cursor.execute(
                     '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
-                       (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, is_raw)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                        RETURNING id''',
-                    (user_id, folder_id, filename, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, is_raw)
+                    (user_id, folder_id, filename, s3_key, s3_url, file_size, width, height, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, is_raw)
                 )
                 photo_id = cursor.fetchone()['id']
                 conn.commit()

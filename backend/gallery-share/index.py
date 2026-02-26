@@ -430,7 +430,7 @@ def handler(event: dict, context) -> dict:
             
             cur.execute(
                 """
-                SELECT id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, width, height, file_size, is_raw, is_video, content_type
+                SELECT id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, width, height, file_size, is_raw, is_video, content_type
                 FROM t_p28211681_photo_secure_web.photo_bank
                 WHERE folder_id = %s AND is_trashed = false
                   AND (is_raw = false OR (is_raw = true AND thumbnail_s3_key IS NOT NULL))
@@ -464,7 +464,7 @@ def handler(event: dict, context) -> dict:
             
             for photo in photos:
                 try:
-                    photo_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, width, height, file_size, is_raw, is_video, content_type = photo
+                    photo_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, width, height, file_size, is_raw, is_video, content_type = photo
                     
                     # Определяем, какой S3 используется по s3_url
                     use_poehali_s3 = s3_url and 'cdn.poehali.dev' in s3_url
@@ -480,6 +480,7 @@ def handler(event: dict, context) -> dict:
                     if use_poehali_s3 and s3_url:
                         photo_url = s3_url
                         thumbnail_url = thumbnail_s3_url if thumbnail_s3_url else None
+                        grid_url = grid_thumbnail_s3_url if grid_thumbnail_s3_url else thumbnail_url
                         print(f'[GALLERY] Using stored CDN URLs for photo {photo_id}')
                     else:
                         # Генерируем presigned URLs для Yandex S3
@@ -490,6 +491,7 @@ def handler(event: dict, context) -> dict:
                                 ExpiresIn=expires_in
                             )
                             thumbnail_url = photo_url
+                            grid_url = photo_url
                         else:
                             photo_url = s3_client.generate_presigned_url(
                                 'get_object',
@@ -497,18 +499,28 @@ def handler(event: dict, context) -> dict:
                                 ExpiresIn=expires_in
                             )
                             thumbnail_url = None
+                            grid_url = None
                             if thumbnail_s3_key:
                                 thumbnail_url = s3_client.generate_presigned_url(
                                     'get_object',
                                     Params={'Bucket': bucket, 'Key': thumbnail_s3_key},
                                     ExpiresIn=3600
                                 )
-                    
+                            if grid_thumbnail_s3_key:
+                                grid_url = s3_client.generate_presigned_url(
+                                    'get_object',
+                                    Params={'Bucket': bucket, 'Key': grid_thumbnail_s3_key},
+                                    ExpiresIn=3600
+                                )
+                            if not grid_url:
+                                grid_url = thumbnail_url
+
                     photos_data.append({
                         'id': photo_id,
                         'file_name': file_name,
                         'photo_url': photo_url,
                         'thumbnail_url': thumbnail_url,
+                        'grid_thumbnail_url': grid_url,
                         'width': width,
                         'height': height,
                         'file_size': file_size,

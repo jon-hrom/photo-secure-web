@@ -10,6 +10,7 @@ export interface Photo {
   file_name: string;
   photo_url: string;
   thumbnail_url?: string;
+  grid_thumbnail_url?: string;
   width?: number;
   height?: number;
   file_size: number;

@@ -421,25 +421,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Генерируем thumbnail для JPG/PNG сразу
                 thumbnail_s3_key = None
                 thumbnail_s3_url = None
+                grid_thumbnail_s3_key = None
+                grid_thumbnail_s3_url = None
                 if file_ext.lower() in ['jpg', 'jpeg', 'png']:
                     try:
                         print(f'[UPLOAD_DIRECT] Generating thumbnail for {file_ext}')
                         img = Image.open(io.BytesIO(file_bytes))
+                        orig_img = img.copy()
+
                         img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-                        
                         thumb_buffer = io.BytesIO()
                         img.save(thumb_buffer, format='JPEG', quality=85)
                         thumb_bytes = thumb_buffer.getvalue()
-                        
                         thumbnail_s3_key = f'{folder["s3_prefix"]}thumbnails/{uuid.uuid4()}.jpg'
-                        old_s3_client.put_object(
-                            Bucket=old_bucket,
-                            Key=thumbnail_s3_key,
-                            Body=thumb_bytes,
-                            ContentType='image/jpeg'
-                        )
+                        old_s3_client.put_object(Bucket=old_bucket, Key=thumbnail_s3_key, Body=thumb_bytes, ContentType='image/jpeg')
                         thumbnail_s3_url = f'https://storage.yandexcloud.net/{old_bucket}/{thumbnail_s3_key}'
                         print(f'[UPLOAD_DIRECT] Thumbnail created: {thumbnail_s3_key}')
+
+                        orig_img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+                        if orig_img.mode != 'RGB':
+                            orig_img = orig_img.convert('RGB')
+                        grid_buffer = io.BytesIO()
+                        orig_img.save(grid_buffer, format='JPEG', quality=60, optimize=True)
+                        grid_thumbnail_s3_key = f'{folder["s3_prefix"]}thumbnails/grid_{uuid.uuid4()}.jpg'
+                        old_s3_client.put_object(Bucket=old_bucket, Key=grid_thumbnail_s3_key, Body=grid_buffer.getvalue(), ContentType='image/jpeg')
+                        grid_thumbnail_s3_url = f'https://storage.yandexcloud.net/{old_bucket}/{grid_thumbnail_s3_key}'
+                        print(f'[UPLOAD_DIRECT] Grid thumbnail created: {grid_thumbnail_s3_key}')
                     except Exception as e:
                         print(f'[UPLOAD_DIRECT] Thumbnail generation failed: {e}')
                 
@@ -447,10 +454,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
-                        (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, file_size, width, height)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, file_size, width, height)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id, file_name, s3_key, file_size, created_at
-                    ''', (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, file_size, width, height))
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, file_size, width, height))
                     conn.commit()
                     photo = cur.fetchone()
                     print(f'[UPLOAD_DIRECT] DB insert success, photo_id={photo["id"]}')
