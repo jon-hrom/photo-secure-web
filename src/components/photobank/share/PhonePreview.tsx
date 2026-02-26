@@ -36,8 +36,13 @@ interface PhonePreviewProps {
 }
 
 export default function PhonePreview({ settings, photos, folderName }: PhonePreviewProps) {
-  const coverPhoto = photos.find(p => p.id === settings.coverPhotoId) || photos[0] || null;
-  const coverUrl = coverPhoto?.thumbnail_url || coverPhoto?.photo_url;
+  const desktopCoverPhoto = photos.find(p => p.id === settings.coverPhotoId) || photos[0] || null;
+  const mobileCoverPhoto = settings.mobileCoverPhotoId
+    ? (photos.find(p => p.id === settings.mobileCoverPhotoId) || desktopCoverPhoto)
+    : desktopCoverPhoto;
+  const coverUrl = mobileCoverPhoto?.thumbnail_url || mobileCoverPhoto?.photo_url;
+  const focusX = settings.mobileCoverPhotoId ? settings.mobileCoverFocusX : settings.coverFocusX;
+  const focusY = settings.mobileCoverPhotoId ? settings.mobileCoverFocusY : settings.coverFocusY;
   const isVertical = settings.coverOrientation === 'vertical';
 
   const getPreviewBg = (): React.CSSProperties => {
@@ -102,7 +107,7 @@ export default function PhonePreview({ settings, photos, folderName }: PhonePrev
                   alt="preview cover"
                   className="w-full h-full object-cover"
                   style={{
-                    objectPosition: `${settings.coverFocusX * 100}% ${settings.coverFocusY * 100}%`
+                    objectPosition: `${focusX * 100}% ${focusY * 100}%`
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
