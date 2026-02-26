@@ -266,7 +266,7 @@ export default function GalleryGrid({
             }
           });
         },
-        { threshold: 0.05, rootMargin: '80px' }
+        { threshold: 0, rootMargin: '400px' }
       );
       pendingNodes.current.forEach(n => observerRef.current!.observe(n));
       pendingNodes.current.clear();

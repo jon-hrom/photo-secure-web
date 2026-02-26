@@ -44,8 +44,8 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
       style={{ 
         marginBottom: `${gridGap}px`,
         opacity: 0,
-        transform: 'translateY(24px)',
-        transition: `opacity 0.5s ease ${(index % 8) * 0.06}s, transform 0.5s ease ${(index % 8) * 0.06}s`,
+        transform: 'translateY(12px)',
+        transition: `opacity 0.3s ease, transform 0.3s ease`,
         outline: isSelected ? '3px solid #6366f1' : 'none',
         outlineOffset: '-3px'
       }}
