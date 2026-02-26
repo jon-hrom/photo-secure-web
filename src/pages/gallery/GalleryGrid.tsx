@@ -184,7 +184,7 @@ export default function GalleryGrid({
   }, []);
 
   const desktopCoverPhoto = gallery.cover_photo_id 
-    ? gallery.photos.find(p => p.id === gallery.cover_photo_id) || null
+    ? gallery.photos.find(p => p.id === gallery.cover_photo_id) || gallery.photos[0]
     : null;
 
   const mobileCoverPhoto = gallery.mobile_cover_photo_id
