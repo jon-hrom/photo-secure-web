@@ -165,17 +165,16 @@ export function useGalleryLoader(code?: string, clientId?: number) {
       const threshold = Math.min(gallery.photos.length, 6);
       const progressPercent = Math.min((photosLoaded / threshold) * 100, 100);
       setLoadingProgress(progressPercent);
-      
       if (photosLoaded >= threshold) {
-        setTimeout(() => setLoadingProgress(0), 300);
+        setTimeout(() => setLoadingProgress(0), 200);
       }
     }
   }, [photosLoaded, gallery]);
 
-  // Аварийный таймаут — скрываем оверлей через 4 сек если не завершился
+  // Аварийный таймаут — скрываем оверлей через 2.5 сек
   useEffect(() => {
     if (loadingProgress > 0 && loadingProgress < 100) {
-      const timer = setTimeout(() => setLoadingProgress(0), 4000);
+      const timer = setTimeout(() => setLoadingProgress(0), 2500);
       return () => clearTimeout(timer);
     }
   }, [loadingProgress]);
