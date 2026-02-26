@@ -30,6 +30,7 @@ interface GalleryViewerImageProps {
   totalCount: number;
   showUI: boolean;
   watermark?: WatermarkSettings;
+  transformRef?: React.RefObject<HTMLDivElement | null>;
   onNavigatePrev: () => void;
   onNavigateNext: () => void;
   onToggleFullscreen: () => void;
@@ -59,6 +60,7 @@ export default function GalleryViewerImage({
   totalCount,
   showUI,
   watermark,
+  transformRef,
   onNavigatePrev,
   onNavigateNext,
   onToggleFullscreen,
@@ -125,14 +127,12 @@ export default function GalleryViewerImage({
       >
         {/* Обёртка по размеру фото — watermark позиционируется внутри неё */}
         <div
+          ref={transformRef}
           className="relative inline-block"
           style={{
-            transform: zoom > 0
-              ? `scale(${1 + zoom}) translate(${panOffset.x / (1 + zoom)}px, ${panOffset.y / (1 + zoom)}px)`
-              : 'none',
-            transition: isDragging ? 'none' : (isZooming ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'transform 0.2s ease-out'),
             touchAction: 'none',
             lineHeight: 0,
+            willChange: 'transform',
           }}
         >
           <img

@@ -174,11 +174,10 @@ export default function PhotoViewer({
                   : 'none',
                 maxWidth: zoom === 0 ? '95vw' : '100%',
                 maxHeight: zoom === 0 ? '95vh' : '100vh',
-                transition: isDragging
-                  ? 'none'
-                  : isZooming
-                    ? 'transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-                    : 'transform 0.2s ease-out',
+                transition: isZooming
+                    ? 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                    : 'none',
+              willChange: 'transform',
                 touchAction: 'none',
                 pointerEvents: 'none'
               }}

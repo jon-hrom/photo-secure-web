@@ -166,6 +166,7 @@ export default function GalleryPhotoViewer({
     panOffset,
     isDragging,
     isZooming,
+    imageRef: transformRef,
     handleTouchStart,
     handleTouchEnd,
     handleTouchMove,
@@ -303,6 +304,7 @@ export default function GalleryPhotoViewer({
             totalCount={photos.length}
             showUI={showUI}
             watermark={watermark}
+            transformRef={transformRef}
             onNavigatePrev={() => handleNavigate('prev')}
             onNavigateNext={() => handleNavigate('next')}
             onToggleFullscreen={() => isFullscreen ? exitFullscreen() : enterFullscreen()}

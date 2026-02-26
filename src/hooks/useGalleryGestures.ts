@@ -18,6 +18,7 @@ interface GestureState {
   panOffset: { x: number; y: number };
   isDragging: boolean;
   isZooming: boolean;
+  imageRef: React.RefObject<HTMLDivElement | null>;
 }
 
 interface GestureHandlers {
@@ -48,28 +49,55 @@ export const useGalleryGestures = ({
   onDoubleTap,
 }: UseGalleryGesturesProps): GestureState & GestureHandlers => {
   const [zoom, setZoom] = useState(0);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number; time: number; touches: number } | null>(null);
-  const [lastTapTime, setLastTapTime] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isZooming, setIsZooming] = useState(false);
+
+  const zoomRef = useRef(0);
+  const panOffsetRef = useRef({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+
+  const imageRef = useRef<HTMLDivElement | null>(null);
+
+  const touchStartRef = useRef<{ x: number; y: number; time: number; touches: number } | null>(null);
   const lastTapTimeRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isZooming, setIsZooming] = useState(false);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
-  const [pinchStart, setPinchStart] = useState<{ distance: number; zoom: number } | null>(null);
-  
-  const zoomRef = useRef(zoom);
-  useEffect(() => {
-    zoomRef.current = zoom;
-  }, [zoom]);
+  const dragStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
+  const isDraggingRef = useRef(false);
+  const rafRef = useRef<number | null>(null);
 
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < photos.length - 1;
 
+  const applyTransform = useCallback((z: number, px: number, py: number, animated = false) => {
+    if (!imageRef.current) return;
+    const el = imageRef.current;
+    if (animated) {
+      el.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    } else {
+      el.style.transition = 'none';
+    }
+    if (z > 0) {
+      el.style.transform = `scale(${1 + z}) translate(${px / (1 + z)}px, ${py / (1 + z)}px)`;
+    } else {
+      el.style.transform = 'none';
+    }
+  }, []);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
   useEffect(() => {
     if (currentPhoto) {
+      zoomRef.current = 0;
+      panOffsetRef.current = { x: 0, y: 0 };
       setZoom(0);
       setPanOffset({ x: 0, y: 0 });
+      if (imageRef.current) {
+        imageRef.current.style.transition = 'none';
+        imageRef.current.style.transform = 'none';
+      }
     }
   }, [currentPhoto?.id]);
 
@@ -77,27 +105,36 @@ export const useGalleryGestures = ({
     const handleWheel = (e: WheelEvent) => {
       if (!currentPhoto) return;
       e.preventDefault();
-      
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => {
-        if (prev === 0) {
+
+      const delta = e.deltaY > 0 ? -0.15 : 0.15;
+      const currentZ = zoomRef.current;
+      let newZoom: number;
+
+      if (currentZ === 0) {
+        newZoom = delta > 0 ? 1.0 : 0;
+        if (newZoom === 0) {
+          panOffsetRef.current = { x: 0, y: 0 };
           setPanOffset({ x: 0, y: 0 });
-          return delta > 0 ? 1.1 : 0;
         }
-        const newZoom = prev + delta;
-        if (newZoom < 0.5) {
+      } else {
+        newZoom = currentZ + delta;
+        if (newZoom < 0.3) {
+          newZoom = 0;
+          panOffsetRef.current = { x: 0, y: 0 };
           setPanOffset({ x: 0, y: 0 });
-          return 0;
+        } else {
+          newZoom = Math.min(3, newZoom);
         }
-        return Math.max(0, Math.min(2, newZoom));
-      });
+      }
+
+      zoomRef.current = newZoom;
+      setZoom(newZoom);
+      applyTransform(newZoom, panOffsetRef.current.x, panOffsetRef.current.y, true);
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-    };
-  }, [currentPhoto]);
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, [currentPhoto, applyTransform]);
 
   const getTouchDistance = (touches: TouchList) => {
     const dx = touches[0].clientX - touches[1].clientX;
@@ -107,41 +144,62 @@ export const useGalleryGestures = ({
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touchCount = e.touches.length;
+
     if (touchCount === 1) {
       const currentZoom = zoomRef.current;
-      setTouchStart({
+      touchStartRef.current = {
         x: e.touches[0].clientX,
         y: e.touches[0].clientY,
         time: Date.now(),
         touches: touchCount
-      });
+      };
       if (currentZoom > 0) {
-        setDragStart({
+        isDraggingRef.current = true;
+        setIsDragging(true);
+        dragStartRef.current = {
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
-          offsetX: panOffset.x,
-          offsetY: panOffset.y
-        });
+          offsetX: panOffsetRef.current.x,
+          offsetY: panOffsetRef.current.y
+        };
       }
     } else if (touchCount === 2) {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      dragStartRef.current = null;
       const distance = getTouchDistance(e.touches);
-      setPinchStart({ distance, zoom: zoomRef.current });
-      setTouchStart({
+      pinchStartRef.current = { distance, zoom: zoomRef.current };
+      touchStartRef.current = {
         x: 0,
         y: 0,
         time: Date.now(),
         touches: touchCount
-      });
+      };
     }
-  }, [panOffset]);
+  }, []);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const touchStart = touchStartRef.current;
     if (!touchStart || !currentPhoto) return;
 
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
     if (touchStart.touches > 1) {
-      setTouchStart(null);
-      setDragStart(null);
-      setPinchStart(null);
+      touchStartRef.current = null;
+      dragStartRef.current = null;
+      pinchStartRef.current = null;
+
+      const currentZ = zoomRef.current;
+      if (currentZ > 0) {
+        setZoom(currentZ);
+        setPanOffset({ ...panOffsetRef.current });
+        setIsZooming(false);
+      } else {
+        panOffsetRef.current = { x: 0, y: 0 };
+        setPanOffset({ x: 0, y: 0 });
+        setZoom(0);
+      }
       return;
     }
 
@@ -157,35 +215,35 @@ export const useGalleryGestures = ({
     const absDeltaX = Math.abs(deltaX);
     const absDeltaY = Math.abs(deltaY);
     const isUpperHalf = touchStart.y < window.innerHeight / 2;
+    const currentZoom = zoomRef.current;
 
-    if (deltaTime > 150 && zoom > 0) {
-      setTouchStart(null);
-      setDragStart(null);
+    if (deltaTime > 150 && currentZoom > 0) {
+      touchStartRef.current = null;
+      dragStartRef.current = null;
       return;
     }
 
     const now = Date.now();
     if (deltaTime < 300 && absDeltaX < 10 && absDeltaY < 10) {
       if (now - lastTapTimeRef.current < 300) {
-        // Double tap
         if (singleTapTimerRef.current) {
           clearTimeout(singleTapTimerRef.current);
           singleTapTimerRef.current = null;
         }
+        zoomRef.current = 0;
+        panOffsetRef.current = { x: 0, y: 0 };
         setZoom(0);
         setPanOffset({ x: 0, y: 0 });
+        applyTransform(0, 0, 0, true);
         lastTapTimeRef.current = 0;
-        setLastTapTime(0);
-        setTouchStart(null);
-        setDragStart(null);
+        touchStartRef.current = null;
+        dragStartRef.current = null;
         onDoubleTap?.();
         return;
       }
       lastTapTimeRef.current = now;
-      setLastTapTime(now);
-      setTouchStart(null);
-      setDragStart(null);
-      // Single tap: fire after delay if no second tap follows
+      touchStartRef.current = null;
+      dragStartRef.current = null;
       singleTapTimerRef.current = setTimeout(() => {
         singleTapTimerRef.current = null;
         onSingleTap?.();
@@ -193,150 +251,156 @@ export const useGalleryGestures = ({
       return;
     }
 
-    if (zoom > 0 && absDeltaY > 50 && absDeltaY > absDeltaX) {
+    if (currentZoom > 0 && absDeltaY > 50 && absDeltaY > absDeltaX) {
       const zoomSteps = Math.floor(absDeltaY / 100);
-      
+
       if (deltaY > 0 && isUpperHalf) {
+        const newZoom = Math.max(0, currentZoom - zoomSteps * 0.3);
+        const finalZoom = newZoom < 0.3 ? 0 : newZoom;
+        if (finalZoom === 0) {
+          panOffsetRef.current = { x: 0, y: 0 };
+          setPanOffset({ x: 0, y: 0 });
+        }
+        zoomRef.current = finalZoom;
+        setZoom(finalZoom);
         setIsZooming(true);
-        setZoom(prev => {
-          const newZoom = Math.max(0, prev - (zoomSteps * 0.3));
-          if (newZoom < 0.3) {
-            setPanOffset({ x: 0, y: 0 });
-            return 0;
-          }
-          return newZoom;
-        });
-        setTimeout(() => setIsZooming(false), 500);
-        setTouchStart(null);
-        setDragStart(null);
+        applyTransform(finalZoom, panOffsetRef.current.x, panOffsetRef.current.y, true);
+        setTimeout(() => setIsZooming(false), 300);
+        touchStartRef.current = null;
+        dragStartRef.current = null;
         return;
       }
-      
+
       if (deltaY < 0) {
+        const newZoom = Math.min(1.5, currentZoom + zoomSteps * 0.3);
+        zoomRef.current = newZoom;
+        setZoom(newZoom);
         setIsZooming(true);
-        setZoom(prev => {
-          const newZoom = Math.min(1.5, prev + (zoomSteps * 0.3));
-          return newZoom;
-        });
-        setTimeout(() => setIsZooming(false), 500);
-        setTouchStart(null);
-        setDragStart(null);
+        applyTransform(newZoom, panOffsetRef.current.x, panOffsetRef.current.y, true);
+        setTimeout(() => setIsZooming(false), 300);
+        touchStartRef.current = null;
+        dragStartRef.current = null;
         return;
       }
     }
 
-    if (zoom > 0) {
-      setTouchStart(null);
-      setDragStart(null);
+    if (currentZoom > 0) {
+      touchStartRef.current = null;
+      dragStartRef.current = null;
       return;
     }
 
     if (absDeltaX > absDeltaY && absDeltaX > 50) {
       if (deltaX > 0 && hasPrev) {
         onNavigate('prev');
+        zoomRef.current = 0;
+        panOffsetRef.current = { x: 0, y: 0 };
         setZoom(0);
         setPanOffset({ x: 0, y: 0 });
       } else if (deltaX < 0 && hasNext) {
         onNavigate('next');
+        zoomRef.current = 0;
+        panOffsetRef.current = { x: 0, y: 0 };
         setZoom(0);
         setPanOffset({ x: 0, y: 0 });
       }
     } else if (absDeltaY > absDeltaX && absDeltaY > 50) {
       if (deltaY < 0) {
+        const newZoom = 2.0;
+        zoomRef.current = newZoom;
+        setZoom(newZoom);
         setIsZooming(true);
-        setZoom(prev => {
-          if (prev === 0) return 2.0;
-          const zoomSteps = Math.floor(absDeltaY / 100);
-          const newZoom = Math.min(1.5, prev + (zoomSteps * 0.3));
-          return newZoom;
-        });
-        setTimeout(() => setIsZooming(false), 500);
+        applyTransform(newZoom, 0, 0, true);
+        setTimeout(() => setIsZooming(false), 300);
       }
     }
 
-    setTouchStart(null);
-    setDragStart(null);
-  }, [touchStart, currentPhoto, zoom, lastTapTime, hasPrev, hasNext, onNavigate, onSingleTap, onDoubleTap]);
+    touchStartRef.current = null;
+    dragStartRef.current = null;
+  }, [currentPhoto, hasPrev, hasNext, onNavigate, onSingleTap, onDoubleTap, applyTransform]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const currentZoom = zoomRef.current;
-    if (currentZoom <= 0) return;
+    if (zoomRef.current <= 0) return;
+    isDraggingRef.current = true;
     setIsDragging(true);
-    setDragStart({
+    dragStartRef.current = {
       x: e.clientX,
       y: e.clientY,
-      offsetX: panOffset.x,
-      offsetY: panOffset.y
-    });
-  }, [panOffset]);
+      offsetX: panOffsetRef.current.x,
+      offsetY: panOffsetRef.current.y
+    };
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging || !dragStart || zoomRef.current <= 0) return;
-    const deltaX = e.clientX - dragStart.x;
-    const deltaY = e.clientY - dragStart.y;
-    setPanOffset({
-      x: dragStart.offsetX + deltaX,
-      y: dragStart.offsetY + deltaY
-    });
-  }, [isDragging, dragStart]);
+    if (!isDraggingRef.current || !dragStartRef.current || zoomRef.current <= 0) return;
+    const deltaX = e.clientX - dragStartRef.current.x;
+    const deltaY = e.clientY - dragStartRef.current.y;
+    const newX = dragStartRef.current.offsetX + deltaX;
+    const newY = dragStartRef.current.offsetY + deltaY;
+    panOffsetRef.current = { x: newX, y: newY };
+    applyTransform(zoomRef.current, newX, newY, false);
+  }, [applyTransform]);
 
   const handleMouseUp = useCallback(() => {
+    if (isDraggingRef.current) {
+      setPanOffset({ ...panOffsetRef.current });
+    }
+    isDraggingRef.current = false;
     setIsDragging(false);
-    setDragStart(null);
+    dragStartRef.current = null;
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const touchStart = touchStartRef.current;
     if (!touchStart) return;
 
-    if (e.touches.length === 2 && pinchStart) {
+    if (e.touches.length === 2 && pinchStartRef.current) {
       e.preventDefault();
       const distance = getTouchDistance(e.touches);
-      const scale = distance / pinchStart.distance;
-      const baseZoom = pinchStart.zoom === 0 ? 1 : pinchStart.zoom;
-      const newZoom = Math.max(0, Math.min(3, baseZoom * scale - (pinchStart.zoom === 0 ? 1 : 0)));
-      setZoom(newZoom);
+      const scale = distance / pinchStartRef.current.distance;
+      const baseZoom = pinchStartRef.current.zoom === 0 ? 1 : pinchStartRef.current.zoom;
+      const newZoom = Math.max(0, Math.min(3, baseZoom * scale - (pinchStartRef.current.zoom === 0 ? 1 : 0)));
+      zoomRef.current = newZoom;
+
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        applyTransform(newZoom, panOffsetRef.current.x, panOffsetRef.current.y, false);
+      });
       return;
     }
 
     if (touchStart.touches > 1) return;
-    
-    const now = Date.now();
-    const holdTime = now - touchStart.time;
-    const currentZoom = zoomRef.current;
-    
-    if (currentZoom > 0 && holdTime > 150) {
+
+    if (isDraggingRef.current && dragStartRef.current && zoomRef.current > 0) {
       e.preventDefault();
-      
-      if (!dragStart) {
-        setDragStart({
-          x: touchStart.x,
-          y: touchStart.y,
-          offsetX: panOffset.x,
-          offsetY: panOffset.y
-        });
-        return;
-      }
-      
       const touch = e.touches[0];
-      const deltaX = touch.clientX - dragStart.x;
-      const deltaY = touch.clientY - dragStart.y;
-      setPanOffset({
-        x: dragStart.offsetX + deltaX,
-        y: dragStart.offsetY + deltaY
+      const deltaX = touch.clientX - dragStartRef.current.x;
+      const deltaY = touch.clientY - dragStartRef.current.y;
+      const newX = dragStartRef.current.offsetX + deltaX;
+      const newY = dragStartRef.current.offsetY + deltaY;
+      panOffsetRef.current = { x: newX, y: newY };
+
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        applyTransform(zoomRef.current, newX, newY, false);
       });
     }
-  }, [touchStart, dragStart, panOffset, pinchStart]);
+  }, [applyTransform]);
 
   const resetZoom = useCallback(() => {
+    zoomRef.current = 0;
+    panOffsetRef.current = { x: 0, y: 0 };
     setZoom(0);
     setPanOffset({ x: 0, y: 0 });
-  }, []);
+    applyTransform(0, 0, 0, true);
+  }, [applyTransform]);
 
   return {
     zoom,
     panOffset,
     isDragging,
     isZooming,
+    imageRef,
     handleTouchStart,
     handleTouchEnd,
     handleTouchMove,
