@@ -96,6 +96,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       // Fallback на localStorage (для обратной совместимости)
       const selectedVideoUrl = localStorage.getItem('loginPageVideoUrl');
       const selectedMobileVideoUrl = localStorage.getItem('loginPageMobileVideoUrl');
+      const selectedVideoId = localStorage.getItem('loginPageVideo');
       
       if (selectedVideoUrl) {
         setBackgroundVideo(selectedVideoUrl);
@@ -111,18 +112,15 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
           const data = await response.json();
           
           if (data.success && data.files) {
-            const selectedVideo = data.files.find((v: any) => v.id === selectedVideoId);
+            const selectedVideo = data.files.find((v: { id: string; url: string }) => v.id === selectedVideoId);
             if (selectedVideo) {
               setBackgroundVideo(selectedVideo.url);
               localStorage.setItem('loginPageVideoUrl', selectedVideo.url);
-
             }
           }
         } catch (error) {
           console.error('[LOGIN_BG] ===== FAILED TO LOAD VIDEO =====', error);
         }
-      } else {
-
       }
     };
 
@@ -158,7 +156,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
 
             
             if (data.success && data.files) {
-              const video = data.files.find((v: any) => v.id === id);
+              const video = data.files.find((v: { id: string; url: string }) => v.id === id);
 
               if (video) {
                 setBackgroundVideo(video.url);
@@ -223,9 +221,9 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     };
   }, [backgroundVideo]);
 
-  // Загружаем изображение
+  // Загружаем изображение (всегда, даже если есть видео — как fallback)
   useEffect(() => {
-    if (!backgroundImage || backgroundVideo) {
+    if (!backgroundImage) {
       setIsLoaded(false);
       setCurrentImage(null);
       return;
@@ -294,9 +292,15 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             }}
             onLoadedData={(e) => {
               console.log('[LOGIN_BG] Video loaded');
-              e.currentTarget.playbackRate = 0.85; // 85% скорости
+              e.currentTarget.playbackRate = 0.85;
             }}
-            onError={(e) => console.error('[LOGIN_BG] Video error:', e)}
+            onError={() => {
+              console.error('[LOGIN_BG] Video failed to load, falling back to image');
+              setBackgroundVideo(null);
+              setMobileVideo(null);
+              localStorage.removeItem('loginPageVideoUrl');
+              localStorage.removeItem('loginPageMobileVideoUrl');
+            }}
           >
             <source src={effectiveBackgroundVideo} type="video/mp4" />
             <source src={effectiveBackgroundVideo} type="video/webm" />
