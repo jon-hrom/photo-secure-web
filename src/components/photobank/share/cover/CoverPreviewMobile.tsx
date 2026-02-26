@@ -89,10 +89,7 @@ export default function CoverPreviewMobile({
             <img
               src={mobileCoverUrl}
               alt="mobile cover"
-              className="w-full h-full object-cover pointer-events-none"
-              style={{
-                objectPosition: `${settings.mobileCoverFocusX * 100}% ${settings.mobileCoverFocusY * 100}%`
-              }}
+              className="w-full h-full object-cover object-center pointer-events-none"
               draggable={false}
             />
             <div

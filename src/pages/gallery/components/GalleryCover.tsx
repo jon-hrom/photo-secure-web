@@ -34,8 +34,8 @@ export default function GalleryCover({
       <img
         src={coverPhoto.photo_url}
         alt={gallery.folder_name}
-        className={`w-full h-full ${isMobile ? 'object-cover' : 'object-contain'}`}
-        style={isMobile ? { objectPosition: `${focusX * 100}% ${focusY * 100}%` } : undefined}
+        className="w-full h-full object-cover"
+        style={{ objectPosition: `${focusX * 100}% ${focusY * 100}%` }}
         draggable={false}
         onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
       />

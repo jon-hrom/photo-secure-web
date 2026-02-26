@@ -105,10 +105,7 @@ export default function CoverPreviewDesktop({
           <img
             src={coverUrl}
             alt="cover"
-            className="w-full h-full object-cover pointer-events-none"
-            style={{
-              objectPosition: `${settings.coverFocusX * 100}% ${settings.coverFocusY * 100}%`
-            }}
+            className="w-full h-full object-cover object-center pointer-events-none"
             draggable={false}
           />
           <div
