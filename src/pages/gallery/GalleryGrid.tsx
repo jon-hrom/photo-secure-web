@@ -335,7 +335,7 @@ export default function GalleryGrid({
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
       >
         <div 
-          className="grid grid-cols-2 md:columns-3 lg:columns-4 md:block"
+          className="grid grid-cols-2 [grid-auto-flow:dense] md:columns-3 lg:columns-4 md:block"
           style={{ gap: `${gridGap}px`, columnGap: `${gridGap}px` }}
         >
           {gallery.photos.map((photo, index) => {
