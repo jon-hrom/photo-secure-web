@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import AdminGeneralSettings from '@/components/admin/AdminGeneralSettings';
 import AdminAppearance from '@/components/admin/AdminAppearance';
@@ -16,8 +17,105 @@ import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificatio
 import VKSettings from '@/components/settings/VKSettings';
 import NotificationMonitor from '@/components/admin/NotificationMonitor';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
+
+const REGEN_URL = 'https://functions.poehali.dev/3af9dfcb-748c-4d20-a5ff-e0e52a7d7aae';
+
+function RegenThumbnailsWidget() {
+  const [secret, setSecret] = useState('');
+  const [status, setStatus] = useState<null | { processed: number; remaining: number; done: boolean; failed: number }>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const runBatch = async () => {
+    if (!secret) { setError('Введите секрет'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(REGEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret, batch_size: 20 }),
+      });
+      const data = await res.json();
+      if (res.status === 403) { setError('Неверный секрет'); setLoading(false); return; }
+      setStatus(data);
+    } catch (e) {
+      setError('Ошибка сети');
+    }
+    setLoading(false);
+  };
+
+  const runAll = async () => {
+    if (!secret) { setError('Введите секрет'); return; }
+    setLoading(true);
+    setError('');
+    let remaining = 9999;
+    let totalProcessed = 0;
+    while (remaining > 0) {
+      try {
+        const res = await fetch(REGEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret, batch_size: 20 }),
+        });
+        const data = await res.json();
+        if (res.status === 403) { setError('Неверный секрет'); break; }
+        totalProcessed += data.processed;
+        remaining = data.remaining;
+        setStatus({ ...data, processed: totalProcessed });
+        if (data.done || data.processed === 0) break;
+        await new Promise(r => setTimeout(r, 500));
+      } catch (e) {
+        setError('Ошибка сети');
+        break;
+      }
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Перегенерирует thumbnails всех существующих фото до 2000px по длинной стороне для корректного отображения на мобильных.
+      </p>
+      <Input
+        type="password"
+        placeholder="ADMIN_SECRET"
+        value={secret}
+        onChange={e => setSecret(e.target.value)}
+        className="max-w-xs"
+      />
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      {status && (
+        <div className="text-sm space-y-1">
+          <p>Обработано: <strong>{status.processed}</strong></p>
+          <p>Осталось: <strong>{status.remaining}</strong></p>
+          {status.failed > 0 && <p className="text-orange-500">Ошибок: {status.failed}</p>}
+          {status.done && <p className="text-green-600 font-semibold">✓ Все фото перегенерированы!</p>}
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
+            <div
+              className="h-2 bg-blue-500 rounded-full transition-all"
+              style={{ width: status.done ? '100%' : `${Math.max(5, 100 - (status.remaining / (status.remaining + status.processed)) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+      <div className="flex gap-2 flex-wrap">
+        <Button onClick={runBatch} disabled={loading} variant="outline" size="sm">
+          <Icon name={loading ? 'Loader2' : 'Play'} size={14} className={loading ? 'animate-spin mr-1' : 'mr-1'} />
+          Батч (20 фото)
+        </Button>
+        <Button onClick={runAll} disabled={loading} size="sm">
+          <Icon name={loading ? 'Loader2' : 'Zap'} size={14} className={loading ? 'animate-spin mr-1' : 'mr-1'} />
+          Запустить всё
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 interface AdminPanelTabsProps {
   settings: any;
@@ -62,6 +160,26 @@ const AdminPanelTabs = ({
 
   return (
     <Accordion type="multiple" className="space-y-3 will-change-transform">
+      <AccordionItem value="maintenance" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="Wrench" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Обслуживание</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border">
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <Icon name="Image" size={16} />
+                Перегенерация thumbnails (2000px)
+              </h4>
+              <RegenThumbnailsWidget />
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+
       <AccordionItem value="storage" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
         <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
           <div className="flex items-center gap-3">
