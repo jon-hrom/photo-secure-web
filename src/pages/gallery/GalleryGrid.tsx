@@ -183,9 +183,11 @@ export default function GalleryGrid({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const firstPhoto = gallery.photos.length > 0 ? gallery.photos[0] : null;
+
   const desktopCoverPhoto = gallery.cover_photo_id 
-    ? gallery.photos.find(p => p.id === gallery.cover_photo_id) || gallery.photos[0]
-    : null;
+    ? gallery.photos.find(p => p.id === gallery.cover_photo_id) || firstPhoto
+    : firstPhoto;
 
   const mobileCoverPhoto = gallery.mobile_cover_photo_id
     ? gallery.photos.find(p => p.id === gallery.mobile_cover_photo_id) || desktopCoverPhoto
