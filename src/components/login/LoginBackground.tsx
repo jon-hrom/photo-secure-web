@@ -68,59 +68,48 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   // Загружаем видео с сервера
   useEffect(() => {
     const loadVideo = async () => {
-      // СНАЧАЛА пробуем загрузить из БД
+      // Получаем videoId из БД
+      let videoId: string | null = localStorage.getItem('loginPageVideo');
+      let mobileUrl: string | null = null;
+
       try {
         const response = await fetch(SETTINGS_API);
         const data = await response.json();
-        
         if (data.success && data.settings) {
-          const videoUrl = data.settings.login_background_video_url;
-          const mobileUrl = data.settings.login_mobile_background_url;
-          
-          if (videoUrl) {
-            setBackgroundVideo(videoUrl);
-            setMobileVideo(mobileUrl || videoUrl);
-            
-            // Синхронизируем localStorage
-            localStorage.setItem('loginPageVideoUrl', videoUrl);
-            if (mobileUrl) {
-              localStorage.setItem('loginPageMobileVideoUrl', mobileUrl);
-            }
+          const dbVideoId = data.settings.login_background_video_id;
+          if (dbVideoId) videoId = dbVideoId;
+          mobileUrl = data.settings.login_mobile_background_url || null;
+        }
+      } catch (error) {
+        console.error('[LOGIN_BG] Failed to load settings from DB:', error);
+      }
+
+      if (!videoId) return;
+
+      // Всегда получаем свежий presigned URL из S3
+      try {
+        const res = await fetch(`${API_URL}?type=video`);
+        const d = await res.json();
+        if (d.success && d.files) {
+          const found = d.files.find((v: { id: string; url: string }) => v.id === videoId);
+          if (found) {
+            setBackgroundVideo(found.url);
+            setMobileVideo(mobileUrl || found.url);
+            localStorage.setItem('loginPageVideoUrl', found.url);
+            localStorage.setItem('loginPageVideo', videoId);
+            if (mobileUrl) localStorage.setItem('loginPageMobileBackgroundUrl', mobileUrl);
             return;
           }
         }
       } catch (error) {
-        console.error('[LOGIN_BG] Failed to load from DB, falling back to localStorage:', error);
+        console.error('[LOGIN_BG] Failed to get fresh video URL from S3:', error);
       }
-      
-      // Fallback на localStorage (для обратной совместимости)
-      const selectedVideoUrl = localStorage.getItem('loginPageVideoUrl');
-      const selectedMobileVideoUrl = localStorage.getItem('loginPageMobileVideoUrl');
-      const selectedVideoId = localStorage.getItem('loginPageVideo');
-      
-      if (selectedVideoUrl) {
-        setBackgroundVideo(selectedVideoUrl);
-        setMobileVideo(selectedMobileVideoUrl || selectedVideoUrl);
-        return;
-      }
-      
-      // Последний fallback - загружаем с файлового сервера
-      if (selectedVideoId) {
-        try {
 
-          const response = await fetch(`${API_URL}?type=video`);
-          const data = await response.json();
-          
-          if (data.success && data.files) {
-            const selectedVideo = data.files.find((v: { id: string; url: string }) => v.id === selectedVideoId);
-            if (selectedVideo) {
-              setBackgroundVideo(selectedVideo.url);
-              localStorage.setItem('loginPageVideoUrl', selectedVideo.url);
-            }
-          }
-        } catch (error) {
-          console.error('[LOGIN_BG] ===== FAILED TO LOAD VIDEO =====', error);
-        }
+      // Fallback — закешированный URL из localStorage
+      const cachedUrl = localStorage.getItem('loginPageVideoUrl');
+      if (cachedUrl) {
+        setBackgroundVideo(cachedUrl);
+        setMobileVideo(mobileUrl || cachedUrl);
       }
     };
 
@@ -294,12 +283,28 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
               console.log('[LOGIN_BG] Video loaded');
               e.currentTarget.playbackRate = 0.85;
             }}
-            onError={() => {
-              console.error('[LOGIN_BG] Video failed to load, falling back to image');
+            onError={async () => {
+              console.error('[LOGIN_BG] Video URL expired, refreshing from S3...');
+              localStorage.removeItem('loginPageVideoUrl');
+              const videoId = localStorage.getItem('loginPageVideo');
+              if (videoId) {
+                try {
+                  const res = await fetch(`${API_URL}?type=video`);
+                  const d = await res.json();
+                  if (d.success && d.files) {
+                    const found = d.files.find((v: { id: string; url: string }) => v.id === videoId);
+                    if (found) {
+                      localStorage.setItem('loginPageVideoUrl', found.url);
+                      setBackgroundVideo(found.url);
+                      return;
+                    }
+                  }
+                } catch (e) {
+                  console.error('[LOGIN_BG] Failed to refresh video URL:', e);
+                }
+              }
               setBackgroundVideo(null);
               setMobileVideo(null);
-              localStorage.removeItem('loginPageVideoUrl');
-              localStorage.removeItem('loginPageMobileVideoUrl');
             }}
           >
             <source src={effectiveBackgroundVideo} type="video/mp4" />
