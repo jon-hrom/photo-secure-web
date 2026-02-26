@@ -162,11 +162,11 @@ export function useGalleryLoader(code?: string, clientId?: number) {
 
   useEffect(() => {
     if (gallery && gallery.photos.length > 0) {
-      const progressPercent = Math.min((photosLoaded / gallery.photos.length) * 100, 100);
+      const threshold = Math.min(gallery.photos.length, 12);
+      const progressPercent = Math.min((photosLoaded / threshold) * 100, 100);
       setLoadingProgress(progressPercent);
       
-      // Скрываем прогресс-бар когда все фото загружены
-      if (photosLoaded >= gallery.photos.length) {
+      if (photosLoaded >= threshold) {
         setTimeout(() => setLoadingProgress(0), 500);
       }
     }
