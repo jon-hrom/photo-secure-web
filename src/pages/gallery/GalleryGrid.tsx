@@ -335,10 +335,11 @@ export default function GalleryGrid({
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
       >
         <div 
-          className="columns-2 sm:columns-2 md:columns-3 lg:columns-4"
-          style={{ gap: `${gridGap}px` }}
+          className="grid grid-cols-2 md:columns-3 lg:columns-4 md:block"
+          style={{ gap: `${gridGap}px`, columnGap: `${gridGap}px` }}
         >
           {gallery.photos.map((photo, index) => {
+            const isLandscape = photo.width && photo.height ? photo.width > photo.height : false;
             return (
               <GalleryPhotoCard
                 key={photo.id}
@@ -357,6 +358,7 @@ export default function GalleryGrid({
                 selectionMode={selectionMode}
                 isSelected={selectedIds.has(photo.id)}
                 onToggleSelect={toggleSelect}
+                isLandscape={isLandscape}
               />
             );
           })}

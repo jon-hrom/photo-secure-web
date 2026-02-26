@@ -17,6 +17,7 @@ interface GalleryPhotoCardProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (photo: Photo) => void;
+  isLandscape?: boolean;
 }
 
 const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>(({
@@ -33,15 +34,15 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
   onPhotoLoad,
   selectionMode = false,
   isSelected = false,
-  onToggleSelect
+  onToggleSelect,
+  isLandscape = false
 }, ref) => {
   return (
     <div
       ref={ref}
-      className="group relative rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation"
+      className={`group relative rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation${isLandscape ? ' col-span-2 md:col-span-1' : ''}`}
       style={{ 
         marginBottom: `${gridGap}px`,
-        background: isDarkBg ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
         opacity: 0,
         transform: 'translateY(24px)',
         transition: `opacity 0.5s ease ${(index % 8) * 0.06}s, transform 0.5s ease ${(index % 8) * 0.06}s`,
