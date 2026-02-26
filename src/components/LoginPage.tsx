@@ -10,14 +10,12 @@ import LoginCard from '@/components/login/LoginCard';
 import LoginFormFields from '@/components/login/LoginFormFields';
 import OAuthProviders from '@/components/login/OAuthProviders';
 import NewYearDecorations from '@/components/NewYearDecorations';
-import funcUrls from '../../backend/func2url.json';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string, token?: string) => void;
 }
 
 const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
-  const SETTINGS_API = funcUrls['background-settings'];
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -54,66 +52,40 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
   useEffect(() => {
-    const DEFAULT_BG = 'https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg';
-
-    const loadBackground = async () => {
-      try {
-        const response = await fetch(SETTINGS_API);
-        const data = await response.json();
-        if (data.success && data.settings) {
-          const s = data.settings;
-
-          if (s.login_background_opacity) setBackgroundOpacity(Number(s.login_background_opacity));
-
-          const selectedId = s.login_desktop_selected_id || s.login_background_image_id;
-          if (selectedId && s.login_desktop_images) {
-            const imgs = typeof s.login_desktop_images === 'string'
-              ? JSON.parse(s.login_desktop_images)
-              : s.login_desktop_images;
-            const found = imgs.find((img: { id: string; url: string }) => img.id === selectedId);
-            if (found) {
-              setBackgroundImage(found.url);
-              return;
-            }
-          }
-
-          if (s.login_background_image_url) {
-            setBackgroundImage(s.login_background_image_url);
-            return;
-          }
+    const selectedBgId = localStorage.getItem('loginPageBackground');
+    let imageLoaded = false;
+    
+    if (selectedBgId) {
+      const savedImages = localStorage.getItem('backgroundImages');
+      if (savedImages) {
+        const images = JSON.parse(savedImages);
+        const selectedImage = images.find((img: any) => img.id === selectedBgId);
+        if (selectedImage) {
+          setBackgroundImage(selectedImage.url);
+          imageLoaded = true;
         }
-      } catch (e) {
-        console.error('[LOGIN_PAGE] Failed to load background from DB:', e);
       }
-
-      const selectedBgId = localStorage.getItem('loginPageBackground');
-      const bgUrl = localStorage.getItem('loginPageBackgroundUrl');
-      if (selectedBgId && bgUrl) {
-        setBackgroundImage(bgUrl);
-        return;
-      }
-
-      setBackgroundImage(DEFAULT_BG);
-    };
-
-    loadBackground();
-
+    }
+    
+    if (!imageLoaded) {
+      setBackgroundImage('https://cdn.poehali.dev/files/b5e1f5a0-ccfd-4d76-a06a-5112979ef8eb.jpg');
+    }
+    
     const savedOpacity = localStorage.getItem('loginPageBackgroundOpacity');
-    if (savedOpacity) setBackgroundOpacity(Number(savedOpacity));
+    if (savedOpacity) {
+      setBackgroundOpacity(Number(savedOpacity));
+    }
 
-    const handleGarlandToggle = (e: CustomEvent) => setShowGarland(e.detail);
-    const handleDesktopBgChange = (e: CustomEvent) => {
-      if (e.detail) setBackgroundImage(e.detail);
+    const handleGarlandToggle = (e: CustomEvent) => {
+      setShowGarland(e.detail);
     };
 
     window.addEventListener('garlandToggle', handleGarlandToggle as EventListener);
-    window.addEventListener('desktopBackgroundChange', handleDesktopBgChange as EventListener);
-
+    
     return () => {
       window.removeEventListener('garlandToggle', handleGarlandToggle as EventListener);
-      window.removeEventListener('desktopBackgroundChange', handleDesktopBgChange as EventListener);
     };
-  }, [SETTINGS_API]);
+  }, []);
 
   useEffect(() => {
     const loadAuthProviders = async () => {

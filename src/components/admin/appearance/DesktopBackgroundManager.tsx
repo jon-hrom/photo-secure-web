@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react';
-import { toast as sonnerToast } from 'sonner';
-import Icon from '@/components/ui/icon';
-import { BackgroundImage } from './BackgroundGallery';
-import funcUrls from '../../../../backend/func2url.json';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import BackgroundGallery, { BackgroundImage } from './BackgroundGallery';
 
 interface DesktopBackgroundManagerProps {
   backgroundImages: BackgroundImage[];
@@ -23,251 +21,172 @@ const DesktopBackgroundManager = ({
   selectedVideoId,
   setSelectedVideoId,
 }: DesktopBackgroundManagerProps) => {
-  const API_URL = funcUrls['background-media'];
-  const SETTINGS_API = funcUrls['background-settings'];
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingBg, setIsUploadingBg] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<BackgroundImage[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-
-  const saveToDb = async (images: BackgroundImage[], selectedId: string | null) => {
-    try {
-      await fetch(SETTINGS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          desktopImages: images.map(img => ({ id: img.id, url: img.url, name: img.name })),
-          desktopSelectedId: selectedId || '',
-          imageId: selectedId || '',
-          imageUrl: selectedId ? (images.find(i => i.id === selectedId)?.url || '') : '',
-          opacity: backgroundOpacity
-        })
-      });
-    } catch (e) {
-      console.error('[DESKTOP_BG] Failed to save to DB:', e);
-    }
-  };
+  const { toast } = useToast();
 
   const handleBackgroundUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setIsUploading(true);
-    sonnerToast.loading('Загрузка изображений...', { id: 'desktop-upload' });
 
-    try {
-      const uploadedImages: BackgroundImage[] = [];
+    setIsUploadingBg(true);
+    const newImages: BackgroundImage[] = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file.type.startsWith('image/')) continue;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) continue;
 
-        const base64Data = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file: base64Data, filename: file.name, type: 'image' }),
-        });
-
-        const data = await response.json();
-        if (data.success && data.file) {
-          uploadedImages.push({ id: data.file.id, url: data.file.url, name: file.name });
-        }
-      }
-
-      const updatedImages = [...backgroundImages, ...uploadedImages];
-      setBackgroundImages(updatedImages);
-      await saveToDb(updatedImages, selectedBackgroundId);
-
-      sonnerToast.success(`Добавлено ${uploadedImages.length} изображений`, { id: 'desktop-upload' });
-    } catch (error) {
-      console.error('Desktop background upload error:', error);
-      sonnerToast.error('Ошибка загрузки', { id: 'desktop-upload' });
-    } finally {
-      setIsUploading(false);
+      const reader = new FileReader();
+      await new Promise<void>((resolve) => {
+        reader.onload = (e) => {
+          newImages.push({
+            id: `bg-${Date.now()}-${i}`,
+            url: e.target?.result as string,
+            name: file.name,
+          });
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
     }
+
+    const updatedImages = [...backgroundImages, ...newImages];
+    setBackgroundImages(updatedImages);
+    localStorage.setItem('backgroundImages', JSON.stringify(updatedImages));
+    setIsUploadingBg(false);
+
+    toast({
+      title: 'Изображения загружены',
+      description: `Добавлено ${newImages.length} фоновых изображений`,
+    });
   };
 
-  const handleSelectBackground = async (imageId: string) => {
+  const handleSelectBackground = (imageId: string) => {
     setSelectedBackgroundId(imageId);
     localStorage.setItem('loginPageBackground', imageId);
-
+    
     if (selectedVideoId) {
       setSelectedVideoId(null);
       localStorage.removeItem('loginPageVideo');
       window.dispatchEvent(new CustomEvent('backgroundVideoChange', { detail: null }));
     }
-
-    const selectedImage = backgroundImages.find(img => img.id === imageId);
-    if (selectedImage) {
-      localStorage.setItem('loginPageBackgroundUrl', selectedImage.url);
-      window.dispatchEvent(new CustomEvent('desktopBackgroundChange', { detail: selectedImage.url }));
-    }
-
-    await saveToDb(backgroundImages, imageId);
-    sonnerToast.success('Фон применен');
+    
+    toast({
+      title: 'Фон применен',
+      description: 'Фон страницы входа обновлен',
+    });
   };
 
   const handleSearchImages = async () => {
     if (!searchQuery.trim()) {
-      sonnerToast.error('Введите поисковый запрос');
+      toast({
+        title: 'Ошибка',
+        description: 'Введите поисковый запрос',
+        variant: 'destructive',
+      });
       return;
     }
+
     setIsSearching(true);
     try {
       const response = await fetch(
         `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchQuery)}&per_page=20&orientation=landscape`,
-        { headers: { Authorization: 'gVZM9g4F4wKz8Mv6T95F2B0kVGrTXbqeVYa8Iz6FGzVMk0veBNrOPBzi' } }
+        {
+          headers: {
+            Authorization: 'gVZM9g4F4wKz8Mv6T95F2B0kVGrTXbqeVYa8Iz6FGzVMk0veBNrOPBzi'
+          }
+        }
       );
+
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+
       const data = await response.json();
+
       if (!data.photos || data.photos.length === 0) {
-        sonnerToast.error('Ничего не найдено');
+        toast({
+          title: 'Ничего не найдено',
+          description: 'Попробуйте другой запрос',
+        });
         setSearchResults([]);
         return;
       }
-      setSearchResults(data.photos.map((photo: { id: number; src: { large: string }; alt: string }) => ({
+
+      const results: BackgroundImage[] = data.photos.map((photo: any) => ({
         id: `pexels-${photo.id}`,
         url: photo.src.large,
         name: photo.alt || 'Pexels Image',
-      })));
-      sonnerToast.success(`Найдено ${data.photos.length} изображений`);
-    } catch {
-      sonnerToast.error('Ошибка поиска');
+      }));
+
+      setSearchResults(results);
+      toast({
+        title: 'Поиск завершен',
+        description: `Найдено ${results.length} изображений`,
+      });
+    } catch (error) {
+      console.error('Search error:', error);
+      toast({
+        title: 'Ошибка поиска',
+        description: 'Не удалось найти изображения. Попробуйте позже.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handleAddFromSearch = async (image: BackgroundImage) => {
+  const handleAddFromSearch = (image: BackgroundImage) => {
     const updatedImages = [...backgroundImages, image];
     setBackgroundImages(updatedImages);
-    await saveToDb(updatedImages, selectedBackgroundId);
-    sonnerToast.success('Изображение добавлено');
+    localStorage.setItem('backgroundImages', JSON.stringify(updatedImages));
+    
+    toast({
+      title: 'Изображение добавлено',
+      description: 'Фон добавлен в вашу библиотеку',
+    });
   };
 
-  const handleRemoveBackground = async (imageId: string) => {
+  const handleRemoveBackground = (imageId: string) => {
     const updatedImages = backgroundImages.filter(img => img.id !== imageId);
     setBackgroundImages(updatedImages);
-
-    const newSelectedId = selectedBackgroundId === imageId ? null : selectedBackgroundId;
+    localStorage.setItem('backgroundImages', JSON.stringify(updatedImages));
+    
     if (selectedBackgroundId === imageId) {
       setSelectedBackgroundId(null);
       localStorage.removeItem('loginPageBackground');
-      localStorage.removeItem('loginPageBackgroundUrl');
-      window.dispatchEvent(new CustomEvent('desktopBackgroundChange', { detail: null }));
     }
 
-    await saveToDb(updatedImages, newSelectedId);
-    sonnerToast.success('Изображение удалено');
+    toast({
+      title: 'Изображение удалено',
+      description: 'Фоновое изображение удалено',
+    });
+  };
+
+  const getSelectedBackgroundUrl = () => {
+    if (!selectedBackgroundId) return null;
+    const selectedImage = backgroundImages.find(img => img.id === selectedBackgroundId);
+    return selectedImage?.url || null;
   };
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-2">Фон страницы входа (десктоп)</h3>
-      <p className="text-sm text-muted-foreground mb-4">
-        Фоновое изображение для десктопных браузеров. Сохраняется на сервере и работает на всех устройствах.
-      </p>
-
-      <div className="space-y-4">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearchImages()}
-            placeholder="Поиск изображений (Pexels)..."
-            className="flex-1 px-3 py-2 border rounded-md text-sm"
-          />
-          <button
-            onClick={handleSearchImages}
-            disabled={isSearching}
-            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-sm transition-colors disabled:opacity-50"
-          >
-            {isSearching ? 'Поиск...' : 'Найти'}
-          </button>
-        </div>
-
-        {searchResults.length > 0 && (
-          <div>
-            <p className="text-sm font-medium mb-2">Результаты поиска:</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-              {searchResults.map(image => (
-                <div key={image.id} className="relative group cursor-pointer rounded overflow-hidden border" onClick={() => handleAddFromSearch(image)}>
-                  <img src={image.url} alt={image.name} className="w-full h-20 object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <Icon name="Plus" size={20} className="text-white" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={e => handleBackgroundUpload(e.target.files)}
-            className="hidden"
-            id="desktop-bg-upload"
-          />
-          <label
-            htmlFor="desktop-bg-upload"
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 cursor-pointer transition-colors"
-          >
-            <Icon name={isUploading ? 'Loader' : 'Upload'} size={20} className={isUploading ? 'animate-spin' : ''} />
-            {isUploading ? 'Загрузка...' : 'Загрузить изображение'}
-          </label>
-        </div>
-
-        {backgroundImages.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {backgroundImages.map(image => (
-              <div
-                key={image.id}
-                className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                  selectedBackgroundId === image.id
-                    ? 'border-primary ring-2 ring-primary/20'
-                    : 'border-transparent hover:border-primary/50'
-                }`}
-                onClick={() => handleSelectBackground(image.id)}
-              >
-                <img src={image.url} alt={image.name} className="w-full h-32 object-cover" />
-                {selectedBackgroundId === image.id && (
-                  <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
-                    <Icon name="Check" size={16} />
-                  </div>
-                )}
-                <button
-                  onClick={e => { e.stopPropagation(); handleRemoveBackground(image.id); }}
-                  className="absolute bottom-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Icon name="Trash2" size={16} />
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 truncate">
-                  {image.name}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {backgroundImages.length === 0 && (
-          <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
-            <Icon name="ImagePlus" size={48} className="mx-auto mb-2 opacity-50" />
-            <p>Загрузите изображение или найдите через поиск</p>
-          </div>
-        )}
-      </div>
-    </div>
+    <BackgroundGallery
+      backgroundImages={backgroundImages}
+      selectedBackgroundId={selectedBackgroundId}
+      backgroundOpacity={backgroundOpacity}
+      isUploadingBg={isUploadingBg}
+      searchQuery={searchQuery}
+      searchResults={searchResults}
+      isSearching={isSearching}
+      onBackgroundUpload={handleBackgroundUpload}
+      onSelectBackground={handleSelectBackground}
+      onRemoveBackground={handleRemoveBackground}
+      onSearchQueryChange={setSearchQuery}
+      onSearchImages={handleSearchImages}
+      onAddFromSearch={handleAddFromSearch}
+      getSelectedBackgroundUrl={getSelectedBackgroundUrl}
+    />
   );
 };
 

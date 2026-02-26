@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import ColorPicker from './appearance/ColorPicker';
@@ -26,169 +27,115 @@ interface AdminAppearanceProps {
 
 const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps) => {
   const API_URL = funcUrls['background-media'];
-  const SETTINGS_API = funcUrls['background-settings'];
   const [isExpanded, setIsExpanded] = useState(true);
   const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>([]);
-  const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(null);
-  const [backgroundOpacity, setBackgroundOpacity] = useState<number>(20);
+  const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(
+    localStorage.getItem('loginPageBackground') || null
+  );
+  const [backgroundOpacity, setBackgroundOpacity] = useState<number>(
+    Number(localStorage.getItem('loginPageBackgroundOpacity')) || 20
+  );
   const [cardBackgroundImages, setCardBackgroundImages] = useState<BackgroundImage[]>([]);
-  const [cardTransitionTime, setCardTransitionTime] = useState<number>(5);
+  const [cardTransitionTime, setCardTransitionTime] = useState<number>(
+    Number(localStorage.getItem('cardTransitionTime')) || 5
+  );
   const [garlandEnabled, setGarlandEnabled] = useState(
     localStorage.getItem('garlandEnabled') === 'true'
   );
   const [backgroundVideos, setBackgroundVideos] = useState<BackgroundVideo[]>([]);
-  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(
+    localStorage.getItem('loginPageVideo') || null
+  );
   const [mobileBackgroundImages, setMobileBackgroundImages] = useState<BackgroundImage[]>([]);
-  const [selectedMobileBackgroundId, setSelectedMobileBackgroundId] = useState<string | null>(null);
-  const [cardOpacity, setCardOpacity] = useState<number>(95);
+  const [selectedMobileBackgroundId, setSelectedMobileBackgroundId] = useState<string | null>(
+    localStorage.getItem('loginPageMobileBackground') || null
+  );
+  const [cardOpacity, setCardOpacity] = useState<number>(
+    Number(localStorage.getItem('loginCardOpacity')) || 95
+  );
+  const { toast } = useToast();
+
+  useState(() => {
+    const savedCardImages = localStorage.getItem('cardBackgroundImages');
+    if (savedCardImages) {
+      setCardBackgroundImages(JSON.parse(savedCardImages));
+    }
+  });
+
+  useState(() => {
+    const savedImages = localStorage.getItem('backgroundImages');
+    if (savedImages) {
+      setBackgroundImages(JSON.parse(savedImages));
+    }
+  });
 
   useEffect(() => {
-    const loadSettings = async () => {
+    const savedMobileImages = localStorage.getItem('mobileBackgroundImages');
+    if (savedMobileImages) {
       try {
-        const response = await fetch(SETTINGS_API);
-        const data = await response.json();
-        if (!data.success) return;
-        const s = data.settings;
-
-        if (s.login_background_opacity) setBackgroundOpacity(Number(s.login_background_opacity));
-        if (s.login_card_opacity) setCardOpacity(Number(s.login_card_opacity));
-        if (s.login_card_transition_time) setCardTransitionTime(Number(s.login_card_transition_time));
-
-        if (s.login_background_video_id) setSelectedVideoId(s.login_background_video_id);
-
-        if (s.login_background_image_id) setSelectedBackgroundId(s.login_background_image_id);
-
-        if (s.login_desktop_images) {
-          try {
-            const imgs = typeof s.login_desktop_images === 'string'
-              ? JSON.parse(s.login_desktop_images)
-              : s.login_desktop_images;
-            setBackgroundImages(imgs);
-          } catch (e) { console.error('[ADMIN_APPEARANCE] Failed to parse desktop images:', e); }
-        }
-
-        if (s.login_card_images) {
-          try {
-            const imgs = typeof s.login_card_images === 'string'
-              ? JSON.parse(s.login_card_images)
-              : s.login_card_images;
-            setCardBackgroundImages(imgs);
-            window.dispatchEvent(new CustomEvent('cardBackgroundImagesChange', { detail: imgs }));
-          } catch (e) { console.error('[ADMIN_APPEARANCE] Failed to parse card images:', e); }
-        }
-
-        if (s.login_desktop_selected_id) {
-          setSelectedBackgroundId(s.login_desktop_selected_id);
-          localStorage.setItem('loginPageBackground', s.login_desktop_selected_id);
-        }
-
-        const mobileMetadata = localStorage.getItem('mobileBackgroundImages');
-        if (mobileMetadata) {
-          try { setMobileBackgroundImages(JSON.parse(mobileMetadata)); } catch (e) { console.error('[ADMIN_APPEARANCE] Failed to parse mobile images:', e); }
-        }
-
-        const videoId = s.login_background_video_id || localStorage.getItem('loginPageVideo');
-        if (videoId) setSelectedVideoId(videoId);
-
-        const mobileSelected = s.login_mobile_background_url
-          ? localStorage.getItem('loginPageMobileBackground')
-          : null;
-        if (mobileSelected) setSelectedMobileBackgroundId(mobileSelected);
-
+        const parsed = JSON.parse(savedMobileImages);
+        setMobileBackgroundImages(parsed);
       } catch (e) {
-        console.error('[ADMIN_APPEARANCE] Failed to load settings from DB:', e);
-        const savedOpacity = localStorage.getItem('loginPageBackgroundOpacity');
-        if (savedOpacity) setBackgroundOpacity(Number(savedOpacity));
-        const savedCardOpacity = localStorage.getItem('loginCardOpacity');
-        if (savedCardOpacity) setCardOpacity(Number(savedCardOpacity));
+        console.error('[ADMIN_APPEARANCE] Failed to parse mobile backgrounds:', e);
+        localStorage.removeItem('mobileBackgroundImages');
       }
-    };
-
-    loadSettings();
-  }, [SETTINGS_API]);
-
-  const saveCardImagesToDb = async (images: BackgroundImage[]) => {
-    try {
-      await fetch(SETTINGS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cardImages: images.map(img => ({ id: img.id, url: img.url, name: img.name }))
-        })
-      });
-    } catch (e) {
-      console.error('[ADMIN_APPEARANCE] Failed to save card images:', e);
     }
-  };
+  }, []);
 
   const handleOpacityChange = (value: number[]) => {
     const opacity = value[0];
     setBackgroundOpacity(opacity);
     localStorage.setItem('loginPageBackgroundOpacity', opacity.toString());
-    fetch(SETTINGS_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ opacity: opacity.toString() })
-    }).catch(() => {});
   };
 
   const handleCardBackgroundUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    sonnerToast.loading('Загрузка изображений...', { id: 'card-upload' });
 
-    try {
-      const newImages: BackgroundImage[] = [];
+    const newImages: BackgroundImage[] = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file.type.startsWith('image/')) continue;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) continue;
 
-        const base64Data = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file: base64Data, filename: file.name, type: 'image' }),
-        });
-
-        const data = await response.json();
-        if (data.success && data.file) {
-          newImages.push({ id: data.file.id, url: data.file.url, name: file.name });
-        }
-      }
-
-      const updatedImages = [...cardBackgroundImages, ...newImages];
-      setCardBackgroundImages(updatedImages);
-      window.dispatchEvent(new CustomEvent('cardBackgroundImagesChange', { detail: updatedImages }));
-      await saveCardImagesToDb(updatedImages);
-      sonnerToast.success(`Загружено ${newImages.length} изображений`, { id: 'card-upload' });
-    } catch {
-      sonnerToast.error('Ошибка загрузки', { id: 'card-upload' });
+      const reader = new FileReader();
+      await new Promise<void>((resolve) => {
+        reader.onload = (e) => {
+          newImages.push({
+            id: `card-bg-${Date.now()}-${i}`,
+            url: e.target?.result as string,
+            name: file.name,
+          });
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
     }
+
+    const updatedImages = [...cardBackgroundImages, ...newImages];
+    setCardBackgroundImages(updatedImages);
+    localStorage.setItem('cardBackgroundImages', JSON.stringify(updatedImages));
+    
+    toast({
+      title: 'Фоны карточки добавлены',
+      description: `Загружено ${newImages.length} изображений`,
+    });
   };
 
-  const handleCardBackgroundRemove = async (id: string) => {
+  const handleCardBackgroundRemove = (id: string) => {
     const updatedImages = cardBackgroundImages.filter(img => img.id !== id);
     setCardBackgroundImages(updatedImages);
-    window.dispatchEvent(new CustomEvent('cardBackgroundImagesChange', { detail: updatedImages }));
-    await saveCardImagesToDb(updatedImages);
-    sonnerToast.success('Фон карточки удалён');
+    localStorage.setItem('cardBackgroundImages', JSON.stringify(updatedImages));
+    
+    toast({
+      title: 'Фон карточки удалён',
+      description: 'Изображение удалено из галереи',
+    });
   };
 
   const handleCardTransitionTimeChange = (value: number[]) => {
     const time = value[0];
     setCardTransitionTime(time);
     localStorage.setItem('cardTransitionTime', time.toString());
-    fetch(SETTINGS_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cardTransitionTime: time.toString() })
-    }).catch(() => {});
     window.dispatchEvent(new CustomEvent('cardTransitionTimeChange', { detail: time }));
   };
 
@@ -203,17 +150,12 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
     const opacity = value[0];
     setCardOpacity(opacity);
     localStorage.setItem('loginCardOpacity', opacity.toString());
-    fetch(SETTINGS_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cardOpacity: opacity.toString() })
-    }).catch(() => {});
     window.dispatchEvent(new CustomEvent('cardOpacityChange', { detail: opacity }));
   };
 
   return (
     <Card>
-      <CardHeader
+      <CardHeader 
         className="cursor-pointer hover:bg-accent/50 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -222,11 +164,18 @@ const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps
             <CardTitle>Цветовая схема</CardTitle>
             <CardDescription>Настройка внешнего вида сайта</CardDescription>
           </div>
-          <Icon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} className="text-muted-foreground" />
+          <Icon 
+            name={isExpanded ? 'ChevronUp' : 'ChevronDown'} 
+            className="text-muted-foreground" 
+          />
         </div>
       </CardHeader>
       {isExpanded && <CardContent className="space-y-6">
-        <ColorPicker colors={colors} onColorChange={onColorChange} onSave={onSave} />
+        <ColorPicker 
+          colors={colors}
+          onColorChange={onColorChange}
+          onSave={onSave}
+        />
 
         <Separator />
 

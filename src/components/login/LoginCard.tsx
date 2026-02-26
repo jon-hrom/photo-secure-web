@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { ReactNode, useState, useEffect } from 'react';
-import funcUrls from '../../../backend/func2url.json';
 
 interface BackgroundImage {
   id: string;
@@ -15,54 +14,44 @@ interface LoginCardProps {
 }
 
 const LoginCard = ({ isRegistering, children }: LoginCardProps) => {
-  const SETTINGS_API = funcUrls['background-settings'];
   const [cardBackgroundImages, setCardBackgroundImages] = useState<BackgroundImage[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [transitionTime, setTransitionTime] = useState(5);
   const [cardOpacity, setCardOpacity] = useState(95);
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const response = await fetch(SETTINGS_API);
-        const data = await response.json();
-        if (data.success && data.settings) {
-          const s = data.settings;
-          if (s.login_card_images) {
-            const imgs = typeof s.login_card_images === 'string'
-              ? JSON.parse(s.login_card_images)
-              : s.login_card_images;
-            setCardBackgroundImages(imgs);
-          }
-          if (s.login_card_transition_time) setTransitionTime(Number(s.login_card_transition_time));
-          if (s.login_card_opacity) setCardOpacity(Number(s.login_card_opacity));
-          return;
-        }
-      } catch (e) {
-        console.error('[LOGIN_CARD] Failed to load settings from DB:', e);
-      }
-      const savedTransitionTime = localStorage.getItem('cardTransitionTime');
-      const savedCardOpacity = localStorage.getItem('loginCardOpacity');
-      if (savedTransitionTime) setTransitionTime(Number(savedTransitionTime));
-      if (savedCardOpacity) setCardOpacity(Number(savedCardOpacity));
+    const savedCardImages = localStorage.getItem('cardBackgroundImages');
+    const savedTransitionTime = localStorage.getItem('cardTransitionTime');
+    const savedCardOpacity = localStorage.getItem('loginCardOpacity');
+    
+    if (savedCardImages) {
+      setCardBackgroundImages(JSON.parse(savedCardImages));
+    }
+    
+    if (savedTransitionTime) {
+      setTransitionTime(Number(savedTransitionTime));
+    }
+
+    if (savedCardOpacity) {
+      setCardOpacity(Number(savedCardOpacity));
+    }
+
+    const handleTransitionTimeChange = (e: CustomEvent) => {
+      setTransitionTime(e.detail);
     };
 
-    loadSettings();
-
-    const handleTransitionTimeChange = (e: CustomEvent) => setTransitionTime(e.detail);
-    const handleCardOpacityChange = (e: CustomEvent) => setCardOpacity(e.detail);
-    const handleCardImagesChange = (e: CustomEvent) => setCardBackgroundImages(e.detail);
+    const handleCardOpacityChange = (e: CustomEvent) => {
+      setCardOpacity(e.detail);
+    };
 
     window.addEventListener('cardTransitionTimeChange', handleTransitionTimeChange as EventListener);
     window.addEventListener('cardOpacityChange', handleCardOpacityChange as EventListener);
-    window.addEventListener('cardBackgroundImagesChange', handleCardImagesChange as EventListener);
-
+    
     return () => {
       window.removeEventListener('cardTransitionTimeChange', handleTransitionTimeChange as EventListener);
       window.removeEventListener('cardOpacityChange', handleCardOpacityChange as EventListener);
-      window.removeEventListener('cardBackgroundImagesChange', handleCardImagesChange as EventListener);
     };
-  }, [SETTINGS_API]);
+  }, []);
 
   useEffect(() => {
     if (cardBackgroundImages.length <= 1) return;
