@@ -132,8 +132,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             filename_lower = filename.lower()
             if file_type == 'video':
-                content_type = 'video/webm'
-                extension = '.webm'
+                if filename_lower.endswith('.webm'):
+                    content_type = 'video/webm'
+                    extension = '.webm'
+                elif filename_lower.endswith('.mov'):
+                    content_type = 'video/mp4'
+                    extension = '.mp4'
+                else:
+                    content_type = 'video/mp4'
+                    extension = '.mp4'
             elif filename_lower.endswith('.gif'):
                 content_type = 'image/gif'
                 extension = '.gif'

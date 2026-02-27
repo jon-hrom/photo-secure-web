@@ -273,15 +273,18 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             loop
             muted
             playsInline
-            preload="auto"
+            preload="metadata"
             className="fixed inset-0 w-full h-full object-cover"
             style={{ 
               zIndex: 0,
               filter: 'saturate(1.3) contrast(1.1)'
             }}
-            onLoadedData={(e) => {
+            onLoadedData={() => {
               console.log('[LOGIN_BG] Video loaded');
-              e.currentTarget.playbackRate = 0.85;
+              const video = videoRef.current;
+              if (video) {
+                video.play().catch(() => {});
+              }
             }}
             onError={async () => {
               console.error('[LOGIN_BG] Video URL expired, refreshing from S3...');
@@ -307,8 +310,11 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
               setMobileVideo(null);
             }}
           >
-            <source src={effectiveBackgroundVideo} type="video/mp4" />
-            <source src={effectiveBackgroundVideo} type="video/webm" />
+            {effectiveBackgroundVideo?.includes('.webm') ? (
+              <source src={effectiveBackgroundVideo} type="video/webm" />
+            ) : (
+              <source src={effectiveBackgroundVideo} type="video/mp4" />
+            )}
           </video>
           
           {/* Fade-слой для плавного перехода */}
