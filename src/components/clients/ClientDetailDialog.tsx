@@ -128,7 +128,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
             />
             <ClientDialogTabs activeTab={activeTab} />
           </div>
-          <div className="flex-1 overflow-y-auto overflow-x-hidden safe-bottom bg-background">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden safe-bottom bg-background scroll-smooth scrollbar-visible">
             <ClientDialogContent
               localClient={localClient}
               projects={projects}

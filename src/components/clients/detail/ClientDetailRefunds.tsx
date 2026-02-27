@@ -109,7 +109,7 @@ const ClientDetailRefunds = ({
             Оформить возврат
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 pb-6 max-h-[50vh] md:max-h-none overflow-y-auto md:overflow-visible">
+        <CardContent className="space-y-4 pb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm">Тип</Label>

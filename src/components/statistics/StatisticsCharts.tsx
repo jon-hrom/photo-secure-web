@@ -145,12 +145,12 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
 
   return (
     <Tabs defaultValue="overview" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-5">
-        <TabsTrigger value="overview">Обзор</TabsTrigger>
-        <TabsTrigger value="clients">Клиенты</TabsTrigger>
-        <TabsTrigger value="projects">Проекты</TabsTrigger>
-        <TabsTrigger value="financial">Финансы</TabsTrigger>
-        <TabsTrigger value="tops">Топы</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto">
+        <TabsTrigger value="overview" className="text-xs sm:text-sm py-2">Обзор</TabsTrigger>
+        <TabsTrigger value="clients" className="text-xs sm:text-sm py-2">Клиенты</TabsTrigger>
+        <TabsTrigger value="projects" className="text-xs sm:text-sm py-2">Проекты</TabsTrigger>
+        <TabsTrigger value="financial" className="text-xs sm:text-sm py-2">Финансы</TabsTrigger>
+        <TabsTrigger value="tops" className="text-xs sm:text-sm py-2">Топы</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-6">
@@ -158,7 +158,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Клиенты</CardDescription>
-              <CardTitle className="text-3xl">{data.general.clients.total}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{data.general.clients.total}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
@@ -174,7 +174,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Проекты</CardDescription>
-              <CardTitle className="text-3xl">{data.general.projects.total}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{data.general.projects.total}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
@@ -189,7 +189,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Доход</CardDescription>
-              <CardTitle className="text-3xl">{formatCurrency(data.financial.total_revenue)}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{formatCurrency(data.financial.total_revenue)}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
@@ -204,7 +204,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Средний чек</CardDescription>
-              <CardTitle className="text-3xl">{formatCurrency(data.financial.avg_check)}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{formatCurrency(data.financial.avg_check)}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
@@ -221,7 +221,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
               <CardTitle>Динамика проектов</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={data.charts.projects_timeline}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
@@ -239,7 +239,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
               <CardTitle>Динамика доходов</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={data.charts.revenue_timeline}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
@@ -257,7 +257,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
               <CardTitle>Новые клиенты</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={data.charts.clients_timeline}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
@@ -275,7 +275,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
               <CardTitle>Проекты по категориям</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
                     data={data.projects.by_category}
@@ -304,7 +304,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Всего клиентов</CardDescription>
-              <CardTitle className="text-3xl">{data.clients.total_clients}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{data.clients.total_clients}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">Общая клиентская база</p>
@@ -314,7 +314,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Новые клиенты</CardDescription>
-              <CardTitle className="text-3xl">{data.clients.new_clients}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{data.clients.new_clients}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">За выбранный период</p>
@@ -324,7 +324,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Постоянные клиенты</CardDescription>
-              <CardTitle className="text-3xl">{data.clients.returning_clients}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{data.clients.returning_clients}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
@@ -337,7 +337,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Разовые клиенты</CardDescription>
-              <CardTitle className="text-3xl">{data.clients.one_time_clients}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{data.clients.one_time_clients}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">Потенциал для развития</p>
@@ -393,7 +393,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Общий доход</CardDescription>
-              <CardTitle className="text-3xl">{formatCurrency(data.financial.total_revenue)}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{formatCurrency(data.financial.total_revenue)}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm">
@@ -409,7 +409,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card className={data.financial.refunds && data.financial.refunds.total > 0 ? 'border-green-200' : ''}>
             <CardHeader className="pb-2">
               <CardDescription>Чистый доход</CardDescription>
-              <CardTitle className="text-3xl text-green-600">{formatCurrency(data.financial.net_revenue ?? data.financial.total_revenue)}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl text-green-600">{formatCurrency(data.financial.net_revenue ?? data.financial.total_revenue)}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">За вычетом возвратов</p>
@@ -419,7 +419,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Средний чек</CardDescription>
-              <CardTitle className="text-3xl">{formatCurrency(data.financial.avg_check)}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{formatCurrency(data.financial.avg_check)}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">На один проект</p>
@@ -429,7 +429,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
           <Card className="border-orange-200">
             <CardHeader className="pb-2">
               <CardDescription>Неоплачено</CardDescription>
-              <CardTitle className="text-3xl text-orange-600">{formatCurrency(data.alerts.unpaid_orders.amount)}</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl text-orange-600">{formatCurrency(data.alerts.unpaid_orders.amount)}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">{data.alerts.unpaid_orders.count} проектов</p>
@@ -446,21 +446,21 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Сумма возвратов</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                <div className="p-3 sm:p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Сумма возвратов</p>
                   <p className="text-2xl font-bold text-orange-600">{formatCurrency(data.financial.refunds.total)}</p>
                   <p className="text-xs text-muted-foreground mt-1">{data.financial.refunds.count} операций</p>
                 </div>
                 {data.financial.refunds.cancellations_count > 0 && (
-                  <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-2">Аннулирования</p>
+                  <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Аннулирования</p>
                     <p className="text-2xl font-bold text-red-600">{formatCurrency(data.financial.refunds.cancellations_total)}</p>
                     <p className="text-xs text-muted-foreground mt-1">{data.financial.refunds.cancellations_count} отменённых заказов</p>
                   </div>
                 )}
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Доля возвратов</p>
+                <div className="p-3 sm:p-4 bg-muted/50 rounded-lg">
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Доля возвратов</p>
                   <p className="text-2xl font-bold">
                     {data.financial.total_revenue > 0
                       ? safeToFixed((data.financial.refunds.total / data.financial.total_revenue) * 100, 1)
