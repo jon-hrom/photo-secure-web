@@ -5,8 +5,9 @@ import ClientDetailOverview from '@/components/clients/detail/ClientDetailOvervi
 import ClientDetailProjects from '@/components/clients/detail/ClientDetailProjects';
 import ClientDetailPayments from '@/components/clients/detail/ClientDetailPayments';
 import ClientDetailDocumentsHistory from '@/components/clients/detail/ClientDetailDocumentsHistory';
+import ClientDetailRefunds from '@/components/clients/detail/ClientDetailRefunds';
 import ClientDetailMessages from '@/components/clients/detail/ClientDetailMessages';
-import { Client, Project, Payment, Comment, Message } from '@/components/clients/ClientsTypes';
+import { Client, Project, Payment, Comment, Message, Refund } from '@/components/clients/ClientsTypes';
 import { Badge } from '@/components/ui/badge';
 
 interface ClientDialogContentProps {
@@ -31,6 +32,11 @@ interface ClientDialogContentProps {
   handleAddPayment: () => void;
   handleDeletePayment: (paymentId: number) => void;
   getPaymentStatusBadge: (status: Payment['status']) => JSX.Element;
+  refunds: Refund[];
+  newRefund: { paymentId: string; projectId: string; amount: string; reason: string; type: string; method: string; date: string };
+  setNewRefund: (refund: { paymentId: string; projectId: string; amount: string; reason: string; type: string; method: string; date: string }) => void;
+  handleAddRefund: () => void;
+  handleDeleteRefund: (refundId: number) => void;
   newComment: string;
   setNewComment: (comment: string) => void;
   handleAddComment: () => void;
@@ -72,6 +78,11 @@ const ClientDialogContent = ({
   handleAddPayment,
   handleDeletePayment,
   getPaymentStatusBadge,
+  refunds,
+  newRefund,
+  setNewRefund,
+  handleAddRefund,
+  handleDeleteRefund,
   newComment,
   setNewComment,
   handleAddComment,
@@ -126,6 +137,7 @@ const ClientDialogContent = ({
           <ClientDetailOverview
             projects={projects}
             payments={payments}
+            refunds={refunds}
             comments={comments}
             newComment={newComment}
             setNewComment={setNewComment}
@@ -177,6 +189,16 @@ const ClientDialogContent = ({
             handleAddPayment={handleAddPayment}
             handleDeletePayment={handleDeletePayment}
             getPaymentStatusBadge={getPaymentStatusBadge}
+            formatDate={formatDate}
+          />
+          <ClientDetailRefunds
+            refunds={refunds}
+            payments={payments}
+            projects={projects}
+            newRefund={newRefund}
+            setNewRefund={setNewRefund}
+            handleAddRefund={handleAddRefund}
+            handleDeleteRefund={handleDeleteRefund}
             formatDate={formatDate}
           />
         </TabsContent>

@@ -302,6 +302,19 @@ def get_financial_stats(cur, photographer_id: str, date_filter: str, prev_date_f
     ''')
     finance_data = cur.fetchone()
     
+    cur.execute(f'''
+        SELECT 
+            COALESCE(SUM(CASE WHEN r.refund_date {date_filter} AND r.status = 'completed' THEN r.amount END), 0) as total_refunds,
+            COALESCE(SUM(CASE WHEN r.refund_date {prev_date_filter} AND r.status = 'completed' THEN r.amount END), 0) as prev_refunds,
+            COUNT(CASE WHEN r.refund_date {date_filter} AND r.status = 'completed' THEN 1 END) as refunds_count,
+            COALESCE(SUM(CASE WHEN r.type = 'cancellation' AND r.refund_date {date_filter} AND r.status = 'completed' THEN r.amount END), 0) as cancellations_total,
+            COUNT(CASE WHEN r.type = 'cancellation' AND r.refund_date {date_filter} AND r.status = 'completed' THEN 1 END) as cancellations_count
+        FROM {SCHEMA}.client_refunds r
+        JOIN {SCHEMA}.clients c ON r.client_id = c.id
+        WHERE c.photographer_id = {photographer_id}
+    ''')
+    refunds_data = cur.fetchone()
+    
     # Доходы по методам оплаты
     cur.execute(f'''
         SELECT 
@@ -317,14 +330,28 @@ def get_financial_stats(cur, photographer_id: str, date_filter: str, prev_date_f
     ''')
     by_method = cur.fetchall()
     
+    total_revenue = float(finance_data['total_revenue'])
+    total_refunds = float(refunds_data['total_refunds'])
+    net_revenue = total_revenue - total_refunds
+    prev_revenue = float(finance_data['prev_revenue'])
+    prev_refunds = float(refunds_data['prev_refunds'])
+    prev_net = prev_revenue - prev_refunds
+    
     return {
-        'total_revenue': float(finance_data['total_revenue']),
-        'prev_revenue': float(finance_data['prev_revenue']),
-        'revenue_growth': calculate_growth(finance_data['total_revenue'], finance_data['prev_revenue']),
+        'total_revenue': total_revenue,
+        'net_revenue': net_revenue,
+        'prev_revenue': prev_revenue,
+        'revenue_growth': calculate_growth(net_revenue, prev_net),
         'avg_check': float(finance_data['avg_check']),
         'pending': {
             'amount': float(finance_data['pending_amount']),
             'count': finance_data['pending_count']
+        },
+        'refunds': {
+            'total': total_refunds,
+            'count': refunds_data['refunds_count'],
+            'cancellations_total': float(refunds_data['cancellations_total']),
+            'cancellations_count': refunds_data['cancellations_count']
         },
         'by_method': [dict(m) for m in by_method]
     }

@@ -27,7 +27,10 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
   const projects = client.projects || [];
   const payments = client.payments || [];
   const activeProjects = projects.filter(p => p.status === 'in_progress' || p.status === 'new');
-  const totalPaid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
+  const refunds = client.refunds || [];
+  const totalPaidRaw = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
+  const totalRefunded = refunds.filter(r => r.status === 'completed').reduce((sum, r) => sum + r.amount, 0);
+  const totalPaid = totalPaidRaw - totalRefunded;
   
   const handleGenerateTelegramInvite = async (e: React.MouseEvent) => {
     e.stopPropagation();

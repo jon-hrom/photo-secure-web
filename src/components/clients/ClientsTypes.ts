@@ -73,6 +73,19 @@ export interface Comment {
   text: string;
 }
 
+export interface Refund {
+  id: number;
+  paymentId?: number;
+  projectId?: number;
+  amount: number;
+  reason: string;
+  type: 'refund' | 'cancellation';
+  status: 'completed' | 'pending' | 'rejected';
+  method?: string;
+  date: string;
+  paymentSystemId?: string;
+}
+
 export type ProjectStatusColor = 'blue' | 'yellow' | 'green' | 'gray';
 
 export interface Client {
@@ -90,6 +103,7 @@ export interface Client {
   payments?: Payment[];
   messages?: Message[];
   comments?: Comment[];
+  refunds?: Refund[];
   created_at?: string;
   
   shooting_date?: string;

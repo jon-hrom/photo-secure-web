@@ -31,6 +31,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     setNewProject,
     newPayment,
     setNewPayment,
+    newRefund,
+    setNewRefund,
     newComment,
     setNewComment,
     newMessage,
@@ -63,6 +65,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
   const projects = localClient.projects || [];
   const documents = localClient.documents || [];
   const payments = localClient.payments || [];
+  const refunds = localClient.refunds || [];
   const messages = localClient.messages || [];
   const comments = localClient.comments || [];
 
@@ -77,6 +80,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     handleDeleteComment,
     handleDeleteMessage,
     handleDeleteAllMessages,
+    handleAddRefund,
+    handleDeleteRefund,
     updateProjectStatus,
     updateProjectDate,
     updateProjectShootingStyle,
@@ -105,7 +110,10 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     () => {
       clearProjectData(localClient.id);
       clearOpenCardData(localClient.id);
-    }
+    },
+    refunds,
+    newRefund,
+    setNewRefund,
   );
 
   return (
@@ -143,6 +151,11 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
               handleAddPayment={handleAddPayment}
               handleDeletePayment={handleDeletePayment}
               getPaymentStatusBadge={getPaymentStatusBadge}
+              refunds={refunds}
+              newRefund={newRefund}
+              setNewRefund={setNewRefund}
+              handleAddRefund={handleAddRefund}
+              handleDeleteRefund={handleDeleteRefund}
               newComment={newComment}
               setNewComment={setNewComment}
               handleAddComment={handleAddComment}

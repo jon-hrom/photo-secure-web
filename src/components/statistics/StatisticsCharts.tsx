@@ -79,12 +79,19 @@ interface StatisticsData {
   };
   financial: {
     total_revenue: number;
+    net_revenue?: number;
     prev_revenue: number;
     revenue_growth: number;
     avg_check: number;
     pending: {
       amount: number;
       count: number;
+    };
+    refunds?: {
+      total: number;
+      count: number;
+      cancellations_total: number;
+      cancellations_count: number;
     };
     by_method: Array<{ method: string; count: number; total: number }>;
   };
@@ -382,7 +389,7 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
       </TabsContent>
 
       <TabsContent value="financial" className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Общий доход</CardDescription>
@@ -396,6 +403,16 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
                 </span>
                 <span className="text-muted-foreground">к прошлому периоду</span>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className={data.financial.refunds && data.financial.refunds.total > 0 ? 'border-green-200' : ''}>
+            <CardHeader className="pb-2">
+              <CardDescription>Чистый доход</CardDescription>
+              <CardTitle className="text-3xl text-green-600">{formatCurrency(data.financial.net_revenue ?? data.financial.total_revenue)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">За вычетом возвратов</p>
             </CardContent>
           </Card>
 
@@ -419,6 +436,42 @@ const StatisticsCharts = ({ data, formatCurrency, formatDate }: StatisticsCharts
             </CardContent>
           </Card>
         </div>
+
+        {data.financial.refunds && data.financial.refunds.total > 0 && (
+          <Card className="border-orange-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icon name="RotateCcw" size={18} className="text-orange-600" />
+                Возвраты за период
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">Сумма возвратов</p>
+                  <p className="text-2xl font-bold text-orange-600">{formatCurrency(data.financial.refunds.total)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{data.financial.refunds.count} операций</p>
+                </div>
+                {data.financial.refunds.cancellations_count > 0 && (
+                  <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-2">Аннулирования</p>
+                    <p className="text-2xl font-bold text-red-600">{formatCurrency(data.financial.refunds.cancellations_total)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{data.financial.refunds.cancellations_count} отменённых заказов</p>
+                  </div>
+                )}
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">Доля возвратов</p>
+                  <p className="text-2xl font-bold">
+                    {data.financial.total_revenue > 0
+                      ? safeToFixed((data.financial.refunds.total / data.financial.total_revenue) * 100, 1)
+                      : '0'}%
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">от общего дохода</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

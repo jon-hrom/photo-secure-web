@@ -364,6 +364,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         payments_by_client[cid] = []
                     payments_by_client[cid].append(p)
                 
+                # Массовый запрос всех refunds
+                cur.execute('''
+                    SELECT client_id, id, payment_id, project_id, amount, reason, type, status, method, refund_date, payment_system_id
+                    FROM t_p28211681_photo_secure_web.client_refunds 
+                    WHERE client_id = ANY(%s)
+                    ORDER BY refund_date DESC
+                ''', (list(client_ids),))
+                all_refunds = cur.fetchall()
+                refunds_by_client = {}
+                for r in all_refunds:
+                    cid = r['client_id']
+                    if cid not in refunds_by_client:
+                        refunds_by_client[cid] = []
+                    refunds_by_client[cid].append(r)
+                
                 # Массовый запрос всех messages
                 cur.execute('''
                     SELECT client_id, id, type, author, content, message_date
@@ -446,6 +461,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'projectId': p['project_id']
                     } for p in raw_payments]
                     
+                    # Конвертируем refunds
+                    raw_refunds = refunds_by_client.get(cid, [])
+                    refunds = [{
+                        'id': r['id'],
+                        'paymentId': r['payment_id'],
+                        'projectId': r['project_id'],
+                        'amount': float(r['amount']),
+                        'reason': r['reason'],
+                        'type': r['type'],
+                        'status': r['status'],
+                        'method': r['method'],
+                        'date': str(r['refund_date']) if r['refund_date'] else None,
+                        'paymentSystemId': r.get('payment_system_id')
+                    } for r in raw_refunds]
+                    
                     # Конвертируем messages
                     messages = [{
                         'id': m['id'],
@@ -494,6 +524,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         ],
                         'projects': projects,
                         'payments': payments,
+                        'refunds': refunds,
                         'messages': messages,
                         'comments': comments,
                         'documents': documents
@@ -1100,6 +1131,56 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         payment.get('method'),
                         payment.get('description'),
                         payment.get('projectId')
+                    ))
+            
+            # Обновляем возвраты (upsert)
+            if 'refunds' in body:
+                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.client_refunds WHERE client_id = %s', (client_id,))
+                existing_ids = {row['id'] for row in cur.fetchall()}
+                incoming_ids = {r.get('id') for r in body.get('refunds', []) if r.get('id')}
+                
+                ids_to_delete = existing_ids - incoming_ids
+                if ids_to_delete:
+                    cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_refunds WHERE id = ANY(%s)', (list(ids_to_delete),))
+                
+                for refund in body.get('refunds', []):
+                    refund_date_str = refund.get('date')
+                    if refund_date_str:
+                        try:
+                            if 'T' in refund_date_str:
+                                refund_date = datetime.fromisoformat(refund_date_str.replace('Z', '+00:00'))
+                            else:
+                                refund_date = datetime.strptime(refund_date_str, '%Y-%m-%d')
+                        except (ValueError, AttributeError):
+                            refund_date = datetime.now()
+                    else:
+                        refund_date = datetime.now()
+                    
+                    cur.execute('''
+                        INSERT INTO t_p28211681_photo_secure_web.client_refunds (id, client_id, payment_id, project_id, amount, reason, type, status, method, refund_date, payment_system_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                            payment_id = EXCLUDED.payment_id,
+                            project_id = EXCLUDED.project_id,
+                            amount = EXCLUDED.amount,
+                            reason = EXCLUDED.reason,
+                            type = EXCLUDED.type,
+                            status = EXCLUDED.status,
+                            method = EXCLUDED.method,
+                            refund_date = EXCLUDED.refund_date,
+                            payment_system_id = EXCLUDED.payment_system_id
+                    ''', (
+                        refund.get('id'),
+                        client_id,
+                        refund.get('paymentId'),
+                        refund.get('projectId'),
+                        refund.get('amount'),
+                        refund.get('reason', ''),
+                        refund.get('type', 'refund'),
+                        refund.get('status', 'completed'),
+                        refund.get('method'),
+                        refund_date,
+                        refund.get('paymentSystemId')
                     ))
             
             # Обновляем комментарии (upsert)

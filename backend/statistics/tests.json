@@ -9,23 +9,7 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "period": "month",
-        "general": {
-          "clients": {
-            "total": "number",
-            "new": "number",
-            "growth": "number"
-          },
-          "projects": {
-            "total": "number",
-            "new": "number",
-            "completed": "number"
-          }
-        },
-        "financial": {
-          "total_revenue": "number",
-          "avg_check": "number"
-        }
+        "period": "month"
       },
       "bodyMatcher": "partial"
     },

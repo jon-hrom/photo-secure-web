@@ -1,4 +1,5 @@
-import { Client, Project, Payment, Comment, Message } from '@/components/clients/ClientsTypes';
+import { Client, Project, Payment, Comment, Message, Refund } from '@/components/clients/ClientsTypes';
+import { createAddRefundHandler, createDeleteRefundHandler } from './RefundHandlers';
 import {
   createAddProjectHandler,
   createAddPaymentHandler,
@@ -37,7 +38,10 @@ export const useClientDetailHandlers = (
   setNewMessage: (message: any) => void,
   onUpdate: (client: Client) => void,
   photographerName: string,
-  onProjectCreated?: () => void
+  onProjectCreated?: () => void,
+  refunds?: Refund[],
+  newRefund?: { paymentId: string; projectId: string; amount: string; reason: string; type: string; method: string; date: string },
+  setNewRefund?: (refund: { paymentId: string; projectId: string; amount: string; reason: string; type: string; method: string; date: string }) => void,
 ) => {
   const handleAddProject = createAddProjectHandler(
     localClient,
@@ -118,6 +122,12 @@ export const useClientDetailHandlers = (
   const updateProjectShootingStyle = createUpdateProjectShootingStyleHandler(localClient, projects, onUpdate);
   const handleDocumentUploaded = createDocumentUploadedHandler(localClient, onUpdate);
   const handleDocumentDeleted = createDocumentDeletedHandler(localClient, onUpdate);
+  const actualRefunds = refunds || [];
+  const handleAddRefund = newRefund && setNewRefund
+    ? createAddRefundHandler(localClient, payments, actualRefunds, newRefund, setNewRefund, onUpdate)
+    : () => {};
+  const handleDeleteRefund = createDeleteRefundHandler(localClient, actualRefunds, onUpdate);
+
   const formatDate = createFormatDate();
   const formatDateTime = createFormatDateTime();
 
@@ -132,6 +142,8 @@ export const useClientDetailHandlers = (
     handleDeleteComment,
     handleDeleteMessage,
     handleDeleteAllMessages,
+    handleAddRefund,
+    handleDeleteRefund,
     getStatusBadge,
     getPaymentStatusBadge,
     updateProjectStatus,

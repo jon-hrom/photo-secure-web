@@ -29,6 +29,15 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     date: new Date().toISOString().split('T')[0],
     splitAcrossProjects: false
   });
+  const [newRefund, setNewRefund] = useState({
+    paymentId: '',
+    projectId: '',
+    amount: '',
+    reason: '',
+    type: 'refund',
+    method: '',
+    date: new Date().toISOString().split('T')[0],
+  });
   const [newComment, setNewComment] = useState('');
   const [newMessage, setNewMessage] = useState({ 
     content: '', 
@@ -121,6 +130,8 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     setNewProject,
     newPayment,
     setNewPayment,
+    newRefund,
+    setNewRefund,
     newComment,
     setNewComment,
     newMessage,

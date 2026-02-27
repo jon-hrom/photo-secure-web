@@ -178,6 +178,7 @@ def handle_delete_client(cursor, conn, event: dict) -> dict:
         cursor.execute(f"DELETE FROM {DB_SCHEMA}.client_messages WHERE client_id = %s", (client_id,))
         cursor.execute(f"DELETE FROM {DB_SCHEMA}.client_comments WHERE client_id = %s", (client_id,))
         cursor.execute(f"DELETE FROM {DB_SCHEMA}.client_documents WHERE client_id = %s", (client_id,))
+        cursor.execute(f"DELETE FROM {DB_SCHEMA}.client_refunds WHERE client_id = %s", (client_id,))
         cursor.execute(f"DELETE FROM {DB_SCHEMA}.client_payments WHERE client_id = %s", (client_id,))
         cursor.execute(f"DELETE FROM {DB_SCHEMA}.client_projects WHERE client_id = %s", (client_id,))
         cursor.execute(f"DELETE FROM {DB_SCHEMA}.bookings WHERE client_id = %s", (client_id,))

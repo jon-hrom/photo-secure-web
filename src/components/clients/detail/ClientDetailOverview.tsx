@@ -2,12 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
-import { Project, Payment, Comment } from '@/components/clients/ClientsTypes';
+import { Project, Payment, Comment, Refund } from '@/components/clients/ClientsTypes';
 import { useEffect, useState } from 'react';
 
 interface ClientDetailOverviewProps {
   projects: Project[];
   payments: Payment[];
+  refunds: Refund[];
   comments: Comment[];
   newComment: string;
   setNewComment: (comment: string) => void;
@@ -19,6 +20,7 @@ interface ClientDetailOverviewProps {
 const ClientDetailOverview = ({
   projects,
   payments,
+  refunds,
   comments,
   newComment,
   setNewComment,
@@ -29,20 +31,16 @@ const ClientDetailOverview = ({
   const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
   const completedPayments = payments.filter(p => p.status === 'completed');
   const totalPaid = completedPayments.reduce((sum, p) => sum + p.amount, 0);
-  const totalRemaining = totalBudget - totalPaid;
-
-  console.log('[Overview] Projects:', projects);
-  console.log('[Overview] All Payments:', payments);
-  console.log('[Overview] Completed Payments:', completedPayments);
-  console.log('[Overview] Total Budget:', totalBudget);
-  console.log('[Overview] Total Paid:', totalPaid);
-  console.log('[Overview] Total Remaining:', totalRemaining);
+  const completedRefunds = refunds.filter(r => r.status === 'completed');
+  const totalRefunded = completedRefunds.reduce((sum, r) => sum + r.amount, 0);
+  const netPaid = totalPaid - totalRefunded;
+  const totalRemaining = totalBudget - netPaid;
 
   const [animateKey, setAnimateKey] = useState(0);
 
   useEffect(() => {
     setAnimateKey(prev => prev + 1);
-  }, [totalPaid, totalRemaining]);
+  }, [totalPaid, totalRemaining, totalRefunded]);
 
   useEffect(() => {
     const handleFocus = (e: FocusEvent) => {
@@ -81,10 +79,13 @@ const ClientDetailOverview = ({
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold text-foreground">
-              <span key={`paid-${animateKey}`} className="inline-block animate-in fade-in zoom-in-50 duration-500">{totalPaid.toLocaleString('ru-RU')} ₽</span>
+              <span key={`paid-${animateKey}`} className="inline-block animate-in fade-in zoom-in-50 duration-500">{netPaid.toLocaleString('ru-RU')} ₽</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Платежей: {payments.filter(p => p.status === 'completed').length}
+              Платежей: {completedPayments.length}
+              {totalRefunded > 0 && (
+                <span className="text-orange-600"> (возвраты: −{totalRefunded.toLocaleString('ru-RU')} ₽)</span>
+              )}
             </p>
           </CardContent>
         </Card>
