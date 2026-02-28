@@ -91,6 +91,9 @@ def handler(event: dict, context) -> dict:
 
     format_id = body.get('format_id', '')
 
+    if mode == 'cleanup_tmp':
+        return handle_cleanup_tmp(user_id)
+
     if mode == 'device_download':
         return handle_device_download(url, user_id, folder_id, format_id, audio_only)
 
@@ -128,6 +131,40 @@ def handle_extract(url, audio_only=False):
         })
 
     return resp(400, {'error': 'Не удалось получить ссылку на видео. Попробуйте прямую ссылку на файл.'})
+
+
+def handle_cleanup_tmp(user_id):
+    from botocore.client import Config
+    s3 = boto3.client('s3',
+        endpoint_url='https://storage.yandexcloud.net',
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4')
+    )
+
+    objects = s3.list_objects_v2(Bucket='foto-mix', Prefix='tmp_downloads/')
+    contents = objects.get('Contents', [])
+    if not contents:
+        return resp(200, {'success': True, 'deleted': 0, 'message': 'Папка tmp_downloads пуста'})
+
+    deleted = 0
+    files_info = []
+    for obj in contents:
+        key = obj['Key']
+        size = obj['Size']
+        files_info.append({'key': key, 'size': size})
+        s3.delete_object(Bucket='foto-mix', Key=key)
+        deleted += 1
+        print(f'[CLEANUP] Deleted {key} ({size} bytes)')
+
+    total_mb = sum(o['Size'] for o in contents) / 1048576
+    return resp(200, {
+        'success': True,
+        'deleted': deleted,
+        'freed_mb': round(total_mb, 1),
+        'files': files_info
+    })
 
 
 def handle_device_download(url, user_id, folder_id, format_id='', audio_only=False):
