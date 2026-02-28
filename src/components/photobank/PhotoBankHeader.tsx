@@ -219,7 +219,7 @@ const PhotoBankHeader = ({
               <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none whitespace-normal">Загрузить фото по ссылке</span>
             </Button>
           )}
-          {onShowVideoUrlUpload && (isAdminViewing || isAdmin) && (
+          {onShowVideoUrlUpload && (
             <Button 
               variant="outline"
               onClick={onShowVideoUrlUpload}

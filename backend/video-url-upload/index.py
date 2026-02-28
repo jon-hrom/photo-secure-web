@@ -23,6 +23,22 @@ CORS_HEADERS = {
 
 MAX_FILE_SIZE = 500 * 1024 * 1024
 
+YOUTUBE_HOSTS = ('youtube.com', 'youtu.be', 'youtube-nocookie.com', 'music.youtube.com', 'www.youtube.com', 'm.youtube.com')
+
+
+def is_youtube_url(url):
+    from urllib.parse import urlparse
+    try:
+        host = urlparse(url).hostname or ''
+        return any(host == h or host.endswith('.' + h) for h in YOUTUBE_HOSTS)
+    except Exception:
+        return False
+
+
+def get_proxy():
+    proxy = os.environ.get('YOUTUBE_PROXY', '')
+    return proxy if proxy else None
+
 
 def resp(code, body):
     return {
@@ -337,6 +353,12 @@ def ytdlp_extract(url, audio_only=False):
         'no_color': True,
     }
 
+    if is_youtube_url(url):
+        proxy = get_proxy()
+        if proxy:
+            opts['proxy'] = proxy
+            print(f'[EXTRACT] Using proxy for YouTube')
+
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
 
@@ -460,6 +482,12 @@ def ytdlp_download(url, output_dir, format_id='', audio_only=False):
             'merge_output_format': 'mp4',
         }
 
+    if is_youtube_url(url):
+        proxy = get_proxy()
+        if proxy:
+            opts['proxy'] = proxy
+            print(f'[DOWNLOAD] Using proxy for YouTube')
+
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
         filepath = ydl.prepare_filename(info)
@@ -572,10 +600,14 @@ def friendly_error(msg):
         return 'Видео защищено DRM — скачивание невозможно'
     if '403' in msg or '401' in msg:
         return 'Доступ запрещён — попробуйте другую ссылку'
-    if 'timeout' in msg.lower():
-        return 'Превышено время ожидания — видео слишком большое'
+    if 'timeout' in msg.lower() or 'timed out' in msg.lower():
+        return 'Превышено время ожидания — видео слишком большое или сервис недоступен'
     if 'Unsupported URL' in msg:
         return 'Ссылка не поддерживается — попробуйте прямую ссылку на видео'
     if 'age' in msg.lower() and ('restrict' in msg.lower() or 'gate' in msg.lower()):
         return 'Видео с возрастным ограничением — требуется авторизация'
+    if 'connection' in msg.lower() and ('refused' in msg.lower() or 'reset' in msg.lower() or 'abort' in msg.lower()):
+        return 'Не удалось подключиться к видеосервису — возможно, он заблокирован'
+    if 'urlopen error' in msg.lower() or 'getaddrinfo' in msg.lower():
+        return 'Не удалось подключиться к видеосервису — проверьте настройки прокси'
     return msg[:200]
