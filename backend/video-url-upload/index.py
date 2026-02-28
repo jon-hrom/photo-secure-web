@@ -71,7 +71,8 @@ def handler(event: dict, context) -> dict:
     if mode == 'extract':
         return handle_extract(url)
 
-    return handle_upload(url, user_id, folder_id)
+    format_id = body.get('format_id', '')
+    return handle_upload(url, user_id, folder_id, format_id)
 
 
 def fix_url(url):
@@ -107,7 +108,7 @@ def handle_extract(url):
     return resp(400, {'error': 'Не удалось получить ссылку на видео. Попробуйте прямую ссылку на файл.'})
 
 
-def handle_upload(url, user_id, folder_id):
+def handle_upload(url, user_id, folder_id, format_id=''):
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     cur = conn.cursor(cursor_factory=RealDictCursor)
     tmp = tempfile.mkdtemp()
@@ -132,7 +133,7 @@ def handle_upload(url, user_id, folder_id):
         row = cur.fetchone()
         s3_prefix = row['s3_prefix'] if row else f'videos/{user_id}/{int(datetime.now().timestamp())}/'
 
-        filepath, filename = download_video(url, tmp)
+        filepath, filename = download_video(url, tmp, format_id)
 
         fsize = os.path.getsize(filepath)
         if fsize > MAX_FILE_SIZE:
@@ -192,11 +193,80 @@ def handle_upload(url, user_id, folder_id):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def build_qualities(info):
+    fmts = info.get('formats') or []
+    combined = [
+        f for f in fmts
+        if f.get('vcodec', 'none') != 'none'
+        and f.get('acodec', 'none') != 'none'
+        and f.get('url')
+    ]
+
+    video_only = [
+        f for f in fmts
+        if f.get('vcodec', 'none') != 'none'
+        and f.get('acodec', 'none') == 'none'
+        and f.get('url')
+    ]
+
+    has_audio_tracks = any(
+        f.get('acodec', 'none') != 'none' and f.get('vcodec', 'none') == 'none'
+        for f in fmts
+    )
+
+    candidates = combined[:]
+    if has_audio_tracks:
+        candidates.extend(video_only)
+
+    seen = {}
+    for f in candidates:
+        h = f.get('height') or 0
+        if h < 144:
+            continue
+        fsize = f.get('filesize') or f.get('filesize_approx') or 0
+        key = h
+        existing = seen.get(key)
+        if not existing or (f.get('ext') == 'mp4' and existing.get('ext') != 'mp4') or fsize > (existing.get('filesize') or 0):
+            seen[key] = {
+                'format_id': f.get('format_id', ''),
+                'height': h,
+                'ext': f.get('ext', 'mp4'),
+                'filesize': fsize,
+                'label': f'{h}p',
+                'url': f.get('url', ''),
+                'has_audio': f.get('acodec', 'none') != 'none',
+            }
+
+    qualities = sorted(seen.values(), key=lambda q: q['height'])
+
+    for q in qualities:
+        h = q['height']
+        if h <= 360:
+            q['label'] = f'{h}p · SD'
+        elif h <= 480:
+            q['label'] = f'{h}p · SD'
+        elif h <= 720:
+            q['label'] = f'{h}p · HD'
+        elif h <= 1080:
+            q['label'] = f'{h}p · Full HD'
+        elif h <= 1440:
+            q['label'] = f'{h}p · 2K'
+        else:
+            q['label'] = f'{h}p · 4K'
+        if q['filesize']:
+            size_mb = q['filesize'] / 1048576
+            if size_mb >= 1024:
+                q['label'] += f' ({size_mb / 1024:.1f} ГБ)'
+            else:
+                q['label'] += f' ({size_mb:.0f} МБ)'
+
+    return qualities
+
+
 def ytdlp_extract(url):
     opts = {
         'quiet': True,
         'no_warnings': True,
-        'format': 'best[ext=mp4]/best',
         'noplaylist': True,
         'socket_timeout': 15,
         'nocheckcertificate': True,
@@ -207,12 +277,15 @@ def ytdlp_extract(url):
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
 
-    download_url = info.get('url', '')
+    qualities = build_qualities(info)
 
-    if not download_url and info.get('requested_formats'):
-        download_url = info['requested_formats'][0].get('url', '')
+    best_url = info.get('url', '')
+    best_filesize = info.get('filesize') or info.get('filesize_approx') or 0
 
-    if not download_url and info.get('formats'):
+    if not best_url and info.get('requested_formats'):
+        best_url = info['requested_formats'][0].get('url', '')
+
+    if not best_url and info.get('formats'):
         fmts = info['formats']
         combined = [
             f for f in fmts
@@ -223,31 +296,42 @@ def ytdlp_extract(url):
         if combined:
             mp4s = [f for f in combined if f.get('ext') == 'mp4']
             best = mp4s[-1] if mp4s else combined[-1]
-            download_url = best.get('url', '')
+            best_url = best.get('url', '')
+            best_filesize = best.get('filesize') or best.get('filesize_approx') or best_filesize
         elif fmts:
-            download_url = fmts[-1].get('url', '')
+            best_url = fmts[-1].get('url', '')
 
-    if not download_url:
+    if not best_url and not qualities:
         raise Exception('Не удалось извлечь ссылку на видео')
+
+    if not best_url and qualities:
+        best_q = qualities[-1]
+        best_url = best_q.get('url', '')
+        best_filesize = best_q.get('filesize') or best_filesize
 
     title = info.get('title', 'video')
     title = re.sub(r'[^\w\s\-]', '', title).strip()[:100] or 'video'
 
-    return {
+    result = {
         'success': True,
         'title': title,
-        'download_url': download_url,
+        'download_url': best_url,
         'thumbnail': info.get('thumbnail', ''),
         'duration': info.get('duration', 0),
-        'filesize': info.get('filesize') or info.get('filesize_approx') or 0,
-        'ext': info.get('ext', 'mp4')
+        'filesize': best_filesize,
+        'ext': info.get('ext', 'mp4'),
     }
 
+    if qualities:
+        result['qualities'] = qualities
 
-def download_video(url, output_dir):
+    return result
+
+
+def download_video(url, output_dir, format_id=''):
     if HAS_YTDLP and not is_direct_video_url(url):
         try:
-            return ytdlp_download(url, output_dir)
+            return ytdlp_download(url, output_dir, format_id)
         except Exception as e:
             print(f'[DL] yt-dlp failed, trying fallback: {e}')
 
@@ -260,15 +344,21 @@ def download_video(url, output_dir):
         return path, os.path.basename(path)
 
     if HAS_YTDLP:
-        return ytdlp_download(url, output_dir)
+        return ytdlp_download(url, output_dir, format_id)
 
     raise Exception('Не удалось скачать видео. Попробуйте прямую ссылку на файл.')
 
 
-def ytdlp_download(url, output_dir):
+def ytdlp_download(url, output_dir, format_id=''):
     template = os.path.join(output_dir, '%(title).80s.%(ext)s')
+
+    if format_id:
+        fmt_str = f'{format_id}+bestaudio[ext=m4a]/best[ext=mp4]/best'
+    else:
+        fmt_str = 'best[ext=mp4][filesize<500M]/best[ext=mp4]/best[filesize<500M]/best'
+
     opts = {
-        'format': 'best[ext=mp4][filesize<500M]/best[ext=mp4]/best[filesize<500M]/best',
+        'format': fmt_str,
         'outtmpl': template,
         'noplaylist': True,
         'quiet': True,
@@ -279,6 +369,7 @@ def ytdlp_download(url, output_dir):
         'nocheckcertificate': True,
         'cachedir': False,
         'no_color': True,
+        'merge_output_format': 'mp4',
     }
 
     with yt_dlp.YoutubeDL(opts) as ydl:

@@ -15,6 +15,15 @@ interface VideoUrlUploadDialogProps {
   onSuccess?: () => void;
 }
 
+interface VideoQuality {
+  format_id: string;
+  height: number;
+  ext: string;
+  filesize: number;
+  label: string;
+  has_audio: boolean;
+}
+
 interface VideoInfo {
   title: string;
   download_url: string;
@@ -22,6 +31,7 @@ interface VideoInfo {
   duration: number;
   filesize: number;
   ext: string;
+  qualities?: VideoQuality[];
 }
 
 interface UploadStage {
@@ -59,6 +69,7 @@ export default function VideoUrlUploadDialog({
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState('');
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState('');
   const [progress, setProgress] = useState(0);
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [uploadDone, setUploadDone] = useState(false);
@@ -143,6 +154,12 @@ export default function VideoUrlUploadDialog({
       }
 
       setVideoInfo(data);
+      if (data.qualities?.length) {
+        const best = data.qualities[data.qualities.length - 1];
+        setSelectedQuality(best.format_id);
+      } else {
+        setSelectedQuality('');
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Ошибка';
       setError(msg);
@@ -174,7 +191,8 @@ export default function VideoUrlUploadDialog({
     abortRef.current = controller;
     setLoading(true);
     setError('');
-    startProgressTimer(videoInfo?.filesize || 0);
+    const selQ = videoInfo?.qualities?.find(q => q.format_id === selectedQuality);
+    startProgressTimer(selQ?.filesize || videoInfo?.filesize || 0);
 
     try {
       const response = await fetch(func2url['video-url-upload'], {
@@ -183,7 +201,8 @@ export default function VideoUrlUploadDialog({
         body: JSON.stringify({
           url: url.trim(),
           folder_id: folderId,
-          mode: 'upload'
+          mode: 'upload',
+          format_id: selectedQuality || undefined
         }),
         signal: controller.signal
       });
@@ -236,6 +255,7 @@ export default function VideoUrlUploadDialog({
     setUrl('');
     setError('');
     setVideoInfo(null);
+    setSelectedQuality('');
     setProgress(0);
     setCurrentStageIdx(0);
     setUploadDone(false);
@@ -344,6 +364,27 @@ export default function VideoUrlUploadDialog({
                   </div>
                 </div>
               </div>
+
+              {videoInfo.qualities && videoInfo.qualities.length > 1 && !loading && !uploadDone && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Качество:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {videoInfo.qualities.map((q) => (
+                      <button
+                        key={q.format_id}
+                        onClick={() => setSelectedQuality(q.format_id)}
+                        className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                          selectedQuality === q.format_id
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-background hover:bg-muted border-border text-foreground'
+                        }`}
+                      >
+                        {q.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {!loading && !uploadDone && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
