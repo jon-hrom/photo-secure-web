@@ -24,6 +24,15 @@ interface VideoQuality {
   has_audio: boolean;
 }
 
+interface AudioInfo {
+  available: boolean;
+  format_id: string;
+  ext: string;
+  filesize: number;
+  abr: number;
+  label: string;
+}
+
 interface VideoInfo {
   title: string;
   download_url: string;
@@ -32,6 +41,7 @@ interface VideoInfo {
   filesize: number;
   ext: string;
   qualities?: VideoQuality[];
+  audio?: AudioInfo;
 }
 
 interface UploadStage {
@@ -41,7 +51,7 @@ interface UploadStage {
 }
 
 const UPLOAD_STAGES: UploadStage[] = [
-  { label: 'Скачиваю видео с источника...', icon: 'Download', progressRange: [0, 55] },
+  { label: 'Скачиваю с источника...', icon: 'Download', progressRange: [0, 55] },
   { label: 'Обрабатываю файл...', icon: 'Cog', progressRange: [55, 75] },
   { label: 'Загружаю в хранилище...', icon: 'CloudUpload', progressRange: [75, 92] },
   { label: 'Сохраняю в фотобанк...', icon: 'Database', progressRange: [92, 98] },
@@ -70,6 +80,7 @@ export default function VideoUrlUploadDialog({
   const [error, setError] = useState('');
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [selectedQuality, setSelectedQuality] = useState('');
+  const [audioOnly, setAudioOnly] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [uploadDone, setUploadDone] = useState(false);
@@ -144,7 +155,7 @@ export default function VideoUrlUploadDialog({
       const response = await fetch(func2url['video-url-upload'], {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({ url: url.trim(), mode: 'extract' })
+        body: JSON.stringify({ url: url.trim(), mode: 'extract', audio_only: audioOnly })
       });
 
       const data = await response.json();
@@ -173,7 +184,7 @@ export default function VideoUrlUploadDialog({
 
     const a = document.createElement('a');
     a.href = videoInfo.download_url;
-    a.download = `${videoInfo.title || 'video'}.${videoInfo.ext || 'mp4'}`;
+    a.download = `${videoInfo.title || 'video'}.${audioOnly ? 'mp3' : (videoInfo.ext || 'mp4')}`;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     document.body.appendChild(a);
@@ -182,7 +193,7 @@ export default function VideoUrlUploadDialog({
 
     toast({
       title: 'Скачивание начато',
-      description: 'Видео загружается на ваше устройство'
+      description: audioOnly ? 'Аудио загружается на ваше устройство' : 'Видео загружается на ваше устройство'
     });
   };
 
@@ -202,7 +213,8 @@ export default function VideoUrlUploadDialog({
           url: url.trim(),
           folder_id: folderId,
           mode: 'upload',
-          format_id: selectedQuality || undefined
+          format_id: audioOnly ? undefined : (selectedQuality || undefined),
+          audio_only: audioOnly
         }),
         signal: controller.signal
       });
@@ -216,7 +228,7 @@ export default function VideoUrlUploadDialog({
       finishProgress();
 
       toast({
-        title: 'Видео загружено в фотобанк!',
+        title: audioOnly ? 'Аудио загружено в фотобанк!' : 'Видео загружено в фотобанк!',
         description: `Файл: ${data.filename}`,
         duration: 4000
       });
@@ -256,6 +268,7 @@ export default function VideoUrlUploadDialog({
     setError('');
     setVideoInfo(null);
     setSelectedQuality('');
+    setAudioOnly(false);
     setProgress(0);
     setCurrentStageIdx(0);
     setUploadDone(false);
@@ -365,7 +378,39 @@ export default function VideoUrlUploadDialog({
                 </div>
               </div>
 
-              {videoInfo.qualities && videoInfo.qualities.length > 1 && !loading && !uploadDone && (
+              {videoInfo.audio?.available && !loading && !uploadDone && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setAudioOnly(false)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs border transition-colors ${
+                      !audioOnly
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-background hover:bg-muted border-border text-foreground'
+                    }`}
+                  >
+                    <Icon name="Video" size={14} />
+                    Видео
+                  </button>
+                  <button
+                    onClick={() => setAudioOnly(true)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs border transition-colors ${
+                      audioOnly
+                        ? 'bg-purple-600 text-white border-purple-600'
+                        : 'bg-background hover:bg-muted border-border text-foreground'
+                    }`}
+                  >
+                    <Icon name="Music" size={14} />
+                    Аудио MP3
+                  </button>
+                  {audioOnly && videoInfo.audio && (
+                    <span className="text-[10px] text-muted-foreground ml-1">
+                      {videoInfo.audio.label}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {!audioOnly && videoInfo.qualities && videoInfo.qualities.length > 1 && !loading && !uploadDone && (
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground">Качество:</p>
                   <div className="flex flex-wrap gap-1.5">
@@ -387,23 +432,25 @@ export default function VideoUrlUploadDialog({
               )}
 
               {!loading && !uploadDone && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Button
-                    onClick={handleDownloadToDevice}
-                    variant="outline"
-                    className="w-full"
-                    disabled={isProcessing}
-                  >
-                    <Icon name="Download" size={16} className="mr-2" />
-                    Скачать на устройство
-                  </Button>
+                <div className={`grid gap-2 ${audioOnly ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                  {!audioOnly && (
+                    <Button
+                      onClick={handleDownloadToDevice}
+                      variant="outline"
+                      className="w-full"
+                      disabled={isProcessing}
+                    >
+                      <Icon name="Download" size={16} className="mr-2" />
+                      Скачать на устройство
+                    </Button>
+                  )}
                   <Button
                     onClick={handleUploadToS3}
                     className="w-full"
                     disabled={isProcessing}
                   >
-                    <Icon name="CloudUpload" size={16} className="mr-2" />
-                    В фотобанк
+                    <Icon name={audioOnly ? 'Music' : 'CloudUpload'} size={16} className="mr-2" />
+                    {audioOnly ? 'Извлечь MP3 в фотобанк' : 'В фотобанк'}
                   </Button>
                 </div>
               )}

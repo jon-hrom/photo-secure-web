@@ -68,11 +68,13 @@ def handler(event: dict, context) -> dict:
     url = fix_url(url)
     print(f'[VIDEO] mode={mode} url={url}')
 
+    audio_only = body.get('audio_only', False)
+
     if mode == 'extract':
-        return handle_extract(url)
+        return handle_extract(url, audio_only)
 
     format_id = body.get('format_id', '')
-    return handle_upload(url, user_id, folder_id, format_id)
+    return handle_upload(url, user_id, folder_id, format_id, audio_only)
 
 
 def fix_url(url):
@@ -85,10 +87,10 @@ def fix_url(url):
     return url
 
 
-def handle_extract(url):
+def handle_extract(url, audio_only=False):
     if HAS_YTDLP:
         try:
-            info = ytdlp_extract(url)
+            info = ytdlp_extract(url, audio_only)
             return resp(200, info)
         except Exception as e:
             print(f'[EXTRACT] yt-dlp failed: {e}')
@@ -108,7 +110,7 @@ def handle_extract(url):
     return resp(400, {'error': 'Не удалось получить ссылку на видео. Попробуйте прямую ссылку на файл.'})
 
 
-def handle_upload(url, user_id, folder_id, format_id=''):
+def handle_upload(url, user_id, folder_id, format_id='', audio_only=False):
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     cur = conn.cursor(cursor_factory=RealDictCursor)
     tmp = tempfile.mkdtemp()
@@ -133,7 +135,7 @@ def handle_upload(url, user_id, folder_id, format_id=''):
         row = cur.fetchone()
         s3_prefix = row['s3_prefix'] if row else f'videos/{user_id}/{int(datetime.now().timestamp())}/'
 
-        filepath, filename = download_video(url, tmp, format_id)
+        filepath, filename = download_video(url, tmp, format_id, audio_only)
 
         fsize = os.path.getsize(filepath)
         if fsize > MAX_FILE_SIZE:
@@ -150,7 +152,19 @@ def handle_upload(url, user_id, folder_id, format_id=''):
 
         s3_key = f'{s3_prefix}{filename}'
         ctype = 'video/mp4'
-        if filename.endswith('.webm'):
+        is_audio = audio_only or filename.endswith(('.mp3', '.m4a', '.ogg', '.opus', '.wav'))
+        if is_audio:
+            if filename.endswith('.mp3'):
+                ctype = 'audio/mpeg'
+            elif filename.endswith('.m4a'):
+                ctype = 'audio/mp4'
+            elif filename.endswith('.ogg') or filename.endswith('.opus'):
+                ctype = 'audio/ogg'
+            elif filename.endswith('.wav'):
+                ctype = 'audio/wav'
+            else:
+                ctype = 'audio/mpeg'
+        elif filename.endswith('.webm'):
             ctype = 'video/webm'
         elif filename.endswith('.ts'):
             ctype = 'video/mp2t'
@@ -166,11 +180,11 @@ def handle_upload(url, user_id, folder_id, format_id=''):
             '''INSERT INTO t_p28211681_photo_secure_web.photo_bank
                (user_id, folder_id, file_name, s3_key, s3_url, file_size, is_video, content_type)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
-            (user_id, folder_id, filename, s3_key, s3_url, fsize, True, ctype)
+            (user_id, folder_id, filename, s3_key, s3_url, fsize, not is_audio, ctype)
         )
         vid = cur.fetchone()['id']
         conn.commit()
-        print(f'[VIDEO] Uploaded: {filename} ({fsize} bytes) video_id={vid}')
+        print(f'[{"AUDIO" if is_audio else "VIDEO"}] Uploaded: {filename} ({fsize} bytes) id={vid}')
 
         return resp(200, {
             'success': True,
@@ -263,7 +277,56 @@ def build_qualities(info):
     return qualities
 
 
-def ytdlp_extract(url):
+def build_audio_info(info):
+    fmts = info.get('formats') or []
+    audio_fmts = [
+        f for f in fmts
+        if f.get('acodec', 'none') != 'none'
+        and f.get('vcodec', 'none') == 'none'
+        and f.get('url')
+    ]
+
+    if not audio_fmts:
+        combined = [
+            f for f in fmts
+            if f.get('acodec', 'none') != 'none' and f.get('url')
+        ]
+        if combined:
+            best = combined[-1]
+            abr = best.get('abr') or best.get('tbr') or 128
+            fsize = best.get('filesize') or best.get('filesize_approx') or 0
+            label = f'MP3 · {int(abr)} kbps'
+            if fsize:
+                size_mb = fsize / 1048576
+                label += f' ({size_mb:.1f} МБ)'
+            return {
+                'available': True,
+                'format_id': best.get('format_id', ''),
+                'ext': 'mp3',
+                'filesize': fsize,
+                'abr': int(abr),
+                'label': label,
+            }
+        return {'available': False}
+
+    best = max(audio_fmts, key=lambda f: f.get('abr') or f.get('tbr') or 0)
+    abr = best.get('abr') or best.get('tbr') or 128
+    fsize = best.get('filesize') or best.get('filesize_approx') or 0
+    label = f'MP3 · {int(abr)} kbps'
+    if fsize:
+        size_mb = fsize / 1048576
+        label += f' ({size_mb:.1f} МБ)'
+    return {
+        'available': True,
+        'format_id': best.get('format_id', ''),
+        'ext': 'mp3',
+        'filesize': fsize,
+        'abr': int(abr),
+        'label': label,
+    }
+
+
+def ytdlp_extract(url, audio_only=False):
     opts = {
         'quiet': True,
         'no_warnings': True,
@@ -278,6 +341,7 @@ def ytdlp_extract(url):
         info = ydl.extract_info(url, download=False)
 
     qualities = build_qualities(info)
+    audio_info = build_audio_info(info)
 
     best_url = info.get('url', '')
     best_filesize = info.get('filesize') or info.get('filesize_approx') or 0
@@ -325,13 +389,16 @@ def ytdlp_extract(url):
     if qualities:
         result['qualities'] = qualities
 
+    if audio_info.get('available'):
+        result['audio'] = audio_info
+
     return result
 
 
-def download_video(url, output_dir, format_id=''):
+def download_video(url, output_dir, format_id='', audio_only=False):
     if HAS_YTDLP and not is_direct_video_url(url):
         try:
-            return ytdlp_download(url, output_dir, format_id)
+            return ytdlp_download(url, output_dir, format_id, audio_only)
         except Exception as e:
             print(f'[DL] yt-dlp failed, trying fallback: {e}')
 
@@ -344,42 +411,69 @@ def download_video(url, output_dir, format_id=''):
         return path, os.path.basename(path)
 
     if HAS_YTDLP:
-        return ytdlp_download(url, output_dir, format_id)
+        return ytdlp_download(url, output_dir, format_id, audio_only)
 
     raise Exception('Не удалось скачать видео. Попробуйте прямую ссылку на файл.')
 
 
-def ytdlp_download(url, output_dir, format_id=''):
+def ytdlp_download(url, output_dir, format_id='', audio_only=False):
     template = os.path.join(output_dir, '%(title).80s.%(ext)s')
 
-    if format_id:
-        fmt_str = f'{format_id}+bestaudio[ext=m4a]/best[ext=mp4]/best'
+    if audio_only:
+        fmt_str = 'bestaudio[ext=m4a]/bestaudio/best'
+        opts = {
+            'format': fmt_str,
+            'outtmpl': template,
+            'noplaylist': True,
+            'quiet': True,
+            'no_warnings': True,
+            'socket_timeout': 30,
+            'retries': 2,
+            'noprogress': True,
+            'nocheckcertificate': True,
+            'cachedir': False,
+            'no_color': True,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+        }
     else:
-        fmt_str = 'best[ext=mp4][filesize<500M]/best[ext=mp4]/best[filesize<500M]/best'
+        if format_id:
+            fmt_str = f'{format_id}+bestaudio[ext=m4a]/best[ext=mp4]/best'
+        else:
+            fmt_str = 'best[ext=mp4][filesize<500M]/best[ext=mp4]/best[filesize<500M]/best'
 
-    opts = {
-        'format': fmt_str,
-        'outtmpl': template,
-        'noplaylist': True,
-        'quiet': True,
-        'no_warnings': True,
-        'socket_timeout': 30,
-        'retries': 2,
-        'noprogress': True,
-        'nocheckcertificate': True,
-        'cachedir': False,
-        'no_color': True,
-        'merge_output_format': 'mp4',
-    }
+        opts = {
+            'format': fmt_str,
+            'outtmpl': template,
+            'noplaylist': True,
+            'quiet': True,
+            'no_warnings': True,
+            'socket_timeout': 30,
+            'retries': 2,
+            'noprogress': True,
+            'nocheckcertificate': True,
+            'cachedir': False,
+            'no_color': True,
+            'merge_output_format': 'mp4',
+        }
 
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
         filepath = ydl.prepare_filename(info)
 
+    if audio_only:
+        mp3_path = os.path.splitext(filepath)[0] + '.mp3'
+        if os.path.exists(mp3_path):
+            filepath = mp3_path
+
     if not os.path.exists(filepath):
+        exts = ('.mp3', '.m4a', '.ogg', '.opus', '.wav') if audio_only else ('.mp4', '.webm', '.mkv', '.ts', '.mov')
         for f in os.listdir(output_dir):
             full = os.path.join(output_dir, f)
-            if os.path.isfile(full) and f.endswith(('.mp4', '.webm', '.mkv', '.ts', '.mov')):
+            if os.path.isfile(full) and f.endswith(exts):
                 filepath = full
                 break
 
@@ -389,7 +483,8 @@ def ytdlp_download(url, output_dir, format_id=''):
     basename = os.path.basename(filepath)
     safe = re.sub(r'[^\w\s\-\.]', '_', basename).strip()
     if not safe or safe.replace('_', '') == '':
-        safe = f'video_{int(datetime.now().timestamp())}.mp4'
+        ext = 'mp3' if audio_only else 'mp4'
+        safe = f'audio_{int(datetime.now().timestamp())}.{ext}' if audio_only else f'video_{int(datetime.now().timestamp())}.{ext}'
 
     return filepath, safe
 
