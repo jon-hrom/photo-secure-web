@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Project, Payment } from '@/components/clients/ClientsTypes';
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -50,6 +51,10 @@ const ClientDetailProjects = ({
   const [expandedProjects, setExpandedProjects] = useState<Record<number, boolean>>({});
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; projectId: number } | null>(null);
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+
+  const activeProjects = projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
+  const archivedProjects = projects.filter(p => p.status === 'completed' || p.status === 'cancelled');
   
   const updateProjectShootingStyleRef = useRef(updateProjectShootingStyle);
   useEffect(() => {
@@ -115,12 +120,12 @@ const ClientDetailProjects = ({
   }, []);
 
   const toggleAllProjects = () => {
-    const allExpanded = projects.every(p => expandedProjects[p.id]);
+    const allExpanded = activeProjects.every(p => expandedProjects[p.id]);
     const newState: Record<number, boolean> = {};
-    projects.forEach(p => {
+    activeProjects.forEach(p => {
       newState[p.id] = !allExpanded;
     });
-    setExpandedProjects(newState);
+    setExpandedProjects(prev => ({ ...prev, ...newState }));
   };
 
   const handleTouchStart = (e: React.TouchEvent, projectId: number) => {
@@ -145,9 +150,34 @@ const ClientDetailProjects = ({
     
     setTouchStart(null);
   };
+  const renderProjectList = (projectList: Project[]) => (
+    <div className="space-y-3">
+      {[...projectList].reverse().map((project) => (
+        <ProjectCard
+          key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}
+          project={project}
+          isExpanded={expandedProjects[project.id] || false}
+          selectorKey={selectorKeys[project.id] || 0}
+          animateKey={animateKeys[project.id] || 0}
+          projectPaid={getProjectPaid(project.id)}
+          projectRemaining={getProjectRemaining(project.id, project.budget)}
+          statusBadge={getStatusBadge(project.status)}
+          onToggleExpand={() => setExpandedProjects(prev => ({ ...prev, [project.id]: !prev[project.id] }))}
+          onDelete={() => handleDeleteProject(project.id)}
+          onUpdateProject={(updates) => handleUpdateProject(project.id, updates)}
+          onUpdateStatus={(status) => updateProjectStatus(project.id, status)}
+          onUpdateDate={(date) => updateProjectDate(project.id, date)}
+          onShootingStyleChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
+          onTouchStart={(e) => handleTouchStart(e, project.id)}
+          onTouchEnd={(e) => handleTouchEnd(e, project.id)}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <>
-      {projects.length > 0 && (
+      {activeProjects.length > 0 && (
         <div className="flex justify-end mb-3">
           <Button
             variant="outline"
@@ -156,42 +186,44 @@ const ClientDetailProjects = ({
             className="text-xs"
           >
             <Icon 
-              name={projects.every(p => expandedProjects[p.id]) ? "ChevronsUp" : "ChevronsDown"} 
+              name={activeProjects.every(p => expandedProjects[p.id]) ? "ChevronsUp" : "ChevronsDown"} 
               size={16} 
               className="mr-2" 
             />
-            {projects.every(p => expandedProjects[p.id]) ? "Свернуть все" : "Развернуть все"}
+            {activeProjects.every(p => expandedProjects[p.id]) ? "Свернуть все" : "Развернуть все"}
           </Button>
         </div>
       )}
       
       <div className="max-h-[calc(100vh-420px)] overflow-y-auto pr-2 scrollbar-thin">
-      {projects.length === 0 ? (
+      {activeProjects.length === 0 && archivedProjects.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">Список слуг пока нет</CardContent>
+          <CardContent className="py-8 text-center text-muted-foreground">Проектов пока нет</CardContent>
+        </Card>
+      ) : activeProjects.length === 0 ? (
+        <Card>
+          <CardContent className="py-6 text-center text-muted-foreground text-sm">Нет активных проектов</CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {[...projects].reverse().map((project) => (
-            <ProjectCard
-              key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}
-              project={project}
-              isExpanded={expandedProjects[project.id] || false}
-              selectorKey={selectorKeys[project.id] || 0}
-              animateKey={animateKeys[project.id] || 0}
-              projectPaid={getProjectPaid(project.id)}
-              projectRemaining={getProjectRemaining(project.id, project.budget)}
-              statusBadge={getStatusBadge(project.status)}
-              onToggleExpand={() => setExpandedProjects(prev => ({ ...prev, [project.id]: !prev[project.id] }))}
-              onDelete={() => handleDeleteProject(project.id)}
-              onUpdateProject={(updates) => handleUpdateProject(project.id, updates)}
-              onUpdateStatus={(status) => updateProjectStatus(project.id, status)}
-              onUpdateDate={(date) => updateProjectDate(project.id, date)}
-              onShootingStyleChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
-              onTouchStart={(e) => handleTouchStart(e, project.id)}
-              onTouchEnd={(e) => handleTouchEnd(e, project.id)}
-            />
-          ))}
+        renderProjectList(activeProjects)
+      )}
+
+      {archivedProjects.length > 0 && (
+        <div className="mt-6">
+          <button
+            onClick={() => setIsArchiveOpen(prev => !prev)}
+            className="flex items-center gap-2 w-full text-left py-2 px-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Icon name={isArchiveOpen ? "ChevronDown" : "ChevronRight"} size={16} />
+            <Icon name="Archive" size={16} />
+            <span>Архив проектов</span>
+            <Badge variant="secondary" className="ml-1 text-xs">{archivedProjects.length}</Badge>
+          </button>
+          {isArchiveOpen && (
+            <div className="mt-2 opacity-75">
+              {renderProjectList(archivedProjects)}
+            </div>
+          )}
         </div>
       )}
       </div>
