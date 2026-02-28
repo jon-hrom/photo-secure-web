@@ -13,9 +13,8 @@ interface VideoUrlInputProps {
 
 const SUPPORTED_SOURCES = [
   'YouTube', 'VK Видео', 'RuTube', 'Одноклассники',
-  'Дзен', 'Telegram', 'Instagram', 'TikTok',
-  'Прямые ссылки (.mp4, .mov)',
-  'Файлообменники', 'M3U8'
+  'Дзен', 'TikTok', 'Instagram',
+  'Прямые ссылки (.mp4, .mov)', 'M3U8'
 ];
 
 export default function VideoUrlInput({

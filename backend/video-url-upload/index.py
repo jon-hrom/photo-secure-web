@@ -102,12 +102,36 @@ def handler(event: dict, context) -> dict:
 
 def fix_url(url):
     if url.startswith('ttps://'):
-        return 'h' + url
-    if url.startswith('ttp://'):
-        return 'h' + url
-    if not url.startswith(('http://', 'https://')):
-        return 'https://' + url
+        url = 'h' + url
+    elif url.startswith('ttp://'):
+        url = 'h' + url
+    elif not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+
+    url = normalize_ok_url(url)
     return url
+
+
+def normalize_ok_url(url):
+    from urllib.parse import urlparse, urlunparse, urlencode, parse_qs
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or '').lower()
+        if not (host == 'ok.ru' or host.endswith('.ok.ru')):
+            return url
+
+        # m.ok.ru/clip?owner_id=X&clip_id=Y  →  ok.ru/video/Y
+        if parsed.path.startswith('/clip'):
+            qs = parse_qs(parsed.query)
+            clip_id = (qs.get('clip_id') or [''])[0]
+            if clip_id:
+                return f'https://ok.ru/video/{clip_id}'
+
+        # Заменяем любой субдомен (m., www.) на ok.ru
+        normalized = parsed._replace(scheme='https', netloc='ok.ru')
+        return urlunparse(normalized)
+    except Exception:
+        return url
 
 
 def handle_extract(url, audio_only=False):
