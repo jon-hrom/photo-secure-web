@@ -31,6 +31,12 @@
         "error": "URL is required"
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET not allowed",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 405
     }
   ]
 }

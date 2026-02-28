@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +15,15 @@ interface VideoUrlUploadDialogProps {
   onSuccess?: () => void;
 }
 
+interface VideoInfo {
+  title: string;
+  download_url: string;
+  thumbnail: string;
+  duration: number;
+  filesize: number;
+  ext: string;
+}
+
 export default function VideoUrlUploadDialog({
   open,
   onOpenChange,
@@ -25,354 +33,274 @@ export default function VideoUrlUploadDialog({
 }: VideoUrlUploadDialogProps) {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState('');
-  const [showDownloadInstructions, setShowDownloadInstructions] = useState(false);
+  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const { toast } = useToast();
 
-  const handleDirectDownload = () => {
+  const supportedSources = [
+    'YouTube', 'VK Видео', 'RuTube', 'Одноклассники',
+    'Дзен', 'Telegram', 'Instagram', 'TikTok',
+    'Прямые ссылки (.mp4, .mov)',
+    'Файлообменники', 'M3U8'
+  ];
+
+  const handleExtract = async () => {
     if (!url.trim()) {
-      setError('Введите ссылку на видео');
+      setError('Вставьте ссылку на видео');
       return;
     }
 
-    const trimmedUrl = url.trim();
-    
-    if (trimmedUrl.includes('.m3u8') || trimmedUrl.includes('kinescope') || trimmedUrl.includes('youtube') || trimmedUrl.includes('vk.com')) {
-      setShowDownloadInstructions(true);
-      setError('');
-      return;
-    }
-
-    window.open(trimmedUrl, '_blank');
+    setExtracting(true);
     setError('');
-    
+    setVideoInfo(null);
+
+    try {
+      const response = await fetch(func2url['video-url-upload'], {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({ url: url.trim(), mode: 'extract' })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Не удалось получить информацию о видео');
+      }
+
+      setVideoInfo(data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Ошибка';
+      setError(msg);
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleDownloadToDevice = () => {
+    if (!videoInfo?.download_url) return;
+
+    const a = document.createElement('a');
+    a.href = videoInfo.download_url;
+    a.download = `${videoInfo.title || 'video'}.${videoInfo.ext || 'mp4'}`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
     toast({
       title: 'Скачивание начато',
-      description: 'Видео откроется в новой вкладке для скачивания',
-      duration: 3000
+      description: 'Видео загружается на ваше устройство'
     });
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: 'Скопировано!',
-      description: 'Команда скопирована в буфер обмена',
-      duration: 2000
-    });
-  };
-
-  const handleUploadToPhotobank = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!url.trim()) {
-      setError('Введите ссылку на видео');
-      return;
-    }
-
+  const handleUploadToS3 = async () => {
     setLoading(true);
     setError('');
 
     try {
       const response = await fetch(func2url['video-url-upload'], {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': userId
-        },
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({
           url: url.trim(),
-          folder_id: folderId
+          folder_id: folderId,
+          mode: 'upload'
         })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.details || 'Ошибка загрузки видео');
+        throw new Error(data.error || 'Ошибка загрузки видео');
       }
 
       toast({
-        title: 'Видео загружено!',
+        title: 'Видео загружено в фотобанк!',
         description: `Файл: ${data.filename}`,
-        duration: 3000
+        duration: 4000
       });
 
-      setUrl('');
+      resetState();
       onOpenChange(false);
-      
-      if (onSuccess) {
-        onSuccess();
-      }
-
+      onSuccess?.();
     } catch (err) {
-      console.error('[VIDEO_UPLOAD_DIALOG] Error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Не удалось загрузить видео';
-      setError(errorMessage);
-      
-      toast({
-        variant: 'destructive',
-        title: 'Ошибка',
-        description: errorMessage
-      });
+      const msg = err instanceof Error ? err.message : 'Не удалось загрузить видео';
+      setError(msg);
+      toast({ variant: 'destructive', title: 'Ошибка', description: msg });
     } finally {
       setLoading(false);
     }
   };
 
+  const resetState = () => {
+    setUrl('');
+    setError('');
+    setVideoInfo(null);
+  };
+
   const handleClose = () => {
-    if (!loading) {
-      setUrl('');
-      setError('');
+    if (!loading && !extracting) {
+      resetState();
       onOpenChange(false);
     }
   };
 
-  if (showDownloadInstructions) {
-    const ytDlpCommand = `yt-dlp "${url.trim()}"`;
-    const ytDlpWithFormat = `yt-dlp -F "${url.trim()}"`;
-    
-    return (
-      <Dialog open={open} onOpenChange={() => { setShowDownloadInstructions(false); handleClose(); }}>
-        <DialogContent className="w-[95vw] max-w-[700px] max-h-[85vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Icon name="Download" size={20} className="text-blue-600 sm:w-6 sm:h-6" />
-              Как скачать видео
-            </DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              Инструкция для скачивания через yt-dlp
-            </DialogDescription>
-          </DialogHeader>
+  const formatDuration = (sec: number) => {
+    if (!sec) return '';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(Math.floor(s)).padStart(2, '0')}`;
+  };
 
-          <div className="space-y-3 sm:space-y-4">
-            <Alert className="text-xs sm:text-sm">
-              <Icon name="Info" size={14} className="sm:w-4 sm:h-4" />
-              <AlertDescription>
-                <strong>yt-dlp</strong> — программа для скачивания видео
-              </AlertDescription>
-            </Alert>
+  const formatSize = (bytes: number) => {
+    if (!bytes) return '';
+    if (bytes > 1073741824) return `${(bytes / 1073741824).toFixed(1)} ГБ`;
+    return `${(bytes / 1048576).toFixed(1)} МБ`;
+  };
 
-            <div className="space-y-3 sm:space-y-4">
-              <div className="border rounded-lg p-3 sm:p-4 bg-muted/50">
-                <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
-                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm flex-shrink-0">1</span>
-                  Установите yt-dlp
-                </h3>
-                <div className="ml-7 sm:ml-8 space-y-2 text-xs sm:text-sm">
-                  <p><strong>Windows:</strong></p>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>Скачайте готовый архив с <a href="https://disk.yandex.ru/d/tQQhq8c3bH9gXA" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Яндекс.Диска</a> (содержит yt-dlp + ffmpeg)</li>
-                    <li>Или скачайте с <a href="https://github.com/yt-dlp/yt-dlp/releases" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">GitHub</a> файл yt-dlp.exe</li>
-                  </ul>
-                  <p className="mt-2"><strong>Mac:</strong></p>
-                  <code className="bg-black text-white px-2 py-1 rounded block mt-1">brew install yt-dlp</code>
-                  <p className="mt-2"><strong>Linux:</strong></p>
-                  <code className="bg-black text-white px-2 py-1 rounded block mt-1">sudo apt install yt-dlp</code>
-                </div>
-              </div>
-
-              <div className="border rounded-lg p-3 sm:p-4 bg-muted/50">
-                <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
-                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm flex-shrink-0">2</span>
-                  Откройте командную строку
-                </h3>
-                <div className="ml-7 sm:ml-8 space-y-2 text-xs sm:text-sm text-muted-foreground">
-                  <p><strong>Windows:</strong> Win + R → введите <code className="bg-muted px-1">cmd</code> → Enter</p>
-                  <p><strong>Mac/Linux:</strong> Откройте Terminal</p>
-                </div>
-              </div>
-
-              <div className="border rounded-lg p-3 sm:p-4 bg-muted/50">
-                <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
-                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm flex-shrink-0">3</span>
-                  Перейдите в папку с yt-dlp
-                </h3>
-                <div className="ml-7 sm:ml-8 space-y-2 text-xs sm:text-sm">
-                  <code className="bg-black text-white px-2 py-1 rounded block text-[10px] sm:text-xs overflow-x-auto">cd /d "C:\путь\к\папке\с\yt-dlp"</code>
-                  <p className="text-muted-foreground text-[10px] sm:text-xs">Замените путь на свой</p>
-                </div>
-              </div>
-
-              <div className="border rounded-lg p-3 sm:p-4 bg-green-50 dark:bg-green-950">
-                <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
-                  <span className="bg-green-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm flex-shrink-0">4</span>
-                  Скопируйте команду
-                </h3>
-                <div className="ml-7 sm:ml-8 space-y-3">
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium mb-2">Максимальное качество:</p>
-                    <div className="relative">
-                      <code className="bg-black text-green-400 px-2 sm:px-3 py-2 rounded block text-[10px] sm:text-sm overflow-x-auto pr-10">
-                        {ytDlpCommand}
-                      </code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="absolute top-1 right-1 h-6 w-6 p-0 sm:h-7 sm:w-7"
-                        onClick={() => copyToClipboard(ytDlpCommand)}
-                      >
-                        <Icon name="Copy" size={12} className="sm:w-3.5 sm:h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium mb-2">Выбрать качество:</p>
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <code className="bg-black text-yellow-400 px-2 sm:px-3 py-2 rounded block text-[10px] sm:text-sm overflow-x-auto pr-10">
-                          {ytDlpWithFormat}
-                        </code>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="absolute top-1 right-1 h-6 w-6 p-0 sm:h-7 sm:w-7"
-                          onClick={() => copyToClipboard(ytDlpWithFormat)}
-                        >
-                          <Icon name="Copy" size={12} className="sm:w-3.5 sm:h-3.5" />
-                        </Button>
-                      </div>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">Покажет список форматов. Затем:</p>
-                      <code className="bg-black text-white px-2 py-1 rounded block text-[10px] sm:text-xs overflow-x-auto">yt-dlp -f 135+140 "ссылка"</code>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">135 = видео, 140 = аудио</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-xs sm:text-sm">
-                <Icon name="Sparkles" size={14} className="text-amber-600 sm:w-4 sm:h-4" />
-                <AlertDescription className="text-xs sm:text-sm">
-                  <strong>Полезные советы:</strong>
-                  <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground text-[10px] sm:text-xs">
-                    <li>Обновите: <code className="bg-muted px-1">yt-dlp -U</code></li>
-                    <li>Видео сохраняется в текущей папке</li>
-                    <li>YouTube, VK, Rutube и 1000+ сайтов</li>
-                    <li>Можно скачать целый плейлист</li>
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            </div>
-          </div>
-
-          <div className="flex gap-2 justify-end pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowDownloadInstructions(false)}
-              className="text-xs sm:text-sm h-8 sm:h-9"
-            >
-              <Icon name="ArrowLeft" size={14} className="mr-1 sm:mr-2 sm:w-4 sm:h-4" />
-              Назад
-            </Button>
-            <Button
-              onClick={() => {
-                setShowDownloadInstructions(false);
-                handleClose();
-              }}
-              className="text-xs sm:text-sm h-8 sm:h-9"
-            >
-              Понятно
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+  const isProcessing = loading || extracting;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="w-[95vw] max-w-[560px] max-h-[85vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Icon name="Video" size={20} className="text-purple-600 sm:w-6 sm:h-6" />
-            Загрузить видео
+            <Icon name="Video" size={20} className="text-blue-600" />
+            Скачать видео по ссылке
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            .mp4, .mov, HLS (.m3u8), Kinescope
+            Вставьте ссылку — видео скачается автоматически без установки программ
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleUploadToPhotobank} className="space-y-3 sm:space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="video-url" className="text-xs sm:text-sm">Ссылка на видео</Label>
+        <div className="space-y-4 mt-2">
+          <div className="flex gap-2">
             <Input
-              id="video-url"
-              type="url"
-              placeholder="https://example.com/video.mp4"
+              placeholder="https://youtube.com/watch?v=... или любая другая ссылка"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={loading}
-              className="font-mono text-xs sm:text-sm h-9 sm:h-10"
+              onChange={(e) => {
+                setUrl(e.target.value);
+                if (videoInfo) setVideoInfo(null);
+                if (error) setError('');
+              }}
+              disabled={isProcessing}
+              className="flex-1"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isProcessing) handleExtract();
+              }}
             />
+            <Button
+              onClick={handleExtract}
+              disabled={isProcessing || !url.trim()}
+              size="default"
+              variant="outline"
+              className="shrink-0"
+            >
+              {extracting ? (
+                <Icon name="Loader2" size={16} className="animate-spin" />
+              ) : (
+                <Icon name="Search" size={16} />
+              )}
+            </Button>
           </div>
 
           {error && (
-            <Alert variant="destructive" className="text-xs sm:text-sm">
-              <Icon name="AlertCircle" size={14} className="sm:w-4 sm:h-4" />
+            <Alert variant="destructive">
+              <Icon name="AlertCircle" size={14} />
               <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
             </Alert>
           )}
 
-          <Alert className="text-xs sm:text-sm">
-            <Icon name="Info" size={14} className="sm:w-4 sm:h-4" />
-            <AlertDescription className="text-xs sm:text-sm space-y-2">
-              <p className="font-medium">Два способа:</p>
-              <div className="space-y-2 text-[10px] sm:text-xs">
-                <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded">
-                  <p className="font-medium text-blue-900 dark:text-blue-100">📥 Скачать на компьютер</p>
-                  <p className="text-blue-700 dark:text-blue-300 mt-1">Kinescope, YouTube, VK — инструкция yt-dlp</p>
-                </div>
-                <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded">
-                  <p className="font-medium text-purple-900 dark:text-purple-100">☁️ В фотобанк (до 3 мин)</p>
-                  <p className="text-purple-700 dark:text-purple-300 mt-1">Ссылка на .m3u8 плейлист</p>
+          {videoInfo && (
+            <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+              <div className="flex gap-3">
+                {videoInfo.thumbnail && (
+                  <img
+                    src={videoInfo.thumbnail}
+                    alt=""
+                    className="w-24 h-16 sm:w-32 sm:h-20 object-cover rounded flex-shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{videoInfo.title || 'Видео'}</p>
+                  <div className="flex gap-3 text-xs text-muted-foreground mt-1">
+                    {videoInfo.duration > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Icon name="Clock" size={12} />
+                        {formatDuration(videoInfo.duration)}
+                      </span>
+                    )}
+                    {videoInfo.filesize > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Icon name="HardDrive" size={12} />
+                        {formatSize(videoInfo.filesize)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </AlertDescription>
-          </Alert>
 
-          <div className="flex gap-2 justify-end flex-wrap">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={loading}
-              className="text-xs sm:text-sm h-8 sm:h-9"
-            >
-              Отмена
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleDirectDownload}
-              disabled={loading || !url.trim()}
-              className="text-xs sm:text-sm h-8 sm:h-9"
-            >
-              <Icon name="ExternalLink" size={14} className="mr-1 sm:mr-2 sm:w-4 sm:h-4" />
-              Скачать
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading || !url.trim()}
-              className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm h-8 sm:h-9"
-              onClick={handleUploadToPhotobank}
-            >
-              {loading ? (
-                <>
-                  <Icon name="Loader2" size={14} className="animate-spin mr-1 sm:mr-2 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">Загружаем...</span>
-                  <span className="sm:hidden">...</span>
-                </>
-              ) : (
-                <>
-                  <Icon name="CloudUpload" size={14} className="mr-1 sm:mr-2 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">В фотобанк</span>
-                  <span className="sm:hidden">Загрузить</span>
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button
+                  onClick={handleDownloadToDevice}
+                  variant="outline"
+                  className="w-full"
+                  disabled={isProcessing}
+                >
+                  <Icon name="Download" size={16} className="mr-2" />
+                  Скачать на устройство
+                </Button>
+                <Button
+                  onClick={handleUploadToS3}
+                  className="w-full"
+                  disabled={isProcessing}
+                >
+                  {loading ? (
+                    <>
+                      <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
+                      Загрузка...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="CloudUpload" size={16} className="mr-2" />
+                      В фотобанк
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!videoInfo && !error && (
+            <div className="border rounded-lg p-3 bg-muted/20">
+              <p className="text-xs font-medium mb-2 text-muted-foreground">Поддерживаемые источники:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {supportedSources.map((source) => (
+                  <span
+                    key={source}
+                    className="px-2 py-0.5 bg-background border rounded text-[10px] sm:text-xs text-muted-foreground"
+                  >
+                    {source}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {loading && (
+            <div className="flex items-center gap-3 p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30">
+              <Icon name="Loader2" size={20} className="animate-spin text-blue-600" />
+              <div>
+                <p className="text-sm font-medium">Скачиваю и загружаю в фотобанк...</p>
+                <p className="text-xs text-muted-foreground">
+                  Это может занять 1-3 минуты в зависимости от размера видео
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

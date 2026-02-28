@@ -8,138 +8,136 @@ from psycopg2.extras import RealDictCursor
 import re
 import shutil
 import requests
-import m3u8 as m3u8_parser
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
+
+try:
+    import yt_dlp
+    HAS_YTDLP = True
+except ImportError:
+    HAS_YTDLP = False
+
+CORS_HEADERS = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*'
+}
+
+MAX_FILE_SIZE = 500 * 1024 * 1024
+
+
+def resp(code, body):
+    return {
+        'statusCode': code,
+        'headers': CORS_HEADERS,
+        'body': json.dumps(body) if isinstance(body, (dict, list)) else str(body)
+    }
+
 
 def handler(event: dict, context) -> dict:
-    '''API для загрузки видео по URL (прямые ссылки, m3u8, Kinescope)'''
-    method = event.get('httpMethod', 'GET')
-    
-    if method == 'OPTIONS':
+    '''Универсальная загрузка видео по ссылке — YouTube, VK, RuTube, файлообменники и прямые ссылки'''
+    if event.get('httpMethod') == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
+                'Access-Control-Max-Age': '86400'
             },
             'body': ''
         }
-    
-    if method != 'POST':
-        return {
-            'statusCode': 405,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Method not allowed'})
-        }
-    
+
+    if event.get('httpMethod') != 'POST':
+        return resp(405, {'error': 'Method not allowed'})
+
     user_id = event.get('headers', {}).get('X-User-Id', '')
     if not user_id:
-        return {
-            'statusCode': 401,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Unauthorized'})
-        }
-    
-    conn = psycopg2.connect(os.environ['DATABASE_URL'])
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    
+        return resp(401, {'error': 'Unauthorized'})
+
     try:
         body = json.loads(event.get('body', '{}'))
-    except:
-        cursor.close()
-        conn.close()
-        return {
-            'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Invalid JSON'})
-        }
-    
+    except Exception:
+        return resp(400, {'error': 'Invalid JSON'})
+
     url = body.get('url', '').strip()
     folder_id = body.get('folder_id')
-    custom_headers = body.get('headers', {})
-    
+    mode = body.get('mode', 'upload')
+
     if not url:
-        cursor.close()
-        conn.close()
-        return {
-            'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'URL is required'})
-        }
-    
-    # Fix common URL issues
+        return resp(400, {'error': 'URL is required'})
+
+    url = fix_url(url)
+    print(f'[VIDEO] mode={mode} url={url}')
+
+    if mode == 'extract':
+        return handle_extract(url)
+
+    return handle_upload(url, user_id, folder_id)
+
+
+def fix_url(url):
     if url.startswith('ttps://'):
-        url = 'h' + url
-    elif url.startswith('ttp://'):
-        url = 'h' + url
-    elif not url.startswith('http://') and not url.startswith('https://'):
-        url = 'https://' + url
-    
-    print(f'[VIDEO_UPLOAD] Starting download from: {url}')
-    
-    if 'kinescope' in url.lower() and '.mp4' in url.lower() and '?' in url:
-        cursor.close()
-        conn.close()
-        return {
-            'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({
-                'error': 'Прямые ссылки на .mp4 из Kinescope не работают',
-                'details': 'Используйте ссылку на master.m3u8 плейлист из DevTools (F12 → Network → фильтр "m3u8" → Play видео → скопируйте URL запроса master.m3u8)'
-            })
-        }
-    
-    if not folder_id:
-        folder_name = datetime.now().strftime('Видео %d.%m.%Y %H:%M')
-        s3_prefix = f'videos/{user_id}/{int(datetime.now().timestamp())}/'
-        
-        cursor.execute(
-            '''INSERT INTO t_p28211681_photo_secure_web.photo_folders
-               (user_id, folder_name, s3_prefix, folder_type, created_at, updated_at)
-               VALUES (%s, %s, %s, %s, NOW(), NOW())
-               RETURNING id''',
-            (user_id, folder_name, s3_prefix, 'originals')
-        )
-        folder_id = cursor.fetchone()['id']
-        conn.commit()
-        print(f'[VIDEO_UPLOAD] Created folder: {folder_name} (id={folder_id})')
-    
-    cursor.execute(
-        'SELECT s3_prefix FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s',
-        (folder_id,)
-    )
-    folder_result = cursor.fetchone()
-    s3_prefix = folder_result['s3_prefix'] if folder_result else f'videos/{user_id}/{int(datetime.now().timestamp())}/'
-    
-    temp_dir = tempfile.mkdtemp()
-    output_file = None
-    
+        return 'h' + url
+    if url.startswith('ttp://'):
+        return 'h' + url
+    if not url.startswith(('http://', 'https://')):
+        return 'https://' + url
+    return url
+
+
+def handle_extract(url):
+    if HAS_YTDLP:
+        try:
+            info = ytdlp_extract(url)
+            return resp(200, info)
+        except Exception as e:
+            print(f'[EXTRACT] yt-dlp failed: {e}')
+
+    if is_direct_video_url(url):
+        fname = url.split('/')[-1].split('?')[0] or 'video.mp4'
+        return resp(200, {
+            'success': True,
+            'title': fname.rsplit('.', 1)[0],
+            'download_url': url,
+            'ext': fname.rsplit('.', 1)[-1] if '.' in fname else 'mp4',
+            'duration': 0,
+            'filesize': 0,
+            'thumbnail': ''
+        })
+
+    return resp(400, {'error': 'Не удалось получить ссылку на видео. Попробуйте прямую ссылку на файл.'})
+
+
+def handle_upload(url, user_id, folder_id):
+    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    tmp = tempfile.mkdtemp()
+
     try:
-        download_type = detect_video_type(url)
-        print(f'[VIDEO_UPLOAD] Detected type: {download_type}')
-        
-        if download_type == 'm3u8':
-            output_file = download_m3u8_segments(url, temp_dir, custom_headers)
-        elif download_type == 'direct':
-            output_file = download_direct_file(url, temp_dir, custom_headers)
-        elif download_type == 'kinescope_page':
-            m3u8_url = extract_kinescope_m3u8(url, custom_headers)
-            if m3u8_url:
-                output_file = download_m3u8_segments(m3u8_url, temp_dir, custom_headers)
-            else:
-                raise Exception('Не удалось найти видео на странице. Попробуйте указать прямую ссылку на .m3u8 файл')
-        else:
-            raise Exception('Неподдерживаемый формат. Используйте прямую ссылку на .mp4/.mov или .m3u8 плейлист')
-        
-        if not output_file or not os.path.exists(output_file):
-            raise Exception('Не удалось скачать видео')
-        
-        print(f'[VIDEO_UPLOAD] Downloaded: {output_file}')
-        
-        file_size = os.path.getsize(output_file)
-        filename = os.path.basename(output_file)
-        
+        if not folder_id:
+            name = datetime.now().strftime('Видео %d.%m.%Y %H:%M')
+            prefix = f'videos/{user_id}/{int(datetime.now().timestamp())}/'
+            cur.execute(
+                '''INSERT INTO t_p28211681_photo_secure_web.photo_folders
+                   (user_id, folder_name, s3_prefix, folder_type, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, NOW(), NOW()) RETURNING id''',
+                (user_id, name, prefix, 'originals')
+            )
+            folder_id = cur.fetchone()['id']
+            conn.commit()
+
+        cur.execute(
+            'SELECT s3_prefix FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s',
+            (folder_id,)
+        )
+        row = cur.fetchone()
+        s3_prefix = row['s3_prefix'] if row else f'videos/{user_id}/{int(datetime.now().timestamp())}/'
+
+        filepath, filename = download_video(url, tmp)
+
+        fsize = os.path.getsize(filepath)
+        if fsize > MAX_FILE_SIZE:
+            raise Exception(f'Файл слишком большой ({fsize // 1048576} МБ, максимум {MAX_FILE_SIZE // 1048576} МБ)')
+
         from botocore.client import Config
         s3 = boto3.client('s3',
             endpoint_url='https://storage.yandexcloud.net',
@@ -148,257 +146,250 @@ def handler(event: dict, context) -> dict:
             aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
             config=Config(signature_version='s3v4')
         )
-        bucket = 'foto-mix'
-        
+
         s3_key = f'{s3_prefix}{filename}'
-        print(f'[VIDEO_UPLOAD] Uploading to S3: {s3_key}')
-        
-        content_type = 'video/mp2t' if filename.endswith('.ts') else 'video/mp4'
-        
-        with open(output_file, 'rb') as f:
-            s3.put_object(
-                Bucket=bucket,
-                Key=s3_key,
-                Body=f,
-                ContentType=content_type
-            )
-        
-        s3_url = f'https://storage.yandexcloud.net/{bucket}/{s3_key}'
-        
-        cursor.execute(
-            '''INSERT INTO t_p28211681_photo_secure_web.photo_bank 
-               (user_id, folder_id, file_name, s3_key, s3_url, file_size, 
-                is_video, content_type)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-               RETURNING id''',
-            (user_id, folder_id, filename, s3_key, s3_url, file_size, True, content_type)
+        ctype = 'video/mp4'
+        if filename.endswith('.webm'):
+            ctype = 'video/webm'
+        elif filename.endswith('.ts'):
+            ctype = 'video/mp2t'
+        elif filename.endswith('.mov'):
+            ctype = 'video/quicktime'
+
+        with open(filepath, 'rb') as f:
+            s3.put_object(Bucket='foto-mix', Key=s3_key, Body=f, ContentType=ctype)
+
+        s3_url = f'https://storage.yandexcloud.net/foto-mix/{s3_key}'
+
+        cur.execute(
+            '''INSERT INTO t_p28211681_photo_secure_web.photo_bank
+               (user_id, folder_id, file_name, s3_key, s3_url, file_size, is_video, content_type)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
+            (user_id, folder_id, filename, s3_key, s3_url, fsize, True, ctype)
         )
-        video_id = cursor.fetchone()['id']
+        vid = cur.fetchone()['id']
         conn.commit()
-        
-        print(f'[VIDEO_UPLOAD] Success! video_id={video_id}')
-        
-        cursor.close()
-        conn.close()
-        
-        return {
-            'statusCode': 200,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({
-                'success': True,
-                'video_id': video_id,
-                'filename': filename,
-                'size': file_size,
-                's3_url': s3_url,
-                'folder_id': folder_id
-            })
-        }
-        
+        print(f'[VIDEO] Uploaded: {filename} ({fsize} bytes) video_id={vid}')
+
+        return resp(200, {
+            'success': True,
+            'video_id': vid,
+            'filename': filename,
+            'size': fsize,
+            's3_url': s3_url,
+            'folder_id': folder_id
+        })
+
     except Exception as e:
-        print(f'[VIDEO_UPLOAD] ERROR: {str(e)}')
+        print(f'[UPLOAD] Error: {e}')
         import traceback
         print(traceback.format_exc())
-        
-        cursor.close()
-        conn.close()
-        
-        error_msg = str(e)
-        if 'DRM' in error_msg.upper() or 'encrypted' in error_msg.lower():
-            error_msg = 'Видео защищено DRM - скачивание невозможно'
-        elif '403' in error_msg or '401' in error_msg:
-            error_msg = 'Доступ запрещён. Попробуйте скопировать cookies из браузера'
-        elif 'timeout' in error_msg.lower():
-            error_msg = 'Превышено время ожидания - файл слишком большой'
-        
-        return {
-            'statusCode': 400,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({
-                'error': error_msg,
-                'details': str(e)
-            })
-        }
-    
+        return resp(400, {'error': friendly_error(str(e))})
+
     finally:
+        cur.close()
+        conn.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def ytdlp_extract(url):
+    opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'format': 'best[ext=mp4]/best',
+        'noplaylist': True,
+        'socket_timeout': 15,
+        'nocheckcertificate': True,
+        'cachedir': False,
+        'no_color': True,
+    }
+
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    download_url = info.get('url', '')
+
+    if not download_url and info.get('requested_formats'):
+        download_url = info['requested_formats'][0].get('url', '')
+
+    if not download_url and info.get('formats'):
+        fmts = info['formats']
+        combined = [
+            f for f in fmts
+            if f.get('vcodec', 'none') != 'none'
+            and f.get('acodec', 'none') != 'none'
+            and f.get('url')
+        ]
+        if combined:
+            mp4s = [f for f in combined if f.get('ext') == 'mp4']
+            best = mp4s[-1] if mp4s else combined[-1]
+            download_url = best.get('url', '')
+        elif fmts:
+            download_url = fmts[-1].get('url', '')
+
+    if not download_url:
+        raise Exception('Не удалось извлечь ссылку на видео')
+
+    title = info.get('title', 'video')
+    title = re.sub(r'[^\w\s\-]', '', title).strip()[:100] or 'video'
+
+    return {
+        'success': True,
+        'title': title,
+        'download_url': download_url,
+        'thumbnail': info.get('thumbnail', ''),
+        'duration': info.get('duration', 0),
+        'filesize': info.get('filesize') or info.get('filesize_approx') or 0,
+        'ext': info.get('ext', 'mp4')
+    }
+
+
+def download_video(url, output_dir):
+    if HAS_YTDLP and not is_direct_video_url(url):
         try:
-            shutil.rmtree(temp_dir)
-        except:
-            pass
+            return ytdlp_download(url, output_dir)
+        except Exception as e:
+            print(f'[DL] yt-dlp failed, trying fallback: {e}')
+
+    if '.m3u8' in url.lower():
+        path = download_m3u8(url, output_dir)
+        return path, os.path.basename(path)
+
+    if is_direct_video_url(url):
+        path = download_direct(url, output_dir)
+        return path, os.path.basename(path)
+
+    if HAS_YTDLP:
+        return ytdlp_download(url, output_dir)
+
+    raise Exception('Не удалось скачать видео. Попробуйте прямую ссылку на файл.')
 
 
-def detect_video_type(url: str) -> str:
-    '''Определяет тип источника видео'''
-    url_lower = url.lower()
-    
-    if '.m3u8' in url_lower:
-        return 'm3u8'
-    
-    video_exts = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv')
-    for ext in video_exts:
-        if ext in url_lower:
-            return 'direct'
-    
-    if 'kinescope' in url_lower:
-        return 'kinescope_page'
-    
-    return 'unknown'
+def ytdlp_download(url, output_dir):
+    template = os.path.join(output_dir, '%(title).80s.%(ext)s')
+    opts = {
+        'format': 'best[ext=mp4][filesize<500M]/best[ext=mp4]/best[filesize<500M]/best',
+        'outtmpl': template,
+        'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
+        'socket_timeout': 30,
+        'retries': 2,
+        'noprogress': True,
+        'nocheckcertificate': True,
+        'cachedir': False,
+        'no_color': True,
+    }
+
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+        filepath = ydl.prepare_filename(info)
+
+    if not os.path.exists(filepath):
+        for f in os.listdir(output_dir):
+            full = os.path.join(output_dir, f)
+            if os.path.isfile(full) and f.endswith(('.mp4', '.webm', '.mkv', '.ts', '.mov')):
+                filepath = full
+                break
+
+    if not os.path.exists(filepath):
+        raise Exception('Файл не найден после скачивания')
+
+    basename = os.path.basename(filepath)
+    safe = re.sub(r'[^\w\s\-\.]', '_', basename).strip()
+    if not safe or safe.replace('_', '') == '':
+        safe = f'video_{int(datetime.now().timestamp())}.mp4'
+
+    return filepath, safe
 
 
-def download_direct_file(url: str, output_dir: str, headers: dict = None) -> str:
-    '''Скачивает файл по прямой ссылке'''
-    
-    filename = url.split('/')[-1].split('?')[0]
-    if not any(filename.endswith(ext) for ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']):
-        filename = f'video_{int(datetime.now().timestamp())}.mp4'
-    
-    output_path = os.path.join(output_dir, filename)
-    
-    print(f'[DIRECT] Downloading: {url}')
-    
+def download_direct(url, output_dir):
+    fname = url.split('/')[-1].split('?')[0]
+    if not any(fname.lower().endswith(e) for e in ('.mp4', '.mov', '.avi', '.mkv', '.webm')):
+        fname = f'video_{int(datetime.now().timestamp())}.mp4'
+
+    path = os.path.join(output_dir, fname)
+
     session = requests.Session()
-    if headers:
-        session.headers.update(headers)
-    
     if 'kinescope.io' in url:
         session.headers['Referer'] = 'https://kinescope.io/'
-    
-    response = session.get(url, stream=True, timeout=60)
-    response.raise_for_status()
-    
-    total_size = int(response.headers.get('content-length', 0))
-    print(f'[DIRECT] Size: {total_size / 1024 / 1024:.2f} MB')
-    
-    downloaded = 0
-    with open(output_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=1024 * 1024):
+
+    r = session.get(url, stream=True, timeout=60)
+    r.raise_for_status()
+
+    with open(path, 'wb') as f:
+        for chunk in r.iter_content(1024 * 1024):
             f.write(chunk)
-            downloaded += len(chunk)
-            if total_size > 0:
-                progress = (downloaded / total_size) * 100
-                if downloaded % (10 * 1024 * 1024) == 0:
-                    print(f'[DIRECT] Progress: {progress:.1f}%')
-    
-    print(f'[DIRECT] Downloaded: {output_path}')
-    return output_path
+
+    return path
 
 
-def download_m3u8_segments(m3u8_url: str, output_dir: str, headers: dict = None) -> str:
-    '''Скачивает все сегменты из m3u8 плейлиста и склеивает в один файл'''
-    
-    print(f'[M3U8] Loading playlist: {m3u8_url}')
-    
-    session = requests.Session()
-    if headers:
-        session.headers.update(headers)
-    
-    if 'kinescope.io' in m3u8_url:
-        session.headers['Referer'] = 'https://kinescope.io/'
-    
-    response = session.get(m3u8_url, timeout=30)
-    response.raise_for_status()
-    
-    playlist = m3u8_parser.loads(response.text)
-    
+def download_m3u8(url, output_dir):
+    import m3u8 as m3u8_parser
+
+    r = requests.get(url, timeout=30)
+    r.raise_for_status()
+    playlist = m3u8_parser.loads(r.text)
+
     if playlist.is_variant:
-        print(f'[M3U8] Found {len(playlist.playlists)} quality variants')
-        best_variant = playlist.playlists[0]
-        variant_url = urljoin(m3u8_url, best_variant.uri)
-        print(f'[M3U8] Selected variant: {variant_url}')
-        
-        response = session.get(variant_url, timeout=30)
-        response.raise_for_status()
-        playlist = m3u8_parser.loads(response.text)
-        m3u8_url = variant_url
-    
+        variant_url = urljoin(url, playlist.playlists[0].uri)
+        r = requests.get(variant_url, timeout=30)
+        r.raise_for_status()
+        playlist = m3u8_parser.loads(r.text)
+        url = variant_url
+
     segments = playlist.segments
     if not segments:
         raise Exception('Плейлист не содержит сегментов')
-    
-    total_segments = len(segments)
-    max_segments = min(20, total_segments)
-    print(f'[M3U8] Found {total_segments} segments, downloading first {max_segments}')
-    
-    if total_segments > max_segments:
-        print(f'[M3U8] WARNING: Video too long ({total_segments} segments), only first {max_segments} will be downloaded (~{max_segments * 10 // 60} minutes)')
-    
-    segment_files = []
-    base_url = m3u8_url.rsplit('/', 1)[0] + '/'
-    
-    for i, segment in enumerate(segments[:max_segments]):
-        segment_url = urljoin(base_url, segment.uri)
-        segment_path = os.path.join(output_dir, f'segment_{i:04d}.ts')
-        
+
+    base = url.rsplit('/', 1)[0] + '/'
+    max_seg = min(30, len(segments))
+    parts = []
+
+    for i, seg in enumerate(segments[:max_seg]):
+        seg_url = urljoin(base, seg.uri)
+        seg_path = os.path.join(output_dir, f'seg_{i:04d}.ts')
         try:
-            seg_response = session.get(segment_url, timeout=10)
-            seg_response.raise_for_status()
-            
-            with open(segment_path, 'wb') as f:
-                f.write(seg_response.content)
-            
-            segment_files.append(segment_path)
-            
-            if (i + 1) % 10 == 0:
-                print(f'[M3U8] Downloaded {i + 1}/{max_segments} segments')
-                
-        except Exception as e:
-            print(f'[M3U8] Failed segment {i}: {str(e)}')
-    
-    if not segment_files:
-        raise Exception('Не удалось скачать ни одного сегмента')
-    
-    print(f'[M3U8] Downloaded {len(segment_files)} segments, merging...')
-    
-    output_path = os.path.join(output_dir, f'video_{int(datetime.now().timestamp())}.ts')
-    
-    with open(output_path, 'wb') as outfile:
-        for segment_file in segment_files:
-            with open(segment_file, 'rb') as infile:
-                outfile.write(infile.read())
-    
-    final_path = output_path.replace('.ts', '.mp4')
-    os.rename(output_path, final_path)
-    
-    print(f'[M3U8] Merged into: {final_path}')
-    return final_path
+            sr = requests.get(seg_url, timeout=15)
+            sr.raise_for_status()
+            with open(seg_path, 'wb') as f:
+                f.write(sr.content)
+            parts.append(seg_path)
+        except Exception:
+            pass
+
+    if not parts:
+        raise Exception('Не удалось скачать сегменты')
+
+    out = os.path.join(output_dir, f'video_{int(datetime.now().timestamp())}.mp4')
+    with open(out, 'wb') as o:
+        for p in parts:
+            with open(p, 'rb') as inp:
+                o.write(inp.read())
+
+    return out
 
 
-def extract_kinescope_m3u8(page_url: str, headers: dict = None) -> str:
-    '''Извлекает ссылку на m3u8 или mpd плейлист со страницы с Kinescope плеером'''
-    
-    print(f'[KINESCOPE] Loading page: {page_url}')
-    
-    session = requests.Session()
-    if headers:
-        session.headers.update(headers)
-    session.headers['Referer'] = 'https://kinescope.io/'
-    
-    response = session.get(page_url, timeout=30)
-    response.raise_for_status()
-    
-    html = response.text
-    
-    patterns = [
-        r'https://[^"\']+\.kinescope\.io/[^"\']+\.m3u8[^"\']*',
-        r'https://[^"\']+\.kinescope\.io/[^"\']+\.mpd[^"\']*',
-        r'"videoUrl":"(https://[^"]+\.m3u8[^"]*)"',
-        r'"videoUrl":"(https://[^"]+\.mpd[^"]*)"',
-        r"'videoUrl':'(https://[^']+\.m3u8[^']*)'",
-        r"'videoUrl':'(https://[^']+\.mpd[^']*)'",
-        r'src="(https://[^"]+\.m3u8[^"]*)"',
-        r'src="(https://[^"]+\.mpd[^"]*)"',
-    ]
-    
-    for pattern in patterns:
-        matches = re.findall(pattern, html)
-        if matches:
-            video_url = matches[0]
-            if isinstance(video_url, tuple):
-                video_url = video_url[0]
-            
-            video_url = video_url.replace('\\/', '/')
-            
-            print(f'[KINESCOPE] Found video URL: {video_url}')
-            return video_url
-    
-    print('[KINESCOPE] Video URL not found in page')
-    return None
+def is_direct_video_url(url):
+    lower = url.lower()
+    return any(e in lower for e in ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv'))
+
+
+def friendly_error(msg):
+    if 'Sign in' in msg or 'login' in msg.lower():
+        return 'Видео требует авторизации — попробуйте другую ссылку'
+    if 'Private' in msg or 'private' in msg:
+        return 'Видео приватное — доступ ограничен'
+    if 'unavailable' in msg.lower() or 'not available' in msg.lower():
+        return 'Видео недоступно или удалено'
+    if 'DRM' in msg.upper() or 'encrypted' in msg.lower():
+        return 'Видео защищено DRM — скачивание невозможно'
+    if '403' in msg or '401' in msg:
+        return 'Доступ запрещён — попробуйте другую ссылку'
+    if 'timeout' in msg.lower():
+        return 'Превышено время ожидания — видео слишком большое'
+    if 'Unsupported URL' in msg:
+        return 'Ссылка не поддерживается — попробуйте прямую ссылку на видео'
+    if 'age' in msg.lower() and ('restrict' in msg.lower() or 'gate' in msg.lower()):
+        return 'Видео с возрастным ограничением — требуется авторизация'
+    return msg[:200]
