@@ -299,6 +299,7 @@ export const useClientsHandlers = ({
               const hasArchived = existingProjects.some(p => p.status === 'completed' || p.status === 'cancelled');
 
               if (!hasActive && hasArchived) {
+                sessionStorage.setItem('highlightArchive', String(existingClient.id));
                 toast.info('Клиент найден в архиве', {
                   description: 'Все проекты завершены. Можно восстановить проекты или создать новый',
                   duration: 6000

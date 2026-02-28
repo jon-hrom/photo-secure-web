@@ -52,9 +52,24 @@ const ClientDetailProjects = ({
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; projectId: number } | null>(null);
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [highlightArchive, setHighlightArchive] = useState(false);
+  const archiveRef = useRef<HTMLDivElement>(null);
 
   const activeProjects = projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
   const archivedProjects = projects.filter(p => p.status === 'completed' || p.status === 'cancelled');
+
+  useEffect(() => {
+    const flag = sessionStorage.getItem('highlightArchive');
+    if (flag && archivedProjects.length > 0) {
+      sessionStorage.removeItem('highlightArchive');
+      setIsArchiveOpen(true);
+      setHighlightArchive(true);
+      setTimeout(() => {
+        archiveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 200);
+      setTimeout(() => setHighlightArchive(false), 5000);
+    }
+  }, [archivedProjects.length]);
   
   const updateProjectShootingStyleRef = useRef(updateProjectShootingStyle);
   useEffect(() => {
@@ -209,10 +224,14 @@ const ClientDetailProjects = ({
       )}
 
       {archivedProjects.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-6" ref={archiveRef}>
           <button
             onClick={() => setIsArchiveOpen(prev => !prev)}
-            className="flex items-center gap-2 w-full text-left py-2 px-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className={`flex items-center gap-2 w-full text-left py-2 px-2 text-sm rounded-md transition-all ${
+              highlightArchive
+                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 font-medium'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
           >
             <Icon name={isArchiveOpen ? "ChevronDown" : "ChevronRight"} size={16} />
             <Icon name="Archive" size={16} />
@@ -222,7 +241,14 @@ const ClientDetailProjects = ({
           {isArchiveOpen && (
             <div className="mt-2 space-y-3">
               {[...archivedProjects].reverse().map((project) => (
-                <div key={`archive-${project.id}`} className="relative opacity-75 hover:opacity-100 transition-opacity">
+                <div
+                  key={`archive-${project.id}`}
+                  className={`relative transition-all duration-700 ${
+                    highlightArchive
+                      ? 'ring-2 ring-amber-400 dark:ring-amber-500 rounded-lg shadow-md shadow-amber-200/50 dark:shadow-amber-800/30'
+                      : 'opacity-75 hover:opacity-100'
+                  }`}
+                >
                   <ProjectCard
                     project={project}
                     isExpanded={expandedProjects[project.id] || false}
@@ -242,9 +268,13 @@ const ClientDetailProjects = ({
                   />
                   {!expandedProjects[project.id] && (
                     <Button
-                      variant="outline"
+                      variant={highlightArchive ? "default" : "outline"}
                       size="sm"
-                      className="absolute top-3 right-12 text-xs gap-1 bg-background"
+                      className={`absolute top-3 right-12 text-xs gap-1 ${
+                        highlightArchive
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
+                          : 'bg-background'
+                      }`}
                       onClick={(e) => {
                         e.stopPropagation();
                         updateProjectStatus(project.id, 'in_progress');
