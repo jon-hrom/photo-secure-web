@@ -55,7 +55,7 @@ const ProjectCard = ({
       onTouchEnd={onTouchEnd}
     >
       <CardHeader
-        className="cursor-pointer hover:bg-accent/50 transition-colors"
+        className="cursor-pointer hover:bg-accent/50 active:bg-accent/70 transition-colors px-3 sm:px-6 py-3 sm:py-4"
         onClick={onToggleExpand}
       >
         <div className="flex items-start justify-between gap-2">
@@ -78,8 +78,8 @@ const ProjectCard = ({
                   <span className="text-muted-foreground">Оплачено: <span key={`paid-${project.id}-${animateKey}`} className="font-medium text-green-600 dark:text-green-400 inline-block animate-in fade-in zoom-in-50 duration-500">{projectPaid.toLocaleString('ru-RU')} ₽</span></span>
                   <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKey}`} className="font-medium text-orange-600 dark:text-orange-400 inline-block animate-in fade-in zoom-in-50 duration-500">{projectRemaining.toLocaleString('ru-RU')} ₽</span></span>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <Label className="text-xs text-muted-foreground">Дата съёмки:</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
+                  <Label className="text-xs text-muted-foreground shrink-0">Дата съёмки:</Label>
                   <Input
                     type="date"
                     value={(() => {
@@ -99,7 +99,7 @@ const ProjectCard = ({
                       onUpdateDate(e.target.value);
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs h-7 w-40"
+                    className="text-xs h-8 w-full sm:w-40"
                   />
                 </div>
                 {project.shootingStyleId && (
@@ -128,7 +128,7 @@ const ProjectCard = ({
         </div>
       </CardHeader>
       {isExpanded && (
-        <CardContent className="space-y-3 max-h-[60vh] overflow-y-auto">
+        <CardContent className="space-y-3 max-h-[45vh] sm:max-h-[60vh] overflow-y-auto">
           {project.description && (
             <p className="text-sm text-muted-foreground">{project.description}</p>
           )}
@@ -147,7 +147,7 @@ const ProjectCard = ({
                 type="time"
                 value={project.shooting_time || ''}
                 onChange={(e) => onUpdateProject({ shooting_time: e.target.value })}
-                className="text-xs h-9"
+                className="text-xs sm:text-sm h-10 sm:h-9"
               />
             </div>
             <div className="space-y-2">
@@ -164,7 +164,7 @@ const ProjectCard = ({
               value={project.shooting_address || ''}
               onChange={(e) => onUpdateProject({ shooting_address: e.target.value })}
               placeholder="Москва, Красная площадь, 1"
-              className="text-xs h-9"
+              className="text-xs sm:text-sm h-10 sm:h-9"
             />
           </div>
           <div className="flex gap-2">

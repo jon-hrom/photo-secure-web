@@ -210,14 +210,14 @@ const ClientDetailProjects = ({
         </div>
       )}
       
-      <div className="max-h-[calc(100vh-420px)] overflow-y-auto pr-2 scrollbar-thin">
+      <div className="max-h-[calc(100vh-350px)] sm:max-h-[calc(100vh-420px)] overflow-y-auto pr-1 sm:pr-2 scrollbar-thin -webkit-overflow-scrolling-touch">
       {activeProjects.length === 0 && archivedProjects.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">Проектов пока нет</CardContent>
         </Card>
       ) : activeProjects.length === 0 ? (
         <Card>
-          <CardContent className="py-6 text-center text-muted-foreground text-sm">Нет активных проектов</CardContent>
+          <CardContent className="py-4 sm:py-6 text-center text-muted-foreground text-sm">Нет активных проектов</CardContent>
         </Card>
       ) : (
         renderProjectList(activeProjects)
@@ -227,23 +227,23 @@ const ClientDetailProjects = ({
         <div className="mt-6" ref={archiveRef}>
           <button
             onClick={() => setIsArchiveOpen(prev => !prev)}
-            className={`flex items-center gap-2 w-full text-left py-2 px-2 text-sm rounded-md transition-all ${
+            className={`flex items-center gap-2 w-full text-left min-h-[44px] py-2.5 px-3 text-sm rounded-md transition-all ${
               highlightArchive
                 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 font-medium'
-                : 'text-muted-foreground hover:text-foreground'
+                : 'text-muted-foreground hover:text-foreground active:bg-accent/50'
             }`}
           >
-            <Icon name={isArchiveOpen ? "ChevronDown" : "ChevronRight"} size={16} />
-            <Icon name="Archive" size={16} />
-            <span>Архив проектов</span>
-            <Badge variant="secondary" className="ml-1 text-xs">{archivedProjects.length}</Badge>
+            <Icon name={isArchiveOpen ? "ChevronDown" : "ChevronRight"} size={18} className="shrink-0" />
+            <Icon name="Archive" size={18} className="shrink-0" />
+            <span className="truncate">Архив проектов</span>
+            <Badge variant="secondary" className="ml-1 text-xs shrink-0">{archivedProjects.length}</Badge>
           </button>
           {isArchiveOpen && (
             <div className="mt-2 space-y-3">
               {[...archivedProjects].reverse().map((project) => (
                 <div
                   key={`archive-${project.id}`}
-                  className={`relative transition-all duration-700 ${
+                  className={`transition-all duration-700 ${
                     highlightArchive
                       ? 'ring-2 ring-amber-400 dark:ring-amber-500 rounded-lg shadow-md shadow-amber-200/50 dark:shadow-amber-800/30'
                       : 'opacity-75 hover:opacity-100'
@@ -267,22 +267,24 @@ const ClientDetailProjects = ({
                     onTouchEnd={(e) => handleTouchEnd(e, project.id)}
                   />
                   {!expandedProjects[project.id] && (
-                    <Button
-                      variant={highlightArchive ? "default" : "outline"}
-                      size="sm"
-                      className={`absolute top-3 right-12 text-xs gap-1 ${
-                        highlightArchive
-                          ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
-                          : 'bg-background'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        updateProjectStatus(project.id, 'in_progress');
-                      }}
-                    >
-                      <Icon name="RotateCcw" size={14} />
-                      Восстановить
-                    </Button>
+                    <div className="flex justify-end px-3 pb-2 -mt-1">
+                      <Button
+                        variant={highlightArchive ? "default" : "outline"}
+                        size="sm"
+                        className={`text-xs gap-1.5 ${
+                          highlightArchive
+                            ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
+                            : 'bg-background'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateProjectStatus(project.id, 'in_progress');
+                        }}
+                      >
+                        <Icon name="RotateCcw" size={14} />
+                        Восстановить
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))}
