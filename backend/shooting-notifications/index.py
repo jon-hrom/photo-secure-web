@@ -117,7 +117,7 @@ def format_date_ru(date_str: str) -> str:
         return date_str
 
 
-def send_client_notification(project_data: dict, client_data: dict, photographer_data: dict, conn=None) -> dict:
+def send_client_notification(project_data: dict, client_data: dict, photographer_data: dict, conn=None, payment_data: dict = None) -> dict:
     """Отправить уведомление клиенту о съёмке"""
     instance_id = photographer_data.get('green_api_instance_id') or ''
     token = photographer_data.get('green_api_token') or ''
@@ -166,6 +166,23 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     if shooting_style:
         message_parts.append(f"🎨 Стиль съёмки: {shooting_style}")
     
+    budget = float(project_data.get('budget', 0))
+    if budget > 0:
+        if payment_data:
+            prepaid = float(payment_data.get('prepaid', 0))
+            if prepaid > 0:
+                remaining = budget - prepaid
+                message_parts.extend([
+                    "",
+                    f"💰 Стоимость: {budget:,.0f} ₽",
+                    f"✅ Предоплата: {prepaid:,.0f} ₽",
+                    f"💳 Остаток: {remaining:,.0f} ₽"
+                ])
+            else:
+                message_parts.append(f"\n💰 Стоимость: {budget:,.0f} ₽")
+        else:
+            message_parts.append(f"\n💰 Стоимость: {budget:,.0f} ₽")
+
     if description:
         message_parts.append(f"\n📝 Пожелания: {description}")
     
@@ -478,7 +495,7 @@ def handler(event: dict, context) -> dict:
             
             # Отправляем уведомление клиенту
             if notify_client:
-                client_result = send_client_notification(project_data, client_data, photographer_data, conn)
+                client_result = send_client_notification(project_data, client_data, photographer_data, conn, payment_data)
                 results['client_notification'] = client_result
             
             # Отправляем уведомление фотографу
