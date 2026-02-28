@@ -173,22 +173,62 @@ export default function VideoUrlUploadDialog({
     }
   };
 
-  const handleDownloadToDevice = () => {
-    if (!videoInfo?.download_url) return;
+  const handleDownloadToDevice = async () => {
+    if (!videoInfo) return;
 
-    const a = document.createElement('a');
-    a.href = videoInfo.download_url;
-    a.download = `${videoInfo.title || 'video'}.${audioOnly ? 'mp3' : (videoInfo.ext || 'mp4')}`;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setError('');
+    const selQ = videoInfo.qualities?.find(q => q.format_id === selectedQuality);
+    startProgressTimer(selQ?.filesize || videoInfo.filesize || 0);
 
-    toast({
-      title: 'Скачивание начато',
-      description: audioOnly ? 'Аудио загружается на ваше устройство' : 'Видео загружается на ваше устройство'
-    });
+    try {
+      const response = await fetch(func2url['video-url-upload'], {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({
+          url: url.trim(),
+          mode: 'device_download',
+          format_id: audioOnly ? undefined : (selectedQuality || undefined),
+          audio_only: audioOnly
+        }),
+        signal: controller.signal
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка подготовки файла');
+      }
+
+      finishProgress();
+
+      const a = document.createElement('a');
+      a.href = data.download_url;
+      a.download = data.filename || `${videoInfo.title || 'video'}.${audioOnly ? 'mp3' : (videoInfo.ext || 'mp4')}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      toast({
+        title: 'Скачивание начато',
+        description: audioOnly ? 'Аудио загружается на ваше устройство' : 'Видео загружается на ваше устройство'
+      });
+    } catch (err) {
+      stopProgressTimer();
+      setProgress(0);
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        toast({ title: 'Загрузка отменена' });
+      } else {
+        const msg = err instanceof Error ? err.message : 'Не удалось подготовить файл';
+        setError(msg);
+        toast({ variant: 'destructive', title: 'Ошибка', description: msg });
+      }
+    } finally {
+      abortRef.current = null;
+      setLoading(false);
+    }
   };
 
   const handleUploadToS3 = async () => {

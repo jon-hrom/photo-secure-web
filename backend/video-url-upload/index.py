@@ -90,6 +90,10 @@ def handler(event: dict, context) -> dict:
         return handle_extract(url, audio_only)
 
     format_id = body.get('format_id', '')
+
+    if mode == 'device_download':
+        return handle_device_download(url, format_id, audio_only)
+
     return handle_upload(url, user_id, folder_id, format_id, audio_only)
 
 
@@ -124,6 +128,61 @@ def handle_extract(url, audio_only=False):
         })
 
     return resp(400, {'error': 'Не удалось получить ссылку на видео. Попробуйте прямую ссылку на файл.'})
+
+
+def handle_device_download(url, format_id='', audio_only=False):
+    tmp = tempfile.mkdtemp()
+    try:
+        filepath, filename = download_video(url, tmp, format_id, audio_only)
+        fsize = os.path.getsize(filepath)
+        if fsize > MAX_FILE_SIZE:
+            raise Exception(f'Файл слишком большой ({fsize // 1048576} МБ)')
+
+        from botocore.client import Config
+        s3 = boto3.client('s3',
+            endpoint_url='https://storage.yandexcloud.net',
+            region_name='ru-central1',
+            aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+            aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+            config=Config(signature_version='s3v4')
+        )
+
+        temp_key = f'tmp_downloads/{int(datetime.now().timestamp())}_{filename}'
+        ctype = 'audio/mpeg' if audio_only else 'video/mp4'
+        if filename.endswith('.webm'):
+            ctype = 'video/webm'
+        elif filename.endswith('.mov'):
+            ctype = 'video/quicktime'
+
+        with open(filepath, 'rb') as f:
+            s3.put_object(Bucket='foto-mix', Key=temp_key, Body=f, ContentType=ctype)
+
+        presigned_url = s3.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': 'foto-mix',
+                'Key': temp_key,
+                'ResponseContentDisposition': f'attachment; filename="{filename}"',
+                'ResponseContentType': ctype,
+            },
+            ExpiresIn=600,
+        )
+
+        print(f'[DEVICE_DL] Generated presigned URL for {filename} ({fsize} bytes)')
+        return resp(200, {
+            'success': True,
+            'download_url': presigned_url,
+            'filename': filename,
+            'size': fsize,
+        })
+
+    except Exception as e:
+        print(f'[DEVICE_DL] Error: {e}')
+        import traceback
+        print(traceback.format_exc())
+        return resp(400, {'error': friendly_error(str(e))})
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def handle_upload(url, user_id, folder_id, format_id='', audio_only=False):
