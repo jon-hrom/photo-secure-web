@@ -253,7 +253,21 @@ FotoMix — foto-mix.ru
 </div></body></html>'''
 
 
-def send_reminder(reminder_type: str, project: dict, client: dict, photographer: dict, creds: dict, tz_label: str = '') -> dict:
+def format_time_until(hours: float) -> str:
+    """Форматировать время до съёмки в часы и минуты"""
+    if hours <= 0:
+        return "скоро"
+    total_minutes = int(hours * 60)
+    h = total_minutes // 60
+    m = total_minutes % 60
+    if h == 0:
+        return f"через {m} мин"
+    if m == 0:
+        return f"через {h} ч"
+    return f"через {h} ч {m} мин"
+
+
+def send_reminder(reminder_type: str, project: dict, client: dict, photographer: dict, creds: dict, tz_label: str = '', hours_until: float = None) -> dict:
     time_str = format_time(project['shooting_time'])
     if tz_label:
         time_str = f"{time_str} ({tz_label})"
@@ -263,13 +277,20 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
     client_name = client['name']
     client_phone = client['phone'] or 'не указан'
 
+    if hours_until is not None:
+        real_time_text = format_time_until(hours_until)
+    else:
+        real_time_text = None
+
     labels = {
         '24h': ('Напоминание о завтрашней съёмке', 'завтра', 'Подготовьтесь заранее! До встречи завтра!', 'Проверьте оборудование заранее!'),
         'today': ('Напоминание о сегодняшней съёмке', 'сегодня', 'Подготовьтесь заранее! До встречи сегодня!', 'Проверьте оборудование заранее!'),
-        '5h': ('Съёмка через 5 часов', 'через 5 часов', 'Выезжайте заранее с учётом пробок!', 'Проверьте флешки, аккумуляторы, объективы. Выезжайте с запасом!'),
-        '1h': ('Съёмка через 1 час', 'через 1 час', 'Ждём вас! Будет красиво!', 'В путь! Удачной съёмки!')
+        '5h': ('Съёмка через 5 часов', real_time_text or 'через 5 часов', 'Выезжайте заранее с учётом пробок!', 'Проверьте флешки, аккумуляторы, объективы. Выезжайте с запасом!'),
+        '1h': ('Съёмка через 1 час', real_time_text or 'через 1 час', 'Ждём вас! Будет красиво!', 'В путь! Удачной съёмки!')
     }
     title, time_text, client_tip, photographer_tip = labels[reminder_type]
+    if real_time_text and reminder_type in ('5h', '1h'):
+        title = f"Съёмка {real_time_text}"
 
     client_msg = f"""⏰ {title}!
 
@@ -486,7 +507,7 @@ def handler(event, context):
                             'isBase64Encoded': False
                         }
 
-                    result = send_reminder(rtype, dict(proj), client_data, photographer_data, creds, tz_label)
+                    result = send_reminder(rtype, dict(proj), client_data, photographer_data, creds, tz_label, hours_until)
                     log_reminder(conn, proj['project_id'], rtype, 'both', True)
                     print(f"[IMMEDIATE] Sent {rtype} reminder for project {proj['project_id']}, {hours_until:.1f}h until shooting")
 
@@ -589,7 +610,7 @@ def handler(event, context):
 
                 for reminder_type in pending:
                     try:
-                        result = send_reminder(reminder_type, project_data, client_data, photographer_data, creds, tz_label)
+                        result = send_reminder(reminder_type, project_data, client_data, photographer_data, creds, tz_label, hours_until)
                         log_reminder(conn, proj['project_id'], reminder_type, 'both', True)
                         results['reminders_sent'].append({
                             'project_id': proj['project_id'],

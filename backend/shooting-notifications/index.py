@@ -106,6 +106,20 @@ def create_telegram_invite(conn, client_id: int, photographer_id: int, client_ph
     return f"https://t.me/{BOT_USERNAME}?start={invite_code}"
 
 
+def format_duration(minutes) -> str:
+    """Форматировать длительность в часы и минуты"""
+    if not minutes:
+        return "2 ч"
+    minutes = int(minutes)
+    if minutes < 60:
+        return f"{minutes} мин"
+    hours = minutes // 60
+    remaining = minutes % 60
+    if remaining == 0:
+        return f"{hours} ч"
+    return f"{hours} ч {remaining} мин"
+
+
 def format_date_ru(date_str: str) -> str:
     """Форматировать дату в русский формат (15 января 2025)"""
     try:
@@ -148,9 +162,8 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     project_name = project_data.get('name', 'Съёмка')
     description = project_data.get('description', '')
     duration_minutes = project_data.get('shooting_duration', 120)
-    duration_hours = int(duration_minutes / 60) if duration_minutes else 2
+    duration_str = format_duration(duration_minutes)
     
-    # Получаем стиль съёмки
     shooting_style = project_data.get('shooting_style_name', '')
     
     message_parts = [
@@ -159,7 +172,7 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
         f"🎬 Услуга: {project_name}",
         f"📅 Дата: {date_str}",
         f"🕐 Время: {time_str}",
-        f"⏱ Длительность: {duration_hours} ч",
+        f"⏱ Длительность: {duration_str}",
         f"📍 Место: {address}"
     ]
     
@@ -276,9 +289,8 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
     description = project_data.get('description', '')
     budget = float(project_data.get('budget', 0))
     duration_minutes = project_data.get('shooting_duration', 120)
-    duration_hours = int(duration_minutes / 60) if duration_minutes else 2
+    duration_str = format_duration(duration_minutes)
     
-    # Получаем стиль съёмки
     shooting_style = project_data.get('shooting_style_name', '')
     
     message_parts = [
@@ -286,7 +298,7 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
         "",
         f"📅 Дата съёмки: {date_str}",
         f"🕐 Время: {time_str}",
-        f"⏱ Длительность: {duration_hours} ч",
+        f"⏱ Длительность: {duration_str}",
         f"📍 Место: {shooting_address}"
     ]
     
