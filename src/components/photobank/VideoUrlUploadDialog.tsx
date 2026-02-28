@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,29 @@ interface VideoInfo {
   ext: string;
 }
 
+interface UploadStage {
+  label: string;
+  icon: string;
+  progressRange: [number, number];
+}
+
+const UPLOAD_STAGES: UploadStage[] = [
+  { label: 'Скачиваю видео с источника...', icon: 'Download', progressRange: [0, 55] },
+  { label: 'Обрабатываю файл...', icon: 'Cog', progressRange: [55, 75] },
+  { label: 'Загружаю в хранилище...', icon: 'CloudUpload', progressRange: [75, 92] },
+  { label: 'Сохраняю в фотобанк...', icon: 'Database', progressRange: [92, 98] },
+];
+
+function estimateDurationSec(filesize: number): number {
+  if (!filesize || filesize <= 0) return 60;
+  const mb = filesize / 1048576;
+  if (mb < 10) return 15;
+  if (mb < 50) return 30;
+  if (mb < 100) return 60;
+  if (mb < 300) return 120;
+  return 180;
+}
+
 export default function VideoUrlUploadDialog({
   open,
   onOpenChange,
@@ -36,6 +59,12 @@ export default function VideoUrlUploadDialog({
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState('');
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [currentStageIdx, setCurrentStageIdx] = useState(0);
+  const [uploadDone, setUploadDone] = useState(false);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef(0);
+  const estimatedDurRef = useRef(60);
   const { toast } = useToast();
 
   const supportedSources = [
@@ -44,6 +73,50 @@ export default function VideoUrlUploadDialog({
     'Прямые ссылки (.mp4, .mov)',
     'Файлообменники', 'M3U8'
   ];
+
+  const stopProgressTimer = useCallback(() => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+  }, []);
+
+  const startProgressTimer = useCallback((filesize: number) => {
+    stopProgressTimer();
+    const dur = estimateDurationSec(filesize);
+    estimatedDurRef.current = dur;
+    startTimeRef.current = Date.now();
+    setProgress(0);
+    setCurrentStageIdx(0);
+    setUploadDone(false);
+
+    progressTimerRef.current = setInterval(() => {
+      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      const ratio = Math.min(elapsed / estimatedDurRef.current, 1);
+      const eased = 1 - Math.pow(1 - ratio, 2.5);
+      const pct = Math.min(eased * 96, 96);
+
+      setProgress(pct);
+
+      const stageIdx = UPLOAD_STAGES.findIndex(
+        (s) => pct >= s.progressRange[0] && pct < s.progressRange[1]
+      );
+      if (stageIdx >= 0) setCurrentStageIdx(stageIdx);
+      else if (pct >= 92) setCurrentStageIdx(3);
+    }, 200);
+  }, [stopProgressTimer]);
+
+  const finishProgress = useCallback(() => {
+    stopProgressTimer();
+    setProgress(100);
+    setCurrentStageIdx(-1);
+    setUploadDone(true);
+    setTimeout(() => setUploadDone(false), 2000);
+  }, [stopProgressTimer]);
+
+  useEffect(() => {
+    return () => stopProgressTimer();
+  }, [stopProgressTimer]);
 
   const handleExtract = async () => {
     if (!url.trim()) {
@@ -98,6 +171,7 @@ export default function VideoUrlUploadDialog({
   const handleUploadToS3 = async () => {
     setLoading(true);
     setError('');
+    startProgressTimer(videoInfo?.filesize || 0);
 
     try {
       const response = await fetch(func2url['video-url-upload'], {
@@ -116,16 +190,22 @@ export default function VideoUrlUploadDialog({
         throw new Error(data.error || 'Ошибка загрузки видео');
       }
 
+      finishProgress();
+
       toast({
         title: 'Видео загружено в фотобанк!',
         description: `Файл: ${data.filename}`,
         duration: 4000
       });
 
-      resetState();
-      onOpenChange(false);
-      onSuccess?.();
+      setTimeout(() => {
+        resetState();
+        onOpenChange(false);
+        onSuccess?.();
+      }, 1200);
     } catch (err) {
+      stopProgressTimer();
+      setProgress(0);
       const msg = err instanceof Error ? err.message : 'Не удалось загрузить видео';
       setError(msg);
       toast({ variant: 'destructive', title: 'Ошибка', description: msg });
@@ -138,6 +218,10 @@ export default function VideoUrlUploadDialog({
     setUrl('');
     setError('');
     setVideoInfo(null);
+    setProgress(0);
+    setCurrentStageIdx(0);
+    setUploadDone(false);
+    stopProgressTimer();
   };
 
   const handleClose = () => {
@@ -161,6 +245,7 @@ export default function VideoUrlUploadDialog({
   };
 
   const isProcessing = loading || extracting;
+  const currentStage = UPLOAD_STAGES[currentStageIdx] || null;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -242,34 +327,87 @@ export default function VideoUrlUploadDialog({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Button
-                  onClick={handleDownloadToDevice}
-                  variant="outline"
-                  className="w-full"
-                  disabled={isProcessing}
-                >
-                  <Icon name="Download" size={16} className="mr-2" />
-                  Скачать на устройство
-                </Button>
-                <Button
-                  onClick={handleUploadToS3}
-                  className="w-full"
-                  disabled={isProcessing}
-                >
-                  {loading ? (
-                    <>
-                      <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-                      Загрузка...
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="CloudUpload" size={16} className="mr-2" />
-                      В фотобанк
-                    </>
+              {!loading && !uploadDone && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button
+                    onClick={handleDownloadToDevice}
+                    variant="outline"
+                    className="w-full"
+                    disabled={isProcessing}
+                  >
+                    <Icon name="Download" size={16} className="mr-2" />
+                    Скачать на устройство
+                  </Button>
+                  <Button
+                    onClick={handleUploadToS3}
+                    className="w-full"
+                    disabled={isProcessing}
+                  >
+                    <Icon name="CloudUpload" size={16} className="mr-2" />
+                    В фотобанк
+                  </Button>
+                </div>
+              )}
+
+              {(loading || uploadDone) && (
+                <div className="space-y-2">
+                  <div className="relative w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`absolute inset-y-0 left-0 rounded-full transition-all duration-300 ease-out ${
+                        uploadDone
+                          ? 'bg-green-500'
+                          : 'bg-blue-500'
+                      }`}
+                      style={{ width: `${progress}%` }}
+                    />
+                    {loading && !uploadDone && (
+                      <div
+                        className="absolute inset-y-0 rounded-full bg-gradient-to-r from-transparent via-white/25 to-transparent animate-pulse"
+                        style={{
+                          left: `${Math.max(0, progress - 15)}%`,
+                          width: '15%'
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {uploadDone ? (
+                        <>
+                          <Icon name="CheckCircle2" size={14} className="text-green-500 flex-shrink-0" />
+                          <span className="text-xs font-medium text-green-600 truncate">
+                            Готово!
+                          </span>
+                        </>
+                      ) : currentStage ? (
+                        <>
+                          <Icon
+                            name={currentStage.icon}
+                            size={14}
+                            className="text-blue-500 flex-shrink-0 animate-pulse"
+                          />
+                          <span className="text-xs text-muted-foreground truncate">
+                            {currentStage.label}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                    <span className={`text-xs font-mono tabular-nums flex-shrink-0 ml-2 ${
+                      uploadDone ? 'text-green-600' : 'text-muted-foreground'
+                    }`}>
+                      {Math.round(progress)}%
+                    </span>
+                  </div>
+
+                  {loading && videoInfo.filesize > 0 && (
+                    <p className="text-[10px] text-muted-foreground/60">
+                      ~ {formatSize(videoInfo.filesize)} — обычно {estimatedDurRef.current < 30 ? 'до 30 сек' :
+                        estimatedDurRef.current < 90 ? '1-2 мин' : '2-3 мин'}
+                    </p>
                   )}
-                </Button>
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -285,18 +423,6 @@ export default function VideoUrlUploadDialog({
                     {source}
                   </span>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {loading && (
-            <div className="flex items-center gap-3 p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30">
-              <Icon name="Loader2" size={20} className="animate-spin text-blue-600" />
-              <div>
-                <p className="text-sm font-medium">Скачиваю и загружаю в фотобанк...</p>
-                <p className="text-xs text-muted-foreground">
-                  Это может занять 1-3 минуты в зависимости от размера видео
-                </p>
               </div>
             </div>
           )}
