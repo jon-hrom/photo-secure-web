@@ -351,6 +351,7 @@ def handle_upload(url, user_id, folder_id, format_id='', audio_only=False):
 
 def build_qualities(info):
     fmts = info.get('formats') or []
+
     combined = [
         f for f in fmts
         if f.get('vcodec', 'none') != 'none'
@@ -358,21 +359,13 @@ def build_qualities(info):
         and f.get('url')
     ]
 
-    video_only = [
-        f for f in fmts
-        if f.get('vcodec', 'none') != 'none'
-        and f.get('acodec', 'none') == 'none'
-        and f.get('url')
-    ]
-
-    has_audio_tracks = any(
-        f.get('acodec', 'none') != 'none' and f.get('vcodec', 'none') == 'none'
-        for f in fmts
-    )
-
     candidates = combined[:]
-    if has_audio_tracks:
-        candidates.extend(video_only)
+
+    if not candidates:
+        candidates = [
+            f for f in fmts
+            if f.get('vcodec', 'none') != 'none' and f.get('url')
+        ]
 
     seen = {}
     for f in candidates:
@@ -568,7 +561,7 @@ def ytdlp_download(url, output_dir, format_id='', audio_only=False):
     template = os.path.join(output_dir, '%(title).80s.%(ext)s')
 
     if audio_only:
-        fmt_str = 'bestaudio[ext=m4a]/bestaudio/best'
+        fmt_str = 'bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best'
         opts = {
             'format': fmt_str,
             'outtmpl': template,
@@ -581,17 +574,23 @@ def ytdlp_download(url, output_dir, format_id='', audio_only=False):
             'nocheckcertificate': True,
             'cachedir': False,
             'no_color': True,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
         }
     else:
         if format_id:
-            fmt_str = f'{format_id}+bestaudio[ext=m4a]/best[ext=mp4]/best'
+            fmt_str = (
+                f'{format_id}'
+                '/best[vcodec!=none][acodec!=none][ext=mp4][filesize<500M]'
+                '/best[vcodec!=none][acodec!=none][ext=mp4]'
+                '/best[vcodec!=none][acodec!=none]'
+                '/best[ext=mp4]/best'
+            )
         else:
-            fmt_str = 'best[ext=mp4][filesize<500M]/best[ext=mp4]/best[filesize<500M]/best'
+            fmt_str = (
+                'best[vcodec!=none][acodec!=none][ext=mp4][filesize<500M]'
+                '/best[vcodec!=none][acodec!=none][ext=mp4]'
+                '/best[vcodec!=none][acodec!=none]'
+                '/best[ext=mp4]/best'
+            )
 
         opts = {
             'format': fmt_str,
@@ -605,7 +604,6 @@ def ytdlp_download(url, output_dir, format_id='', audio_only=False):
             'nocheckcertificate': True,
             'cachedir': False,
             'no_color': True,
-            'merge_output_format': 'mp4',
         }
 
     if is_youtube_url(url):
