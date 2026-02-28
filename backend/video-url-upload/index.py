@@ -92,7 +92,7 @@ def handler(event: dict, context) -> dict:
     format_id = body.get('format_id', '')
 
     if mode == 'device_download':
-        return handle_device_download(url, format_id, audio_only)
+        return handle_device_download(url, user_id, folder_id, format_id, audio_only)
 
     return handle_upload(url, user_id, folder_id, format_id, audio_only)
 
@@ -130,9 +130,31 @@ def handle_extract(url, audio_only=False):
     return resp(400, {'error': 'Не удалось получить ссылку на видео. Попробуйте прямую ссылку на файл.'})
 
 
-def handle_device_download(url, format_id='', audio_only=False):
+def handle_device_download(url, user_id, folder_id, format_id='', audio_only=False):
+    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     tmp = tempfile.mkdtemp()
+
     try:
+        if not folder_id:
+            name = datetime.now().strftime('Видео %d.%m.%Y %H:%M')
+            prefix = f'videos/{user_id}/{int(datetime.now().timestamp())}/'
+            cur.execute(
+                '''INSERT INTO t_p28211681_photo_secure_web.photo_folders
+                   (user_id, folder_name, s3_prefix, folder_type, created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, NOW(), NOW()) RETURNING id''',
+                (user_id, name, prefix, 'originals')
+            )
+            folder_id = cur.fetchone()['id']
+            conn.commit()
+
+        cur.execute(
+            'SELECT s3_prefix FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s',
+            (folder_id,)
+        )
+        row = cur.fetchone()
+        s3_prefix = row['s3_prefix'] if row else f'videos/{user_id}/{int(datetime.now().timestamp())}/'
+
         filepath, filename = download_video(url, tmp, format_id, audio_only)
         fsize = os.path.getsize(filepath)
         if fsize > MAX_FILE_SIZE:
@@ -147,33 +169,43 @@ def handle_device_download(url, format_id='', audio_only=False):
             config=Config(signature_version='s3v4')
         )
 
-        temp_key = f'tmp_downloads/{int(datetime.now().timestamp())}_{filename}'
-        ctype = 'audio/mpeg' if audio_only else 'video/mp4'
-        if filename.endswith('.webm'):
-            ctype = 'video/webm'
-        elif filename.endswith('.mov'):
-            ctype = 'video/quicktime'
+        s3_key = f'{s3_prefix}{filename}'
+        is_audio = audio_only or filename.endswith(('.mp3', '.m4a', '.ogg', '.opus', '.wav'))
+        ctype = get_content_type(filename, is_audio)
 
         with open(filepath, 'rb') as f:
-            s3.put_object(Bucket='foto-mix', Key=temp_key, Body=f, ContentType=ctype)
+            s3.put_object(Bucket='foto-mix', Key=s3_key, Body=f, ContentType=ctype)
+
+        s3_url = f'https://storage.yandexcloud.net/foto-mix/{s3_key}'
+
+        cur.execute(
+            '''INSERT INTO t_p28211681_photo_secure_web.photo_bank
+               (user_id, folder_id, file_name, s3_key, s3_url, file_size, is_video, content_type)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
+            (user_id, folder_id, filename, s3_key, s3_url, fsize, not is_audio, ctype)
+        )
+        vid = cur.fetchone()['id']
+        conn.commit()
 
         presigned_url = s3.generate_presigned_url(
             'get_object',
             Params={
                 'Bucket': 'foto-mix',
-                'Key': temp_key,
+                'Key': s3_key,
                 'ResponseContentDisposition': f'attachment; filename="{filename}"',
                 'ResponseContentType': ctype,
             },
             ExpiresIn=600,
         )
 
-        print(f'[DEVICE_DL] Generated presigned URL for {filename} ({fsize} bytes)')
+        print(f'[DEVICE_DL] Saved to photobank id={vid}, presigned for {filename} ({fsize} bytes)')
         return resp(200, {
             'success': True,
             'download_url': presigned_url,
             'filename': filename,
             'size': fsize,
+            'video_id': vid,
+            'folder_id': folder_id,
         })
 
     except Exception as e:
@@ -182,7 +214,22 @@ def handle_device_download(url, format_id='', audio_only=False):
         print(traceback.format_exc())
         return resp(400, {'error': friendly_error(str(e))})
     finally:
+        cur.close()
+        conn.close()
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def get_content_type(filename, is_audio=False):
+    if is_audio:
+        if filename.endswith('.mp3'): return 'audio/mpeg'
+        if filename.endswith('.m4a'): return 'audio/mp4'
+        if filename.endswith(('.ogg', '.opus')): return 'audio/ogg'
+        if filename.endswith('.wav'): return 'audio/wav'
+        return 'audio/mpeg'
+    if filename.endswith('.webm'): return 'video/webm'
+    if filename.endswith('.ts'): return 'video/mp2t'
+    if filename.endswith('.mov'): return 'video/quicktime'
+    return 'video/mp4'
 
 
 def handle_upload(url, user_id, folder_id, format_id='', audio_only=False):
@@ -226,25 +273,8 @@ def handle_upload(url, user_id, folder_id, format_id='', audio_only=False):
         )
 
         s3_key = f'{s3_prefix}{filename}'
-        ctype = 'video/mp4'
         is_audio = audio_only or filename.endswith(('.mp3', '.m4a', '.ogg', '.opus', '.wav'))
-        if is_audio:
-            if filename.endswith('.mp3'):
-                ctype = 'audio/mpeg'
-            elif filename.endswith('.m4a'):
-                ctype = 'audio/mp4'
-            elif filename.endswith('.ogg') or filename.endswith('.opus'):
-                ctype = 'audio/ogg'
-            elif filename.endswith('.wav'):
-                ctype = 'audio/wav'
-            else:
-                ctype = 'audio/mpeg'
-        elif filename.endswith('.webm'):
-            ctype = 'video/webm'
-        elif filename.endswith('.ts'):
-            ctype = 'video/mp2t'
-        elif filename.endswith('.mov'):
-            ctype = 'video/quicktime'
+        ctype = get_content_type(filename, is_audio)
 
         with open(filepath, 'rb') as f:
             s3.put_object(Bucket='foto-mix', Key=s3_key, Body=f, ContentType=ctype)
