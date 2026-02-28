@@ -63,6 +63,7 @@ export default function VideoUrlUploadDialog({
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [uploadDone, setUploadDone] = useState(false);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const startTimeRef = useRef(0);
   const estimatedDurRef = useRef(60);
   const { toast } = useToast();
@@ -169,6 +170,8 @@ export default function VideoUrlUploadDialog({
   };
 
   const handleUploadToS3 = async () => {
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setError('');
     startProgressTimer(videoInfo?.filesize || 0);
@@ -181,7 +184,8 @@ export default function VideoUrlUploadDialog({
           url: url.trim(),
           folder_id: folderId,
           mode: 'upload'
-        })
+        }),
+        signal: controller.signal
       });
 
       const data = await response.json();
@@ -206,12 +210,26 @@ export default function VideoUrlUploadDialog({
     } catch (err) {
       stopProgressTimer();
       setProgress(0);
-      const msg = err instanceof Error ? err.message : 'Не удалось загрузить видео';
-      setError(msg);
-      toast({ variant: 'destructive', title: 'Ошибка', description: msg });
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        toast({ title: 'Загрузка отменена' });
+      } else {
+        const msg = err instanceof Error ? err.message : 'Не удалось загрузить видео';
+        setError(msg);
+        toast({ variant: 'destructive', title: 'Ошибка', description: msg });
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
+  };
+
+  const handleCancel = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    stopProgressTimer();
+    setProgress(0);
+    setLoading(false);
   };
 
   const resetState = () => {
@@ -393,11 +411,21 @@ export default function VideoUrlUploadDialog({
                         </>
                       ) : null}
                     </div>
-                    <span className={`text-xs font-mono tabular-nums flex-shrink-0 ml-2 ${
-                      uploadDone ? 'text-green-600' : 'text-muted-foreground'
-                    }`}>
-                      {Math.round(progress)}%
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <span className={`text-xs font-mono tabular-nums ${
+                        uploadDone ? 'text-green-600' : 'text-muted-foreground'
+                      }`}>
+                        {Math.round(progress)}%
+                      </span>
+                      {loading && !uploadDone && (
+                        <button
+                          onClick={handleCancel}
+                          className="text-xs text-muted-foreground hover:text-destructive transition-colors underline underline-offset-2"
+                        >
+                          Отменить
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {loading && videoInfo.filesize > 0 && (
