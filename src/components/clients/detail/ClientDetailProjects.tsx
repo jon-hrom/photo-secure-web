@@ -220,8 +220,42 @@ const ClientDetailProjects = ({
             <Badge variant="secondary" className="ml-1 text-xs">{archivedProjects.length}</Badge>
           </button>
           {isArchiveOpen && (
-            <div className="mt-2 opacity-75">
-              {renderProjectList(archivedProjects)}
+            <div className="mt-2 space-y-3">
+              {[...archivedProjects].reverse().map((project) => (
+                <div key={`archive-${project.id}`} className="relative opacity-75 hover:opacity-100 transition-opacity">
+                  <ProjectCard
+                    project={project}
+                    isExpanded={expandedProjects[project.id] || false}
+                    selectorKey={selectorKeys[project.id] || 0}
+                    animateKey={animateKeys[project.id] || 0}
+                    projectPaid={getProjectPaid(project.id)}
+                    projectRemaining={getProjectRemaining(project.id, project.budget)}
+                    statusBadge={getStatusBadge(project.status)}
+                    onToggleExpand={() => setExpandedProjects(prev => ({ ...prev, [project.id]: !prev[project.id] }))}
+                    onDelete={() => handleDeleteProject(project.id)}
+                    onUpdateProject={(updates) => handleUpdateProject(project.id, updates)}
+                    onUpdateStatus={(status) => updateProjectStatus(project.id, status)}
+                    onUpdateDate={(date) => updateProjectDate(project.id, date)}
+                    onShootingStyleChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
+                    onTouchStart={(e) => handleTouchStart(e, project.id)}
+                    onTouchEnd={(e) => handleTouchEnd(e, project.id)}
+                  />
+                  {!expandedProjects[project.id] && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-3 right-12 text-xs gap-1 bg-background"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateProjectStatus(project.id, 'in_progress');
+                      }}
+                    >
+                      <Icon name="RotateCcw" size={14} />
+                      Восстановить
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

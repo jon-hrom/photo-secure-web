@@ -189,11 +189,6 @@ export const useClientsHandlers = ({
         }
         
         if (isDuplicate) {
-
-          toast.info('Клиент с такими данными уже существует', {
-            description: 'Открываю карточку существующего клиента'
-          });
-          // Очищаем форму сразу, чтобы при последующем UPDATE не перезаписать данные клиента
           setNewClient({ name: '', phone: '', email: '', address: '', vkProfile: '', vkUsername: '', birthdate: '' });
         } else {
 
@@ -299,7 +294,21 @@ export const useClientsHandlers = ({
                 }))
               };
               
-              // Обновляем список клиентов в фоне
+              const existingProjects = existingClient.projects || [];
+              const hasActive = existingProjects.some(p => p.status !== 'completed' && p.status !== 'cancelled');
+              const hasArchived = existingProjects.some(p => p.status === 'completed' || p.status === 'cancelled');
+
+              if (!hasActive && hasArchived) {
+                toast.info('Клиент найден в архиве', {
+                  description: 'Все проекты завершены. Можно восстановить проекты или создать новый',
+                  duration: 6000
+                });
+              } else {
+                toast.info('Клиент с такими данными уже существует', {
+                  description: 'Открываю карточку существующего клиента'
+                });
+              }
+
               loadClients();
               
               return existingClient;
