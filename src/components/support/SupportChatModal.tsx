@@ -114,9 +114,11 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
   };
 
   const formatTime = (dateStr: string) => {
-    const raw = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
-    const d = new Date(raw);
-    return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const cleaned = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+    const d = new Date(cleaned);
+    if (isNaN(d.getTime())) return dateStr;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
   if (!isOpen) return null;
