@@ -264,6 +264,9 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
         )
         send_email_notification(client_email, subject, html)
 
+    print(f'[PAYMENT_NOTIF] Photographer data: phone={photographer_phone}, email={photographer_email}, tg={photographer_telegram_chat_id}, green_api={bool(green_api_instance_id)}, green_token={bool(green_api_token)}')
+    print(f'[PAYMENT_NOTIF] Client data: phone={client_phone}, email={client_email}, tg={telegram_chat_id}')
+
     photographer_wa_message = f"""📸 Подтверждение оплаты
 
 👤 Клиент: {client_name}
