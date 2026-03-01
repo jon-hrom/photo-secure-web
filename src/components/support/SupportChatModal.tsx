@@ -91,8 +91,12 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
       });
       const data = await res.json();
       if (data.success && data.message) {
-        setMessages(prev => [...prev, data.message]);
-        prevCountRef.current += 1;
+        const newMsgs = [data.message];
+        if (data.auto_reply) {
+          newMsgs.push(data.auto_reply);
+        }
+        setMessages(prev => [...prev, ...newMsgs]);
+        prevCountRef.current += newMsgs.length;
       }
     } catch (err) {
       console.error('[SUPPORT] send error:', err);
