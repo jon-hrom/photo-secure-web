@@ -9,17 +9,18 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Add payment",
+      "name": "Add payment - access check",
       "method": "POST",
       "path": "/",
       "body": {
         "userId": "test-user-123",
-        "projectId": 1,
+        "projectId": 999999,
         "amount": 10000,
         "method": "cash",
         "date": "2024-01-01"
       },
-      "expectedStatus": 200,
+      "expectedStatus": 403,
+      "expectedBody": {"error": "Access denied"},
       "bodyMatcher": "partial"
     }
   ]

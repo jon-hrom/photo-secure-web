@@ -48,6 +48,7 @@
   "user-settings": "https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994",
   "google-auth": "https://functions.poehali.dev/a362a521-0759-4577-adbf-7960bf063100",
   "max": "https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d",
+  "payments": "https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f",
   "apply-promo": "https://functions.poehali.dev/233b546e-1cf3-4a9e-8de2-36d84c8931e8",
   "clients": "https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d",
   "photobank-folders": "https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc",
