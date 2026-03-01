@@ -524,6 +524,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         amount = body_data.get('amount')
         method_type = body_data.get('method', 'cash')
         date = body_data.get('date')
+        skip_insert = body_data.get('skipInsert', False)
 
         if not user_id or not project_id or not amount:
             return {
@@ -536,20 +537,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         try:
             with conn.cursor() as cur:
-                cur.execute(f'''
-                    SELECT 1 FROM {DB_SCHEMA}.client_projects p
-                    JOIN {DB_SCHEMA}.clients c ON p.client_id = c.id
-                    WHERE p.id = %s AND c.user_id = %s
-                ''', (project_id, user_id))
-
-                if not cur.fetchone():
-                    return {
-                        'statusCode': 403,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'error': 'Access denied'}),
-                        'isBase64Encoded': False
-                    }
-
                 cur.execute(f'''
                     SELECT c.id as client_id
                     FROM {DB_SCHEMA}.client_projects p
@@ -567,16 +554,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
 
                 client_id = client_row[0]
+                payment_id = None
 
-                cur.execute(f'''
-                    INSERT INTO {DB_SCHEMA}.client_payments (project_id, client_id, amount, method, payment_date)
-                    VALUES (%s, %s, %s, %s, %s)
-                    RETURNING id
-                ''', (project_id, client_id, amount, method_type, date))
+                if not skip_insert:
+                    cur.execute(f'''
+                        SELECT 1 FROM {DB_SCHEMA}.client_projects p
+                        JOIN {DB_SCHEMA}.clients c ON p.client_id = c.id
+                        WHERE p.id = %s AND c.user_id = %s
+                    ''', (project_id, user_id))
 
-                payment_id = cur.fetchone()[0]
-                conn.commit()
+                    if not cur.fetchone():
+                        return {
+                            'statusCode': 403,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Access denied'}),
+                            'isBase64Encoded': False
+                        }
 
+                    cur.execute(f'''
+                        INSERT INTO {DB_SCHEMA}.client_payments (project_id, client_id, amount, method, payment_date)
+                        VALUES (%s, %s, %s, %s, %s)
+                        RETURNING id
+                    ''', (project_id, client_id, amount, method_type, date))
+
+                    payment_id = cur.fetchone()[0]
+                    conn.commit()
+
+                print(f'[PAYMENT_NOTIF] Sending notifications: user={user_id}, client={client_id}, project={project_id}, amount={amount}, method={method_type}, skipInsert={skip_insert}')
                 try:
                     send_payment_notifications(cur, str(user_id), client_id, int(project_id), float(amount), method_type)
                 except Exception as e:
@@ -585,7 +589,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'success': True, 'id': payment_id}),
+                    'body': json.dumps({'success': True, 'id': payment_id, 'notificationsSent': True}),
                     'isBase64Encoded': False
                 }
         finally:

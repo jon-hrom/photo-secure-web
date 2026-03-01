@@ -19,8 +19,8 @@
         "method": "cash",
         "date": "2024-01-01"
       },
-      "expectedStatus": 403,
-      "expectedBody": {"error": "Access denied"},
+      "expectedStatus": 404,
+      "expectedBody": {"error": "Project not found"},
       "bodyMatcher": "partial"
     }
   ]

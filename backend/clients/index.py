@@ -1086,10 +1086,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if ids_to_delete:
                     cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_payments WHERE id = ANY(%s)', (list(ids_to_delete),))
                 
-                # Вставляем или обновляем платежи
+                new_payment_ids = []
                 for payment in body.get('payments', []):
                     payment_date_str = payment.get('date')
-                    # Парсим дату из ISO строки или YYYY-MM-DD формата
                     if payment_date_str:
                         try:
                             if 'T' in payment_date_str:
@@ -1121,6 +1120,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         payment.get('description'),
                         payment.get('projectId')
                     ))
+                    
+                    if payment.get('id') not in existing_ids:
+                        new_payment_ids.append(payment)
+
+                for new_pay in new_payment_ids:
+                    try:
+                        pay_amount = float(new_pay.get('amount', 0))
+                        pay_method = new_pay.get('method', 'cash')
+                        pay_project_id = new_pay.get('projectId')
+                        if pay_project_id and pay_amount > 0:
+                            payments_url = 'https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f'
+                            requests.post(payments_url, json={
+                                'userId': photographer_id,
+                                'projectId': pay_project_id,
+                                'amount': pay_amount,
+                                'method': pay_method,
+                                'date': new_pay.get('date'),
+                                'skipInsert': True
+                            }, headers={'Content-Type': 'application/json'}, timeout=15)
+                            print(f'[PAYMENT_NOTIF] Triggered notifications for new payment: amount={pay_amount}, project={pay_project_id}')
+                    except Exception as e:
+                        print(f'[PAYMENT_NOTIF] Error triggering notifications: {e}')
             
             # Обновляем возвраты (upsert)
             if 'refunds' in body:
