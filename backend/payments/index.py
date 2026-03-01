@@ -168,7 +168,7 @@ def get_client_project_data(cur, client_id: int, project_id: int):
             c.name as client_name,
             p.name as project_name,
             p.budget,
-            u.full_name as photographer_name,
+            COALESCE(u.display_name, u.name, u.email) as photographer_name,
             u.phone as photographer_phone,
             u.green_api_instance_id,
             u.green_api_token,
