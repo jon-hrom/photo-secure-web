@@ -575,17 +575,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
 
-                refund_amount = float(payment_row[0])
-                project_id = payment_row[1]
-                client_id = payment_row[2]
-
                 cur.execute(f'DELETE FROM {DB_SCHEMA}.client_payments WHERE id = %s', (payment_id,))
                 conn.commit()
-
-                try:
-                    send_refund_notifications(cur, str(user_id), client_id, project_id, refund_amount)
-                except Exception as e:
-                    print(f'[REFUND_NOTIF] Notification error (non-critical): {e}')
 
                 return {
                     'statusCode': 200,
