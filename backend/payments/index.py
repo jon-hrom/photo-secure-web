@@ -171,7 +171,9 @@ def get_client_project_data(cur, client_id: int, project_id: int):
             u.full_name as photographer_name,
             u.phone as photographer_phone,
             u.green_api_instance_id,
-            u.green_api_token
+            u.green_api_token,
+            u.email as photographer_email,
+            u.telegram_chat_id as photographer_telegram_chat_id
         FROM {DB_SCHEMA}.clients c
         JOIN {DB_SCHEMA}.client_projects p ON p.client_id = c.id AND p.id = %s
         JOIN {DB_SCHEMA}.users u ON c.user_id = u.id
@@ -197,6 +199,8 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
     photographer_phone = row[7] or ''
     green_api_instance_id = row[8] or ''
     green_api_token = row[9] or ''
+    photographer_email = row[10] or ''
+    photographer_telegram_chat_id = row[11] or ''
 
     cur.execute(f'''
         SELECT COALESCE(SUM(amount), 0)
@@ -259,6 +263,48 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
             total_paid, total_budget, remaining, method
         )
         send_email_notification(client_email, subject, html)
+
+    photographer_wa_message = f"""📸 Подтверждение оплаты
+
+👤 Клиент: {client_name}
+📋 Услуга: {project_name}
+
+💳 Внесено: {payment_amount:,.0f} ₽ ({format_method_name(method)})
+
+📊 Итого по оплате:
+━━━━━━━━━━━━━━━━
+💰 Общая стоимость: {total_budget:,.0f} ₽
+✅ Оплачено всего: {total_paid:,.0f} ₽
+{"✅ Полностью оплачено!" if is_fully_paid else f"⏳ Остаток к оплате: {remaining:,.0f} ₽"}
+━━━━━━━━━━━━━━━━
+
+—
+Сообщение сформировано автоматически системой учёта клиентов для фотографов foto-mix.ru"""
+
+    if photographer_phone:
+        send_whatsapp_notification(user_id, photographer_phone, photographer_wa_message, green_api_instance_id, green_api_token)
+
+    if photographer_telegram_chat_id:
+        photographer_tg_message = f"""📸 <b>Подтверждение оплаты</b>
+
+👤 Клиент: {client_name}
+📋 Услуга: {project_name}
+
+💳 Внесено: <b>{payment_amount:,.0f} ₽</b> ({format_method_name(method)})
+
+📊 <b>Итого по оплате:</b>
+💰 Общая стоимость: {total_budget:,.0f} ₽
+✅ Оплачено всего: <b>{total_paid:,.0f} ₽</b>
+{"✅ Полностью оплачено!" if is_fully_paid else f"⏳ Остаток к оплате: <b>{remaining:,.0f} ₽</b>"}"""
+        send_telegram_notification(photographer_telegram_chat_id, photographer_tg_message)
+
+    if photographer_email:
+        photographer_subject = f"📸 Подтверждение оплаты — {client_name}"
+        photographer_html = build_payment_email_html(
+            client_name, project_name, payment_amount,
+            total_paid, total_budget, remaining, method
+        )
+        send_email_notification(photographer_email, photographer_subject, photographer_html)
 
 
 def build_refund_email_html(photographer_name: str, project_name: str, refund_amount: float, total_paid: float, total_budget: float, remaining: float) -> str:
