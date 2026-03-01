@@ -114,8 +114,9 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
   };
 
   const formatTime = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const raw = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+    const d = new Date(raw);
+    return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   if (!isOpen) return null;
