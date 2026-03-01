@@ -158,8 +158,8 @@ def build_payment_email_html(photographer_name: str, project_name: str, payment_
 </html>"""
 
 
-def send_payment_notifications(cur, user_id: str, client_id: int, project_id: int, payment_amount: float, method: str):
-    """Отправить уведомления о платеже по всем каналам (WhatsApp, Telegram, Email)"""
+def get_client_project_data(cur, client_id: int, project_id: int):
+    """Получить данные клиента, проекта и фотографа"""
     cur.execute(f'''
         SELECT 
             c.phone,
@@ -177,8 +177,12 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
         JOIN {DB_SCHEMA}.users u ON c.user_id = u.id
         WHERE c.id = %s
     ''', (project_id, client_id))
+    return cur.fetchone()
 
-    row = cur.fetchone()
+
+def send_payment_notifications(cur, user_id: str, client_id: int, project_id: int, payment_amount: float, method: str):
+    """Отправить уведомления о платеже по всем каналам (WhatsApp, Telegram, Email)"""
+    row = get_client_project_data(cur, client_id, project_id)
     if not row:
         print('[PAYMENT_NOTIF] No client/project data found')
         return
@@ -253,6 +257,160 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
         html = build_payment_email_html(
             photographer_name, project_name, payment_amount,
             total_paid, total_budget, remaining, method
+        )
+        send_email_notification(client_email, subject, html)
+
+
+def build_refund_email_html(photographer_name: str, project_name: str, refund_amount: float, total_paid: float, total_budget: float, remaining: float) -> str:
+    """HTML шаблон письма о возврате средств"""
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #1a1a1a; }}
+    .container {{ max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 40px 20px; }}
+    .header {{ text-align: center; margin-bottom: 30px; color: #ffffff; }}
+    .header h1 {{ margin: 0; font-size: 28px; font-weight: 600; }}
+    .icon {{ font-size: 48px; margin-bottom: 15px; }}
+    .info-block {{ border-radius: 12px; padding: 20px 25px; margin: 12px 0; }}
+    .green {{ background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }}
+    .blue {{ background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }}
+    .purple {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }}
+    .orange {{ background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%); }}
+    .info-label {{ font-weight: 600; color: #ffffff; margin-bottom: 8px; font-size: 14px; opacity: 0.95; }}
+    .info-value {{ color: #ffffff; font-size: 18px; font-weight: 500; line-height: 1.4; }}
+    .summary {{ background: linear-gradient(135deg, #232526 0%, #414345 100%); border: 1px solid #555; border-radius: 12px; padding: 25px; margin: 20px 0; }}
+    .summary-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #444; }}
+    .summary-row:last-child {{ border-bottom: none; font-weight: bold; font-size: 20px; }}
+    .summary-label {{ color: #aaa; font-size: 15px; }}
+    .summary-value {{ color: #ffffff; font-size: 15px; font-weight: 600; }}
+    .refund-highlight {{ color: #ffd200; font-size: 24px !important; }}
+    .remaining {{ color: #fee140; font-size: 20px !important; }}
+    .welcome {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px 25px; margin: 20px 0; text-align: center; }}
+    .welcome-text {{ color: #ffffff; font-size: 16px; line-height: 1.6; }}
+    .footer {{ margin-top: 40px; text-align: center; color: #888; font-size: 12px; line-height: 1.6; }}
+    .footer a {{ color: #667eea; text-decoration: none; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">🔄</div>
+      <h1>Возврат средств</h1>
+    </div>
+    <div class="info-block green">
+      <div class="info-label">👤 Фотограф</div>
+      <div class="info-value">{photographer_name or 'foto-mix'}</div>
+    </div>
+    <div class="info-block purple">
+      <div class="info-label">📋 Услуга</div>
+      <div class="info-value">{project_name}</div>
+    </div>
+    <div class="info-block orange">
+      <div class="info-label">🔄 Сумма возврата</div>
+      <div class="info-value">{refund_amount:,.0f} ₽</div>
+    </div>
+    <div class="summary">
+      <div class="summary-row">
+        <span class="summary-label">💰 Общая стоимость</span>
+        <span class="summary-value">{total_budget:,.0f} ₽</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">✅ Оплачено после возврата</span>
+        <span class="summary-value refund-highlight">{total_paid:,.0f} ₽</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">⏳ Остаток к оплате</span>
+        <span class="summary-value remaining">{remaining:,.0f} ₽</span>
+      </div>
+    </div>
+    <div class="welcome">
+      <div class="welcome-text">
+        Будем рады видеть вас на наших съёмках! 📸<br>
+        Если у вас есть вопросы — свяжитесь с фотографом.
+      </div>
+    </div>
+    <div class="footer">
+      Сообщение сформировано автоматически системой учёта клиентов<br>
+      <a href="https://foto-mix.ru">foto-mix.ru</a>
+    </div>
+  </div>
+</body>
+</html>"""
+
+
+def send_refund_notifications(cur, user_id: str, client_id: int, project_id: int, refund_amount: float):
+    """Отправить уведомления о возврате средств по всем каналам"""
+    row = get_client_project_data(cur, client_id, project_id)
+    if not row:
+        print('[REFUND_NOTIF] No client/project data found')
+        return
+
+    client_phone = row[0]
+    client_email = row[1]
+    telegram_chat_id = row[2]
+    client_name = row[3]
+    project_name = row[4] or 'Услуги фотографа'
+    total_budget = float(row[5] or 0)
+    photographer_name = row[6] or 'Ваш фотограф'
+    photographer_phone = row[7] or ''
+    green_api_instance_id = row[8] or ''
+    green_api_token = row[9] or ''
+
+    cur.execute(f'''
+        SELECT COALESCE(SUM(amount), 0)
+        FROM {DB_SCHEMA}.client_payments
+        WHERE project_id = %s AND client_id = %s
+    ''', (project_id, client_id))
+
+    total_paid = float(cur.fetchone()[0])
+    remaining = max(0, total_budget - total_paid)
+
+    whatsapp_message = f"""🔄 Возврат средств
+
+📋 Услуга: {project_name}
+👤 Фотограф: {photographer_name}
+
+🔄 Сумма возврата: {refund_amount:,.0f} ₽
+
+📊 Итого по оплате:
+━━━━━━━━━━━━━━━━
+💰 Общая стоимость: {total_budget:,.0f} ₽
+✅ Оплачено после возврата: {total_paid:,.0f} ₽
+⏳ Остаток к оплате: {remaining:,.0f} ₽
+━━━━━━━━━━━━━━━━
+
+Будем рады видеть вас на наших съёмках! 📸
+Если у вас есть вопросы — свяжитесь с фотографом.
+
+—
+Сообщение сформировано автоматически системой учёта клиентов для фотографов foto-mix.ru"""
+
+    if client_phone:
+        send_whatsapp_notification(user_id, client_phone, whatsapp_message, green_api_instance_id, green_api_token)
+
+    if telegram_chat_id:
+        tg_message = f"""🔄 <b>Возврат средств</b>
+
+📋 Услуга: {project_name}
+👤 Фотограф: {photographer_name}
+
+🔄 Сумма возврата: <b>{refund_amount:,.0f} ₽</b>
+
+📊 <b>Итого по оплате:</b>
+💰 Общая стоимость: {total_budget:,.0f} ₽
+✅ Оплачено после возврата: <b>{total_paid:,.0f} ₽</b>
+⏳ Остаток к оплате: <b>{remaining:,.0f} ₽</b>
+
+Будем рады видеть вас на наших съёмках! 📸"""
+        send_telegram_notification(telegram_chat_id, tg_message)
+
+    if client_email:
+        subject = f"🔄 Возврат средств — {project_name}"
+        html = build_refund_email_html(
+            photographer_name, project_name, refund_amount,
+            total_paid, total_budget, remaining
         )
         send_email_notification(client_email, subject, html)
 
@@ -401,13 +559,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             with conn.cursor() as cur:
                 cur.execute(f'''
-                    SELECT 1 FROM {DB_SCHEMA}.client_payments pay
+                    SELECT pay.amount, pay.project_id, pay.client_id
+                    FROM {DB_SCHEMA}.client_payments pay
                     JOIN {DB_SCHEMA}.client_projects p ON pay.project_id = p.id
                     JOIN {DB_SCHEMA}.clients c ON p.client_id = c.id
                     WHERE pay.id = %s AND c.user_id = %s
                 ''', (payment_id, user_id))
 
-                if not cur.fetchone():
+                payment_row = cur.fetchone()
+                if not payment_row:
                     return {
                         'statusCode': 403,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -415,8 +575,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
 
+                refund_amount = float(payment_row[0])
+                project_id = payment_row[1]
+                client_id = payment_row[2]
+
                 cur.execute(f'DELETE FROM {DB_SCHEMA}.client_payments WHERE id = %s', (payment_id,))
                 conn.commit()
+
+                try:
+                    send_refund_notifications(cur, str(user_id), client_id, project_id, refund_amount)
+                except Exception as e:
+                    print(f'[REFUND_NOTIF] Notification error (non-critical): {e}')
 
                 return {
                     'statusCode': 200,
