@@ -176,7 +176,7 @@ def get_client_project_data(cur, client_id: int, project_id: int):
             u.telegram_chat_id as photographer_telegram_chat_id
         FROM {DB_SCHEMA}.clients c
         JOIN {DB_SCHEMA}.client_projects p ON p.client_id = c.id AND p.id = %s
-        JOIN {DB_SCHEMA}.users u ON c.user_id = u.id
+        JOIN {DB_SCHEMA}.users u ON c.user_id::integer = u.id
         WHERE c.id = %s
     ''', (project_id, client_id))
     return cur.fetchone()
