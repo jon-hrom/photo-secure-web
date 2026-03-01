@@ -589,17 +589,27 @@ def handler(event: dict, context) -> dict:
                         photographer_region = photographer_data[7] or ''
                         client_name = author_name
                         
-                        # Проверяем онлайн-статус фотографа
-                        # Онлайн = last_seen_at было менее 5 минут назад
+                        # Проверяем онлайн-статус фотографа по активным сессиям
+                        # Онлайн = есть хотя бы одна валидная незакрытая сессия с активностью < 5 мин
                         photographer_is_online = False
-                        if photographer_last_seen:
-                            now_utc = datetime.utcnow()
-                            last_seen_naive = photographer_last_seen
-                            diff_seconds = (now_utc - last_seen_naive).total_seconds()
-                            photographer_is_online = diff_seconds < 300  # 5 минут
-                            print(f'===NOTIF=== last_seen={photographer_last_seen}, diff={diff_seconds:.0f}s, online={photographer_is_online}', flush=True)
-                        else:
-                            print(f'[NOTIFICATION] Photographer never seen online', flush=True)
+                        try:
+                            cur.execute('''
+                                SELECT COUNT(*) FROM t_p28211681_photo_secure_web.active_sessions
+                                WHERE user_id = %s
+                                    AND is_valid = TRUE
+                                    AND expires_at > CURRENT_TIMESTAMP
+                                    AND last_activity > CURRENT_TIMESTAMP - INTERVAL '5 minutes'
+                            ''', (photographer_id,))
+                            active_count = cur.fetchone()[0]
+                            photographer_is_online = active_count > 0
+                            print(f'===NOTIF=== active_sessions={active_count}, online={photographer_is_online}', flush=True)
+                        except Exception as sess_err:
+                            print(f'===NOTIF=== session check error: {str(sess_err)}, fallback to last_seen', flush=True)
+                            if photographer_last_seen:
+                                now_utc = datetime.utcnow()
+                                diff_seconds = (now_utc - photographer_last_seen).total_seconds()
+                                photographer_is_online = diff_seconds < 300
+                                print(f'===NOTIF=== fallback last_seen={photographer_last_seen}, diff={diff_seconds:.0f}s, online={photographer_is_online}', flush=True)
                         
                         # Получаем данные клиента для полного описания в уведомлении
                         client_phone = None
