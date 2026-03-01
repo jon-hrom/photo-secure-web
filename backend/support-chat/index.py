@@ -8,6 +8,72 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
 SCHEMA = 't_p28211681_photo_secure_web'
+
+def notify_admin_via_max(cur, conn, user_name, user_email, message):
+    """Отправить уведомление админу в MAX если у него нет активной сессии"""
+    import requests as req
+
+    cur.execute(
+        f"SELECT id, phone, display_name FROM {SCHEMA}.users WHERE role = 'admin' LIMIT 1"
+    )
+    admin = cur.fetchone()
+    if not admin or not admin.get('phone'):
+        print('[SUPPORT_CHAT] No admin or no phone', flush=True)
+        return
+
+    admin_id = admin['id']
+    admin_phone = admin['phone']
+
+    cur.execute(
+        f"SELECT COUNT(*) as cnt FROM {SCHEMA}.active_sessions "
+        f"WHERE user_id = %s AND is_valid = TRUE "
+        f"AND expires_at > CURRENT_TIMESTAMP "
+        f"AND last_activity > CURRENT_TIMESTAMP - INTERVAL '5 minutes'",
+        (admin_id,)
+    )
+    session_row = cur.fetchone()
+    active_count = session_row['cnt'] if session_row else 0
+    print(f'[SUPPORT_CHAT] Admin sessions={active_count}', flush=True)
+
+    if active_count > 0:
+        print('[SUPPORT_CHAT] Admin ONLINE — skip MAX', flush=True)
+        return
+
+    max_instance_id = os.environ.get('MAX_INSTANCE_ID', '')
+    max_token = os.environ.get('MAX_TOKEN', '')
+    if not max_instance_id or not max_token:
+        print('[SUPPORT_CHAT] No MAX credentials', flush=True)
+        return
+
+    now_str = datetime.utcnow().strftime('%d.%m.%Y %H:%M') + ' МСК'
+    message_preview = message[:200] + ('...' if len(message) > 200 else '')
+
+    user_info = f'*{user_name}*'
+    if user_email:
+        user_info += f' ({user_email})'
+
+    whatsapp_text = (
+        f'📨 *Новое сообщение в техподдержку*\n'
+        f'🕐 {now_str}\n\n'
+        f'👤 От: {user_info}\n\n'
+        f'💬 {message_preview}\n\n'
+        f'➡️ Войдите на foto-mix.ru чтобы ответить'
+    )
+
+    clean_phone = ''.join(filter(str.isdigit, admin_phone))
+    if not clean_phone.startswith('7'):
+        clean_phone = '7' + clean_phone.lstrip('8')
+
+    media_server = max_instance_id[:4] if len(max_instance_id) >= 4 else '7103'
+    green_url = f"https://{media_server}.api.green-api.com/v3/waInstance{max_instance_id}/sendMessage/{max_token}"
+
+    green_response = req.post(green_url, json={
+        "chatId": f"{clean_phone}@c.us",
+        "message": whatsapp_text
+    }, timeout=15)
+
+    print(f'[SUPPORT_CHAT] MAX status={green_response.status_code}', flush=True)
+
 CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -127,6 +193,12 @@ def handler(event: dict, context) -> dict:
         )
         row = cur.fetchone()
         conn.commit()
+
+        try:
+            notify_admin_via_max(cur, conn, user_name or user_identifier, user_email, message)
+        except Exception as e:
+            print(f'[SUPPORT_CHAT] MAX notify error: {str(e)}', flush=True)
+
         cur.close()
         conn.close()
         return resp(200, {
