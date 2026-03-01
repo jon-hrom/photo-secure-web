@@ -507,6 +507,12 @@ def handler(event, context):
                             'isBase64Encoded': False
                         }
 
+                    delay = int(body.get('delay_seconds', 0))
+                    if delay > 0:
+                        import time
+                        print(f"[IMMEDIATE] Waiting {delay}s before sending reminder (let booking notification arrive first)")
+                        time.sleep(delay)
+
                     result = send_reminder(rtype, dict(proj), client_data, photographer_data, creds, tz_label, hours_until)
                     log_reminder(conn, proj['project_id'], rtype, 'both', True)
                     print(f"[IMMEDIATE] Sent {rtype} reminder for project {proj['project_id']}, {hours_until:.1f}h until shooting")

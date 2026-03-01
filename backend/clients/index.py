@@ -1067,10 +1067,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             hours_until = (shooting_dt - datetime.now()).total_seconds() / 3600
                             if 0 < hours_until < 24:
                                 reminders_cron_url = 'https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c'
-                                requests.post(reminders_cron_url, json={
-                                    'immediate_project_id': project_id
-                                }, headers={'Content-Type': 'application/json'}, timeout=10)
-                                print(f'[URGENT_REMINDER] Triggered immediate reminders for project {project_id}, {hours_until:.1f}h until shooting')
+                                try:
+                                    requests.post(reminders_cron_url, json={
+                                        'immediate_project_id': project_id,
+                                        'delay_seconds': 15
+                                    }, headers={'Content-Type': 'application/json'}, timeout=1)
+                                except requests.exceptions.ReadTimeout:
+                                    pass
+                                print(f'[URGENT_REMINDER] Triggered immediate reminders for project {project_id}, {hours_until:.1f}h until shooting (with 15s delay)')
                         except Exception as e:
                             print(f'[URGENT_REMINDER] Error: {e}')
             
