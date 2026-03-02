@@ -9,6 +9,8 @@ import LoginBackground from '@/components/login/LoginBackground';
 import LoginCard from '@/components/login/LoginCard';
 import LoginFormFields from '@/components/login/LoginFormFields';
 import OAuthProviders from '@/components/login/OAuthProviders';
+import BiometricLoginButton from '@/components/login/BiometricLoginButton';
+import BiometricPromptDialog from '@/components/BiometricPromptDialog';
 import NewYearDecorations from '@/components/NewYearDecorations';
 
 interface LoginPageProps {
@@ -50,6 +52,9 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   );
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+  const [biometricUserData, setBiometricUserData] = useState<{ userId: number; email: string; token?: string } | null>(null);
 
   useEffect(() => {
     const selectedBgId = localStorage.getItem('loginPageBackground');
@@ -90,10 +95,17 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   useEffect(() => {
     const loadAuthProviders = async () => {
       try {
-        const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=auth_providers');
-        const data = await response.json();
-        if (data.value) {
-          setAuthProviders(data.value);
+        const [providersRes, biometricRes] = await Promise.all([
+          fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=auth_providers'),
+          fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=biometric_enabled'),
+        ]);
+        const providersData = await providersRes.json();
+        const biometricData = await biometricRes.json();
+        if (providersData.value) {
+          setAuthProviders(providersData.value);
+        }
+        if (biometricData.value === true) {
+          setBiometricEnabled(true);
         }
       } catch (error) {
         console.error('Ошибка загрузки настроек провайдеров:', error);
@@ -224,6 +236,12 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           }
           
           toast.success('Вход выполнен успешно!');
+
+          if (biometricEnabled) {
+            setBiometricUserData({ userId: data.userId, email, token: data.token });
+            setTimeout(() => setShowBiometricPrompt(true), 1000);
+          }
+
           onLoginSuccess(data.userId, email, data.token);
         }
       } else {
@@ -408,6 +426,11 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           onLoginSuccess={onLoginSuccess}
           onOAuthLogin={handleOAuthLogin}
         />
+
+        <BiometricLoginButton
+          onLoginSuccess={onLoginSuccess}
+          biometricGlobalEnabled={biometricEnabled}
+        />
       </LoginCard>
 
       {is2FADialogOpen && pendingUserId && (
@@ -429,6 +452,14 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         open={showPrivacyPolicy}
         onClose={() => setShowPrivacyPolicy(false)}
       />
+
+      {biometricUserData && (
+        <BiometricPromptDialog
+          open={showBiometricPrompt}
+          userData={biometricUserData}
+          onClose={() => setShowBiometricPrompt(false)}
+        />
+      )}
 
       <Dialog open={showAppealDialog} onOpenChange={setShowAppealDialog}>
         <DialogContent className="max-w-2xl">
