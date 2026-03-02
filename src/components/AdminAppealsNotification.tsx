@@ -153,13 +153,16 @@ const AdminAppealsNotification = ({ userId, isAdmin }: AdminAppealsNotificationP
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const raw = dateString.includes('Z') || dateString.includes('+') ? dateString : dateString.replace(' ', 'T') + 'Z';
+    const date = new Date(raw);
+    if (isNaN(date.getTime())) return dateString;
     return date.toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Europe/Moscow'
     });
   };
 

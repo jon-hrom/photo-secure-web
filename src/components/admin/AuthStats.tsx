@@ -61,17 +61,17 @@ const AuthStats = () => {
   }, []);
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    // +4 часа к UTC
-    const moscowDate = new Date(date.getTime() + (4 * 60 * 60 * 1000));
-    
-    const day = moscowDate.getDate().toString().padStart(2, '0');
-    const month = (moscowDate.getMonth() + 1).toString().padStart(2, '0');
-    const year = moscowDate.getFullYear();
-    const hours = moscowDate.getHours().toString().padStart(2, '0');
-    const minutes = moscowDate.getMinutes().toString().padStart(2, '0');
-    
-    return `${day}.${month}.${year} ${hours}:${minutes}`;
+    const raw = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+    const date = new Date(raw);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Moscow'
+    });
   };
 
   const getProviderBadge = (source: string) => {
