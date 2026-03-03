@@ -124,6 +124,29 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     loadAuthProviders();
   }, []);
 
+  const triggerBiometricAuth = async () => {
+    setAutoAuthState('scanning');
+    try {
+      console.log('[BIO_AUTO] Calling authenticateWithBiometric...');
+      const result = await authenticateWithBiometric();
+      console.log('[BIO_AUTO] Auth result:', !!result);
+      if (result) {
+        setAutoAuthState('success');
+        playSuccessSound();
+        setTimeout(() => {
+          onLoginSuccess(result.userId, result.email, result.token);
+        }, 600);
+      } else {
+        setAutoAuthState('error');
+        setTimeout(() => setAutoAuthState('idle'), 2000);
+      }
+    } catch (err) {
+      console.error('[BIO_AUTO] Error:', err);
+      setAutoAuthState('error');
+      setTimeout(() => setAutoAuthState('idle'), 2000);
+    }
+  };
+
   useEffect(() => {
     if (autoAuthTriggered) return;
 
@@ -134,48 +157,9 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
     setAutoAuthTriggered(true);
     setShowBiometricOverlay(true);
-    setAutoAuthState('scanning');
-    console.log('[BIO_AUTO] Overlay shown, starting auth...');
-
-    const runAuth = async () => {
-      const available = await checkBiometricAvailability();
-      console.log('[BIO_AUTO] Device available:', available);
-      if (!available) {
-        setShowBiometricOverlay(false);
-        setAutoAuthState('idle');
-        return;
-      }
-
-      try {
-        console.log('[BIO_AUTO] Calling authenticateWithBiometric...');
-        const result = await authenticateWithBiometric();
-        console.log('[BIO_AUTO] Auth result:', !!result);
-        if (result) {
-          setAutoAuthState('success');
-          playSuccessSound();
-          setTimeout(() => {
-            onLoginSuccess(result.userId, result.email, result.token);
-          }, 600);
-        } else {
-          setAutoAuthState('error');
-          setTimeout(() => {
-            setAutoAuthState('idle');
-            setShowBiometricOverlay(false);
-          }, 1500);
-        }
-      } catch (err) {
-        console.error('[BIO_AUTO] Error:', err);
-        setAutoAuthState('error');
-        setTimeout(() => {
-          setAutoAuthState('idle');
-          setShowBiometricOverlay(false);
-        }, 1500);
-      }
-    };
-
-    const timer = setTimeout(runAuth, 300);
-    return () => clearTimeout(timer);
-  }, [autoAuthTriggered, onLoginSuccess]);
+    setAutoAuthState('idle');
+    console.log('[BIO_AUTO] Overlay shown, waiting for tap...');
+  }, [autoAuthTriggered]);
 
   useEffect(() => {
     const savedBlockData = localStorage.getItem('loginBlock');
@@ -468,13 +452,23 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         <LoginBackground backgroundImage={backgroundImage} backgroundOpacity={backgroundOpacity} />
         
         <div className="relative z-10 flex flex-col items-center gap-6 animate-fade-in">
-          <FingerprintAnimation state={autoAuthState} size="lg" />
+          <button
+            onClick={() => {
+              if (autoAuthState !== 'scanning' && autoAuthState !== 'success') {
+                triggerBiometricAuth();
+              }
+            }}
+            className="cursor-pointer active:scale-95 transition-transform"
+            disabled={autoAuthState === 'scanning' || autoAuthState === 'success'}
+          >
+            <FingerprintAnimation state={autoAuthState} size="lg" />
+          </button>
           
           <div className="text-center space-y-2">
             <p className="text-xl font-semibold text-white drop-shadow-lg">
-              {autoAuthState === 'scanning' ? 'Приложите палец для входа' : 
+              {autoAuthState === 'scanning' ? 'Приложите палец...' : 
                autoAuthState === 'success' ? 'Добро пожаловать!' :
-               autoAuthState === 'error' ? 'Не удалось распознать' : 'Вход по биометрии'}
+               autoAuthState === 'error' ? 'Не удалось. Нажмите ещё раз' : 'Нажмите для входа по отпечатку'}
             </p>
             {overlayUserData && (
               <p className="text-sm text-white/70 drop-shadow">{overlayUserData.email}</p>
