@@ -464,19 +464,10 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
             )}
           </div>
 
-          {autoAuthState === 'error' && (
+          {autoAuthState !== 'success' && (
             <button
               onClick={() => setShowBiometricOverlay(false)}
-              className="mt-4 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white text-sm hover:bg-white/20 transition-all"
-            >
-              Войти другим способом
-            </button>
-          )}
-
-          {autoAuthState === 'idle' && (
-            <button
-              onClick={() => setShowBiometricOverlay(false)}
-              className="mt-4 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white text-sm hover:bg-white/20 transition-all"
+              className="mt-6 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white text-sm hover:bg-white/20 transition-all active:scale-95"
             >
               Войти другим способом
             </button>
