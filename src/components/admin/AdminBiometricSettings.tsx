@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { settingsSync } from '@/utils/settingsSync';
+import FingerprintAnimation, { type AnimationState } from '@/components/ui/FingerprintAnimation';
 import {
   checkBiometricAvailability,
   isBiometricRegistered,
@@ -18,12 +19,27 @@ import {
 
 const APP_SETTINGS_URL = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
 
+const detectPlatform = (): 'ios' | 'android' | 'desktop' => {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'desktop';
+};
+
+const getPlatformLabel = (platform: string) => {
+  if (platform === 'ios') return { name: 'iOS (Face ID / Touch ID)', icon: 'Smartphone' as const };
+  if (platform === 'android') return { name: 'Android (отпечаток пальца)', icon: 'Smartphone' as const };
+  return { name: 'Компьютер (Windows Hello / macOS)', icon: 'Monitor' as const };
+};
+
 const AdminBiometricSettings = () => {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [deviceSupported, setDeviceSupported] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [registering, setRegistering] = useState(false);
+  const [animState, setAnimState] = useState<AnimationState>('idle');
+  const platform = detectPlatform();
+  const platformInfo = getPlatformLabel(platform);
 
   useEffect(() => {
     const init = async () => {
@@ -63,31 +79,37 @@ const AdminBiometricSettings = () => {
   };
 
   const handleRegisterAdmin = async () => {
-    setRegistering(true);
+    setAnimState('scanning');
     try {
       const sessionData = localStorage.getItem('authSession');
       let userData = { userId: 0, email: 'admin' };
       if (sessionData) {
         const session = JSON.parse(sessionData);
-        userData = { userId: session.userId || 0, email: session.userEmail || 'admin' };
+        userData = { userId: session.userId || 0, email: session.userEmail || session.email || 'admin' };
       }
 
       const success = await registerBiometric(userData);
       if (success) {
+        setAnimState('success');
         setIsRegistered(true);
         toast.success('Биометрия привязана к вашему аккаунту');
+        setTimeout(() => setAnimState('idle'), 2500);
       } else {
+        setAnimState('error');
         toast.error('Не удалось зарегистрировать биометрию');
+        setTimeout(() => setAnimState('idle'), 2000);
       }
     } catch {
+      setAnimState('error');
       toast.error('Ошибка при регистрации биометрии');
+      setTimeout(() => setAnimState('idle'), 2000);
     }
-    setRegistering(false);
   };
 
   const handleRemoveBiometric = () => {
     removeBiometric();
     setIsRegistered(false);
+    setAnimState('idle');
     toast.success('Биометрия отвязана от аккаунта');
   };
 
@@ -121,20 +143,40 @@ const AdminBiometricSettings = () => {
             </div>
             <Switch checked={biometricEnabled} onCheckedChange={handleToggleBiometric} />
           </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-2">
+            <div className="flex flex-col items-center gap-1 p-3 bg-muted/40 rounded-lg text-center">
+              <Icon name="Smartphone" size={20} className="text-green-600" />
+              <span className="text-xs font-medium">Android</span>
+              <span className="text-[10px] text-muted-foreground">Отпечаток</span>
+            </div>
+            <div className="flex flex-col items-center gap-1 p-3 bg-muted/40 rounded-lg text-center">
+              <Icon name="Smartphone" size={20} className="text-blue-600" />
+              <span className="text-xs font-medium">iOS</span>
+              <span className="text-[10px] text-muted-foreground">Face ID / Touch ID</span>
+            </div>
+            <div className="flex flex-col items-center gap-1 p-3 bg-muted/40 rounded-lg text-center">
+              <Icon name="Monitor" size={20} className="text-purple-600" />
+              <span className="text-xs font-medium">Desktop</span>
+              <span className="text-[10px] text-muted-foreground">Windows Hello</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Icon name="Smartphone" size={20} className="text-primary" />
+            <Icon name={platformInfo.icon} size={20} className="text-primary" />
             Ваше устройство
           </CardTitle>
           <CardDescription>
-            Привязка биометрии к вашему аккаунту администратора
+            {platformInfo.name}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <FingerprintAnimation state={animState} size="sm" />
+
           <div className="flex items-center gap-3">
             <span className="text-sm">Поддержка биометрии:</span>
             {deviceSupported ? (
@@ -174,14 +216,14 @@ const AdminBiometricSettings = () => {
           {deviceSupported ? (
             <div className="flex gap-2 flex-wrap">
               {!isRegistered ? (
-                <Button onClick={handleRegisterAdmin} disabled={registering}>
-                  <Icon name={registering ? 'Loader2' : 'Fingerprint'} size={16} className={registering ? 'animate-spin mr-2' : 'mr-2'} />
+                <Button onClick={handleRegisterAdmin} disabled={animState === 'scanning'}>
+                  <Icon name={animState === 'scanning' ? 'Loader2' : 'Fingerprint'} size={16} className={animState === 'scanning' ? 'animate-spin mr-2' : 'mr-2'} />
                   Привязать биометрию
                 </Button>
               ) : (
                 <>
-                  <Button onClick={handleRegisterAdmin} variant="outline" disabled={registering}>
-                    <Icon name={registering ? 'Loader2' : 'RefreshCw'} size={16} className={registering ? 'animate-spin mr-2' : 'mr-2'} />
+                  <Button onClick={handleRegisterAdmin} variant="outline" disabled={animState === 'scanning'}>
+                    <Icon name={animState === 'scanning' ? 'Loader2' : 'RefreshCw'} size={16} className={animState === 'scanning' ? 'animate-spin mr-2' : 'mr-2'} />
                     Перепривязать
                   </Button>
                   <Button onClick={handleRemoveBiometric} variant="destructive">
@@ -200,7 +242,7 @@ const AdminBiometricSettings = () => {
                     Биометрия недоступна на этом устройстве
                   </p>
                   <p className="text-muted-foreground mt-1">
-                    Для привязки откройте сайт на телефоне с поддержкой отпечатка пальца или Face ID (Android / iOS)
+                    Для привязки откройте сайт на телефоне с поддержкой отпечатка пальца или Face ID
                   </p>
                 </div>
               </div>
@@ -214,9 +256,9 @@ const AdminBiometricSettings = () => {
                 <p className="font-medium text-blue-700 dark:text-blue-300">Как это работает</p>
                 <ul className="text-muted-foreground space-y-1 list-disc pl-4">
                   <li>Пользователь входит обычным способом (логин/пароль или OAuth)</li>
-                  <li>После входа устройство предлагает привязать биометрию</li>
-                  <li>При следующем входе — вход одним касанием по отпечатку или Face ID</li>
-                  <li>Данные хранятся только на устройстве пользователя</li>
+                  <li>Устройство предлагает привязать биометрию</li>
+                  <li>В следующий раз — вход в одно касание без пароля</li>
+                  <li>Работает на Android, iOS и ПК с Windows Hello</li>
                 </ul>
               </div>
             </div>

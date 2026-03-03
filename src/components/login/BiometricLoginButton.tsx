@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import Icon from '@/components/ui/icon';
+import FingerprintAnimation, { type AnimationState } from '@/components/ui/FingerprintAnimation';
 import {
   checkBiometricAvailability,
   isBiometricRegistered,
@@ -15,7 +15,7 @@ interface BiometricLoginButtonProps {
 
 const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled }: BiometricLoginButtonProps) => {
   const [available, setAvailable] = useState(false);
-  const [authenticating, setAuthenticating] = useState(false);
+  const [animState, setAnimState] = useState<AnimationState>('idle');
 
   useEffect(() => {
     const check = async () => {
@@ -33,16 +33,22 @@ const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled }: Biomet
   if (!userData) return null;
 
   const handleBiometricLogin = async () => {
-    setAuthenticating(true);
+    setAnimState('scanning');
     try {
       const result = await authenticateWithBiometric();
       if (result) {
-        onLoginSuccess(result.userId, result.email, result.token);
+        setAnimState('success');
+        setTimeout(() => {
+          onLoginSuccess(result.userId, result.email, result.token);
+        }, 600);
+      } else {
+        setAnimState('error');
+        setTimeout(() => setAnimState('idle'), 2000);
       }
     } catch {
-      console.error('[Biometric] Login failed');
+      setAnimState('error');
+      setTimeout(() => setAnimState('idle'), 2000);
     }
-    setAuthenticating(false);
   };
 
   return (
@@ -60,17 +66,15 @@ const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled }: Biomet
 
       <Button
         onClick={handleBiometricLogin}
-        disabled={authenticating}
+        disabled={animState === 'scanning'}
         variant="outline"
-        className="w-full h-14 text-base gap-3 border-2 border-primary/30 hover:border-primary/60 transition-all"
+        className="w-full h-auto py-4 text-base gap-3 border-2 border-primary/30 hover:border-primary/60 transition-all flex flex-col items-center"
       >
-        <Icon
-          name={authenticating ? 'Loader2' : 'Fingerprint'}
-          size={24}
-          className={authenticating ? 'animate-spin text-primary' : 'text-primary'}
-        />
-        <div className="flex flex-col items-start">
-          <span className="font-medium">Войти по биометрии</span>
+        <FingerprintAnimation state={animState} size="sm" />
+        <div className="flex flex-col items-center">
+          <span className="font-medium">
+            {animState === 'scanning' ? 'Приложите палец...' : animState === 'success' ? 'Вход выполнен!' : 'Войти по биометрии'}
+          </span>
           <span className="text-xs text-muted-foreground">{userData.email}</span>
         </div>
       </Button>

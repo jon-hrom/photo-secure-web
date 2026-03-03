@@ -3,17 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import FingerprintAnimation, { type AnimationState } from '@/components/ui/FingerprintAnimation';
 import {
   isBiometricSupported,
   checkBiometricAvailability,
   isBiometricRegistered,
   registerBiometric,
   removeBiometric,
-  getBiometricUserData,
+  authenticateWithBiometric,
   BiometricUserData,
 } from '@/utils/biometricAuth';
-
-type AnimationState = 'idle' | 'scanning' | 'success' | 'error';
 
 interface BiometricSettingsCardProps {
   userId: number;
@@ -21,85 +20,11 @@ interface BiometricSettingsCardProps {
   userToken?: string;
 }
 
-const FingerprintAnimation = ({ state }: { state: AnimationState }) => {
-  const baseColor = state === 'success' ? '#22c55e' : state === 'error' ? '#ef4444' : state === 'scanning' ? '#3b82f6' : '#94a3b8';
-  const pulseColor = state === 'scanning' ? 'rgba(59, 130, 246, 0.3)' : state === 'success' ? 'rgba(34, 197, 94, 0.3)' : 'transparent';
-
-  return (
-    <div className="relative flex items-center justify-center w-28 h-28 mx-auto">
-      {state === 'scanning' && (
-        <>
-          <div
-            className="absolute inset-0 rounded-full animate-ping"
-            style={{ backgroundColor: pulseColor, animationDuration: '1.5s' }}
-          />
-          <div
-            className="absolute inset-2 rounded-full animate-ping"
-            style={{ backgroundColor: pulseColor, animationDuration: '2s', animationDelay: '0.3s' }}
-          />
-        </>
-      )}
-
-      {state === 'success' && (
-        <div
-          className="absolute inset-0 rounded-full animate-pulse"
-          style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', animationDuration: '1s' }}
-        />
-      )}
-
-      <div
-        className="relative z-10 w-20 h-20 flex items-center justify-center rounded-full transition-all duration-500"
-        style={{
-          background: `linear-gradient(135deg, ${baseColor}15, ${baseColor}30)`,
-          border: `2px solid ${baseColor}`,
-          boxShadow: state !== 'idle' ? `0 0 20px ${baseColor}40` : 'none',
-        }}
-      >
-        <svg
-          width="44"
-          height="44"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={baseColor}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={state === 'scanning' ? 'animate-fingerprint-scan' : ''}
-        >
-          <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
-          <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
-          <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
-          <path d="M2 12a10 10 0 0 1 18-6" />
-          <path d="M2 16h.01" />
-          <path d="M21.8 16c.2-2 .131-5.354 0-6" />
-          <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
-          <path d="M8.65 22c.21-.66.45-1.32.57-2" />
-          <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
-        </svg>
-
-        {state === 'scanning' && (
-          <div className="absolute inset-0 rounded-full overflow-hidden">
-            <div
-              className="w-full h-1 bg-blue-400/60 absolute animate-scan-line"
-              style={{ boxShadow: '0 0 8px rgba(59, 130, 246, 0.6)' }}
-            />
-          </div>
-        )}
-
-        {state === 'success' && (
-          <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-green-500 rounded-full flex items-center justify-center shadow-lg animate-scale-in">
-            <Icon name="Check" size={14} className="text-white" />
-          </div>
-        )}
-
-        {state === 'error' && (
-          <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center shadow-lg animate-scale-in">
-            <Icon name="X" size={14} className="text-white" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+const detectPlatform = (): 'ios' | 'android' | 'desktop' => {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'desktop';
 };
 
 const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettingsCardProps) => {
@@ -107,6 +32,7 @@ const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettin
   const [isRegistered, setIsRegistered] = useState(false);
   const [animState, setAnimState] = useState<AnimationState>('idle');
   const [checking, setChecking] = useState(true);
+  const platform = detectPlatform();
 
   useEffect(() => {
     const check = async () => {
@@ -153,8 +79,6 @@ const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettin
 
   const handleTest = async () => {
     setAnimState('scanning');
-
-    const { authenticateWithBiometric } = await import('@/utils/biometricAuth');
     const result = await authenticateWithBiometric();
 
     if (result) {
@@ -170,6 +94,8 @@ const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettin
 
   if (checking) return null;
 
+  const biometricType = platform === 'ios' ? 'Face ID / Touch ID' : platform === 'android' ? 'отпечатку пальца' : 'Windows Hello';
+
   return (
     <Card className="shadow-xl overflow-hidden">
       <CardHeader className="pb-2">
@@ -178,32 +104,11 @@ const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettin
           Вход по биометрии
         </CardTitle>
         <CardDescription className="text-xs md:text-sm">
-          Быстрый вход по отпечатку пальца или Face ID
+          Быстрый вход по {biometricType}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-5">
-        <style>{`
-          @keyframes scan-line {
-            0% { top: 0; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-          }
-          @keyframes scale-in {
-            0% { transform: scale(0); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); }
-          }
-          @keyframes fingerprint-scan {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-          }
-          .animate-scan-line { animation: scan-line 1.5s ease-in-out infinite; }
-          .animate-scale-in { animation: scale-in 0.3s ease-out; }
-          .animate-fingerprint-scan { animation: fingerprint-scan 1.5s ease-in-out infinite; }
-        `}</style>
-
         <FingerprintAnimation state={animState} />
 
         {!isAvailable ? (
@@ -213,8 +118,9 @@ const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettin
               <div className="text-xs md:text-sm">
                 <p className="font-semibold text-amber-900 dark:text-amber-200 mb-1">Устройство не поддерживает</p>
                 <p className="text-amber-700 dark:text-amber-400">
-                  Ваше устройство или браузер не поддерживает биометрическую аутентификацию.
-                  Попробуйте открыть в Chrome или Safari на телефоне.
+                  {platform === 'desktop'
+                    ? 'Откройте сайт на телефоне (Android или iPhone) для подключения биометрии'
+                    : 'Ваш браузер не поддерживает биометрию. Попробуйте Chrome или Safari'}
                 </p>
               </div>
             </div>
@@ -227,7 +133,7 @@ const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettin
                 <div className="text-xs md:text-sm">
                   <p className="font-semibold text-green-900 dark:text-green-200 mb-1">Биометрия подключена</p>
                   <p className="text-green-700 dark:text-green-400">
-                    Вы можете входить в аккаунт по отпечатку пальца или Face ID без ввода почты и пароля
+                    Вы можете входить в аккаунт по {biometricType} без ввода почты и пароля
                   </p>
                 </div>
               </div>
@@ -262,7 +168,7 @@ const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettin
                 <div className="text-xs md:text-sm">
                   <p className="font-semibold text-blue-900 dark:text-blue-200 mb-1">Быстрый вход</p>
                   <p className="text-blue-700 dark:text-blue-400">
-                    Подключите отпечаток пальца или Face ID, чтобы входить в аккаунт в одно касание — без ввода почты и пароля
+                    Подключите {biometricType}, чтобы входить в аккаунт в одно касание — без ввода почты и пароля
                   </p>
                 </div>
               </div>
@@ -288,13 +194,11 @@ const BiometricSettingsCard = ({ userId, userEmail, userToken }: BiometricSettin
           </>
         )}
 
-        {isRegistered && (
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">
-              Биометрические данные хранятся только на вашем устройстве
-            </p>
-          </div>
-        )}
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground">
+            Биометрические данные хранятся только на вашем устройстве и не передаются на сервер
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
