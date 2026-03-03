@@ -11,9 +11,10 @@ import {
 interface BiometricLoginButtonProps {
   onLoginSuccess: (userId: number, email?: string, token?: string) => void;
   biometricGlobalEnabled: boolean;
+  autoAuthState?: AnimationState;
 }
 
-const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled }: BiometricLoginButtonProps) => {
+const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled, autoAuthState }: BiometricLoginButtonProps) => {
   const [available, setAvailable] = useState(false);
   const [animState, setAnimState] = useState<AnimationState>('idle');
 
@@ -27,12 +28,15 @@ const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled }: Biomet
     check();
   }, [biometricGlobalEnabled]);
 
+  const displayState = autoAuthState && autoAuthState !== 'idle' ? autoAuthState : animState;
+
   if (!available || !biometricGlobalEnabled) return null;
 
   const userData = getBiometricUserData();
   if (!userData) return null;
 
   const handleBiometricLogin = async () => {
+    if (displayState === 'scanning') return;
     setAnimState('scanning');
     try {
       const result = await authenticateWithBiometric();
@@ -51,6 +55,14 @@ const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled }: Biomet
     }
   };
 
+  const stateLabel = displayState === 'scanning'
+    ? 'Приложите палец...'
+    : displayState === 'success'
+    ? 'Вход выполнен!'
+    : displayState === 'error'
+    ? 'Попробуйте ещё раз'
+    : 'Войти по биометрии';
+
   return (
     <div className="w-full space-y-3">
       <div className="relative">
@@ -66,15 +78,13 @@ const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled }: Biomet
 
       <Button
         onClick={handleBiometricLogin}
-        disabled={animState === 'scanning'}
+        disabled={displayState === 'scanning'}
         variant="outline"
         className="w-full h-auto py-4 text-base gap-3 border-2 border-primary/30 hover:border-primary/60 transition-all flex flex-col items-center"
       >
-        <FingerprintAnimation state={animState} size="sm" />
+        <FingerprintAnimation state={displayState} size="sm" />
         <div className="flex flex-col items-center">
-          <span className="font-medium">
-            {animState === 'scanning' ? 'Приложите палец...' : animState === 'success' ? 'Вход выполнен!' : 'Войти по биометрии'}
-          </span>
+          <span className="font-medium">{stateLabel}</span>
           <span className="text-xs text-muted-foreground">{userData.email}</span>
         </div>
       </Button>

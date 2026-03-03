@@ -12,6 +12,12 @@ import OAuthProviders from '@/components/login/OAuthProviders';
 import BiometricLoginButton from '@/components/login/BiometricLoginButton';
 import BiometricPromptDialog from '@/components/BiometricPromptDialog';
 import NewYearDecorations from '@/components/NewYearDecorations';
+import {
+  checkBiometricAvailability,
+  isBiometricRegistered,
+  authenticateWithBiometric,
+  getBiometricUserData,
+} from '@/utils/biometricAuth';
 
 interface LoginPageProps {
   onLoginSuccess: (userId: number, email?: string, token?: string) => void;
@@ -55,6 +61,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [biometricUserData, setBiometricUserData] = useState<{ userId: number; email: string; token?: string } | null>(null);
+  const [autoAuthTriggered, setAutoAuthTriggered] = useState(false);
+  const [autoAuthState, setAutoAuthState] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     const selectedBgId = localStorage.getItem('loginPageBackground');
@@ -113,6 +121,41 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     };
     loadAuthProviders();
   }, []);
+
+  useEffect(() => {
+    if (autoAuthTriggered || !biometricEnabled) return;
+    
+    const autoTrigger = async () => {
+      const available = await checkBiometricAvailability();
+      const registered = isBiometricRegistered();
+      const userData = getBiometricUserData();
+      
+      if (!available || !registered || !userData) return;
+      
+      setAutoAuthTriggered(true);
+      setAutoAuthState('scanning');
+      
+      try {
+        const result = await authenticateWithBiometric();
+        if (result) {
+          setAutoAuthState('success');
+          playSuccessSound();
+          setTimeout(() => {
+            onLoginSuccess(result.userId, result.email, result.token);
+          }, 600);
+        } else {
+          setAutoAuthState('error');
+          setTimeout(() => setAutoAuthState('idle'), 2000);
+        }
+      } catch {
+        setAutoAuthState('error');
+        setTimeout(() => setAutoAuthState('idle'), 2000);
+      }
+    };
+    
+    const timer = setTimeout(autoTrigger, 500);
+    return () => clearTimeout(timer);
+  }, [biometricEnabled, autoAuthTriggered, onLoginSuccess]);
 
   useEffect(() => {
     const savedBlockData = localStorage.getItem('loginBlock');
@@ -430,6 +473,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         <BiometricLoginButton
           onLoginSuccess={onLoginSuccess}
           biometricGlobalEnabled={biometricEnabled}
+          autoAuthState={autoAuthState}
         />
       </LoginCard>
 
