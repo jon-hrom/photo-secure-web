@@ -12,6 +12,7 @@ import OAuthProviders from '@/components/login/OAuthProviders';
 import BiometricLoginButton from '@/components/login/BiometricLoginButton';
 import BiometricPromptDialog from '@/components/BiometricPromptDialog';
 import NewYearDecorations from '@/components/NewYearDecorations';
+import FingerprintAnimation from '@/components/ui/FingerprintAnimation';
 import {
   checkBiometricAvailability,
   isBiometricRegistered,
@@ -63,6 +64,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [biometricUserData, setBiometricUserData] = useState<{ userId: number; email: string; token?: string } | null>(null);
   const [autoAuthTriggered, setAutoAuthTriggered] = useState(false);
   const [autoAuthState, setAutoAuthState] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
+  const [showBiometricOverlay, setShowBiometricOverlay] = useState(false);
 
   useEffect(() => {
     const selectedBgId = localStorage.getItem('loginPageBackground');
@@ -123,18 +125,24 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   }, []);
 
   useEffect(() => {
-    if (autoAuthTriggered || !biometricEnabled) return;
-    
-    const autoTrigger = async () => {
+    if (autoAuthTriggered) return;
+
+    const registered = isBiometricRegistered();
+    const userData = getBiometricUserData();
+    if (!registered || !userData) return;
+
+    setAutoAuthTriggered(true);
+    setShowBiometricOverlay(true);
+    setAutoAuthState('scanning');
+
+    const runAuth = async () => {
       const available = await checkBiometricAvailability();
-      const registered = isBiometricRegistered();
-      const userData = getBiometricUserData();
-      
-      if (!available || !registered || !userData) return;
-      
-      setAutoAuthTriggered(true);
-      setAutoAuthState('scanning');
-      
+      if (!available) {
+        setShowBiometricOverlay(false);
+        setAutoAuthState('idle');
+        return;
+      }
+
       try {
         const result = await authenticateWithBiometric();
         if (result) {
@@ -145,17 +153,23 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           }, 600);
         } else {
           setAutoAuthState('error');
-          setTimeout(() => setAutoAuthState('idle'), 2000);
+          setTimeout(() => {
+            setAutoAuthState('idle');
+            setShowBiometricOverlay(false);
+          }, 1500);
         }
       } catch {
         setAutoAuthState('error');
-        setTimeout(() => setAutoAuthState('idle'), 2000);
+        setTimeout(() => {
+          setAutoAuthState('idle');
+          setShowBiometricOverlay(false);
+        }, 1500);
       }
     };
-    
-    const timer = setTimeout(autoTrigger, 500);
+
+    const timer = setTimeout(runAuth, 300);
     return () => clearTimeout(timer);
-  }, [biometricEnabled, autoAuthTriggered, onLoginSuccess]);
+  }, [autoAuthTriggered, onLoginSuccess]);
 
   useEffect(() => {
     const savedBlockData = localStorage.getItem('loginBlock');
@@ -422,6 +436,49 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     setPassword('');
     setPasswordError('');
   };
+
+  if (showBiometricOverlay) {
+    const overlayUserData = getBiometricUserData();
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+        style={{ backgroundColor: '#f8f9fa' }}>
+        <LoginBackground backgroundImage={backgroundImage} backgroundOpacity={backgroundOpacity} />
+        
+        <div className="relative z-10 flex flex-col items-center gap-6 animate-fade-in">
+          <FingerprintAnimation state={autoAuthState} size="lg" />
+          
+          <div className="text-center space-y-2">
+            <p className="text-xl font-semibold text-white drop-shadow-lg">
+              {autoAuthState === 'scanning' ? 'Приложите палец для входа' : 
+               autoAuthState === 'success' ? 'Добро пожаловать!' :
+               autoAuthState === 'error' ? 'Не удалось распознать' : 'Вход по биометрии'}
+            </p>
+            {overlayUserData && (
+              <p className="text-sm text-white/70 drop-shadow">{overlayUserData.email}</p>
+            )}
+          </div>
+
+          {autoAuthState === 'error' && (
+            <button
+              onClick={() => setShowBiometricOverlay(false)}
+              className="mt-4 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white text-sm hover:bg-white/20 transition-all"
+            >
+              Войти другим способом
+            </button>
+          )}
+
+          {autoAuthState === 'idle' && (
+            <button
+              onClick={() => setShowBiometricOverlay(false)}
+              className="mt-4 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white text-sm hover:bg-white/20 transition-all"
+            >
+              Войти другим способом
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
