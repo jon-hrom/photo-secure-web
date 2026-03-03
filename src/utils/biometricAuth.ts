@@ -124,7 +124,10 @@ export const checkBiometricAvailability = async (): Promise<boolean> => {
 };
 
 export const isBiometricRegistered = (): boolean => {
-  if (!localStorage.getItem(BIOMETRIC_CREDENTIAL_KEY)) return false;
+  const cred = localStorage.getItem(BIOMETRIC_CREDENTIAL_KEY);
+  const userData = localStorage.getItem(BIOMETRIC_USER_KEY);
+  console.log('[Biometric] isRegistered check:', { hasCred: !!cred, hasUserData: !!userData });
+  if (!cred || !userData) return false;
   if (isCredentialExpired()) {
     removeBiometric();
     return false;
@@ -217,8 +220,10 @@ export const registerBiometric = async (userData: BiometricUserData): Promise<bo
 
       await setIntegrity(dataStr);
       resetFailures();
+      console.log('[Biometric] Registration OK. Credential saved. Email:', userData.email);
       return true;
     }
+    console.warn('[Biometric] Registration: no credential returned');
     return false;
   } catch (error) {
     console.error('[Biometric] Registration error:', error);
