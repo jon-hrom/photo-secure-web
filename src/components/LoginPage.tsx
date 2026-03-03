@@ -129,14 +129,17 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
     const registered = isBiometricRegistered();
     const userData = getBiometricUserData();
+    console.log('[BIO_AUTO] Check:', { registered, hasUserData: !!userData });
     if (!registered || !userData) return;
 
     setAutoAuthTriggered(true);
     setShowBiometricOverlay(true);
     setAutoAuthState('scanning');
+    console.log('[BIO_AUTO] Overlay shown, starting auth...');
 
     const runAuth = async () => {
       const available = await checkBiometricAvailability();
+      console.log('[BIO_AUTO] Device available:', available);
       if (!available) {
         setShowBiometricOverlay(false);
         setAutoAuthState('idle');
@@ -144,7 +147,9 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       }
 
       try {
+        console.log('[BIO_AUTO] Calling authenticateWithBiometric...');
         const result = await authenticateWithBiometric();
+        console.log('[BIO_AUTO] Auth result:', !!result);
         if (result) {
           setAutoAuthState('success');
           playSuccessSound();
@@ -158,7 +163,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
             setShowBiometricOverlay(false);
           }, 1500);
         }
-      } catch {
+      } catch (err) {
+        console.error('[BIO_AUTO] Error:', err);
         setAutoAuthState('error');
         setTimeout(() => {
           setAutoAuthState('idle');

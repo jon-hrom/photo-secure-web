@@ -61,7 +61,10 @@ const setIntegrity = async (data: string): Promise<void> => {
 
 const isCredentialExpired = (): boolean => {
   const created = localStorage.getItem(BIOMETRIC_CREATED_KEY);
-  if (!created) return true;
+  if (!created) {
+    localStorage.setItem(BIOMETRIC_CREATED_KEY, Date.now().toString());
+    return false;
+  }
   const age = Date.now() - parseInt(created, 10);
   return age > MAX_CREDENTIAL_AGE_DAYS * 24 * 60 * 60 * 1000;
 };
@@ -237,11 +240,16 @@ export const authenticateWithBiometric = async (): Promise<BiometricUserData | n
   const storedData = localStorage.getItem(BIOMETRIC_USER_KEY);
   if (!storedData) return null;
 
-  const integrityOk = await verifyIntegrity(storedData);
-  if (!integrityOk) {
-    console.error('[Biometric] Data integrity check failed — possible tampering');
-    removeBiometric();
-    return null;
+  const hasIntegrity = !!localStorage.getItem(BIOMETRIC_INTEGRITY_KEY);
+  if (hasIntegrity) {
+    const integrityOk = await verifyIntegrity(storedData);
+    if (!integrityOk) {
+      console.error('[Biometric] Data integrity check failed — possible tampering');
+      removeBiometric();
+      return null;
+    }
+  } else {
+    await setIntegrity(storedData);
   }
 
   try {
