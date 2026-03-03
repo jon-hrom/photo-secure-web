@@ -300,9 +300,26 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           
           toast.success('Вход выполнен успешно!');
 
+          const tryRegisterBiometric = async () => {
+            try {
+              const { checkBiometricAvailability: checkAvail, isBiometricRegistered: isReg, registerBiometric: regBio } = await import('@/utils/biometricAuth');
+              const available = await checkAvail();
+              const alreadyRegistered = isReg();
+              console.log('[BIO_LOGIN] Auto-register check:', { available, alreadyRegistered, biometricEnabled });
+              if (available && !alreadyRegistered) {
+                const success = await regBio({ userId: data.userId, email, token: data.token });
+                console.log('[BIO_LOGIN] Auto-register result:', success);
+                if (success) {
+                  toast.success('Биометрия привязана! В следующий раз войдёте по отпечатку');
+                }
+              }
+            } catch (err) {
+              console.log('[BIO_LOGIN] Auto-register skipped:', err);
+            }
+          };
+
           if (biometricEnabled) {
-            setBiometricUserData({ userId: data.userId, email, token: data.token });
-            setTimeout(() => setShowBiometricPrompt(true), 1000);
+            await tryRegisterBiometric();
           }
 
           onLoginSuccess(data.userId, email, data.token);

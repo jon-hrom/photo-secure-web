@@ -110,6 +110,22 @@ export const useAuth = () => {
       currentPage: 'dashboard',
       lastActivity: Date.now(),
     }));
+
+    try {
+      const { checkBiometricAvailability, isBiometricRegistered, registerBiometric } = await import('@/utils/biometricAuth');
+      const available = await checkBiometricAvailability();
+      const alreadyRegistered = isBiometricRegistered();
+      if (available && !alreadyRegistered && email) {
+        const biometricRes = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=biometric_enabled');
+        const biometricData = await biometricRes.json();
+        if (biometricData.value === true) {
+          console.log('[AUTH] Auto-registering biometric...');
+          await registerBiometric({ userId: uid, email: email || '', token });
+        }
+      }
+    } catch (e) {
+      console.log('[AUTH] Biometric auto-register skipped:', e);
+    }
   };
 
   const handleLogout = () => {
