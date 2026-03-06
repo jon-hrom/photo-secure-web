@@ -402,16 +402,20 @@ def get_sent_reminders(cur, project_id):
 def determine_pending_reminders(hours_until: float, already_sent: set, is_today: bool = False, now_local: datetime = None, shooting_dt: datetime = None) -> list:
     """
     Каскадная логика: определяет какие напоминания нужно отправить СЕЙЧАС.
-    Каскад: сначала самое срочное (1h), потом 5h, потом 24h.
-    Пропущенные напоминания тоже догоняются и отправляются.
+    Окно 24h/today расширено до 30 часов, чтобы напоминание приходило днём.
+    24h и today — взаимозаменяемые (только один из них отправляется).
     """
     if hours_until <= 0 or hours_until > 49:
         return []
 
     pending = []
+    daily_sent = '24h' in already_sent or 'today' in already_sent
 
-    if '24h' not in already_sent and not is_today and hours_until <= 25:
-        pending.append('24h')
+    if not daily_sent and hours_until <= 30 and hours_until > 5.5:
+        if is_today:
+            pending.append('today')
+        else:
+            pending.append('24h')
     if '5h' not in already_sent and hours_until <= 5.5:
         pending.append('5h')
     if '1h' not in already_sent and hours_until <= 1.5:
@@ -565,7 +569,7 @@ def handler(event, context):
                   AND cp.shooting_time IS NOT NULL
                   AND cp.status IN ('new', 'in_progress', 'scheduled')
                   AND cp.start_date >= CURRENT_DATE - INTERVAL '1 day'
-                  AND cp.start_date <= CURRENT_DATE + INTERVAL '2 days'
+                  AND cp.start_date <= CURRENT_DATE + INTERVAL '3 days'
             """)
             projects = cur.fetchall()
 
@@ -590,7 +594,7 @@ def handler(event, context):
                 pending = determine_pending_reminders(hours_until, already_sent, is_today=is_today, now_local=now_local, shooting_dt=shooting_datetime)
 
                 if not pending:
-                    reason = 'already passed' if hours_until <= 0 else ('too far' if hours_until > 25 else 'all sent')
+                    reason = 'already passed' if hours_until <= 0 else ('too far' if hours_until > 30 else 'all sent')
                     results['skipped'].append({
                         'project_id': proj['project_id'],
                         'project_name': proj['project_name'],
