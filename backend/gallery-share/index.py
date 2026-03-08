@@ -313,6 +313,8 @@ def handler(event: dict, context) -> dict:
         
         elif method == 'GET':
             short_code = event.get('queryStringParameters', {}).get('code')
+            subfolder_id = event.get('queryStringParameters', {}).get('subfolder_id')
+            subfolder_password = event.get('queryStringParameters', {}).get('subfolder_password', '')
             
             if not short_code:
                 cur.close()
@@ -427,6 +429,135 @@ def handler(event: dict, context) -> dict:
                 (short_code,)
             )
             conn.commit()
+            
+            if subfolder_id:
+                cur.execute(
+                    """
+                    SELECT id, folder_name, password_hash, COALESCE(is_hidden, FALSE) as is_hidden
+                    FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE id = %s AND parent_folder_id = %s AND is_trashed = false
+                      AND folder_type = 'originals'
+                    """,
+                    (subfolder_id, folder_id)
+                )
+                sf = cur.fetchone()
+                if not sf:
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Subfolder not found'})
+                    }
+                
+                sf_id, sf_name, sf_password_hash, sf_is_hidden = sf
+                
+                if sf_is_hidden:
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Subfolder is hidden'})
+                    }
+                
+                if sf_password_hash:
+                    import hashlib
+                    provided_hash = hashlib.sha256(subfolder_password.encode()).hexdigest() if subfolder_password else ''
+                    if provided_hash != sf_password_hash:
+                        cur.close()
+                        conn.close()
+                        return {
+                            'statusCode': 401,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Invalid subfolder password', 'requires_password': True})
+                        }
+                
+                cur.execute(
+                    """
+                    SELECT id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, width, height, file_size, is_raw, is_video, content_type
+                    FROM t_p28211681_photo_secure_web.photo_bank
+                    WHERE folder_id = %s AND is_trashed = false
+                      AND (is_raw = false OR (is_raw = true AND thumbnail_s3_key IS NOT NULL))
+                    ORDER BY created_at DESC
+                    """,
+                    (subfolder_id,)
+                )
+                sf_photos = cur.fetchall()
+                
+                yc_s3 = boto3.client('s3',
+                    endpoint_url='https://storage.yandexcloud.net',
+                    region_name='ru-central1',
+                    aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+                    config=Config(signature_version='s3v4')
+                )
+                poehali_s3 = boto3.client('s3',
+                    endpoint_url='https://bucket.poehali.dev',
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+                )
+                yc_bucket = 'foto-mix'
+                poehali_bucket = 'files'
+                
+                sf_photos_data = []
+                for photo in sf_photos:
+                    try:
+                        photo_id, file_name_p, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, width_p, height_p, file_size_p, is_raw, is_video, content_type_p = photo
+                        use_poehali_s3 = s3_url and 'cdn.poehali.dev' in s3_url
+                        s3_client = poehali_s3 if use_poehali_s3 else yc_s3
+                        bucket = poehali_bucket if use_poehali_s3 else yc_bucket
+                        expires_in = 43200 if is_video else 3600
+                        
+                        if use_poehali_s3 and s3_url:
+                            photo_url = s3_url
+                            thumbnail_url_p = thumbnail_s3_url if thumbnail_s3_url else None
+                            grid_url = grid_thumbnail_s3_url if grid_thumbnail_s3_url else thumbnail_url_p
+                        else:
+                            if is_raw and thumbnail_s3_key:
+                                photo_url = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': thumbnail_s3_key}, ExpiresIn=expires_in)
+                                thumbnail_url_p = photo_url
+                                grid_url = photo_url
+                            else:
+                                photo_url = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': s3_key}, ExpiresIn=expires_in)
+                                thumbnail_url_p = None
+                                grid_url = None
+                                if thumbnail_s3_key:
+                                    thumbnail_url_p = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': thumbnail_s3_key}, ExpiresIn=3600)
+                                if grid_thumbnail_s3_key:
+                                    grid_url = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': grid_thumbnail_s3_key}, ExpiresIn=3600)
+                                if not grid_url:
+                                    grid_url = thumbnail_url_p
+                        
+                        sf_photos_data.append({
+                            'id': photo_id, 'file_name': file_name_p, 'photo_url': photo_url,
+                            'thumbnail_url': thumbnail_url_p, 'grid_thumbnail_url': grid_url,
+                            'width': width_p, 'height': height_p, 'file_size': file_size_p,
+                            'is_video': is_video, 'content_type': content_type_p, 's3_key': s3_key,
+                            'folder_id': int(subfolder_id)
+                        })
+                    except Exception as e:
+                        print(f'[GALLERY_SUBFOLDER] Error: {str(e)}')
+                        continue
+                
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({
+                        'folder_name': sf_name,
+                        'photos': sf_photos_data,
+                        'total_size': sum(p.get('file_size', 0) or 0 for p in sf_photos_data),
+                        'download_disabled': download_disabled,
+                        'watermark': {
+                            'enabled': watermark_enabled, 'type': watermark_type, 'text': watermark_text,
+                            'image_url': watermark_image_url, 'frequency': watermark_frequency,
+                            'size': watermark_size, 'opacity': watermark_opacity, 'rotation': watermark_rotation
+                        },
+                        'screenshot_protection': screenshot_protection
+                    })
+                }
             
             cur.execute(
                 """
@@ -605,6 +736,30 @@ def handler(event: dict, context) -> dict:
                         'is_own': True
                     })
             
+            subfolders_data = []
+            cur.execute(
+                """
+                SELECT pf.id, pf.folder_name, pf.password_hash IS NOT NULL as has_password,
+                       COALESCE(pf.is_hidden, FALSE) as is_hidden,
+                       COALESCE(pf.sort_order, 0) as sort_order,
+                       (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank
+                        WHERE folder_id = pf.id AND is_trashed = false) as photo_count
+                FROM t_p28211681_photo_secure_web.photo_folders pf
+                WHERE pf.parent_folder_id = %s AND pf.is_trashed = false
+                  AND pf.folder_type = 'originals'
+                  AND COALESCE(pf.is_hidden, FALSE) = false
+                ORDER BY COALESCE(pf.sort_order, 0) ASC, pf.created_at DESC
+                """,
+                (folder_id,)
+            )
+            for row in cur.fetchall():
+                subfolders_data.append({
+                    'id': row[0],
+                    'folder_name': row[1],
+                    'has_password': row[2],
+                    'photo_count': row[5]
+                })
+            
             cur.close()
             conn.close()
             
@@ -655,7 +810,8 @@ def handler(event: dict, context) -> dict:
                     'client_upload_enabled': client_upload_enabled,
                     'client_upload_folders': client_folders_data,
                     'client_folders_visibility': client_folders_visibility,
-                    'link_id': link_id
+                    'link_id': link_id,
+                    'subfolders': subfolders_data
                 })
             }
         

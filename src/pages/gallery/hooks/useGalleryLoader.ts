@@ -63,6 +63,12 @@ interface GalleryData {
   }>;
   client_folders_visibility?: boolean;
   link_id?: number;
+  subfolders?: Array<{
+    id: number;
+    folder_name: string;
+    has_password: boolean;
+    photo_count: number;
+  }>;
 }
 
 export function useGalleryLoader(code?: string, clientId?: number) {

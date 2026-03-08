@@ -52,6 +52,14 @@ export interface GalleryData {
   mobile_cover_photo_id?: number | null;
   mobile_cover_focus_x?: number;
   mobile_cover_focus_y?: number;
+  subfolders?: GallerySubfolder[];
+}
+
+export interface GallerySubfolder {
+  id: number;
+  folder_name: string;
+  has_password: boolean;
+  photo_count: number;
 }
 
 interface ClientFolder {
@@ -83,6 +91,7 @@ export interface GalleryGridProps {
   showClientFolders?: boolean;
   onOpenClientFolder?: (folder: ClientFolder) => void;
   onRegisterToDownload?: () => void;
+  onOpenSubfolder?: (subfolder: GallerySubfolder) => void;
 }
 
 export default function GalleryGrid({
@@ -106,7 +115,8 @@ export default function GalleryGrid({
   clientFolders = [],
   showClientFolders = false,
   onOpenClientFolder,
-  onRegisterToDownload
+  onRegisterToDownload,
+  onOpenSubfolder
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
 
@@ -336,6 +346,32 @@ export default function GalleryGrid({
       <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 md:pt-0"
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
       >
+        {gallery.subfolders && gallery.subfolders.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
+            {gallery.subfolders.map((sf) => (
+              <button
+                key={sf.id}
+                onClick={() => onOpenSubfolder?.(sf)}
+                className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] text-left"
+                style={{
+                  background: isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.9)',
+                  border: `1px solid ${isDarkBg ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'}`,
+                  boxShadow: isDarkBg ? 'none' : '0 1px 3px rgba(0,0,0,0.06)'
+                }}
+              >
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: isDarkBg ? 'rgba(99,102,241,0.2)' : '#eef2ff' }}>
+                  <Icon name={sf.has_password ? 'FolderLock' : 'Folder'} size={20}
+                    style={{ color: isDarkBg ? '#a5b4fc' : '#6366f1' }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate" style={{ color: textColor }}>{sf.folder_name}</p>
+                  <p className="text-xs" style={{ color: secondaryText }}>{sf.photo_count} фото</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
         <div 
           className="grid grid-cols-2 [grid-auto-flow:dense] md:columns-3 lg:columns-4 md:block"
           style={{ gap: `${gridGap}px`, columnGap: `${gridGap}px` }}

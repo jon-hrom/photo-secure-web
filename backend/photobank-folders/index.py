@@ -84,11 +84,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             created_at, 
                             updated_at,
                             archive_download_count,
+                            COALESCE(is_hidden, FALSE) as is_hidden,
+                            CASE WHEN password_hash IS NOT NULL THEN TRUE ELSE FALSE END as has_password,
+                            COALESCE(sort_order, 0) as sort_order,
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank 
                              WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as photo_count
                         FROM t_p28211681_photo_secure_web.photo_folders
                         WHERE user_id = %s AND is_trashed = FALSE
-                        ORDER BY parent_folder_id NULLS FIRST, created_at DESC
+                        ORDER BY parent_folder_id NULLS FIRST, sort_order ASC, created_at DESC
                     ''', (user_id,))
                     all_folders = cur.fetchall()
                     
@@ -299,6 +302,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if action == 'create' or action == 'create_folder':
                 folder_name = body_data.get('folder_name')
+                parent_folder_id = body_data.get('parent_folder_id')
                 if not folder_name:
                     return {
                         'statusCode': 400,
@@ -318,11 +322,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             'isBase64Encoded': False
                         }
                     
+                    if parent_folder_id:
+                        cur.execute('''
+                            SELECT id FROM t_p28211681_photo_secure_web.photo_folders
+                            WHERE id = %s AND user_id = %s AND is_trashed = FALSE
+                        ''', (parent_folder_id, user_id))
+                        if not cur.fetchone():
+                            return {
+                                'statusCode': 404,
+                                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                                'body': json.dumps({'error': 'Parent folder not found'}),
+                                'isBase64Encoded': False
+                            }
+                    
                     cur.execute('''
-                        INSERT INTO photo_folders (user_id, folder_name, s3_prefix)
-                        VALUES (%s, %s, NULL)
-                        RETURNING id, folder_name, created_at
-                    ''', (user_id, folder_name))
+                        INSERT INTO photo_folders (user_id, folder_name, s3_prefix, parent_folder_id, folder_type)
+                        VALUES (%s, %s, NULL, %s, 'originals')
+                        RETURNING id, folder_name, created_at, parent_folder_id
+                    ''', (user_id, folder_name, parent_folder_id))
                     conn.commit()
                     folder = cur.fetchone()
                     
@@ -345,6 +362,69 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({'folder': folder}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'update_subfolder_settings':
+                subfolder_id = body_data.get('folder_id')
+                password = body_data.get('password')
+                is_hidden = body_data.get('is_hidden')
+                new_name = body_data.get('folder_name')
+                
+                if not subfolder_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('''
+                        SELECT id, parent_folder_id FROM t_p28211681_photo_secure_web.photo_folders
+                        WHERE id = %s AND user_id = %s AND is_trashed = FALSE
+                    ''', (subfolder_id, user_id))
+                    folder = cur.fetchone()
+                    if not folder:
+                        return {
+                            'statusCode': 404,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Folder not found'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    updates = []
+                    params = []
+                    
+                    if new_name is not None:
+                        updates.append('folder_name = %s')
+                        params.append(new_name)
+                    
+                    if password is not None:
+                        if password == '':
+                            updates.append('password_hash = NULL')
+                        else:
+                            import hashlib
+                            updates.append('password_hash = %s')
+                            params.append(hashlib.sha256(password.encode()).hexdigest())
+                    
+                    if is_hidden is not None:
+                        updates.append('is_hidden = %s')
+                        params.append(is_hidden)
+                    
+                    if updates:
+                        params.append(subfolder_id)
+                        cur.execute(f'''
+                            UPDATE t_p28211681_photo_secure_web.photo_folders
+                            SET {', '.join(updates)}, updated_at = NOW()
+                            WHERE id = %s
+                        ''', tuple(params))
+                        conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'ok': True}),
                     'isBase64Encoded': False
                 }
             

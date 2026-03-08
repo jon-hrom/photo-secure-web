@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import PasswordForm from './gallery/PasswordForm';
-import GalleryGrid from './gallery/GalleryGrid';
+import GalleryGrid, { type GallerySubfolder } from './gallery/GalleryGrid';
 import LoadingIndicators from './gallery/LoadingIndicators';
 import GalleryModals from './gallery/GalleryModals';
 import ClientUploadModal from '@/components/gallery/ClientUploadModal';
@@ -76,6 +78,13 @@ export default function PublicGallery() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [folderToOpen, setFolderToOpen] = useState<{ id: number; folder_name: string } | null>(null);
   const [viewingClientFolder, setViewingClientFolder] = useState<{ id: number; folder_name: string } | null>(null);
+  const [viewingSubfolder, setViewingSubfolder] = useState<GallerySubfolder | null>(null);
+  const [subfolderPhotos, setSubfolderPhotos] = useState<Photo[]>([]);
+  const [subfolderLoading, setSubfolderLoading] = useState(false);
+  const [subfolderPasswordRequired, setSubfolderPasswordRequired] = useState(false);
+  const [subfolderPassword, setSubfolderPassword] = useState('');
+  const [subfolderPasswordError, setSubfolderPasswordError] = useState('');
+  const [subfolderFolderName, setSubfolderFolderName] = useState('');
   const [clientUploadFolders, setClientUploadFolders] = useState<Array<{
     id: number;
     folder_name: string;
@@ -121,6 +130,63 @@ export default function PublicGallery() {
       state.setShowProgress(true);
     }
   }, [photosLoaded, visiblePhotos.length, state.clientData, code, state.setShowProgress, state.setIsWelcomeModalOpen]);
+
+  const loadSubfolderPhotos = useCallback(async (subfolder: GallerySubfolder, enteredPassword?: string) => {
+    setSubfolderLoading(true);
+    try {
+      const params = new URLSearchParams({ code: code || '', subfolder_id: String(subfolder.id) });
+      if (password) params.set('password', password);
+      if (enteredPassword) params.set('subfolder_password', enteredPassword);
+      const url = `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?${params.toString()}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      if (res.status === 401 && data.requires_password) {
+        setSubfolderPasswordRequired(true);
+        setSubfolderPasswordError(enteredPassword ? 'Неверный пароль' : '');
+        setViewingSubfolder(subfolder);
+        return;
+      }
+      
+      if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
+      
+      setSubfolderPhotos(data.photos || []);
+      setSubfolderFolderName(data.folder_name || subfolder.folder_name);
+      setViewingSubfolder(subfolder);
+      setSubfolderPasswordRequired(false);
+      setSubfolderPasswordError('');
+    } catch (err) {
+      console.error('[SUBFOLDER] Error:', err);
+    } finally {
+      setSubfolderLoading(false);
+    }
+  }, [code, password]);
+
+  const handleOpenSubfolder = useCallback((subfolder: GallerySubfolder) => {
+    if (subfolder.has_password) {
+      setSubfolderPasswordRequired(true);
+      setViewingSubfolder(subfolder);
+      setSubfolderPassword('');
+      setSubfolderPasswordError('');
+    } else {
+      loadSubfolderPhotos(subfolder);
+    }
+  }, [loadSubfolderPhotos]);
+
+  const handleSubfolderPasswordSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subfolderPassword.trim() || !viewingSubfolder) return;
+    await loadSubfolderPhotos(viewingSubfolder, subfolderPassword);
+  }, [subfolderPassword, viewingSubfolder, loadSubfolderPhotos]);
+
+  const handleBackFromSubfolder = useCallback(() => {
+    setViewingSubfolder(null);
+    setSubfolderPhotos([]);
+    setSubfolderPasswordRequired(false);
+    setSubfolderPassword('');
+    setSubfolderPasswordError('');
+    setSubfolderFolderName('');
+  }, []);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Б';
@@ -250,6 +316,108 @@ export default function PublicGallery() {
     );
   }
 
+  if (viewingSubfolder && subfolderPasswordRequired && subfolderPhotos.length === 0) {
+    const secondaryColor = isDarkTheme ? 'rgba(255,255,255,0.6)' : '#6b7280';
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={galleryBgStyles}>
+        <div className="w-full max-w-sm rounded-2xl p-6 space-y-4"
+          style={{ background: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'white', boxShadow: '0 4px 24px rgba(0,0,0,0.1)' }}>
+          <button onClick={handleBackFromSubfolder} className="flex items-center gap-1 text-sm mb-2" style={{ color: secondaryColor }}>
+            <Icon name="ArrowLeft" size={16} />Назад
+          </button>
+          <div className="text-center">
+            <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center"
+              style={{ background: isDarkTheme ? 'rgba(99,102,241,0.2)' : '#eef2ff' }}>
+              <Icon name="FolderLock" size={28} style={{ color: isDarkTheme ? '#a5b4fc' : '#6366f1' }} />
+            </div>
+            <h3 className="font-semibold text-lg" style={{ color: galleryTextColor }}>{viewingSubfolder.folder_name}</h3>
+            <p className="text-sm mt-1" style={{ color: secondaryColor }}>Введите пароль для доступа</p>
+          </div>
+          <form onSubmit={handleSubfolderPasswordSubmit} className="space-y-3">
+            <Input
+              type="password"
+              value={subfolderPassword}
+              onChange={(e) => setSubfolderPassword(e.target.value)}
+              placeholder="Пароль"
+              autoFocus
+            />
+            {subfolderPasswordError && (
+              <p className="text-sm text-red-500">{subfolderPasswordError}</p>
+            )}
+            <Button type="submit" className="w-full" disabled={subfolderLoading}>
+              {subfolderLoading ? <Icon name="Loader2" size={16} className="animate-spin mr-2" /> : null}
+              Открыть
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewingSubfolder && subfolderPhotos.length > 0) {
+    const sfSecondaryText = isDarkTheme ? 'rgba(255,255,255,0.6)' : '#6b7280';
+    return (
+      <div className="min-h-screen" style={galleryBgStyles}>
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4">
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={handleBackFromSubfolder}
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: isDarkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
+              <Icon name="ArrowLeft" size={18} style={{ color: galleryTextColor }} />
+            </button>
+            <div>
+              <h2 className="font-semibold" style={{ color: galleryTextColor }}>{subfolderFolderName}</h2>
+              <p className="text-xs" style={{ color: sfSecondaryText }}>{subfolderPhotos.length} фото</p>
+            </div>
+          </div>
+          <GalleryGrid
+            gallery={{ ...gallery, photos: subfolderPhotos, subfolders: [] }}
+            downloadingAll={false}
+            onDownloadAll={() => {}}
+            onPhotoClick={state.setSelectedPhoto}
+            onDownloadPhoto={downloadPhoto}
+            onAddToFavorites={handlers.handleAddToFavorites}
+            onOpenFavoriteFolders={() => state.setIsFavoritesModalOpen(true)}
+            formatFileSize={formatFileSize}
+            onPhotoLoad={() => {}}
+            onRegisterToDownload={handlers.handleRegisterToDownload}
+          />
+        </div>
+        <GalleryModals
+          selectedPhoto={state.selectedPhoto}
+          gallery={gallery}
+          clientData={state.clientData}
+          clientFavoritePhotoIds={state.clientFavoritePhotoIds}
+          viewingFavorites={state.viewingFavorites}
+          isFavoritesModalOpen={state.isFavoritesModalOpen}
+          isLoginModalOpen={state.isLoginModalOpen}
+          isMyFavoritesOpen={state.isMyFavoritesOpen}
+          isChatOpen={state.isChatOpen}
+          isWelcomeModalOpen={false}
+          favoriteFolder={state.favoriteFolder}
+          photoToAdd={state.photoToAdd}
+          unreadCount={state.unreadCount}
+          code={code}
+          setSelectedPhoto={state.setSelectedPhoto}
+          setViewingFavorites={state.setViewingFavorites}
+          setIsFavoritesModalOpen={state.setIsFavoritesModalOpen}
+          setIsLoginModalOpen={state.setIsLoginModalOpen}
+          setIsMyFavoritesOpen={state.setIsMyFavoritesOpen}
+          setIsChatOpen={state.setIsChatOpen}
+          setIsWelcomeModalOpen={state.setIsWelcomeModalOpen}
+          setUnreadCount={state.setUnreadCount}
+          setPhotoToAdd={state.setPhotoToAdd}
+          onFavoriteSubmit={handlers.handleFavoriteSubmit}
+          onClientLogin={handlers.handleClientLogin}
+          onRemoveFromFavorites={handlers.handleRemoveFromFavorites}
+          onDownloadPhoto={downloadPhoto}
+          loadClientFavorites={handlers.loadClientFavorites}
+          isDarkTheme={isDarkTheme}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <LoadingIndicators
@@ -289,6 +457,7 @@ export default function PublicGallery() {
           }
         }}
         onRegisterToDownload={handlers.handleRegisterToDownload}
+        onOpenSubfolder={handleOpenSubfolder}
       />
 
       <GalleryModals

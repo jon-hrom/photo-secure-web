@@ -8,6 +8,11 @@ import PhotoBankDialogsContainer from '@/components/photobank/PhotoBankDialogsCo
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
 import { PhotoBankModals } from '@/pages/photobank/PhotoBankModals';
+import SubfolderSettingsModal from '@/components/photobank/SubfolderSettingsModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import Icon from '@/components/ui/icon';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
@@ -19,6 +24,39 @@ import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewin
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 import ClientUploadViewer from '@/components/photobank/ClientUploadViewer';
+
+function CreateSubfolderDialog({ open, onOpenChange, subfolderName, onSetSubfolderName, onCreateSubfolder }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  subfolderName: string;
+  onSetSubfolderName: (name: string) => void;
+  onCreateSubfolder: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 dark:from-purple-950/80 dark:via-pink-950/60 dark:to-rose-950/80 backdrop-blur-sm">
+        <DialogHeader>
+          <DialogTitle>Добавить папку</DialogTitle>
+          <DialogDescription>Введите название для новой подпапки</DialogDescription>
+        </DialogHeader>
+        <Input
+          placeholder="Например: Подготовка"
+          value={subfolderName}
+          onChange={(e) => onSetSubfolderName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onCreateSubfolder()}
+          autoFocus
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
+          <Button onClick={onCreateSubfolder}>
+            <Icon name="FolderPlus" size={16} className="mr-2" />
+            Создать
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const PhotoBank = () => {
   const navigate = useNavigate();
@@ -36,6 +74,9 @@ const PhotoBank = () => {
   const [showStats, setShowStats] = useState(false);
   const [chatClient, setChatClient] = useState<{ id: number; name: string } | null>(null);
   const [folderChatsId, setFolderChatsId] = useState<number | null>(null);
+  const [createSubfolderParentId, setCreateSubfolderParentId] = useState<number | null>(null);
+  const [subfolderName, setSubfolderName] = useState('');
+  const [subfolderSettings, setSubfolderSettings] = useState<{ id: number; folder_name: string; has_password?: boolean; is_hidden?: boolean } | null>(null);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -220,6 +261,37 @@ const PhotoBank = () => {
         fetchStorageUsage={fetchStorageUsage}
       />
 
+      <CreateSubfolderDialog
+        open={createSubfolderParentId !== null}
+        onOpenChange={(open) => { if (!open) { setCreateSubfolderParentId(null); setSubfolderName(''); } }}
+        subfolderName={subfolderName}
+        onSetSubfolderName={setSubfolderName}
+        onCreateSubfolder={async () => {
+          if (!subfolderName.trim() || !createSubfolderParentId) return;
+          try {
+            const res = await fetch(PHOTOBANK_FOLDERS_API, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+              body: JSON.stringify({ action: 'create', folder_name: subfolderName, parent_folder_id: createSubfolderParentId })
+            });
+            if (res.ok) {
+              setCreateSubfolderParentId(null);
+              setSubfolderName('');
+              fetchFolders();
+            }
+          } catch { /* ignore */ }
+        }}
+      />
+
+      <SubfolderSettingsModal
+        open={subfolderSettings !== null}
+        onOpenChange={(open) => { if (!open) setSubfolderSettings(null); }}
+        subfolder={subfolderSettings}
+        apiUrl={PHOTOBANK_FOLDERS_API}
+        userId={userId}
+        onSaved={fetchFolders}
+      />
+
       <div className="max-w-7xl mx-auto space-y-6 px-2 sm:px-4 lg:px-6">
         <PhotoBankStorageIndicator storageUsage={storageUsage} />
 
@@ -278,6 +350,8 @@ const PhotoBank = () => {
             onShareFolder={handleShareFolder}
             onOpenChat={(clientId, clientName) => setChatClient({ id: clientId, name: clientName })}
             onOpenFolderChats={handleOpenFolderChats}
+            onCreateSubfolder={(parentId) => setCreateSubfolderParentId(parentId)}
+            onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
           />
         ) : (
           <>

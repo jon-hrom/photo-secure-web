@@ -15,6 +15,9 @@ interface PhotoFolder {
   client_id?: number | null;
   unread_messages_count?: number;
   total_messages_count?: number;
+  is_hidden?: boolean;
+  has_password?: boolean;
+  sort_order?: number;
 }
 
 interface PhotoBankFoldersListProps {
@@ -30,6 +33,8 @@ interface PhotoBankFoldersListProps {
   onOpenChat?: (clientId: number, clientName: string) => void;
   onOpenFolderChats?: (folderId: number) => void;
   isAdminViewing?: boolean;
+  onCreateSubfolder?: (parentFolderId: number) => void;
+  onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
 }
 
 const PhotoBankFoldersList = ({
@@ -44,7 +49,9 @@ const PhotoBankFoldersList = ({
   onShareFolder,
   onOpenChat,
   onOpenFolderChats,
-  isAdminViewing = false
+  isAdminViewing = false,
+  onCreateSubfolder,
+  onOpenSubfolderSettings
 }: PhotoBankFoldersListProps) => {
   // DEBUG: показать данные папок с unread_messages_count
   React.useEffect(() => {
@@ -113,6 +120,10 @@ const PhotoBankFoldersList = ({
     return folder.folder_type === 'originals' && (folder.photo_count || 0) > 0;
   };
 
+  const isUserCreatedSubfolder = (subfolder: PhotoFolder) => {
+    return subfolder.folder_type === 'originals' && !!subfolder.parent_folder_id;
+  };
+
   return (
     <Card className="lg:col-span-2">
       <CardContent className="p-0 max-h-[calc(100vh-320px)] overflow-y-auto">
@@ -148,6 +159,7 @@ const PhotoBankFoldersList = ({
               <tbody>
                 {mainFolders.map((folder) => {
                   const subfolders = getSubfolders(folder.id);
+                  const isExpanded = !collapsedFolders.has(folder.id);
                   return (
                     <React.Fragment key={folder.id}>
                       <tr
@@ -158,24 +170,20 @@ const PhotoBankFoldersList = ({
                       >
                         <td className="px-2 py-1.5">
                           <div className="flex items-center gap-2">
-                            {subfolders.length > 0 ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleCollapse(folder.id);
-                                }}
-                                className="w-6 h-6 flex items-center justify-center hover:bg-accent rounded transition-colors flex-shrink-0"
-                                title={collapsedFolders.has(folder.id) ? 'Развернуть' : 'Свернуть'}
-                              >
-                                <Icon 
-                                  name={collapsedFolders.has(folder.id) ? 'ChevronRight' : 'ChevronDown'} 
-                                  size={16} 
-                                  className="text-muted-foreground"
-                                />
-                              </button>
-                            ) : (
-                              <div className="w-6 flex-shrink-0" />
-                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleCollapse(folder.id);
+                              }}
+                              className="w-6 h-6 flex items-center justify-center hover:bg-accent rounded transition-colors flex-shrink-0"
+                              title={collapsedFolders.has(folder.id) ? 'Развернуть' : 'Свернуть'}
+                            >
+                              <Icon 
+                                name={collapsedFolders.has(folder.id) ? 'ChevronRight' : 'ChevronDown'} 
+                                size={16} 
+                                className="text-muted-foreground"
+                              />
+                            </button>
                             <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
                               <Icon name="Folder" size={16} className="text-orange-600" />
                             </div>
@@ -363,7 +371,8 @@ const PhotoBankFoldersList = ({
                           </div>
                         </td>
                       </tr>
-                      {!collapsedFolders.has(folder.id) && subfolders.map((subfolder) => (
+                      {/* Subfolders section - shown when expanded */}
+                      {isExpanded && subfolders.map((subfolder) => (
                         <tr
                           key={subfolder.id}
                           className={`border-b hover:bg-accent/50 transition-colors cursor-pointer bg-muted/30 ${
@@ -373,14 +382,37 @@ const PhotoBankFoldersList = ({
                         >
                           <td className="px-2 py-1.5 pl-10">
                             <div className="flex items-center gap-3">
-                              <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                                <Icon name="AlertTriangle" size={16} className="text-red-600" />
-                              </div>
+                              {isUserCreatedSubfolder(subfolder) ? (
+                                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                  <Icon name="FolderOpen" size={16} className="text-blue-600" />
+                                </div>
+                              ) : (
+                                <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                                  <Icon name="AlertTriangle" size={16} className="text-red-600" />
+                                </div>
+                              )}
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="font-medium break-words text-sm">{subfolder.folder_name}</p>
-                                  {subfolder.folder_type === 'tech_rejects' && (
-                                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Брак</span>
+                                  {isUserCreatedSubfolder(subfolder) ? (
+                                    <p className="font-medium break-words text-sm">{subfolder.folder_name}</p>
+                                  ) : (
+                                    <>
+                                      <p className="font-medium break-words text-sm">{subfolder.folder_name}</p>
+                                      {subfolder.folder_type === 'tech_rejects' && (
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Брак</span>
+                                      )}
+                                    </>
+                                  )}
+                                  {/* Badge icons for user-created subfolders */}
+                                  {isUserCreatedSubfolder(subfolder) && subfolder.has_password && (
+                                    <span className="text-xs" title="Защищена паролем">
+                                      <Icon name="Lock" size={14} className="text-amber-600" />
+                                    </span>
+                                  )}
+                                  {isUserCreatedSubfolder(subfolder) && subfolder.is_hidden && (
+                                    <span className="text-xs" title="Скрытая папка">
+                                      <Icon name="EyeOff" size={14} className="text-gray-400" />
+                                    </span>
                                   )}
                                 </div>
                                 <p className="text-xs text-muted-foreground md:hidden">
@@ -393,13 +425,30 @@ const PhotoBankFoldersList = ({
                             {formatDate(subfolder.created_at)}
                           </td>
                           <td className="px-2 py-1.5 text-center hidden lg:table-cell">
-                            <div className="inline-flex items-center gap-1 text-red-600 font-medium">
+                            <div className={`inline-flex items-center gap-1 font-medium ${
+                              isUserCreatedSubfolder(subfolder) ? 'text-blue-600' : 'text-red-600'
+                            }`}>
                               <Icon name="Image" size={16} />
                               <span>{subfolder.photo_count || 0}</span>
                             </div>
                           </td>
                           <td className="px-2 py-1.5">
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-0.5 justify-items-start md:justify-items-end">
+                              {/* Settings button for user-created subfolders */}
+                              {isUserCreatedSubfolder(subfolder) && onOpenSubfolderSettings && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:scale-110 active:scale-95 transition-all duration-200"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenSubfolderSettings(subfolder);
+                                  }}
+                                  title="Настройки папки"
+                                >
+                                  <Icon name="Settings" size={14} />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -428,6 +477,23 @@ const PhotoBankFoldersList = ({
                           </td>
                         </tr>
                       ))}
+                      {/* "Add subfolder" button row - shown when expanded and not in admin viewing mode */}
+                      {isExpanded && !isAdminViewing && onCreateSubfolder && (
+                        <tr className="border-b bg-muted/10">
+                          <td colSpan={4} className="px-2 py-1 pl-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCreateSubfolder(folder.id);
+                              }}
+                              className="flex items-center gap-2 w-full py-1.5 px-3 text-sm text-muted-foreground hover:text-foreground border border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 rounded-md transition-colors"
+                            >
+                              <Icon name="Plus" size={14} />
+                              <span>Добавить папку</span>
+                            </button>
+                          </td>
+                        </tr>
+                      )}
                     </React.Fragment>
                   );
                 })}
