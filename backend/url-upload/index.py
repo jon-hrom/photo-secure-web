@@ -331,6 +331,10 @@ def handler(event: dict, context) -> dict:
 def get_download_urls(url: str) -> list:
     '''Получает прямые ссылки на скачивание файлов'''
     
+    # ВКонтакте (посты, альбомы, фото)
+    if 'vk.com/' in url or 'vk.ru/' in url:
+        return get_vk_urls(url)
+    
     # Яндекс Диск
     if 'disk.yandex' in url or 'yadi.sk' in url:
         return get_yandex_disk_urls(url)
@@ -516,6 +520,177 @@ def get_onedrive_urls(url: str) -> list:
             'url': download_url,
             'name': filename
         })
+    
+    return files
+
+
+def get_vk_urls(url: str) -> list:
+    '''Получает фото из ВКонтакте (посты, альбомы, отдельные фото) через VK API'''
+    
+    service_token = os.environ.get('VK_SERVICE_TOKEN', '')
+    if not service_token:
+        print('[VK_PARSER] No VK_SERVICE_TOKEN, falling back to HTML parser')
+        return get_html_gallery_urls(url)
+    
+    files = []
+    
+    # Парсим URL — определяем тип контента
+    # wall-196435470_398 — пост на стене
+    # photo-196435470_457239123 — отдельное фото
+    # album-196435470_281940823 — альбом
+    
+    wall_match = re.search(r'wall(-?\d+_\d+)', url)
+    photo_match = re.search(r'photo(-?\d+_\d+)', url)
+    album_match = re.search(r'album(-?\d+)_(\d+)', url)
+    
+    if wall_match:
+        post_id = wall_match.group(1)
+        print(f'[VK_PARSER] Detected wall post: {post_id}')
+        files = get_vk_wall_photos(post_id, service_token)
+    elif photo_match:
+        photo_id = photo_match.group(1)
+        print(f'[VK_PARSER] Detected single photo: {photo_id}')
+        files = get_vk_single_photo(photo_id, service_token)
+    elif album_match:
+        owner_id = album_match.group(1)
+        album_id = album_match.group(2)
+        print(f'[VK_PARSER] Detected album: {owner_id}_{album_id}')
+        files = get_vk_album_photos(owner_id, album_id, service_token)
+    else:
+        print(f'[VK_PARSER] Unknown VK URL format, falling back to HTML parser')
+        return get_html_gallery_urls(url)
+    
+    if not files:
+        print('[VK_PARSER] No photos found via API, falling back to HTML parser')
+        return get_html_gallery_urls(url)
+    
+    print(f'[VK_PARSER] Found {len(files)} photos via VK API')
+    return files
+
+
+def extract_best_vk_photo_url(photo_obj: dict) -> str:
+    '''Извлекает URL фото максимального размера из объекта VK photo'''
+    sizes = photo_obj.get('sizes', [])
+    if not sizes:
+        return photo_obj.get('url', '')
+    
+    size_priority = ['w', 'z', 'y', 'x', 'r', 'q', 'p', 'o', 'm', 's']
+    size_map = {s['type']: s['url'] for s in sizes}
+    
+    for size_type in size_priority:
+        if size_type in size_map:
+            return size_map[size_type]
+    
+    max_size = max(sizes, key=lambda s: s.get('width', 0) * s.get('height', 0))
+    return max_size.get('url', '')
+
+
+def get_vk_wall_photos(post_id: str, service_token: str) -> list:
+    '''Получает фото из поста на стене VK'''
+    api_url = 'https://api.vk.com/method/wall.getById'
+    params = {
+        'posts': post_id,
+        'access_token': service_token,
+        'v': '5.199'
+    }
+    
+    response = requests.get(api_url, params=params, timeout=10)
+    data = response.json()
+    
+    if 'error' in data:
+        print(f'[VK_PARSER] API error: {data["error"].get("error_msg", "unknown")}')
+        return []
+    
+    items = data.get('response', [])
+    if not items:
+        return []
+    
+    post = items[0] if isinstance(items, list) else items
+    attachments = post.get('attachments', [])
+    
+    files = []
+    for att in attachments:
+        if att.get('type') == 'photo':
+            photo = att.get('photo', {})
+            photo_url = extract_best_vk_photo_url(photo)
+            if photo_url:
+                photo_id = photo.get('id', len(files) + 1)
+                ext = '.jpg'
+                parsed_path = urlparse(photo_url).path.lower()
+                if parsed_path.endswith('.png'):
+                    ext = '.png'
+                elif parsed_path.endswith('.webp'):
+                    ext = '.webp'
+                
+                files.append({
+                    'url': photo_url,
+                    'name': f'vk_photo_{photo_id}{ext}'
+                })
+    
+    return files
+
+
+def get_vk_single_photo(photo_id: str, service_token: str) -> list:
+    '''Получает одно фото из VK'''
+    api_url = 'https://api.vk.com/method/photos.getById'
+    params = {
+        'photos': photo_id,
+        'access_token': service_token,
+        'v': '5.199'
+    }
+    
+    response = requests.get(api_url, params=params, timeout=10)
+    data = response.json()
+    
+    if 'error' in data:
+        print(f'[VK_PARSER] API error: {data["error"].get("error_msg", "unknown")}')
+        return []
+    
+    items = data.get('response', [])
+    files = []
+    
+    for photo in items:
+        photo_url = extract_best_vk_photo_url(photo)
+        if photo_url:
+            photo_id_num = photo.get('id', len(files) + 1)
+            files.append({
+                'url': photo_url,
+                'name': f'vk_photo_{photo_id_num}.jpg'
+            })
+    
+    return files
+
+
+def get_vk_album_photos(owner_id: str, album_id: str, service_token: str) -> list:
+    '''Получает фото из альбома VK (до 1000 штук)'''
+    api_url = 'https://api.vk.com/method/photos.get'
+    params = {
+        'owner_id': owner_id,
+        'album_id': album_id,
+        'count': 1000,
+        'photo_sizes': 1,
+        'access_token': service_token,
+        'v': '5.199'
+    }
+    
+    response = requests.get(api_url, params=params, timeout=10)
+    data = response.json()
+    
+    if 'error' in data:
+        print(f'[VK_PARSER] API error: {data["error"].get("error_msg", "unknown")}')
+        return []
+    
+    items = data.get('response', {}).get('items', [])
+    files = []
+    
+    for photo in items:
+        photo_url = extract_best_vk_photo_url(photo)
+        if photo_url:
+            photo_id_num = photo.get('id', len(files) + 1)
+            files.append({
+                'url': photo_url,
+                'name': f'vk_photo_{photo_id_num}.jpg'
+            })
     
     return files
 
