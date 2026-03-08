@@ -594,23 +594,37 @@ def get_vk_wall_photos(post_id: str, service_token: str) -> list:
         'v': '5.199'
     }
     
+    print(f'[VK_PARSER] Calling wall.getById with posts={post_id}')
     response = requests.get(api_url, params=params, timeout=10)
     data = response.json()
+    print(f'[VK_PARSER] API response keys: {list(data.keys())}')
     
     if 'error' in data:
         print(f'[VK_PARSER] API error: {data["error"].get("error_msg", "unknown")}')
         return []
     
-    items = data.get('response', [])
-    if not items:
+    resp = data.get('response', {})
+    
+    if isinstance(resp, list):
+        items = resp
+    elif isinstance(resp, dict):
+        items = resp.get('items', [])
+    else:
+        print(f'[VK_PARSER] Unexpected response type: {type(resp)}')
         return []
     
-    post = items[0] if isinstance(items, list) else items
+    if not items:
+        print(f'[VK_PARSER] No items in response. Response: {str(resp)[:500]}')
+        return []
+    
+    post = items[0]
     attachments = post.get('attachments', [])
+    print(f'[VK_PARSER] Post has {len(attachments)} attachments')
     
     files = []
     for att in attachments:
-        if att.get('type') == 'photo':
+        att_type = att.get('type', '')
+        if att_type == 'photo':
             photo = att.get('photo', {})
             photo_url = extract_best_vk_photo_url(photo)
             if photo_url:
@@ -626,6 +640,9 @@ def get_vk_wall_photos(post_id: str, service_token: str) -> list:
                     'url': photo_url,
                     'name': f'vk_photo_{photo_id}{ext}'
                 })
+                print(f'[VK_PARSER] Found photo: {photo_url[:80]}...')
+        else:
+            print(f'[VK_PARSER] Skipping attachment type: {att_type}')
     
     return files
 
