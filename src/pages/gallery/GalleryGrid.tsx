@@ -118,7 +118,7 @@ export default function GalleryGrid({
   onRegisterToDownload,
   onOpenSubfolder
 }: GalleryGridProps) {
-  console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length);
+  console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length, 'subfolders:', gallery.subfolders?.length || 0, gallery.subfolders);
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());

@@ -53,7 +53,6 @@ const PhotoBankFoldersList = ({
   onCreateSubfolder,
   onOpenSubfolderSettings
 }: PhotoBankFoldersListProps) => {
-  // DEBUG: показать данные папок с unread_messages_count
   React.useEffect(() => {
     console.log('[DEBUG] PhotoBankFoldersList folders:', folders.map(f => ({
       id: f.id,
@@ -63,41 +62,6 @@ const PhotoBankFoldersList = ({
     })));
   }, [folders]);
 
-  // Используем sessionStorage для хранения состояния сворачивания
-  const STORAGE_KEY = 'photobank_collapsed_folders';
-  
-  const [collapsedFolders, setCollapsedFolders] = React.useState<Set<number>>(() => {
-    // Пытаемся загрузить из sessionStorage
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        return new Set(parsed);
-      } catch (e) {
-        // Если ошибка парсинга, сворачиваем все
-      }
-    }
-    
-    // По умолчанию все папки с подпапками свёрнуты
-    const parentIds = folders.filter(f => f.parent_folder_id).map(f => f.parent_folder_id);
-    return new Set(parentIds);
-  });
-
-  const toggleCollapse = (folderId: number) => {
-    setCollapsedFolders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(folderId)) {
-        newSet.delete(folderId);
-      } else {
-        newSet.add(folderId);
-      }
-      
-      // Сохраняем в sessionStorage
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(newSet)));
-      
-      return newSet;
-    });
-  };
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ru-RU', {
       day: '2-digit',
@@ -106,22 +70,10 @@ const PhotoBankFoldersList = ({
     });
   };
 
-  const getFolderInitials = (name: string) => {
-    const words = name.split(' ');
-    return words.map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  };
-
-  // Группируем папки: основные папки и их подпапки
   const mainFolders = folders.filter(f => !f.parent_folder_id);
-  const getSubfolders = (parentId: number) => folders.filter(f => f.parent_folder_id === parentId);
 
   const canStartTechSort = (folder: PhotoFolder) => {
-    // Можно запустить сортировку только для папок originals с фото
     return folder.folder_type === 'originals' && (folder.photo_count || 0) > 0;
-  };
-
-  const isUserCreatedSubfolder = (subfolder: PhotoFolder) => {
-    return subfolder.folder_type === 'originals' && !!subfolder.parent_folder_id;
   };
 
   return (
@@ -157,346 +109,202 @@ const PhotoBankFoldersList = ({
                 </tr>
               </thead>
               <tbody>
-                {mainFolders.map((folder) => {
-                  const subfolders = getSubfolders(folder.id);
-                  const isExpanded = !collapsedFolders.has(folder.id);
-                  return (
-                    <React.Fragment key={folder.id}>
-                      <tr
-                        className={`border-b hover:bg-accent/50 transition-colors cursor-pointer ${
-                          selectedFolder?.id === folder.id ? 'bg-primary/5' : ''
-                        }`}
-                        onClick={() => onSelectFolder(folder)}
-                      >
-                        <td className="px-2 py-1.5">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleCollapse(folder.id);
-                              }}
-                              className="w-6 h-6 flex items-center justify-center hover:bg-accent rounded transition-colors flex-shrink-0"
-                              title={collapsedFolders.has(folder.id) ? 'Развернуть' : 'Свернуть'}
-                            >
-                              <Icon 
-                                name={collapsedFolders.has(folder.id) ? 'ChevronRight' : 'ChevronDown'} 
-                                size={16} 
-                                className="text-muted-foreground"
-                              />
-                            </button>
-                            <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                              <Icon name="Folder" size={16} className="text-orange-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium break-words text-sm">{folder.folder_name}</p>
-                                {folder.folder_type === 'originals' && (
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Оригиналы</span>
-                                )}
-                                {(folder.unread_messages_count ?? 0) > 0 && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onOpenFolderChats?.(folder.id);
-                                    }}
-                                    className="inline-flex items-center gap-1 text-yellow-600 font-medium hover:text-yellow-700 transition-colors"
-                                    title="Непрочитанные сообщения от клиентов"
-                                  >
-                                    <Icon name="Mail" size={16} />
-                                    <span className="text-xs">{folder.unread_messages_count}</span>
-                                  </button>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground md:hidden">
-                                {folder.photo_count || 0} фото • {formatDate(folder.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-2 py-1.5 text-sm text-muted-foreground hidden md:table-cell">
-                          {formatDate(folder.created_at)}
-                        </td>
-                        <td className="px-2 py-1.5 text-center hidden lg:table-cell">
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
-                              <Icon name="Image" size={16} />
-                              <span>{folder.photo_count || 0}</span>
-                            </div>
-                            {(folder.archive_download_count ?? 0) > 0 && (
-                              <div className="inline-flex items-center gap-1 text-emerald-600 font-medium" title="Скачиваний архива клиентами">
-                                <Icon name="Download" size={16} />
-                                <span>{folder.archive_download_count}</span>
-                              </div>
+                {mainFolders.map((folder) => (
+                  <tr
+                    key={folder.id}
+                    className={`border-b hover:bg-accent/50 transition-colors cursor-pointer ${
+                      selectedFolder?.id === folder.id ? 'bg-primary/5' : ''
+                    }`}
+                    onClick={() => onSelectFolder(folder)}
+                  >
+                    <td className="px-2 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                          <Icon name="Folder" size={16} className="text-orange-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium break-words text-sm">{folder.folder_name}</p>
+                            {folder.folder_type === 'originals' && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Оригиналы</span>
                             )}
-                            {(() => {
-                              const unread = folder.unread_messages_count ?? 0;
-                              const total = folder.total_messages_count ?? 0;
-                              console.log(`[RENDER] Folder ${folder.id}: unread=${unread}, total=${total}`);
-                              return total > 0 ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onOpenFolderChats?.(folder.id);
-                                  }}
-                                  className={`inline-flex items-center gap-1 font-medium transition-colors ${
-                                    unread > 0 
-                                      ? 'text-yellow-600 hover:text-yellow-700' 
-                                      : 'text-gray-500 hover:text-gray-700'
-                                  }`}
-                                  title={unread > 0 ? `Непрочитанных: ${unread} из ${total}` : `Сообщений: ${total}`}
-                                >
-                                  <Icon name="Mail" size={16} />
-                                  {unread > 0 && <span>{unread}</span>}
-                                </button>
-                              ) : null;
-                            })()}
-                          </div>
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-0.5 justify-items-start md:justify-items-end">
-                            {canStartTechSort(folder) && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-purple-600 hover:text-purple-700 hover:bg-purple-50 hover:scale-110 active:scale-95 transition-all duration-200"
+                            {(folder.unread_messages_count ?? 0) > 0 && (
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onStartTechSort(folder.id, folder.folder_name);
+                                  onOpenFolderChats?.(folder.id);
                                 }}
-                                title="Отобрать фото на технический брак"
-                              >
-                                <Icon name="SlidersHorizontal" size={14} />
-                              </Button>
-                            )}
-                            {/* Показываем кнопку чата только для старых папок с одним клиентом */}
-                            {onOpenChat && folder.client_id && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 relative hover:scale-110 active:scale-95 transition-all duration-200"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onOpenChat(folder.client_id!, folder.folder_name);
-                                }}
-                                title="Сообщения от клиента"
+                                className="inline-flex items-center gap-1 text-yellow-600 font-medium hover:text-yellow-700 transition-colors"
+                                title="Непрочитанные сообщения от клиентов"
                               >
                                 <Icon name="Mail" size={16} />
-                                {(folder.unread_messages_count ?? 0) > 0 && (
-                                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                    {folder.unread_messages_count}
-                                  </span>
-                                )}
-                              </Button>
+                                <span className="text-xs">{folder.unread_messages_count}</span>
+                              </button>
                             )}
-                            {/* Показываем кнопку со всеми чатами папки - всегда если есть сообщения */}
-                            {onOpenFolderChats && !folder.client_id && (folder.total_messages_count ?? 0) > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-7 w-7 relative hover:scale-110 active:scale-95 transition-all duration-200 ${
-                                  (folder.unread_messages_count ?? 0) > 0
-                                    ? 'text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50'
-                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onOpenFolderChats(folder.id);
-                                }}
-                                title={
-                                  (folder.unread_messages_count ?? 0) > 0
-                                    ? `Непрочитанных: ${folder.unread_messages_count}`
-                                    : 'Сообщения от клиентов'
-                                }
-                              >
-                                <Icon name="Mail" size={14} />
-                                {(folder.unread_messages_count ?? 0) > 0 && (
-                                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
-                                    {folder.unread_messages_count}
-                                  </span>
-                                )}
-                              </Button>
-                            )}
-                            {onShareFolder && folder.photo_count > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 hover:scale-110 active:scale-95 transition-all duration-200"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onShareFolder(folder.id, folder.folder_name);
-                                }}
-                                title="Поделиться галереей"
-                              >
-                                <Icon name="Share2" size={14} />
-                              </Button>
-                            )}
-                            {onDownloadFolder && folder.photo_count > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 hover:scale-110 active:scale-95 transition-all duration-200"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDownloadFolder(folder.id, folder.folder_name);
-                                }}
-                                title="Скачать архивом"
-                              >
-                                <Icon name="Download" size={16} />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 hover:scale-110 active:scale-95 transition-all duration-200"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSelectFolder(folder);
-                              }}
-                              title="Открыть папку"
-                            >
-                              <Icon name="FolderOpen" size={14} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:scale-110 active:scale-95 transition-all duration-200"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteFolder(folder.id, folder.folder_name);
-                              }}
-                              title="Удалить"
-                            >
-                              <Icon name="Trash2" size={14} />
-                            </Button>
                           </div>
-                        </td>
-                      </tr>
-                      {/* Subfolders section - shown when expanded */}
-                      {isExpanded && subfolders.map((subfolder) => (
-                        <tr
-                          key={subfolder.id}
-                          className={`border-b hover:bg-accent/50 transition-colors cursor-pointer bg-muted/30 ${
-                            selectedFolder?.id === subfolder.id ? 'bg-primary/5' : ''
-                          }`}
-                          onClick={() => onSelectFolder(subfolder)}
-                        >
-                          <td className="px-2 py-1.5 pl-10">
-                            <div className="flex items-center gap-3">
-                              {isUserCreatedSubfolder(subfolder) ? (
-                                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                  <Icon name="FolderOpen" size={16} className="text-blue-600" />
-                                </div>
-                              ) : (
-                                <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                                  <Icon name="AlertTriangle" size={16} className="text-red-600" />
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {isUserCreatedSubfolder(subfolder) ? (
-                                    <p className="font-medium break-words text-sm">{subfolder.folder_name}</p>
-                                  ) : (
-                                    <>
-                                      <p className="font-medium break-words text-sm">{subfolder.folder_name}</p>
-                                      {subfolder.folder_type === 'tech_rejects' && (
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Брак</span>
-                                      )}
-                                    </>
-                                  )}
-                                  {/* Badge icons for user-created subfolders */}
-                                  {isUserCreatedSubfolder(subfolder) && subfolder.has_password && (
-                                    <span className="text-xs" title="Защищена паролем">
-                                      <Icon name="Lock" size={14} className="text-amber-600" />
-                                    </span>
-                                  )}
-                                  {isUserCreatedSubfolder(subfolder) && subfolder.is_hidden && (
-                                    <span className="text-xs" title="Скрытая папка">
-                                      <Icon name="EyeOff" size={14} className="text-gray-400" />
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-muted-foreground md:hidden">
-                                  {subfolder.photo_count || 0} фото
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-2 py-1.5 text-sm text-muted-foreground hidden md:table-cell">
-                            {formatDate(subfolder.created_at)}
-                          </td>
-                          <td className="px-2 py-1.5 text-center hidden lg:table-cell">
-                            <div className={`inline-flex items-center gap-1 font-medium ${
-                              isUserCreatedSubfolder(subfolder) ? 'text-blue-600' : 'text-red-600'
-                            }`}>
-                              <Icon name="Image" size={16} />
-                              <span>{subfolder.photo_count || 0}</span>
-                            </div>
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-0.5 justify-items-start md:justify-items-end">
-                              {/* Settings button for user-created subfolders */}
-                              {isUserCreatedSubfolder(subfolder) && onOpenSubfolderSettings && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:scale-110 active:scale-95 transition-all duration-200"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onOpenSubfolderSettings(subfolder);
-                                  }}
-                                  title="Настройки папки"
-                                >
-                                  <Icon name="Settings" size={14} />
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 hover:scale-110 active:scale-95 transition-all duration-200"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onSelectFolder(subfolder);
-                                }}
-                                title="Открыть папку"
-                              >
-                                <Icon name="FolderOpen" size={14} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:text-destructive hover:scale-110 active:scale-95 transition-all duration-200"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDeleteFolder(subfolder.id, subfolder.folder_name);
-                                }}
-                                title="Удалить"
-                              >
-                                <Icon name="Trash2" size={14} />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {/* "Add subfolder" button row - shown when expanded and not in admin viewing mode */}
-                      {isExpanded && !isAdminViewing && onCreateSubfolder && (
-                        <tr className="border-b bg-muted/10">
-                          <td colSpan={4} className="px-2 py-1 pl-10">
+                          <p className="text-xs text-muted-foreground md:hidden">
+                            {folder.photo_count || 0} фото • {formatDate(folder.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5 text-sm text-muted-foreground hidden md:table-cell">
+                      {formatDate(folder.created_at)}
+                    </td>
+                    <td className="px-2 py-1.5 text-center hidden lg:table-cell">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="inline-flex items-center gap-1 text-blue-600 font-medium">
+                          <Icon name="Image" size={16} />
+                          <span>{folder.photo_count || 0}</span>
+                        </div>
+                        {(folder.archive_download_count ?? 0) > 0 && (
+                          <div className="inline-flex items-center gap-1 text-emerald-600 font-medium" title="Скачиваний архива клиентами">
+                            <Icon name="Download" size={16} />
+                            <span>{folder.archive_download_count}</span>
+                          </div>
+                        )}
+                        {(() => {
+                          const unread = folder.unread_messages_count ?? 0;
+                          const total = folder.total_messages_count ?? 0;
+                          console.log(`[RENDER] Folder ${folder.id}: unread=${unread}, total=${total}`);
+                          return total > 0 ? (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onCreateSubfolder(folder.id);
+                                onOpenFolderChats?.(folder.id);
                               }}
-                              className="flex items-center gap-2 w-full py-1.5 px-3 text-sm text-muted-foreground hover:text-foreground border border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 rounded-md transition-colors"
+                              className={`inline-flex items-center gap-1 font-medium transition-colors ${
+                                unread > 0 
+                                  ? 'text-yellow-600 hover:text-yellow-700' 
+                                  : 'text-gray-500 hover:text-gray-700'
+                              }`}
+                              title={unread > 0 ? `Непрочитанных: ${unread} из ${total}` : `Сообщений: ${total}`}
                             >
-                              <Icon name="Plus" size={14} />
-                              <span>Добавить папку</span>
+                              <Icon name="Mail" size={16} />
+                              {unread > 0 && <span>{unread}</span>}
                             </button>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
+                          ) : null;
+                        })()}
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-0.5 justify-items-start md:justify-items-end">
+                        {canStartTechSort(folder) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-purple-600 hover:text-purple-700 hover:bg-purple-50 hover:scale-110 active:scale-95 transition-all duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStartTechSort(folder.id, folder.folder_name);
+                            }}
+                            title="Отобрать фото на технический брак"
+                          >
+                            <Icon name="SlidersHorizontal" size={14} />
+                          </Button>
+                        )}
+                        {onOpenChat && folder.client_id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 relative hover:scale-110 active:scale-95 transition-all duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenChat(folder.client_id!, folder.folder_name);
+                            }}
+                            title="Сообщения от клиента"
+                          >
+                            <Icon name="Mail" size={16} />
+                            {(folder.unread_messages_count ?? 0) > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                {folder.unread_messages_count}
+                              </span>
+                            )}
+                          </Button>
+                        )}
+                        {onOpenFolderChats && !folder.client_id && (folder.total_messages_count ?? 0) > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`h-7 w-7 relative hover:scale-110 active:scale-95 transition-all duration-200 ${
+                              (folder.unread_messages_count ?? 0) > 0
+                                ? 'text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenFolderChats(folder.id);
+                            }}
+                            title={
+                              (folder.unread_messages_count ?? 0) > 0
+                                ? `Непрочитанных: ${folder.unread_messages_count}`
+                                : 'Сообщения от клиентов'
+                            }
+                          >
+                            <Icon name="Mail" size={14} />
+                            {(folder.unread_messages_count ?? 0) > 0 && (
+                              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                                {folder.unread_messages_count}
+                              </span>
+                            )}
+                          </Button>
+                        )}
+                        {onShareFolder && folder.photo_count > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 hover:scale-110 active:scale-95 transition-all duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onShareFolder(folder.id, folder.folder_name);
+                            }}
+                            title="Поделиться галереей"
+                          >
+                            <Icon name="Share2" size={14} />
+                          </Button>
+                        )}
+                        {onDownloadFolder && folder.photo_count > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 hover:scale-110 active:scale-95 transition-all duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDownloadFolder(folder.id, folder.folder_name);
+                            }}
+                            title="Скачать архивом"
+                          >
+                            <Icon name="Download" size={16} />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 hover:scale-110 active:scale-95 transition-all duration-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectFolder(folder);
+                          }}
+                          title="Открыть папку"
+                        >
+                          <Icon name="FolderOpen" size={14} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive hover:scale-110 active:scale-95 transition-all duration-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteFolder(folder.id, folder.folder_name);
+                          }}
+                          title="Удалить"
+                        >
+                          <Icon name="Trash2" size={14} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

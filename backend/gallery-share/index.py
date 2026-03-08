@@ -737,6 +737,7 @@ def handler(event: dict, context) -> dict:
                     })
             
             subfolders_data = []
+            print(f'[GALLERY] Querying subfolders for folder_id={folder_id}')
             cur.execute(
                 """
                 SELECT pf.id, pf.folder_name, pf.password_hash IS NOT NULL as has_password,
@@ -759,6 +760,7 @@ def handler(event: dict, context) -> dict:
                     'has_password': row[2],
                     'photo_count': row[5]
                 })
+            print(f'[GALLERY] Found {len(subfolders_data)} subfolders')
             
             cur.close()
             conn.close()

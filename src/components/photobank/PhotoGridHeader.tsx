@@ -8,6 +8,11 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
+  folder_type?: 'originals' | 'tech_rejects';
+  parent_folder_id?: number | null;
+  has_password?: boolean;
+  is_hidden?: boolean;
+  sort_order?: number;
 }
 
 interface PhotoGridHeaderProps {
@@ -19,6 +24,10 @@ interface PhotoGridHeaderProps {
   isAdminViewing?: boolean;
   onRenameFolder?: () => void;
   storageUsage?: { usedGb: number; limitGb: number; percent: number };
+  subfolders?: PhotoFolder[];
+  onSelectSubfolder?: (subfolder: PhotoFolder) => void;
+  onCreateSubfolder?: () => void;
+  onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
 }
 
 const PhotoGridHeader = ({
@@ -29,9 +38,18 @@ const PhotoGridHeader = ({
   onCancelUpload,
   isAdminViewing = false,
   onRenameFolder,
-  storageUsage
+  storageUsage,
+  subfolders,
+  onSelectSubfolder,
+  onCreateSubfolder,
+  onOpenSubfolderSettings
 }: PhotoGridHeaderProps) => {
   const isStorageFull = storageUsage && storageUsage.percent >= 100;
+
+  const isUserCreatedSubfolder = (sf: PhotoFolder) => {
+    return sf.folder_type === 'originals' && !!sf.parent_folder_id;
+  };
+
   return (
     <CardHeader>
       <div className="flex items-center justify-between">
@@ -72,6 +90,83 @@ const PhotoGridHeader = ({
           </div>
         )}
       </div>
+
+      {selectedFolder && subfolders && subfolders.length > 0 && (
+        <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1 scrollbar-thin">
+          {subfolders.map((sf) => {
+            const isTechRejects = sf.folder_type === 'tech_rejects';
+            const isActive = selectedFolder.id === sf.id;
+            const isUserCreated = isUserCreatedSubfolder(sf);
+
+            return (
+              <button
+                key={sf.id}
+                onClick={() => onSelectSubfolder?.(sf)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 border flex-shrink-0 ${
+                  isActive
+                    ? isTechRejects
+                      ? 'bg-red-600 text-white border-red-600'
+                      : 'bg-blue-600 text-white border-blue-600'
+                    : isTechRejects
+                      ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                      : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                }`}
+              >
+                <Icon
+                  name={isTechRejects ? 'AlertTriangle' : 'FolderOpen'}
+                  size={14}
+                  className="flex-shrink-0"
+                />
+                <span>{sf.folder_name}</span>
+                <span className={`${isActive ? 'opacity-80' : 'opacity-60'}`}>
+                  {sf.photo_count || 0}
+                </span>
+                {sf.has_password && (
+                  <Icon name="Lock" size={12} className="flex-shrink-0" />
+                )}
+                {sf.is_hidden && (
+                  <Icon name="EyeOff" size={12} className="flex-shrink-0" />
+                )}
+                {isUserCreated && onOpenSubfolderSettings && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenSubfolderSettings(sf);
+                    }}
+                    className={`flex-shrink-0 rounded-full p-0.5 transition-colors ${
+                      isActive ? 'hover:bg-white/20' : 'hover:bg-black/10'
+                    }`}
+                  >
+                    <Icon name="Settings" size={12} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          {onCreateSubfolder && !isAdminViewing && (
+            <button
+              onClick={onCreateSubfolder}
+              className="flex items-center justify-center w-7 h-7 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-200 flex-shrink-0"
+              title="Добавить папку"
+            >
+              <Icon name="Plus" size={14} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {selectedFolder && (!subfolders || subfolders.length === 0) && onCreateSubfolder && !isAdminViewing && (
+        <div className="mt-3">
+          <button
+            onClick={onCreateSubfolder}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border border-dashed border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            title="Добавить папку"
+          >
+            <Icon name="Plus" size={14} />
+            <span>Добавить папку</span>
+          </button>
+        </div>
+      )}
 
       {uploading && uploadProgress.total > 0 && (
         <div className="mt-4 space-y-3 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">

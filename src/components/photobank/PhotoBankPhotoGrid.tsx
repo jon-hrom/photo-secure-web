@@ -53,6 +53,10 @@ interface PhotoBankPhotoGridProps {
   isAdminViewing?: boolean;
   onRenameFolder?: () => void;
   storageUsage?: { usedGb: number; limitGb: number; percent: number };
+  subfolders?: PhotoFolder[];
+  onSelectSubfolder?: (subfolder: PhotoFolder) => void;
+  onCreateSubfolder?: () => void;
+  onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
 }
 
 const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
@@ -103,7 +107,11 @@ const PhotoBankPhotoGrid = ({
   onRestorePhoto,
   isAdminViewing = false,
   onRenameFolder,
-  storageUsage
+  storageUsage,
+  subfolders,
+  onSelectSubfolder,
+  onCreateSubfolder,
+  onOpenSubfolderSettings
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
@@ -167,6 +175,10 @@ const PhotoBankPhotoGrid = ({
         onCancelUpload={onCancelUpload}
         onRenameFolder={onRenameFolder}
         storageUsage={storageUsage}
+        subfolders={subfolders}
+        onSelectSubfolder={onSelectSubfolder}
+        onCreateSubfolder={onCreateSubfolder}
+        onOpenSubfolderSettings={onOpenSubfolderSettings}
       />
       <CardContent>
         {isTechRejectsFolder && photos.length > 0 && (

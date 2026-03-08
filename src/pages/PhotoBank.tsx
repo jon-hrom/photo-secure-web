@@ -372,6 +372,13 @@ const PhotoBank = () => {
               isAdminViewing={isAdminViewing}
               onRenameFolder={handleRenameFolder}
               storageUsage={storageUsage}
+              subfolders={selectedFolder ? folders.filter(f => f.parent_folder_id === selectedFolder.id || (selectedFolder.parent_folder_id && f.parent_folder_id === selectedFolder.parent_folder_id)) : []}
+              onSelectSubfolder={(subfolder) => setSelectedFolder(subfolder)}
+              onCreateSubfolder={() => {
+                const parentId = selectedFolder?.parent_folder_id || selectedFolder?.id;
+                if (parentId) setCreateSubfolderParentId(parentId);
+              }}
+              onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
             />
             {userId && selectedFolder && (
               <ClientUploadViewer
