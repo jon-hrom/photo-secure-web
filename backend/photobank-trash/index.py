@@ -596,10 +596,47 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 print(f'[EMPTY_TRASH] Deleted favorite photos for clients')
                                 
                                 cur.execute(f'''
+                                    DELETE FROM t_p28211681_photo_secure_web.client_upload_photos
+                                    WHERE upload_folder_id IN (
+                                        SELECT id FROM t_p28211681_photo_secure_web.client_upload_folders
+                                        WHERE client_id IN ({cl_placeholders})
+                                    )
+                                ''', tuple(client_ids))
+                                print(f'[EMPTY_TRASH] Deleted client upload photos')
+                                
+                                cur.execute(f'''
+                                    DELETE FROM t_p28211681_photo_secure_web.client_upload_folders
+                                    WHERE client_id IN ({cl_placeholders})
+                                ''', tuple(client_ids))
+                                print(f'[EMPTY_TRASH] Deleted client upload folders')
+                                
+                                cur.execute(f'''
                                     DELETE FROM t_p28211681_photo_secure_web.favorite_clients
                                     WHERE id IN ({cl_placeholders})
                                 ''', tuple(client_ids))
                                 print(f'[EMPTY_TRASH] Deleted {len(client_ids)} gallery clients')
+                        
+                        # 5.5. Удаляем client_upload_folders по short_link_id (даже без client_id)
+                        cur.execute(f'''
+                            SELECT id FROM t_p28211681_photo_secure_web.folder_short_links
+                            WHERE folder_id IN ({placeholders})
+                        ''', tuple(folder_ids))
+                        short_link_ids = [row['id'] for row in cur.fetchall()]
+                        
+                        if short_link_ids:
+                            sl_placeholders = ','.join(['%s'] * len(short_link_ids))
+                            cur.execute(f'''
+                                DELETE FROM t_p28211681_photo_secure_web.client_upload_photos
+                                WHERE upload_folder_id IN (
+                                    SELECT id FROM t_p28211681_photo_secure_web.client_upload_folders
+                                    WHERE short_link_id IN ({sl_placeholders})
+                                )
+                            ''', tuple(short_link_ids))
+                            cur.execute(f'''
+                                DELETE FROM t_p28211681_photo_secure_web.client_upload_folders
+                                WHERE short_link_id IN ({sl_placeholders})
+                            ''', tuple(short_link_ids))
+                            print(f'[EMPTY_TRASH] Cleaned up remaining client upload folders by short_link_id')
                         
                         # 6. Удаляем короткие ссылки на папки
                         print(f'[EMPTY_TRASH] Deleting folder short links...')
