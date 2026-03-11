@@ -192,7 +192,7 @@ const PhotoGridViewer = ({
                 {/* Оригинал в высоком разрешении (подгружается при зуме > 0) */}
                 {zoom > 0 && (
                   <img
-                    src={viewPhoto.s3_url || viewPhoto.data_url || viewPhoto.thumbnail_s3_url || ''}
+                    src={viewPhoto.is_raw ? (viewPhoto.thumbnail_s3_url || viewPhoto.data_url || '') : (viewPhoto.s3_url || viewPhoto.data_url || viewPhoto.thumbnail_s3_url || '')}
                     alt={viewPhoto.file_name}
                     className="object-contain cursor-move select-none touch-manipulation absolute inset-0"
                     style={{
