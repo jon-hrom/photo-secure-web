@@ -8,7 +8,7 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
-  folder_type?: 'originals' | 'tech_rejects';
+  folder_type?: 'originals' | 'tech_rejects' | 'retouch';
   parent_folder_id?: number | null;
   has_password?: boolean;
   is_hidden?: boolean;
@@ -95,25 +95,35 @@ const PhotoGridHeader = ({
         <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1 scrollbar-thin">
           {subfolders.map((sf) => {
             const isTechRejects = sf.folder_type === 'tech_rejects';
+            const isRetouch = sf.folder_type === 'retouch';
             const isActive = selectedFolder.id === sf.id;
             const isUserCreated = isUserCreatedSubfolder(sf);
+
+            const getButtonStyle = () => {
+              if (isActive) {
+                if (isTechRejects) return 'bg-red-600 text-white border-red-600';
+                if (isRetouch) return 'bg-rose-600 text-white border-rose-600';
+                return 'bg-blue-600 text-white border-blue-600';
+              }
+              if (isTechRejects) return 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100';
+              if (isRetouch) return 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100';
+              return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
+            };
+
+            const getIconName = () => {
+              if (isTechRejects) return 'AlertTriangle';
+              if (isRetouch) return 'Sparkles';
+              return 'FolderOpen';
+            };
 
             return (
               <button
                 key={sf.id}
                 onClick={() => onSelectSubfolder?.(sf)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 border flex-shrink-0 ${
-                  isActive
-                    ? isTechRejects
-                      ? 'bg-red-600 text-white border-red-600'
-                      : 'bg-blue-600 text-white border-blue-600'
-                    : isTechRejects
-                      ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                      : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                }`}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 border flex-shrink-0 ${getButtonStyle()}`}
               >
                 <Icon
-                  name={isTechRejects ? 'AlertTriangle' : 'FolderOpen'}
+                  name={getIconName()}
                   size={14}
                   className="flex-shrink-0"
                 />

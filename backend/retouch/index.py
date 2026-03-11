@@ -182,6 +182,72 @@ def _handle_create(event, conn, user_id):
     return _response(200, {'task_id': task_id, 'status': status})
 
 
+def _get_or_create_retouch_folder(conn, user_id, parent_folder_id):
+    """Находит или создаёт подпапку 'Ретушь' внутри исходной папки"""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT id FROM photo_folders WHERE user_id = %s AND parent_folder_id = %s AND folder_type = 'retouch' AND is_trashed = FALSE LIMIT 1",
+            (user_id, parent_folder_id)
+        )
+        existing = cur.fetchone()
+        if existing:
+            return existing['id']
+
+        cur.execute(
+            "SELECT folder_name FROM photo_folders WHERE id = %s",
+            (parent_folder_id,)
+        )
+        parent = cur.fetchone()
+        parent_name = parent['folder_name'] if parent else 'Папка'
+
+        cur.execute(
+            "INSERT INTO photo_folders (user_id, folder_name, folder_type, parent_folder_id) VALUES (%s, %s, 'retouch', %s) RETURNING id",
+            (user_id, f"{parent_name} — Ретушь", parent_folder_id)
+        )
+        new_folder = cur.fetchone()
+        conn.commit()
+        print(f"[RETOUCH] Created retouch folder id={new_folder['id']} for parent={parent_folder_id}")
+        return new_folder['id']
+
+
+def _save_retouched_photo(conn, user_id, task, result_key, result_url):
+    """Сохраняет обработанное фото в подпапку 'Ретушь'"""
+    photo_id = task['photo_id']
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT folder_id, file_name, file_size, width, height, content_type FROM photo_bank WHERE id = %s",
+            (photo_id,)
+        )
+        original = cur.fetchone()
+
+    if not original:
+        print(f"[RETOUCH] Original photo {photo_id} not found, skipping save")
+        return
+
+    retouch_folder_id = _get_or_create_retouch_folder(conn, user_id, original['folder_id'])
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT id FROM photo_bank WHERE folder_id = %s AND s3_key = %s AND is_trashed = FALSE LIMIT 1",
+            (retouch_folder_id, result_key)
+        )
+        if cur.fetchone():
+            print(f"[RETOUCH] Photo already exists in retouch folder, skipping")
+            return
+
+    file_name = f"retouch_{original['file_name']}"
+    with conn.cursor() as cur:
+        cur.execute(
+            '''INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url, file_size, width, height, content_type)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+            (retouch_folder_id, user_id, file_name, result_key, result_url,
+             original['file_size'] or 0, original['width'], original['height'],
+             original['content_type'] or 'image/jpeg')
+        )
+        conn.commit()
+    print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name}")
+
+
 def _handle_status(event, conn, user_id):
     params = event.get('queryStringParameters', {}) or {}
     task_id = params.get('task_id')
@@ -234,9 +300,9 @@ def _handle_status(event, conn, user_id):
 
         update_fields = ['status = %s', 'updated_at = NOW()']
         update_values = [new_status]
+        result_url = task['result_url']
 
         if result_key:
-            yc_key_id = os.environ.get('YC_S3_KEY_ID') or os.environ.get('AWS_ACCESS_KEY_ID', '')
             result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
             update_fields.append('result_key = %s')
             update_values.append(result_key)
@@ -255,10 +321,13 @@ def _handle_status(event, conn, user_id):
             )
             conn.commit()
 
+        if new_status == 'finished' and result_key:
+            _save_retouched_photo(conn, user_id, task, result_key, result_url)
+
         return _response(200, {
             'task_id': task_id,
             'status': new_status,
-            'result_url': result_url if result_key else task['result_url'],
+            'result_url': result_url,
             'error_message': error_msg or task['error_message'],
         })
 
