@@ -1,15 +1,18 @@
 import json
 import os
+import io
 import time
 import hmac
 import hashlib
 import secrets
+import uuid
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
 import boto3
 from botocore.client import Config
+from PIL import Image
 
 
 RETOUCH_BASE_URL = os.environ.get("RETOUCH_BASE_URL", "").rstrip("/")
@@ -237,8 +240,45 @@ def _get_or_create_retouch_folder(conn, user_id, parent_folder_id):
         return new_folder['id']
 
 
+def _generate_thumbnails(s3_client, result_key):
+    """Скачивает фото из S3 и генерирует thumbnail + grid thumbnail"""
+    try:
+        print(f"[RETOUCH] Downloading {result_key} for thumbnail generation")
+        response = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
+        file_bytes = response['Body'].read()
+
+        img = Image.open(io.BytesIO(file_bytes))
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        orig_img = img.copy()
+
+        prefix = result_key.rsplit('/', 1)[0] if '/' in result_key else ''
+        thumb_prefix = f"{prefix}/thumbnails" if prefix else "thumbnails"
+
+        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+        thumb_buf = io.BytesIO()
+        img.save(thumb_buf, format='JPEG', quality=85)
+        thumb_key = f"{thumb_prefix}/{uuid.uuid4()}.jpg"
+        s3_client.put_object(Bucket=S3_BUCKET, Key=thumb_key, Body=thumb_buf.getvalue(), ContentType='image/jpeg')
+        thumb_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{thumb_key}"
+        print(f"[RETOUCH] Thumbnail created: {thumb_key}")
+
+        orig_img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+        grid_buf = io.BytesIO()
+        orig_img.save(grid_buf, format='JPEG', quality=60, optimize=True)
+        grid_key = f"{thumb_prefix}/grid_{uuid.uuid4()}.jpg"
+        s3_client.put_object(Bucket=S3_BUCKET, Key=grid_key, Body=grid_buf.getvalue(), ContentType='image/jpeg')
+        grid_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{grid_key}"
+        print(f"[RETOUCH] Grid thumbnail created: {grid_key}")
+
+        return thumb_key, thumb_url, grid_key, grid_url
+    except Exception as e:
+        print(f"[RETOUCH] Thumbnail generation failed: {e}")
+        return None, None, None, None
+
+
 def _save_retouched_photo(conn, user_id, task, result_key, result_url):
-    """Сохраняет обработанное фото в подпапку 'Ретушь'"""
+    """Сохраняет обработанное фото в подпапку 'Ретушь' с генерацией thumbnail"""
     photo_id = task['photo_id']
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -262,17 +302,23 @@ def _save_retouched_photo(conn, user_id, task, result_key, result_url):
             print(f"[RETOUCH] Photo already exists in retouch folder, skipping")
             return
 
+    s3_client = _get_s3_client()
+    thumb_key, thumb_url, grid_key, grid_url = _generate_thumbnails(s3_client, result_key)
+
     file_name = f"retouch_{original['file_name']}"
     with conn.cursor() as cur:
         cur.execute(
-            '''INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url, file_size, width, height, content_type)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+            '''INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url,
+               thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url,
+               file_size, width, height, content_type)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
             (retouch_folder_id, user_id, file_name, result_key, result_url,
+             thumb_key, thumb_url, grid_key, grid_url,
              original['file_size'] or 0, original['width'], original['height'],
              original['content_type'] or 'image/jpeg')
         )
         conn.commit()
-    print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name}")
+    print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name} (thumbnails: {'yes' if thumb_key else 'no'})")
 
 
 def _handle_status(event, conn, user_id):
