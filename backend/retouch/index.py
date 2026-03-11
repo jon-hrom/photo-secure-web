@@ -152,8 +152,24 @@ def _handle_create(event, conn, user_id):
 
     if photo.get('is_raw'):
         if photo.get('thumbnail_s3_key'):
-            in_key = photo['thumbnail_s3_key']
-            print(f"[RETOUCH] RAW file detected, using thumbnail: {in_key}")
+            original_thumb_key = photo['thumbnail_s3_key']
+            print(f"[RETOUCH] RAW file detected, thumbnail: {original_thumb_key}")
+            if not original_thumb_key.startswith('photobank/'):
+                in_key = f"photobank/{user_id}/retouch-input/{photo_id}_thumb.jpg"
+                try:
+                    s3 = _get_s3_client()
+                    s3.copy_object(
+                        Bucket=S3_BUCKET,
+                        CopySource={'Bucket': S3_BUCKET, 'Key': original_thumb_key},
+                        Key=in_key,
+                        MetadataDirective='COPY'
+                    )
+                    print(f"[RETOUCH] Copied thumbnail to: {in_key}")
+                except Exception as e:
+                    print(f"[ERROR] Failed to copy thumbnail: {e}")
+                    return _response(500, {'error': f'Не удалось подготовить файл для ретуши: {e}'})
+            else:
+                in_key = original_thumb_key
         else:
             return _response(400, {'error': 'RAW файл ещё конвертируется, попробуйте позже'})
     else:
