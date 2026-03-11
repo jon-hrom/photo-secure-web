@@ -295,8 +295,9 @@ def _handle_status(event, conn, user_id):
             })
 
         new_status = remote.get("status", task['status'])
-        result_key = remote.get("out_key") or remote.get("result_key")
-        error_msg = remote.get("error")
+        result_data = remote.get("result", {}) or {}
+        result_key = result_data.get("out_key") or remote.get("out_key") or remote.get("result_key")
+        error_msg = remote.get("error") or result_data.get("error")
 
         update_fields = ['status = %s', 'updated_at = NOW()']
         update_values = [new_status]
