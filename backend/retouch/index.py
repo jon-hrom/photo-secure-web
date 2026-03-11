@@ -139,7 +139,7 @@ def _handle_create(event, conn, user_id):
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            'SELECT id, s3_key, file_name FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
+            'SELECT id, s3_key, thumbnail_s3_key, is_raw, file_name FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
             (photo_id, user_id)
         )
         photo = cur.fetchone()
@@ -150,7 +150,14 @@ def _handle_create(event, conn, user_id):
     if not photo['s3_key']:
         return _response(400, {'error': 'Photo has no S3 file'})
 
-    in_key = photo['s3_key']
+    if photo.get('is_raw'):
+        if photo.get('thumbnail_s3_key'):
+            in_key = photo['thumbnail_s3_key']
+            print(f"[RETOUCH] RAW file detected, using thumbnail: {in_key}")
+        else:
+            return _response(400, {'error': 'RAW файл ещё конвертируется, попробуйте позже'})
+    else:
+        in_key = photo['s3_key']
     out_prefix = f"retouch/{user_id}/{photo_id}"
 
     path = "/v1/retouch"
