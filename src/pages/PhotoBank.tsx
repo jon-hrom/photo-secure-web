@@ -24,6 +24,7 @@ import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewin
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 import ClientUploadViewer from '@/components/photobank/ClientUploadViewer';
+import RetouchDialog from '@/components/photobank/RetouchDialog';
 
 function CreateSubfolderDialog({ open, onOpenChange, subfolderName, onSetSubfolderName, onCreateSubfolder }: {
   open: boolean;
@@ -77,6 +78,7 @@ const PhotoBank = () => {
   const [createSubfolderParentId, setCreateSubfolderParentId] = useState<number | null>(null);
   const [subfolderName, setSubfolderName] = useState('');
   const [subfolderSettings, setSubfolderSettings] = useState<{ id: number; folder_name: string; has_password?: boolean; is_hidden?: boolean } | null>(null);
+  const [retouchFolder, setRetouchFolder] = useState<{ id: number; name: string } | null>(null);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -292,6 +294,16 @@ const PhotoBank = () => {
         onSaved={fetchFolders}
       />
 
+      {retouchFolder && (
+        <RetouchDialog
+          open={retouchFolder !== null}
+          onOpenChange={(open) => { if (!open) setRetouchFolder(null); }}
+          folderId={retouchFolder.id}
+          folderName={retouchFolder.name}
+          userId={userId}
+        />
+      )}
+
       <div className="max-w-7xl mx-auto space-y-6 px-2 sm:px-4 lg:px-6">
         <PhotoBankStorageIndicator storageUsage={storageUsage} />
 
@@ -347,6 +359,7 @@ const PhotoBank = () => {
             onCreateFolder={() => setShowCreateFolder(true)}
             onStartTechSort={handleStartTechSort}
             onDownloadFolder={handleDownloadFolder}
+            onRetouchFolder={(id, name) => setRetouchFolder({ id, name })}
             onShareFolder={handleShareFolder}
             onOpenChat={(clientId, clientName) => setChatClient({ id: clientId, name: clientName })}
             onOpenFolderChats={handleOpenFolderChats}

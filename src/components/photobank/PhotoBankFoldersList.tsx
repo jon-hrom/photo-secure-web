@@ -29,6 +29,7 @@ interface PhotoBankFoldersListProps {
   onCreateFolder: () => void;
   onStartTechSort: (folderId: number, folderName: string) => void;
   onDownloadFolder?: (folderId: number, folderName: string) => void;
+  onRetouchFolder?: (folderId: number, folderName: string) => void;
   onShareFolder?: (folderId: number, folderName: string) => void;
   onOpenChat?: (clientId: number, clientName: string) => void;
   onOpenFolderChats?: (folderId: number) => void;
@@ -46,6 +47,7 @@ const PhotoBankFoldersList = ({
   onCreateFolder,
   onStartTechSort,
   onDownloadFolder,
+  onRetouchFolder,
   onShareFolder,
   onOpenChat,
   onOpenFolderChats,
@@ -247,6 +249,20 @@ const PhotoBankFoldersList = ({
                                 {folder.unread_messages_count}
                               </span>
                             )}
+                          </Button>
+                        )}
+                        {onRetouchFolder && folder.photo_count > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50 hover:scale-110 active:scale-95 transition-all duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRetouchFolder(folder.id, folder.folder_name);
+                            }}
+                            title="Ретушь фото"
+                          >
+                            <Icon name="Sparkles" size={14} />
                           </Button>
                         )}
                         {onShareFolder && folder.photo_count > 0 && (
