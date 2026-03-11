@@ -155,6 +155,10 @@ interface SubfolderPhotosViewProps {
   state: GalleryState;
   handlers: GalleryHandlers;
   downloadPhoto: (photo: Photo) => void;
+  downloadAll?: () => void;
+  downloadingAll?: boolean;
+  downloadProgress?: { show: boolean; current: number; total: number; status: string };
+  cancelDownload?: () => void;
   formatFileSize: (bytes: number) => string;
   onBack: () => void;
 }
@@ -169,6 +173,10 @@ export const SubfolderPhotosView = ({
   state,
   handlers,
   downloadPhoto,
+  downloadAll,
+  downloadingAll = false,
+  downloadProgress,
+  cancelDownload,
   formatFileSize,
   onBack,
 }: SubfolderPhotosViewProps) => {
@@ -176,6 +184,17 @@ export const SubfolderPhotosView = ({
 
   return (
     <div className="min-h-screen" style={galleryBgStyles}>
+      {downloadingAll && downloadProgress && downloadProgress.show && cancelDownload && (
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-between text-sm">
+            <span>Скачивание {downloadProgress.current}/{downloadProgress.total}</span>
+            <button onClick={cancelDownload} className="ml-2 underline">Отмена</button>
+          </div>
+          <div className="h-1 bg-blue-200">
+            <div className="h-full bg-blue-600 transition-all" style={{ width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%` }} />
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={onBack}
@@ -190,20 +209,25 @@ export const SubfolderPhotosView = ({
         </div>
         <GalleryGrid
           gallery={{ ...gallery, photos: subfolderPhotos, subfolders: [] }}
-          downloadingAll={false}
-          onDownloadAll={() => {}}
+          downloadingAll={downloadingAll}
+          onDownloadAll={downloadAll || (() => {})}
           onPhotoClick={state.setSelectedPhoto}
           onDownloadPhoto={downloadPhoto}
           onAddToFavorites={handlers.handleAddToFavorites}
           onOpenFavoriteFolders={() => state.setIsFavoritesModalOpen(true)}
           formatFileSize={formatFileSize}
           onPhotoLoad={() => {}}
+          clientName={state.clientData?.full_name || state.clientData?.phone || ''}
+          onClientLogin={() => state.setIsLoginModalOpen(true)}
+          onOpenMyFavorites={() => state.setIsMyFavoritesOpen(true)}
+          onOpenChat={() => state.setIsChatOpen(true)}
+          unreadMessagesCount={state.unreadCount}
           onRegisterToDownload={handlers.handleRegisterToDownload}
         />
       </div>
       <GalleryModals
         selectedPhoto={state.selectedPhoto}
-        gallery={gallery}
+        gallery={{ ...gallery, photos: subfolderPhotos, subfolders: [] }}
         clientData={state.clientData}
         clientFavoritePhotoIds={state.clientFavoritePhotoIds}
         viewingFavorites={state.viewingFavorites}

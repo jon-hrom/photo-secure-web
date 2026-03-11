@@ -214,6 +214,10 @@ export default function PublicGallery() {
         state={{ ...state, code }}
         handlers={handlers}
         downloadPhoto={downloadPhoto}
+        downloadAll={downloadAll}
+        downloadingAll={downloadingAll}
+        downloadProgress={downloadProgress}
+        cancelDownload={cancelDownload}
         formatFileSize={formatFileSize}
         onBack={subfolder.handleBackFromSubfolder}
       />
