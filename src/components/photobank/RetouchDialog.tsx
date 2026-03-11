@@ -31,9 +31,10 @@ interface RetouchDialogProps {
   folderId: number;
   folderName: string;
   userId: string;
+  onRetouchComplete?: () => void;
 }
 
-const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId }: RetouchDialogProps) => {
+const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRetouchComplete }: RetouchDialogProps) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [selectedPhotoId, setSelectedPhotoId] = useState<number | null>(null);
@@ -41,6 +42,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId }: Ret
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('single');
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const retouchCompleteCalledRef = useRef(false);
 
   // Load photos when dialog opens
   useEffect(() => {
@@ -48,13 +50,13 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId }: Ret
       loadPhotos();
     }
     if (!open) {
-      // Reset state on close
       setPhotos([]);
       setSelectedPhotoId(null);
       setTasks([]);
       setSubmitting(false);
       setActiveTab('single');
       stopPolling();
+      retouchCompleteCalledRef.current = false;
     }
   }, [open, folderId]);
 
@@ -182,15 +184,19 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId }: Ret
     return () => stopPolling();
   }, []);
 
-  // Stop polling when all tasks are done
   useEffect(() => {
     if (tasks.length > 0) {
       const allDone = tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
       if (allDone) {
         stopPolling();
+        const hasFinished = tasks.some(t => t.status === 'finished');
+        if (hasFinished && !retouchCompleteCalledRef.current) {
+          retouchCompleteCalledRef.current = true;
+          onRetouchComplete?.();
+        }
       }
     }
-  }, [tasks]);
+  }, [tasks, onRetouchComplete]);
 
   const getPhotoThumb = (photo: Photo) => {
     return photo.thumbnail_s3_url || photo.data_url || photo.s3_url || '';

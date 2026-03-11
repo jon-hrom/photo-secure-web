@@ -301,6 +301,7 @@ const PhotoBank = () => {
           folderId={retouchFolder.id}
           folderName={retouchFolder.name}
           userId={userId}
+          onRetouchComplete={fetchFolders}
         />
       )}
 
