@@ -21,6 +21,14 @@
       "expectedStatus": 401,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Health probe",
+      "method": "GET",
+      "path": "/?probe=1",
+      "expectedStatus": 200,
+      "expectedBody": {"probe": "object"},
+      "bodyMatcher": "partial"
     }
   ]
 }

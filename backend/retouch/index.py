@@ -47,12 +47,38 @@ def _response(status_code, body):
     }
 
 
+def _probe_health():
+    """Проверка доступности Retouch API через /health с коротким таймаутом"""
+    if not RETOUCH_BASE_URL:
+        return {"reachable": False, "error": "RETOUCH_BASE_URL is empty"}
+    url = RETOUCH_BASE_URL + "/health"
+    print(f"[PROBE] Checking health at: {url}")
+    try:
+        t0 = time.time()
+        r = requests.get(url, timeout=(3, 5))
+        elapsed = round(time.time() - t0, 3)
+        print(f"[PROBE] Health responded: status={r.status_code}, time={elapsed}s, body={r.text[:200]}")
+        return {"reachable": True, "status_code": r.status_code, "elapsed_s": elapsed, "body": r.text[:200]}
+    except requests.RequestException as e:
+        elapsed = round(time.time() - t0, 3)
+        print(f"[PROBE] Health FAILED after {elapsed}s: {e}")
+        return {"reachable": False, "elapsed_s": elapsed, "error": str(e)}
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Ретушь фотографий — отправка на обработку и проверка статуса задачи"""
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
         return {'statusCode': 200, 'headers': _cors_headers(), 'body': '', 'isBase64Encoded': False}
+
+    print(f"[DIAG] RETOUCH_BASE_URL = '{RETOUCH_BASE_URL}'")
+    print(f"[DIAG] HMAC_SECRET set = {bool(HMAC_SECRET)}")
+
+    params = event.get('queryStringParameters', {}) or {}
+    if params.get('probe') == '1':
+        result = _probe_health()
+        return _response(200, {"probe": result})
 
     headers = event.get('headers', {})
     user_id = headers.get('X-User-Id') or headers.get('x-user-id')
@@ -113,18 +139,34 @@ def _handle_create(event, conn, user_id):
     body_str = json.dumps(req_body, separators=(",", ":"), ensure_ascii=False)
     sign_headers = {"Content-Type": "application/json", **_sign("POST", path, body_str)}
 
+    full_url = RETOUCH_BASE_URL + path
+    print(f"[RETOUCH] POST {full_url}")
+    print(f"[RETOUCH] Body: {body_str[:300]}")
+
     try:
+        t0 = time.time()
         r = requests.post(
-            RETOUCH_BASE_URL + path,
+            full_url,
             data=body_str.encode("utf-8"),
             headers=sign_headers,
-            timeout=60
+            timeout=(5, 25)
         )
+        elapsed = round(time.time() - t0, 3)
+        print(f"[RETOUCH] Response: status={r.status_code}, time={elapsed}s, body={r.text[:500]}")
         r.raise_for_status()
         result = r.json()
+    except requests.ConnectionError as e:
+        elapsed = round(time.time() - t0, 3)
+        print(f"[ERROR] Retouch connection failed after {elapsed}s: {e}")
+        return _response(502, {'error': f'Cannot connect to retouch server ({elapsed}s)', 'url': full_url})
+    except requests.Timeout as e:
+        elapsed = round(time.time() - t0, 3)
+        print(f"[ERROR] Retouch timeout after {elapsed}s: {e}")
+        return _response(504, {'error': f'Retouch server timeout ({elapsed}s)', 'url': full_url})
     except requests.RequestException as e:
-        print(f"[ERROR] Retouch API call failed: {e}")
-        return _response(502, {'error': 'Retouch service unavailable'})
+        elapsed = round(time.time() - t0, 3)
+        print(f"[ERROR] Retouch API call failed after {elapsed}s: {e}")
+        return _response(502, {'error': f'Retouch service error ({elapsed}s): {e}'})
 
     task_id = result.get("task_id", "")
     status = result.get("status", "queued")
@@ -167,12 +209,18 @@ def _handle_status(event, conn, user_id):
     if task['status'] in ('queued', 'started'):
         api_path = f"/v1/tasks/{task_id}"
         sign_headers = _sign("GET", api_path, "")
+        status_url = RETOUCH_BASE_URL + api_path
+        print(f"[RETOUCH] GET {status_url}")
         try:
-            r = requests.get(RETOUCH_BASE_URL + api_path, headers=sign_headers, timeout=30)
+            t0 = time.time()
+            r = requests.get(status_url, headers=sign_headers, timeout=(5, 25))
+            elapsed = round(time.time() - t0, 3)
+            print(f"[RETOUCH] Status response: status={r.status_code}, time={elapsed}s, body={r.text[:500]}")
             r.raise_for_status()
             remote = r.json()
         except requests.RequestException as e:
-            print(f"[ERROR] Retouch status check failed: {e}")
+            elapsed = round(time.time() - t0, 3)
+            print(f"[ERROR] Retouch status check failed after {elapsed}s: {e}")
             return _response(200, {
                 'task_id': task['task_id'],
                 'status': task['status'],
