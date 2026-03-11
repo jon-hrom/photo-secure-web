@@ -393,6 +393,29 @@ const PhotoBank = () => {
                 if (parentId) setCreateSubfolderParentId(parentId);
               }}
               onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
+              onDeleteSubfolder={(subfolder) => {
+                if (!confirm(`Удалить подпапку "${subfolder.folder_name}" со всеми фото? Файлы будут перемещены в корзину.`)) return;
+                fetch(`${PHOTOBANK_FOLDERS_API}?folder_id=${subfolder.id}`, {
+                  method: 'DELETE',
+                  headers: { 'X-User-Id': userId }
+                }).then(res => {
+                  if (res.ok) {
+                    if (selectedFolder?.id === subfolder.id) {
+                      const parentId = subfolder.parent_folder_id;
+                      const parentFolder = parentId ? folders.find(f => f.id === parentId) : null;
+                      if (parentFolder) {
+                        setSelectedFolder(parentFolder);
+                        fetchPhotos(parentFolder.id);
+                      } else {
+                        setSelectedFolder(null);
+                        setPhotos([]);
+                      }
+                    }
+                    fetchFolders();
+                    fetchStorageUsage();
+                  }
+                });
+              }}
             />
             {userId && selectedFolder && (
               <ClientUploadViewer

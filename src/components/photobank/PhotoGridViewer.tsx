@@ -169,10 +169,10 @@ const PhotoGridViewer = ({
               </div>
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">
-                {/* Thumbnail для быстрой навигации (показывается при zoom = 0) */}
-                {zoom === 0 && viewPhoto.thumbnail_s3_url && (
+                {/* Thumbnail или s3_url для быстрой навигации (показывается при zoom = 0) */}
+                {zoom === 0 && (
                   <img
-                    src={viewPhoto.thumbnail_s3_url}
+                    src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
                     alt={viewPhoto.file_name}
                     className="object-contain cursor-zoom-in select-none touch-manipulation absolute inset-0"
                     style={{
@@ -183,7 +183,7 @@ const PhotoGridViewer = ({
                       opacity: imageError ? 0.5 : 1
                     }}
                     onLoad={() => {
-                      console.log('[PHOTO_VIEWER] Thumbnail loaded:', viewPhoto.file_name);
+                      console.log('[PHOTO_VIEWER] Preview loaded:', viewPhoto.file_name, 'hasThumbnail:', !!viewPhoto.thumbnail_s3_url);
                     }}
                     draggable={false}
                   />

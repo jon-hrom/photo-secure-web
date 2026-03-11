@@ -28,6 +28,7 @@ interface PhotoGridHeaderProps {
   onSelectSubfolder?: (subfolder: PhotoFolder) => void;
   onCreateSubfolder?: () => void;
   onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
+  onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
 }
 
 const PhotoGridHeader = ({
@@ -42,7 +43,8 @@ const PhotoGridHeader = ({
   subfolders,
   onSelectSubfolder,
   onCreateSubfolder,
-  onOpenSubfolderSettings
+  onOpenSubfolderSettings,
+  onDeleteSubfolder
 }: PhotoGridHeaderProps) => {
   const isStorageFull = storageUsage && storageUsage.percent >= 100;
 
@@ -148,6 +150,20 @@ const PhotoGridHeader = ({
                     }`}
                   >
                     <Icon name="Settings" size={12} />
+                  </span>
+                )}
+                {onDeleteSubfolder && !isAdminViewing && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteSubfolder(sf);
+                    }}
+                    className={`flex-shrink-0 rounded-full p-0.5 transition-colors ${
+                      isActive ? 'hover:bg-red-400/30' : 'hover:bg-red-100'
+                    }`}
+                    title="Удалить подпапку"
+                  >
+                    <Icon name="Trash2" size={12} className={isActive ? 'text-white' : 'text-red-500'} />
                   </span>
                 )}
               </button>

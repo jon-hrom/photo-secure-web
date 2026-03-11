@@ -32,7 +32,7 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
-  folder_type?: 'originals' | 'tech_rejects';
+  folder_type?: 'originals' | 'tech_rejects' | 'retouch';
   parent_folder_id?: number | null;
 }
 
@@ -57,6 +57,7 @@ interface PhotoBankPhotoGridProps {
   onSelectSubfolder?: (subfolder: PhotoFolder) => void;
   onCreateSubfolder?: () => void;
   onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
+  onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
 }
 
 const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
@@ -111,7 +112,8 @@ const PhotoBankPhotoGrid = ({
   subfolders,
   onSelectSubfolder,
   onCreateSubfolder,
-  onOpenSubfolderSettings
+  onOpenSubfolderSettings,
+  onDeleteSubfolder
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
@@ -179,6 +181,7 @@ const PhotoBankPhotoGrid = ({
         onSelectSubfolder={onSelectSubfolder}
         onCreateSubfolder={onCreateSubfolder}
         onOpenSubfolderSettings={onOpenSubfolderSettings}
+        onDeleteSubfolder={onDeleteSubfolder}
       />
       <CardContent>
         {isTechRejectsFolder && photos.length > 0 && (
