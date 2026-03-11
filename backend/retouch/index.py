@@ -8,12 +8,33 @@ from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
+import boto3
+from botocore.client import Config
 
 
 RETOUCH_BASE_URL = os.environ.get("RETOUCH_BASE_URL", "").rstrip("/")
 HMAC_CLIENT_ID = "foto-mix"
 HMAC_SECRET = os.environ.get("HMAC_SECRET_FOTO_MIX", "")
 S3_BUCKET = "foto-mix"
+
+
+def _get_s3_client():
+    return boto3.client(
+        's3',
+        endpoint_url='https://storage.yandexcloud.net',
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4')
+    )
+
+
+def _presigned_url(s3_key):
+    return _get_s3_client().generate_presigned_url(
+        'get_object',
+        Params={'Bucket': S3_BUCKET, 'Key': s3_key},
+        ExpiresIn=3600
+    )
 
 
 def _sign(method: str, path: str, body_str: str = "") -> dict:
@@ -182,6 +203,12 @@ def _handle_create(event, conn, user_id):
     return _response(200, {'task_id': task_id, 'status': status})
 
 
+def _presigned_from_task(task):
+    if task.get('result_key'):
+        return _presigned_url(task['result_key'])
+    return None
+
+
 def _get_or_create_retouch_folder(conn, user_id, parent_folder_id):
     """Находит или создаёт подпапку 'Ретушь' внутри исходной папки"""
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -290,7 +317,7 @@ def _handle_status(event, conn, user_id):
             return _response(200, {
                 'task_id': task['task_id'],
                 'status': task['status'],
-                'result_url': task['result_url'],
+                'result_url': _presigned_from_task(task),
                 'error_message': task['error_message'],
             })
 
@@ -304,11 +331,11 @@ def _handle_status(event, conn, user_id):
         result_url = task['result_url']
 
         if result_key:
-            result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
+            storage_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
             update_fields.append('result_key = %s')
             update_values.append(result_key)
             update_fields.append('result_url = %s')
-            update_values.append(result_url)
+            update_values.append(storage_url)
 
         if error_msg:
             update_fields.append('error_message = %s')
@@ -323,18 +350,20 @@ def _handle_status(event, conn, user_id):
             conn.commit()
 
         if new_status == 'finished' and result_key:
-            _save_retouched_photo(conn, user_id, task, result_key, result_url)
+            _save_retouched_photo(conn, user_id, task, result_key, storage_url)
 
+        presigned = _presigned_url(result_key) if result_key else _presigned_from_task(task)
         return _response(200, {
             'task_id': task_id,
             'status': new_status,
-            'result_url': result_url,
+            'result_url': presigned,
             'error_message': error_msg or task['error_message'],
         })
 
+    presigned = _presigned_from_task(task)
     return _response(200, {
         'task_id': task['task_id'],
         'status': task['status'],
-        'result_url': task['result_url'],
+        'result_url': presigned,
         'error_message': task['error_message'],
     })
