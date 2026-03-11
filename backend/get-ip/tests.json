@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "Get outgoing IP",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"outgoing_ip": "object"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
