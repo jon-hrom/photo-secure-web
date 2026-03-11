@@ -279,38 +279,12 @@ def _generate_thumbnails(s3_client, result_key):
         return None, None, None, None
 
 
-def _convert_tiff_to_jpg(s3_client, result_key):
-    """Конвертирует TIFF в JPG, загружает в S3 и возвращает новый ключ и URL"""
-    print(f"[RETOUCH] Converting TIFF to JPG: {result_key}")
-    response = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
-    file_bytes = response['Body'].read()
-
-    img = Image.open(io.BytesIO(file_bytes))
-    if img.mode != 'RGB':
-        img = img.convert('RGB')
-
-    jpg_buffer = io.BytesIO()
-    img.save(jpg_buffer, format='JPEG', quality=95, optimize=True)
-    jpg_buffer.seek(0)
-
-    jpg_key = result_key.rsplit('.', 1)[0] + '.jpg'
-    s3_client.put_object(
-        Bucket=S3_BUCKET,
-        Key=jpg_key,
-        Body=jpg_buffer.getvalue(),
-        ContentType='image/jpeg'
-    )
-    jpg_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{jpg_key}"
-    print(f"[RETOUCH] TIFF converted to JPG: {jpg_key} ({len(jpg_buffer.getvalue())} bytes)")
-    return jpg_key, jpg_url, img.size[0], img.size[1], len(jpg_buffer.getvalue())
-
-
 def _save_retouched_photo(conn, user_id, task, result_key, result_url):
-    """Сохраняет обработанное фото в подпапку 'Ретушь' с генерацией thumbnail"""
+    """Сохраняет обработанное фото в подпапку 'Ретушь' с генерацией thumbnail. Сервер ретуши сам конвертирует RAW→TIFF→JPG и загружает JPG в S3."""
     photo_id = task['photo_id']
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            "SELECT folder_id, file_name, file_size, width, height, content_type, is_raw FROM photo_bank WHERE id = %s",
+            "SELECT folder_id, file_name, file_size, width, height, content_type FROM photo_bank WHERE id = %s",
             (photo_id,)
         )
         original = cur.fetchone()
@@ -321,32 +295,17 @@ def _save_retouched_photo(conn, user_id, task, result_key, result_url):
 
     retouch_folder_id = _get_or_create_retouch_folder(conn, user_id, original['folder_id'])
 
-    s3_client = _get_s3_client()
-
-    save_key = result_key
-    save_url = result_url
-    save_width = original['width']
-    save_height = original['height']
-    save_size = original['file_size'] or 0
-    save_content_type = original['content_type'] or 'image/jpeg'
-
-    if result_key.lower().endswith(('.tiff', '.tif')):
-        try:
-            save_key, save_url, save_width, save_height, save_size = _convert_tiff_to_jpg(s3_client, result_key)
-            save_content_type = 'image/jpeg'
-        except Exception as e:
-            print(f"[RETOUCH] TIFF to JPG conversion failed: {e}, using original TIFF")
-
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "SELECT id FROM photo_bank WHERE folder_id = %s AND s3_key = %s AND is_trashed = FALSE LIMIT 1",
-            (retouch_folder_id, save_key)
+            (retouch_folder_id, result_key)
         )
         if cur.fetchone():
             print(f"[RETOUCH] Photo already exists in retouch folder, skipping")
             return
 
-    thumb_key, thumb_url, grid_key, grid_url = _generate_thumbnails(s3_client, save_key)
+    s3_client = _get_s3_client()
+    thumb_key, thumb_url, grid_key, grid_url = _generate_thumbnails(s3_client, result_key)
 
     orig_name = original['file_name']
     base_name = orig_name.rsplit('.', 1)[0] if '.' in orig_name else orig_name
@@ -358,9 +317,10 @@ def _save_retouched_photo(conn, user_id, task, result_key, result_url):
                thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url,
                file_size, width, height, content_type)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-            (retouch_folder_id, user_id, file_name, save_key, save_url,
+            (retouch_folder_id, user_id, file_name, result_key, result_url,
              thumb_key, thumb_url, grid_key, grid_url,
-             save_size, save_width, save_height, save_content_type)
+             original['file_size'] or 0, original['width'], original['height'],
+             'image/jpeg')
         )
         conn.commit()
     print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name} (thumbnails: {'yes' if thumb_key else 'no'})")
