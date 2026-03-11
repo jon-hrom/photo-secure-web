@@ -198,6 +198,36 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     }
   }, [tasks, onRetouchComplete]);
 
+  const retryTask = async (task: RetouchTask) => {
+    setTasks(prev => prev.map(t =>
+      t.photo_id === task.photo_id ? { ...t, status: 'queued' as const, error_message: undefined, task_id: '' } : t
+    ));
+    const newTask = await startRetouchForPhoto(task.photo_id);
+    if (newTask) {
+      setTasks(prev => prev.map(t =>
+        t.photo_id === task.photo_id ? { ...newTask, file_name: task.file_name } : t
+      ));
+      startPolling();
+    }
+  };
+
+  const retryAllFailed = async () => {
+    const failedTasks = tasks.filter(t => t.status === 'failed');
+    setTasks(prev => prev.map(t =>
+      t.status === 'failed' ? { ...t, status: 'queued' as const, error_message: undefined, task_id: '' } : t
+    ));
+    retouchCompleteCalledRef.current = false;
+    for (const task of failedTasks) {
+      const newTask = await startRetouchForPhoto(task.photo_id);
+      if (newTask) {
+        setTasks(prev => prev.map(t =>
+          t.photo_id === task.photo_id ? { ...newTask, file_name: task.file_name } : t
+        ));
+      }
+    }
+    startPolling();
+  };
+
   const getPhotoThumb = (photo: Photo) => {
     return photo.thumbnail_s3_url || photo.data_url || photo.s3_url || '';
   };
@@ -263,6 +293,15 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
                   {failedCount} ошибок
                 </span>
               )}
+              {failedCount > 0 && activeCount === 0 && (
+                <button
+                  onClick={retryAllFailed}
+                  className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm ml-auto font-medium"
+                >
+                  <Icon name="RefreshCw" size={14} />
+                  Повторить ошибки
+                </button>
+              )}
             </div>
 
             {/* Task list */}
@@ -294,10 +333,15 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
                       Скачать
                     </a>
                   )}
-                  {task.status === 'failed' && task.error_message && (
-                    <span className="text-xs text-red-500 truncate max-w-[150px]" title={task.error_message}>
-                      {task.error_message}
-                    </span>
+                  {task.status === 'failed' && (
+                    <button
+                      onClick={() => retryTask(task)}
+                      className="flex items-center gap-1 text-amber-600 hover:text-amber-700 flex-shrink-0 text-xs"
+                      title="Повторить ретушь"
+                    >
+                      <Icon name="RefreshCw" size={12} />
+                      Повторить
+                    </button>
                   )}
                 </div>
               ))}
