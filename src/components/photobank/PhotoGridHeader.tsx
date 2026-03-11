@@ -158,12 +158,12 @@ const PhotoGridHeader = ({
                       e.stopPropagation();
                       onDeleteSubfolder(sf);
                     }}
-                    className={`flex-shrink-0 rounded-full p-0.5 transition-colors ${
-                      isActive ? 'hover:bg-red-400/30' : 'hover:bg-red-100'
+                    className={`flex-shrink-0 rounded-full p-1 ml-0.5 transition-colors cursor-pointer ${
+                      isActive ? 'hover:bg-red-400/40 text-white/70 hover:text-white' : 'hover:bg-red-100 text-current opacity-40 hover:opacity-100 hover:text-red-500'
                     }`}
                     title="Удалить подпапку"
                   >
-                    <Icon name="Trash2" size={12} className={isActive ? 'text-white' : 'text-red-500'} />
+                    <Icon name="X" size={14} />
                   </span>
                 )}
               </button>
