@@ -809,6 +809,7 @@ def handler(event: dict, context) -> dict:
                     'mobile_cover_photo_id': mobile_cover_photo_id,
                     'mobile_cover_focus_x': float(mobile_cover_focus_x) if mobile_cover_focus_x is not None else 0.5,
                     'mobile_cover_focus_y': float(mobile_cover_focus_y) if mobile_cover_focus_y is not None else 0.5,
+                    'expires_at': expires_at.isoformat() if expires_at else None,
                     'client_upload_enabled': client_upload_enabled,
                     'client_upload_folders': client_folders_data,
                     'client_folders_visibility': client_folders_visibility,

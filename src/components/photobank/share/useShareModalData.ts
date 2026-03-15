@@ -231,12 +231,29 @@ export default function useShareModalData(folderId: number, folderName: string, 
               console.log('[SHARE_MODAL] favorite_config обновлен из БД');
             }
 
+            let restoredExpiresIn = 'forever';
+            let restoredCustomDate = '';
+            if (data.expires_at) {
+              const expiresDate = new Date(data.expires_at);
+              const now = new Date();
+              const diffDays = Math.round((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays <= 2) restoredExpiresIn = 'day';
+              else if (diffDays <= 8) restoredExpiresIn = 'week';
+              else if (diffDays <= 31) restoredExpiresIn = 'month';
+              else {
+                restoredExpiresIn = 'custom';
+                restoredCustomDate = expiresDate.toISOString().slice(0, 16);
+              }
+            }
+
             setLinkSettings(prev => ({
               ...prev,
               downloadDisabled: data.download_disabled || false,
               screenshotProtection: data.screenshot_protection || false,
               clientUploadEnabled: data.client_upload_enabled || false,
               clientFoldersVisibility: data.client_folders_visibility || false,
+              expiresIn: restoredExpiresIn,
+              customDate: restoredCustomDate,
               watermarkEnabled: data.watermark?.enabled || false,
               watermarkType: data.watermark?.type || 'text',
               watermarkText: data.watermark?.text || '',
