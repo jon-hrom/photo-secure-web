@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { type GallerySubfolder } from '../GalleryGrid';
+import { sortPhotosByFilename } from '@/utils/sortPhotosByFilename';
 
 interface Photo {
   id: number;
@@ -85,7 +86,7 @@ export const useSubfolderState = ({
       
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
       
-      setSubfolderPhotos(data.photos || []);
+      setSubfolderPhotos(data.photos ? sortPhotosByFilename(data.photos) : []);
       setSubfolderFolderName(data.folder_name || subfolder.folder_name);
       setViewingSubfolder(subfolder);
       setSubfolderPasswordRequired(false);

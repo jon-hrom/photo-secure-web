@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { sortPhotosByFilename } from '@/utils/sortPhotosByFilename';
 
 interface Photo {
   id: number;
@@ -145,6 +146,9 @@ export function useGalleryLoader(code?: string, clientId?: number) {
       }
       
       console.log('[PUBLIC_GALLERY] Gallery loaded successfully, photos:', data.photos?.length);
+      if (data.photos) {
+        data.photos = sortPhotosByFilename(data.photos);
+      }
       setGallery(data);
       setRequiresPassword(false);
       setPasswordError('');
