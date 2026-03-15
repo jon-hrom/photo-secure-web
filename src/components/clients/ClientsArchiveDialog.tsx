@@ -5,16 +5,21 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import { toast } from 'sonner';
 
 interface ClientsArchiveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clients: Client[];
   onSelectClient: (client: Client) => void;
+  onRestoreClient: (client: Client) => void;
+  onDeleteClient: (clientId: number) => void;
 }
 
-const ClientsArchiveDialog = ({ open, onOpenChange, clients, onSelectClient }: ClientsArchiveDialogProps) => {
+const ClientsArchiveDialog = ({ open, onOpenChange, clients, onSelectClient, onRestoreClient, onDeleteClient }: ClientsArchiveDialogProps) => {
   const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const archivedClients = clients.filter(client => {
     const projects = client.projects || [];
@@ -44,6 +49,30 @@ const ClientsArchiveDialog = ({ open, onOpenChange, clients, onSelectClient }: C
     setTimeout(() => onSelectClient(client), 200);
   };
 
+  const handleRestore = async (client: Client) => {
+    setRestoringId(client.id);
+    try {
+      onRestoreClient(client);
+      toast.success(`${client.name} возвращён из архива`);
+      setExpandedClientId(null);
+    } catch {
+      toast.error('Не удалось вернуть клиента');
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const handleDelete = (client: Client) => {
+    if (!confirm(`Удалить клиента "${client.name}" и все его данные? Это действие необратимо.`)) return;
+    setDeletingId(client.id);
+    try {
+      onDeleteClient(client.id);
+      setExpandedClientId(null);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh]">
@@ -70,6 +99,8 @@ const ClientsArchiveDialog = ({ open, onOpenChange, clients, onSelectClient }: C
               {archivedClients.map(client => {
                 const projects = client.projects || [];
                 const isExpanded = expandedClientId === client.id;
+                const isRestoring = restoringId === client.id;
+                const isDeleting = deletingId === client.id;
 
                 return (
                   <div
@@ -120,15 +151,35 @@ const ClientsArchiveDialog = ({ open, onOpenChange, clients, onSelectClient }: C
                           ))}
                         </div>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full mt-2"
-                          onClick={() => handleOpenClient(client)}
-                        >
-                          <Icon name="ExternalLink" size={14} className="mr-2" />
-                          Открыть карточку
-                        </Button>
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => handleOpenClient(client)}
+                          >
+                            <Icon name="ExternalLink" size={14} className="mr-1.5" />
+                            Карточка
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+                            onClick={() => handleRestore(client)}
+                            disabled={isRestoring}
+                          >
+                            <Icon name="ArchiveRestore" size={14} className="mr-1.5" />
+                            {isRestoring ? 'Возврат...' : 'Вернуть'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="shrink-0"
+                            onClick={() => handleDelete(client)}
+                            disabled={isDeleting}
+                          >
+                            <Icon name="Trash2" size={14} />
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>

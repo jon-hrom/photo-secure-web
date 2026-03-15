@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
@@ -117,6 +117,15 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
       return projects.every(p => p.status === 'completed' || p.status === 'cancelled');
     }).length;
   }, [clients]);
+
+  const handleRestoreFromArchive = useCallback((client: Client) => {
+    const restoredProjects = (client.projects || []).map(p => ({
+      ...p,
+      status: 'in_progress' as const,
+    }));
+    const restoredClient = { ...client, projects: restoredProjects };
+    handlers.handleUpdateClient(restoredClient);
+  }, [handlers]);
 
   if (loading) {
     return (
@@ -292,6 +301,8 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onOpenChange={setIsArchiveDialogOpen}
         clients={clients}
         onSelectClient={dialogsState.handleOpenClientWithProjectCheck}
+        onRestoreClient={handleRestoreFromArchive}
+        onDeleteClient={handlers.handleDeleteClient}
       />
 
       <LoadingProgressBar
