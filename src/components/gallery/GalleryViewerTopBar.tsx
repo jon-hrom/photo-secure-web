@@ -81,7 +81,7 @@ export default function GalleryViewerTopBar({
         )}
         <button
           onClick={onShowHelp}
-          className={`${btnSize} hidden sm:flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all`}
+          className={`${btnSize} flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all`}
           title="Справка"
         >
           <Icon name="HelpCircle" size={18} className="text-white" />
