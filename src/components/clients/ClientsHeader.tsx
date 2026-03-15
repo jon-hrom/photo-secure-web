@@ -32,6 +32,8 @@ interface ClientsHeaderProps {
   viewMode?: 'cards' | 'table';
   setViewMode?: (mode: 'cards' | 'table') => void;
   onExportClick?: () => void;
+  onArchiveClick?: () => void;
+  archiveCount?: number;
   canGoBack?: boolean;
   canGoForward?: boolean;
   onGoBack?: () => void;
@@ -64,6 +66,8 @@ const ClientsHeader = ({
   viewMode = 'cards',
   setViewMode,
   onExportClick,
+  onArchiveClick,
+  archiveCount = 0,
   canGoBack = false,
   canGoForward = false,
   onGoBack,
@@ -157,6 +161,21 @@ const ClientsHeader = ({
             >
               <Icon name="Download" size={20} className="mr-2" />
               Экспорт
+            </Button>
+          )}
+
+          {onArchiveClick && (
+            <Button
+              onClick={onArchiveClick}
+              className="rounded-full bg-gradient-to-r from-slate-100 to-blue-100 hover:from-slate-200 hover:to-blue-200 text-slate-700 hover:text-slate-800 shadow-md hover:shadow-lg transition-all hover:scale-105 active:scale-95 border border-slate-200/50"
+            >
+              <Icon name="Archive" size={20} className="mr-2" />
+              Архив клиентов
+              {archiveCount > 0 && (
+                <span className="ml-1.5 bg-blue-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+                  {archiveCount}
+                </span>
+              )}
             </Button>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
@@ -11,6 +11,7 @@ import BookingDialogs from '@/components/clients/BookingDialogs';
 import MessageDialog from '@/components/clients/MessageDialog';
 import ClientDetailDialog from '@/components/clients/ClientDetailDialog';
 import ClientsExportDialog from '@/components/clients/ClientsExportDialog';
+import ClientsArchiveDialog from '@/components/clients/ClientsArchiveDialog';
 import LoadingProgressBar from '@/components/clients/LoadingProgressBar';
 import UnsavedDataDialog from '@/components/clients/UnsavedDataDialog';
 import UnsavedProjectDialog from '@/components/clients/UnsavedProjectDialog';
@@ -36,6 +37,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
 
   // Обработка URL параметра filter=no-date
   useEffect(() => {
@@ -108,6 +110,14 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     setSelectedClient: dialogsState.setSelectedClient,
   });
 
+  const archiveCount = useMemo(() => {
+    return clients.filter(client => {
+      const projects = client.projects || [];
+      if (projects.length === 0) return false;
+      return projects.every(p => p.status === 'completed' || p.status === 'cancelled');
+    }).length;
+  }, [clients]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -168,6 +178,8 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         viewMode={dialogsState.viewMode}
         setViewMode={dialogsState.setViewMode}
         onExportClick={() => dialogsState.setIsExportDialogOpen(true)}
+        onArchiveClick={() => setIsArchiveDialogOpen(true)}
+        archiveCount={archiveCount}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
         onGoBack={handleGoBack}
@@ -273,6 +285,13 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onOpenChange={dialogsState.setIsExportDialogOpen}
         clients={clients}
         filteredClients={filteredClients}
+      />
+
+      <ClientsArchiveDialog
+        open={isArchiveDialogOpen}
+        onOpenChange={setIsArchiveDialogOpen}
+        clients={clients}
+        onSelectClient={dialogsState.handleOpenClientWithProjectCheck}
       />
 
       <LoadingProgressBar
