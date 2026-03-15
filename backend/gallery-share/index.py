@@ -315,7 +315,37 @@ def handler(event: dict, context) -> dict:
             short_code = event.get('queryStringParameters', {}).get('code')
             subfolder_id = event.get('queryStringParameters', {}).get('subfolder_id')
             subfolder_password = event.get('queryStringParameters', {}).get('subfolder_password', '')
-            
+            lookup_folder_id = event.get('queryStringParameters', {}).get('folder_id')
+
+            if not short_code and lookup_folder_id:
+                lookup_user_id = event.get('headers', {}).get('x-user-id')
+                if not lookup_user_id:
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 401,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Auth required'})
+                    }
+                cur.execute(
+                    """SELECT short_code FROM t_p28211681_photo_secure_web.folder_short_links
+                       WHERE folder_id = %s AND user_id = %s
+                       ORDER BY created_at DESC LIMIT 1""",
+                    (lookup_folder_id, lookup_user_id)
+                )
+                row = cur.fetchone()
+                if row:
+                    short_code = row[0]
+                else:
+                    cur.close()
+                    conn.close()
+                    base_url = os.environ.get('SITE_URL', 'http://localhost:5173')
+                    return {
+                        'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'exists': False})
+                    }
+
             if not short_code:
                 cur.close()
                 conn.close()
@@ -809,6 +839,7 @@ def handler(event: dict, context) -> dict:
                     'mobile_cover_photo_id': mobile_cover_photo_id,
                     'mobile_cover_focus_x': float(mobile_cover_focus_x) if mobile_cover_focus_x is not None else 0.5,
                     'mobile_cover_focus_y': float(mobile_cover_focus_y) if mobile_cover_focus_y is not None else 0.5,
+                    'short_code': short_code,
                     'expires_at': expires_at.isoformat() if expires_at else None,
                     'client_upload_enabled': client_upload_enabled,
                     'client_upload_folders': client_folders_data,

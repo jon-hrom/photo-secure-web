@@ -209,107 +209,123 @@ export default function useShareModalData(folderId: number, folderName: string, 
     }
   }, [clients]);
 
+  const applyServerData = (data: Record<string, unknown>) => {
+    console.log('[SHARE_MODAL] Настройки загружены с сервера:', data);
+
+    if (data.favorite_config) {
+      localStorage.setItem(`folder_${folderId}_favorite_config`, JSON.stringify(data.favorite_config));
+    }
+
+    let restoredExpiresIn = 'forever';
+    let restoredCustomDate = '';
+    if (data.expires_at) {
+      const expiresDate = new Date(data.expires_at as string);
+      const now = new Date();
+      const diffDays = Math.round((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 2) restoredExpiresIn = 'day';
+      else if (diffDays <= 8) restoredExpiresIn = 'week';
+      else if (diffDays <= 31) restoredExpiresIn = 'month';
+      else {
+        restoredExpiresIn = 'custom';
+        restoredCustomDate = expiresDate.toISOString().slice(0, 16);
+      }
+    }
+
+    const wm = data.watermark as Record<string, unknown> | undefined;
+    setLinkSettings(prev => ({
+      ...prev,
+      downloadDisabled: (data.download_disabled as boolean) || false,
+      screenshotProtection: (data.screenshot_protection as boolean) || false,
+      clientUploadEnabled: (data.client_upload_enabled as boolean) || false,
+      clientFoldersVisibility: (data.client_folders_visibility as boolean) || false,
+      expiresIn: restoredExpiresIn,
+      customDate: restoredCustomDate,
+      watermarkEnabled: (wm?.enabled as boolean) || false,
+      watermarkType: (wm?.type as string) || 'text',
+      watermarkText: (wm?.text as string) || '',
+      watermarkImageUrl: (wm?.image_url as string) || '',
+      watermarkFrequency: (wm?.frequency as number) || 50,
+      watermarkSize: (wm?.size as number) || 20,
+      watermarkOpacity: (wm?.opacity as number) || 50,
+      watermarkRotation: (wm?.rotation as number) || 0,
+      password: ''
+    }));
+
+    setPageDesign({
+      coverPhotoId: (data.cover_photo_id as number) || null,
+      coverOrientation: (data.cover_orientation as 'horizontal' | 'vertical') || 'horizontal',
+      coverFocusX: (data.cover_focus_x as number) ?? 0.5,
+      coverFocusY: (data.cover_focus_y as number) ?? 0.5,
+      gridGap: (data.grid_gap as number) ?? 8,
+      bgTheme: (data.bg_theme as 'light' | 'dark' | 'auto' | 'custom') || 'light',
+      bgColor: (data.bg_color as string) || null,
+      bgImageUrl: (data.bg_image_url as string) || null,
+      bgImageData: null,
+      bgImageExt: 'jpg',
+      textColor: (data.text_color as string) || null,
+      coverTextPosition: (data.cover_text_position as 'bottom-center' | 'center' | 'bottom-left' | 'bottom-right' | 'top-center') || 'bottom-center',
+      coverTitle: (data.cover_title as string) || null,
+      coverFontSize: (data.cover_font_size as number) ?? 36,
+      mobileCoverPhotoId: (data.mobile_cover_photo_id as number) || null,
+      mobileCoverFocusX: (data.mobile_cover_focus_x as number) ?? 0.5,
+      mobileCoverFocusY: (data.mobile_cover_focus_y as number) ?? 0.5,
+    });
+
+    if (data.photos && (data.photos as unknown[]).length > 0) {
+      setGalleryPhotos(data.photos as GalleryPhoto[]);
+    }
+  };
+
   const loadSavedLink = async () => {
     const key = `folder_${folderId}_link`;
     const saved = localStorage.getItem(key);
-    if (saved) {
-      const galleryCode = saved.split('/').pop();
-      const correctUrl = galleryCode ? `https://foto-mix.ru/g/${galleryCode}` : saved;
-      if (correctUrl !== saved) {
-        localStorage.setItem(key, correctUrl);
-      }
-      setShareUrl(correctUrl);
-      if (galleryCode) {
-        try {
-          const response = await fetch(`https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${galleryCode}`);
-          if (response.ok) {
-            const data = await response.json();
-            console.log('[SHARE_MODAL] Настройки загружены с сервера:', data);
+    let galleryCode = saved ? saved.split('/').pop() || null : null;
 
-            if (data.favorite_config) {
-              localStorage.setItem(`folder_${folderId}_favorite_config`, JSON.stringify(data.favorite_config));
-              console.log('[SHARE_MODAL] favorite_config обновлен из БД');
-            }
-
-            let restoredExpiresIn = 'forever';
-            let restoredCustomDate = '';
-            if (data.expires_at) {
-              const expiresDate = new Date(data.expires_at);
-              const now = new Date();
-              const diffDays = Math.round((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-              if (diffDays <= 2) restoredExpiresIn = 'day';
-              else if (diffDays <= 8) restoredExpiresIn = 'week';
-              else if (diffDays <= 31) restoredExpiresIn = 'month';
-              else {
-                restoredExpiresIn = 'custom';
-                restoredCustomDate = expiresDate.toISOString().slice(0, 16);
-              }
-            }
-
-            setLinkSettings(prev => ({
-              ...prev,
-              downloadDisabled: data.download_disabled || false,
-              screenshotProtection: data.screenshot_protection || false,
-              clientUploadEnabled: data.client_upload_enabled || false,
-              clientFoldersVisibility: data.client_folders_visibility || false,
-              expiresIn: restoredExpiresIn,
-              customDate: restoredCustomDate,
-              watermarkEnabled: data.watermark?.enabled || false,
-              watermarkType: data.watermark?.type || 'text',
-              watermarkText: data.watermark?.text || '',
-              watermarkImageUrl: data.watermark?.image_url || '',
-              watermarkFrequency: data.watermark?.frequency || 50,
-              watermarkSize: data.watermark?.size || 20,
-              watermarkOpacity: data.watermark?.opacity || 50,
-              watermarkRotation: data.watermark?.rotation || 0,
-              password: ''
-            }));
-
-            setPageDesign({
-              coverPhotoId: data.cover_photo_id || null,
-              coverOrientation: data.cover_orientation || 'horizontal',
-              coverFocusX: data.cover_focus_x ?? 0.5,
-              coverFocusY: data.cover_focus_y ?? 0.5,
-              gridGap: data.grid_gap ?? 8,
-              bgTheme: data.bg_theme || 'light',
-              bgColor: data.bg_color || null,
-              bgImageUrl: data.bg_image_url || null,
-              bgImageData: null,
-              bgImageExt: 'jpg',
-              textColor: data.text_color || null,
-              coverTextPosition: data.cover_text_position || 'bottom-center',
-              coverTitle: data.cover_title || null,
-              coverFontSize: data.cover_font_size ?? 36,
-              mobileCoverPhotoId: data.mobile_cover_photo_id || null,
-              mobileCoverFocusX: data.mobile_cover_focus_x ?? 0.5,
-              mobileCoverFocusY: data.mobile_cover_focus_y ?? 0.5,
-            });
-
-            if (data.photos && data.photos.length > 0) {
-              setGalleryPhotos(data.photos);
-            }
+    if (!galleryCode) {
+      try {
+        const lookupRes = await fetch(
+          `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?folder_id=${folderId}`,
+          { headers: { 'X-User-Id': userId.toString() } }
+        );
+        if (lookupRes.ok) {
+          const lookupData = await lookupRes.json();
+          if (lookupData.exists === false) {
+            console.log('[SHARE_MODAL] No existing link for this folder');
+            setTimeout(() => { initialLoadDone.current = true; }, 500);
+            return;
           }
-        } catch (err) {
-          console.error('[SHARE_MODAL] Ошибка загрузки настроек с сервера:', err);
-
-          const settingsKey = `folder_${folderId}_link_settings`;
-          const savedSettings = localStorage.getItem(settingsKey);
-
-          if (savedSettings) {
-            try {
-              const settings = JSON.parse(savedSettings);
-              setLinkSettings(prev => ({
-                ...prev,
-                ...settings,
-                password: ''
-              }));
-              console.log('[SHARE_MODAL] Настройки загружены из localStorage (fallback)');
-            } catch (err) {
-              console.error('[SHARE_MODAL] Ошибка парсинга настроек из localStorage:', err);
-            }
+          if (lookupData.short_code) {
+            galleryCode = lookupData.short_code;
+            const serverUrl = `https://foto-mix.ru/g/${galleryCode}`;
+            localStorage.setItem(key, serverUrl);
+            setShareUrl(serverUrl);
+            applyServerData(lookupData);
+            console.log('[SHARE_MODAL] Link synced from server:', galleryCode);
+            setTimeout(() => { initialLoadDone.current = true; }, 500);
+            return;
           }
         }
+      } catch (err) {
+        console.error('[SHARE_MODAL] Error looking up link by folder_id:', err);
       }
+      setTimeout(() => { initialLoadDone.current = true; }, 500);
+      return;
+    }
+
+    const correctUrl = `https://foto-mix.ru/g/${galleryCode}`;
+    if (saved !== correctUrl) {
+      localStorage.setItem(key, correctUrl);
+    }
+    setShareUrl(correctUrl);
+
+    try {
+      const response = await fetch(`https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${galleryCode}`);
+      if (response.ok) {
+        const data = await response.json();
+        applyServerData(data);
+      }
+    } catch (err) {
+      console.error('[SHARE_MODAL] Ошибка загрузки настроек с сервера:', err);
     }
     setTimeout(() => { initialLoadDone.current = true; }, 500);
   };
