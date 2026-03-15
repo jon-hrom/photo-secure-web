@@ -54,7 +54,14 @@ export default function GalleryPhotoViewer({
   const [currentIndex, setCurrentIndex] = useState(() => 
     photos.findIndex(p => p.id === initialPhotoId) || 0
   );
-  const [showHelp, setShowHelp] = useState(false);
+  const [showHelp, setShowHelp] = useState(() => {
+    const isMob = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (!isMob) return false;
+    const key = 'gallery_help_shown';
+    if (localStorage.getItem(key)) return false;
+    localStorage.setItem(key, '1');
+    return true;
+  });
   const [fullImageLoaded, setFullImageLoaded] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
