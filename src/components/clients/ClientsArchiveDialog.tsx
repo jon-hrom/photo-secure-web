@@ -62,11 +62,11 @@ const ClientsArchiveDialog = ({ open, onOpenChange, clients, onSelectClient, onR
     }
   };
 
-  const handleDelete = (client: Client) => {
+  const handleDelete = async (client: Client) => {
     if (!confirm(`Удалить клиента "${client.name}" и все его данные? Это действие необратимо.`)) return;
     setDeletingId(client.id);
     try {
-      onDeleteClient(client.id);
+      await onDeleteClient(client.id);
       setExpandedClientId(null);
     } finally {
       setDeletingId(null);

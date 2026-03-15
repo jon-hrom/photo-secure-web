@@ -833,7 +833,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 cur.execute('DELETE FROM t_p28211681_photo_secure_web.telegram_invites WHERE client_id = %s', (client_id,))
                 cur.execute('DELETE FROM t_p28211681_photo_secure_web.telegram_message_queue WHERE client_id = %s', (client_id,))
                 cur.execute('DELETE FROM t_p28211681_photo_secure_web.birthday_notifications_log WHERE client_id = %s', (client_id,))
-                cur.execute('DELETE FROM t_p28211681_photo_secure_web.favorite_clients WHERE client_id = %s', (client_id,))
                 cur.execute('DELETE FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
                 
                 # Удаляем все встречи этого клиента из таблицы meetings
@@ -1521,7 +1520,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.telegram_invites WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.telegram_message_queue WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.birthday_notifications_log WHERE client_id = %s', (client_id,))
-            cur.execute('DELETE FROM t_p28211681_photo_secure_web.favorite_clients WHERE client_id = %s', (client_id,))
             cur.execute('DELETE FROM t_p28211681_photo_secure_web.clients WHERE id = %s', (client_id,))
             
             # Удаляем все встречи этого клиента из таблицы meetings
