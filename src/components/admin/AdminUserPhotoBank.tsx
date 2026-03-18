@@ -357,7 +357,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="photobank" className="flex-1 overflow-hidden flex flex-col mt-0 min-h-0">
+              <TabsContent value="photobank" className="data-[state=inactive]:!hidden flex-1 overflow-hidden flex flex-col mt-0 min-h-0">
                 {selectedFolder && (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3 sm:px-4 py-2 border-b bg-muted/30 gap-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -460,7 +460,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                 </div>
               </TabsContent>
 
-              <TabsContent value="s3" className="flex-1 overflow-hidden flex flex-col mt-0 min-h-0">
+              <TabsContent value="s3" className="data-[state=inactive]:!hidden flex-1 overflow-hidden flex flex-col mt-0 min-h-0">
                 <div className="px-3 sm:px-4 py-1.5 border-b bg-gray-950/5 dark:bg-gray-50/5">
                   <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono overflow-x-auto whitespace-nowrap -mx-1 px-1">
                     <span className="text-muted-foreground shrink-0">{s3Bucket || 'foto-mix'}</span>
