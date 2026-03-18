@@ -61,6 +61,15 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
     }
   }, [newClient, userId, saveClientData]);
 
+  useEffect(() => {
+    if (selectedClient && clients) {
+      const fresh = clients.find(c => c.id === selectedClient.id);
+      if (fresh) {
+        setSelectedClient(fresh);
+      }
+    }
+  }, [clients]);
+
   const [newBooking, setNewBooking] = useState({
     time: '',
     title: '',

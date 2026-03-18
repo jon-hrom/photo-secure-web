@@ -636,10 +636,8 @@ export const useClientsHandlers = ({
         throw new Error('Failed to update client');
       }
       
-      // Сначала обновляем локально для мгновенной реакции UI
       setSelectedClient(updatedClient);
       
-      // Затем перезагружаем список клиентов из сервера
       await loadClients().catch(console.error);
       
       toast.success('Данные клиента обновлены');

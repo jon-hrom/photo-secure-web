@@ -107,6 +107,18 @@ export const useClientsData = (
           author: m.author,
           content: m.content,
           date: m.message_date || m.date
+        })),
+        refunds: (client.refunds || []).map((r: any) => ({
+          id: r.id,
+          paymentId: r.paymentId || r.payment_id,
+          projectId: r.projectId || r.project_id,
+          amount: parseFloat(r.amount) || 0,
+          reason: r.reason || '',
+          type: r.type,
+          status: r.status,
+          method: r.method || '',
+          date: r.date || r.refund_date,
+          paymentSystemId: r.paymentSystemId || r.payment_system_id
         }))
       }));
       
