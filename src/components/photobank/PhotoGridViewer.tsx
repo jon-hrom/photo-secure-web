@@ -226,9 +226,9 @@ const PhotoGridViewer = ({
                 )}
                 
                 {isLoadingFullRes && zoom > 0 && (
-                  <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm px-3 py-2 rounded-full flex items-center gap-2">
+                  <div className="absolute top-14 sm:top-4 right-2 sm:right-4 bg-black/60 backdrop-blur-sm px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full flex items-center gap-2">
                     <Icon name="Loader2" size={16} className="animate-spin text-white/80" />
-                    <span className="text-xs text-white/80">Загрузка оригинала...</span>
+                    <span className="text-[11px] sm:text-xs text-white/80">Загрузка оригинала...</span>
                   </div>
                 )}
               </div>
@@ -254,8 +254,8 @@ const PhotoGridViewer = ({
 
           {/* Подсказка по жестам */}
           {showHelp && viewPhoto && (
-            <div className="absolute inset-0 bg-black/95 z-[100] flex items-center justify-center p-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full space-y-6">
+            <div className="absolute inset-0 bg-black/95 z-[100] flex items-center justify-center p-3 sm:p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 max-w-md w-full space-y-4 sm:space-y-6 max-h-[90dvh] overflow-y-auto">
                 <div className="text-center">
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                     Управление просмотром
@@ -326,7 +326,7 @@ const PhotoGridViewer = ({
 
           {/* Уведомление о копировании */}
           {showCopied && (
-            <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[60] bg-green-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute top-16 sm:top-20 left-1/2 -translate-x-1/2 z-[60] bg-green-500/90 backdrop-blur-sm text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg text-sm animate-in fade-in slide-in-from-top-2 duration-200">
               Имя скопировано
             </div>
           )}

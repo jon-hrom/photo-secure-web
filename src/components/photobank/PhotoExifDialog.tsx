@@ -344,7 +344,7 @@ const PhotoExifDialog = ({ open, onOpenChange, s3Key, fileName, photoUrl }: Phot
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[100dvh] sm:max-h-[90vh] w-full sm:w-auto overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="Info" size={24} />

@@ -27,9 +27,9 @@ const PhotoGridInfo = ({
   if (isLandscape) return null;
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 md:p-6">
-      <p className="text-white font-medium text-lg mb-2">{viewPhoto.file_name}</p>
-      <div className="flex items-center gap-4 text-white/70 text-sm">
+    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 sm:p-4 md:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 md:pb-6">
+      <p className="text-white font-medium text-sm sm:text-lg mb-1 sm:mb-2 truncate">{viewPhoto.file_name}</p>
+      <div className="flex items-center gap-2 sm:gap-4 text-white/70 text-xs sm:text-sm flex-wrap">
         <span>{formatBytes(viewPhoto.file_size)}</span>
         {viewPhoto.width && viewPhoto.height && (
           <span>{viewPhoto.width} × {viewPhoto.height}</span>
