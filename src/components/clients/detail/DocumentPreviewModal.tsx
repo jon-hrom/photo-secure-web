@@ -2,7 +2,8 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Document } from '@/components/clients/ClientsTypes';
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface DocumentPreviewModalProps {
   previewDocument: Document | null;
@@ -265,6 +266,9 @@ const DocumentPreviewModal = ({
   return (
     <Dialog open={!!previewDocument} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] w-[95vw] sm:w-full p-0 overflow-hidden bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 dark:from-purple-950/40 dark:via-pink-950/40 dark:to-rose-950/40 backdrop-blur-sm">
+        <VisuallyHidden>
+          <DialogTitle>Просмотр документа</DialogTitle>
+        </VisuallyHidden>
         {previewDocument && (
           <div className="flex flex-col h-full">
             {/* Заголовок */}
