@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
+import { toast } from 'sonner';
 import funcUrls from '../../../backend/func2url.json';
 import PhotoGridViewer from '@/components/photobank/PhotoGridViewer';
 
@@ -64,6 +66,8 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<number>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const realUserId = String(userId).replace('vk_', '');
 
@@ -98,17 +102,20 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
       fetchFolders();
       setSelectedFolder(null);
       setPhotos([]);
+      setSelectedPhotos(new Set());
     }
   }, [isOpen, fetchFolders]);
 
   const handleSelectFolder = (folder: PhotoFolder) => {
     setSelectedFolder(folder);
+    setSelectedPhotos(new Set());
     fetchPhotos(folder.id);
   };
 
   const handleBack = () => {
     setSelectedFolder(null);
     setPhotos([]);
+    setSelectedPhotos(new Set());
   };
 
   const handleNavigate = (direction: 'prev' | 'next') => {
@@ -129,6 +136,85 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
     link.download = fileName;
     link.target = '_blank';
     link.click();
+  };
+
+  const handleDeleteFolder = async (folder: PhotoFolder, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Удалить папку «${folder.folder_name}» и все фото внутри?\n\nФайлы будут перемещены в корзину.`)) return;
+    
+    setDeleting(true);
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_folder', user_id: realUserId, folder_id: folder.id })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success(`Папка «${folder.folder_name}» удалена (${data.moved_files} файлов в корзине)`);
+        fetchFolders();
+      } else {
+        toast.error(data.error || 'Ошибка удаления');
+      }
+    } catch (e) {
+      toast.error('Ошибка сети');
+      console.error(e);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteSelectedPhotos = async () => {
+    if (selectedPhotos.size === 0) return;
+    if (!confirm(`Удалить ${selectedPhotos.size} фото?\n\nФайлы будут перемещены в корзину.`)) return;
+    
+    setDeleting(true);
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'delete_photos', 
+          user_id: realUserId, 
+          photo_ids: Array.from(selectedPhotos)
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success(`Удалено ${data.deleted_count} фото`);
+        setSelectedPhotos(new Set());
+        if (selectedFolder) fetchPhotos(selectedFolder.id);
+        fetchFolders();
+      } else {
+        toast.error(data.error || 'Ошибка удаления');
+      }
+    } catch (e) {
+      toast.error('Ошибка сети');
+      console.error(e);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const togglePhotoSelection = (photoId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedPhotos(prev => {
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedPhotos.size === photos.length) {
+      setSelectedPhotos(new Set());
+    } else {
+      setSelectedPhotos(new Set(photos.map(p => p.id)));
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -171,9 +257,36 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                   </p>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
-                <Icon name="X" size={18} />
-              </Button>
+              <div className="flex items-center gap-2">
+                {selectedFolder && photos.length > 0 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs gap-1"
+                      onClick={toggleSelectAll}
+                    >
+                      <Checkbox checked={selectedPhotos.size === photos.length && photos.length > 0} className="h-3.5 w-3.5" />
+                      Все
+                    </Button>
+                    {selectedPhotos.size > 0 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-8 text-xs gap-1"
+                        onClick={handleDeleteSelectedPhotos}
+                        disabled={deleting}
+                      >
+                        {deleting ? <Icon name="Loader2" size={14} className="animate-spin" /> : <Icon name="Trash2" size={14} />}
+                        Удалить ({selectedPhotos.size})
+                      </Button>
+                    )}
+                  </>
+                )}
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
+                  <Icon name="X" size={18} />
+                </Button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
@@ -194,11 +307,25 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                         const subfolders = getSubfolders(folder.id);
                         return (
                           <div key={folder.id}>
-                            <FolderRow folder={folder} onClick={() => handleSelectFolder(folder)} formatDate={formatDate} />
+                            <FolderRow 
+                              folder={folder} 
+                              onClick={() => handleSelectFolder(folder)} 
+                              onDelete={(e) => handleDeleteFolder(folder, e)}
+                              formatDate={formatDate}
+                              deleting={deleting}
+                            />
                             {subfolders.length > 0 && (
                               <div className="ml-6 border-l-2 border-muted pl-2 space-y-1 mt-1">
                                 {subfolders.map(sub => (
-                                  <FolderRow key={sub.id} folder={sub} onClick={() => handleSelectFolder(sub)} formatDate={formatDate} isSubfolder />
+                                  <FolderRow 
+                                    key={sub.id} 
+                                    folder={sub} 
+                                    onClick={() => handleSelectFolder(sub)} 
+                                    onDelete={(e) => handleDeleteFolder(sub, e)}
+                                    formatDate={formatDate}
+                                    deleting={deleting}
+                                    isSubfolder 
+                                  />
                                 ))}
                               </div>
                             )}
@@ -221,39 +348,53 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
-                      {photos.map((photo) => (
-                        <div
-                          key={photo.id}
-                          className="relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer group hover:ring-2 hover:ring-primary/50 transition-all"
-                          onClick={() => setViewPhoto(photo)}
-                        >
-                          {photo.is_video ? (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-900">
-                              <Icon name="Play" size={32} className="text-white/70" />
+                      {photos.map((photo) => {
+                        const isSelected = selectedPhotos.has(photo.id);
+                        return (
+                          <div
+                            key={photo.id}
+                            className={`relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer group transition-all ${
+                              isSelected ? 'ring-2 ring-red-500' : 'hover:ring-2 hover:ring-primary/50'
+                            }`}
+                            onClick={() => setViewPhoto(photo)}
+                          >
+                            {photo.is_video ? (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                                <Icon name="Play" size={32} className="text-white/70" />
+                              </div>
+                            ) : (
+                              <img
+                                src={photo.thumbnail_s3_url || photo.s3_url || ''}
+                                alt={photo.file_name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                            <div className="absolute bottom-0 left-0 right-0 p-1 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                              <p className="text-[10px] text-white truncate">{photo.file_name}</p>
+                              <p className="text-[9px] text-white/70">{formatBytes(photo.file_size)}</p>
                             </div>
-                          ) : (
-                            <img
-                              src={photo.thumbnail_s3_url || photo.s3_url || ''}
-                              alt={photo.file_name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          )}
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                          <div className="absolute bottom-0 left-0 right-0 p-1 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                            <p className="text-[10px] text-white truncate">{photo.file_name}</p>
-                            <p className="text-[9px] text-white/70">{formatBytes(photo.file_size)}</p>
+                            {photo.is_raw && (
+                              <span className="absolute top-1 right-1 text-[9px] bg-orange-500 text-white px-1 rounded">RAW</span>
+                            )}
+                            {photo.tech_reject_reason && (
+                              <span className="absolute top-1 left-7">
+                                <Icon name="AlertTriangle" size={14} className="text-red-500 drop-shadow" />
+                              </span>
+                            )}
+                            <div
+                              className={`absolute top-1 left-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                              onClick={(e) => togglePhotoSelection(photo.id, e)}
+                            >
+                              <Checkbox 
+                                checked={isSelected} 
+                                className="h-5 w-5 bg-white/80 border-gray-400 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                              />
+                            </div>
                           </div>
-                          {photo.is_raw && (
-                            <span className="absolute top-1 right-1 text-[9px] bg-orange-500 text-white px-1 rounded">RAW</span>
-                          )}
-                          {photo.tech_reject_reason && (
-                            <span className="absolute top-1 left-1">
-                              <Icon name="AlertTriangle" size={14} className="text-red-500 drop-shadow" />
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </>
@@ -281,11 +422,13 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
 interface FolderRowProps {
   folder: PhotoFolder;
   onClick: () => void;
+  onDelete: (e: React.MouseEvent) => void;
   formatDate: (date: string) => string;
+  deleting: boolean;
   isSubfolder?: boolean;
 }
 
-const FolderRow = ({ folder, onClick, formatDate, isSubfolder }: FolderRowProps) => {
+const FolderRow = ({ folder, onClick, onDelete, formatDate, deleting, isSubfolder }: FolderRowProps) => {
   const folderTypeLabel: Record<string, { text: string; color: string }> = {
     'originals': { text: 'Оригиналы', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
     'tech_rejects': { text: 'Тех. брак', color: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
@@ -296,7 +439,7 @@ const FolderRow = ({ folder, onClick, formatDate, isSubfolder }: FolderRowProps)
 
   return (
     <div
-      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
+      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border group"
       onClick={onClick}
     >
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
@@ -337,6 +480,16 @@ const FolderRow = ({ folder, onClick, formatDate, isSubfolder }: FolderRowProps)
             {folder.archive_download_count}
           </span>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+          onClick={onDelete}
+          disabled={deleting}
+          title="Удалить папку"
+        >
+          {deleting ? <Icon name="Loader2" size={14} className="animate-spin" /> : <Icon name="Trash2" size={14} />}
+        </Button>
         <Icon name="ChevronRight" size={16} className="text-muted-foreground" />
       </div>
     </div>

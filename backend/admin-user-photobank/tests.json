@@ -37,6 +37,24 @@
       "expectedStatus": 200,
       "expectedBody": {"photos": "array"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Delete folder missing folder_id",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "delete_folder", "user_id": "1"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Delete photos missing photo_ids",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "delete_photos", "user_id": "1"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
     }
   ]
 }
