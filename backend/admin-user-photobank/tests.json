@@ -55,6 +55,14 @@
       "expectedStatus": 400,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "S3 presign missing key",
+      "method": "GET",
+      "path": "/?action=s3_presign&user_id=1",
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
     }
   ]
 }

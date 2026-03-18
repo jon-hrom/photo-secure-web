@@ -89,6 +89,9 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const [s3Bucket, setS3Bucket] = useState('');
   const [s3Loading, setS3Loading] = useState(false);
   const [s3History, setS3History] = useState<string[]>([]);
+  const [s3ViewFile, setS3ViewFile] = useState<S3File | null>(null);
+  const [s3ViewUrl, setS3ViewUrl] = useState('');
+  const [s3ViewLoading, setS3ViewLoading] = useState(false);
 
   const realUserId = String(userId).replace('vk_', '');
 
@@ -144,6 +147,17 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
       setS3History([]);
     }
   }, [isOpen, fetchFolders]);
+
+  useEffect(() => {
+    if (!s3ViewFile) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setS3ViewFile(null); setS3ViewUrl(''); }
+      else if (e.key === 'ArrowLeft') navigateS3File('prev');
+      else if (e.key === 'ArrowRight') navigateS3File('next');
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [s3ViewFile, s3Files]);
 
   const handleSelectFolder = (folder: PhotoFolder) => {
     setSelectedFolder(folder);
@@ -260,6 +274,35 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
     if (prev !== undefined) {
       setS3History(h => h.slice(0, -1));
       fetchS3(prev);
+    }
+  };
+
+  const isPreviewable = (name: string) => /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name);
+  const isRawFile = (name: string) => /\.(raw|cr2|cr3|nef|arw|dng|orf|rw2|pef|raf|srw|heic|heif)$/i.test(name);
+  const isVideoFile = (name: string) => /\.(mp4|mov|avi|webm|mkv)$/i.test(name);
+
+  const openS3FileView = async (file: S3File) => {
+    setS3ViewFile(file);
+    setS3ViewUrl('');
+    setS3ViewLoading(true);
+    try {
+      const res = await fetch(`${API_URL}?action=s3_presign&user_id=${realUserId}&key=${encodeURIComponent(file.key)}`);
+      const data = await res.json();
+      if (data.url) setS3ViewUrl(data.url);
+      else toast.error('Не удалось получить ссылку');
+    } catch {
+      toast.error('Ошибка сети');
+    } finally {
+      setS3ViewLoading(false);
+    }
+  };
+
+  const navigateS3File = (direction: 'prev' | 'next') => {
+    if (!s3ViewFile) return;
+    const idx = s3Files.findIndex(f => f.key === s3ViewFile.key);
+    const newIdx = direction === 'prev' ? idx - 1 : idx + 1;
+    if (newIdx >= 0 && newIdx < s3Files.length) {
+      openS3FileView(s3Files[newIdx]);
     }
   };
 
@@ -417,12 +460,8 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
               </TabsContent>
 
               <TabsContent value="s3" className="flex-1 overflow-hidden flex flex-col mt-0 min-h-0">
-                <div className="px-3 sm:px-4 py-2 border-b bg-gray-950/5 dark:bg-gray-50/5">
-                  <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1">
-                    <span className="text-muted-foreground shrink-0">Object Storage</span>
-                    <Icon name="ChevronRight" size={12} className="text-muted-foreground shrink-0" />
-                    <span className="text-muted-foreground shrink-0">Бакеты</span>
-                    <Icon name="ChevronRight" size={12} className="text-muted-foreground shrink-0" />
+                <div className="px-3 sm:px-4 py-1.5 border-b bg-gray-950/5 dark:bg-gray-50/5">
+                  <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono overflow-x-auto whitespace-nowrap -mx-1 px-1">
                     <span className="text-muted-foreground shrink-0">{s3Bucket || 'foto-mix'}</span>
                     {s3Breadcrumbs.map((segment, i) => (
                       <span key={i} className="flex items-center gap-1.5 shrink-0">
@@ -451,16 +490,16 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                     <table className="w-full text-xs sm:text-sm">
                       <thead>
                         <tr className="border-b bg-muted/50 sticky top-0 z-10">
-                          <th className="text-left px-2.5 sm:px-4 py-2 font-medium text-muted-foreground">Имя</th>
-                          <th className="text-right px-2.5 sm:px-4 py-2 font-medium text-muted-foreground w-20 sm:w-28 hidden sm:table-cell">Размер</th>
-                          <th className="text-left px-4 py-2 font-medium text-muted-foreground w-32 hidden lg:table-cell">Класс хранилища</th>
-                          <th className="text-left px-4 py-2 font-medium text-muted-foreground w-44 hidden md:table-cell">Последнее изменение</th>
+                          <th className="text-left px-2.5 sm:px-4 py-1.5 font-medium text-muted-foreground text-xs">Имя</th>
+                          <th className="text-right px-2.5 sm:px-4 py-1.5 font-medium text-muted-foreground text-xs w-20 sm:w-28 hidden sm:table-cell">Размер</th>
+                          <th className="text-left px-4 py-1.5 font-medium text-muted-foreground text-xs w-32 hidden lg:table-cell">Класс</th>
+                          <th className="text-left px-4 py-1.5 font-medium text-muted-foreground text-xs w-40 hidden md:table-cell">Изменено</th>
                         </tr>
                       </thead>
                       <tbody>
                         {s3History.length > 0 && (
                           <tr className="border-b hover:bg-accent/50 cursor-pointer transition-colors" onClick={navigateS3Back}>
-                            <td className="px-4 py-2.5" colSpan={4}>
+                            <td className="px-4 py-1.5" colSpan={4}>
                               <div className="flex items-center gap-2 text-blue-600">
                                 <Icon name="CornerLeftUp" size={16} />
                                 <span>..</span>
@@ -470,35 +509,44 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                         )}
                         {s3Folders.map((folder) => (
                           <tr key={folder.prefix} className="border-b hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => navigateS3(folder.prefix)}>
-                            <td className="px-2.5 sm:px-4 py-2.5">
+                            <td className="px-2.5 sm:px-4 py-1.5">
                               <div className="flex items-center gap-2">
                                 <Icon name="Folder" size={18} className="text-yellow-500 shrink-0" />
                                 <span className="text-blue-600 hover:underline truncate">{folder.name}/</span>
                               </div>
                             </td>
-                            <td className="px-2.5 sm:px-4 py-2.5 text-right text-muted-foreground hidden sm:table-cell">—</td>
-                            <td className="px-4 py-2.5 text-muted-foreground hidden lg:table-cell">—</td>
-                            <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell">—</td>
+                            <td className="px-2.5 sm:px-4 py-1.5 text-right text-muted-foreground hidden sm:table-cell">—</td>
+                            <td className="px-4 py-1.5 text-muted-foreground hidden lg:table-cell">—</td>
+                            <td className="px-4 py-1.5 text-muted-foreground hidden md:table-cell">—</td>
                           </tr>
                         ))}
                         {s3Files.map((file) => (
-                          <tr key={file.key} className="border-b hover:bg-accent/30 transition-colors">
-                            <td className="px-2.5 sm:px-4 py-2.5">
+                          <tr key={file.key} className="border-b hover:bg-accent/30 transition-colors group/row">
+                            <td className="px-2.5 sm:px-4 py-1.5">
                               <div className="flex items-center gap-2">
                                 <Icon
-                                  name={file.name.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|raw|cr2|nef|arw)$/i) ? 'Image' : file.name.match(/\.(mp4|mov|avi|webm)$/i) ? 'Film' : 'File'}
+                                  name={isPreviewable(file.name) || isRawFile(file.name) ? 'Image' : isVideoFile(file.name) ? 'Film' : 'File'}
                                   size={18}
                                   className="text-gray-400 shrink-0"
                                 />
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <span className="truncate block" title={file.key}>{file.name}</span>
                                   <span className="text-[10px] text-muted-foreground sm:hidden">{formatBytes(file.size)}</span>
                                 </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity"
+                                  onClick={() => openS3FileView(file)}
+                                  title={isPreviewable(file.name) ? 'Просмотр' : 'Скачать / Открыть'}
+                                >
+                                  <Icon name={isPreviewable(file.name) || isVideoFile(file.name) ? 'Eye' : 'ExternalLink'} size={15} />
+                                </Button>
                               </div>
                             </td>
-                            <td className="px-2.5 sm:px-4 py-2.5 text-right text-muted-foreground whitespace-nowrap hidden sm:table-cell">{formatBytes(file.size)}</td>
-                            <td className="px-4 py-2.5 text-muted-foreground hidden lg:table-cell">{file.storage_class === 'STANDARD' ? 'Стандартное' : file.storage_class}</td>
-                            <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap hidden md:table-cell">{formatS3Date(file.last_modified)}</td>
+                            <td className="px-2.5 sm:px-4 py-1.5 text-right text-muted-foreground whitespace-nowrap hidden sm:table-cell">{formatBytes(file.size)}</td>
+                            <td className="px-4 py-1.5 text-muted-foreground hidden lg:table-cell">{file.storage_class === 'STANDARD' ? 'Стандартное' : file.storage_class}</td>
+                            <td className="px-4 py-1.5 text-muted-foreground whitespace-nowrap hidden md:table-cell">{formatS3Date(file.last_modified)}</td>
                           </tr>
                         ))}
                         {s3Folders.length === 0 && s3Files.length === 0 && !s3Loading && (
@@ -514,15 +562,88 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                   )}
                 </div>
 
-                <div className="px-3 sm:px-4 py-2 border-t bg-muted/30 text-[11px] sm:text-xs text-muted-foreground flex items-center justify-between gap-2">
-                  <span className="shrink-0">{s3Folders.length} папок, {s3Files.length} объектов</span>
-                  <span className="font-mono truncate hidden sm:block">{s3Prefix}</span>
-                </div>
               </TabsContent>
             </Tabs>
           </div>
         </DialogContent>
       </Dialog>
+
+      {s3ViewFile && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col" onClick={() => { setS3ViewFile(null); setS3ViewUrl(''); }}>
+          <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-black/50 shrink-0" onClick={e => e.stopPropagation()}>
+            <div className="min-w-0 flex-1">
+              <p className="text-white text-sm font-medium truncate">{s3ViewFile.name}</p>
+              <p className="text-white/60 text-xs">
+                {formatBytes(s3ViewFile.size)}
+                {isRawFile(s3ViewFile.name) && <span className="ml-2 bg-orange-500 text-white px-1.5 py-0.5 rounded text-[10px]">RAW</span>}
+                {isVideoFile(s3ViewFile.name) && <span className="ml-2 bg-blue-500 text-white px-1.5 py-0.5 rounded text-[10px]">VIDEO</span>}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0 ml-2">
+              {s3ViewUrl && (
+                <a href={s3ViewUrl} target="_blank" rel="noopener noreferrer" className="text-white/70 hover:text-white p-2 transition-colors" title="Открыть в новой вкладке">
+                  <Icon name="ExternalLink" size={18} />
+                </a>
+              )}
+              {s3ViewUrl && (
+                <a href={s3ViewUrl} download={s3ViewFile.name} className="text-white/70 hover:text-white p-2 transition-colors" title="Скачать">
+                  <Icon name="Download" size={18} />
+                </a>
+              )}
+              <button className="text-white/70 hover:text-white p-2 transition-colors" onClick={() => { setS3ViewFile(null); setS3ViewUrl(''); }}>
+                <Icon name="X" size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center relative min-h-0 px-2" onClick={e => e.stopPropagation()}>
+            {(() => {
+              const currentIdx = s3Files.findIndex(f => f.key === s3ViewFile.key);
+              return (
+                <>
+                  {currentIdx > 0 && (
+                    <button className="absolute left-2 sm:left-4 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-colors" onClick={() => navigateS3File('prev')}>
+                      <Icon name="ChevronLeft" size={24} />
+                    </button>
+                  )}
+                  {currentIdx < s3Files.length - 1 && (
+                    <button className="absolute right-2 sm:right-4 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-colors" onClick={() => navigateS3File('next')}>
+                      <Icon name="ChevronRight" size={24} />
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+
+            {s3ViewLoading ? (
+              <Icon name="Loader2" size={40} className="animate-spin text-white/50" />
+            ) : !s3ViewUrl ? (
+              <p className="text-white/50 text-sm">Не удалось загрузить</p>
+            ) : isPreviewable(s3ViewFile.name) ? (
+              <img src={s3ViewUrl} alt={s3ViewFile.name} className="max-w-full max-h-full object-contain rounded" />
+            ) : isVideoFile(s3ViewFile.name) ? (
+              <video src={s3ViewUrl} controls className="max-w-full max-h-full rounded" />
+            ) : (
+              <div className="text-center text-white/70">
+                <Icon name="File" size={64} className="mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-1">{s3ViewFile.name}</p>
+                <p className="text-sm text-white/50 mb-4">{formatBytes(s3ViewFile.size)} • {isRawFile(s3ViewFile.name) ? 'RAW файл' : 'Файл'}</p>
+                <a href={s3ViewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors">
+                  <Icon name="Download" size={16} />
+                  Скачать файл
+                </a>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-center px-3 py-2 bg-black/50 shrink-0 text-white/40 text-xs" onClick={e => e.stopPropagation()}>
+            {(() => {
+              const idx = s3Files.findIndex(f => f.key === s3ViewFile.key);
+              return `${idx + 1} / ${s3Files.length}`;
+            })()}
+          </div>
+        </div>
+      )}
 
       {viewPhoto && (
         <PhotoGridViewer

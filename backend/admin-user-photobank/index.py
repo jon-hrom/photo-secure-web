@@ -104,6 +104,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             prefix = params.get('prefix', f'photobank/{target_user_id}/')
             return handle_s3_browse(yc_s3_client, yc_bucket, prefix)
         
+        elif action == 's3_presign':
+            s3_key = params.get('key')
+            if not s3_key:
+                return {
+                    'statusCode': 400,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'key is required'}),
+                    'isBase64Encoded': False
+                }
+            url = yc_s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': yc_bucket, 'Key': s3_key},
+                ExpiresIn=3600
+            )
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'url': url, 'key': s3_key}),
+                'isBase64Encoded': False
+            }
+        
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
