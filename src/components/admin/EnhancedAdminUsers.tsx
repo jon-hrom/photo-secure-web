@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Icon from '@/components/ui/icon';
 import { useState, useMemo, useEffect } from 'react';
 import UserDetailsModal from './UserDetailsModal';
+import AdminUserPhotoBank from './AdminUserPhotoBank';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
 
 interface User {
@@ -44,6 +45,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
   const [filterByActivity, setFilterByActivity] = useState<'all' | 'active' | 'inactive'>('all');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [photoBankUser, setPhotoBankUser] = useState<User | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -300,18 +302,32 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
           )}
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full sm:w-auto gap-2"
-          onClick={(e) => {
-            e.stopPropagation();
-            openUserDetails(user);
-          }}
-        >
-          <Icon name="Eye" size={16} />
-          Подробнее
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPhotoBankUser(user);
+            }}
+          >
+            <Icon name="Images" size={16} />
+            Папки
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none gap-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              openUserDetails(user);
+            }}
+          >
+            <Icon name="Eye" size={16} />
+            Подробнее
+          </Button>
+        </div>
       </div>
     );
   };
@@ -476,8 +492,22 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
         onBlock={onBlock}
         onUnblock={onUnblock}
         onDelete={onDelete}
-        onOpenPhotoBank={onOpenPhotoBank}
+        onOpenPhotoBank={(userId) => {
+          setIsModalOpen(false);
+          const user = users.find(u => u.id === userId);
+          if (user) setPhotoBankUser(user);
+          if (onOpenPhotoBank) onOpenPhotoBank(userId);
+        }}
       />
+
+      {photoBankUser && (
+        <AdminUserPhotoBank
+          userId={photoBankUser.id}
+          userName={photoBankUser.full_name || photoBankUser.email || photoBankUser.phone || String(photoBankUser.id)}
+          isOpen={!!photoBankUser}
+          onClose={() => setPhotoBankUser(null)}
+        />
+      )}
     </>
   );
 };

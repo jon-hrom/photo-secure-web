@@ -1,0 +1,42 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Missing user_id",
+      "method": "GET",
+      "path": "/?action=folders",
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "List folders for user",
+      "method": "GET",
+      "path": "/?action=folders&user_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {"folders": "array"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Missing folder_id for photos",
+      "method": "GET",
+      "path": "/?action=photos&user_id=1",
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "List photos in folder",
+      "method": "GET",
+      "path": "/?action=photos&user_id=1&folder_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {"photos": "array"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
