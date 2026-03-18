@@ -71,10 +71,10 @@ function SortableItem({ style, isSelected, onClick }: SortableItemProps) {
       style={styleTransform}
       className={`flex items-center gap-2 p-3 rounded-lg border transition-all cursor-pointer select-none ${
         isDragging 
-          ? 'opacity-50 bg-accent border-purple-300 shadow-lg z-50' 
+          ? 'opacity-50 bg-accent border-purple-300 dark:border-purple-600 shadow-lg z-50' 
           : isSelected
-          ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300'
-          : 'border-border hover:bg-accent hover:border-purple-200'
+          ? 'bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 border-purple-300 dark:border-purple-600 dark:text-white'
+          : 'border-border hover:bg-accent hover:border-purple-200 dark:hover:border-purple-700'
       }`}
       onClick={onClick}
     >
