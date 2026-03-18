@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
@@ -345,7 +346,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                 fetchS3();
               }
             }}>
-              <TabsList className="mx-3 sm:mx-4 mt-2 sm:mt-3 mb-0 grid grid-cols-2 w-auto">
+              <TabsList className="mx-3 sm:mx-4 mt-2 mb-2 grid grid-cols-2 w-auto">
                 <TabsTrigger value="photobank" className="gap-1.5 text-xs">
                   <Icon name="Images" size={14} />
                   Фотобанк
@@ -568,8 +569,8 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
         </DialogContent>
       </Dialog>
 
-      {s3ViewFile && (
-        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col" onClick={() => { setS3ViewFile(null); setS3ViewUrl(''); }}>
+      {s3ViewFile && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col" style={{ pointerEvents: 'auto' }} onClick={() => { setS3ViewFile(null); setS3ViewUrl(''); }}>
           <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-black/50 shrink-0" onClick={e => e.stopPropagation()}>
             <div className="min-w-0 flex-1">
               <p className="text-white text-sm font-medium truncate">{s3ViewFile.name}</p>
@@ -642,7 +643,8 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
               return `${idx + 1} / ${s3Files.length}`;
             })()}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {viewPhoto && (
