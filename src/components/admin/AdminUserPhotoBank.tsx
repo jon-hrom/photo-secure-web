@@ -279,13 +279,13 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-7xl max-h-[90vh] w-[98vw] overflow-hidden p-0">
+        <DialogContent hideCloseButton className="max-w-7xl max-h-[100dvh] sm:max-h-[90vh] w-full sm:w-[98vw] h-[100dvh] sm:h-auto overflow-hidden p-0 rounded-none sm:rounded-lg border-0 sm:border gap-0">
           <VisuallyHidden>
             <DialogTitle>Фотобанк пользователя {userName}</DialogTitle>
           </VisuallyHidden>
 
-          <div className="flex flex-col h-full max-h-[90vh]">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
+          <div className="flex flex-col h-full max-h-[100dvh] sm:max-h-[90vh]">
+            <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
               <div className="min-w-0">
                 <h3 className="font-semibold text-sm truncate">{userName}</h3>
                 <p className="text-xs text-muted-foreground">
@@ -302,7 +302,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                 fetchS3();
               }
             }}>
-              <TabsList className="mx-4 mt-3 grid grid-cols-2 w-auto">
+              <TabsList className="mx-3 sm:mx-4 mt-2 sm:mt-3 grid grid-cols-2 w-auto">
                 <TabsTrigger value="photobank" className="gap-1.5 text-xs">
                   <Icon name="Images" size={14} />
                   Фотобанк
@@ -315,18 +315,18 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
 
               <TabsContent value="photobank" className="flex-1 overflow-hidden flex flex-col mt-0">
                 {selectedFolder && (
-                  <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3 sm:px-4 py-2 border-b bg-muted/30 gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleBack}>
                         <Icon name="ArrowLeft" size={16} />
                       </Button>
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{selectedFolder.folder_name}</p>
-                        <p className="text-[11px] text-muted-foreground">{photos.length} фото • {selectedFolder.s3_prefix || '—'}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{photos.length} фото • {selectedFolder.s3_prefix || '—'}</p>
                       </div>
                     </div>
                     {photos.length > 0 && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 pl-9 sm:pl-0 shrink-0">
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={toggleSelectAll}>
                           <Checkbox checked={selectedPhotos.size === photos.length && photos.length > 0} className="h-3.5 w-3.5" />
                           Все
@@ -342,7 +342,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                   </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-2.5 sm:p-4">
                   {!selectedFolder ? (
                     <>
                       {loadingFolders ? (
@@ -386,7 +386,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                           <p className="text-sm">В папке нет фото</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
                           {photos.map((photo) => {
                             const isSelected = selectedPhotos.has(photo.id);
                             return (
@@ -417,8 +417,8 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
               </TabsContent>
 
               <TabsContent value="s3" className="flex-1 overflow-hidden flex flex-col mt-0">
-                <div className="px-4 py-2 border-b bg-gray-950/5 dark:bg-gray-50/5">
-                  <div className="flex items-center gap-1.5 text-xs font-mono overflow-x-auto whitespace-nowrap pb-1">
+                <div className="px-3 sm:px-4 py-2 border-b bg-gray-950/5 dark:bg-gray-50/5">
+                  <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1">
                     <span className="text-muted-foreground shrink-0">Object Storage</span>
                     <Icon name="ChevronRight" size={12} className="text-muted-foreground shrink-0" />
                     <span className="text-muted-foreground shrink-0">Бакеты</span>
@@ -448,12 +448,12 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                       <Icon name="Loader2" size={32} className="animate-spin text-muted-foreground" />
                     </div>
                   ) : (
-                    <table className="w-full text-sm">
+                    <table className="w-full text-xs sm:text-sm">
                       <thead>
                         <tr className="border-b bg-muted/50 sticky top-0 z-10">
-                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Имя</th>
-                          <th className="text-right px-4 py-2 font-medium text-muted-foreground w-28">Размер</th>
-                          <th className="text-left px-4 py-2 font-medium text-muted-foreground w-32 hidden sm:table-cell">Класс хранилища</th>
+                          <th className="text-left px-2.5 sm:px-4 py-2 font-medium text-muted-foreground">Имя</th>
+                          <th className="text-right px-2.5 sm:px-4 py-2 font-medium text-muted-foreground w-20 sm:w-28 hidden sm:table-cell">Размер</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground w-32 hidden lg:table-cell">Класс хранилища</th>
                           <th className="text-left px-4 py-2 font-medium text-muted-foreground w-44 hidden md:table-cell">Последнее изменение</th>
                         </tr>
                       </thead>
@@ -470,31 +470,34 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                         )}
                         {s3Folders.map((folder) => (
                           <tr key={folder.prefix} className="border-b hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => navigateS3(folder.prefix)}>
-                            <td className="px-4 py-2.5">
+                            <td className="px-2.5 sm:px-4 py-2.5">
                               <div className="flex items-center gap-2">
                                 <Icon name="Folder" size={18} className="text-yellow-500 shrink-0" />
-                                <span className="text-blue-600 hover:underline">{folder.name}/</span>
+                                <span className="text-blue-600 hover:underline truncate">{folder.name}/</span>
                               </div>
                             </td>
-                            <td className="px-4 py-2.5 text-right text-muted-foreground">—</td>
-                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">—</td>
+                            <td className="px-2.5 sm:px-4 py-2.5 text-right text-muted-foreground hidden sm:table-cell">—</td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden lg:table-cell">—</td>
                             <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell">—</td>
                           </tr>
                         ))}
                         {s3Files.map((file) => (
                           <tr key={file.key} className="border-b hover:bg-accent/30 transition-colors">
-                            <td className="px-4 py-2.5">
+                            <td className="px-2.5 sm:px-4 py-2.5">
                               <div className="flex items-center gap-2">
                                 <Icon
                                   name={file.name.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|raw|cr2|nef|arw)$/i) ? 'Image' : file.name.match(/\.(mp4|mov|avi|webm)$/i) ? 'Film' : 'File'}
                                   size={18}
                                   className="text-gray-400 shrink-0"
                                 />
-                                <span className="truncate" title={file.key}>{file.name}</span>
+                                <div className="min-w-0">
+                                  <span className="truncate block" title={file.key}>{file.name}</span>
+                                  <span className="text-[10px] text-muted-foreground sm:hidden">{formatBytes(file.size)}</span>
+                                </div>
                               </div>
                             </td>
-                            <td className="px-4 py-2.5 text-right text-muted-foreground whitespace-nowrap">{formatBytes(file.size)}</td>
-                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{file.storage_class === 'STANDARD' ? 'Стандартное' : file.storage_class}</td>
+                            <td className="px-2.5 sm:px-4 py-2.5 text-right text-muted-foreground whitespace-nowrap hidden sm:table-cell">{formatBytes(file.size)}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden lg:table-cell">{file.storage_class === 'STANDARD' ? 'Стандартное' : file.storage_class}</td>
                             <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap hidden md:table-cell">{formatS3Date(file.last_modified)}</td>
                           </tr>
                         ))}
@@ -511,9 +514,9 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                   )}
                 </div>
 
-                <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
-                  <span>{s3Folders.length} папок, {s3Files.length} объектов</span>
-                  <span className="font-mono truncate ml-4">{s3Prefix}</span>
+                <div className="px-3 sm:px-4 py-2 border-t bg-muted/30 text-[11px] sm:text-xs text-muted-foreground flex items-center justify-between gap-2">
+                  <span className="shrink-0">{s3Folders.length} папок, {s3Files.length} объектов</span>
+                  <span className="font-mono truncate hidden sm:block">{s3Prefix}</span>
                 </div>
               </TabsContent>
             </Tabs>
@@ -554,28 +557,28 @@ const FolderRow = ({ folder, onClick, onDelete, formatDate, deleting, isSubfolde
   const typeInfo = folder.folder_type ? folderTypeLabel[folder.folder_type] : null;
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border group" onClick={onClick}>
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isSubfolder ? 'bg-blue-50 dark:bg-blue-950/50' : 'bg-orange-100 dark:bg-orange-950/50'}`}>
-        <Icon name={isSubfolder ? 'FolderOpen' : 'Folder'} size={20} className={isSubfolder ? 'text-blue-600' : 'text-orange-600'} />
+    <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border group" onClick={onClick}>
+      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${isSubfolder ? 'bg-blue-50 dark:bg-blue-950/50' : 'bg-orange-100 dark:bg-orange-950/50'}`}>
+        <Icon name={isSubfolder ? 'FolderOpen' : 'Folder'} size={18} className={isSubfolder ? 'text-blue-600' : 'text-orange-600'} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm truncate">{folder.folder_name}</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <span className="font-medium text-xs sm:text-sm truncate">{folder.folder_name}</span>
           {typeInfo && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${typeInfo.color}`}>{typeInfo.text}</span>}
           {folder.is_hidden && <Icon name="EyeOff" size={12} className="text-muted-foreground" />}
           {folder.has_password && <Icon name="Lock" size={12} className="text-muted-foreground" />}
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+        <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground mt-0.5">
           <span className="flex items-center gap-1"><Icon name="Image" size={12} />{folder.photo_count || 0}</span>
           <span>{formatDate(folder.created_at)}</span>
-          {folder.s3_prefix && <span className="text-[10px] font-mono opacity-60 truncate max-w-[200px]" title={folder.s3_prefix}>{folder.s3_prefix}</span>}
+          {folder.s3_prefix && <span className="text-[10px] font-mono opacity-60 truncate max-w-[120px] sm:max-w-[200px] hidden sm:inline" title={folder.s3_prefix}>{folder.s3_prefix}</span>}
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {(folder.archive_download_count ?? 0) > 0 && (
-          <span className="flex items-center gap-1 text-xs text-emerald-600"><Icon name="Download" size={14} />{folder.archive_download_count}</span>
+          <span className="flex items-center gap-1 text-xs text-emerald-600 hidden sm:flex"><Icon name="Download" size={14} />{folder.archive_download_count}</span>
         )}
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all" onClick={onDelete} disabled={deleting} title="Удалить папку">
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all" onClick={onDelete} disabled={deleting} title="Удалить папку">
           {deleting ? <Icon name="Loader2" size={14} className="animate-spin" /> : <Icon name="Trash2" size={14} />}
         </Button>
         <Icon name="ChevronRight" size={16} className="text-muted-foreground" />
