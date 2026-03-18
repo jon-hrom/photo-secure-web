@@ -279,7 +279,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent hideCloseButton className="max-w-7xl max-h-[100dvh] sm:max-h-[90vh] w-full sm:w-[98vw] h-[100dvh] sm:h-auto overflow-hidden p-0 rounded-none sm:rounded-lg border-0 sm:border gap-0">
+        <DialogContent hideCloseButton className="max-w-7xl max-h-[100dvh] sm:max-h-[90vh] w-full sm:w-[98vw] h-[100dvh] sm:h-[90vh] overflow-hidden p-0 rounded-none sm:rounded-lg border-0 sm:border gap-0">
           <VisuallyHidden>
             <DialogTitle>Фотобанк пользователя {userName}</DialogTitle>
           </VisuallyHidden>
