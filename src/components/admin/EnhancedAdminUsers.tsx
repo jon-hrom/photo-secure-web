@@ -1,41 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { useState, useMemo, useEffect } from 'react';
 import UserDetailsModal from './UserDetailsModal';
 import AdminUserPhotoBank from './AdminUserPhotoBank';
-import { formatPhoneNumber } from '@/utils/phoneFormat';
-
-interface User {
-  id: string | number;
-  source: 'email' | 'vk' | 'google' | 'yandex';
-  email: string | null;
-  phone: string | null;
-  full_name: string | null;
-  avatar_url: string | null;
-  created_at: string;
-  is_active: boolean;
-  is_blocked: boolean;
-  ip_address: string | null;
-  last_login: string | null;
-  user_agent: string | null;
-  blocked_at: string | null;
-  blocked_reason: string | null;
-  registered_at: string | null;
-}
-
-interface EnhancedAdminUsersProps {
-  users: User[];
-  onBlock: (userId: string | number, reason: string) => void;
-  onUnblock: (userId: string | number) => void;
-  onDelete: (userId: string | number) => void;
-  onRefresh?: () => void;
-  onOpenPhotoBank?: (userId: string | number) => void;
-}
+import UserCard from './users/UserCard';
+import UsersToolbar from './users/UsersToolbar';
+import type { User, EnhancedAdminUsersProps } from './users/types';
+import { isUserOnline } from './users/types';
 
 const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, onOpenPhotoBank }: EnhancedAdminUsersProps) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -56,14 +28,6 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
     }, 30000);
     return () => clearInterval(interval);
   }, [onRefresh]);
-
-  const isUserOnline = (lastLogin: string | null): boolean => {
-    if (!lastLogin) return false;
-    const lastLoginDate = new Date(lastLogin);
-    const now = new Date();
-    const diffInMinutes = (now.getTime() - lastLoginDate.getTime()) / 1000 / 60;
-    return diffInMinutes < 5;
-  };
 
   const filteredAndSortedUsers = useMemo(() => {
     if (!users || users.length === 0) return [];
@@ -108,228 +72,9 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
   const onlineCount = activeUsers.filter(u => isUserOnline(u.last_login)).length;
   const offlineCount = activeUsers.filter(u => !isUserOnline(u.last_login)).length;
 
-  const formatDate = (dateStr: string) => {
-    const samaraTime = new Date(dateStr).toLocaleString('ru-RU', {
-      timeZone: 'Europe/Samara',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    return `${samaraTime} (UTC+4)`;
-  };
-
-  const getRelativeTime = (dateStr: string | null): string => {
-    if (!dateStr) return 'Никогда';
-    
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
-    if (diffInSeconds < 60) return 'Только что';
-    if (diffInSeconds < 300) return `${Math.floor(diffInSeconds / 60)} мин. назад`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} мин. назад`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ч. назад`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} дн. назад`;
-    
-    return formatDate(dateStr);
-  };
-
   const openUserDetails = (user: User) => {
     setSelectedUser(user);
     setIsModalOpen(true);
-  };
-
-  const getSourceLabel = (source: string) => {
-    const labels: Record<string, string> = {
-      'email': 'Email',
-      'vk': 'VK ID',
-      'google': 'Google',
-      'yandex': 'Яндекс'
-    };
-    return labels[source] || source;
-  };
-
-  const exportToCSV = () => {
-    const csvHeaders = [
-      'ID',
-      'Источник',
-      'Имя',
-      'Email',
-      'Телефон',
-      'Статус',
-      'Заблокирован',
-      'IP адрес',
-      'Дата регистрации',
-      'Последний вход',
-      'Браузер/Устройство',
-      'Причина блокировки'
-    ].join(',');
-
-    const csvRows = filteredAndSortedUsers.map(user => [
-      user.id,
-      getSourceLabel(user.source),
-      user.full_name || '',
-      user.email || '',
-      user.phone || '',
-      user.is_active ? 'Активен' : 'Неактивен',
-      user.is_blocked ? 'Да' : 'Нет',
-      user.ip_address || '',
-      user.registered_at || user.created_at,
-      user.last_login || '',
-      user.user_agent || '',
-      user.blocked_reason || ''
-    ].map(value => `"${String(value).replace(/"/g, '""')}"`).join(','));
-
-    const csvContent = [csvHeaders, ...csvRows].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `users_export_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const renderUserCard = (user: User) => {
-    const sourceColors: Record<string, string> = {
-      'email': 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-      'vk': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
-      'google': 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-      'yandex': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
-    };
-
-    const isOnline = isUserOnline(user.last_login);
-
-    return (
-      <div
-        key={user.id}
-        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl bg-card gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
-        onClick={() => openUserDetails(user)}
-      >
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            {user.avatar_url && (
-              <img 
-                src={user.avatar_url} 
-                alt={user.full_name || 'User'} 
-                className="w-8 h-8 rounded-full object-cover"
-              />
-            )}
-            
-            <div className="flex flex-col">
-              {user.full_name && (
-                <span className="font-medium text-sm sm:text-base">{user.full_name}</span>
-              )}
-              {user.email && (
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground">
-                  <Icon name="Mail" size={12} />
-                  <span className="break-all">{user.email}</span>
-                </div>
-              )}
-              {!user.email && !user.full_name && user.phone && (
-                <span className="font-medium text-sm sm:text-base">{formatPhoneNumber(user.phone)}</span>
-              )}
-            </div>
-
-            <Badge variant="outline" className={`ml-2 text-xs ${sourceColors[user.source] || ''}`}>
-              {getSourceLabel(user.source)}
-            </Badge>
-
-            <div className="flex items-center gap-2 ml-auto">
-              {user.is_blocked ? (
-                <Badge variant="destructive" className="gap-1">
-                  <Icon name="Ban" size={12} />
-                  Заблокирован
-                </Badge>
-              ) : user.is_active ? (
-                <>
-                  <Badge variant="default" className="gap-1 bg-purple-600 hover:bg-purple-700">
-                    <Icon name="CheckCircle" size={12} />
-                    Активен
-                  </Badge>
-                  {isUserOnline(user.last_login) && (
-                    <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                      Онлайн
-                    </Badge>
-                  )}
-                </>
-              ) : (
-                <Badge variant="destructive" className="gap-1 bg-red-600 hover:bg-red-700">
-                  <Icon name="XCircle" size={12} />
-                  Не активен
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          {user.phone && user.email && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Icon name="Phone" size={14} />
-              <span>{formatPhoneNumber(user.phone)}</span>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Icon name="Calendar" size={14} />
-              <span>{formatDate(user.registered_at || user.created_at)}</span>
-            </div>
-            {user.last_login && (
-              <div className="flex items-center gap-1.5" title={formatDate(user.last_login)}>
-                <Icon name="Clock" size={14} />
-                <span>Вход: {getRelativeTime(user.last_login)}</span>
-              </div>
-            )}
-            {user.ip_address && (
-              <div className="flex items-center gap-1.5">
-                <Icon name="Globe" size={14} />
-                <span>{user.ip_address}</span>
-              </div>
-            )}
-          </div>
-
-          {user.is_blocked && user.blocked_reason && (
-            <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded">
-              <Icon name="AlertTriangle" size={12} className="mt-0.5" />
-              <span>{user.blocked_reason}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 sm:flex-none gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-            onClick={(e) => {
-              e.stopPropagation();
-              setPhotoBankUser(user);
-            }}
-          >
-            <Icon name="Images" size={16} />
-            Папки
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 sm:flex-none gap-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              openUserDetails(user);
-            }}
-          >
-            <Icon name="Eye" size={16} />
-            Подробнее
-          </Button>
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -355,93 +100,20 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4 mb-6">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Поиск по email, телефону или IP адресу..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              
-              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Сортировка" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">По дате регистрации</SelectItem>
-                  <SelectItem value="email">По email</SelectItem>
-                  <SelectItem value="lastLogin">По последнему входу</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterByActivity} onValueChange={(value: any) => setFilterByActivity(value)}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Активность" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все</SelectItem>
-                  <SelectItem value="active">Активные</SelectItem>
-                  <SelectItem value="inactive">Неактивные</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-              {searchQuery ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Icon name="Info" size={16} />
-                  <span>Найдено: {filteredAndSortedUsers.length} из {users.length}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSearchQuery('')}
-                    className="h-7 gap-1"
-                  >
-                    <Icon name="X" size={14} />
-                    Сбросить
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  Всего пользователей: {users.length}
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                {onRefresh && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      setIsRefreshing(true);
-                      await onRefresh();
-                      setTimeout(() => setIsRefreshing(false), 500);
-                    }}
-                    disabled={isRefreshing}
-                    className="gap-2"
-                  >
-                    <Icon name="RefreshCw" size={16} className={isRefreshing ? 'animate-spin' : ''} />
-                    {isRefreshing ? 'Обновление...' : 'Обновить'}
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportToCSV}
-                  className="gap-2"
-                  disabled={filteredAndSortedUsers.length === 0}
-                >
-                  <Icon name="Download" size={16} />
-                  Экспорт в CSV
-                </Button>
-              </div>
-            </div>
-          </div>
+          <UsersToolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            filterByActivity={filterByActivity}
+            onFilterChange={setFilterByActivity}
+            filteredCount={filteredAndSortedUsers.length}
+            totalCount={users.length}
+            filteredUsers={filteredAndSortedUsers}
+            onRefresh={onRefresh}
+            isRefreshing={isRefreshing}
+            onSetRefreshing={setIsRefreshing}
+          />
 
           <Tabs defaultValue="whitelist" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -463,7 +135,14 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
                   <p className="text-sm mt-1">Пользователи появятся здесь после регистрации</p>
                 </div>
               ) : (
-                activeUsers.map(renderUserCard)
+                activeUsers.map(user => (
+                  <UserCard
+                    key={user.id}
+                    user={user}
+                    onOpenDetails={openUserDetails}
+                    onOpenPhotoBank={setPhotoBankUser}
+                  />
+                ))
               )}
             </TabsContent>
 
@@ -475,7 +154,14 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
                   <p className="text-sm mt-1">Заблокированные пользователи появятся здесь</p>
                 </div>
               ) : (
-                blockedUsers.map(renderUserCard)
+                blockedUsers.map(user => (
+                  <UserCard
+                    key={user.id}
+                    user={user}
+                    onOpenDetails={openUserDetails}
+                    onOpenPhotoBank={setPhotoBankUser}
+                  />
+                ))
               )}
             </TabsContent>
           </Tabs>
