@@ -297,12 +297,12 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
               </Button>
             </div>
 
-            <Tabs defaultValue="photobank" className="flex-1 flex flex-col overflow-hidden" onValueChange={(v) => {
+            <Tabs defaultValue="photobank" className="flex-1 flex flex-col overflow-hidden min-h-0" onValueChange={(v) => {
               if (v === 's3' && s3Folders.length === 0 && s3Files.length === 0 && !s3Loading) {
                 fetchS3();
               }
             }}>
-              <TabsList className="mx-3 sm:mx-4 mt-2 sm:mt-3 grid grid-cols-2 w-auto">
+              <TabsList className="mx-3 sm:mx-4 mt-2 sm:mt-3 mb-0 grid grid-cols-2 w-auto">
                 <TabsTrigger value="photobank" className="gap-1.5 text-xs">
                   <Icon name="Images" size={14} />
                   Фотобанк
@@ -313,7 +313,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="photobank" className="flex-1 overflow-hidden flex flex-col mt-0">
+              <TabsContent value="photobank" className="flex-1 overflow-hidden flex flex-col mt-0 min-h-0">
                 {selectedFolder && (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3 sm:px-4 py-2 border-b bg-muted/30 gap-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -416,7 +416,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                 </div>
               </TabsContent>
 
-              <TabsContent value="s3" className="flex-1 overflow-hidden flex flex-col mt-0">
+              <TabsContent value="s3" className="flex-1 overflow-hidden flex flex-col mt-0 min-h-0">
                 <div className="px-3 sm:px-4 py-2 border-b bg-gray-950/5 dark:bg-gray-50/5">
                   <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1">
                     <span className="text-muted-foreground shrink-0">Object Storage</span>
