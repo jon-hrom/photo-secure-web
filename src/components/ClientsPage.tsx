@@ -270,6 +270,8 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onOpenChange={dialogsState.setIsDetailDialogOpen}
         client={dialogsState.selectedClient}
         onUpdate={handlers.handleUpdateClient}
+        shouldOpenNewProjectForm={dialogsState.shouldOpenNewProjectForm}
+        onNewProjectFormOpened={() => dialogsState.setShouldOpenNewProjectForm(false)}
       />
 
       <MessageDialog

@@ -44,6 +44,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     type: 'phone', 
     author: '' 
   });
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [localClient, setLocalClient] = useState(client);
 
   useEffect(() => {
@@ -136,6 +137,8 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     setNewComment,
     newMessage,
     setNewMessage,
+    isNewProjectOpen,
+    setIsNewProjectOpen,
     localClient,
     setLocalClient,
     loadProjectData,

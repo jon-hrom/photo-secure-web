@@ -20,6 +20,7 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
   
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [shouldOpenNewProjectForm, setShouldOpenNewProjectForm] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [messageTab, setMessageTab] = useState<'vk' | 'email'>('vk');
@@ -126,6 +127,7 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
 
   const handleContinueWithSavedProject = () => {
     setIsUnsavedProjectDialogOpen(false);
+    setShouldOpenNewProjectForm(true);
     if (pendingClient) {
       setSelectedClient(pendingClient);
       setIsDetailDialogOpen(true);
@@ -279,5 +281,7 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
     saveOpenCardData,
     clearOpenCardData,
     hasAnyOpenCard,
+    shouldOpenNewProjectForm,
+    setShouldOpenNewProjectForm,
   };
 };

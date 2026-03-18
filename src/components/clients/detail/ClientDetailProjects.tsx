@@ -30,6 +30,8 @@ interface ClientDetailProjectsProps {
   updateProjectShootingStyle: (projectId: number, styleId: string) => void;
   getStatusBadge: (status: Project['status']) => JSX.Element;
   formatDate: (dateString: string) => string;
+  isNewProjectOpen?: boolean;
+  setIsNewProjectOpen?: (open: boolean) => void;
 }
 
 const ClientDetailProjects = ({
@@ -45,12 +47,17 @@ const ClientDetailProjects = ({
   updateProjectShootingStyle,
   getStatusBadge,
   formatDate,
+  isNewProjectOpen: externalIsNewProjectOpen,
+  setIsNewProjectOpen: externalSetIsNewProjectOpen,
 }: ClientDetailProjectsProps) => {
   const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
   const [selectorKeys, setSelectorKeys] = useState<Record<number, number>>({});
   const [expandedProjects, setExpandedProjects] = useState<Record<number, boolean>>({});
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; projectId: number } | null>(null);
-  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [localIsNewProjectOpen, setLocalIsNewProjectOpen] = useState(false);
+  
+  const isNewProjectOpen = externalIsNewProjectOpen !== undefined ? externalIsNewProjectOpen : localIsNewProjectOpen;
+  const setIsNewProjectOpen = externalSetIsNewProjectOpen || setLocalIsNewProjectOpen;
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [highlightArchive, setHighlightArchive] = useState(false);
   const archiveRef = useRef<HTMLDivElement>(null);
@@ -297,7 +304,7 @@ const ClientDetailProjects = ({
       <div className="mt-4">
         <NewProjectForm
           isOpen={isNewProjectOpen}
-          onToggle={() => setIsNewProjectOpen(prev => !prev)}
+          onToggle={() => setIsNewProjectOpen(!isNewProjectOpen)}
           newProject={newProject}
           setNewProject={setNewProject}
           handleAddProject={handleAddProject}

@@ -54,6 +54,8 @@ interface ClientDialogContentProps {
   tabs: readonly string[];
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  isNewProjectOpen?: boolean;
+  setIsNewProjectOpen?: (open: boolean) => void;
 }
 
 const ClientDialogContent = ({
@@ -100,6 +102,8 @@ const ClientDialogContent = ({
   tabs,
   activeTab,
   setActiveTab,
+  isNewProjectOpen,
+  setIsNewProjectOpen,
 }: ClientDialogContentProps) => {
   return (
     <div className="relative h-full">
@@ -162,6 +166,8 @@ const ClientDialogContent = ({
             updateProjectShootingStyle={updateProjectShootingStyle}
             getStatusBadge={getStatusBadge}
             formatDate={formatDate}
+            isNewProjectOpen={isNewProjectOpen}
+            setIsNewProjectOpen={setIsNewProjectOpen}
           />
         </TabsContent>
 

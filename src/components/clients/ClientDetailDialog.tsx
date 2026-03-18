@@ -14,9 +14,11 @@ interface ClientDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   client: Client | null;
   onUpdate: (client: Client) => void;
+  shouldOpenNewProjectForm?: boolean;
+  onNewProjectFormOpened?: () => void;
 }
 
-const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDetailDialogProps) => {
+const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNewProjectForm, onNewProjectFormOpened }: ClientDetailDialogProps) => {
   const [isUnsavedProjectDialogOpen, setIsUnsavedProjectDialogOpen] = useState(false);
   const [shouldShowProjectWarning, setShouldShowProjectWarning] = useState(false);
 
@@ -37,6 +39,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
     setNewComment,
     newMessage,
     setNewMessage,
+    isNewProjectOpen,
+    setIsNewProjectOpen,
     localClient,
     setLocalClient,
     loadProjectData,
@@ -59,6 +63,14 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
       setShouldShowProjectWarning(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (open && shouldOpenNewProjectForm) {
+      setActiveTab('projects');
+      setIsNewProjectOpen(true);
+      onNewProjectFormOpened?.();
+    }
+  }, [open, shouldOpenNewProjectForm, setActiveTab, setIsNewProjectOpen, onNewProjectFormOpened]);
 
   if (!localClient) return null;
 
@@ -173,6 +185,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
               tabs={tabs}
               activeTab={activeTab}
               setActiveTab={setActiveTab}
+              isNewProjectOpen={isNewProjectOpen}
+              setIsNewProjectOpen={setIsNewProjectOpen}
             />
           </div>
         </Tabs>
@@ -182,6 +196,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate }: ClientDeta
         open={isUnsavedProjectDialogOpen}
         onContinue={() => {
           setIsUnsavedProjectDialogOpen(false);
+          setIsNewProjectOpen(true);
         }}
         onClear={() => {
           if (client?.id) {
