@@ -100,6 +100,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 photo_ids = [int(x) for x in photo_ids.split(',')]
             return handle_delete_photos(conn, target_user_id, photo_ids, yc_s3_client, yc_bucket)
         
+        elif action == 's3_browse':
+            prefix = params.get('prefix', f'photobank/{target_user_id}/')
+            return handle_s3_browse(yc_s3_client, yc_bucket, prefix)
+        
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
@@ -369,6 +373,92 @@ def handle_delete_photos(conn, target_user_id, photo_ids, yc_s3_client, yc_bucke
             'ok': True,
             'deleted_count': len(photos),
             'moved_files': moved_count
+        }),
+        'isBase64Encoded': False
+    }
+
+
+def handle_s3_browse(yc_s3_client, yc_bucket, prefix):
+    folders = []
+    files = []
+    
+    try:
+        response = yc_s3_client.list_objects_v2(
+            Bucket=yc_bucket,
+            Prefix=prefix,
+            Delimiter='/'
+        )
+        
+        for cp in response.get('CommonPrefixes', []):
+            folder_prefix = cp['Prefix']
+            folder_name = folder_prefix[len(prefix):].rstrip('/')
+            if folder_name:
+                folders.append({
+                    'name': folder_name,
+                    'prefix': folder_prefix
+                })
+        
+        for obj in response.get('Contents', []):
+            key = obj['Key']
+            if key == prefix:
+                continue
+            file_name = key[len(prefix):]
+            if not file_name:
+                continue
+            files.append({
+                'name': file_name,
+                'key': key,
+                'size': obj['Size'],
+                'last_modified': obj['LastModified'].isoformat(),
+                'storage_class': obj.get('StorageClass', 'STANDARD')
+            })
+        
+        while response.get('IsTruncated'):
+            response = yc_s3_client.list_objects_v2(
+                Bucket=yc_bucket,
+                Prefix=prefix,
+                Delimiter='/',
+                ContinuationToken=response['NextContinuationToken']
+            )
+            for cp in response.get('CommonPrefixes', []):
+                folder_prefix = cp['Prefix']
+                folder_name = folder_prefix[len(prefix):].rstrip('/')
+                if folder_name:
+                    folders.append({
+                        'name': folder_name,
+                        'prefix': folder_prefix
+                    })
+            for obj in response.get('Contents', []):
+                key = obj['Key']
+                if key == prefix:
+                    continue
+                file_name = key[len(prefix):]
+                if not file_name:
+                    continue
+                files.append({
+                    'name': file_name,
+                    'key': key,
+                    'size': obj['Size'],
+                    'last_modified': obj['LastModified'].isoformat(),
+                    'storage_class': obj.get('StorageClass', 'STANDARD')
+                })
+    
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'S3 error: {str(e)}'}),
+            'isBase64Encoded': False
+        }
+    
+    return {
+        'statusCode': 200,
+        'headers': CORS_HEADERS,
+        'body': json.dumps({
+            'prefix': prefix,
+            'bucket': yc_bucket,
+            'folders': folders,
+            'files': files
         }),
         'isBase64Encoded': False
     }

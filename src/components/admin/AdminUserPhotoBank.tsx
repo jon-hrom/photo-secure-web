@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import funcUrls from '../../../backend/func2url.json';
@@ -42,6 +43,19 @@ interface Photo {
   photo_download_count: number;
 }
 
+interface S3Folder {
+  name: string;
+  prefix: string;
+}
+
+interface S3File {
+  name: string;
+  key: string;
+  size: number;
+  last_modified: string;
+  storage_class: string;
+}
+
 interface AdminUserPhotoBankProps {
   userId: string | number;
   userName: string;
@@ -68,6 +82,13 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
+
+  const [s3Folders, setS3Folders] = useState<S3Folder[]>([]);
+  const [s3Files, setS3Files] = useState<S3File[]>([]);
+  const [s3Prefix, setS3Prefix] = useState('');
+  const [s3Bucket, setS3Bucket] = useState('');
+  const [s3Loading, setS3Loading] = useState(false);
+  const [s3History, setS3History] = useState<string[]>([]);
 
   const realUserId = String(userId).replace('vk_', '');
 
@@ -97,12 +118,30 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
     }
   }, [realUserId]);
 
+  const fetchS3 = useCallback(async (prefix?: string) => {
+    setS3Loading(true);
+    try {
+      const targetPrefix = prefix !== undefined ? prefix : `photobank/${realUserId}/`;
+      const res = await fetch(`${API_URL}?action=s3_browse&user_id=${realUserId}&prefix=${encodeURIComponent(targetPrefix)}`);
+      const data = await res.json();
+      setS3Folders(data.folders || []);
+      setS3Files(data.files || []);
+      setS3Prefix(data.prefix || targetPrefix);
+      setS3Bucket(data.bucket || '');
+    } catch (e) {
+      console.error('Failed to browse S3:', e);
+    } finally {
+      setS3Loading(false);
+    }
+  }, [realUserId]);
+
   useEffect(() => {
     if (isOpen) {
       fetchFolders();
       setSelectedFolder(null);
       setPhotos([]);
       setSelectedPhotos(new Set());
+      setS3History([]);
     }
   }, [isOpen, fetchFolders]);
 
@@ -141,7 +180,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const handleDeleteFolder = async (folder: PhotoFolder, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(`Удалить папку «${folder.folder_name}» и все фото внутри?\n\nФайлы будут перемещены в корзину.`)) return;
-    
+
     setDeleting(true);
     try {
       const res = await fetch(API_URL, {
@@ -167,15 +206,15 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const handleDeleteSelectedPhotos = async () => {
     if (selectedPhotos.size === 0) return;
     if (!confirm(`Удалить ${selectedPhotos.size} фото?\n\nФайлы будут перемещены в корзину.`)) return;
-    
+
     setDeleting(true);
     try {
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'delete_photos', 
-          user_id: realUserId, 
+        body: JSON.stringify({
+          action: 'delete_photos',
+          user_id: realUserId,
           photo_ids: Array.from(selectedPhotos)
         })
       });
@@ -200,206 +239,284 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
     e.stopPropagation();
     setSelectedPhotos(prev => {
       const next = new Set(prev);
-      if (next.has(photoId)) {
-        next.delete(photoId);
-      } else {
-        next.add(photoId);
-      }
+      if (next.has(photoId)) next.delete(photoId);
+      else next.add(photoId);
       return next;
     });
   };
 
   const toggleSelectAll = () => {
-    if (selectedPhotos.size === photos.length) {
-      setSelectedPhotos(new Set());
-    } else {
-      setSelectedPhotos(new Set(photos.map(p => p.id)));
+    if (selectedPhotos.size === photos.length) setSelectedPhotos(new Set());
+    else setSelectedPhotos(new Set(photos.map(p => p.id)));
+  };
+
+  const navigateS3 = (prefix: string) => {
+    setS3History(prev => [...prev, s3Prefix]);
+    fetchS3(prefix);
+  };
+
+  const navigateS3Back = () => {
+    const prev = s3History[s3History.length - 1];
+    if (prev !== undefined) {
+      setS3History(h => h.slice(0, -1));
+      fetchS3(prev);
     }
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+    return new Date(dateStr).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatS3Date = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   const mainFolders = folders.filter(f => !f.parent_folder_id);
   const getSubfolders = (parentId: number) => folders.filter(f => f.parent_folder_id === parentId);
   const totalPhotos = folders.reduce((sum, f) => sum + (f.photo_count || 0), 0);
+  const s3Breadcrumbs = s3Prefix.split('/').filter(Boolean);
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] overflow-hidden p-0">
+        <DialogContent className="max-w-5xl max-h-[90vh] w-[95vw] overflow-hidden p-0">
           <VisuallyHidden>
             <DialogTitle>Фотобанк пользователя {userName}</DialogTitle>
           </VisuallyHidden>
 
           <div className="flex flex-col h-full max-h-[90vh]">
             <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
-              <div className="flex items-center gap-3 min-w-0">
-                {selectedFolder && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleBack}>
-                    <Icon name="ArrowLeft" size={18} />
-                  </Button>
-                )}
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-sm truncate">
-                    {selectedFolder ? selectedFolder.folder_name : `Фотобанк — ${userName}`}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedFolder
-                      ? `${photos.length} фото • S3: ${selectedFolder.s3_prefix || '—'}`
-                      : `${folders.length} папок • ${totalPhotos} фото`
-                    }
-                  </p>
-                </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-sm truncate">{userName}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {folders.length} папок • {totalPhotos} фото • ID: {realUserId}
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                {selectedFolder && photos.length > 0 && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs gap-1"
-                      onClick={toggleSelectAll}
-                    >
-                      <Checkbox checked={selectedPhotos.size === photos.length && photos.length > 0} className="h-3.5 w-3.5" />
-                      Все
-                    </Button>
-                    {selectedPhotos.size > 0 && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="h-8 text-xs gap-1"
-                        onClick={handleDeleteSelectedPhotos}
-                        disabled={deleting}
-                      >
-                        {deleting ? <Icon name="Loader2" size={14} className="animate-spin" /> : <Icon name="Trash2" size={14} />}
-                        Удалить ({selectedPhotos.size})
-                      </Button>
-                    )}
-                  </>
-                )}
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
-                  <Icon name="X" size={18} />
-                </Button>
-              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
+                <Icon name="X" size={18} />
+              </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
-              {!selectedFolder ? (
-                <>
-                  {loadingFolders ? (
+            <Tabs defaultValue="photobank" className="flex-1 flex flex-col overflow-hidden" onValueChange={(v) => {
+              if (v === 's3' && s3Folders.length === 0 && s3Files.length === 0 && !s3Loading) {
+                fetchS3();
+              }
+            }}>
+              <TabsList className="mx-4 mt-3 grid grid-cols-2 w-auto">
+                <TabsTrigger value="photobank" className="gap-1.5 text-xs">
+                  <Icon name="Images" size={14} />
+                  Фотобанк
+                </TabsTrigger>
+                <TabsTrigger value="s3" className="gap-1.5 text-xs">
+                  <Icon name="HardDrive" size={14} />
+                  S3 Бакет
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="photobank" className="flex-1 overflow-hidden flex flex-col mt-0">
+                {selectedFolder && (
+                  <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleBack}>
+                        <Icon name="ArrowLeft" size={16} />
+                      </Button>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{selectedFolder.folder_name}</p>
+                        <p className="text-[11px] text-muted-foreground">{photos.length} фото • {selectedFolder.s3_prefix || '—'}</p>
+                      </div>
+                    </div>
+                    {photos.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={toggleSelectAll}>
+                          <Checkbox checked={selectedPhotos.size === photos.length && photos.length > 0} className="h-3.5 w-3.5" />
+                          Все
+                        </Button>
+                        {selectedPhotos.size > 0 && (
+                          <Button variant="destructive" size="sm" className="h-7 text-xs gap-1" onClick={handleDeleteSelectedPhotos} disabled={deleting}>
+                            {deleting ? <Icon name="Loader2" size={14} className="animate-spin" /> : <Icon name="Trash2" size={14} />}
+                            Удалить ({selectedPhotos.size})
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex-1 overflow-y-auto p-4">
+                  {!selectedFolder ? (
+                    <>
+                      {loadingFolders ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Icon name="Loader2" size={32} className="animate-spin text-muted-foreground" />
+                        </div>
+                      ) : folders.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <Icon name="FolderOpen" size={48} className="mx-auto mb-3 opacity-50" />
+                          <p className="text-sm">У пользователя нет папок</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {mainFolders.map((folder) => {
+                            const subfolders = getSubfolders(folder.id);
+                            return (
+                              <div key={folder.id}>
+                                <FolderRow folder={folder} onClick={() => handleSelectFolder(folder)} onDelete={(e) => handleDeleteFolder(folder, e)} formatDate={formatDate} deleting={deleting} />
+                                {subfolders.length > 0 && (
+                                  <div className="ml-6 border-l-2 border-muted pl-2 space-y-1 mt-1">
+                                    {subfolders.map(sub => (
+                                      <FolderRow key={sub.id} folder={sub} onClick={() => handleSelectFolder(sub)} onDelete={(e) => handleDeleteFolder(sub, e)} formatDate={formatDate} deleting={deleting} isSubfolder />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {loadingPhotos ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Icon name="Loader2" size={32} className="animate-spin text-muted-foreground" />
+                        </div>
+                      ) : photos.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <Icon name="Image" size={48} className="mx-auto mb-3 opacity-50" />
+                          <p className="text-sm">В папке нет фото</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+                          {photos.map((photo) => {
+                            const isSelected = selectedPhotos.has(photo.id);
+                            return (
+                              <div key={photo.id} className={`relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer group transition-all ${isSelected ? 'ring-2 ring-red-500' : 'hover:ring-2 hover:ring-primary/50'}`} onClick={() => setViewPhoto(photo)}>
+                                {photo.is_video ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-900"><Icon name="Play" size={32} className="text-white/70" /></div>
+                                ) : (
+                                  <img src={photo.thumbnail_s3_url || photo.s3_url || ''} alt={photo.file_name} className="w-full h-full object-cover" loading="lazy" />
+                                )}
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                                <div className="absolute bottom-0 left-0 right-0 p-1 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <p className="text-[10px] text-white truncate">{photo.file_name}</p>
+                                  <p className="text-[9px] text-white/70">{formatBytes(photo.file_size)}</p>
+                                </div>
+                                {photo.is_raw && <span className="absolute top-1 right-1 text-[9px] bg-orange-500 text-white px-1 rounded">RAW</span>}
+                                {photo.tech_reject_reason && <span className="absolute top-1 left-7"><Icon name="AlertTriangle" size={14} className="text-red-500 drop-shadow" /></span>}
+                                <div className={`absolute top-1 left-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} onClick={(e) => togglePhotoSelection(photo.id, e)}>
+                                  <Checkbox checked={isSelected} className="h-5 w-5 bg-white/80 border-gray-400 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="s3" className="flex-1 overflow-hidden flex flex-col mt-0">
+                <div className="px-4 py-2 border-b bg-gray-950/5 dark:bg-gray-50/5">
+                  <div className="flex items-center gap-1.5 text-xs font-mono overflow-x-auto whitespace-nowrap pb-1">
+                    <span className="text-muted-foreground shrink-0">Object Storage</span>
+                    <Icon name="ChevronRight" size={12} className="text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground shrink-0">Бакеты</span>
+                    <Icon name="ChevronRight" size={12} className="text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground shrink-0">{s3Bucket || 'foto-mix'}</span>
+                    {s3Breadcrumbs.map((segment, i) => (
+                      <span key={i} className="flex items-center gap-1.5 shrink-0">
+                        <Icon name="ChevronRight" size={12} className="text-muted-foreground" />
+                        <button
+                          className="text-blue-600 hover:underline"
+                          onClick={() => {
+                            const newPrefix = s3Breadcrumbs.slice(0, i + 1).join('/') + '/';
+                            setS3History(prev => [...prev, s3Prefix]);
+                            fetchS3(newPrefix);
+                          }}
+                        >
+                          {segment}
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  {s3Loading ? (
                     <div className="flex items-center justify-center py-12">
                       <Icon name="Loader2" size={32} className="animate-spin text-muted-foreground" />
                     </div>
-                  ) : folders.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <Icon name="FolderOpen" size={48} className="mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">У пользователя нет папок</p>
-                    </div>
                   ) : (
-                    <div className="space-y-1">
-                      {mainFolders.map((folder) => {
-                        const subfolders = getSubfolders(folder.id);
-                        return (
-                          <div key={folder.id}>
-                            <FolderRow 
-                              folder={folder} 
-                              onClick={() => handleSelectFolder(folder)} 
-                              onDelete={(e) => handleDeleteFolder(folder, e)}
-                              formatDate={formatDate}
-                              deleting={deleting}
-                            />
-                            {subfolders.length > 0 && (
-                              <div className="ml-6 border-l-2 border-muted pl-2 space-y-1 mt-1">
-                                {subfolders.map(sub => (
-                                  <FolderRow 
-                                    key={sub.id} 
-                                    folder={sub} 
-                                    onClick={() => handleSelectFolder(sub)} 
-                                    onDelete={(e) => handleDeleteFolder(sub, e)}
-                                    formatDate={formatDate}
-                                    deleting={deleting}
-                                    isSubfolder 
-                                  />
-                                ))}
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50 sticky top-0 z-10">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Имя</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground w-28">Размер</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground w-32 hidden sm:table-cell">Класс хранилища</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground w-44 hidden md:table-cell">Последнее изменение</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {s3History.length > 0 && (
+                          <tr className="border-b hover:bg-accent/50 cursor-pointer transition-colors" onClick={navigateS3Back}>
+                            <td className="px-4 py-2.5" colSpan={4}>
+                              <div className="flex items-center gap-2 text-blue-600">
+                                <Icon name="CornerLeftUp" size={16} />
+                                <span>..</span>
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  {loadingPhotos ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Icon name="Loader2" size={32} className="animate-spin text-muted-foreground" />
-                    </div>
-                  ) : photos.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <Icon name="Image" size={48} className="mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">В папке нет фото</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
-                      {photos.map((photo) => {
-                        const isSelected = selectedPhotos.has(photo.id);
-                        return (
-                          <div
-                            key={photo.id}
-                            className={`relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer group transition-all ${
-                              isSelected ? 'ring-2 ring-red-500' : 'hover:ring-2 hover:ring-primary/50'
-                            }`}
-                            onClick={() => setViewPhoto(photo)}
-                          >
-                            {photo.is_video ? (
-                              <div className="w-full h-full flex items-center justify-center bg-gray-900">
-                                <Icon name="Play" size={32} className="text-white/70" />
+                            </td>
+                          </tr>
+                        )}
+                        {s3Folders.map((folder) => (
+                          <tr key={folder.prefix} className="border-b hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => navigateS3(folder.prefix)}>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <Icon name="Folder" size={18} className="text-yellow-500 shrink-0" />
+                                <span className="text-blue-600 hover:underline">{folder.name}/</span>
                               </div>
-                            ) : (
-                              <img
-                                src={photo.thumbnail_s3_url || photo.s3_url || ''}
-                                alt={photo.file_name}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            )}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                            <div className="absolute bottom-0 left-0 right-0 p-1 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                              <p className="text-[10px] text-white truncate">{photo.file_name}</p>
-                              <p className="text-[9px] text-white/70">{formatBytes(photo.file_size)}</p>
-                            </div>
-                            {photo.is_raw && (
-                              <span className="absolute top-1 right-1 text-[9px] bg-orange-500 text-white px-1 rounded">RAW</span>
-                            )}
-                            {photo.tech_reject_reason && (
-                              <span className="absolute top-1 left-7">
-                                <Icon name="AlertTriangle" size={14} className="text-red-500 drop-shadow" />
-                              </span>
-                            )}
-                            <div
-                              className={`absolute top-1 left-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                              onClick={(e) => togglePhotoSelection(photo.id, e)}
-                            >
-                              <Checkbox 
-                                checked={isSelected} 
-                                className="h-5 w-5 bg-white/80 border-gray-400 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-muted-foreground">—</td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">—</td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell">—</td>
+                          </tr>
+                        ))}
+                        {s3Files.map((file) => (
+                          <tr key={file.key} className="border-b hover:bg-accent/30 transition-colors">
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <Icon
+                                  name={file.name.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|raw|cr2|nef|arw)$/i) ? 'Image' : file.name.match(/\.(mp4|mov|avi|webm)$/i) ? 'Film' : 'File'}
+                                  size={18}
+                                  className="text-gray-400 shrink-0"
+                                />
+                                <span className="truncate" title={file.key}>{file.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-muted-foreground whitespace-nowrap">{formatBytes(file.size)}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{file.storage_class === 'STANDARD' ? 'Стандартное' : file.storage_class}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap hidden md:table-cell">{formatS3Date(file.last_modified)}</td>
+                          </tr>
+                        ))}
+                        {s3Folders.length === 0 && s3Files.length === 0 && !s3Loading && (
+                          <tr>
+                            <td colSpan={4} className="px-4 py-12 text-center text-muted-foreground">
+                              <Icon name="FolderOpen" size={32} className="mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">Пустая директория</p>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   )}
-                </>
-              )}
-            </div>
+                </div>
+
+                <div className="px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>{s3Folders.length} папок, {s3Files.length} объектов</span>
+                  <span className="font-mono truncate ml-4">{s3Prefix}</span>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </DialogContent>
       </Dialog>
@@ -434,60 +551,31 @@ const FolderRow = ({ folder, onClick, onDelete, formatDate, deleting, isSubfolde
     'tech_rejects': { text: 'Тех. брак', color: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
     'retouch': { text: 'Ретушь', color: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' },
   };
-
   const typeInfo = folder.folder_type ? folderTypeLabel[folder.folder_type] : null;
 
   return (
-    <div
-      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border group"
-      onClick={onClick}
-    >
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-        isSubfolder ? 'bg-blue-50 dark:bg-blue-950/50' : 'bg-orange-100 dark:bg-orange-950/50'
-      }`}>
+    <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border group" onClick={onClick}>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isSubfolder ? 'bg-blue-50 dark:bg-blue-950/50' : 'bg-orange-100 dark:bg-orange-950/50'}`}>
         <Icon name={isSubfolder ? 'FolderOpen' : 'Folder'} size={20} className={isSubfolder ? 'text-blue-600' : 'text-orange-600'} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm truncate">{folder.folder_name}</span>
-          {typeInfo && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${typeInfo.color}`}>{typeInfo.text}</span>
-          )}
-          {folder.is_hidden && (
-            <Icon name="EyeOff" size={12} className="text-muted-foreground" />
-          )}
-          {folder.has_password && (
-            <Icon name="Lock" size={12} className="text-muted-foreground" />
-          )}
+          {typeInfo && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${typeInfo.color}`}>{typeInfo.text}</span>}
+          {folder.is_hidden && <Icon name="EyeOff" size={12} className="text-muted-foreground" />}
+          {folder.has_password && <Icon name="Lock" size={12} className="text-muted-foreground" />}
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-          <span className="flex items-center gap-1">
-            <Icon name="Image" size={12} />
-            {folder.photo_count || 0}
-          </span>
+          <span className="flex items-center gap-1"><Icon name="Image" size={12} />{folder.photo_count || 0}</span>
           <span>{formatDate(folder.created_at)}</span>
-          {folder.s3_prefix && (
-            <span className="text-[10px] font-mono opacity-60 truncate max-w-[200px]" title={folder.s3_prefix}>
-              {folder.s3_prefix}
-            </span>
-          )}
+          {folder.s3_prefix && <span className="text-[10px] font-mono opacity-60 truncate max-w-[200px]" title={folder.s3_prefix}>{folder.s3_prefix}</span>}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {(folder.archive_download_count ?? 0) > 0 && (
-          <span className="flex items-center gap-1 text-xs text-emerald-600">
-            <Icon name="Download" size={14} />
-            {folder.archive_download_count}
-          </span>
+          <span className="flex items-center gap-1 text-xs text-emerald-600"><Icon name="Download" size={14} />{folder.archive_download_count}</span>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-          onClick={onDelete}
-          disabled={deleting}
-          title="Удалить папку"
-        >
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all" onClick={onDelete} disabled={deleting} title="Удалить папку">
           {deleting ? <Icon name="Loader2" size={14} className="animate-spin" /> : <Icon name="Trash2" size={14} />}
         </Button>
         <Icon name="ChevronRight" size={16} className="text-muted-foreground" />
