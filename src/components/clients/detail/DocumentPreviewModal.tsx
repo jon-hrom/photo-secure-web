@@ -264,7 +264,7 @@ const DocumentPreviewModal = ({
 
   return (
     <Dialog open={!!previewDocument} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] sm:w-full p-0 overflow-hidden bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 dark:from-purple-950/40 dark:via-pink-950/40 dark:to-rose-950/40 backdrop-blur-sm">
+      <DialogContent className="max-w-2xl max-h-[85vh] w-[95vw] sm:w-full p-0 overflow-hidden bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 dark:from-purple-950/40 dark:via-pink-950/40 dark:to-rose-950/40 backdrop-blur-sm">
         {previewDocument && (
           <div className="flex flex-col h-full">
             {/* Заголовок */}
@@ -327,7 +327,7 @@ const DocumentPreviewModal = ({
 
             {/* Контент предпросмотра */}
             <div 
-              className="flex-1 overflow-auto bg-muted/30 relative min-h-[400px] sm:min-h-[600px]"
+              className="flex-1 overflow-auto bg-muted/30 relative min-h-[250px] max-h-[55vh]"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
@@ -351,7 +351,7 @@ const DocumentPreviewModal = ({
                   <img 
                     src={previewDocument.fileUrl} 
                     alt={previewDocument.name}
-                    className="max-w-full max-h-full object-contain rounded select-none"
+                    className="max-w-full max-h-[50vh] object-contain rounded select-none"
                     style={{ 
                       transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
                       cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
@@ -369,7 +369,7 @@ const DocumentPreviewModal = ({
               ) : isPDF(previewDocument.name) ? (
                 <iframe
                   src={previewDocument.fileUrl}
-                  className="w-full h-full min-h-[400px] sm:min-h-[600px]"
+                  className="w-full h-full min-h-[250px] max-h-[55vh]"
                   title={previewDocument.name}
                 />
               ) : (
