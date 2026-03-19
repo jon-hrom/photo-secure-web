@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import funcUrls from '@/../backend/func2url.json';
+import RetouchWakeStatus from './RetouchWakeStatus';
+import RetouchTaskList, { type RetouchTask } from './RetouchTaskList';
+import RetouchPhotoSelector from './RetouchPhotoSelector';
 
 const RETOUCH_API = funcUrls['retouch'];
 const PHOTOBANK_FOLDERS_API = funcUrls['photobank-folders'];
@@ -14,15 +15,6 @@ interface Photo {
   s3_url?: string;
   thumbnail_s3_url?: string;
   data_url?: string;
-}
-
-interface RetouchTask {
-  photo_id: number;
-  task_id: string;
-  status: 'queued' | 'started' | 'finished' | 'failed';
-  result_url?: string;
-  error_message?: string;
-  file_name?: string;
 }
 
 interface RetouchDialogProps {
@@ -46,7 +38,6 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retouchCompleteCalledRef = useRef(false);
 
-  // Load photos when dialog opens
   useEffect(() => {
     if (open && folderId) {
       loadPhotos();
@@ -210,7 +201,6 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         stopPolling();
         return prevTasks;
       }
-      // Poll each active task
       activeTasks.forEach(async (task) => {
         if (!task.task_id) return;
         try {
@@ -245,7 +235,6 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     }
   };
 
-  // Cleanup polling on unmount
   useEffect(() => {
     return () => stopPolling();
   }, []);
@@ -294,34 +283,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     startPolling();
   };
 
-  const getPhotoThumb = (photo: Photo) => {
-    return photo.thumbnail_s3_url || photo.data_url || photo.s3_url || '';
-  };
-
-  const finishedCount = tasks.filter(t => t.status === 'finished').length;
-  const failedCount = tasks.filter(t => t.status === 'failed').length;
-  const activeCount = tasks.filter(t => t.status === 'queued' || t.status === 'started').length;
   const hasTasks = tasks.length > 0;
-
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case 'queued': return 'В очереди';
-      case 'started': return 'Обработка...';
-      case 'finished': return 'Готово';
-      case 'failed': return 'Ошибка';
-      default: return status;
-    }
-  };
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'queued': return 'text-yellow-600';
-      case 'started': return 'text-blue-600';
-      case 'finished': return 'text-green-600';
-      case 'failed': return 'text-red-600';
-      default: return 'text-muted-foreground';
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -336,219 +298,27 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
           </DialogDescription>
         </DialogHeader>
 
-        {waking && wakeStatus && (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/50 p-4 flex items-center gap-3">
-            <Icon name="Loader2" size={18} className="animate-spin text-amber-600 flex-shrink-0" />
-            <span className="text-sm text-amber-800 dark:text-amber-200">{wakeStatus}</span>
-          </div>
-        )}
+        <RetouchWakeStatus waking={waking} wakeStatus={wakeStatus} />
 
-        {!waking && wakeStatus && (
-          <div className={`rounded-lg border p-4 flex items-center gap-3 ${
-            wakeStatus.includes('готов') || wakeStatus.includes('работает')
-              ? 'border-green-300 bg-green-50 dark:bg-green-950/50'
-              : 'border-red-300 bg-red-50 dark:bg-red-950/50'
-          }`}>
-            <Icon
-              name={wakeStatus.includes('готов') || wakeStatus.includes('работает') ? 'CheckCircle' : 'AlertCircle'}
-              size={18}
-              className={wakeStatus.includes('готов') || wakeStatus.includes('работает') ? 'text-green-600' : 'text-red-600'}
-            />
-            <span className="text-sm">{wakeStatus}</span>
-          </div>
-        )}
+        <RetouchTaskList
+          tasks={tasks}
+          onRetryTask={retryTask}
+          onRetryAllFailed={retryAllFailed}
+        />
 
-        {/* Task results summary */}
-        {hasTasks && (
-          <div className="rounded-lg border bg-white/60 dark:bg-gray-900/60 p-4 space-y-3">
-            <div className="flex items-center gap-4 text-sm">
-              <span className="font-medium">Прогресс:</span>
-              {activeCount > 0 && (
-                <span className="flex items-center gap-1 text-blue-600">
-                  <Icon name="Loader2" size={14} className="animate-spin" />
-                  {activeCount} в обработке
-                </span>
-              )}
-              {finishedCount > 0 && (
-                <span className="flex items-center gap-1 text-green-600">
-                  <Icon name="CheckCircle" size={14} />
-                  {finishedCount} готово
-                </span>
-              )}
-              {failedCount > 0 && (
-                <span className="flex items-center gap-1 text-red-600">
-                  <Icon name="XCircle" size={14} />
-                  {failedCount} ошибок
-                </span>
-              )}
-              {failedCount > 0 && activeCount === 0 && (
-                <button
-                  onClick={retryAllFailed}
-                  className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm ml-auto font-medium"
-                >
-                  <Icon name="RefreshCw" size={14} />
-                  Повторить ошибки
-                </button>
-              )}
-            </div>
-
-            {/* Task list */}
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {tasks.map((task) => (
-                <div
-                  key={task.task_id || task.photo_id}
-                  className="flex items-center justify-between gap-2 text-sm py-1.5 px-2 rounded bg-white/50 dark:bg-gray-800/50"
-                >
-                  <span className="truncate flex-1 text-muted-foreground">
-                    {task.file_name || `Фото #${task.photo_id}`}
-                  </span>
-                  <span className={`flex items-center gap-1 flex-shrink-0 ${statusColor(task.status)}`}>
-                    {(task.status === 'queued' || task.status === 'started') && (
-                      <Icon name="Loader2" size={12} className="animate-spin" />
-                    )}
-                    {task.status === 'finished' && <Icon name="CheckCircle" size={12} />}
-                    {task.status === 'failed' && <Icon name="XCircle" size={12} />}
-                    {statusLabel(task.status)}
-                  </span>
-                  {task.status === 'finished' && task.result_url && (
-                    <a
-                      href={task.result_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-blue-600 hover:text-blue-700 flex-shrink-0"
-                    >
-                      <Icon name="Download" size={12} />
-                      Скачать
-                    </a>
-                  )}
-                  {task.status === 'failed' && (
-                    <button
-                      onClick={() => retryTask(task)}
-                      className="flex items-center gap-1 text-amber-600 hover:text-amber-700 flex-shrink-0 text-xs"
-                      title="Повторить ретушь"
-                    >
-                      <Icon name="RefreshCw" size={12} />
-                      Повторить
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tab selection - only show when no tasks are active */}
         {!hasTasks && (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="single" className="text-sm">
-                <Icon name="Image" size={14} className="mr-1.5" />
-                Одно фото
-              </TabsTrigger>
-              <TabsTrigger value="all" className="text-sm">
-                <Icon name="Images" size={14} className="mr-1.5" />
-                Вся папка
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="single" className="mt-4">
-              {loadingPhotos ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Icon name="Loader2" size={24} className="animate-spin mx-auto mb-2" />
-                  Загрузка фото...
-                </div>
-              ) : photos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Icon name="ImageOff" size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">В папке нет фотографий</p>
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Выберите фото для ретуши:
-                  </p>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-64 overflow-y-auto">
-                    {photos.map((photo) => (
-                      <button
-                        key={photo.id}
-                        onClick={() => setSelectedPhotoId(photo.id)}
-                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 hover:scale-105 ${
-                          selectedPhotoId === photo.id
-                            ? 'border-rose-500 ring-2 ring-rose-300 shadow-lg'
-                            : 'border-transparent hover:border-rose-200'
-                        }`}
-                      >
-                        <img
-                          src={getPhotoThumb(photo)}
-                          alt={photo.file_name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        {selectedPhotoId === photo.id && (
-                          <div className="absolute inset-0 bg-rose-500/20 flex items-center justify-center">
-                            <Icon name="Check" size={24} className="text-white drop-shadow-lg" />
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      onClick={handleRetouchSingle}
-                      disabled={!selectedPhotoId || submitting || waking}
-                      className="bg-rose-600 hover:bg-rose-700 text-white"
-                    >
-                      {submitting ? (
-                        <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-                      ) : (
-                        <Icon name="Sparkles" size={16} className="mr-2" />
-                      )}
-                      Отретушировать
-                    </Button>
-                  </div>
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent value="all" className="mt-4">
-              {loadingPhotos ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Icon name="Loader2" size={24} className="animate-spin mx-auto mb-2" />
-                  Загрузка...
-                </div>
-              ) : photos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Icon name="ImageOff" size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">В папке нет фотографий</p>
-                </div>
-              ) : (
-                <div className="text-center py-6 space-y-4">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-900/30">
-                    <Icon name="Images" size={32} className="text-rose-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Ретушь всей папки</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Будет обработано фото: {photos.length}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleRetouchAll}
-                    disabled={submitting || waking}
-                    className="bg-rose-600 hover:bg-rose-700 text-white"
-                    size="lg"
-                  >
-                    {submitting ? (
-                      <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-                    ) : (
-                      <Icon name="Sparkles" size={16} className="mr-2" />
-                    )}
-                    {submitting ? 'Запуск ретуши...' : 'Отретушировать все фото'}
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+          <RetouchPhotoSelector
+            photos={photos}
+            loadingPhotos={loadingPhotos}
+            selectedPhotoId={selectedPhotoId}
+            onSelectPhoto={setSelectedPhotoId}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            submitting={submitting}
+            waking={waking}
+            onRetouchSingle={handleRetouchSingle}
+            onRetouchAll={handleRetouchAll}
+          />
         )}
       </DialogContent>
     </Dialog>
