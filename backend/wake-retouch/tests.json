@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS returns CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET returns VM status",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "action": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

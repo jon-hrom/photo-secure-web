@@ -6,6 +6,7 @@ import Icon from '@/components/ui/icon';
 import funcUrls from '@/../backend/func2url.json';
 
 const RETOUCH_API = funcUrls['retouch'];
+const WAKE_RETOUCH_API = funcUrls['wake-retouch'];
 const PHOTOBANK_FOLDERS_API = funcUrls['photobank-folders'];
 
 interface Photo {
@@ -40,6 +41,8 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [selectedPhotoId, setSelectedPhotoId] = useState<number | null>(null);
   const [tasks, setTasks] = useState<RetouchTask[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [waking, setWaking] = useState(false);
+  const [wakeStatus, setWakeStatus] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('single');
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retouchCompleteCalledRef = useRef(false);
@@ -54,6 +57,8 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       setSelectedPhotoId(null);
       setTasks([]);
       setSubmitting(false);
+      setWaking(false);
+      setWakeStatus(null);
       setActiveTab('single');
       stopPolling();
       retouchCompleteCalledRef.current = false;
@@ -77,7 +82,62 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     }
   };
 
-  const startRetouchForPhoto = async (photoId: number): Promise<RetouchTask | null> => {
+  const wakeRetouchServer = async (): Promise<boolean> => {
+    setWaking(true);
+    setWakeStatus('Запускаем сервер ретуши...');
+    console.log('[RETOUCH] Waking retouch server...');
+    try {
+      const res = await fetch(WAKE_RETOUCH_API, { method: 'POST' });
+      if (!res.ok) {
+        setWakeStatus('Не удалось разбудить сервер');
+        setWaking(false);
+        return false;
+      }
+      const data = await res.json();
+      console.log('[RETOUCH] Wake response:', data);
+
+      if (data.action === 'already_running') {
+        setWakeStatus('Сервер уже работает');
+        setWaking(false);
+        return true;
+      }
+
+      if (data.action === 'starting' || data.action === 'already_starting') {
+        setWakeStatus('Сервер запускается, ожидаем готовности (~60 сек)...');
+        const maxWait = 90;
+        const interval = 5;
+        for (let elapsed = 0; elapsed < maxWait; elapsed += interval) {
+          await new Promise(r => setTimeout(r, interval * 1000));
+          setWakeStatus(`Сервер запускается... ${elapsed + interval} сек`);
+          try {
+            const probe = await fetch(`${RETOUCH_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
+            if (probe.ok) {
+              const probeData = await probe.json();
+              if (probeData.probe?.reachable) {
+                setWakeStatus('Сервер готов!');
+                setWaking(false);
+                return true;
+              }
+            }
+          } catch { /* still starting */ }
+        }
+        setWakeStatus('Сервер не успел запуститься, попробуйте позже');
+        setWaking(false);
+        return false;
+      }
+
+      setWakeStatus(null);
+      setWaking(false);
+      return true;
+    } catch (error) {
+      console.error('[RETOUCH] Wake failed:', error);
+      setWakeStatus('Ошибка при запуске сервера');
+      setWaking(false);
+      return false;
+    }
+  };
+
+  const startRetouchForPhoto = async (photoId: number, isRetryAfterWake = false): Promise<RetouchTask | null> => {
     try {
       const res = await fetch(RETOUCH_API, {
         method: 'POST',
@@ -87,6 +147,13 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         },
         body: JSON.stringify({ photo_id: photoId })
       });
+      if (res.status === 502 && !isRetryAfterWake) {
+        console.log('[RETOUCH] Got 502, attempting to wake server...');
+        const woken = await wakeRetouchServer();
+        if (woken) {
+          return startRetouchForPhoto(photoId, true);
+        }
+      }
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const data = await res.json();
       const photo = photos.find(p => p.id === photoId);
@@ -270,6 +337,28 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
           </DialogDescription>
         </DialogHeader>
 
+        {waking && wakeStatus && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/50 p-4 flex items-center gap-3">
+            <Icon name="Loader2" size={18} className="animate-spin text-amber-600 flex-shrink-0" />
+            <span className="text-sm text-amber-800 dark:text-amber-200">{wakeStatus}</span>
+          </div>
+        )}
+
+        {!waking && wakeStatus && (
+          <div className={`rounded-lg border p-4 flex items-center gap-3 ${
+            wakeStatus.includes('готов') || wakeStatus.includes('работает')
+              ? 'border-green-300 bg-green-50 dark:bg-green-950/50'
+              : 'border-red-300 bg-red-50 dark:bg-red-950/50'
+          }`}>
+            <Icon
+              name={wakeStatus.includes('готов') || wakeStatus.includes('работает') ? 'CheckCircle' : 'AlertCircle'}
+              size={18}
+              className={wakeStatus.includes('готов') || wakeStatus.includes('работает') ? 'text-green-600' : 'text-red-600'}
+            />
+            <span className="text-sm">{wakeStatus}</span>
+          </div>
+        )}
+
         {/* Task results summary */}
         {hasTasks && (
           <div className="rounded-lg border bg-white/60 dark:bg-gray-900/60 p-4 space-y-3">
@@ -407,7 +496,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
                   <div className="mt-4 flex justify-end">
                     <Button
                       onClick={handleRetouchSingle}
-                      disabled={!selectedPhotoId || submitting}
+                      disabled={!selectedPhotoId || submitting || waking}
                       className="bg-rose-600 hover:bg-rose-700 text-white"
                     >
                       {submitting ? (
@@ -446,7 +535,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
                   </div>
                   <Button
                     onClick={handleRetouchAll}
-                    disabled={submitting}
+                    disabled={submitting || waking}
                     className="bg-rose-600 hover:bg-rose-700 text-white"
                     size="lg"
                   >
