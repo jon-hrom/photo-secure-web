@@ -6,7 +6,6 @@ import Icon from '@/components/ui/icon';
 import funcUrls from '@/../backend/func2url.json';
 
 const RETOUCH_API = funcUrls['retouch'];
-const WAKE_RETOUCH_API = funcUrls['wake-retouch'];
 const PHOTOBANK_FOLDERS_API = funcUrls['photobank-folders'];
 
 interface Photo {
@@ -87,7 +86,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     setWakeStatus('Запускаем сервер ретуши...');
     console.log('[RETOUCH] Waking retouch server...');
     try {
-      const res = await fetch(WAKE_RETOUCH_API, { method: 'POST' });
+      const res = await fetch(`${RETOUCH_API}?action=wake`, { method: 'POST' });
       if (!res.ok) {
         setWakeStatus('Не удалось разбудить сервер');
         setWaking(false);

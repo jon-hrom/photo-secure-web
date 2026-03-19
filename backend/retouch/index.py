@@ -6,7 +6,11 @@ import hmac
 import hashlib
 import secrets
 import uuid
+import base64
+import subprocess
+import tempfile
 from typing import Dict, Any
+from urllib import request as urlreq
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
@@ -89,6 +93,80 @@ def _probe_health():
         return {"reachable": False, "elapsed_s": elapsed, "error": str(e)}
 
 
+# Wake VM
+YC_INSTANCE_ID = os.environ.get("YC_INSTANCE_ID", "")
+YC_SA_KEY_JSON = os.environ.get("YC_SA_KEY_JSON", "")
+IAM_URL = "https://iam.api.cloud.yandex.net/iam/v1/tokens"
+COMPUTE_BASE = "https://compute.api.cloud.yandex.net/compute/v1"
+
+
+def _b64url(data):
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _make_jwt_openssl(sa):
+    now = int(time.time())
+    hdr = json.dumps({"alg": "PS256", "typ": "JWT", "kid": sa["id"]})
+    pay = json.dumps({"aud": IAM_URL, "iss": sa["service_account_id"], "iat": now, "exp": now + 3600})
+    unsigned = _b64url(hdr) + "." + _b64url(pay)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as kf:
+        kf.write(sa["private_key"])
+        key_path = kf.name
+    try:
+        proc = subprocess.run(
+            ["openssl", "dgst", "-sha256", "-sigopt", "rsa_padding_mode:pss",
+             "-sigopt", "rsa_pss_saltlen:-1", "-sign", key_path],
+            input=unsigned.encode(), capture_output=True, timeout=5)
+        if proc.returncode != 0:
+            raise RuntimeError(f"openssl: {proc.stderr.decode()}")
+    finally:
+        os.unlink(key_path)
+    return unsigned + "." + _b64url(proc.stdout)
+
+
+def _yc_http(method, url, headers=None, body=None):
+    data = json.dumps(body).encode() if body else None
+    hdrs = {"Content-Type": "application/json"}
+    if headers:
+        hdrs.update(headers)
+    req = urlreq.Request(url, data=data, headers=hdrs, method=method)
+    with urlreq.urlopen(req, timeout=10) as r:
+        return json.loads(r.read())
+
+
+def _handle_wake():
+    if not YC_INSTANCE_ID or not YC_SA_KEY_JSON:
+        return _response(500, {"error": "YC wake secrets not configured"})
+    try:
+        sa = json.loads(YC_SA_KEY_JSON)
+        tok = _make_jwt_openssl(sa)
+        iam = _yc_http("POST", IAM_URL, body={"jwt": tok})["iamToken"]
+    except Exception as e:
+        print(f"[WAKE] IAM error: {e}")
+        return _response(500, {"error": f"IAM: {e}"})
+    try:
+        st = _yc_http("GET", f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}",
+                       headers={"Authorization": f"Bearer {iam}"}).get("status", "UNKNOWN")
+    except Exception as e:
+        print(f"[WAKE] Status error: {e}")
+        return _response(500, {"error": f"Status: {e}"})
+    print(f"[WAKE] VM={st}")
+    if st == "STOPPED":
+        try:
+            op = _yc_http("POST", f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}:start",
+                          headers={"Authorization": f"Bearer {iam}"})
+            return _response(200, {"action": "starting", "statusBefore": st, "operationId": op.get("id")})
+        except Exception as e:
+            return _response(500, {"error": f"Start: {e}"})
+    if st == "STARTING":
+        return _response(200, {"action": "already_starting", "status": st})
+    if st == "RUNNING":
+        return _response(200, {"action": "already_running", "status": st})
+    return _response(200, {"action": "noop", "status": st})
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Ретушь фотографий — отправка на обработку и проверка статуса задачи"""
     method = event.get('httpMethod', 'GET')
@@ -100,6 +178,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     print(f"[DIAG] HMAC_SECRET set = {bool(HMAC_SECRET)}")
 
     params = event.get('queryStringParameters', {}) or {}
+
+    if params.get('action') == 'wake':
+        return _handle_wake()
+
     if params.get('probe') == '1':
         result = _probe_health()
         return _response(200, {"probe": result})
