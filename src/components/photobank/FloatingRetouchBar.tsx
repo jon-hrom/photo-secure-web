@@ -8,7 +8,7 @@ import RetouchTaskList from './RetouchTaskList';
 const FloatingRetouchBar = () => {
   const {
     tasks, isProcessing, waking, wakeStatus, minimized, session,
-    totalProgress, fullClose, retryTask, retryAllFailed, setMinimized
+    totalProgress, totalBatchSize, fullClose, retryTask, retryAllFailed, setMinimized
   } = useRetouch();
 
   const [showDialog, setShowDialog] = useState(false);
@@ -98,21 +98,30 @@ const FloatingRetouchBar = () => {
         >
           <Icon name="Sparkles" size={isMobile ? 14 : 16} className="flex-shrink-0 pointer-events-none" />
           <span className="text-xs sm:text-sm font-medium pointer-events-none">Ретушь</span>
-          {isProcessing ? (
-            <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-none flex-1 sm:flex-none">
-              <div className="w-16 sm:w-20 h-1.5 bg-white/30 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-white rounded-full transition-all duration-700"
-                  style={{ width: `${totalProgress}%` }}
-                />
-              </div>
-              <span className="text-xs font-medium tabular-nums">{totalProgress}%</span>
-            </div>
-          ) : (
-            <span className="text-xs opacity-80 pointer-events-none">
-              {tasks.filter(t => t.status === 'finished').length}/{tasks.length}
-            </span>
-          )}
+          {(() => {
+            const finishedCount = tasks.filter(t => t.status === 'finished').length;
+            const displayTotal = totalBatchSize > tasks.length ? totalBatchSize : tasks.length;
+            if (isProcessing) {
+              return (
+                <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-none flex-1 sm:flex-none">
+                  <div className="w-12 sm:w-16 h-1.5 bg-white/30 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-white rounded-full transition-all duration-700"
+                      style={{ width: `${totalProgress}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-medium tabular-nums whitespace-nowrap">
+                    {finishedCount}/{displayTotal}
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <span className="text-xs opacity-80 pointer-events-none">
+                {finishedCount}/{displayTotal}
+              </span>
+            );
+          })()}
           <button
             onClick={(e) => {
               e.stopPropagation();
