@@ -24,10 +24,10 @@ const FloatingRetouchBar = () => {
   useEffect(() => {
     if (shouldShowBar) {
       if (position.x === -1) {
-        const isMobile = window.innerWidth < 640;
+        const mobile = window.innerWidth < 640;
         setPosition({
-          x: isMobile ? 16 : window.innerWidth - 280,
-          y: window.innerHeight - (isMobile ? 80 : 60)
+          x: mobile ? window.innerWidth - 100 : window.innerWidth - 280,
+          y: window.innerHeight - (mobile ? 80 : 60)
         });
       }
       requestAnimationFrame(() => {
@@ -58,7 +58,7 @@ const FloatingRetouchBar = () => {
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
       wasDraggedRef.current = true;
     }
-    const barWidth = window.innerWidth < 640 ? window.innerWidth - 32 : 260;
+    const barWidth = window.innerWidth < 640 ? 90 : 260;
     const newX = Math.max(0, Math.min(window.innerWidth - barWidth, dragStartRef.current.startX + dx));
     const newY = Math.max(0, Math.min(window.innerHeight - 44, dragStartRef.current.startY + dy));
     setPosition({ x: newX, y: newY });
@@ -83,57 +83,81 @@ const FloatingRetouchBar = () => {
 
   return (
     <>
-      {shouldShowBar && !showDialog && (
-        <div
-          className={`fixed z-[9999] flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-rose-600 to-purple-600 text-white rounded-full pl-3 sm:pl-4 pr-1.5 sm:pr-2 py-2 shadow-lg cursor-grab active:cursor-grabbing select-none touch-none transition-all duration-300 ease-out ${
-            isMobile ? 'right-4 left-4' : ''
-          } ${
-            mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
-          }`}
-          style={isMobile ? { top: position.y, left: undefined, right: undefined } : { left: position.x, top: position.y }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onClick={handleBarClick}
-        >
-          <Icon name="Sparkles" size={isMobile ? 14 : 16} className="flex-shrink-0 pointer-events-none" />
-          <span className="text-xs sm:text-sm font-medium pointer-events-none">Ретушь</span>
-          {(() => {
-            const finishedCount = tasks.filter(t => t.status === 'finished').length;
-            const displayTotal = totalBatchSize > tasks.length ? totalBatchSize : tasks.length;
-            if (isProcessing) {
-              return (
-                <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-none flex-1 sm:flex-none">
-                  <div className="w-12 sm:w-16 h-1.5 bg-white/30 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-white rounded-full transition-all duration-700"
-                      style={{ width: `${totalProgress}%` }}
-                    />
-                  </div>
-                  <span className="text-[10px] sm:text-xs font-medium tabular-nums whitespace-nowrap">
-                    {finishedCount}/{displayTotal}
-                  </span>
+      {shouldShowBar && !showDialog && (() => {
+        const finishedCount = tasks.filter(t => t.status === 'finished').length;
+        const displayTotal = totalBatchSize > tasks.length ? totalBatchSize : tasks.length;
+
+        if (isMobile) {
+          return (
+            <div
+              className={`fixed z-[9999] flex items-center gap-1.5 bg-gradient-to-r from-rose-600 to-purple-600 text-white rounded-full px-3 py-2 shadow-lg cursor-grab active:cursor-grabbing select-none touch-none transition-all duration-300 ease-out ${
+                mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
+              }`}
+              style={{ left: position.x, top: position.y }}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onClick={handleBarClick}
+            >
+              <span className="text-[11px] font-semibold tabular-nums pointer-events-none whitespace-nowrap">
+                {finishedCount}/{displayTotal}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fullClose();
+                }}
+                className="flex-shrink-0 rounded-full p-0.5 active:bg-white/30 transition-colors"
+              >
+                <Icon name="X" size={12} />
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            className={`fixed z-[9999] flex items-center gap-3 bg-gradient-to-r from-rose-600 to-purple-600 text-white rounded-full pl-4 pr-2 py-2 shadow-lg cursor-grab active:cursor-grabbing hover:shadow-xl select-none touch-none transition-all duration-300 ease-out ${
+              mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
+            }`}
+            style={{ left: position.x, top: position.y }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onClick={handleBarClick}
+          >
+            <Icon name="Sparkles" size={16} className="flex-shrink-0 pointer-events-none" />
+            <span className="text-sm font-medium pointer-events-none">Ретушь</span>
+            {isProcessing ? (
+              <div className="flex items-center gap-2 pointer-events-none">
+                <div className="w-16 h-1.5 bg-white/30 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white rounded-full transition-all duration-700"
+                    style={{ width: `${totalProgress}%` }}
+                  />
                 </div>
-              );
-            }
-            return (
+                <span className="text-xs font-medium tabular-nums whitespace-nowrap">
+                  {finishedCount}/{displayTotal}
+                </span>
+              </div>
+            ) : (
               <span className="text-xs opacity-80 pointer-events-none">
                 {finishedCount}/{displayTotal}
               </span>
-            );
-          })()}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              fullClose();
-            }}
-            className="flex-shrink-0 rounded-full p-1.5 sm:p-1 hover:bg-white/20 active:bg-white/30 transition-colors ml-auto sm:ml-1"
-            title="Остановить и закрыть"
-          >
-            <Icon name="X" size={isMobile ? 16 : 14} />
-          </button>
-        </div>
-      )}
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                fullClose();
+              }}
+              className="flex-shrink-0 rounded-full p-1 hover:bg-white/20 active:bg-white/30 transition-colors ml-1"
+              title="Остановить и закрыть"
+            >
+              <Icon name="X" size={14} />
+            </button>
+          </div>
+        );
+      })()}
 
       {showDialog && session && (
         <Dialog open={true} onOpenChange={handleDialogClose}>
