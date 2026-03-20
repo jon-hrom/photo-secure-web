@@ -2,16 +2,11 @@ import json
 import os
 import io
 import time
-import sys
 import hmac
 import hashlib
 import secrets
 import uuid
-import base64
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
 from typing import Dict, Any
-from urllib import request as urlreq
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
@@ -76,101 +71,7 @@ def _response(status_code, body):
     }
 
 
-def _probe_health():
-    """Проверка доступности Retouch API через /health с коротким таймаутом"""
-    if not RETOUCH_BASE_URL:
-        return {"reachable": False, "error": "RETOUCH_BASE_URL is empty"}
-    url = RETOUCH_BASE_URL + "/health"
-    print(f"[PROBE] Checking health at: {url}")
-    try:
-        t0 = time.time()
-        r = requests.get(url, timeout=(3, 5))
-        elapsed = round(time.time() - t0, 3)
-        print(f"[PROBE] Health responded: status={r.status_code}, time={elapsed}s, body={r.text[:200]}")
-        return {"reachable": True, "status_code": r.status_code, "elapsed_s": elapsed, "body": r.text[:200]}
-    except requests.RequestException as e:
-        elapsed = round(time.time() - t0, 3)
-        print(f"[PROBE] Health FAILED after {elapsed}s: {e}")
-        return {"reachable": False, "elapsed_s": elapsed, "error": str(e)}
 
-
-# Wake VM
-YC_INSTANCE_ID = os.environ.get("YC_INSTANCE_ID", "")
-IAM_URL = "https://iam.api.cloud.yandex.net/iam/v1/tokens"
-COMPUTE_BASE = "https://compute.api.cloud.yandex.net/compute/v1"
-
-_SA_KEY_PATH = os.path.join(os.path.dirname(__file__), "sa_key.json")
-_SA_KEY_CACHE = None
-
-def _load_sa_key():
-    global _SA_KEY_CACHE
-    if _SA_KEY_CACHE is None:
-        with open(_SA_KEY_PATH, "r") as f:
-            _SA_KEY_CACHE = json.load(f)
-    return _SA_KEY_CACHE
-
-
-def _b64url(data):
-    if isinstance(data, str):
-        data = data.encode("utf-8")
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
-
-
-def _make_jwt(sa):
-    now = int(time.time())
-    hdr = json.dumps({"alg": "PS256", "typ": "JWT", "kid": sa["id"]})
-    pay = json.dumps({"aud": IAM_URL, "iss": sa["service_account_id"], "iat": now, "exp": now + 3600})
-    unsigned = _b64url(hdr) + "." + _b64url(pay)
-    private_key = serialization.load_pem_private_key(sa["private_key"].encode(), password=None)
-    signature = private_key.sign(
-        unsigned.encode(),
-        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
-        hashes.SHA256()
-    )
-    return unsigned + "." + _b64url(signature)
-
-
-def _yc_http(method, url, headers=None, body=None):
-    data = json.dumps(body).encode() if body else None
-    hdrs = {"Content-Type": "application/json"}
-    if headers:
-        hdrs.update(headers)
-    req = urlreq.Request(url, data=data, headers=hdrs, method=method)
-    with urlreq.urlopen(req, timeout=10) as r:
-        return json.loads(r.read())
-
-
-def _handle_wake():
-    if not YC_INSTANCE_ID:
-        return _response(500, {"error": "YC_INSTANCE_ID not configured"})
-    if not os.path.exists(_SA_KEY_PATH):
-        return _response(500, {"error": "sa_key.json not found"})
-    try:
-        sa = _load_sa_key()
-        tok = _make_jwt(sa)
-        iam = _yc_http("POST", IAM_URL, body={"jwt": tok})["iamToken"]
-    except Exception as e:
-        print(f"[WAKE] IAM error: {e}")
-        return _response(500, {"error": f"IAM: {e}"})
-    try:
-        st = _yc_http("GET", f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}",
-                       headers={"Authorization": f"Bearer {iam}"}).get("status", "UNKNOWN")
-    except Exception as e:
-        print(f"[WAKE] Status error: {e}")
-        return _response(500, {"error": f"Status: {e}"})
-    print(f"[WAKE] VM={st}")
-    if st == "STOPPED":
-        try:
-            op = _yc_http("POST", f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}:start",
-                          headers={"Authorization": f"Bearer {iam}"})
-            return _response(200, {"action": "starting", "statusBefore": st, "operationId": op.get("id")})
-        except Exception as e:
-            return _response(500, {"error": f"Start: {e}"})
-    if st == "STARTING":
-        return _response(200, {"action": "already_starting", "status": st})
-    if st == "RUNNING":
-        return _response(200, {"action": "already_running", "status": st})
-    return _response(200, {"action": "noop", "status": st})
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -179,18 +80,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     if method == 'OPTIONS':
         return {'statusCode': 200, 'headers': _cors_headers(), 'body': '', 'isBase64Encoded': False}
-
-    print(f"[DIAG] RETOUCH_BASE_URL = '{RETOUCH_BASE_URL}'")
-    print(f"[DIAG] HMAC_SECRET set = {bool(HMAC_SECRET)}")
-
-    params = event.get('queryStringParameters', {}) or {}
-
-    if params.get('action') == 'wake':
-        return _handle_wake()
-
-    if params.get('probe') == '1':
-        result = _probe_health()
-        return _response(200, {"probe": result})
 
     headers = event.get('headers', {})
     user_id = headers.get('X-User-Id') or headers.get('x-user-id')

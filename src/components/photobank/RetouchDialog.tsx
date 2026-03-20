@@ -7,6 +7,7 @@ import RetouchTaskList, { type RetouchTask } from './RetouchTaskList';
 import RetouchPhotoSelector from './RetouchPhotoSelector';
 
 const RETOUCH_API = funcUrls['retouch'];
+const RETOUCH_WAKER_API = funcUrls['retouch-waker'];
 const PHOTOBANK_FOLDERS_API = funcUrls['photobank-folders'];
 
 interface Photo {
@@ -77,7 +78,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     setWakeStatus('Запускаем сервер ретуши...');
     console.log('[RETOUCH] Waking retouch server...');
     try {
-      const res = await fetch(`${RETOUCH_API}?action=wake`, { method: 'POST' });
+      const res = await fetch(`${RETOUCH_WAKER_API}?action=wake`, { method: 'POST' });
       if (!res.ok) {
         setWakeStatus('Не удалось разбудить сервер');
         setWaking(false);
@@ -100,7 +101,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
           await new Promise(r => setTimeout(r, interval * 1000));
           setWakeStatus(`Сервер запускается... ${elapsed + interval} сек`);
           try {
-            const probe = await fetch(`${RETOUCH_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
+            const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
             if (probe.ok) {
               const probeData = await probe.json();
               if (probeData.probe?.reachable) {

@@ -1,0 +1,1 @@
+{"tests": [{"name": "Wake endpoint", "method": "GET", "path": "/?action=wake", "expectedStatus": 200, "expectedBody": {"action": "string"}, "bodyMatcher": "partial"}, {"name": "Health probe", "method": "GET", "path": "/?probe=1", "expectedStatus": 200, "expectedBody": {"probe": "object"}, "bodyMatcher": "partial"}]}
