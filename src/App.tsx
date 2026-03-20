@@ -28,6 +28,8 @@ import NewYearDecorations from "./components/NewYearDecorations";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
+import { RetouchProvider } from "./contexts/RetouchContext";
+import FloatingRetouchBar from "./components/photobank/FloatingRetouchBar";
 
 const queryClient = new QueryClient();
 
@@ -83,9 +85,11 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <RetouchProvider>
         {newYearMode && <NewYearDecorations />}
         <Toaster />
         <Sonner />
+        <FloatingRetouchBar />
         <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
@@ -113,6 +117,7 @@ const App = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+        </RetouchProvider>
     </TooltipProvider>
   </QueryClientProvider>
   );
