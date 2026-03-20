@@ -1,0 +1,8 @@
+{
+  "id": "REPLACE_ME",
+  "service_account_id": "REPLACE_ME",
+  "created_at": "REPLACE_ME",
+  "key_algorithm": "RSA_2048",
+  "public_key": "REPLACE_ME",
+  "private_key": "REPLACE_ME"
+}

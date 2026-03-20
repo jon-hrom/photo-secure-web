@@ -8,8 +8,8 @@ import hashlib
 import secrets
 import uuid
 import base64
-import subprocess
-import tempfile
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 from typing import Dict, Any
 from urllib import request as urlreq
 import psycopg2
@@ -96,9 +96,18 @@ def _probe_health():
 
 # Wake VM
 YC_INSTANCE_ID = os.environ.get("YC_INSTANCE_ID", "")
-YC_SA_KEY_JSON = os.environ.get("YC_SA_KEY_JSON", "")
 IAM_URL = "https://iam.api.cloud.yandex.net/iam/v1/tokens"
 COMPUTE_BASE = "https://compute.api.cloud.yandex.net/compute/v1"
+
+_SA_KEY_PATH = os.path.join(os.path.dirname(__file__), "sa_key.json")
+_SA_KEY_CACHE = None
+
+def _load_sa_key():
+    global _SA_KEY_CACHE
+    if _SA_KEY_CACHE is None:
+        with open(_SA_KEY_PATH, "r") as f:
+            _SA_KEY_CACHE = json.load(f)
+    return _SA_KEY_CACHE
 
 
 def _b64url(data):
@@ -107,24 +116,18 @@ def _b64url(data):
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def _make_jwt_openssl(sa):
+def _make_jwt(sa):
     now = int(time.time())
     hdr = json.dumps({"alg": "PS256", "typ": "JWT", "kid": sa["id"]})
     pay = json.dumps({"aud": IAM_URL, "iss": sa["service_account_id"], "iat": now, "exp": now + 3600})
     unsigned = _b64url(hdr) + "." + _b64url(pay)
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as kf:
-        kf.write(sa["private_key"])
-        key_path = kf.name
-    try:
-        proc = subprocess.run(
-            ["openssl", "dgst", "-sha256", "-sigopt", "rsa_padding_mode:pss",
-             "-sigopt", "rsa_pss_saltlen:-1", "-sign", key_path],
-            input=unsigned.encode(), capture_output=True, timeout=5)
-        if proc.returncode != 0:
-            raise RuntimeError(f"openssl: {proc.stderr.decode()}")
-    finally:
-        os.unlink(key_path)
-    return unsigned + "." + _b64url(proc.stdout)
+    private_key = serialization.load_pem_private_key(sa["private_key"].encode(), password=None)
+    signature = private_key.sign(
+        unsigned.encode(),
+        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+        hashes.SHA256()
+    )
+    return unsigned + "." + _b64url(signature)
 
 
 def _yc_http(method, url, headers=None, body=None):
@@ -138,11 +141,13 @@ def _yc_http(method, url, headers=None, body=None):
 
 
 def _handle_wake():
-    if not YC_INSTANCE_ID or not YC_SA_KEY_JSON:
-        return _response(500, {"error": "YC wake secrets not configured"})
+    if not YC_INSTANCE_ID:
+        return _response(500, {"error": "YC_INSTANCE_ID not configured"})
+    if not os.path.exists(_SA_KEY_PATH):
+        return _response(500, {"error": "sa_key.json not found"})
     try:
-        sa = json.loads(YC_SA_KEY_JSON)
-        tok = _make_jwt_openssl(sa)
+        sa = _load_sa_key()
+        tok = _make_jwt(sa)
         iam = _yc_http("POST", IAM_URL, body={"jwt": tok})["iamToken"]
     except Exception as e:
         print(f"[WAKE] IAM error: {e}")
@@ -169,7 +174,7 @@ def _handle_wake():
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Ретушь фотографий — отправка на обработку и проверка статуса задачи"""
+    """Ретушь фотографий — отправка на обработку, проверка статуса задачи и запуск VM"""
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
