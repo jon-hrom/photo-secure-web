@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useRetouch } from '@/contexts/RetouchContext';
 import RetouchWakeStatus from './RetouchWakeStatus';
@@ -12,6 +13,7 @@ const FloatingRetouchBar = () => {
   } = useRetouch();
 
   const [showDialog, setShowDialog] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [position, setPosition] = useState({ x: -1, y: -1 });
   const [mounted, setMounted] = useState(false);
   const isDraggingRef = useRef(false);
@@ -79,14 +81,28 @@ const FloatingRetouchBar = () => {
     }
   };
 
+  const handleCloseClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isProcessing) {
+      setShowConfirm(true);
+    } else {
+      fullClose();
+    }
+  };
+
+  const handleConfirmStop = () => {
+    setShowConfirm(false);
+    setShowDialog(false);
+    fullClose();
+  };
+
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const finishedCount = tasks.filter(t => t.status === 'finished').length;
+  const displayTotal = totalBatchSize > tasks.length ? totalBatchSize : tasks.length;
 
   return (
     <>
       {shouldShowBar && !showDialog && (() => {
-        const finishedCount = tasks.filter(t => t.status === 'finished').length;
-        const displayTotal = totalBatchSize > tasks.length ? totalBatchSize : tasks.length;
-
         if (isMobile) {
           return (
             <div
@@ -103,10 +119,7 @@ const FloatingRetouchBar = () => {
                 {finishedCount}/{displayTotal}
               </span>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fullClose();
-                }}
+                onClick={handleCloseClick}
                 className="flex-shrink-0 rounded-full p-0.5 active:bg-white/30 transition-colors"
               >
                 <Icon name="X" size={12} />
@@ -146,10 +159,7 @@ const FloatingRetouchBar = () => {
               </span>
             )}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                fullClose();
-              }}
+              onClick={handleCloseClick}
               className="flex-shrink-0 rounded-full p-1 hover:bg-white/20 active:bg-white/30 transition-colors ml-1"
               title="Остановить и закрыть"
             >
@@ -182,6 +192,40 @@ const FloatingRetouchBar = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-sm rounded-2xl sm:rounded-xl p-5 sm:p-6">
+          <div className="flex flex-col items-center text-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <Icon name="AlertTriangle" size={24} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="space-y-1.5">
+              <DialogHeader className="p-0">
+                <DialogTitle className="font-semibold text-base sm:text-lg text-foreground">Остановить обработку?</DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm text-muted-foreground leading-relaxed mt-1.5">
+                  Оставшиеся фото не будут обработаны. Все фотографии, которые уже прошли ретушь, сохранены и доступны в вашей папке.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 w-full mt-1">
+              <Button
+                variant="outline"
+                onClick={() => setShowConfirm(false)}
+                className="h-11 sm:h-10 text-sm flex-1"
+              >
+                Продолжить
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmStop}
+                className="h-11 sm:h-10 text-sm flex-1"
+              >
+                Остановить
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
