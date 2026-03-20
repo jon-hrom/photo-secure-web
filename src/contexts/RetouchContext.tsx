@@ -23,6 +23,7 @@ interface RetouchContextValue {
   minimized: boolean;
   session: RetouchSession | null;
   totalProgress: number;
+  totalBatchSize: number;
   setMinimized: (v: boolean) => void;
   startSession: (session: RetouchSession) => void;
   fullClose: () => void;
@@ -55,6 +56,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const [wakeStatus, setWakeStatus] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
   const [session, setSession] = useState<RetouchSession | null>(null);
+  const [batchPending, setBatchPending] = useState(false);
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retouchCompleteCalledRef = useRef(false);
@@ -66,15 +68,20 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const serverStartedRef = useRef(false);
   const sessionRef = useRef<RetouchSession | null>(null);
 
-  const isProcessing = tasks.some(t => t.status === 'queued' || t.status === 'started') || submitting || waking;
+  const isProcessing = tasks.some(t => t.status === 'queued' || t.status === 'started') || submitting || waking || batchPending;
 
-  const totalProgress = tasks.length > 0
-    ? Math.round(tasks.reduce((sum, t) => {
-        if (t.status === 'finished') return sum + 100;
-        if (t.status === 'failed') return sum + 100;
-        return sum + (t.progress || 0);
-      }, 0) / tasks.length)
-    : 0;
+  const totalBatchSize = tasks.length + batchQueueRef.current.length;
+
+  const totalProgress = (() => {
+    if (tasks.length === 0) return 0;
+    const totalCount = totalBatchSize || tasks.length;
+    const doneProgress = tasks.reduce((sum, t) => {
+      if (t.status === 'finished') return sum + 100;
+      if (t.status === 'failed') return sum + 100;
+      return sum + (t.progress || 0);
+    }, 0);
+    return Math.round(doneProgress / totalCount);
+  })();
 
   const clearIdleTimer = () => {
     if (idleTimerRef.current) {
@@ -169,9 +176,9 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (tasks.length > 0) {
-      const allDone = tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
-      if (allDone) {
+    if (tasks.length > 0 && !batchPending) {
+      const allTasksDone = tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
+      if (allTasksDone) {
         stopPolling();
         scheduleIdleShutdown();
         const hasFinished = tasks.some(t => t.status === 'finished');
@@ -182,7 +189,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     }
-  }, [tasks, session]);
+  }, [tasks, session, batchPending]);
 
   const wakeRetouchServer = async (): Promise<boolean> => {
     if (!sessionRef.current) return false;
@@ -297,6 +304,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const processNextInBatch = useCallback(async () => {
     if (batchQueueRef.current.length === 0) {
       batchActiveRef.current = false;
+      setBatchPending(false);
       setSubmitting(false);
       return;
     }
@@ -334,6 +342,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     stopPolling();
     batchQueueRef.current = [];
     batchActiveRef.current = false;
+    setBatchPending(false);
     photosRef.current = [];
     setTasks([]);
     setSubmitting(false);
@@ -373,6 +382,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
     batchQueueRef.current = [...photos.slice(1)];
     batchActiveRef.current = true;
+    setBatchPending(true);
     const firstTask = await startRetouchForPhoto(photos[0].id);
     if (firstTask) {
       setTasks([firstTask]);
@@ -417,7 +427,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   return (
     <RetouchContext.Provider value={{
       tasks, isProcessing, waking, wakeStatus, submitting, minimized, session,
-      totalProgress, setMinimized, startSession, fullClose,
+      totalProgress, totalBatchSize, setMinimized, startSession, fullClose,
       handleRetouchSingle, handleRetouchAll, retryTask, retryAllFailed
     }}>
       {children}

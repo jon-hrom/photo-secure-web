@@ -1,4 +1,5 @@
 import Icon from '@/components/ui/icon';
+import { useRetouch } from '@/contexts/RetouchContext';
 
 export interface RetouchTask {
   photo_id: number;
@@ -17,20 +18,15 @@ interface RetouchTaskListProps {
 }
 
 const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskListProps) => {
+  const { totalProgress, totalBatchSize, isProcessing } = useRetouch();
+
   if (tasks.length === 0) return null;
 
   const finishedCount = tasks.filter(t => t.status === 'finished').length;
   const failedCount = tasks.filter(t => t.status === 'failed').length;
-  const totalCount = tasks.length;
   const activeCount = tasks.filter(t => t.status === 'queued' || t.status === 'started').length;
-
-  const totalProgress = totalCount > 0
-    ? Math.round(tasks.reduce((sum, t) => {
-        if (t.status === 'finished') return sum + 100;
-        if (t.status === 'failed') return sum + 100;
-        return sum + (t.progress || 0);
-      }, 0) / totalCount)
-    : 0;
+  const displayTotal = totalBatchSize > tasks.length ? totalBatchSize : tasks.length;
+  const allDone = !isProcessing && activeCount === 0;
 
   const currentPhoto = tasks.find(t => t.status === 'started' || t.status === 'queued');
 
@@ -39,28 +35,28 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {activeCount > 0 && (
+            {!allDone && (
               <Icon name="Loader2" size={16} className="animate-spin text-blue-500" />
             )}
-            {activeCount === 0 && failedCount === 0 && (
+            {allDone && failedCount === 0 && (
               <Icon name="CheckCircle" size={16} className="text-green-500" />
             )}
-            {activeCount === 0 && failedCount > 0 && finishedCount === 0 && (
+            {allDone && failedCount > 0 && finishedCount === 0 && (
               <Icon name="AlertCircle" size={16} className="text-red-500" />
             )}
-            {activeCount === 0 && failedCount > 0 && finishedCount > 0 && (
+            {allDone && failedCount > 0 && finishedCount > 0 && (
               <Icon name="AlertTriangle" size={16} className="text-amber-500" />
             )}
             <span className="font-medium text-foreground text-sm">
               {totalProgress}%
             </span>
-            {totalCount > 1 && (
+            {displayTotal > 1 && (
               <span className="text-muted-foreground text-xs sm:text-sm">
-                ({finishedCount} из {totalCount})
+                ({finishedCount} из {displayTotal})
               </span>
             )}
           </div>
-          {failedCount > 0 && activeCount === 0 && (
+          {failedCount > 0 && allDone && (
             <button
               onClick={onRetryAllFailed}
               className="flex items-center gap-1 text-amber-600 hover:text-amber-700 active:text-amber-800 text-xs font-medium transition-colors py-1 px-2 -mr-2 rounded-lg active:bg-amber-50 dark:active:bg-amber-950/30"
@@ -74,9 +70,9 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
         <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-700 ease-out ${
-              failedCount > 0 && activeCount === 0 && finishedCount === 0
+              allDone && failedCount > 0 && finishedCount === 0
                 ? 'bg-red-500'
-                : failedCount > 0 && activeCount === 0
+                : allDone && failedCount > 0
                   ? 'bg-amber-500'
                   : 'bg-gradient-to-r from-blue-500 to-violet-500'
             }`}
@@ -143,7 +139,7 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
         ))}
       </div>
 
-      {currentPhoto && totalCount > 1 && (
+      {currentPhoto && displayTotal > 1 && (
         <div className="text-[10px] sm:text-xs text-muted-foreground text-center truncate px-2">
           Обрабатывается: {currentPhoto.file_name}
         </div>
