@@ -48,22 +48,33 @@ def _yc_http(method, url, headers=None, body=None):
         return json.loads(r.read())
 
 
-def _handle_wake():
+def _get_vm_status(iam):
+    return _yc_http(
+        "GET",
+        f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}",
+        headers={"Authorization": f"Bearer {iam}"},
+    ).get("status", "UNKNOWN")
+
+
+def _ensure_credentials():
     if not YC_INSTANCE_ID:
         return _response(500, {"error": "YC_INSTANCE_ID not configured"})
     if not YC_OAUTH_TOKEN:
         return _response(500, {"error": "YC_OAUTH_TOKEN not configured"})
+    return None
+
+
+def _handle_wake():
+    err = _ensure_credentials()
+    if err:
+        return err
     try:
         iam = _get_iam_token()
     except Exception as e:
         print(f"[WAKE] IAM error: {e}")
         return _response(500, {"error": f"IAM: {e}"})
     try:
-        st = _yc_http(
-            "GET",
-            f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}",
-            headers={"Authorization": f"Bearer {iam}"},
-        ).get("status", "UNKNOWN")
+        st = _get_vm_status(iam)
     except Exception as e:
         print(f"[WAKE] Status error: {e}")
         return _response(500, {"error": f"Status: {e}"})
@@ -82,6 +93,38 @@ def _handle_wake():
         return _response(200, {"action": "already_starting", "status": st})
     if st == "RUNNING":
         return _response(200, {"action": "already_running", "status": st})
+    return _response(200, {"action": "noop", "status": st})
+
+
+def _handle_stop():
+    err = _ensure_credentials()
+    if err:
+        return err
+    try:
+        iam = _get_iam_token()
+    except Exception as e:
+        print(f"[STOP] IAM error: {e}")
+        return _response(500, {"error": f"IAM: {e}"})
+    try:
+        st = _get_vm_status(iam)
+    except Exception as e:
+        print(f"[STOP] Status error: {e}")
+        return _response(500, {"error": f"Status: {e}"})
+    print(f"[STOP] VM={st}")
+    if st == "RUNNING":
+        try:
+            op = _yc_http(
+                "POST",
+                f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}:stop",
+                headers={"Authorization": f"Bearer {iam}"},
+            )
+            return _response(200, {"action": "stopping", "statusBefore": st, "operationId": op.get("id")})
+        except Exception as e:
+            return _response(500, {"error": f"Stop: {e}"})
+    if st == "STOPPING":
+        return _response(200, {"action": "already_stopping", "status": st})
+    if st == "STOPPED":
+        return _response(200, {"action": "already_stopped", "status": st})
     return _response(200, {"action": "noop", "status": st})
 
 
@@ -114,8 +157,11 @@ def handler(event: dict, context) -> dict:
     if params.get("action") == "wake":
         return _handle_wake()
 
+    if params.get("action") == "stop":
+        return _handle_stop()
+
     if params.get("probe") == "1":
         result = _probe_health()
         return _response(200, {"probe": result})
 
-    return _response(400, {"error": "Unknown action — use ?action=wake or ?probe=1"})
+    return _response(400, {"error": "Unknown action — use ?action=wake, ?action=stop or ?probe=1"})

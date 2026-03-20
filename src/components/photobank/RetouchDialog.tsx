@@ -10,6 +10,40 @@ import RetouchPhotoSelector from './RetouchPhotoSelector';
 const RETOUCH_API = funcUrls['retouch'];
 const RETOUCH_WAKER_API = funcUrls['retouch-waker'];
 const PHOTOBANK_FOLDERS_API = funcUrls['photobank-folders'];
+const IDLE_SHUTDOWN_MS = 10 * 60 * 1000;
+
+let globalIdleTimer: ReturnType<typeof setTimeout> | null = null;
+let globalServerStarted = false;
+
+const clearGlobalIdleTimer = () => {
+  if (globalIdleTimer) {
+    clearTimeout(globalIdleTimer);
+    globalIdleTimer = null;
+  }
+};
+
+const stopRetouchServerGlobal = async () => {
+  if (!globalServerStarted) return;
+  try {
+    console.log('[RETOUCH] Auto-stopping server after 10 min idle');
+    await fetch(`${RETOUCH_WAKER_API}?action=stop`, { method: 'POST' });
+    globalServerStarted = false;
+  } catch (error) {
+    console.error('[RETOUCH] Failed to stop server:', error);
+  }
+};
+
+const scheduleGlobalIdleShutdown = () => {
+  clearGlobalIdleTimer();
+  if (!globalServerStarted) return;
+  console.log('[RETOUCH] Scheduling idle shutdown in 10 min');
+  globalIdleTimer = setTimeout(stopRetouchServerGlobal, IDLE_SHUTDOWN_MS);
+};
+
+const markServerActive = () => {
+  globalServerStarted = true;
+  clearGlobalIdleTimer();
+};
 
 interface Photo {
   id: number;
@@ -43,7 +77,6 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const batchQueueRef = useRef<Photo[]>([]);
   const batchActiveRef = useRef(false);
   const pollStartTimeRef = useRef<Record<string, number>>({});
-
   const isProcessing = tasks.some(t => t.status === 'queued' || t.status === 'started') || submitting || waking;
 
   useEffect(() => {
@@ -116,6 +149,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       if (data.action === 'already_running') {
         setWakeStatus('готов');
         setWaking(false);
+        markServerActive();
         return true;
       }
 
@@ -131,6 +165,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
               if (probeData.probe?.reachable) {
                 setWakeStatus('готов');
                 setWaking(false);
+                markServerActive();
                 return true;
               }
             }
@@ -153,6 +188,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   };
 
   const ensureServerReady = async (): Promise<boolean> => {
+    markServerActive();
     try {
       const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
       if (probe.ok) {
@@ -336,6 +372,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       const allDone = tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
       if (allDone) {
         stopPolling();
+        scheduleGlobalIdleShutdown();
         const hasFinished = tasks.some(t => t.status === 'finished');
         if (hasFinished && !retouchCompleteCalledRef.current) {
           retouchCompleteCalledRef.current = true;
@@ -347,6 +384,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   }, [tasks, onRetouchComplete]);
 
   const retryTask = async (task: RetouchTask) => {
+    markServerActive();
     setTasks(prev => prev.map(t =>
       t.photo_id === task.photo_id ? { ...t, status: 'queued' as const, error_message: undefined, task_id: '' } : t
     ));
@@ -360,6 +398,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   };
 
   const retryAllFailed = async () => {
+    markServerActive();
     const failedTasks = tasks.filter(t => t.status === 'failed');
     setTasks(prev => prev.map(t =>
       t.status === 'failed' ? { ...t, status: 'queued' as const, error_message: undefined, task_id: '' } : t
