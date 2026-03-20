@@ -6,6 +6,7 @@ import requests
 
 
 RETOUCH_BASE_URL = os.environ.get("RETOUCH_BASE_URL", "").rstrip("/")
+
 YC_INSTANCE_ID = os.environ.get("YC_INSTANCE_ID", "")
 YC_OAUTH_TOKEN = os.environ.get("YC_OAUTH_TOKEN", "")
 IAM_URL = "https://iam.api.cloud.yandex.net/iam/v1/tokens"

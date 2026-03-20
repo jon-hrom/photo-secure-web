@@ -16,6 +16,7 @@ from PIL import Image
 
 
 RETOUCH_BASE_URL = os.environ.get("RETOUCH_BASE_URL", "").rstrip("/")
+
 HMAC_CLIENT_ID = "foto-mix"
 HMAC_SECRET = os.environ.get("HMAC_SECRET_FOTO_MIX", "")
 S3_BUCKET = "foto-mix"
