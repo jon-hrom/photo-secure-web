@@ -174,7 +174,7 @@ def _handle_wake():
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Ретушь фотографий — отправка на обработку, проверка статуса задачи и запуск VM"""
+    """Ретушь фотографий — отправка на обработку, проверка статуса задачи и пробуждение VM"""
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
