@@ -133,10 +133,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
     const currentTasks = tasksRef.current;
     const activeTasks = currentTasks.filter(t => (t.status === 'queued' || t.status === 'started') && t.task_id);
-    if (activeTasks.length === 0) {
-      stopPolling();
-      return;
-    }
+    if (activeTasks.length === 0) return;
 
     pollingRef.current = true;
     try {
@@ -195,17 +192,23 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (tasks.length > 0 && !batchPending) {
-      const allDone = tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
-      if (allDone) {
-        stopPolling();
-        scheduleIdleShutdown();
-        const hasFinished = tasks.some(t => t.status === 'finished');
-        if (hasFinished && !retouchCompleteCalledRef.current) {
-          retouchCompleteCalledRef.current = true;
-          playSuccessSound();
-          session?.onRetouchComplete?.();
-        }
+    if (tasks.length === 0) return;
+
+    const hasActive = tasks.some(t => (t.status === 'queued' || t.status === 'started') && t.task_id);
+    const allDone = !batchPending && tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
+
+    if (hasActive && !pollIntervalRef.current) {
+      startPolling();
+    }
+
+    if (allDone) {
+      stopPolling();
+      scheduleIdleShutdown();
+      const hasFinished = tasks.some(t => t.status === 'finished');
+      if (hasFinished && !retouchCompleteCalledRef.current) {
+        retouchCompleteCalledRef.current = true;
+        playSuccessSound();
+        session?.onRetouchComplete?.();
       }
     }
   }, [tasks, session, batchPending]);
@@ -409,7 +412,6 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     const task = await startRetouchForPhoto(photoId);
     if (task) {
       setTasks([task]);
-      if (task.task_id) startPolling();
     }
     setSubmitting(false);
   };
@@ -428,7 +430,6 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
     batchQueueRef.current = [...photos];
     activeSubmitsRef.current = 0;
-    startPolling();
     drainQueue();
   };
 
@@ -442,7 +443,6 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
       setTasks(prev => prev.map(t =>
         t.photo_id === task.photo_id ? { ...newTask, file_name: task.file_name } : t
       ));
-      startPolling();
     }
   };
 
@@ -456,7 +456,6 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     setBatchPending(true);
     batchQueueRef.current = failedTasks.map(t => ({ id: t.photo_id, file_name: t.file_name || '' }));
     activeSubmitsRef.current = 0;
-    startPolling();
     drainQueue();
   };
 
