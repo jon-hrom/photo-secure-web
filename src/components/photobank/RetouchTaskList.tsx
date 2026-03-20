@@ -35,10 +35,10 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
   const currentPhoto = tasks.find(t => t.status === 'started' || t.status === 'queued');
 
   return (
-    <div className="rounded-xl border bg-white/60 dark:bg-gray-900/60 p-4 space-y-4">
+    <div className="rounded-xl border bg-white/60 dark:bg-gray-900/60 p-3 sm:p-4 space-y-3 sm:space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {activeCount > 0 && (
               <Icon name="Loader2" size={16} className="animate-spin text-blue-500" />
             )}
@@ -51,11 +51,11 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
             {activeCount === 0 && failedCount > 0 && finishedCount > 0 && (
               <Icon name="AlertTriangle" size={16} className="text-amber-500" />
             )}
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-foreground text-sm">
               {totalProgress}%
             </span>
             {totalCount > 1 && (
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground text-xs sm:text-sm">
                 ({finishedCount} из {totalCount})
               </span>
             )}
@@ -63,7 +63,7 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
           {failedCount > 0 && activeCount === 0 && (
             <button
               onClick={onRetryAllFailed}
-              className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-xs font-medium transition-colors"
+              className="flex items-center gap-1 text-amber-600 hover:text-amber-700 active:text-amber-800 text-xs font-medium transition-colors py-1 px-2 -mr-2 rounded-lg active:bg-amber-50 dark:active:bg-amber-950/30"
             >
               <Icon name="RefreshCw" size={13} />
               Повторить
@@ -85,24 +85,24 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
         </div>
       </div>
 
-      <div className="space-y-1.5 max-h-60 overflow-y-auto">
+      <div className="space-y-1 sm:space-y-1.5 max-h-48 sm:max-h-60 overflow-y-auto -mx-1 px-1">
         {tasks.map((task) => (
           <div
             key={task.task_id || task.photo_id}
-            className="flex items-center gap-2 text-sm py-2 px-3 rounded-lg bg-white/50 dark:bg-gray-800/50"
+            className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 px-2 sm:px-3 rounded-lg bg-white/50 dark:bg-gray-800/50"
           >
-            <div className="flex-shrink-0 w-5">
+            <div className="flex-shrink-0 w-4 sm:w-5">
               {task.status === 'queued' && (
-                <Icon name="Clock" size={14} className="text-yellow-500" />
+                <Icon name="Clock" size={13} className="text-yellow-500 sm:w-3.5 sm:h-3.5" />
               )}
               {task.status === 'started' && (
-                <Icon name="Loader2" size={14} className="animate-spin text-blue-500" />
+                <Icon name="Loader2" size={13} className="animate-spin text-blue-500 sm:w-3.5 sm:h-3.5" />
               )}
               {task.status === 'finished' && (
-                <Icon name="CheckCircle" size={14} className="text-green-500" />
+                <Icon name="CheckCircle" size={13} className="text-green-500 sm:w-3.5 sm:h-3.5" />
               )}
               {task.status === 'failed' && (
-                <Icon name="XCircle" size={14} className="text-red-500" />
+                <Icon name="XCircle" size={13} className="text-red-500 sm:w-3.5 sm:h-3.5" />
               )}
             </div>
 
@@ -111,7 +111,7 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
             </span>
 
             {(task.status === 'started' || task.status === 'queued') && (
-              <span className="text-xs text-blue-500 font-medium flex-shrink-0 tabular-nums">
+              <span className="text-[10px] sm:text-xs text-blue-500 font-medium flex-shrink-0 tabular-nums">
                 {task.progress || 0}%
               </span>
             )}
@@ -121,19 +121,22 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
                 href={task.result_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-blue-600 hover:text-blue-700 flex-shrink-0 text-xs transition-colors"
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-700 active:text-blue-800 flex-shrink-0 text-[10px] sm:text-xs transition-colors py-0.5 px-1 rounded active:bg-blue-50 dark:active:bg-blue-950/30"
               >
-                <Icon name="Download" size={12} />
-                Скачать
+                <Icon name="Download" size={11} className="sm:w-3 sm:h-3" />
+                <span className="hidden sm:inline">Скачать</span>
+                <span className="sm:hidden">
+                  <Icon name="Download" size={14} />
+                </span>
               </a>
             )}
             {task.status === 'failed' && (
               <button
                 onClick={() => onRetryTask(task)}
-                className="flex items-center gap-1 text-amber-600 hover:text-amber-700 flex-shrink-0 text-xs transition-colors"
+                className="flex items-center gap-1 text-amber-600 hover:text-amber-700 active:text-amber-800 flex-shrink-0 text-[10px] sm:text-xs transition-colors py-0.5 px-1 rounded active:bg-amber-50 dark:active:bg-amber-950/30"
               >
-                <Icon name="RefreshCw" size={12} />
-                Повторить
+                <Icon name="RefreshCw" size={11} className="sm:w-3 sm:h-3" />
+                Повтор
               </button>
             )}
           </div>
@@ -141,7 +144,7 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
       </div>
 
       {currentPhoto && totalCount > 1 && (
-        <div className="text-xs text-muted-foreground text-center">
+        <div className="text-[10px] sm:text-xs text-muted-foreground text-center truncate px-2">
           Обрабатывается: {currentPhoto.file_name}
         </div>
       )}

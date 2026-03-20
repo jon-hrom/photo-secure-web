@@ -98,13 +98,13 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-gradient-to-br from-rose-50/80 via-pink-50/60 to-purple-50/80 dark:from-rose-950/80 dark:via-pink-950/60 dark:to-purple-950/80 backdrop-blur-sm">
+      <DialogContent className="max-w-2xl w-[calc(100%-1rem)] sm:w-full max-h-[92vh] sm:max-h-[85vh] overflow-y-auto bg-gradient-to-br from-rose-50/80 via-pink-50/60 to-purple-50/80 dark:from-rose-950/80 dark:via-pink-950/60 dark:to-purple-950/80 backdrop-blur-sm rounded-2xl sm:rounded-xl p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="Sparkles" size={20} className="text-rose-600" />
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Icon name="Sparkles" size={18} className="text-rose-600" />
             Ретушь фото
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Папка: {folderName}
           </DialogDescription>
         </DialogHeader>
