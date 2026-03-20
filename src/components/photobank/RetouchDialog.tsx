@@ -38,6 +38,9 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [activeTab, setActiveTab] = useState('single');
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retouchCompleteCalledRef = useRef(false);
+  const batchQueueRef = useRef<Photo[]>([]);
+  const batchActiveRef = useRef(false);
+  const pollStartTimeRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (open && folderId) {
@@ -53,6 +56,9 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       setActiveTab('single');
       stopPolling();
       retouchCompleteCalledRef.current = false;
+      batchQueueRef.current = [];
+      batchActiveRef.current = false;
+      pollStartTimeRef.current = {};
     }
   }, [open, folderId]);
 
@@ -137,7 +143,8 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     return await wakeRetouchServer();
   };
 
-  const startRetouchForPhoto = async (photoId: number, isRetryAfterWake = false): Promise<RetouchTask | null> => {
+  const startRetouchForPhoto = async (photoId: number, retriesLeft = 3): Promise<RetouchTask | null> => {
+    const photo = photos.find(p => p.id === photoId);
     try {
       const res = await fetch(RETOUCH_API, {
         method: 'POST',
@@ -147,25 +154,29 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         },
         body: JSON.stringify({ photo_id: photoId })
       });
-      if ((res.status === 502 || res.status === 504) && !isRetryAfterWake) {
-        console.log(`[RETOUCH] Got ${res.status}, attempting to wake server...`);
-        const woken = await wakeRetouchServer();
-        if (woken) {
-          return startRetouchForPhoto(photoId, true);
+      if ((res.status === 502 || res.status === 504) && retriesLeft > 0) {
+        console.log(`[RETOUCH] Got ${res.status}, retrying in 5s... (${retriesLeft} retries left)`);
+        if (retriesLeft === 3) {
+          const woken = await wakeRetouchServer();
+          if (!woken) {
+            return { photo_id: photoId, task_id: '', status: 'failed', error_message: 'Сервис не запустился', file_name: photo?.file_name };
+          }
+        } else {
+          await new Promise(r => setTimeout(r, 5000));
         }
+        return startRetouchForPhoto(photoId, retriesLeft - 1);
       }
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const data = await res.json();
-      const photo = photos.find(p => p.id === photoId);
       return {
         photo_id: photoId,
         task_id: data.task_id,
         status: data.status || 'queued',
+        progress: 0,
         file_name: photo?.file_name
       };
     } catch (error) {
       console.error('[RETOUCH] Failed to start retouch for photo', photoId, error);
-      const photo = photos.find(p => p.id === photoId);
       return {
         photo_id: photoId,
         task_id: '',
@@ -179,6 +190,13 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const handleRetouchSingle = async () => {
     if (!selectedPhotoId) return;
     setSubmitting(true);
+
+    const serverReady = await ensureServerReady();
+    if (!serverReady) {
+      setSubmitting(false);
+      return;
+    }
+
     const task = await startRetouchForPhoto(selectedPhotoId);
     if (task) {
       setTasks([task]);
@@ -186,6 +204,31 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     }
     setSubmitting(false);
   };
+
+  const processNextInBatch = useCallback(async () => {
+    if (batchQueueRef.current.length === 0) {
+      batchActiveRef.current = false;
+      setSubmitting(false);
+      return;
+    }
+
+    const photo = batchQueueRef.current.shift()!;
+    const task = await startRetouchForPhoto(photo.id);
+    if (task) {
+      setTasks(prev => [...prev, task]);
+      if (task.task_id) startPolling();
+    } else {
+      processNextInBatch();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!batchActiveRef.current) return;
+    const lastTask = tasks[tasks.length - 1];
+    if (lastTask && (lastTask.status === 'finished' || lastTask.status === 'failed') && batchQueueRef.current.length > 0) {
+      processNextInBatch();
+    }
+  }, [tasks, processNextInBatch]);
 
   const handleRetouchAll = async () => {
     if (photos.length === 0) return;
@@ -197,17 +240,16 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       return;
     }
 
-    const newTasks: RetouchTask[] = [];
-    for (const photo of photos) {
-      const task = await startRetouchForPhoto(photo.id, true);
-      if (task) {
-        newTasks.push(task);
-        setTasks([...newTasks]);
-      }
-    }
+    batchQueueRef.current = [...photos.slice(1)];
+    batchActiveRef.current = true;
 
-    setSubmitting(false);
-    startPolling();
+    const firstTask = await startRetouchForPhoto(photos[0].id);
+    if (firstTask) {
+      setTasks([firstTask]);
+      if (firstTask.task_id) startPolling();
+    } else {
+      processNextInBatch();
+    }
   };
 
   const pollTaskStatuses = useCallback(async () => {
@@ -219,15 +261,30 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       }
       activeTasks.forEach(async (task) => {
         if (!task.task_id) return;
+        if (!pollStartTimeRef.current[task.task_id]) {
+          pollStartTimeRef.current[task.task_id] = Date.now();
+        }
         try {
           const res = await fetch(`${RETOUCH_API}?task_id=${task.task_id}`, {
             headers: { 'X-User-Id': userId }
           });
           if (!res.ok) return;
           const data = await res.json();
+
+          let progress = 0;
+          if (data.status === 'finished') {
+            progress = 100;
+          } else if (data.status === 'started') {
+            const elapsed = (Date.now() - pollStartTimeRef.current[task.task_id]) / 1000;
+            const avgTime = 15;
+            progress = Math.min(95, Math.round((elapsed / avgTime) * 80) + 10);
+          } else if (data.status === 'queued') {
+            progress = 5;
+          }
+
           setTasks(prev => prev.map(t =>
             t.task_id === task.task_id
-              ? { ...t, status: data.status, result_url: data.result_url, error_message: data.error_message }
+              ? { ...t, status: data.status, result_url: data.result_url, error_message: data.error_message, progress }
               : t
           ));
         } catch (error) {
