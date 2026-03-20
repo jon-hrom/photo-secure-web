@@ -68,8 +68,18 @@ export const playNotificationSound = async () => {
   }
 };
 
+export const vibrate = (pattern: number | number[] = 200) => {
+  try {
+    if (navigator?.vibrate) {
+      navigator.vibrate(pattern);
+    }
+  } catch { /* vibration not supported */ }
+};
+
 export const playSuccessSound = async () => {
   try {
+    vibrate([100, 50, 100, 50, 200]);
+
     initAudio();
     if (!audioContext) return;
 
