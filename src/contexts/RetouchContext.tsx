@@ -141,9 +141,18 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
       const res = await fetch(`${RETOUCH_API}?task_ids=${encodeURIComponent(taskIds)}`, {
         headers: { 'X-User-Id': currentSession.userId }
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn('[RETOUCH] Poll response not ok:', res.status);
+        return;
+      }
       const data = await res.json();
-      if (!data?.tasks) return;
+      if (!data?.tasks) {
+        console.warn('[RETOUCH] Poll response has no tasks:', data);
+        return;
+      }
+
+      const statuses = data.tasks.map((t: { task_id?: string; status?: string }) => `${t.task_id?.slice(0,8)}=${t.status}`);
+      console.log(`[RETOUCH] Poll: ${data.tasks.length} tasks, statuses: ${statuses.join(', ')}`);
 
       const resultsMap: Record<string, (typeof data.tasks)[0]> = {};
       for (const r of data.tasks) {
