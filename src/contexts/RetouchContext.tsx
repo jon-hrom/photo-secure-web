@@ -312,23 +312,30 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const drainQueue = useCallback(async () => {
-    while (batchQueueRef.current.length > 0 && activeSubmitsRef.current < CONCURRENT_LIMIT) {
-      const photo = batchQueueRef.current.shift()!;
-      activeSubmitsRef.current++;
+  const submitOne = async () => {
+    if (batchQueueRef.current.length === 0) return;
+    const photo = batchQueueRef.current.shift()!;
+    activeSubmitsRef.current++;
 
-      startRetouchForPhoto(photo.id).then(task => {
-        activeSubmitsRef.current--;
-        if (task) {
-          setTasks(prev => [...prev, task]);
-        }
-        drainQueue();
-      });
+    const task = await startRetouchForPhoto(photo.id);
+    activeSubmitsRef.current--;
+
+    if (task) {
+      setTasks(prev => [...prev, task]);
     }
 
-    if (batchQueueRef.current.length === 0 && activeSubmitsRef.current === 0) {
+    if (batchQueueRef.current.length > 0) {
+      submitOne();
+    } else if (activeSubmitsRef.current === 0) {
       setBatchPending(false);
       setSubmitting(false);
+    }
+  };
+
+  const drainQueue = useCallback(() => {
+    const toStart = Math.min(CONCURRENT_LIMIT - activeSubmitsRef.current, batchQueueRef.current.length);
+    for (let i = 0; i < toStart; i++) {
+      submitOne();
     }
   }, []);
 
@@ -351,6 +358,12 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     setBatchPending(false);
     totalBatchSizeRef.current = 0;
     photosRef.current = [];
+
+    const hadFinished = tasks.some(t => t.status === 'finished');
+    if (hadFinished) {
+      sessionRef.current?.onRetouchComplete?.();
+    }
+
     setTasks([]);
     setSubmitting(false);
     setWaking(false);
