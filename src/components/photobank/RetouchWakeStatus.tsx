@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 
 interface RetouchWakeStatusProps {
@@ -6,7 +7,19 @@ interface RetouchWakeStatusProps {
 }
 
 const RetouchWakeStatus = ({ waking, wakeStatus }: RetouchWakeStatusProps) => {
-  if (!wakeStatus) return null;
+  const [visible, setVisible] = useState(true);
+
+  const isSuccess = wakeStatus?.includes('готов') || wakeStatus?.includes('работает');
+
+  useEffect(() => {
+    if (isSuccess && !waking) {
+      const timer = setTimeout(() => setVisible(false), 2000);
+      return () => clearTimeout(timer);
+    }
+    setVisible(true);
+  }, [isSuccess, waking, wakeStatus]);
+
+  if (!wakeStatus || !visible) return null;
 
   if (waking) {
     return (
@@ -27,11 +40,9 @@ const RetouchWakeStatus = ({ waking, wakeStatus }: RetouchWakeStatusProps) => {
     );
   }
 
-  const isSuccess = wakeStatus.includes('готов') || wakeStatus.includes('работает');
-
   if (isSuccess) {
     return (
-      <div className="rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/40 dark:to-emerald-950/40 dark:border-green-800 p-4 flex items-center gap-3 shadow-sm">
+      <div className="rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/40 dark:to-emerald-950/40 dark:border-green-800 p-4 flex items-center gap-3 shadow-sm transition-opacity duration-500">
         <Icon name="CheckCircle" size={20} className="text-green-600 dark:text-green-400 flex-shrink-0" />
         <span className="text-sm font-medium text-green-800 dark:text-green-200">Сервис готов к обработке</span>
       </div>
