@@ -102,7 +102,7 @@ def _probe_health():
 
 
 def handler(event: dict, context) -> dict:
-    """Пробуждение сервера ретуши — запуск VM и проверка здоровья"""
+    """Пробуждение сервера ретуши — запуск VM через OAuth и проверка здоровья"""
     method = event.get("httpMethod", "GET")
 
     if method == "OPTIONS":
