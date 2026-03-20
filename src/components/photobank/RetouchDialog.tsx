@@ -128,6 +128,17 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     }
   };
 
+  const ensureServerReady = async (): Promise<boolean> => {
+    try {
+      const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
+      if (probe.ok) {
+        const data = await probe.json();
+        if (data.probe?.reachable) return true;
+      }
+    } catch { /* server not reachable */ }
+    return await wakeRetouchServer();
+  };
+
   const startRetouchForPhoto = async (photoId: number, isRetryAfterWake = false): Promise<RetouchTask | null> => {
     try {
       const res = await fetch(RETOUCH_API, {
@@ -138,8 +149,8 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         },
         body: JSON.stringify({ photo_id: photoId })
       });
-      if (res.status === 502 && !isRetryAfterWake) {
-        console.log('[RETOUCH] Got 502, attempting to wake server...');
+      if ((res.status === 502 || res.status === 504) && !isRetryAfterWake) {
+        console.log(`[RETOUCH] Got ${res.status}, attempting to wake server...`);
         const woken = await wakeRetouchServer();
         if (woken) {
           return startRetouchForPhoto(photoId, true);
@@ -173,7 +184,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     const task = await startRetouchForPhoto(selectedPhotoId);
     if (task) {
       setTasks([task]);
-      startPolling();
+      if (task.task_id) startPolling();
     }
     setSubmitting(false);
   };
@@ -181,10 +192,16 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const handleRetouchAll = async () => {
     if (photos.length === 0) return;
     setSubmitting(true);
-    const newTasks: RetouchTask[] = [];
 
+    const serverReady = await ensureServerReady();
+    if (!serverReady) {
+      setSubmitting(false);
+      return;
+    }
+
+    const newTasks: RetouchTask[] = [];
     for (const photo of photos) {
-      const task = await startRetouchForPhoto(photo.id);
+      const task = await startRetouchForPhoto(photo.id, true);
       if (task) {
         newTasks.push(task);
         setTasks([...newTasks]);
