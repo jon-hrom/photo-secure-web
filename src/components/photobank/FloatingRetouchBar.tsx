@@ -13,37 +13,29 @@ const FloatingRetouchBar = () => {
 
   const [showDialog, setShowDialog] = useState(false);
   const [position, setPosition] = useState({ x: -1, y: -1 });
-  const [animatingIn, setAnimatingIn] = useState(false);
-  const [animatingOut, setAnimatingOut] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
   const wasDraggedRef = useRef(false);
-  const prevShouldShowRef = useRef(false);
 
   const hasTasks = tasks.length > 0;
   const shouldShowBar = minimized && (isProcessing || hasTasks);
 
   useEffect(() => {
-    if (shouldShowBar && !prevShouldShowRef.current) {
-      const isMobile = window.innerWidth < 640;
-      setPosition({
-        x: isMobile ? 16 : window.innerWidth - 280,
-        y: window.innerHeight - (isMobile ? 80 : 60)
+    if (shouldShowBar) {
+      if (position.x === -1) {
+        const isMobile = window.innerWidth < 640;
+        setPosition({
+          x: isMobile ? 16 : window.innerWidth - 280,
+          y: window.innerHeight - (isMobile ? 80 : 60)
+        });
+      }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setMounted(true));
       });
-      setVisible(true);
-      requestAnimationFrame(() => setAnimatingIn(true));
+    } else {
+      setMounted(false);
     }
-    if (!shouldShowBar && prevShouldShowRef.current && visible) {
-      setAnimatingOut(true);
-      setAnimatingIn(false);
-      const timer = setTimeout(() => {
-        setVisible(false);
-        setAnimatingOut(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-    prevShouldShowRef.current = shouldShowBar;
   }, [shouldShowBar]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -91,16 +83,12 @@ const FloatingRetouchBar = () => {
 
   return (
     <>
-      {visible && !showDialog && (
+      {shouldShowBar && !showDialog && (
         <div
           className={`fixed z-[9999] flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-rose-600 to-purple-600 text-white rounded-full pl-3 sm:pl-4 pr-1.5 sm:pr-2 py-2 shadow-lg cursor-grab active:cursor-grabbing select-none touch-none transition-all duration-300 ease-out ${
             isMobile ? 'right-4 left-4' : ''
           } ${
-            animatingIn && !animatingOut
-              ? 'opacity-100 translate-y-0 scale-100'
-              : animatingOut
-                ? 'opacity-0 translate-y-4 scale-95'
-                : 'opacity-0 translate-y-4 scale-95'
+            mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
           }`}
           style={isMobile ? { top: position.y, left: undefined, right: undefined } : { left: position.x, top: position.y }}
           onPointerDown={handlePointerDown}

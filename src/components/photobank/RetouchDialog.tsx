@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import funcUrls from '@/../backend/func2url.json';
@@ -37,6 +37,11 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [selectedPhotoId, setSelectedPhotoId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('single');
+  const hasActiveWorkRef = useRef(false);
+
+  useEffect(() => {
+    hasActiveWorkRef.current = isProcessing || tasks.length > 0 || minimized;
+  }, [isProcessing, tasks, minimized]);
 
   useEffect(() => {
     if (open && folderId) {
@@ -63,24 +68,14 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   };
 
   const handleDialogChange = (newOpen: boolean) => {
-    if (!newOpen && isProcessing) {
-      setMinimized(true);
-      onOpenChange(false);
-      return;
-    }
     if (!newOpen) {
-      handleClose();
+      if (hasActiveWorkRef.current) {
+        setMinimized(true);
+      } else {
+        fullClose();
+      }
+      onOpenChange(false);
     }
-  };
-
-  const handleClose = () => {
-    setPhotos([]);
-    setSelectedPhotoId(null);
-    setActiveTab('single');
-    if (!isProcessing && tasks.length === 0) {
-      fullClose();
-    }
-    onOpenChange(false);
   };
 
   const onRetouchSingle = async () => {

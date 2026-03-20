@@ -319,6 +319,11 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   }, [tasks, processNextInBatch]);
 
   const startSession = (newSession: RetouchSession) => {
+    if (sessionRef.current && (isProcessing || tasks.length > 0)) {
+      sessionRef.current = { ...sessionRef.current, onRetouchComplete: newSession.onRetouchComplete };
+      setSession(prev => prev ? { ...prev, onRetouchComplete: newSession.onRetouchComplete } : newSession);
+      return;
+    }
     setSession(newSession);
     sessionRef.current = newSession;
     setMinimized(false);
