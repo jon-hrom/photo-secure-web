@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import funcUrls from '@/../backend/func2url.json';
 import { useRetouch } from '@/contexts/RetouchContext';
@@ -37,6 +38,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [selectedPhotoId, setSelectedPhotoId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('single');
+  const [showConfirm, setShowConfirm] = useState(false);
   const hasActiveWorkRef = useRef(false);
 
   useEffect(() => {
@@ -69,6 +71,10 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
 
   const handleDialogChange = (newOpen: boolean) => {
     if (!newOpen) {
+      if (isProcessing) {
+        setShowConfirm(true);
+        return;
+      }
       if (hasActiveWorkRef.current) {
         setMinimized(true);
       } else {
@@ -76,6 +82,18 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       }
       onOpenChange(false);
     }
+  };
+
+  const handleConfirmStop = () => {
+    setShowConfirm(false);
+    fullClose();
+    onOpenChange(false);
+  };
+
+  const handleConfirmMinimize = () => {
+    setShowConfirm(false);
+    setMinimized(true);
+    onOpenChange(false);
   };
 
   const onRetouchSingle = async () => {
@@ -92,6 +110,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   if (minimized) return null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-2xl w-[calc(100%-1rem)] sm:w-full max-h-[92vh] sm:max-h-[85vh] overflow-y-auto bg-gradient-to-br from-rose-50/80 via-pink-50/60 to-purple-50/80 dark:from-rose-950/80 dark:via-pink-950/60 dark:to-purple-950/80 backdrop-blur-sm rounded-2xl sm:rounded-xl p-4 sm:p-6">
         <DialogHeader>
@@ -130,6 +149,41 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         )}
       </DialogContent>
     </Dialog>
+
+    <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-sm rounded-2xl sm:rounded-xl p-5 sm:p-6">
+        <div className="flex flex-col items-center text-center gap-3 sm:gap-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+            <Icon name="AlertTriangle" size={24} className="text-amber-600 dark:text-amber-400" />
+          </div>
+          <div className="space-y-1.5">
+            <DialogHeader className="p-0">
+              <DialogTitle className="font-semibold text-base sm:text-lg text-foreground">Остановить обработку?</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm text-muted-foreground leading-relaxed mt-1.5">
+                Оставшиеся фото не будут обработаны. Все фотографии, которые уже прошли ретушь, сохранены и доступны в вашей папке.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full mt-1">
+            <Button
+              variant="outline"
+              onClick={handleConfirmMinimize}
+              className="h-11 sm:h-10 text-sm flex-1"
+            >
+              Свернуть
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmStop}
+              className="h-11 sm:h-10 text-sm flex-1"
+            >
+              Остановить
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
