@@ -68,7 +68,36 @@ export const playNotificationSound = async () => {
   }
 };
 
-// Функция для инициализации звука после взаимодействия пользователя
+export const playSuccessSound = async () => {
+  try {
+    initAudio();
+    if (!audioContext) return;
+
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+
+    const t = audioContext.currentTime;
+
+    const notes = [
+      { freq: 523.25, time: 0, dur: 0.18, vol: 0.12 },
+      { freq: 659.25, time: 0.14, dur: 0.18, vol: 0.13 },
+      { freq: 783.99, time: 0.28, dur: 0.18, vol: 0.14 },
+      { freq: 1046.50, time: 0.44, dur: 0.22, vol: 0.13 },
+      { freq: 1174.66, time: 0.62, dur: 0.20, vol: 0.11 },
+      { freq: 1318.51, time: 0.78, dur: 0.25, vol: 0.10 },
+      { freq: 1567.98, time: 0.98, dur: 0.35, vol: 0.09 },
+      { freq: 2093.00, time: 1.25, dur: 0.55, vol: 0.07 },
+    ];
+
+    notes.forEach(n => {
+      playNote(n.freq, t + n.time, n.dur, n.vol);
+    });
+  } catch (error) {
+    console.error('[SOUND] Failed to play success sound:', error);
+  }
+};
+
 export const enableNotificationSound = () => {
   initAudio();
   

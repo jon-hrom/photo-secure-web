@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import funcUrls from '@/../backend/func2url.json';
+import { playSuccessSound } from '@/utils/notificationSound';
 import RetouchWakeStatus from './RetouchWakeStatus';
 import RetouchTaskList, { type RetouchTask } from './RetouchTaskList';
 import RetouchPhotoSelector from './RetouchPhotoSelector';
@@ -320,6 +321,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         const hasFinished = tasks.some(t => t.status === 'finished');
         if (hasFinished && !retouchCompleteCalledRef.current) {
           retouchCompleteCalledRef.current = true;
+          playSuccessSound();
           onRetouchComplete?.();
         }
       }
