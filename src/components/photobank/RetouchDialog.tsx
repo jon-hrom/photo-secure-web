@@ -75,12 +75,12 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
 
   const wakeRetouchServer = async (): Promise<boolean> => {
     setWaking(true);
-    setWakeStatus('Запускаем сервер ретуши...');
+    setWakeStatus('waking');
     console.log('[RETOUCH] Waking retouch server...');
     try {
       const res = await fetch(`${RETOUCH_WAKER_API}?action=wake`, { method: 'POST' });
       if (!res.ok) {
-        setWakeStatus('Не удалось разбудить сервер');
+        setWakeStatus('Не удалось запустить сервис. Попробуйте позже');
         setWaking(false);
         return false;
       }
@@ -88,31 +88,29 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       console.log('[RETOUCH] Wake response:', data);
 
       if (data.action === 'already_running') {
-        setWakeStatus('Сервер уже работает');
+        setWakeStatus('готов');
         setWaking(false);
         return true;
       }
 
       if (data.action === 'starting' || data.action === 'already_starting') {
-        setWakeStatus('Сервер запускается, ожидаем готовности (~60 сек)...');
         const maxWait = 90;
         const interval = 5;
         for (let elapsed = 0; elapsed < maxWait; elapsed += interval) {
           await new Promise(r => setTimeout(r, interval * 1000));
-          setWakeStatus(`Сервер запускается... ${elapsed + interval} сек`);
           try {
             const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
             if (probe.ok) {
               const probeData = await probe.json();
               if (probeData.probe?.reachable) {
-                setWakeStatus('Сервер готов!');
+                setWakeStatus('готов');
                 setWaking(false);
                 return true;
               }
             }
           } catch { /* still starting */ }
         }
-        setWakeStatus('Сервер не успел запуститься, попробуйте позже');
+        setWakeStatus('Сервис не успел запуститься. Попробуйте через пару минут');
         setWaking(false);
         return false;
       }
@@ -122,7 +120,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       return true;
     } catch (error) {
       console.error('[RETOUCH] Wake failed:', error);
-      setWakeStatus('Ошибка при запуске сервера');
+      setWakeStatus('Ошибка при запуске сервиса');
       setWaking(false);
       return false;
     }
