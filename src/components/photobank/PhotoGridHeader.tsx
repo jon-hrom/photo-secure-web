@@ -29,6 +29,7 @@ interface PhotoGridHeaderProps {
   onCreateSubfolder?: () => void;
   onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
   onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
+  onNavigateToParent?: () => void;
 }
 
 const PhotoGridHeader = ({
@@ -44,7 +45,8 @@ const PhotoGridHeader = ({
   onSelectSubfolder,
   onCreateSubfolder,
   onOpenSubfolderSettings,
-  onDeleteSubfolder
+  onDeleteSubfolder,
+  onNavigateToParent
 }: PhotoGridHeaderProps) => {
   const isStorageFull = storageUsage && storageUsage.percent >= 100;
 
@@ -95,6 +97,15 @@ const PhotoGridHeader = ({
 
       {selectedFolder && subfolders && subfolders.length > 0 && (
         <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1 scrollbar-thin">
+          {selectedFolder.parent_folder_id && onNavigateToParent && (
+            <button
+              onClick={onNavigateToParent}
+              className="flex items-center justify-center w-7 h-7 rounded-full border border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all duration-200 flex-shrink-0"
+              title="Назад к основной папке"
+            >
+              <Icon name="ArrowLeft" size={14} />
+            </button>
+          )}
           {subfolders.map((sf) => {
             const isTechRejects = sf.folder_type === 'tech_rejects';
             const isRetouch = sf.folder_type === 'retouch';

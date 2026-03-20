@@ -58,6 +58,7 @@ interface PhotoBankPhotoGridProps {
   onCreateSubfolder?: () => void;
   onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
   onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
+  onNavigateToParent?: () => void;
 }
 
 const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
@@ -113,7 +114,8 @@ const PhotoBankPhotoGrid = ({
   onSelectSubfolder,
   onCreateSubfolder,
   onOpenSubfolderSettings,
-  onDeleteSubfolder
+  onDeleteSubfolder,
+  onNavigateToParent
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
@@ -182,6 +184,7 @@ const PhotoBankPhotoGrid = ({
         onCreateSubfolder={onCreateSubfolder}
         onOpenSubfolderSettings={onOpenSubfolderSettings}
         onDeleteSubfolder={onDeleteSubfolder}
+        onNavigateToParent={onNavigateToParent}
       />
       <CardContent>
         {isTechRejectsFolder && photos.length > 0 && (

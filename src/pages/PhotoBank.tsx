@@ -319,6 +319,15 @@ const PhotoBank = () => {
           onNavigateBack={() => {
             if (isAdminViewing) {
               handleExitAdminView();
+            } else if (selectedFolder?.parent_folder_id) {
+              const parentFolder = folders.find(f => f.id === selectedFolder.parent_folder_id);
+              if (parentFolder) {
+                setSelectedFolder(parentFolder);
+                fetchPhotos(parentFolder.id);
+              } else {
+                setSelectedFolder(null);
+                setPhotos([]);
+              }
             } else if (selectedFolder) {
               setSelectedFolder(null);
               setPhotos([]);
@@ -393,6 +402,15 @@ const PhotoBank = () => {
                 if (parentId) setCreateSubfolderParentId(parentId);
               }}
               onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
+              onNavigateToParent={() => {
+                if (selectedFolder?.parent_folder_id) {
+                  const parentFolder = folders.find(f => f.id === selectedFolder.parent_folder_id);
+                  if (parentFolder) {
+                    setSelectedFolder(parentFolder);
+                    fetchPhotos(parentFolder.id);
+                  }
+                }
+              }}
               onDeleteSubfolder={(subfolder) => {
                 if (!confirm(`Удалить подпапку "${subfolder.folder_name}" со всеми фото? Файлы будут перемещены в корзину.`)) return;
                 fetch(`${PHOTOBANK_FOLDERS_API}?folder_id=${subfolder.id}`, {

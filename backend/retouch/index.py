@@ -287,7 +287,7 @@ def _save_retouched_photo(conn, user_id, task, result_key, result_url):
 
     orig_name = original['file_name']
     base_name = orig_name.rsplit('.', 1)[0] if '.' in orig_name else orig_name
-    file_name = f"retouch_{base_name}.jpg"
+    file_name = f"{base_name}.jpg"
 
     with conn.cursor() as cur:
         cur.execute(

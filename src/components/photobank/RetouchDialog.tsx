@@ -37,31 +37,52 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [waking, setWaking] = useState(false);
   const [wakeStatus, setWakeStatus] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('single');
+  const [minimized, setMinimized] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retouchCompleteCalledRef = useRef(false);
   const batchQueueRef = useRef<Photo[]>([]);
   const batchActiveRef = useRef(false);
   const pollStartTimeRef = useRef<Record<string, number>>({});
 
+  const isProcessing = tasks.some(t => t.status === 'queued' || t.status === 'started') || submitting || waking;
+
   useEffect(() => {
-    if (open && folderId) {
+    if (open && folderId && !minimized) {
       loadPhotos();
     }
-    if (!open) {
-      setPhotos([]);
-      setSelectedPhotoId(null);
-      setTasks([]);
-      setSubmitting(false);
-      setWaking(false);
-      setWakeStatus(null);
-      setActiveTab('single');
-      stopPolling();
-      retouchCompleteCalledRef.current = false;
-      batchQueueRef.current = [];
-      batchActiveRef.current = false;
-      pollStartTimeRef.current = {};
-    }
   }, [open, folderId]);
+
+  const fullClose = () => {
+    stopPolling();
+    batchQueueRef.current = [];
+    batchActiveRef.current = false;
+    setPhotos([]);
+    setSelectedPhotoId(null);
+    setTasks([]);
+    setSubmitting(false);
+    setWaking(false);
+    setWakeStatus(null);
+    setActiveTab('single');
+    retouchCompleteCalledRef.current = false;
+    pollStartTimeRef.current = {};
+    setMinimized(false);
+    onOpenChange(false);
+  };
+
+  const handleDialogChange = (newOpen: boolean) => {
+    if (!newOpen && isProcessing) {
+      setMinimized(true);
+      return;
+    }
+    if (!newOpen) {
+      fullClose();
+    }
+  };
+
+  const handleRestore = () => {
+    setMinimized(false);
+    onOpenChange(true);
+  };
 
   const loadPhotos = async () => {
     setLoadingPhotos(true);
@@ -83,7 +104,6 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const wakeRetouchServer = async (): Promise<boolean> => {
     setWaking(true);
     setWakeStatus('waking');
-    console.log('[RETOUCH] Waking retouch server...');
     try {
       const res = await fetch(`${RETOUCH_WAKER_API}?action=wake`, { method: 'POST' });
       if (!res.ok) {
@@ -92,7 +112,6 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         return false;
       }
       const data = await res.json();
-      console.log('[RETOUCH] Wake response:', data);
 
       if (data.action === 'already_running') {
         setWakeStatus('готов');
@@ -156,7 +175,6 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         body: JSON.stringify({ photo_id: photoId })
       });
       if ((res.status === 502 || res.status === 504) && retriesLeft > 0) {
-        console.log(`[RETOUCH] Got ${res.status}, retrying in 5s... (${retriesLeft} retries left)`);
         if (retriesLeft === 3) {
           const woken = await wakeRetouchServer();
           if (!woken) {
@@ -360,8 +378,57 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
 
   const hasTasks = tasks.length > 0;
 
+  const totalProgress = tasks.length > 0
+    ? Math.round(tasks.reduce((sum, t) => {
+        if (t.status === 'finished') return sum + 100;
+        if (t.status === 'failed') return sum + 100;
+        return sum + (t.progress || 0);
+      }, 0) / tasks.length)
+    : 0;
+
+  if (minimized && (isProcessing || hasTasks)) {
+    return (
+      <div
+        className="fixed bottom-4 right-4 z-50 flex items-center gap-3 bg-gradient-to-r from-rose-600 to-purple-600 text-white rounded-full pl-4 pr-2 py-2 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+        onClick={handleRestore}
+      >
+        <Icon name="Sparkles" size={16} className="flex-shrink-0" />
+        <span className="text-sm font-medium">Ретушь</span>
+        {isProcessing ? (
+          <div className="flex items-center gap-2">
+            <div className="w-20 h-1.5 bg-white/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-700"
+                style={{ width: `${totalProgress}%` }}
+              />
+            </div>
+            <span className="text-xs font-medium tabular-nums">{totalProgress}%</span>
+          </div>
+        ) : (
+          <span className="text-xs opacity-80">
+            {tasks.filter(t => t.status === 'finished').length}/{tasks.length}
+          </span>
+        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            fullClose();
+          }}
+          className="flex-shrink-0 rounded-full p-1 hover:bg-white/20 transition-colors ml-1"
+          title="Остановить и закрыть"
+        >
+          <Icon name="X" size={14} />
+        </button>
+      </div>
+    );
+  }
+
+  if (minimized && !isProcessing && !hasTasks) {
+    return null;
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && !minimized} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-gradient-to-br from-rose-50/80 via-pink-50/60 to-purple-50/80 dark:from-rose-950/80 dark:via-pink-950/60 dark:to-purple-950/80 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
