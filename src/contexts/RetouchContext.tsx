@@ -6,6 +6,7 @@ import type { RetouchTask } from '@/components/photobank/RetouchTaskList';
 const RETOUCH_API = funcUrls['retouch'];
 const RETOUCH_WAKER_API = funcUrls['retouch-waker'];
 const IDLE_SHUTDOWN_MS = 10 * 60 * 1000;
+const CONCURRENT_LIMIT = 5;
 
 interface RetouchSession {
   folderId: number;
@@ -61,26 +62,27 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retouchCompleteCalledRef = useRef(false);
   const batchQueueRef = useRef<Photo[]>([]);
-  const batchActiveRef = useRef(false);
+  const activeSubmitsRef = useRef(0);
   const pollStartTimeRef = useRef<Record<string, number>>({});
   const photosRef = useRef<Photo[]>([]);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serverStartedRef = useRef(false);
   const sessionRef = useRef<RetouchSession | null>(null);
+  const totalBatchSizeRef = useRef(0);
 
   const isProcessing = tasks.some(t => t.status === 'queued' || t.status === 'started') || submitting || waking || batchPending;
 
-  const totalBatchSize = tasks.length + batchQueueRef.current.length;
+  const totalBatchSize = totalBatchSizeRef.current > tasks.length ? totalBatchSizeRef.current : tasks.length;
 
   const totalProgress = (() => {
     if (tasks.length === 0) return 0;
-    const totalCount = totalBatchSize || tasks.length;
-    const doneProgress = tasks.reduce((sum, t) => {
+    const total = totalBatchSize || tasks.length;
+    const done = tasks.reduce((sum, t) => {
       if (t.status === 'finished') return sum + 100;
       if (t.status === 'failed') return sum + 100;
       return sum + (t.progress || 0);
     }, 0);
-    return Math.round(doneProgress / totalCount);
+    return Math.round(done / total);
   })();
 
   const clearIdleTimer = () => {
@@ -104,7 +106,6 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const scheduleIdleShutdown = () => {
     clearIdleTimer();
     if (!serverStartedRef.current) return;
-    console.log('[RETOUCH] Scheduling idle shutdown in 10 min');
     idleTimerRef.current = setTimeout(stopServer, IDLE_SHUTDOWN_MS);
   };
 
@@ -125,43 +126,53 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     if (!currentSession) return;
 
     setTasks(prevTasks => {
-      const activeTasks = prevTasks.filter(t => t.status === 'queued' || t.status === 'started');
+      const activeTasks = prevTasks.filter(t => (t.status === 'queued' || t.status === 'started') && t.task_id);
       if (activeTasks.length === 0) {
         stopPolling();
         return prevTasks;
       }
-      activeTasks.forEach(async (task) => {
-        if (!task.task_id) return;
-        if (!pollStartTimeRef.current[task.task_id]) {
-          pollStartTimeRef.current[task.task_id] = Date.now();
-        }
-        try {
-          const res = await fetch(`${RETOUCH_API}?task_id=${task.task_id}`, {
-            headers: { 'X-User-Id': currentSession.userId }
-          });
-          if (!res.ok) return;
-          const data = await res.json();
 
-          let progress = 0;
-          if (data.status === 'finished') {
+      const taskIds = activeTasks.map(t => t.task_id).join(',');
+      fetch(`${RETOUCH_API}?task_ids=${encodeURIComponent(taskIds)}`, {
+        headers: { 'X-User-Id': currentSession.userId }
+      }).then(res => {
+        if (!res.ok) return;
+        return res.json();
+      }).then(data => {
+        if (!data?.tasks) return;
+        const resultsMap: Record<string, typeof data.tasks[0]> = {};
+        for (const r of data.tasks) {
+          resultsMap[r.task_id] = r;
+        }
+        setTasks(prev => prev.map(t => {
+          const remote = resultsMap[t.task_id];
+          if (!remote) return t;
+
+          let progress = t.progress || 0;
+          if (remote.status === 'finished') {
             progress = 100;
-          } else if (data.status === 'started') {
-            const elapsed = (Date.now() - pollStartTimeRef.current[task.task_id]) / 1000;
-            const avgTime = 15;
-            progress = Math.min(95, Math.round((elapsed / avgTime) * 80) + 10);
-          } else if (data.status === 'queued') {
+          } else if (remote.status === 'started') {
+            if (!pollStartTimeRef.current[t.task_id]) {
+              pollStartTimeRef.current[t.task_id] = Date.now();
+            }
+            const elapsed = (Date.now() - pollStartTimeRef.current[t.task_id]) / 1000;
+            progress = Math.min(95, Math.round((elapsed / 15) * 80) + 10);
+          } else if (remote.status === 'queued') {
             progress = 5;
           }
 
-          setTasks(prev => prev.map(t =>
-            t.task_id === task.task_id
-              ? { ...t, status: data.status, result_url: data.result_url, error_message: data.error_message, progress }
-              : t
-          ));
-        } catch (error) {
-          console.error('[RETOUCH] Poll error for task', task.task_id, error);
-        }
+          return {
+            ...t,
+            status: remote.status,
+            result_url: remote.result_url,
+            error_message: remote.error_message,
+            progress
+          };
+        }));
+      }).catch(err => {
+        console.error('[RETOUCH] Batch poll error:', err);
       });
+
       return prevTasks;
     });
   }, []);
@@ -177,8 +188,8 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (tasks.length > 0 && !batchPending) {
-      const allTasksDone = tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
-      if (allTasksDone) {
+      const allDone = tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
+      if (allDone) {
         stopPolling();
         scheduleIdleShutdown();
         const hasFinished = tasks.some(t => t.status === 'finished');
@@ -253,7 +264,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
         const data = await probe.json();
         if (data.probe?.reachable) return true;
       }
-    } catch { /* server not reachable */ }
+    } catch { /* not reachable */ }
     return await wakeRetouchServer();
   };
 
@@ -276,7 +287,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
             return { photo_id: photoId, task_id: '', status: 'failed', error_message: 'Сервис не запустился', file_name: photo?.file_name };
           }
         } else {
-          await new Promise(r => setTimeout(r, 5000));
+          await new Promise(r => setTimeout(r, 3000));
         }
         return startRetouchForPhoto(photoId, retriesLeft - 1);
       }
@@ -290,7 +301,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
         file_name: photo?.file_name
       };
     } catch (error) {
-      console.error('[RETOUCH] Failed to start retouch for photo', photoId, error);
+      console.error('[RETOUCH] Failed for photo', photoId, error);
       return {
         photo_id: photoId,
         task_id: '',
@@ -301,30 +312,25 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const processNextInBatch = useCallback(async () => {
-    if (batchQueueRef.current.length === 0) {
-      batchActiveRef.current = false;
+  const drainQueue = useCallback(async () => {
+    while (batchQueueRef.current.length > 0 && activeSubmitsRef.current < CONCURRENT_LIMIT) {
+      const photo = batchQueueRef.current.shift()!;
+      activeSubmitsRef.current++;
+
+      startRetouchForPhoto(photo.id).then(task => {
+        activeSubmitsRef.current--;
+        if (task) {
+          setTasks(prev => [...prev, task]);
+        }
+        drainQueue();
+      });
+    }
+
+    if (batchQueueRef.current.length === 0 && activeSubmitsRef.current === 0) {
       setBatchPending(false);
       setSubmitting(false);
-      return;
-    }
-    const photo = batchQueueRef.current.shift()!;
-    const task = await startRetouchForPhoto(photo.id);
-    if (task) {
-      setTasks(prev => [...prev, task]);
-      if (task.task_id) startPolling();
-    } else {
-      processNextInBatch();
     }
   }, []);
-
-  useEffect(() => {
-    if (!batchActiveRef.current) return;
-    const lastTask = tasks[tasks.length - 1];
-    if (lastTask && (lastTask.status === 'finished' || lastTask.status === 'failed') && batchQueueRef.current.length > 0) {
-      processNextInBatch();
-    }
-  }, [tasks, processNextInBatch]);
 
   const startSession = (newSession: RetouchSession) => {
     if (sessionRef.current && (isProcessing || tasks.length > 0)) {
@@ -341,8 +347,9 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const fullClose = () => {
     stopPolling();
     batchQueueRef.current = [];
-    batchActiveRef.current = false;
+    activeSubmitsRef.current = 0;
     setBatchPending(false);
+    totalBatchSizeRef.current = 0;
     photosRef.current = [];
     setTasks([]);
     setSubmitting(false);
@@ -357,6 +364,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
   const handleRetouchSingle = async (photoId: number, photos: Photo[]) => {
     photosRef.current = photos;
+    totalBatchSizeRef.current = 1;
     setSubmitting(true);
     const serverReady = await ensureServerReady();
     if (!serverReady) {
@@ -374,22 +382,19 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const handleRetouchAll = async (photos: Photo[]) => {
     if (photos.length === 0) return;
     photosRef.current = photos;
+    totalBatchSizeRef.current = photos.length;
     setSubmitting(true);
+    setBatchPending(true);
     const serverReady = await ensureServerReady();
     if (!serverReady) {
       setSubmitting(false);
+      setBatchPending(false);
       return;
     }
-    batchQueueRef.current = [...photos.slice(1)];
-    batchActiveRef.current = true;
-    setBatchPending(true);
-    const firstTask = await startRetouchForPhoto(photos[0].id);
-    if (firstTask) {
-      setTasks([firstTask]);
-      if (firstTask.task_id) startPolling();
-    } else {
-      processNextInBatch();
-    }
+    batchQueueRef.current = [...photos];
+    activeSubmitsRef.current = 0;
+    startPolling();
+    drainQueue();
   };
 
   const retryTask = async (task: RetouchTask) => {
@@ -413,15 +418,11 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
       t.status === 'failed' ? { ...t, status: 'queued' as const, error_message: undefined, task_id: '' } : t
     ));
     retouchCompleteCalledRef.current = false;
-    for (const task of failedTasks) {
-      const newTask = await startRetouchForPhoto(task.photo_id);
-      if (newTask) {
-        setTasks(prev => prev.map(t =>
-          t.photo_id === task.photo_id ? { ...newTask, file_name: task.file_name } : t
-        ));
-      }
-    }
+    setBatchPending(true);
+    batchQueueRef.current = failedTasks.map(t => ({ id: t.photo_id, file_name: t.file_name || '' }));
+    activeSubmitsRef.current = 0;
     startPolling();
+    drainQueue();
   };
 
   return (

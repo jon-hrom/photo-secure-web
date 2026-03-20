@@ -304,9 +304,93 @@ def _save_retouched_photo(conn, user_id, task, result_key, result_url):
     print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name} (thumbnails: {'yes' if thumb_key else 'no'})")
 
 
+def _check_single_task(conn, user_id, task):
+    task_id = task['task_id']
+    if task['status'] not in ('queued', 'started'):
+        return {
+            'task_id': task_id,
+            'status': task['status'],
+            'result_url': _presigned_from_task(task),
+            'error_message': task['error_message'],
+        }
+
+    api_path = f"/v1/tasks/{task_id}"
+    sign_headers = _sign("GET", api_path, "")
+    status_url = RETOUCH_BASE_URL + api_path
+    try:
+        r = requests.get(status_url, headers=sign_headers, timeout=(3, 10))
+        r.raise_for_status()
+        remote = r.json()
+    except requests.RequestException as e:
+        print(f"[ERROR] Status check failed for {task_id}: {e}")
+        return {
+            'task_id': task_id,
+            'status': task['status'],
+            'result_url': _presigned_from_task(task),
+            'error_message': task['error_message'],
+        }
+
+    new_status = remote.get("status", task['status'])
+    result_data = remote.get("result", {}) or {}
+    result_key = result_data.get("out_key") or remote.get("out_key") or remote.get("result_key")
+    error_msg = remote.get("error") or result_data.get("error")
+
+    update_fields = ['status = %s', 'updated_at = NOW()']
+    update_values = [new_status]
+    storage_url = None
+
+    if result_key:
+        storage_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
+        update_fields.append('result_key = %s')
+        update_values.append(result_key)
+        update_fields.append('result_url = %s')
+        update_values.append(storage_url)
+
+    if error_msg:
+        update_fields.append('error_message = %s')
+        update_values.append(error_msg)
+
+    update_values.append(task_id)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"UPDATE retouch_tasks SET {', '.join(update_fields)} WHERE task_id = %s",
+            update_values
+        )
+        conn.commit()
+
+    if new_status == 'finished' and result_key:
+        _save_retouched_photo(conn, user_id, task, result_key, storage_url)
+
+    presigned = _presigned_url(result_key) if result_key else _presigned_from_task(task)
+    return {
+        'task_id': task_id,
+        'status': new_status,
+        'result_url': presigned,
+        'error_message': error_msg or task['error_message'],
+    }
+
+
 def _handle_status(event, conn, user_id):
     params = event.get('queryStringParameters', {}) or {}
     task_id = params.get('task_id')
+    task_ids_param = params.get('task_ids')
+
+    if task_ids_param:
+        ids = [t.strip() for t in task_ids_param.split(',') if t.strip()]
+        if not ids:
+            return _response(400, {'error': 'task_ids is empty'})
+        placeholders = ','.join(['%s'] * len(ids))
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                f'SELECT id, photo_id, task_id, status, result_key, result_url, out_prefix, error_message, created_at, updated_at FROM retouch_tasks WHERE task_id IN ({placeholders}) AND user_id = %s',
+                (*ids, user_id)
+            )
+            db_tasks = cur.fetchall()
+
+        results = []
+        for t in db_tasks:
+            results.append(_check_single_task(conn, user_id, t))
+        return _response(200, {'tasks': results})
 
     if not task_id:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -328,71 +412,4 @@ def _handle_status(event, conn, user_id):
     if not task:
         return _response(404, {'error': 'Task not found'})
 
-    if task['status'] in ('queued', 'started'):
-        api_path = f"/v1/tasks/{task_id}"
-        sign_headers = _sign("GET", api_path, "")
-        status_url = RETOUCH_BASE_URL + api_path
-        print(f"[RETOUCH] GET {status_url}")
-        try:
-            t0 = time.time()
-            r = requests.get(status_url, headers=sign_headers, timeout=(5, 25))
-            elapsed = round(time.time() - t0, 3)
-            print(f"[RETOUCH] Status response: status={r.status_code}, time={elapsed}s, body={r.text[:500]}")
-            r.raise_for_status()
-            remote = r.json()
-        except requests.RequestException as e:
-            elapsed = round(time.time() - t0, 3)
-            print(f"[ERROR] Retouch status check failed after {elapsed}s: {e}")
-            return _response(200, {
-                'task_id': task['task_id'],
-                'status': task['status'],
-                'result_url': _presigned_from_task(task),
-                'error_message': task['error_message'],
-            })
-
-        new_status = remote.get("status", task['status'])
-        result_data = remote.get("result", {}) or {}
-        result_key = result_data.get("out_key") or remote.get("out_key") or remote.get("result_key")
-        error_msg = remote.get("error") or result_data.get("error")
-
-        update_fields = ['status = %s', 'updated_at = NOW()']
-        update_values = [new_status]
-        result_url = task['result_url']
-
-        if result_key:
-            storage_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
-            update_fields.append('result_key = %s')
-            update_values.append(result_key)
-            update_fields.append('result_url = %s')
-            update_values.append(storage_url)
-
-        if error_msg:
-            update_fields.append('error_message = %s')
-            update_values.append(error_msg)
-
-        update_values.append(task_id)
-        with conn.cursor() as cur:
-            cur.execute(
-                f"UPDATE retouch_tasks SET {', '.join(update_fields)} WHERE task_id = %s",
-                update_values
-            )
-            conn.commit()
-
-        if new_status == 'finished' and result_key:
-            _save_retouched_photo(conn, user_id, task, result_key, storage_url)
-
-        presigned = _presigned_url(result_key) if result_key else _presigned_from_task(task)
-        return _response(200, {
-            'task_id': task_id,
-            'status': new_status,
-            'result_url': presigned,
-            'error_message': error_msg or task['error_message'],
-        })
-
-    presigned = _presigned_from_task(task)
-    return _response(200, {
-        'task_id': task['task_id'],
-        'status': task['status'],
-        'result_url': presigned,
-        'error_message': task['error_message'],
-    })
+    return _response(200, _check_single_task(conn, user_id, task))
