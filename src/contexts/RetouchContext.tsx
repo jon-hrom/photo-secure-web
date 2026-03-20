@@ -327,13 +327,14 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const submitOne = async () => {
+  const submitOne = async (slotId: number) => {
     if (batchQueueRef.current.length === 0) {
       checkBatchDone();
       return;
     }
     const photo = batchQueueRef.current.shift()!;
     activeSubmitsRef.current++;
+    console.log(`[RETOUCH] Slot ${slotId}: submitting photo ${photo.id} (${photo.file_name}), active=${activeSubmitsRef.current}, queue=${batchQueueRef.current.length}`);
 
     try {
       const task = await startRetouchForPhoto(photo.id);
@@ -342,10 +343,11 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
       }
     } finally {
       activeSubmitsRef.current--;
+      console.log(`[RETOUCH] Slot ${slotId}: done photo ${photo.id}, active=${activeSubmitsRef.current}, queue=${batchQueueRef.current.length}`);
     }
 
     if (batchQueueRef.current.length > 0) {
-      submitOne();
+      submitOne(slotId);
     } else {
       checkBatchDone();
     }
@@ -353,8 +355,9 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
   const drainQueue = useCallback(() => {
     const toStart = Math.min(CONCURRENT_LIMIT - activeSubmitsRef.current, batchQueueRef.current.length);
+    console.log(`[RETOUCH] drainQueue: starting ${toStart} slots, queue=${batchQueueRef.current.length}, active=${activeSubmitsRef.current}`);
     for (let i = 0; i < toStart; i++) {
-      submitOne();
+      submitOne(i);
     }
   }, []);
 
