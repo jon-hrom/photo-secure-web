@@ -121,65 +121,73 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const tasksRef = useRef<RetouchTask[]>([]);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  const pollingRef = useRef(false);
+
   const pollTaskStatuses = useCallback(async () => {
+    if (pollingRef.current) return;
     const currentSession = sessionRef.current;
     if (!currentSession) return;
 
-    setTasks(prevTasks => {
-      const activeTasks = prevTasks.filter(t => (t.status === 'queued' || t.status === 'started') && t.task_id);
-      if (activeTasks.length === 0) {
-        stopPolling();
-        return prevTasks;
+    const currentTasks = tasksRef.current;
+    const activeTasks = currentTasks.filter(t => (t.status === 'queued' || t.status === 'started') && t.task_id);
+    if (activeTasks.length === 0) {
+      stopPolling();
+      return;
+    }
+
+    pollingRef.current = true;
+    try {
+      const taskIds = activeTasks.map(t => t.task_id).join(',');
+      const res = await fetch(`${RETOUCH_API}?task_ids=${encodeURIComponent(taskIds)}`, {
+        headers: { 'X-User-Id': currentSession.userId }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.tasks) return;
+
+      const resultsMap: Record<string, (typeof data.tasks)[0]> = {};
+      for (const r of data.tasks) {
+        resultsMap[r.task_id] = r;
       }
 
-      const taskIds = activeTasks.map(t => t.task_id).join(',');
-      fetch(`${RETOUCH_API}?task_ids=${encodeURIComponent(taskIds)}`, {
-        headers: { 'X-User-Id': currentSession.userId }
-      }).then(res => {
-        if (!res.ok) return;
-        return res.json();
-      }).then(data => {
-        if (!data?.tasks) return;
-        const resultsMap: Record<string, typeof data.tasks[0]> = {};
-        for (const r of data.tasks) {
-          resultsMap[r.task_id] = r;
-        }
-        setTasks(prev => prev.map(t => {
-          const remote = resultsMap[t.task_id];
-          if (!remote) return t;
+      setTasks(prev => prev.map(t => {
+        const remote = resultsMap[t.task_id];
+        if (!remote) return t;
 
-          let progress = t.progress || 0;
-          if (remote.status === 'finished') {
-            progress = 100;
-          } else if (remote.status === 'started') {
-            if (!pollStartTimeRef.current[t.task_id]) {
-              pollStartTimeRef.current[t.task_id] = Date.now();
-            }
-            const elapsed = (Date.now() - pollStartTimeRef.current[t.task_id]) / 1000;
-            progress = Math.min(95, Math.round((elapsed / 15) * 80) + 10);
-          } else if (remote.status === 'queued') {
-            progress = 5;
+        let progress = t.progress || 0;
+        if (remote.status === 'finished') {
+          progress = 100;
+        } else if (remote.status === 'started') {
+          if (!pollStartTimeRef.current[t.task_id]) {
+            pollStartTimeRef.current[t.task_id] = Date.now();
           }
+          const elapsed = (Date.now() - pollStartTimeRef.current[t.task_id]) / 1000;
+          progress = Math.min(90, Math.round((elapsed / 45) * 80) + 10);
+        } else if (remote.status === 'queued') {
+          progress = 5;
+        }
 
-          return {
-            ...t,
-            status: remote.status,
-            result_url: remote.result_url,
-            error_message: remote.error_message,
-            progress
-          };
-        }));
-      }).catch(err => {
-        console.error('[RETOUCH] Batch poll error:', err);
-      });
-
-      return prevTasks;
-    });
+        return {
+          ...t,
+          status: remote.status,
+          result_url: remote.result_url,
+          error_message: remote.error_message,
+          progress
+        };
+      }));
+    } catch (err) {
+      console.error('[RETOUCH] Batch poll error:', err);
+    } finally {
+      pollingRef.current = false;
+    }
   }, []);
 
   const startPolling = () => {
     stopPolling();
-    pollIntervalRef.current = setInterval(pollTaskStatuses, 3000);
+    pollIntervalRef.current = setInterval(pollTaskStatuses, 2000);
   };
 
   useEffect(() => {
@@ -312,23 +320,34 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const checkBatchDone = () => {
+    if (batchQueueRef.current.length === 0 && activeSubmitsRef.current === 0) {
+      setBatchPending(false);
+      setSubmitting(false);
+    }
+  };
+
   const submitOne = async () => {
-    if (batchQueueRef.current.length === 0) return;
+    if (batchQueueRef.current.length === 0) {
+      checkBatchDone();
+      return;
+    }
     const photo = batchQueueRef.current.shift()!;
     activeSubmitsRef.current++;
 
-    const task = await startRetouchForPhoto(photo.id);
-    activeSubmitsRef.current--;
-
-    if (task) {
-      setTasks(prev => [...prev, task]);
+    try {
+      const task = await startRetouchForPhoto(photo.id);
+      if (task) {
+        setTasks(prev => [...prev, task]);
+      }
+    } finally {
+      activeSubmitsRef.current--;
     }
 
     if (batchQueueRef.current.length > 0) {
       submitOne();
-    } else if (activeSubmitsRef.current === 0) {
-      setBatchPending(false);
-      setSubmitting(false);
+    } else {
+      checkBatchDone();
     }
   };
 
