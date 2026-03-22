@@ -65,19 +65,10 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "S3 upload init missing key",
+      "name": "S3 upload missing files",
       "method": "POST",
       "path": "/",
-      "body": {"action": "s3_upload_init", "user_id": "1"},
-      "expectedStatus": 400,
-      "expectedBody": {"error": "string"},
-      "bodyMatcher": "partial"
-    },
-    {
-      "name": "S3 upload part missing params",
-      "method": "POST",
-      "path": "/",
-      "body": {"action": "s3_upload_part", "user_id": "1"},
+      "body": {"action": "s3_upload", "user_id": "1"},
       "expectedStatus": 400,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"

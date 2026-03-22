@@ -2,7 +2,6 @@
 
 import json
 import os
-import base64
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -111,69 +110,35 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             prefix = params.get('prefix', f'photobank/{target_user_id}/')
             return handle_s3_browse(yc_s3_client, yc_bucket, prefix)
         
-        elif action == 's3_upload_init':
-            s3_key = params.get('s3_key')
-            content_type = params.get('content_type', 'application/octet-stream')
-            if not s3_key:
+        elif action == 's3_upload':
+            files_info = params.get('files', [])
+            if not files_info:
                 return {
                     'statusCode': 400,
                     'headers': CORS_HEADERS,
-                    'body': json.dumps({'error': 's3_key is required'}),
+                    'body': json.dumps({'error': 'files array is required'}),
                     'isBase64Encoded': False
                 }
-            resp = yc_s3_client.create_multipart_upload(
-                Bucket=yc_bucket, Key=s3_key, ContentType=content_type
-            )
+            results = []
+            for f in files_info:
+                s3_key = f.get('s3_key')
+                content_type = f.get('content_type', 'application/octet-stream')
+                if not s3_key:
+                    continue
+                url = yc_s3_client.generate_presigned_url(
+                    'put_object',
+                    Params={
+                        'Bucket': yc_bucket,
+                        'Key': s3_key,
+                        'ContentType': content_type
+                    },
+                    ExpiresIn=1800
+                )
+                results.append({'s3_key': s3_key, 'upload_url': url, 'content_type': content_type})
             return {
                 'statusCode': 200,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'ok': True, 'upload_id': resp['UploadId'], 's3_key': s3_key}),
-                'isBase64Encoded': False
-            }
-        
-        elif action == 's3_upload_part':
-            s3_key = params.get('s3_key')
-            upload_id = params.get('upload_id')
-            part_number = int(params.get('part_number', 0))
-            chunk_data = params.get('chunk_data')
-            if not all([s3_key, upload_id, part_number, chunk_data]):
-                return {
-                    'statusCode': 400,
-                    'headers': CORS_HEADERS,
-                    'body': json.dumps({'error': 's3_key, upload_id, part_number, chunk_data required'}),
-                    'isBase64Encoded': False
-                }
-            raw = base64.b64decode(chunk_data)
-            resp = yc_s3_client.upload_part(
-                Bucket=yc_bucket, Key=s3_key, UploadId=upload_id,
-                PartNumber=part_number, Body=raw
-            )
-            return {
-                'statusCode': 200,
-                'headers': CORS_HEADERS,
-                'body': json.dumps({'ok': True, 'etag': resp['ETag'], 'part_number': part_number}),
-                'isBase64Encoded': False
-            }
-        
-        elif action == 's3_upload_complete':
-            s3_key = params.get('s3_key')
-            upload_id = params.get('upload_id')
-            parts = params.get('parts', [])
-            if not all([s3_key, upload_id, parts]):
-                return {
-                    'statusCode': 400,
-                    'headers': CORS_HEADERS,
-                    'body': json.dumps({'error': 's3_key, upload_id, parts required'}),
-                    'isBase64Encoded': False
-                }
-            yc_s3_client.complete_multipart_upload(
-                Bucket=yc_bucket, Key=s3_key, UploadId=upload_id,
-                MultipartUpload={'Parts': [{'PartNumber': p['part_number'], 'ETag': p['etag']} for p in parts]}
-            )
-            return {
-                'statusCode': 200,
-                'headers': CORS_HEADERS,
-                'body': json.dumps({'ok': True, 'key': s3_key}),
+                'body': json.dumps({'ok': True, 'urls': results}),
                 'isBase64Encoded': False
             }
         
