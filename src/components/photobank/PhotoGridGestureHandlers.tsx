@@ -104,14 +104,18 @@ export const usePhotoGridGestures = ({
       if (!viewPhoto) return;
       
       if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
         onClose();
         setZoom(0);
         setPanOffset({ x: 0, y: 0 });
       } else if (e.key === 'ArrowLeft' && hasPrev) {
+        e.stopPropagation();
         onNavigate('prev');
         setZoom(0);
         setPanOffset({ x: 0, y: 0 });
       } else if (e.key === 'ArrowRight' && hasNext) {
+        e.stopPropagation();
         onNavigate('next');
         setZoom(0);
         setPanOffset({ x: 0, y: 0 });
@@ -144,12 +148,12 @@ export const usePhotoGridGestures = ({
     };
 
     checkOrientation();
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('resize', checkOrientation);
     window.addEventListener('orientationchange', checkOrientation);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('resize', checkOrientation);
       window.removeEventListener('orientationchange', checkOrientation);

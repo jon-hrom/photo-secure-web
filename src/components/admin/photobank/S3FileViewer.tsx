@@ -46,9 +46,11 @@ const S3FileViewer = ({ file, files, realUserId, onClose }: S3FileViewerProps) =
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.stopPropagation();
         e.preventDefault();
+      }
+      if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'ArrowLeft') navigateFile('prev');
       else if (e.key === 'ArrowRight') navigateFile('next');

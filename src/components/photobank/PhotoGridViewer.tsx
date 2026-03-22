@@ -120,8 +120,8 @@ const PhotoGridViewer = ({
   }
 
   return (
-    <Dialog open={!!viewPhoto} onOpenChange={handleCloseDialog}>
-      <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none" style={{ touchAction: 'none' }}>
+    <Dialog open={!!viewPhoto} onOpenChange={handleCloseDialog} modal={true}>
+      <DialogContent hideCloseButton className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none" style={{ touchAction: 'none' }} onEscapeKeyDown={(e) => { e.stopPropagation(); }} onPointerDownOutside={(e) => { e.preventDefault(); }} onInteractOutside={(e) => { e.preventDefault(); }}>
         <VisuallyHidden>
           <DialogTitle>Просмотр фото {viewPhoto.file_name}</DialogTitle>
         </VisuallyHidden>

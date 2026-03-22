@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const [s3Loading, setS3Loading] = useState(false);
   const [s3History, setS3History] = useState<string[]>([]);
   const [s3ViewFile, setS3ViewFile] = useState<S3File | null>(null);
+  const viewerJustClosedRef = useRef(false);
 
   const realUserId = String(userId).replace('vk_', '');
 
@@ -219,8 +220,8 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent hideCloseButton className="max-w-7xl max-h-[100dvh] sm:max-h-[90vh] w-full sm:w-[98vw] h-[100dvh] sm:h-[90vh] overflow-hidden p-0 rounded-none sm:rounded-lg border-0 sm:border gap-0" onEscapeKeyDown={(e) => { if (s3ViewFile || viewPhoto) e.preventDefault(); }} onPointerDownOutside={(e) => { if (s3ViewFile || viewPhoto) e.preventDefault(); }}>
+      <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !s3ViewFile && !viewPhoto && !viewerJustClosedRef.current) onClose(); }}>
+        <DialogContent hideCloseButton className="max-w-7xl max-h-[100dvh] sm:max-h-[90vh] w-full sm:w-[98vw] h-[100dvh] sm:h-[90vh] overflow-hidden p-0 rounded-none sm:rounded-lg border-0 sm:border gap-0" onEscapeKeyDown={(e) => { if (s3ViewFile || viewPhoto || viewerJustClosedRef.current) e.preventDefault(); }} onPointerDownOutside={(e) => { if (s3ViewFile || viewPhoto || viewerJustClosedRef.current) e.preventDefault(); }} onInteractOutside={(e) => { if (s3ViewFile || viewPhoto || viewerJustClosedRef.current) e.preventDefault(); }}>
           <VisuallyHidden>
             <DialogTitle>Фотобанк пользователя {userName}</DialogTitle>
           </VisuallyHidden>
@@ -297,7 +298,11 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
           file={s3ViewFile}
           files={s3Files}
           realUserId={realUserId}
-          onClose={() => setS3ViewFile(null)}
+          onClose={() => {
+            viewerJustClosedRef.current = true;
+            setS3ViewFile(null);
+            setTimeout(() => { viewerJustClosedRef.current = false; }, 300);
+          }}
         />
       )}
 
@@ -305,7 +310,11 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
         <PhotoGridViewer
           viewPhoto={viewPhoto}
           photos={photos}
-          onClose={() => setViewPhoto(null)}
+          onClose={() => {
+            viewerJustClosedRef.current = true;
+            setViewPhoto(null);
+            setTimeout(() => { viewerJustClosedRef.current = false; }, 300);
+          }}
           onNavigate={handleNavigate}
           onDownload={handleDownload}
           formatBytes={formatBytes}
