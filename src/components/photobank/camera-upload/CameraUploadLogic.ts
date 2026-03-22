@@ -1,17 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   FileUploadStatus,
   MOBILE_UPLOAD_API,
   PHOTOBANK_FOLDERS_API,
-  MAX_CONCURRENT_UPLOADS,
   MAX_RETRIES,
   RETRY_DELAY,
-  BATCH_SIZE
 } from './CameraUploadTypes';
 
 const DIRECT_UPLOAD_API = 'https://functions.poehali.dev/145813d2-d8f3-4a2b-b38e-08583a3153da';
-const URL_BATCH_SIZE = 50; // Получаем URLs пачками по 50 файлов
+const URL_BATCH_SIZE = 100;
+const PARALLEL_LIMIT = 6;
+const UI_UPDATE_INTERVAL = 800;
 
 export const useCameraUploadLogic = (
   userId: string,
@@ -28,11 +28,15 @@ export const useCameraUploadLogic = (
     estimatedTimeRemaining: 0
   });
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const statsUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingStatsRef = useRef({ completedFiles: 0, totalFiles: 0, startTime: 0 });
   const cancelledRef = useRef(false);
+  const progressMapRef = useRef<Map<string, number>>(new Map());
+  const uiTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const completedCountRef = useRef(0);
+  const uploadStartTimeRef = useRef(0);
+  const totalFilesRef = useRef(0);
+  const pendingDbWrites = useRef<Array<{file_name: string, s3_url: string, file_size: number, content_type: string}>>([]);
+  const dbWriteTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Получаем presigned URLs пачкой для ускорения
   const getBatchUrls = async (files: FileUploadStatus[]): Promise<Map<string, {url: string, key: string}>> => {
     const filesData = files.map(f => ({
       name: f.file.name,
@@ -57,6 +61,7 @@ export const useCameraUploadLogic = (
     const data = await response.json();
     const urlMap = new Map<string, {url: string, key: string}>();
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data.uploads.forEach((upload: any) => {
       urlMap.set(upload.filename, {
         url: upload.url,
@@ -67,30 +72,117 @@ export const useCameraUploadLogic = (
     return urlMap;
   };
 
+  const startUiUpdater = () => {
+    if (uiTimerRef.current) return;
+    uiTimerRef.current = setInterval(() => {
+      setFiles(() => {
+        return [...filesRef.current];
+      });
+      
+      const elapsed = Date.now() - uploadStartTimeRef.current;
+      const completed = completedCountRef.current;
+      const total = totalFilesRef.current;
+      const avgTimePerFile = completed > 0 ? elapsed / completed : 0;
+      const remaining = total - completed;
+      const estimatedTimeRemaining = remaining > 0 && avgTimePerFile > 0 
+        ? Math.round(avgTimePerFile * remaining / 1000) 
+        : 0;
+      
+      setUploadStats({
+        startTime: uploadStartTimeRef.current,
+        completedFiles: completed,
+        totalFiles: total,
+        estimatedTimeRemaining
+      });
+    }, UI_UPDATE_INTERVAL);
+  };
+
+  const stopUiUpdater = () => {
+    if (uiTimerRef.current) {
+      clearInterval(uiTimerRef.current);
+      uiTimerRef.current = null;
+    }
+  };
+
+  const flushDbWrites = useCallback(async (folderId: number, onPhotoAdded?: () => void) => {
+    const writes = pendingDbWrites.current.splice(0);
+    if (writes.length === 0) return;
+
+    try {
+      const response = await fetch(PHOTOBANK_FOLDERS_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId,
+        },
+        body: JSON.stringify({
+          action: 'upload_photos_batch',
+          folder_id: folderId,
+          photos: writes
+        }),
+      });
+
+      if (response.ok) {
+        console.log(`[CAMERA_UPLOAD] Batch DB write: ${writes.length} photos`);
+        if (onPhotoAdded) onPhotoAdded();
+      } else {
+        for (const photo of writes) {
+          fetch(PHOTOBANK_FOLDERS_API, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': userId,
+            },
+            body: JSON.stringify({
+              action: 'upload_photo',
+              folder_id: folderId,
+              ...photo
+            }),
+          }).catch(() => {});
+        }
+        if (onPhotoAdded) onPhotoAdded();
+      }
+    } catch {
+      console.error('[CAMERA_UPLOAD] Batch DB write failed');
+    }
+  }, [userId]);
+
+  const scheduleDbWrite = (folderId: number, photo: {file_name: string, s3_url: string, file_size: number, content_type: string}, onPhotoAdded?: () => void) => {
+    pendingDbWrites.current.push(photo);
+    
+    if (dbWriteTimerRef.current) {
+      clearTimeout(dbWriteTimerRef.current);
+    }
+    
+    if (pendingDbWrites.current.length >= 10) {
+      flushDbWrites(folderId, onPhotoAdded);
+    } else {
+      dbWriteTimerRef.current = setTimeout(() => {
+        flushDbWrites(folderId, onPhotoAdded);
+      }, 2000);
+    }
+  };
+
   const uploadFile = async (fileStatus: FileUploadStatus, uploadUrl?: string, s3Key?: string, retryAttempt: number = 0, onPhotoAdded?: () => void): Promise<void> => {
     const { file } = fileStatus;
     const abortController = new AbortController();
     abortControllersRef.current.set(file.name, abortController);
 
-    let lastProgressUpdate = 0;
-    const PROGRESS_THROTTLE = 200; // обновляем прогресс раз в 200мс
-
     try {
-      setFiles(prev => {
-        const updated = prev.map(f => 
-          f.file.name === file.name 
-            ? { ...f, status: retryAttempt > 0 ? 'retrying' : 'uploading', progress: 0, retryCount: retryAttempt } 
-            : f
-        );
-        filesRef.current = updated;
-        return updated;
-      });
+      const idx = filesRef.current.findIndex(f => f.file.name === file.name);
+      if (idx >= 0) {
+        filesRef.current[idx] = { 
+          ...filesRef.current[idx], 
+          status: retryAttempt > 0 ? 'retrying' : 'uploading', 
+          progress: 0, 
+          retryCount: retryAttempt 
+        };
+      }
 
       if (!navigator.onLine) {
         throw new Error('Нет подключения к интернету');
       }
 
-      // Если URL не передан, получаем его (fallback на старую систему)
       let url = uploadUrl;
       let key = s3Key;
       
@@ -111,25 +203,21 @@ export const useCameraUploadLogic = (
       }
 
       const xhr = new XMLHttpRequest();
+      let lastProgressUpdate = 0;
       
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
           const now = Date.now();
-          // Throttling: обновляем не чаще раза в 200мс
-          if (now - lastProgressUpdate < PROGRESS_THROTTLE && e.loaded < e.total) {
-            return;
-          }
+          if (now - lastProgressUpdate < 500 && e.loaded < e.total) return;
           lastProgressUpdate = now;
           
-          const progress = Math.min(99, (e.loaded / e.total) * 100); // макс 99% до завершения
+          const progress = Math.min(99, (e.loaded / e.total) * 100);
+          progressMapRef.current.set(file.name, progress);
           
-          setFiles(prev => {
-            const updated = prev.map(f => 
-              f.file.name === file.name ? { ...f, progress } : f
-            );
-            filesRef.current = updated;
-            return updated;
-          });
+          const idx2 = filesRef.current.findIndex(f => f.file.name === file.name);
+          if (idx2 >= 0) {
+            filesRef.current[idx2] = { ...filesRef.current[idx2], progress };
+          }
         }
       });
 
@@ -149,94 +237,32 @@ export const useCameraUploadLogic = (
         xhr.send(file);
       });
 
-      // Сразу добавляем файл в БД после успешной загрузки (НЕБЛОКИРУЮЩИЙ запрос)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const folderId = (window as any).__photobankTargetFolderId;
       if (folderId && key) {
         const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
-        // Fire-and-forget: не блокируем загрузку следующего файла
-        fetch(PHOTOBANK_FOLDERS_API, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': userId,
-          },
-          body: JSON.stringify({
-            action: 'upload_photo',
-            folder_id: folderId,
-            file_name: file.name,
-            s3_url: s3Url,
-            file_size: file.size,
-            content_type: file.type
-          }),
-        })
-          .then(async res => {
-            if (res.ok) {
-              const data = await res.json();
-              if (!data.skipped) {
-                console.log(`[CAMERA_UPLOAD] Photo ${file.name} added to folder ${folderId}`);
-                // Обновляем галерею после добавления каждого фото
-                if (onPhotoAdded) {
-                  onPhotoAdded();
-                }
-              } else {
-                console.log(`[CAMERA_UPLOAD] Photo ${file.name} skipped - already exists`);
-              }
-            } else {
-              console.error(`[CAMERA_UPLOAD] Failed to add photo ${file.name} to DB`);
-            }
-          })
-          .catch(err => console.error('[CAMERA_UPLOAD] DB add error:', err));
+        scheduleDbWrite(folderId, {
+          file_name: file.name,
+          s3_url: s3Url,
+          file_size: file.size,
+          content_type: file.type
+        }, onPhotoAdded);
       }
 
-      setFiles(prev => {
-        const updated = prev.map(f => 
-          f.file.name === file.name 
-            ? { ...f, status: 'success', progress: 100, s3_key: key } 
-            : f
-        );
-        filesRef.current = updated;
-        
-        // Обновляем статистику с debounce (500ms) чтобы избежать дергания
-        const actualCompleted = updated.filter(f => f.status === 'success').length;
-        pendingStatsRef.current.completedFiles = actualCompleted;
-        
-        if (statsUpdateTimerRef.current) {
-          clearTimeout(statsUpdateTimerRef.current);
-        }
-        
-        statsUpdateTimerRef.current = setTimeout(() => {
-          setUploadStats(stats => {
-            const elapsed = Date.now() - stats.startTime;
-            const avgTimePerFile = pendingStatsRef.current.completedFiles > 0 
-              ? elapsed / pendingStatsRef.current.completedFiles 
-              : 0;
-            const remaining = stats.totalFiles - pendingStatsRef.current.completedFiles;
-            const estimatedTimeRemaining = remaining > 0 && avgTimePerFile > 0 
-              ? Math.round(avgTimePerFile * remaining / 1000) 
-              : 0;
-            
-            return {
-              ...stats,
-              completedFiles: pendingStatsRef.current.completedFiles,
-              estimatedTimeRemaining
-            };
-          });
-        }, 500); // Увеличено с 300 до 500мс для плавности
-        
-        return updated;
-      });
+      const idx2 = filesRef.current.findIndex(f => f.file.name === file.name);
+      if (idx2 >= 0) {
+        filesRef.current[idx2] = { ...filesRef.current[idx2], status: 'success', progress: 100, s3_key: key };
+      }
+      completedCountRef.current++;
+      progressMapRef.current.delete(file.name);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        setFiles(prev => {
-          const updated = prev.map(f => 
-            f.file.name === file.name 
-              ? { ...f, status: 'error', error: 'Отменено' } 
-              : f
-          );
-          filesRef.current = updated;
-          return updated;
-        });
+        const idx2 = filesRef.current.findIndex(f => f.file.name === file.name);
+        if (idx2 >= 0) {
+          filesRef.current[idx2] = { ...filesRef.current[idx2], status: 'error', error: 'Отменено' };
+        }
       } else {
         const isNetworkError = error.message.includes('Network') || 
                                error.message.includes('интернет') || 
@@ -247,15 +273,10 @@ export const useCameraUploadLogic = (
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           await uploadFile(fileStatus, uploadUrl, s3Key, retryAttempt + 1, onPhotoAdded);
         } else {
-          setFiles(prev => {
-            const updated = prev.map(f => 
-              f.file.name === file.name 
-                ? { ...f, status: 'error', error: isNetworkError ? 'Ошибка сети' : error.message } 
-                : f
-            );
-            filesRef.current = updated;
-            return updated;
-          });
+          const idx2 = filesRef.current.findIndex(f => f.file.name === file.name);
+          if (idx2 >= 0) {
+            filesRef.current[idx2] = { ...filesRef.current[idx2], status: 'error', error: isNetworkError ? 'Ошибка сети' : error.message };
+          }
         }
       }
     } finally {
@@ -269,8 +290,8 @@ export const useCameraUploadLogic = (
 
     console.log('[CAMERA_UPLOAD] Retrying failed uploads:', failedFiles.length);
     
-    for (let i = 0; i < failedFiles.length; i += MAX_CONCURRENT_UPLOADS) {
-      const batch = failedFiles.slice(i, i + MAX_CONCURRENT_UPLOADS);
+    for (let i = 0; i < failedFiles.length; i += PARALLEL_LIMIT) {
+      const batch = failedFiles.slice(i, i + PARALLEL_LIMIT);
       await Promise.all(batch.map(f => uploadFile(f)));
     }
   };
@@ -284,14 +305,14 @@ export const useCameraUploadLogic = (
   ) => {
     try {
       cancelledRef.current = false;
+      completedCountRef.current = 0;
+      pendingDbWrites.current = [];
       const pendingFiles = filesRef.current.filter(f => (f.status === 'pending' || f.status === 'error') && f.status !== 'skipped');
       console.log('[CAMERA_UPLOAD] Pending files to upload:', pendingFiles.length);
 
-      // Создаем папку ДО начала загрузки, чтобы сразу добавлять файлы
       let targetFolderId: number;
 
       if (folderMode === 'new') {
-        console.log('[CAMERA_UPLOAD] Creating folder:', folderName.trim());
         const createFolderResponse = await fetch(PHOTOBANK_FOLDERS_API, {
           method: 'POST',
           headers: {
@@ -305,140 +326,130 @@ export const useCameraUploadLogic = (
         });
 
         if (!createFolderResponse.ok) {
-          const errorText = await createFolderResponse.text();
-          console.error('[CAMERA_UPLOAD] Create folder error:', errorText);
           throw new Error('Не удалось создать папку');
         }
 
         const folderData = await createFolderResponse.json();
-        console.log('[CAMERA_UPLOAD] Folder created:', folderData);
         targetFolderId = folderData.folder.id;
       } else {
         targetFolderId = selectedFolderId!;
       }
       
-      // Сохраняем ID папки для использования в uploadFile
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__photobankTargetFolderId = targetFolderId;
 
-      // Проверяем дубликаты
-      try {
-        const checkResponse = await fetch(
-          `${PHOTOBANK_FOLDERS_API}?action=check_duplicates&folder_id=${targetFolderId}`,
-          { headers: { 'X-User-Id': userId } }
-        );
-        
-        if (checkResponse.ok) {
-          const { existing_files } = await checkResponse.json();
-          const existingSet = new Set(existing_files);
-          
-          // Фильтруем дубликаты
-          const filesToUpload = pendingFiles.filter(f => !existingSet.has(f.file.name));
-          const skippedCount = pendingFiles.length - filesToUpload.length;
-          
-          if (skippedCount > 0) {
-            console.log(`[CAMERA_UPLOAD] Skipping ${skippedCount} duplicates`);
-            toast.info(`Пропущено ${skippedCount} дубликатов`);
-            
-            // Помечаем дубликаты как skipped
-            setFiles(prev => {
-              const updated = prev.map(f => {
-                if (existingSet.has(f.file.name)) {
-                  return { ...f, status: 'skipped' as const };
-                }
-                return f;
-              });
-              filesRef.current = updated;
-              return updated;
-            });
-          }
-          
-          if (filesToUpload.length === 0) {
-            toast.success('Все файлы уже загружены');
-            if (onUploadComplete) onUploadComplete();
-            if (onOpenChange) onOpenChange(false);
-            return;
-          }
-          
-          // Обновляем список файлов для загрузки
-          pendingFiles.splice(0, pendingFiles.length, ...filesToUpload);
+      // Проверяем дубликаты параллельно с получением URL
+      const duplicateCheckPromise = fetch(
+        `${PHOTOBANK_FOLDERS_API}?action=check_duplicates&folder_id=${targetFolderId}`,
+        { headers: { 'X-User-Id': userId } }
+      ).then(async res => {
+        if (res.ok) {
+          const { existing_files } = await res.json();
+          return new Set<string>(existing_files);
         }
-      } catch (error) {
-        console.error('[CAMERA_UPLOAD] Failed to check duplicates:', error);
-        // Продолжаем без проверки дубликатов
+        return new Set<string>();
+      }).catch(() => new Set<string>());
+
+      // Получаем ВСЕ URL параллельно одним запросом (до 100 файлов)
+      const urlBatches: Promise<Map<string, {url: string, key: string}>>[] = [];
+      for (let i = 0; i < pendingFiles.length; i += URL_BATCH_SIZE) {
+        const batch = pendingFiles.slice(i, i + URL_BATCH_SIZE);
+        urlBatches.push(getBatchUrls(batch));
       }
 
-      // Инициализируем статистику
+      const [existingSet, ...urlMaps] = await Promise.all([duplicateCheckPromise, ...urlBatches]);
+
+      // Применяем дубликаты
+      let filesToUpload = pendingFiles;
+      if (existingSet.size > 0) {
+        filesToUpload = pendingFiles.filter(f => !existingSet.has(f.file.name));
+        const skippedCount = pendingFiles.length - filesToUpload.length;
+        
+        if (skippedCount > 0) {
+          toast.info(`Пропущено ${skippedCount} дубликатов`);
+          for (const f of filesRef.current) {
+            if (existingSet.has(f.file.name)) {
+              const idx = filesRef.current.indexOf(f);
+              if (idx >= 0) filesRef.current[idx] = { ...f, status: 'skipped' as const };
+            }
+          }
+          setFiles([...filesRef.current]);
+        }
+        
+        if (filesToUpload.length === 0) {
+          toast.success('Все файлы уже загружены');
+          if (onUploadComplete) onUploadComplete();
+          if (onOpenChange) onOpenChange(false);
+          return;
+        }
+      }
+
+      // Объединяем все URL в одну карту
+      const allUrls = new Map<string, {url: string, key: string}>();
+      for (const urlMap of urlMaps) {
+        for (const [k, v] of urlMap) {
+          allUrls.set(k, v);
+        }
+      }
+
+      totalFilesRef.current = filesToUpload.length;
+      uploadStartTimeRef.current = Date.now();
+      
       setUploadStats({
         startTime: Date.now(),
         completedFiles: 0,
-        totalFiles: pendingFiles.length,
+        totalFiles: filesToUpload.length,
         estimatedTimeRemaining: 0
       });
-      pendingStatsRef.current = {
-        completedFiles: 0,
-        totalFiles: pendingFiles.length,
-        startTime: Date.now()
-      };
+
+      startUiUpdater();
       
-      const PARALLEL_LIMIT = 4;
-      console.log(`[CAMERA_UPLOAD] ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА (${PARALLEL_LIMIT} файла одновременно)`);
+      console.log(`[CAMERA_UPLOAD] TURBO: ${PARALLEL_LIMIT} параллельных потоков, ${filesToUpload.length} файлов`);
       
       const refreshGallery = onUploadComplete ? () => {
-        console.log('[CAMERA_UPLOAD] Refreshing gallery after photo added');
         onUploadComplete();
       } : undefined;
 
-      for (let urlBatchStart = 0; urlBatchStart < pendingFiles.length; urlBatchStart += URL_BATCH_SIZE) {
+      // Загружаем параллельно по PARALLEL_LIMIT
+      for (let i = 0; i < filesToUpload.length; i += PARALLEL_LIMIT) {
         if (cancelledRef.current) break;
         
-        const urlBatch = pendingFiles.slice(urlBatchStart, urlBatchStart + URL_BATCH_SIZE);
-        console.log(`[CAMERA_UPLOAD] Fetching URLs for ${urlBatch.length} files...`);
-        
-        let urlMap: Map<string, {url: string, key: string}>;
-        try {
-          urlMap = await getBatchUrls(urlBatch);
-          console.log(`[CAMERA_UPLOAD] Got ${urlMap.size} URLs`);
-        } catch (error) {
-          console.error('[CAMERA_UPLOAD] Batch URL fetch failed, falling back to individual requests:', error);
-          for (const fileStatus of urlBatch) {
-            if (cancelledRef.current) break;
-            await uploadFile(fileStatus, undefined, undefined, 0, refreshGallery);
+        const chunk = filesToUpload.slice(i, i + PARALLEL_LIMIT);
+        const promises = chunk.map(fileStatus => {
+          const urlInfo = allUrls.get(fileStatus.file.name);
+          if (!urlInfo) {
+            return uploadFile(fileStatus, undefined, undefined, 0, refreshGallery);
           }
-          continue;
-        }
-        
-        for (let i = 0; i < urlBatch.length; i += PARALLEL_LIMIT) {
-          if (cancelledRef.current) break;
-          
-          const chunk = urlBatch.slice(i, i + PARALLEL_LIMIT);
-          const promises = chunk.map(fileStatus => {
-            const urlInfo = urlMap.get(fileStatus.file.name);
-            if (!urlInfo) {
-              console.error(`[CAMERA_UPLOAD] No URL for ${fileStatus.file.name}, skipping`);
-              return Promise.resolve();
-            }
-            return uploadFile(fileStatus, urlInfo.url, urlInfo.key, 0, refreshGallery);
-          });
-          await Promise.all(promises);
-        }
+          return uploadFile(fileStatus, urlInfo.url, urlInfo.key, 0, refreshGallery);
+        });
+        await Promise.all(promises);
       }
       
+      stopUiUpdater();
+      
       if (cancelledRef.current) {
-        console.log('[CAMERA_UPLOAD] Upload process stopped due to cancellation');
+        console.log('[CAMERA_UPLOAD] Upload cancelled');
         return;
       }
 
-      // Очищаем временный ID папки
+      // Финальный flush записей в БД
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const folderId = (window as any).__photobankTargetFolderId;
+      if (folderId) {
+        await flushDbWrites(folderId, refreshGallery);
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (window as any).__photobankTargetFolderId;
 
+      // Финальное обновление UI
+      setFiles([...filesRef.current]);
+
       const successfulUploads = filesRef.current.filter(f => f.status === 'success');
-      console.log('[CAMERA_UPLOAD] Upload process finished. Successful uploads:', successfulUploads.length);
 
       if (successfulUploads.length > 0) {
-        console.log('[CAMERA_UPLOAD] Upload complete!');
         toast.success(`Загружено ${successfulUploads.length} файлов`);
         
-        // Финальное обновление галереи перед закрытием
         if (onUploadComplete) {
           onUploadComplete();
         }
@@ -449,21 +460,22 @@ export const useCameraUploadLogic = (
           onOpenChange(false);
         }
       } else {
-        console.log('[CAMERA_UPLOAD] No successful uploads');
         toast.error('Файлы не удалось загрузить');
       }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
+      stopUiUpdater();
       console.error('[CAMERA_UPLOAD] Upload error:', error);
       toast.error(`Ошибка: ${error.message}`);
     } finally {
+      stopUiUpdater();
       setUploading(false);
     }
   };
 
   useEffect(() => {
     const handleOnline = () => {
-      console.log('[CAMERA_UPLOAD] Network online');
       setIsOnline(true);
       if (uploading && filesRef.current.some(f => f.status === 'error')) {
         toast.info('Интернет восстановлен, продолжаем загрузку...');
@@ -472,7 +484,6 @@ export const useCameraUploadLogic = (
     };
     
     const handleOffline = () => {
-      console.log('[CAMERA_UPLOAD] Network offline');
       setIsOnline(false);
       toast.error('Нет интернета. Загрузка возобновится автоматически.');
     };
@@ -484,26 +495,28 @@ export const useCameraUploadLogic = (
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploading]);
 
   const cancelUpload = () => {
     cancelledRef.current = true;
+    stopUiUpdater();
     abortControllersRef.current.forEach(controller => controller.abort());
     abortControllersRef.current.clear();
     
-    if (statsUpdateTimerRef.current) {
-      clearTimeout(statsUpdateTimerRef.current);
-      statsUpdateTimerRef.current = null;
+    for (let i = 0; i < filesRef.current.length; i++) {
+      if (filesRef.current[i].status === 'uploading' || filesRef.current[i].status === 'retrying') {
+        filesRef.current[i] = { ...filesRef.current[i], status: 'error', error: 'Отменено' };
+      }
     }
+    setFiles([...filesRef.current]);
+    setUploading(false);
   };
-  
+
   return {
     isOnline,
-    uploadFile,
-    retryFailedUploads,
-    handleUploadProcess,
-    abortControllersRef,
     uploadStats,
-    cancelUpload
+    handleUploadProcess,
+    cancelUpload,
   };
 };
