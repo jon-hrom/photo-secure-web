@@ -252,12 +252,15 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
         content_type: f.type || 'application/octet-stream'
       }));
 
+      console.log('[S3_UPLOAD] Getting presigned URLs for:', filesInfo);
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 's3_upload', user_id: realUserId, files: filesInfo })
       });
+      console.log('[S3_UPLOAD] Presign response status:', res.status);
       const data = await res.json();
+      console.log('[S3_UPLOAD] Presign response:', { ok: data.ok, urlsCount: data.urls?.length });
       if (!data.ok || !data.urls) {
         toast.error('Не удалось получить ссылки для загрузки');
         setS3Uploading(false);
@@ -278,7 +281,8 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
       if (uploaded > 0) toast.success(`Загружено ${uploaded} файл(ов)`);
       if (failed > 0) toast.error(`Ошибка загрузки ${failed} файл(ов)`);
       fetchS3(s3Prefix);
-    } catch {
+    } catch (err) {
+      console.error('[S3_UPLOAD] Error:', err);
       toast.error('Ошибка загрузки');
     } finally {
       setS3Uploading(false);
