@@ -24,6 +24,7 @@ import Clients from "./pages/webapp/Clients";
 import MobileUpload from "./pages/webapp/MobileUpload";
 import Statistics from "./pages/webapp/Statistics";
 import AdminCleanup from "./pages/AdminCleanup";
+import AdminPipelineEditor from "./pages/AdminPipelineEditor";
 import NewYearDecorations from "./components/NewYearDecorations";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ShortLink from "./pages/ShortLink";
@@ -104,6 +105,7 @@ const App = () => {
           <Route path="/my-files" element={<MyFiles />} />
           <Route path="/admin/storage" element={<AdminStorage />} />
           <Route path="/admin/cleanup" element={<AdminCleanup />} />
+          <Route path="/admin/pipeline" element={<AdminPipelineEditor />} />
           <Route path="/face-blur" element={<FaceBlurEditor />} />
           <Route path="/vk-callback" element={<VKCallbackDirect />} />
           <Route path="/auth/callback/vkid" element={<VKCallback />} />

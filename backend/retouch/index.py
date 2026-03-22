@@ -75,6 +75,28 @@ def _response(status_code, body):
 
 
 
+DEFAULT_PIPELINE = [
+    {"op": "deshine", "strength": 0.55, "knee": 0.80},
+    {"op": "skin_smooth", "strength": 0.40, "sigma_s": 80, "sigma_r": 0.18}
+]
+
+
+def _load_pipeline(conn, preset_name='default'):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            'SELECT pipeline_json FROM retouch_presets WHERE name = %s LIMIT 1',
+            (preset_name,)
+        )
+        row = cur.fetchone()
+    if row and row['pipeline_json']:
+        pipeline = row['pipeline_json']
+        if isinstance(pipeline, str):
+            pipeline = json.loads(pipeline)
+        if isinstance(pipeline, list) and len(pipeline) > 0:
+            return pipeline
+    return DEFAULT_PIPELINE
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Ретушь фотографий — отправка на обработку и проверка статуса задачи"""
     method = event.get('httpMethod', 'GET')
@@ -133,6 +155,10 @@ def _handle_create(event, conn, user_id):
         print(f"[RETOUCH] RAW file detected, sending original: {in_key}")
     out_prefix = f"retouch/{user_id}/{photo_id}"
 
+    preset_name = body.get('preset', 'default')
+    pipeline = _load_pipeline(conn, preset_name)
+    print(f"[RETOUCH] Using preset '{preset_name}': {json.dumps(pipeline)}")
+
     path = "/v1/retouch"
     req_body = {
         "in_bucket": S3_BUCKET,
@@ -140,10 +166,7 @@ def _handle_create(event, conn, user_id):
         "out_bucket": S3_BUCKET,
         "out_prefix": out_prefix,
         "debug": True,
-        "pipeline": [
-            {"op": "deshine", "strength": 0.55, "knee": 0.80},
-            {"op": "skin_smooth", "strength": 0.40, "sigma_s": 80, "sigma_r": 0.18}
-        ],
+        "pipeline": pipeline,
     }
     body_str = json.dumps(req_body, separators=(",", ":"), ensure_ascii=False)
     sign_headers = {"Content-Type": "application/json", **_sign("POST", path, body_str)}
