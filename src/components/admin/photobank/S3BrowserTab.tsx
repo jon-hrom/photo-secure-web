@@ -16,6 +16,7 @@ interface S3BrowserTabProps {
   onViewFile: (file: S3File) => void;
   onBreadcrumbClick: (prefix: string) => void;
   onUploadFiles: (files: FileList) => void;
+  onDeleteFiles: (keys: string[]) => void;
 }
 
 const S3BrowserTab = ({
@@ -31,6 +32,7 @@ const S3BrowserTab = ({
   onViewFile,
   onBreadcrumbClick,
   onUploadFiles,
+  onDeleteFiles,
 }: S3BrowserTabProps) => {
   const s3Breadcrumbs = s3Prefix.split('/').filter(Boolean);
 
@@ -140,15 +142,26 @@ const S3BrowserTab = ({
                         <span className="truncate block" title={file.key}>{file.name}</span>
                         <span className="text-[10px] text-muted-foreground sm:hidden">{formatBytes(file.size)}</span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity"
-                        onClick={() => onViewFile(file)}
-                        title={isPreviewable(file.name) ? 'Просмотр' : 'Скачать / Открыть'}
-                      >
-                        <Icon name={isPreviewable(file.name) || isVideoFile(file.name) ? 'Eye' : 'ExternalLink'} size={15} />
-                      </Button>
+                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => onViewFile(file)}
+                          title={isPreviewable(file.name) ? 'Просмотр' : 'Скачать / Открыть'}
+                        >
+                          <Icon name={isPreviewable(file.name) || isVideoFile(file.name) ? 'Eye' : 'ExternalLink'} size={15} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          onClick={() => onDeleteFiles([file.key])}
+                          title="Удалить из S3"
+                        >
+                          <Icon name="Trash2" size={15} />
+                        </Button>
+                      </div>
                     </div>
                   </td>
                   <td className="px-2.5 sm:px-4 py-1.5 text-right text-muted-foreground whitespace-nowrap hidden sm:table-cell">{formatBytes(file.size)}</td>

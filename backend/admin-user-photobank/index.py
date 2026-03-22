@@ -122,7 +122,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             results = []
             for f in files_info:
                 s3_key = f.get('s3_key')
-                content_type = f.get('content_type', 'application/octet-stream')
                 if not s3_key:
                     continue
                 url = yc_s3_client.generate_presigned_url(
@@ -130,15 +129,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     Params={
                         'Bucket': yc_bucket,
                         'Key': s3_key,
-                        'ContentType': content_type
                     },
                     ExpiresIn=1800
                 )
-                results.append({'s3_key': s3_key, 'upload_url': url, 'content_type': content_type})
+                results.append({'s3_key': s3_key, 'upload_url': url})
             return {
                 'statusCode': 200,
                 'headers': CORS_HEADERS,
                 'body': json.dumps({'ok': True, 'urls': results}),
+                'isBase64Encoded': False
+            }
+        
+        elif action == 's3_delete':
+            keys = params.get('keys', [])
+            if isinstance(keys, str):
+                keys = [keys]
+            if not keys:
+                return {
+                    'statusCode': 400,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'keys is required'}),
+                    'isBase64Encoded': False
+                }
+            deleted = []
+            errors = []
+            for key in keys:
+                try:
+                    yc_s3_client.delete_object(Bucket=yc_bucket, Key=key)
+                    deleted.append(key)
+                except Exception as e:
+                    errors.append({'key': key, 'error': str(e)})
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'ok': True, 'deleted': deleted, 'errors': errors}),
                 'isBase64Encoded': False
             }
         

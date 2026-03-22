@@ -223,8 +223,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
 
     try {
       const filesInfo = Array.from(files).map(f => ({
-        s3_key: s3Prefix + f.name,
-        content_type: f.type || 'application/octet-stream'
+        s3_key: s3Prefix + f.name
       }));
 
       const res = await fetch(API_URL, {
@@ -248,12 +247,11 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
       const fileArray = Array.from(files);
 
       for (let i = 0; i < data.urls.length; i++) {
-        const { upload_url, content_type } = data.urls[i];
+        const { upload_url } = data.urls[i];
         const file = fileArray[i];
         try {
           const uploadRes = await fetch(upload_url, {
             method: 'PUT',
-            headers: { 'Content-Type': content_type },
             body: file
           });
           if (uploadRes.ok) uploaded++;
@@ -270,6 +268,28 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
       toast.error('Ошибка загрузки');
     } finally {
       setS3Uploading(false);
+    }
+  };
+
+  const handleS3Delete = async (keys: string[]) => {
+    if (!keys.length) return;
+    if (!confirm(`Удалить ${keys.length} файл(ов) из S3 безвозвратно?`)) return;
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 's3_delete', user_id: realUserId, keys })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success(`Удалено ${data.deleted?.length || 0} файл(ов)`);
+        fetchS3(s3Prefix);
+      } else {
+        toast.error(data.error || 'Ошибка удаления');
+      }
+    } catch {
+      toast.error('Ошибка сети');
     }
   };
 
@@ -345,6 +365,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                   onViewFile={setS3ViewFile}
                   onBreadcrumbClick={handleS3BreadcrumbClick}
                   onUploadFiles={handleS3Upload}
+                  onDeleteFiles={handleS3Delete}
                 />
               </TabsContent>
             </Tabs>
