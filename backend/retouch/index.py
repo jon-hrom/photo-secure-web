@@ -139,6 +139,10 @@ def _handle_create(event, conn, user_id):
         "in_key": in_key,
         "out_bucket": S3_BUCKET,
         "out_prefix": out_prefix,
+        "debug": True,
+        "pipeline": [
+            {"op": "skin_smooth", "strength": 0.45, "sigma_s": 80, "sigma_r": 0.18}
+        ],
     }
     body_str = json.dumps(req_body, separators=(",", ":"), ensure_ascii=False)
     sign_headers = {"Content-Type": "application/json", **_sign("POST", path, body_str)}
