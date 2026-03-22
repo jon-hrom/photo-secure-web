@@ -65,7 +65,7 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "S3 upload missing data",
+      "name": "S3 upload missing files",
       "method": "POST",
       "path": "/",
       "body": {"action": "s3_upload", "user_id": "1"},

@@ -2,7 +2,6 @@
 
 import json
 import os
-import base64
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -112,28 +111,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_s3_browse(yc_s3_client, yc_bucket, prefix)
         
         elif action == 's3_upload':
-            file_data = params.get('file_data')
-            file_name = params.get('file_name')
-            s3_key = params.get('s3_key')
-            content_type = params.get('content_type', 'application/octet-stream')
-            if not file_data or not s3_key:
+            files_info = params.get('files', [])
+            if not files_info:
                 return {
                     'statusCode': 400,
                     'headers': CORS_HEADERS,
-                    'body': json.dumps({'error': 'file_data and s3_key are required'}),
+                    'body': json.dumps({'error': 'files array is required'}),
                     'isBase64Encoded': False
                 }
-            raw = base64.b64decode(file_data)
-            yc_s3_client.put_object(
-                Bucket=yc_bucket,
-                Key=s3_key,
-                Body=raw,
-                ContentType=content_type
-            )
+            results = []
+            for f in files_info:
+                s3_key = f.get('s3_key')
+                content_type = f.get('content_type', 'application/octet-stream')
+                if not s3_key:
+                    continue
+                url = yc_s3_client.generate_presigned_url(
+                    'put_object',
+                    Params={
+                        'Bucket': yc_bucket,
+                        'Key': s3_key,
+                        'ContentType': content_type
+                    },
+                    ExpiresIn=1800
+                )
+                results.append({'s3_key': s3_key, 'upload_url': url, 'content_type': content_type})
             return {
                 'statusCode': 200,
                 'headers': CORS_HEADERS,
-                'body': json.dumps({'ok': True, 'key': s3_key, 'size': len(raw), 'file_name': file_name or s3_key.split('/')[-1]}),
+                'body': json.dumps({'ok': True, 'urls': results}),
                 'isBase64Encoded': False
             }
         

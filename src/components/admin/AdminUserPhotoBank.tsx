@@ -220,47 +220,57 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const handleS3Upload = async (files: FileList) => {
     if (!files.length || !s3Prefix) return;
     setS3Uploading(true);
-    let uploaded = 0;
-    let failed = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+    try {
+      const filesInfo = Array.from(files).map(f => ({
+        s3_key: s3Prefix + f.name,
+        content_type: f.type || 'application/octet-stream'
+      }));
 
-        const s3Key = s3Prefix + file.name;
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 's3_upload',
-            user_id: realUserId,
-            file_data: base64,
-            file_name: file.name,
-            s3_key: s3Key,
-            content_type: file.type || 'application/octet-stream'
-          })
-        });
-        const data = await res.json();
-        if (data.ok) uploaded++;
-        else failed++;
-      } catch {
-        failed++;
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 's3_upload',
+          user_id: realUserId,
+          files: filesInfo
+        })
+      });
+      const data = await res.json();
+      if (!data.ok || !data.urls) {
+        toast.error('Не удалось получить ссылки для загрузки');
+        setS3Uploading(false);
+        return;
       }
-    }
 
-    setS3Uploading(false);
-    if (uploaded > 0) toast.success(`Загружено ${uploaded} файл(ов)`);
-    if (failed > 0) toast.error(`Ошибка загрузки ${failed} файл(ов)`);
-    fetchS3(s3Prefix);
+      let uploaded = 0;
+      let failed = 0;
+      const fileArray = Array.from(files);
+
+      for (let i = 0; i < data.urls.length; i++) {
+        const { upload_url, content_type } = data.urls[i];
+        const file = fileArray[i];
+        try {
+          const uploadRes = await fetch(upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': content_type },
+            body: file
+          });
+          if (uploadRes.ok) uploaded++;
+          else failed++;
+        } catch {
+          failed++;
+        }
+      }
+
+      if (uploaded > 0) toast.success(`Загружено ${uploaded} файл(ов)`);
+      if (failed > 0) toast.error(`Ошибка загрузки ${failed} файл(ов)`);
+      fetchS3(s3Prefix);
+    } catch {
+      toast.error('Ошибка загрузки');
+    } finally {
+      setS3Uploading(false);
+    }
   };
 
   const totalPhotos = folders.reduce((sum, f) => sum + (f.photo_count || 0), 0);
