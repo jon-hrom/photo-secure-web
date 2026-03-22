@@ -217,15 +217,29 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
     fetchS3(newPrefix);
   };
 
-  const uploadToS3ViaXhr = (file: File, url: string, contentType: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
-      xhr.onerror = () => resolve(false);
-      xhr.open('PUT', url);
-      xhr.setRequestHeader('Content-Type', contentType);
-      xhr.send(file);
-    });
+  const uploadToS3ViaXhr = async (file: File, url: string, contentType: string): Promise<boolean> => {
+    console.log('[S3_UPLOAD] Starting:', { fileName: file.name, fileSize: file.size, fileType: file.type, contentType });
+    try {
+      const buffer = await file.arrayBuffer();
+      console.log('[S3_UPLOAD] Buffer ready, size:', buffer.byteLength);
+      return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          console.log('[S3_UPLOAD] Done:', xhr.status, xhr.responseText?.substring(0, 300));
+          resolve(xhr.status >= 200 && xhr.status < 300);
+        };
+        xhr.onerror = () => {
+          console.error('[S3_UPLOAD] Error:', xhr.status, xhr.responseText?.substring(0, 300));
+          resolve(false);
+        };
+        xhr.open('PUT', url);
+        xhr.setRequestHeader('Content-Type', contentType);
+        xhr.send(buffer);
+      });
+    } catch (e) {
+      console.error('[S3_UPLOAD] Exception:', e);
+      return false;
+    }
   };
 
   const handleS3Upload = async (files: FileList) => {
