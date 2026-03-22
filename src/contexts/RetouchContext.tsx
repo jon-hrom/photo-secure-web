@@ -5,7 +5,6 @@ import type { RetouchTask } from '@/components/photobank/RetouchTaskList';
 
 const RETOUCH_API = funcUrls['retouch'];
 const RETOUCH_WAKER_API = funcUrls['retouch-waker'];
-const IDLE_SHUTDOWN_MS = 10 * 60 * 1000;
 const CONCURRENT_LIMIT = 5;
 
 interface RetouchSession {
@@ -65,7 +64,6 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const activeSubmitsRef = useRef(0);
   const pollStartTimeRef = useRef<Record<string, number>>({});
   const photosRef = useRef<Photo[]>([]);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serverStartedRef = useRef(false);
   const sessionRef = useRef<RetouchSession | null>(null);
   const totalBatchSizeRef = useRef(0);
@@ -85,33 +83,8 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     return Math.round(done / total);
   })();
 
-  const clearIdleTimer = () => {
-    if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = null;
-    }
-  };
-
-  const stopServer = async () => {
-    if (!serverStartedRef.current) return;
-    try {
-      console.log('[RETOUCH] Auto-stopping server after 10 min idle');
-      await fetch(`${RETOUCH_WAKER_API}?action=stop`, { method: 'POST' });
-      serverStartedRef.current = false;
-    } catch (error) {
-      console.error('[RETOUCH] Failed to stop server:', error);
-    }
-  };
-
-  const scheduleIdleShutdown = () => {
-    clearIdleTimer();
-    if (!serverStartedRef.current) return;
-    idleTimerRef.current = setTimeout(stopServer, IDLE_SHUTDOWN_MS);
-  };
-
   const markActive = () => {
     serverStartedRef.current = true;
-    clearIdleTimer();
   };
 
   const stopPolling = () => {
@@ -212,7 +185,6 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
     if (allDone) {
       stopPolling();
-      scheduleIdleShutdown();
       const hasFinished = tasks.some(t => t.status === 'finished');
       if (hasFinished && !retouchCompleteCalledRef.current) {
         retouchCompleteCalledRef.current = true;
