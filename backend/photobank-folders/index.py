@@ -755,10 +755,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                # Extract s3_key from s3_url (e.g., https://storage.yandexcloud.net/foto-mix/uploads/...)
-                s3_key = s3_url.split('foto-mix/')[-1] if 'foto-mix/' in s3_url else None
+                original_s3_key = s3_url.split('foto-mix/')[-1] if 'foto-mix/' in s3_url else None
                 
-                if not s3_key:
+                if not original_s3_key:
                     return {
                         'statusCode': 400,
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -766,7 +765,39 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                print(f'[UPLOAD_PHOTO] Extracted s3_key: {s3_key}')
+                print(f'[UPLOAD_PHOTO] Original s3_key: {original_s3_key}')
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute('SELECT s3_prefix FROM photo_folders WHERE id = %s AND user_id = %s', (folder_id, user_id))
+                    folder_row = cur.fetchone()
+                
+                if not folder_row or not folder_row.get('s3_prefix'):
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Folder not found'}),
+                        'isBase64Encoded': False
+                    }
+                
+                folder_s3_prefix = folder_row['s3_prefix']
+                file_ext = file_name.split('.')[-1] if '.' in file_name else 'bin'
+                s3_key = f'{folder_s3_prefix}{uuid.uuid4()}.{file_ext}'
+                
+                try:
+                    old_s3_client.copy_object(
+                        Bucket=old_bucket,
+                        CopySource={'Bucket': old_bucket, 'Key': original_s3_key},
+                        Key=s3_key,
+                        MetadataDirective='COPY'
+                    )
+                    old_s3_client.delete_object(Bucket=old_bucket, Key=original_s3_key)
+                    s3_url = f'https://storage.yandexcloud.net/{old_bucket}/{s3_key}'
+                    print(f'[UPLOAD_PHOTO] Moved {original_s3_key} -> {s3_key}')
+                except Exception as e:
+                    print(f'[UPLOAD_PHOTO] Failed to move file, using original key: {e}')
+                    s3_key = original_s3_key
+                
+                print(f'[UPLOAD_PHOTO] Final s3_key: {s3_key}')
                 
                 is_video = content_type.startswith('video/') or file_name.lower().endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv'))
                 raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
