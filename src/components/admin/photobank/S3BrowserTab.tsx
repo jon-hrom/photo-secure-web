@@ -68,8 +68,10 @@ const S3BrowserTab = ({
               className="hidden"
               onChange={(e) => {
                 if (e.target.files && e.target.files.length > 0) {
-                  onUploadFiles(e.target.files);
+                  const dt = new DataTransfer();
+                  Array.from(e.target.files).forEach(f => dt.items.add(f));
                   e.target.value = '';
+                  onUploadFiles(dt.files);
                 }
               }}
               disabled={uploading}
