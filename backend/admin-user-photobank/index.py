@@ -142,6 +142,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        elif action == 's3_set_cors':
+            yc_s3_client.put_bucket_cors(
+                Bucket=yc_bucket,
+                CORSConfiguration={
+                    'CORSRules': [{
+                        'AllowedOrigins': ['*'],
+                        'AllowedMethods': ['GET', 'PUT', 'POST', 'HEAD'],
+                        'AllowedHeaders': ['*'],
+                        'ExposeHeaders': ['ETag', 'Content-Length'],
+                        'MaxAgeSeconds': 86400
+                    }]
+                }
+            )
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'ok': True, 'message': 'CORS configured'}),
+                'isBase64Encoded': False
+            }
+        
         elif action == 's3_presign':
             s3_key = params.get('key')
             if not s3_key:
