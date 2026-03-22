@@ -9,6 +9,63 @@ import rawpy
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+MIN_PREVIEW_SIZE = 800
+
+def try_extract_embedded_jpeg(raw_data):
+    """Извлекает встроенный JPEG-превью из RAW если он достаточного размера"""
+    try:
+        with rawpy.imread(BytesIO(raw_data)) as raw:
+            try:
+                thumb = raw.extract_thumb()
+            except rawpy.LibRawNoThumbnailError:
+                print('[THUMBNAIL] No embedded thumbnail found')
+                return None
+            
+            if thumb.format == rawpy.ThumbFormat.JPEG:
+                img = Image.open(BytesIO(thumb.data))
+                w, h = img.size
+                print(f'[THUMBNAIL] Embedded JPEG found: {w}x{h}')
+                if min(w, h) >= MIN_PREVIEW_SIZE:
+                    return img
+                else:
+                    print(f'[THUMBNAIL] Embedded JPEG too small ({w}x{h}), will postprocess')
+                    return None
+            elif thumb.format == rawpy.ThumbFormat.BITMAP:
+                img = Image.fromarray(thumb.data)
+                w, h = img.size
+                print(f'[THUMBNAIL] Embedded bitmap found: {w}x{h}')
+                if min(w, h) >= MIN_PREVIEW_SIZE:
+                    return img
+                return None
+    except Exception as e:
+        print(f'[THUMBNAIL] Embedded extract failed: {e}')
+    return None
+
+
+def postprocess_raw(raw_data, file_name):
+    """Конвертирует RAW через postprocess с учётом формата"""
+    is_dng = file_name.lower().endswith('.dng')
+    
+    with rawpy.imread(BytesIO(raw_data)) as raw:
+        if is_dng:
+            rgb = raw.postprocess(
+                use_camera_wb=True,
+                half_size=True,
+                no_auto_bright=False,
+                output_bps=8,
+                bright=1.2
+            )
+        else:
+            rgb = raw.postprocess(
+                use_camera_wb=True,
+                half_size=True,
+                no_auto_bright=True,
+                output_bps=8
+            )
+    
+    return Image.fromarray(rgb)
+
+
 def process_single_thumbnail(conn, s3_client, photo_id):
     start = time.time()
     
@@ -34,25 +91,24 @@ def process_single_thumbnail(conn, s3_client, photo_id):
     
     print(f'[THUMBNAIL] Downloaded {len(raw_data)//1024//1024}MB in {dl_time:.1f}s, converting...')
     
-    with rawpy.imread(BytesIO(raw_data)) as raw:
-        rgb = raw.postprocess(
-            use_camera_wb=True,
-            half_size=True,
-            no_auto_bright=True,
-            output_bps=8
-        )
+    img = try_extract_embedded_jpeg(raw_data)
+    source = 'embedded'
+    
+    if img is None:
+        print(f'[THUMBNAIL] Fallback to postprocess for {photo["file_name"]}')
+        img = postprocess_raw(raw_data, photo['file_name'])
+        source = 'postprocess'
     
     del raw_data
-    
-    img = Image.fromarray(rgb)
-    del rgb
     
     img.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
     
     jpeg_buffer = BytesIO()
-    img.save(jpeg_buffer, format='JPEG', quality=80)
+    img.save(jpeg_buffer, format='JPEG', quality=85)
     jpeg_buffer.seek(0)
     del img
+    
+    print(f'[THUMBNAIL] Generated from {source}')
     
     thumbnail_key = photo['s3_key'].rsplit('.', 1)[0] + '_thumb.jpg'
     
