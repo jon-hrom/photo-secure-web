@@ -96,38 +96,6 @@ def _handle_wake():
     return _response(200, {"action": "noop", "status": st})
 
 
-def _handle_stop():
-    err = _ensure_credentials()
-    if err:
-        return err
-    try:
-        iam = _get_iam_token()
-    except Exception as e:
-        print(f"[STOP] IAM error: {e}")
-        return _response(500, {"error": f"IAM: {e}"})
-    try:
-        st = _get_vm_status(iam)
-    except Exception as e:
-        print(f"[STOP] Status error: {e}")
-        return _response(500, {"error": f"Status: {e}"})
-    print(f"[STOP] VM={st}")
-    if st == "RUNNING":
-        try:
-            op = _yc_http(
-                "POST",
-                f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}:stop",
-                headers={"Authorization": f"Bearer {iam}"},
-            )
-            return _response(200, {"action": "stopping", "statusBefore": st, "operationId": op.get("id")})
-        except Exception as e:
-            return _response(500, {"error": f"Stop: {e}"})
-    if st == "STOPPING":
-        return _response(200, {"action": "already_stopping", "status": st})
-    if st == "STOPPED":
-        return _response(200, {"action": "already_stopped", "status": st})
-    return _response(200, {"action": "noop", "status": st})
-
-
 def _probe_health():
     if not RETOUCH_BASE_URL:
         return {"reachable": False, "error": "RETOUCH_BASE_URL is empty"}
@@ -157,11 +125,8 @@ def handler(event: dict, context) -> dict:
     if params.get("action") == "wake":
         return _handle_wake()
 
-    if params.get("action") == "stop":
-        return _handle_stop()
-
     if params.get("probe") == "1":
         result = _probe_health()
         return _response(200, {"probe": result})
 
-    return _response(400, {"error": "Unknown action — use ?action=wake, ?action=stop or ?probe=1"})
+    return _response(400, {"error": "Unknown action — use ?action=wake or ?probe=1"})
