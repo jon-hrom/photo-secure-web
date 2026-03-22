@@ -7,6 +7,7 @@ import { useRetouch } from '@/contexts/RetouchContext';
 import RetouchWakeStatus from './RetouchWakeStatus';
 import RetouchTaskList from './RetouchTaskList';
 import RetouchPhotoSelector from './RetouchPhotoSelector';
+import RetouchSettings from './RetouchSettings';
 
 const PHOTOBANK_FOLDERS_API = funcUrls['photobank-folders'];
 
@@ -39,6 +40,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [selectedPhotoId, setSelectedPhotoId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('single');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const hasActiveWorkRef = useRef(false);
 
   useEffect(() => {
@@ -123,29 +125,47 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
           </DialogDescription>
         </DialogHeader>
 
-        <RetouchWakeStatus waking={waking} wakeStatus={wakeStatus} />
+        {showSettings ? (
+          <RetouchSettings userId={userId} onBack={() => setShowSettings(false)} />
+        ) : (
+          <>
+            {!hasTasks && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-fit text-xs text-muted-foreground hover:text-foreground -mt-1"
+                onClick={() => setShowSettings(true)}
+              >
+                <Icon name="SlidersHorizontal" size={14} className="mr-1" />
+                Настройки ретуши
+              </Button>
+            )}
 
-        {hasTasks && (
-          <RetouchTaskList
-            tasks={tasks}
-            onRetryTask={retryTask}
-            onRetryAllFailed={retryAllFailed}
-          />
-        )}
+            <RetouchWakeStatus waking={waking} wakeStatus={wakeStatus} />
 
-        {!hasTasks && (
-          <RetouchPhotoSelector
-            photos={photos}
-            loadingPhotos={loadingPhotos}
-            selectedPhotoId={selectedPhotoId}
-            onSelectPhoto={setSelectedPhotoId}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            submitting={submitting}
-            waking={waking}
-            onRetouchSingle={onRetouchSingle}
-            onRetouchAll={onRetouchAll}
-          />
+            {hasTasks && (
+              <RetouchTaskList
+                tasks={tasks}
+                onRetryTask={retryTask}
+                onRetryAllFailed={retryAllFailed}
+              />
+            )}
+
+            {!hasTasks && (
+              <RetouchPhotoSelector
+                photos={photos}
+                loadingPhotos={loadingPhotos}
+                selectedPhotoId={selectedPhotoId}
+                onSelectPhoto={setSelectedPhotoId}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                submitting={submitting}
+                waking={waking}
+                onRetouchSingle={onRetouchSingle}
+                onRetouchAll={onRetouchAll}
+              />
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>
