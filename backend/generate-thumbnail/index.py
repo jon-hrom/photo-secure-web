@@ -1,6 +1,7 @@
 '''Генерирует JPEG-превью для RAW фотографий'''
 import json
 import os
+import time
 import boto3
 from io import BytesIO
 from PIL import Image
@@ -9,6 +10,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 def process_single_thumbnail(conn, s3_client, photo_id):
+    start = time.time()
+    
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute('''
             SELECT id, s3_key, user_id, file_name, thumbnail_s3_key
@@ -23,27 +26,33 @@ def process_single_thumbnail(conn, s3_client, photo_id):
         if photo['thumbnail_s3_key']:
             return {'photo_id': photo_id, 'skipped': True, 'reason': 'already exists', 'thumbnail_key': photo['thumbnail_s3_key']}
     
-    print(f'[THUMBNAIL] Downloading RAW file: {photo["s3_key"]}')
+    print(f'[THUMBNAIL] Downloading: {photo["s3_key"]}')
     
     response = s3_client.get_object(Bucket='foto-mix', Key=photo['s3_key'])
     raw_data = response['Body'].read()
+    dl_time = time.time() - start
     
-    print(f'[THUMBNAIL] Downloaded {len(raw_data)} bytes, converting to JPEG')
+    print(f'[THUMBNAIL] Downloaded {len(raw_data)//1024//1024}MB in {dl_time:.1f}s, converting...')
     
     with rawpy.imread(BytesIO(raw_data)) as raw:
         rgb = raw.postprocess(
             use_camera_wb=True,
             half_size=True,
-            no_auto_bright=False,
+            no_auto_bright=True,
             output_bps=8
         )
     
+    del raw_data
+    
     img = Image.fromarray(rgb)
-    img.thumbnail((2000, 2000), Image.Resampling.LANCZOS)
+    del rgb
+    
+    img.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
     
     jpeg_buffer = BytesIO()
-    img.save(jpeg_buffer, format='JPEG', quality=85, optimize=True)
+    img.save(jpeg_buffer, format='JPEG', quality=80)
     jpeg_buffer.seek(0)
+    del img
     
     thumbnail_key = photo['s3_key'].rsplit('.', 1)[0] + '_thumb.jpg'
     
@@ -51,14 +60,11 @@ def process_single_thumbnail(conn, s3_client, photo_id):
         Bucket='foto-mix',
         Key=thumbnail_key,
         Body=jpeg_buffer.getvalue(),
-        ContentType='image/jpeg',
-        Metadata={
-            'original-key': photo['s3_key'],
-            'photo-id': str(photo_id)
-        }
+        ContentType='image/jpeg'
     )
     
-    print(f'[THUMBNAIL] Uploaded thumbnail: {thumbnail_key}')
+    total_time = time.time() - start
+    print(f'[THUMBNAIL] Done photo_id={photo_id} in {total_time:.1f}s (download: {dl_time:.1f}s)')
     
     with conn.cursor() as cur:
         cur.execute('''
@@ -68,11 +74,11 @@ def process_single_thumbnail(conn, s3_client, photo_id):
         ''', (thumbnail_key, photo_id))
         conn.commit()
     
-    return {'photo_id': photo_id, 'thumbnail_key': thumbnail_key, 'original_key': photo['s3_key']}
+    return {'photo_id': photo_id, 'thumbnail_key': thumbnail_key, 'time': round(total_time, 1)}
 
 
 def handler(event: dict, context) -> dict:
-    '''Генерирует JPEG-превью из RAW файлов (CR2, NEF, ARW и др.)'''
+    '''Генерирует JPEG-превью из RAW файлов (CR2, NEF, ARW, DNG и др.)'''
     
     method = event.get('httpMethod', 'POST')
     
@@ -122,7 +128,11 @@ def handler(event: dict, context) -> dict:
             aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
             aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
             region_name='ru-central1',
-            config=Config(signature_version='s3v4')
+            config=Config(
+                signature_version='s3v4',
+                connect_timeout=10,
+                read_timeout=60
+            )
         )
         
         dsn = os.environ.get('DATABASE_URL')
