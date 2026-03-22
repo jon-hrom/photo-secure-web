@@ -8,6 +8,69 @@ import rawpy
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+def process_single_thumbnail(conn, s3_client, photo_id):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute('''
+            SELECT id, s3_key, user_id, file_name, thumbnail_s3_key
+            FROM photo_bank
+            WHERE id = %s AND is_trashed = FALSE
+        ''', (photo_id,))
+        photo = cur.fetchone()
+        
+        if not photo:
+            return {'photo_id': photo_id, 'skipped': True, 'reason': 'not found'}
+        
+        if photo['thumbnail_s3_key']:
+            return {'photo_id': photo_id, 'skipped': True, 'reason': 'already exists', 'thumbnail_key': photo['thumbnail_s3_key']}
+    
+    print(f'[THUMBNAIL] Downloading RAW file: {photo["s3_key"]}')
+    
+    response = s3_client.get_object(Bucket='foto-mix', Key=photo['s3_key'])
+    raw_data = response['Body'].read()
+    
+    print(f'[THUMBNAIL] Downloaded {len(raw_data)} bytes, converting to JPEG')
+    
+    with rawpy.imread(BytesIO(raw_data)) as raw:
+        rgb = raw.postprocess(
+            use_camera_wb=True,
+            half_size=True,
+            no_auto_bright=False,
+            output_bps=8
+        )
+    
+    img = Image.fromarray(rgb)
+    img.thumbnail((2000, 2000), Image.Resampling.LANCZOS)
+    
+    jpeg_buffer = BytesIO()
+    img.save(jpeg_buffer, format='JPEG', quality=85, optimize=True)
+    jpeg_buffer.seek(0)
+    
+    thumbnail_key = photo['s3_key'].rsplit('.', 1)[0] + '_thumb.jpg'
+    
+    s3_client.put_object(
+        Bucket='foto-mix',
+        Key=thumbnail_key,
+        Body=jpeg_buffer.getvalue(),
+        ContentType='image/jpeg',
+        Metadata={
+            'original-key': photo['s3_key'],
+            'photo-id': str(photo_id)
+        }
+    )
+    
+    print(f'[THUMBNAIL] Uploaded thumbnail: {thumbnail_key}')
+    
+    with conn.cursor() as cur:
+        cur.execute('''
+            UPDATE photo_bank 
+            SET thumbnail_s3_key = %s, is_raw = TRUE
+            WHERE id = %s
+        ''', (thumbnail_key, photo_id))
+        conn.commit()
+    
+    return {'photo_id': photo_id, 'thumbnail_key': thumbnail_key, 'original_key': photo['s3_key']}
+
+
 def handler(event: dict, context) -> dict:
     '''Генерирует JPEG-превью из RAW файлов (CR2, NEF, ARW и др.)'''
     
@@ -38,44 +101,19 @@ def handler(event: dict, context) -> dict:
             body = {}
         else:
             body = json.loads(body_str)
-        photo_id = body.get('photo_id')
         
-        if not photo_id:
+        photo_ids = body.get('photo_ids', [])
+        single_id = body.get('photo_id')
+        if single_id:
+            photo_ids = [single_id]
+        
+        if not photo_ids:
             return {
                 'statusCode': 400,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'photo_id required'}),
+                'body': json.dumps({'error': 'photo_id or photo_ids required'}),
                 'isBase64Encoded': False
             }
-        
-        dsn = os.environ.get('DATABASE_URL')
-        conn = psycopg2.connect(dsn)
-        
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute('''
-                SELECT id, s3_key, user_id, file_name, thumbnail_s3_key
-                FROM photo_bank
-                WHERE id = %s AND is_trashed = FALSE
-            ''', (photo_id,))
-            photo = cur.fetchone()
-            
-            if not photo:
-                conn.close()
-                return {
-                    'statusCode': 404,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Photo not found'}),
-                    'isBase64Encoded': False
-                }
-            
-            if photo['thumbnail_s3_key']:
-                conn.close()
-                return {
-                    'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'message': 'Thumbnail already exists', 'thumbnail_key': photo['thumbnail_s3_key']}),
-                    'isBase64Encoded': False
-                }
         
         from botocore.config import Config
         s3_client = boto3.client(
@@ -87,65 +125,29 @@ def handler(event: dict, context) -> dict:
             config=Config(signature_version='s3v4')
         )
         
-        print(f'[THUMBNAIL] Downloading RAW file: {photo["s3_key"]}')
+        dsn = os.environ.get('DATABASE_URL')
+        conn = psycopg2.connect(dsn)
+        results = []
         
-        response = s3_client.get_object(Bucket='foto-mix', Key=photo['s3_key'])
-        raw_data = response['Body'].read()
-        
-        print(f'[THUMBNAIL] Downloaded {len(raw_data)} bytes, converting to JPEG')
-        
-        # Конвертируем RAW в JPEG
-        with rawpy.imread(BytesIO(raw_data)) as raw:
-            rgb = raw.postprocess(
-                use_camera_wb=True,
-                half_size=True,  # Уменьшаем размер для превью
-                no_auto_bright=False,
-                output_bps=8
-            )
-        
-        # Создаем PIL Image и сжимаем до 2000px по длинной стороне
-        img = Image.fromarray(rgb)
-        img.thumbnail((2000, 2000), Image.Resampling.LANCZOS)
-        
-        # Сохраняем в JPEG с хорошим качеством
-        jpeg_buffer = BytesIO()
-        img.save(jpeg_buffer, format='JPEG', quality=85, optimize=True)
-        jpeg_buffer.seek(0)
-        
-        # Загружаем превью в Yandex S3 (туда же, где оригинал)
-        thumbnail_key = photo['s3_key'].rsplit('.', 1)[0] + '_thumb.jpg'
-        
-        s3_client.put_object(
-            Bucket='foto-mix',
-            Key=thumbnail_key,
-            Body=jpeg_buffer.getvalue(),
-            ContentType='image/jpeg',
-            Metadata={
-                'original-key': photo['s3_key'],
-                'photo-id': str(photo_id)
-            }
-        )
-        
-        print(f'[THUMBNAIL] Uploaded thumbnail: {thumbnail_key}')
-        
-        # Обновляем БД
-        with conn.cursor() as cur:
-            cur.execute('''
-                UPDATE photo_bank 
-                SET thumbnail_s3_key = %s, is_raw = TRUE
-                WHERE id = %s
-            ''', (thumbnail_key, photo_id))
-            conn.commit()
+        for photo_id in photo_ids:
+            try:
+                result = process_single_thumbnail(conn, s3_client, photo_id)
+                results.append(result)
+            except Exception as e:
+                print(f'[THUMBNAIL_ERROR] photo_id={photo_id}: {str(e)}')
+                results.append({'photo_id': photo_id, 'error': str(e)})
         
         conn.close()
         
+        successful = [r for r in results if 'thumbnail_key' in r]
         return {
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
             'body': json.dumps({
                 'success': True,
-                'thumbnail_key': thumbnail_key,
-                'original_key': photo['s3_key']
+                'processed': len(results),
+                'successful': len(successful),
+                'results': results
             }),
             'isBase64Encoded': False
         }
