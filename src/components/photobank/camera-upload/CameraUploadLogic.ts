@@ -380,11 +380,9 @@ export const useCameraUploadLogic = (
         startTime: Date.now()
       };
       
-      // ПОСЛЕДОВАТЕЛЬНАЯ ЗАГРУЗКА: по одному файлу за раз для стабильной скорости
-      console.log('[CAMERA_UPLOAD] 🚀 НОВАЯ ВЕРСИЯ - ПОСЛЕДОВАТЕЛЬНАЯ ЗАГРУЗКА (1 файл за раз)');
-      console.log('[CAMERA_UPLOAD] Version: 2025-01-04-SEQUENTIAL');
+      const PARALLEL_LIMIT = 4;
+      console.log(`[CAMERA_UPLOAD] ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА (${PARALLEL_LIMIT} файла одновременно)`);
       
-      // Создаём отдельный колбэк для обновления галереи после каждого фото
       const refreshGallery = onUploadComplete ? () => {
         console.log('[CAMERA_UPLOAD] Refreshing gallery after photo added');
         onUploadComplete();
@@ -402,7 +400,6 @@ export const useCameraUploadLogic = (
           console.log(`[CAMERA_UPLOAD] Got ${urlMap.size} URLs`);
         } catch (error) {
           console.error('[CAMERA_UPLOAD] Batch URL fetch failed, falling back to individual requests:', error);
-          // Fallback: загружаем последовательно без batch URLs
           for (const fileStatus of urlBatch) {
             if (cancelledRef.current) break;
             await uploadFile(fileStatus, undefined, undefined, 0, refreshGallery);
@@ -410,16 +407,19 @@ export const useCameraUploadLogic = (
           continue;
         }
         
-        // Загружаем файлы ПОСЛЕДОВАТЕЛЬНО - по одному
-        for (const fileStatus of urlBatch) {
+        for (let i = 0; i < urlBatch.length; i += PARALLEL_LIMIT) {
           if (cancelledRef.current) break;
           
-          const urlInfo = urlMap.get(fileStatus.file.name);
-          if (!urlInfo) {
-            console.error(`[CAMERA_UPLOAD] No URL for ${fileStatus.file.name}, skipping`);
-            continue;
-          }
-          await uploadFile(fileStatus, urlInfo.url, urlInfo.key, 0, refreshGallery);
+          const chunk = urlBatch.slice(i, i + PARALLEL_LIMIT);
+          const promises = chunk.map(fileStatus => {
+            const urlInfo = urlMap.get(fileStatus.file.name);
+            if (!urlInfo) {
+              console.error(`[CAMERA_UPLOAD] No URL for ${fileStatus.file.name}, skipping`);
+              return Promise.resolve();
+            }
+            return uploadFile(fileStatus, urlInfo.url, urlInfo.key, 0, refreshGallery);
+          });
+          await Promise.all(promises);
         }
       }
       
