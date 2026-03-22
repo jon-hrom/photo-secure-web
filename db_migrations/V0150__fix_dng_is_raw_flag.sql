@@ -1,0 +1,1 @@
+UPDATE photo_bank SET is_raw = TRUE WHERE id = 2300;

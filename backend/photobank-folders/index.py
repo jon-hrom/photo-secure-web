@@ -694,13 +694,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         
                         is_video = content_type.startswith('video/') or file_name.lower().endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv'))
                         
-                        # Быстрая вставка без извлечения размеров (будет фоновой задачей)
+                        raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
+                        file_ext_lower = os.path.splitext(file_name.lower())[1]
+                        is_raw = file_ext_lower in raw_extensions
+                        
                         cur.execute('''
                             INSERT INTO photo_bank 
-                            (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video, is_raw)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                             RETURNING id
-                        ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video))
+                        ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video, is_raw))
                         
                         photo_id = cur.fetchone()['id']
                         inserted_ids.append(photo_id)
@@ -765,8 +768,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 print(f'[UPLOAD_PHOTO] Extracted s3_key: {s3_key}')
                 
-                # Determine if this is a video based on content_type or file extension
                 is_video = content_type.startswith('video/') or file_name.lower().endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv'))
+                raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
+                is_raw = os.path.splitext(file_name.lower())[1] in raw_extensions
                 
                 # Проверяем, существует ли уже файл с таким именем в этой папке
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -793,10 +797,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
-                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, content_type, is_video)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, content_type, is_video, is_raw)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id, file_name, s3_key, file_size, created_at, is_video, content_type
-                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, content_type, is_video))
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, content_type, is_video, is_raw))
                     conn.commit()
                     photo = cur.fetchone()
                     
