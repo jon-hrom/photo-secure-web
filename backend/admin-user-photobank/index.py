@@ -100,6 +100,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 photo_ids = [int(x) for x in photo_ids.split(',')]
             return handle_delete_photos(conn, target_user_id, photo_ids, yc_s3_client, yc_bucket)
         
+        elif action == 's3_move_photos':
+            photo_ids = params.get('photo_ids', [])
+            if isinstance(photo_ids, str):
+                photo_ids = [int(x) for x in photo_ids.split(',')]
+            return handle_s3_move_photos(conn, target_user_id, photo_ids, yc_s3_client, yc_bucket)
+        
         elif action == 's3_browse':
             prefix = params.get('prefix', f'photobank/{target_user_id}/')
             return handle_s3_browse(yc_s3_client, yc_bucket, prefix)
@@ -481,5 +487,71 @@ def handle_s3_browse(yc_s3_client, yc_bucket, prefix):
             'folders': folders,
             'files': files
         }),
+        'isBase64Encoded': False
+    }
+
+
+def handle_s3_move_photos(conn, target_user_id, photo_ids, s3_client, bucket):
+    import uuid
+    if not photo_ids:
+        return {
+            'statusCode': 400,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'photo_ids required'}),
+            'isBase64Encoded': False
+        }
+    
+    moved = []
+    errors = []
+    
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        for photo_id in photo_ids:
+            cur.execute(f'''
+                SELECT pb.id, pb.s3_key, pb.file_name, pb.folder_id, pf.s3_prefix
+                FROM {SCHEMA}.photo_bank pb
+                JOIN {SCHEMA}.photo_folders pf ON pf.id = pb.folder_id
+                WHERE pb.id = %s AND pb.user_id = %s
+            ''', (photo_id, target_user_id))
+            row = cur.fetchone()
+            
+            if not row:
+                errors.append({'photo_id': photo_id, 'error': 'not found'})
+                continue
+            
+            old_key = row['s3_key']
+            folder_prefix = row['s3_prefix']
+            
+            if old_key.startswith(folder_prefix):
+                moved.append({'photo_id': photo_id, 'status': 'already_correct'})
+                continue
+            
+            ext = row['file_name'].split('.')[-1] if '.' in row['file_name'] else 'bin'
+            new_key = f'{folder_prefix}{uuid.uuid4()}.{ext}'
+            
+            try:
+                s3_client.copy_object(
+                    Bucket=bucket,
+                    CopySource={'Bucket': bucket, 'Key': old_key},
+                    Key=new_key,
+                    MetadataDirective='COPY'
+                )
+                s3_client.delete_object(Bucket=bucket, Key=old_key)
+                
+                new_url = f'https://storage.yandexcloud.net/{bucket}/{new_key}'
+                cur.execute(f'''
+                    UPDATE {SCHEMA}.photo_bank 
+                    SET s3_key = %s, s3_url = %s 
+                    WHERE id = %s
+                ''', (new_key, new_url, photo_id))
+                conn.commit()
+                
+                moved.append({'photo_id': photo_id, 'old_key': old_key, 'new_key': new_key})
+            except Exception as e:
+                errors.append({'photo_id': photo_id, 'error': str(e)})
+    
+    return {
+        'statusCode': 200,
+        'headers': CORS_HEADERS,
+        'body': json.dumps({'moved': moved, 'errors': errors}),
         'isBase64Encoded': False
     }
