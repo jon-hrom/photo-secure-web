@@ -10,10 +10,12 @@ interface S3BrowserTabProps {
   s3Bucket: string;
   s3Loading: boolean;
   s3History: string[];
+  uploading: boolean;
   onNavigate: (prefix: string) => void;
   onNavigateBack: () => void;
   onViewFile: (file: S3File) => void;
   onBreadcrumbClick: (prefix: string) => void;
+  onUploadFiles: (files: FileList) => void;
 }
 
 const S3BrowserTab = ({
@@ -23,10 +25,12 @@ const S3BrowserTab = ({
   s3Bucket,
   s3Loading,
   s3History,
+  uploading,
   onNavigate,
   onNavigateBack,
   onViewFile,
   onBreadcrumbClick,
+  onUploadFiles,
 }: S3BrowserTabProps) => {
   const s3Breadcrumbs = s3Prefix.split('/').filter(Boolean);
 
@@ -37,22 +41,50 @@ const S3BrowserTab = ({
   return (
     <>
       <div className="px-3 sm:px-4 py-1.5 border-b bg-gray-950/5 dark:bg-gray-50/5">
-        <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono overflow-x-auto whitespace-nowrap -mx-1 px-1">
-          <span className="text-muted-foreground shrink-0">{s3Bucket || 'foto-mix'}</span>
-          {s3Breadcrumbs.map((segment, i) => (
-            <span key={i} className="flex items-center gap-1.5 shrink-0">
-              <Icon name="ChevronRight" size={12} className="text-muted-foreground" />
-              <button
-                className="text-blue-600 hover:underline"
-                onClick={() => {
-                  const newPrefix = s3Breadcrumbs.slice(0, i + 1).join('/') + '/';
-                  onBreadcrumbClick(newPrefix);
-                }}
-              >
-                {segment}
-              </button>
-            </span>
-          ))}
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono overflow-x-auto whitespace-nowrap flex-1 min-w-0">
+            <span className="text-muted-foreground shrink-0">{s3Bucket || 'foto-mix'}</span>
+            {s3Breadcrumbs.map((segment, i) => (
+              <span key={i} className="flex items-center gap-1.5 shrink-0">
+                <Icon name="ChevronRight" size={12} className="text-muted-foreground" />
+                <button
+                  className="text-blue-600 hover:underline"
+                  onClick={() => {
+                    const newPrefix = s3Breadcrumbs.slice(0, i + 1).join('/') + '/';
+                    onBreadcrumbClick(newPrefix);
+                  }}
+                >
+                  {segment}
+                </button>
+              </span>
+            ))}
+          </div>
+          <label className="shrink-0">
+            <input
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  onUploadFiles(e.target.files);
+                  e.target.value = '';
+                }
+              }}
+              disabled={uploading}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 cursor-pointer"
+              disabled={uploading}
+              asChild
+            >
+              <span>
+                <Icon name={uploading ? "Loader2" : "Upload"} size={14} className={uploading ? "animate-spin" : ""} />
+                {uploading ? 'Загрузка...' : 'Загрузить'}
+              </span>
+            </Button>
+          </label>
         </div>
       </div>
 

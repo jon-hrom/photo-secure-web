@@ -1,7 +1,8 @@
-'''Просмотр и управление фотобанком любого пользователя из админ-панели — папки, фото, удаление'''
+'''Просмотр и управление фотобанком любого пользователя из админ-панели — папки, фото, удаление, загрузка файлов'''
 
 import json
 import os
+import base64
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -109,6 +110,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif action == 's3_browse':
             prefix = params.get('prefix', f'photobank/{target_user_id}/')
             return handle_s3_browse(yc_s3_client, yc_bucket, prefix)
+        
+        elif action == 's3_upload':
+            file_data = params.get('file_data')
+            file_name = params.get('file_name')
+            s3_key = params.get('s3_key')
+            content_type = params.get('content_type', 'application/octet-stream')
+            if not file_data or not s3_key:
+                return {
+                    'statusCode': 400,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'file_data and s3_key are required'}),
+                    'isBase64Encoded': False
+                }
+            raw = base64.b64decode(file_data)
+            yc_s3_client.put_object(
+                Bucket=yc_bucket,
+                Key=s3_key,
+                Body=raw,
+                ContentType=content_type
+            )
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'ok': True, 'key': s3_key, 'size': len(raw), 'file_name': file_name or s3_key.split('/')[-1]}),
+                'isBase64Encoded': False
+            }
         
         elif action == 's3_presign':
             s3_key = params.get('key')

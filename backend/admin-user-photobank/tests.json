@@ -63,6 +63,15 @@
       "expectedStatus": 400,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "S3 upload missing data",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "s3_upload", "user_id": "1"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
     }
   ]
 }

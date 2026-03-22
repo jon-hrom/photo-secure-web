@@ -28,6 +28,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [s3Uploading, setS3Uploading] = useState(false);
 
   const [s3Folders, setS3Folders] = useState<S3Folder[]>([]);
   const [s3Files, setS3Files] = useState<S3File[]>([]);
@@ -216,6 +217,52 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
     fetchS3(newPrefix);
   };
 
+  const handleS3Upload = async (files: FileList) => {
+    if (!files.length || !s3Prefix) return;
+    setS3Uploading(true);
+    let uploaded = 0;
+    let failed = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const s3Key = s3Prefix + file.name;
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 's3_upload',
+            user_id: realUserId,
+            file_data: base64,
+            file_name: file.name,
+            s3_key: s3Key,
+            content_type: file.type || 'application/octet-stream'
+          })
+        });
+        const data = await res.json();
+        if (data.ok) uploaded++;
+        else failed++;
+      } catch {
+        failed++;
+      }
+    }
+
+    setS3Uploading(false);
+    if (uploaded > 0) toast.success(`Загружено ${uploaded} файл(ов)`);
+    if (failed > 0) toast.error(`Ошибка загрузки ${failed} файл(ов)`);
+    fetchS3(s3Prefix);
+  };
+
   const totalPhotos = folders.reduce((sum, f) => sum + (f.photo_count || 0), 0);
 
   return (
@@ -282,10 +329,12 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                   s3Bucket={s3Bucket}
                   s3Loading={s3Loading}
                   s3History={s3History}
+                  uploading={s3Uploading}
                   onNavigate={navigateS3}
                   onNavigateBack={navigateS3Back}
                   onViewFile={setS3ViewFile}
                   onBreadcrumbClick={handleS3BreadcrumbClick}
+                  onUploadFiles={handleS3Upload}
                 />
               </TabsContent>
             </Tabs>
