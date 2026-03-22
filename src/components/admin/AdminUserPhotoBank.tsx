@@ -217,58 +217,89 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
     fetchS3(newPrefix);
   };
 
+  const CHUNK_SIZE = 4 * 1024 * 1024;
+
+  const uploadFileMultipart = async (file: File, s3Key: string): Promise<boolean> => {
+    const initRes = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 's3_upload_init',
+        user_id: realUserId,
+        s3_key: s3Key,
+        content_type: file.type || 'application/octet-stream'
+      })
+    });
+    const initData = await initRes.json();
+    if (!initData.ok) return false;
+
+    const { upload_id } = initData;
+    const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+    const parts: { part_number: number; etag: string }[] = [];
+
+    for (let i = 0; i < totalParts; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+      const arrayBuffer = await chunk.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+
+      const partRes = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 's3_upload_part',
+          user_id: realUserId,
+          s3_key: s3Key,
+          upload_id,
+          part_number: i + 1,
+          chunk_data: base64
+        })
+      });
+      const partData = await partRes.json();
+      if (!partData.ok) return false;
+      parts.push({ part_number: partData.part_number, etag: partData.etag });
+    }
+
+    const completeRes = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 's3_upload_complete',
+        user_id: realUserId,
+        s3_key: s3Key,
+        upload_id,
+        parts
+      })
+    });
+    const completeData = await completeRes.json();
+    return !!completeData.ok;
+  };
+
   const handleS3Upload = async (files: FileList) => {
     if (!files.length || !s3Prefix) return;
     setS3Uploading(true);
 
-    try {
-      const filesInfo = Array.from(files).map(f => ({
-        s3_key: s3Prefix + f.name
-      }));
+    let uploaded = 0;
+    let failed = 0;
 
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 's3_upload',
-          user_id: realUserId,
-          files: filesInfo
-        })
-      });
-      const data = await res.json();
-      if (!data.ok || !data.urls) {
-        toast.error('Не удалось получить ссылки для загрузки');
-        setS3Uploading(false);
-        return;
+    for (const file of Array.from(files)) {
+      try {
+        const s3Key = s3Prefix + file.name;
+        const ok = await uploadFileMultipart(file, s3Key);
+        if (ok) uploaded++;
+        else failed++;
+      } catch {
+        failed++;
       }
-
-      let uploaded = 0;
-      let failed = 0;
-      const fileArray = Array.from(files);
-
-      for (let i = 0; i < data.urls.length; i++) {
-        const { upload_url } = data.urls[i];
-        const file = fileArray[i];
-        try {
-          const uploadRes = await fetch(upload_url, {
-            method: 'PUT',
-            body: file
-          });
-          if (uploadRes.ok) uploaded++;
-          else failed++;
-        } catch {
-          failed++;
-        }
-      }
-
-      if (uploaded > 0) toast.success(`Загружено ${uploaded} файл(ов)`);
-      if (failed > 0) toast.error(`Ошибка загрузки ${failed} файл(ов)`);
-      fetchS3(s3Prefix);
-    } catch {
-      toast.error('Ошибка загрузки');
-    } finally {
-      setS3Uploading(false);
     }
+
+    setS3Uploading(false);
+    if (uploaded > 0) toast.success(`Загружено ${uploaded} файл(ов)`);
+    if (failed > 0) toast.error(`Ошибка загрузки ${failed} файл(ов)`);
+    fetchS3(s3Prefix);
   };
 
   const handleS3Delete = async (keys: string[]) => {
