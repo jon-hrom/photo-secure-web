@@ -130,6 +130,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
             userId={userId}
             onBack={() => setShowSettings(false)}
             previewPhoto={photos.find(p => p.id === selectedPhotoId) || photos[0] || null}
+            photos={photos}
           />
         ) : (
           <>

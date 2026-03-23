@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import funcUrls from '@/../backend/func2url.json';
@@ -166,6 +167,14 @@ interface Photo {
   data_url?: string;
 }
 
+const getPhotoUrl = (photo: Photo): string => {
+  return photo.thumbnail_s3_url || photo.s3_url || photo.data_url || '';
+};
+
+const getPhotoFullUrl = (photo: Photo): string => {
+  return photo.s3_url || photo.thumbnail_s3_url || photo.data_url || '';
+};
+
 interface BeforeAfterProps {
   src: string;
   previewStyle: React.CSSProperties;
@@ -175,7 +184,12 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const dragging = useRef(false);
+
+  useEffect(() => {
+    setImgLoaded(false);
+  }, [src]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -216,53 +230,124 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
     containerRef.current?.releasePointerCapture(e.pointerId);
   }, []);
 
+  if (!src) {
+    return (
+      <div className="rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center h-48 sm:h-64">
+        <div className="text-center text-muted-foreground">
+          <Icon name="ImageOff" size={32} className="mx-auto mb-2 opacity-50" />
+          <p className="text-xs">Нет фото для предпросмотра</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
-      className="relative rounded-xl overflow-hidden bg-black dark:bg-black border border-border/50 select-none touch-none cursor-col-resize"
+      className="relative rounded-xl overflow-hidden bg-black border border-border/50 select-none touch-none cursor-col-resize"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       style={{ WebkitUserSelect: 'none' }}
     >
+      {!imgLoaded && (
+        <div className="flex items-center justify-center h-48 sm:h-64">
+          <Icon name="Loader2" size={24} className="animate-spin text-white/50" />
+        </div>
+      )}
+
       <img
         src={src}
-        alt="After"
-        className="w-full h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain"
+        alt=""
+        className={`w-full h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain ${imgLoaded ? '' : 'hidden'}`}
         style={previewStyle}
         draggable={false}
+        onLoad={() => setImgLoaded(true)}
+        onError={() => setImgLoaded(false)}
       />
 
-      <div
-        className="absolute inset-0 overflow-hidden"
-        style={{ width: `${sliderPos}%` }}
-      >
-        <img
-          src={src}
-          alt="Before"
-          className="h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain block"
-          style={{ width: containerWidth || '100%' }}
-          draggable={false}
-        />
-      </div>
+      {imgLoaded && (
+        <>
+          <div
+            className="absolute inset-0 overflow-hidden"
+            style={{ width: `${sliderPos}%` }}
+          >
+            <img
+              src={src}
+              alt=""
+              className="h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain block"
+              style={{ width: containerWidth || '100%' }}
+              draggable={false}
+            />
+          </div>
 
-      <div
-        className="absolute top-0 bottom-0 z-10"
-        style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }}
-      >
-        <div className="w-0.5 h-full bg-white/90 mx-auto" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white shadow-md flex items-center justify-center">
-          <Icon name="ArrowLeftRight" size={12} className="text-gray-700" />
-        </div>
-      </div>
+          <div
+            className="absolute top-0 bottom-0 z-10"
+            style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }}
+          >
+            <div className="w-0.5 h-full bg-white/90 mx-auto" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white shadow-md flex items-center justify-center">
+              <Icon name="ArrowLeftRight" size={12} className="text-gray-700" />
+            </div>
+          </div>
 
-      <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
-        До
-      </div>
-      <div className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
-        После
-      </div>
+          <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
+            До
+          </div>
+          <div className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
+            После
+          </div>
+        </>
+      )}
     </div>
+  );
+};
+
+interface PhotoPickerModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  photos: Photo[];
+  selectedId: number | null;
+  onSelect: (photo: Photo) => void;
+}
+
+const PhotoPickerModal = ({ open, onOpenChange, photos, selectedId, onSelect }: PhotoPickerModalProps) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md w-[calc(100%-1rem)] rounded-2xl sm:rounded-xl p-4 sm:p-5">
+        <DialogHeader>
+          <DialogTitle className="text-sm sm:text-base">Выберите фото для предпросмотра</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Это фото будет использоваться для предварительного просмотра настроек
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-[50vh] overflow-y-auto -mx-1 px-1 mt-2">
+          {photos.map(photo => (
+            <button
+              key={photo.id}
+              onClick={() => { onSelect(photo); onOpenChange(false); }}
+              className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all active:scale-95 ${
+                selectedId === photo.id
+                  ? 'border-rose-500 ring-2 ring-rose-300 shadow-lg'
+                  : 'border-transparent hover:border-rose-200'
+              }`}
+            >
+              <img
+                src={getPhotoUrl(photo)}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+              {selectedId === photo.id && (
+                <div className="absolute inset-0 bg-rose-500/20 flex items-center justify-center">
+                  <Icon name="Check" size={18} className="text-white drop-shadow-lg" />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -270,13 +355,22 @@ interface RetouchSettingsProps {
   userId: string;
   onBack: () => void;
   previewPhoto?: Photo | null;
+  photos?: Photo[];
 }
 
-const RetouchSettings = ({ userId, onBack, previewPhoto }: RetouchSettingsProps) => {
+const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchSettingsProps) => {
   const [ops, setOps] = useState<OpConfig[]>(DEFAULT_OPS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currentPreviewPhoto, setCurrentPreviewPhoto] = useState<Photo | null>(previewPhoto || null);
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (previewPhoto && !currentPreviewPhoto) {
+      setCurrentPreviewPhoto(previewPhoto);
+    }
+  }, [previewPhoto]);
 
   useEffect(() => {
     loadPreset();
@@ -348,9 +442,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto }: RetouchSettingsProps)
 
   const previewStyle = useMemo(() => buildPreviewStyle(ops), [ops]);
 
-  const previewSrc = previewPhoto
-    ? (previewPhoto.s3_url || previewPhoto.thumbnail_s3_url || previewPhoto.data_url || '')
-    : '';
+  const previewSrc = currentPreviewPhoto ? getPhotoFullUrl(currentPreviewPhoto) : '';
 
   if (loading) {
     return (
@@ -426,14 +518,25 @@ const RetouchSettings = ({ userId, onBack, previewPhoto }: RetouchSettingsProps)
     </div>
   );
 
-  if (previewSrc) {
-    return (
+  return (
+    <>
       <div className="space-y-2 sm:space-y-3">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={onBack}>
             <Icon name="ArrowLeft" size={16} />
           </Button>
-          <h3 className="font-medium text-xs sm:text-sm">Настройки ретуши</h3>
+          <h3 className="font-medium text-xs sm:text-sm flex-1">Настройки ретуши</h3>
+          {photos.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[10px] sm:text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setShowPhotoPicker(true)}
+            >
+              <Icon name="Images" size={12} className="mr-1" />
+              Сменить фото
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-col lg:flex-row gap-3">
@@ -449,21 +552,17 @@ const RetouchSettings = ({ userId, onBack, previewPhoto }: RetouchSettingsProps)
           </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={onBack}>
-          <Icon name="ArrowLeft" size={16} />
-        </Button>
-        <h3 className="font-medium text-xs sm:text-sm">Настройки ретуши</h3>
-      </div>
-
-      {slidersPanel}
-      {buttonsPanel}
-    </div>
+      {photos.length > 1 && (
+        <PhotoPickerModal
+          open={showPhotoPicker}
+          onOpenChange={setShowPhotoPicker}
+          photos={photos}
+          selectedId={currentPreviewPhoto?.id || null}
+          onSelect={setCurrentPreviewPhoto}
+        />
+      )}
+    </>
   );
 };
 
