@@ -176,12 +176,23 @@ interface Photo {
   data_url?: string;
 }
 
-const getPhotoUrl = (photo: Photo): string => {
-  return photo.thumbnail_s3_url || photo.s3_url || photo.data_url || '';
+const isRawFile = (name: string): boolean => {
+  const ext = name.split('.').pop()?.toLowerCase() || '';
+  return ['dng', 'cr2', 'cr3', 'nef', 'arw', 'orf', 'raf', 'rw2', 'pef', 'srw'].includes(ext);
 };
 
-const getPhotoFullUrl = (photo: Photo): string => {
-  return photo.s3_url || photo.thumbnail_s3_url || photo.data_url || '';
+const getPhotoUrl = (photo: Photo): string => {
+  if (photo.thumbnail_s3_url) return photo.thumbnail_s3_url;
+  if (photo.data_url) return photo.data_url;
+  if (photo.s3_url && !isRawFile(photo.file_name)) return photo.s3_url;
+  return '';
+};
+
+const getPhotoPreviewUrl = (photo: Photo): string => {
+  if (photo.thumbnail_s3_url) return photo.thumbnail_s3_url;
+  if (photo.s3_url && !isRawFile(photo.file_name)) return photo.s3_url;
+  if (photo.data_url) return photo.data_url;
+  return '';
 };
 
 interface BeforeAfterProps {
@@ -193,12 +204,14 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgState, setImgState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const dragging = useRef(false);
 
   useEffect(() => {
-    setImgLoaded(false);
+    setImgState('loading');
   }, [src]);
+
+  const imgLoaded = imgState === 'loaded';
 
   useEffect(() => {
     const el = containerRef.current;
@@ -244,7 +257,8 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
       <div className="rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center h-48 sm:h-64">
         <div className="text-center text-muted-foreground">
           <Icon name="ImageOff" size={32} className="mx-auto mb-2 opacity-50" />
-          <p className="text-xs">Нет фото для предпросмотра</p>
+          <p className="text-xs">RAW-файл без превью</p>
+          <p className="text-[10px] mt-1 opacity-70">Выберите JPG/PNG фото для предпросмотра</p>
         </div>
       </div>
     );
@@ -254,14 +268,24 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
     <div
       ref={containerRef}
       className="relative rounded-xl overflow-hidden bg-black border border-border/50 select-none touch-none cursor-col-resize"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onPointerDown={imgLoaded ? onPointerDown : undefined}
+      onPointerMove={imgLoaded ? onPointerMove : undefined}
+      onPointerUp={imgLoaded ? onPointerUp : undefined}
       style={{ WebkitUserSelect: 'none' }}
     >
-      {!imgLoaded && (
+      {imgState === 'loading' && (
         <div className="flex items-center justify-center h-48 sm:h-64">
           <Icon name="Loader2" size={24} className="animate-spin text-white/50" />
+        </div>
+      )}
+
+      {imgState === 'error' && (
+        <div className="flex items-center justify-center h-48 sm:h-64">
+          <div className="text-center text-white/60">
+            <Icon name="ImageOff" size={28} className="mx-auto mb-2 opacity-50" />
+            <p className="text-xs">Не удалось загрузить фото</p>
+            <p className="text-[10px] mt-1 opacity-60">Попробуйте выбрать другое</p>
+          </div>
         </div>
       )}
 
@@ -271,8 +295,8 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
         className={`w-full h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain ${imgLoaded ? '' : 'hidden'}`}
         style={previewStyle}
         draggable={false}
-        onLoad={() => setImgLoaded(true)}
-        onError={() => setImgLoaded(false)}
+        onLoad={() => setImgState('loaded')}
+        onError={() => setImgState('error')}
       />
 
       {imgLoaded && (
@@ -451,7 +475,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
   const previewStyle = useMemo(() => buildPreviewStyle(ops), [ops]);
 
-  const previewSrc = currentPreviewPhoto ? getPhotoFullUrl(currentPreviewPhoto) : '';
+  const previewSrc = currentPreviewPhoto ? getPhotoPreviewUrl(currentPreviewPhoto) : '';
 
   if (loading) {
     return (
