@@ -208,7 +208,6 @@ interface BeforeAfterProps {
 const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
-  const [containerWidth, setContainerWidth] = useState(0);
   const [imgState, setImgState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const dragging = useRef(false);
 
@@ -217,17 +216,6 @@ const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterProps) => {
   }, [src]);
 
   const imgLoaded = imgState === 'loaded';
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(entries => {
-      for (const entry of entries) setContainerWidth(entry.contentRect.width);
-    });
-    ro.observe(el);
-    setContainerWidth(el.offsetWidth);
-    return () => ro.disconnect();
-  }, []);
 
   const updatePosition = useCallback((clientX: number) => {
     const el = containerRef.current;
@@ -266,6 +254,8 @@ const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterProps) => {
     );
   }
 
+  const imgClass = 'w-full h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain';
+
   return (
     <div
       ref={containerRef}
@@ -290,33 +280,34 @@ const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterProps) => {
         </div>
       )}
 
-      {/* ПОСЛЕ (фон — с фильтром) */}
+      {/* ДО — оригинал, полноразмерный, обрезается clip-path справа */}
       <img
         src={src}
         alt=""
-        className={`w-full h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain ${imgLoaded ? '' : 'hidden'}`}
-        style={{ filter: filterStr, transition: 'filter 0.1s ease' }}
+        className={`${imgClass} ${imgLoaded ? '' : 'hidden'}`}
+        style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
         draggable={false}
         onLoad={() => setImgState('loaded')}
         onError={() => setImgState('error')}
       />
 
-      {/* ДО (шторка слева — оригинал, clip по ширине) */}
+      {/* ПОСЛЕ — с фильтром, абсолютно позиционирован поверх, обрезается clip-path слева */}
+      {imgLoaded && (
+        <img
+          src={src}
+          alt=""
+          className={`absolute inset-0 ${imgClass}`}
+          style={{
+            filter: filterStr,
+            transition: 'filter 0.1s ease',
+            clipPath: `inset(0 0 0 ${sliderPos}%)`,
+          }}
+          draggable={false}
+        />
+      )}
+
       {imgLoaded && (
         <>
-          <div
-            className="absolute inset-0 overflow-hidden"
-            style={{ width: `${sliderPos}%` }}
-          >
-            <img
-              src={src}
-              alt=""
-              className="h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain block"
-              style={{ width: containerWidth > 0 ? `${containerWidth}px` : '100%' }}
-              draggable={false}
-            />
-          </div>
-
           {/* Разделитель */}
           <div
             className="absolute top-0 bottom-0 z-10"
@@ -328,11 +319,10 @@ const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterProps) => {
             </div>
           </div>
 
-          {/* Лейблы */}
-          <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
+          <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none z-20">
             До
           </div>
-          <div className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
+          <div className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none z-20">
             После
           </div>
         </>
