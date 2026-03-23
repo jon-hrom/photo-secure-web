@@ -10,14 +10,7 @@ const PRESETS_API = funcUrls['retouch-presets'];
 
 interface PipelineOp {
   op: string;
-  [key: string]: string | number | boolean;
-}
-
-interface OpConfig {
-  op: string;
-  label: string;
-  enabled: boolean;
-  params: ParamConfig[];
+  [key: string]: unknown;
 }
 
 interface ParamConfig {
@@ -29,25 +22,76 @@ interface ParamConfig {
   step: number;
 }
 
+interface OpConfig {
+  op: string;
+  label: string;
+  enabled: boolean;
+  params: ParamConfig[];
+  extras?: Record<string, unknown>;
+}
+
 const DEFAULT_OPS: OpConfig[] = [
+  {
+    op: 'exposure',
+    label: 'Экспозиция',
+    enabled: true,
+    params: [
+      { key: 'amount', label: 'Сила', value: 0.55, min: 0, max: 1, step: 0.05 },
+    ],
+  },
+  {
+    op: 'shadows',
+    label: 'Тени',
+    enabled: true,
+    params: [
+      { key: 'amount', label: 'Сила', value: 0.35, min: 0, max: 1, step: 0.05 },
+    ],
+  },
+  {
+    op: 'highlights',
+    label: 'Света',
+    enabled: true,
+    params: [
+      { key: 'amount', label: 'Сила', value: 0.25, min: 0, max: 1, step: 0.05 },
+      { key: 'knee', label: 'Порог', value: 0.70, min: 0, max: 1, step: 0.05 },
+    ],
+  },
+  {
+    op: 'contrast2',
+    label: 'Контраст',
+    enabled: true,
+    params: [
+      { key: 'amount', label: 'Сила', value: 0.55, min: 0, max: 1, step: 0.05 },
+    ],
+  },
+  {
+    op: 'saturation',
+    label: 'Насыщенность',
+    enabled: true,
+    params: [
+      { key: 'amount', label: 'Сила', value: 0.52, min: 0, max: 1, step: 0.05 },
+    ],
+  },
+  {
+    op: 'skin_fs',
+    label: 'Гладкость кожи',
+    enabled: true,
+    params: [
+      { key: 'strength', label: 'Сила', value: 0.70, min: 0, max: 1, step: 0.05 },
+      { key: 'texture_radius', label: 'Радиус текстуры', value: 6.0, min: 1, max: 20, step: 0.5 },
+      { key: 'texture_amount', label: 'Текстура', value: 0.33, min: 0, max: 1, step: 0.01 },
+    ],
+    extras: { mask: { max_det_side: 2500 } },
+  },
   {
     op: 'deshine',
     label: 'Убрать блеск',
     enabled: true,
     params: [
-      { key: 'strength', label: 'Сила', value: 0.55, min: 0, max: 1, step: 0.05 },
-      { key: 'knee', label: 'Порог', value: 0.80, min: 0, max: 1, step: 0.05 },
+      { key: 'strength', label: 'Сила', value: 0.65, min: 0, max: 1, step: 0.05 },
+      { key: 'knee', label: 'Порог', value: 0.68, min: 0, max: 1, step: 0.05 },
     ],
-  },
-  {
-    op: 'skin_smooth',
-    label: 'Гладкость кожи',
-    enabled: true,
-    params: [
-      { key: 'strength', label: 'Сила', value: 0.40, min: 0, max: 1, step: 0.05 },
-      { key: 'sigma_s', label: 'Радиус', value: 80, min: 10, max: 200, step: 5 },
-      { key: 'sigma_r', label: 'Детали', value: 0.18, min: 0.05, max: 0.5, step: 0.01 },
-    ],
+    extras: { mask: { max_det_side: 2500 } },
   },
 ];
 
@@ -55,6 +99,12 @@ const opsFromPipeline = (pipeline: PipelineOp[]): OpConfig[] => {
   return DEFAULT_OPS.map(def => {
     const found = pipeline.find(p => p.op === def.op);
     if (!found) return { ...def, enabled: false };
+    const extras: Record<string, unknown> = {};
+    Object.keys(found).forEach(k => {
+      if (k === 'op') return;
+      if (def.params.some(p => p.key === k)) return;
+      extras[k] = found[k];
+    });
     return {
       ...def,
       enabled: true,
@@ -62,6 +112,7 @@ const opsFromPipeline = (pipeline: PipelineOp[]): OpConfig[] => {
         ...param,
         value: typeof found[param.key] === 'number' ? found[param.key] as number : param.value,
       })),
+      extras: Object.keys(extras).length > 0 ? extras : def.extras,
     };
   });
 };
@@ -72,6 +123,9 @@ const opsToJson = (ops: OpConfig[]): PipelineOp[] => {
     .map(o => {
       const result: PipelineOp = { op: o.op };
       o.params.forEach(p => { result[p.key] = p.value; });
+      if (o.extras) {
+        Object.entries(o.extras).forEach(([k, v]) => { result[k] = v; });
+      }
       return result;
     });
 };
@@ -164,7 +218,7 @@ const RetouchSettings = ({ userId, onBack }: RetouchSettingsProps) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
           <Icon name="ArrowLeft" size={16} />
@@ -172,30 +226,30 @@ const RetouchSettings = ({ userId, onBack }: RetouchSettingsProps) => {
         <h3 className="font-medium text-sm sm:text-base">Настройки ретуши</h3>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-1.5">
         {ops.map((op, opIndex) => (
           <div
             key={op.op}
-            className={`rounded-xl border p-3 sm:p-4 transition-colors ${
+            className={`rounded-lg border px-3 py-2 transition-colors ${
               op.enabled
                 ? 'bg-background/60 border-rose-200 dark:border-rose-800/40'
                 : 'bg-muted/30 border-muted'
             }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className={`text-sm font-medium ${!op.enabled ? 'text-muted-foreground' : ''}`}>
+            <div className="flex items-center justify-between">
+              <span className={`text-xs font-medium ${!op.enabled ? 'text-muted-foreground' : ''}`}>
                 {op.label}
               </span>
               <Switch checked={op.enabled} onCheckedChange={() => toggleOp(opIndex)} />
             </div>
 
             {op.enabled && (
-              <div className="space-y-3 mt-3 pt-3 border-t border-border/50">
+              <div className="space-y-2 mt-2 pt-2 border-t border-border/50">
                 {op.params.map(param => (
                   <div key={param.key}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-muted-foreground">{param.label}</span>
-                      <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] text-muted-foreground">{param.label}</span>
+                      <span className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded">
                         {param.value}
                       </span>
                     </div>
@@ -215,11 +269,11 @@ const RetouchSettings = ({ userId, onBack }: RetouchSettingsProps) => {
         ))}
       </div>
 
-      <div className="flex gap-2 pt-2">
+      <div className="flex gap-2 pt-1">
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="flex-1 bg-rose-600 hover:bg-rose-700 text-white h-10 text-sm"
+          className="flex-1 bg-rose-600 hover:bg-rose-700 text-white h-9 text-sm"
         >
           {saving ? (
             <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
@@ -228,7 +282,7 @@ const RetouchSettings = ({ userId, onBack }: RetouchSettingsProps) => {
           )}
           Применить
         </Button>
-        <Button variant="outline" onClick={handleReset} className="h-10 text-sm">
+        <Button variant="outline" onClick={handleReset} className="h-9 text-sm">
           <Icon name="RotateCcw" size={14} className="mr-1" />
           Сброс
         </Button>
