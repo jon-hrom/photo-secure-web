@@ -142,19 +142,28 @@ const buildPreviewStyle = (ops: OpConfig[]): React.CSSProperties => {
   const exposure = getParamValue(ops, 'exposure', 'amount');
   const shadows = getParamValue(ops, 'shadows', 'amount');
   const highlights = getParamValue(ops, 'highlights', 'amount');
+  const highlightsKnee = getParamValue(ops, 'highlights', 'knee');
   const contrast = getParamValue(ops, 'contrast2', 'amount');
   const saturation = getParamValue(ops, 'saturation', 'amount');
   const skinStrength = getParamValue(ops, 'skin_fs', 'strength');
+  const skinTexture = getParamValue(ops, 'skin_fs', 'texture_amount');
   const deshineStrength = getParamValue(ops, 'deshine', 'strength');
 
-  const brightness = 0.85 + exposure * 0.35 + shadows * 0.1;
-  const contrastVal = 0.85 + contrast * 0.35;
-  const saturateVal = 0.8 + saturation * 0.5;
-  const blurVal = skinStrength * 0.4 + deshineStrength * 0.1;
-  const brightnessFromHighlights = 1 + highlights * 0.08;
+  const brightnessBase = 1.0 + exposure * 0.25;
+  const shadowsLift = shadows * 0.12;
+  const highlightsDim = highlights * (1 - highlightsKnee * 0.5) * -0.06;
+  const brightness = brightnessBase + shadowsLift + highlightsDim;
+
+  const contrastVal = 1.0 + contrast * 0.2;
+
+  const saturateVal = 1.0 + saturation * 0.25;
+
+  const skinBlur = skinStrength * (1 - skinTexture * 0.6) * 0.35;
+  const deshineBlur = deshineStrength * 0.05;
+  const blurVal = skinBlur + deshineBlur;
 
   return {
-    filter: `brightness(${(brightness * brightnessFromHighlights).toFixed(3)}) contrast(${contrastVal.toFixed(3)}) saturate(${saturateVal.toFixed(3)}) blur(${blurVal.toFixed(2)}px)`,
+    filter: `brightness(${brightness.toFixed(3)}) contrast(${contrastVal.toFixed(3)}) saturate(${saturateVal.toFixed(3)}) blur(${blurVal.toFixed(2)}px)`,
     transition: 'filter 0.15s ease',
   };
 };
