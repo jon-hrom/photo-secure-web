@@ -43,9 +43,17 @@ const DEFAULT_OPS: OpConfig[] = [
   {
     op: 'temperature',
     label: 'Температура',
-    enabled: false,
+    enabled: true,
     params: [
-      { key: 'amount', label: 'Тепло', value: 0, min: -1, max: 1, step: 0.01 },
+      { key: 'amount', label: 'Тепло', value: 0.62, min: 0, max: 1, step: 0.01 },
+    ],
+  },
+  {
+    op: 'tint',
+    label: 'Оттенок',
+    enabled: true,
+    params: [
+      { key: 'amount', label: 'Сила', value: 0.52, min: 0, max: 1, step: 0.01 },
     ],
   },
   {
@@ -149,6 +157,7 @@ const getParamValue = (ops: OpConfig[], opName: string, paramKey: string): numbe
 const buildPreviewFilter = (ops: OpConfig[]): string => {
   const exposure = getParamValue(ops, 'exposure', 'amount');
   const temperature = getParamValue(ops, 'temperature', 'amount');
+  const tint = getParamValue(ops, 'tint', 'amount');
   const shadows = getParamValue(ops, 'shadows', 'amount');
   const highlights = getParamValue(ops, 'highlights', 'amount');
   const contrast = getParamValue(ops, 'contrast2', 'amount');
@@ -161,13 +170,13 @@ const buildPreviewFilter = (ops: OpConfig[]): string => {
   const saturateVal = 1.0 + saturation * 0.6;
   const blurVal = skinStrength * 0.6 + deshineStrength * 0.1;
 
-  const sepiaAmount = temperature > 0 ? temperature * 0.4 : 0;
-  const hueRotate = temperature < 0 ? temperature * 30 : 0;
+  const sepiaAmount = temperature * 0.3;
+  const hueRotate = tint * 15 - 7.5;
 
   let filter = `brightness(${brightness.toFixed(3)}) contrast(${contrastVal.toFixed(3)}) saturate(${saturateVal.toFixed(3)})`;
   if (blurVal > 0.01) filter += ` blur(${blurVal.toFixed(2)}px)`;
   if (sepiaAmount > 0.001) filter += ` sepia(${sepiaAmount.toFixed(3)})`;
-  if (hueRotate !== 0) filter += ` hue-rotate(${hueRotate.toFixed(1)}deg)`;
+  if (Math.abs(hueRotate) > 0.1) filter += ` hue-rotate(${hueRotate.toFixed(1)}deg)`;
 
   return filter;
 };
