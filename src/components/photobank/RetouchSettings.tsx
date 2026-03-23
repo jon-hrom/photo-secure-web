@@ -540,6 +540,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
                     max={param.max}
                     step={param.step}
                     onValueChange={([v]) => updateParam(opIndex, param.key, v)}
+                    onDoubleClick={() => updateParam(opIndex, param.key, isSymmetricParam(param) ? 0 : (param.min + param.max) / 2)}
                     className="w-full"
                   />
                 </div>
