@@ -37,7 +37,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Экспозиция',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.55, min: 0, max: 1, step: 0.01 },
+      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -45,7 +45,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Температура',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Тепло', value: 0.62, min: 0, max: 1, step: 0.01 },
+      { key: 'amount', label: 'Тепло', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -53,7 +53,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Оттенок',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.52, min: 0, max: 1, step: 0.01 },
+      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -61,7 +61,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Тени',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.35, min: 0, max: 1, step: 0.01 },
+      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -69,8 +69,8 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Света',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.25, min: 0, max: 1, step: 0.01 },
-      { key: 'knee', label: 'Порог', value: 0.70, min: 0, max: 1, step: 0.01 },
+      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+      { key: 'knee', label: 'Порог', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -78,7 +78,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Контраст',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.55, min: 0, max: 1, step: 0.01 },
+      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -86,7 +86,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Насыщенность',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.52, min: 0, max: 1, step: 0.01 },
+      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -94,9 +94,9 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Гладкость кожи',
     enabled: true,
     params: [
-      { key: 'strength', label: 'Сила', value: 0.70, min: 0, max: 1, step: 0.01 },
-      { key: 'texture_radius', label: 'Радиус текстуры', value: 6.0, min: 1, max: 20, step: 0.5 },
-      { key: 'texture_amount', label: 'Текстура', value: 0.33, min: 0, max: 1, step: 0.01 },
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+      { key: 'texture_radius', label: 'Радиус текстуры', value: 10.5, min: 1, max: 20, step: 0.5 },
+      { key: 'texture_amount', label: 'Текстура', value: 0, min: -1, max: 1, step: 0.01 },
     ],
     extras: { mask: { max_det_side: 2500 } },
   },
@@ -105,12 +105,26 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Убрать блеск',
     enabled: true,
     params: [
-      { key: 'strength', label: 'Сила', value: 0.65, min: 0, max: 1, step: 0.01 },
-      { key: 'knee', label: 'Порог', value: 0.68, min: 0, max: 1, step: 0.01 },
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+      { key: 'knee', label: 'Порог', value: 0, min: -1, max: 1, step: 0.01 },
     ],
     extras: { mask: { max_det_side: 2500 } },
   },
 ];
+
+const isSymmetricParam = (param: ParamConfig): boolean => {
+  return param.min === -1 && param.max === 1;
+};
+
+const serverToUi = (serverVal: number, param: ParamConfig): number => {
+  if (!isSymmetricParam(param)) return serverVal;
+  return Math.round((serverVal * 2 - 1) * 100) / 100;
+};
+
+const uiToServer = (uiVal: number, param: ParamConfig): number => {
+  if (!isSymmetricParam(param)) return uiVal;
+  return Math.round(((uiVal + 1) / 2) * 100) / 100;
+};
 
 const opsFromPipeline = (pipeline: PipelineOp[]): OpConfig[] => {
   return DEFAULT_OPS.map(def => {
@@ -127,7 +141,9 @@ const opsFromPipeline = (pipeline: PipelineOp[]): OpConfig[] => {
       enabled: true,
       params: def.params.map(param => ({
         ...param,
-        value: typeof found[param.key] === 'number' ? found[param.key] as number : param.value,
+        value: typeof found[param.key] === 'number'
+          ? serverToUi(found[param.key] as number, param)
+          : param.value,
       })),
       extras: Object.keys(extras).length > 0 ? extras : def.extras,
     };
@@ -139,7 +155,7 @@ const opsToJson = (ops: OpConfig[]): PipelineOp[] => {
     .filter(o => o.enabled)
     .map(o => {
       const result: PipelineOp = { op: o.op };
-      o.params.forEach(p => { result[p.key] = p.value; });
+      o.params.forEach(p => { result[p.key] = uiToServer(p.value, p); });
       if (o.extras) {
         Object.entries(o.extras).forEach(([k, v]) => { result[k] = v; });
       }
@@ -165,13 +181,13 @@ const buildPreviewFilter = (ops: OpConfig[]): string => {
   const skinStrength = getParamValue(ops, 'skin_fs', 'strength');
   const deshineStrength = getParamValue(ops, 'deshine', 'strength');
 
-  const brightness = 1.0 + exposure * 0.6 + shadows * 0.3 - highlights * 0.15;
-  const contrastVal = 1.0 + contrast * 0.5;
-  const saturateVal = 1.0 + saturation * 0.6;
-  const blurVal = skinStrength * 0.6 + deshineStrength * 0.1;
+  const brightness = 1.0 + exposure * 0.4 + shadows * 0.2 - highlights * 0.1;
+  const contrastVal = 1.0 + contrast * 0.35;
+  const saturateVal = 1.0 + saturation * 0.4;
+  const blurVal = Math.max(0, skinStrength * 0.5 + deshineStrength * 0.08);
 
-  const sepiaAmount = temperature * 0.3;
-  const hueRotate = tint * 15 - 7.5;
+  const sepiaAmount = Math.max(0, temperature * 0.25);
+  const hueRotate = tint * 15;
 
   let filter = `brightness(${brightness.toFixed(3)}) contrast(${contrastVal.toFixed(3)}) saturate(${saturateVal.toFixed(3)})`;
   if (blurVal > 0.01) filter += ` blur(${blurVal.toFixed(2)}px)`;
@@ -512,8 +528,10 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
                 <div key={param.key}>
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground">{param.label}</span>
-                    <span className="text-[10px] font-mono bg-muted px-1 py-px rounded">
-                      {param.value}
+                    <span className={`text-[10px] font-mono px-1 py-px rounded ${
+                      param.value === 0 ? 'bg-muted text-muted-foreground' : param.value > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                    }`}>
+                      {isSymmetricParam(param) ? (param.value > 0 ? '+' : '') : ''}{Math.round(param.value * 100) / 100}
                     </span>
                   </div>
                   <Slider
