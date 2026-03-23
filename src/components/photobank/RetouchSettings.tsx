@@ -37,7 +37,15 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Экспозиция',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.55, min: 0, max: 1, step: 0.05 },
+      { key: 'amount', label: 'Сила', value: 0.55, min: 0, max: 10, step: 0.1 },
+    ],
+  },
+  {
+    op: 'temperature',
+    label: 'Температура',
+    enabled: false,
+    params: [
+      { key: 'amount', label: 'Тепло', value: 0, min: -10, max: 10, step: 0.1 },
     ],
   },
   {
@@ -45,7 +53,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Тени',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.35, min: 0, max: 1, step: 0.05 },
+      { key: 'amount', label: 'Сила', value: 0.35, min: 0, max: 10, step: 0.1 },
     ],
   },
   {
@@ -53,8 +61,8 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Света',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.25, min: 0, max: 1, step: 0.05 },
-      { key: 'knee', label: 'Порог', value: 0.70, min: 0, max: 1, step: 0.05 },
+      { key: 'amount', label: 'Сила', value: 0.25, min: 0, max: 10, step: 0.1 },
+      { key: 'knee', label: 'Порог', value: 0.70, min: 0, max: 10, step: 0.1 },
     ],
   },
   {
@@ -62,7 +70,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Контраст',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.55, min: 0, max: 1, step: 0.05 },
+      { key: 'amount', label: 'Сила', value: 0.55, min: 0, max: 10, step: 0.1 },
     ],
   },
   {
@@ -70,7 +78,7 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Насыщенность',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0.52, min: 0, max: 1, step: 0.05 },
+      { key: 'amount', label: 'Сила', value: 0.52, min: 0, max: 10, step: 0.1 },
     ],
   },
   {
@@ -78,9 +86,9 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Гладкость кожи',
     enabled: true,
     params: [
-      { key: 'strength', label: 'Сила', value: 0.70, min: 0, max: 1, step: 0.05 },
+      { key: 'strength', label: 'Сила', value: 0.70, min: 0, max: 10, step: 0.1 },
       { key: 'texture_radius', label: 'Радиус текстуры', value: 6.0, min: 1, max: 20, step: 0.5 },
-      { key: 'texture_amount', label: 'Текстура', value: 0.33, min: 0, max: 1, step: 0.01 },
+      { key: 'texture_amount', label: 'Текстура', value: 0.33, min: 0, max: 10, step: 0.1 },
     ],
     extras: { mask: { max_det_side: 2500 } },
   },
@@ -89,8 +97,8 @@ const DEFAULT_OPS: OpConfig[] = [
     label: 'Убрать блеск',
     enabled: true,
     params: [
-      { key: 'strength', label: 'Сила', value: 0.65, min: 0, max: 1, step: 0.05 },
-      { key: 'knee', label: 'Порог', value: 0.68, min: 0, max: 1, step: 0.05 },
+      { key: 'strength', label: 'Сила', value: 0.65, min: 0, max: 10, step: 0.1 },
+      { key: 'knee', label: 'Порог', value: 0.68, min: 0, max: 10, step: 0.1 },
     ],
     extras: { mask: { max_det_side: 2500 } },
   },
@@ -138,34 +146,31 @@ const getParamValue = (ops: OpConfig[], opName: string, paramKey: string): numbe
   return param ? param.value : 0;
 };
 
-const buildPreviewStyle = (ops: OpConfig[]): React.CSSProperties => {
+const buildPreviewFilter = (ops: OpConfig[]): string => {
   const exposure = getParamValue(ops, 'exposure', 'amount');
+  const temperature = getParamValue(ops, 'temperature', 'amount');
   const shadows = getParamValue(ops, 'shadows', 'amount');
   const highlights = getParamValue(ops, 'highlights', 'amount');
-  const highlightsKnee = getParamValue(ops, 'highlights', 'knee');
   const contrast = getParamValue(ops, 'contrast2', 'amount');
   const saturation = getParamValue(ops, 'saturation', 'amount');
   const skinStrength = getParamValue(ops, 'skin_fs', 'strength');
-  const skinTexture = getParamValue(ops, 'skin_fs', 'texture_amount');
   const deshineStrength = getParamValue(ops, 'deshine', 'strength');
 
-  const brightnessBase = 1.0 + exposure * 0.25;
-  const shadowsLift = shadows * 0.12;
-  const highlightsDim = highlights * (1 - highlightsKnee * 0.5) * -0.06;
-  const brightness = brightnessBase + shadowsLift + highlightsDim;
+  const brightness = 1.0 + exposure * 0.15 + shadows * 0.08 - highlights * 0.04;
+  const contrastVal = 1.0 + contrast * 0.12;
+  const saturateVal = 1.0 + saturation * 0.15;
+  const blurVal = skinStrength * 0.25 + deshineStrength * 0.03;
 
-  const contrastVal = 1.0 + contrast * 0.2;
+  const warmth = temperature * 3;
+  const sepiaAmount = warmth > 0 ? Math.min(warmth * 0.05, 0.5) : 0;
+  const hueRotate = warmth < 0 ? warmth * 1.5 : 0;
 
-  const saturateVal = 1.0 + saturation * 0.25;
+  let filter = `brightness(${brightness.toFixed(3)}) contrast(${contrastVal.toFixed(3)}) saturate(${saturateVal.toFixed(3)})`;
+  if (blurVal > 0.01) filter += ` blur(${blurVal.toFixed(2)}px)`;
+  if (sepiaAmount > 0.001) filter += ` sepia(${sepiaAmount.toFixed(3)})`;
+  if (hueRotate !== 0) filter += ` hue-rotate(${hueRotate.toFixed(1)}deg)`;
 
-  const skinBlur = skinStrength * (1 - skinTexture * 0.6) * 0.35;
-  const deshineBlur = deshineStrength * 0.05;
-  const blurVal = skinBlur + deshineBlur;
-
-  return {
-    filter: `brightness(${brightness.toFixed(3)}) contrast(${contrastVal.toFixed(3)}) saturate(${saturateVal.toFixed(3)}) blur(${blurVal.toFixed(2)}px)`,
-    transition: 'filter 0.15s ease',
-  };
+  return filter;
 };
 
 interface Photo {
@@ -197,10 +202,10 @@ const getPhotoPreviewUrl = (photo: Photo): string => {
 
 interface BeforeAfterProps {
   src: string;
-  previewStyle: React.CSSProperties;
+  filterStr: string;
 }
 
-const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
+const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -217,9 +222,7 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
+      for (const entry of entries) setContainerWidth(entry.contentRect.width);
     });
     ro.observe(el);
     setContainerWidth(el.offsetWidth);
@@ -230,8 +233,7 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const pct = Math.max(2, Math.min(98, (x / rect.width) * 100));
+    const pct = Math.max(2, Math.min(98, ((clientX - rect.left) / rect.width) * 100));
     setSliderPos(pct);
   }, []);
 
@@ -258,7 +260,7 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
         <div className="text-center text-muted-foreground">
           <Icon name="ImageOff" size={32} className="mx-auto mb-2 opacity-50" />
           <p className="text-xs">RAW-файл без превью</p>
-          <p className="text-[10px] mt-1 opacity-70">Выберите JPG/PNG фото для предпросмотра</p>
+          <p className="text-[10px] mt-1 opacity-70">Выберите JPG/PNG фото</p>
         </div>
       </div>
     );
@@ -283,22 +285,23 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
         <div className="flex items-center justify-center h-48 sm:h-64">
           <div className="text-center text-white/60">
             <Icon name="ImageOff" size={28} className="mx-auto mb-2 opacity-50" />
-            <p className="text-xs">Не удалось загрузить фото</p>
-            <p className="text-[10px] mt-1 opacity-60">Попробуйте выбрать другое</p>
+            <p className="text-xs">Не удалось загрузить</p>
           </div>
         </div>
       )}
 
+      {/* ПОСЛЕ (фон — с фильтром) */}
       <img
         src={src}
         alt=""
         className={`w-full h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain ${imgLoaded ? '' : 'hidden'}`}
-        style={previewStyle}
+        style={{ filter: filterStr, transition: 'filter 0.1s ease' }}
         draggable={false}
         onLoad={() => setImgState('loaded')}
         onError={() => setImgState('error')}
       />
 
+      {/* ДО (шторка слева — оригинал, clip по ширине) */}
       {imgLoaded && (
         <>
           <div
@@ -309,11 +312,12 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
               src={src}
               alt=""
               className="h-auto max-h-[40vh] sm:max-h-[50vh] lg:max-h-[55vh] object-contain block"
-              style={{ width: containerWidth || '100%' }}
+              style={{ width: containerWidth > 0 ? `${containerWidth}px` : '100%' }}
               draggable={false}
             />
           </div>
 
+          {/* Разделитель */}
           <div
             className="absolute top-0 bottom-0 z-10"
             style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }}
@@ -324,6 +328,7 @@ const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
             </div>
           </div>
 
+          {/* Лейблы */}
           <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
             До
           </div>
@@ -473,7 +478,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
     setOps(DEFAULT_OPS);
   };
 
-  const previewStyle = useMemo(() => buildPreviewStyle(ops), [ops]);
+  const filterStr = useMemo(() => buildPreviewFilter(ops), [ops]);
 
   const previewSrc = currentPreviewPhoto ? getPhotoPreviewUrl(currentPreviewPhoto) : '';
 
@@ -574,7 +579,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="lg:flex-1 min-w-0">
-            <BeforeAfterPreview src={previewSrc} previewStyle={previewStyle} />
+            <BeforeAfterPreview src={previewSrc} filterStr={filterStr} />
           </div>
 
           <div className="lg:w-64 xl:w-72 flex-shrink-0">
