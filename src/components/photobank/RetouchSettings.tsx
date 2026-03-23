@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -165,6 +165,88 @@ interface Photo {
   thumbnail_s3_url?: string;
   data_url?: string;
 }
+
+interface BeforeAfterProps {
+  src: string;
+  previewStyle: React.CSSProperties;
+}
+
+const BeforeAfterPreview = ({ src, previewStyle }: BeforeAfterProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [sliderPos, setSliderPos] = useState(50);
+  const dragging = useRef(false);
+
+  const updatePosition = useCallback((clientX: number) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    setSliderPos(pct);
+  }, []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    dragging.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    updatePosition(e.clientX);
+  }, [updatePosition]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    updatePosition(e.clientX);
+  }, [updatePosition]);
+
+  const onPointerUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 border border-border/50 select-none touch-none cursor-col-resize"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
+      <img
+        src={src}
+        alt="After"
+        className="w-full h-auto max-h-[55vh] object-contain"
+        style={previewStyle}
+        draggable={false}
+      />
+
+      <div
+        className="absolute inset-0 overflow-hidden"
+        style={{ width: `${sliderPos}%` }}
+      >
+        <img
+          src={src}
+          alt="Before"
+          className="h-auto max-h-[55vh] object-contain"
+          style={{ width: containerRef.current?.offsetWidth || '100%' }}
+          draggable={false}
+        />
+      </div>
+
+      <div
+        className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg z-10"
+        style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }}
+      >
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center">
+          <Icon name="ArrowLeftRight" size={14} className="text-gray-700" />
+        </div>
+      </div>
+
+      <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
+        До
+      </div>
+      <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
+        После
+      </div>
+    </div>
+  );
+};
 
 interface RetouchSettingsProps {
   userId: string;
@@ -338,17 +420,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto }: RetouchSettingsProps)
 
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="lg:flex-1 min-w-0">
-            <div className="relative rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 border border-border/50">
-              <img
-                src={previewSrc}
-                alt="Preview"
-                className="w-full h-auto max-h-[55vh] object-contain"
-                style={previewStyle}
-              />
-              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
-                Предпросмотр
-              </div>
-            </div>
+            <BeforeAfterPreview src={previewSrc} previewStyle={previewStyle} />
           </div>
 
           <div className="lg:w-72 xl:w-80 flex-shrink-0">
