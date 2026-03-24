@@ -110,6 +110,14 @@ const DEFAULT_OPS: OpConfig[] = [
     ],
     extras: { mask: { max_det_side: 2500 } },
   },
+  {
+    op: 'blackheads',
+    label: 'Чистка лица',
+    enabled: true,
+    params: [
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+    ],
+  },
 ];
 
 const isSymmetricParam = (param: ParamConfig): boolean => {
