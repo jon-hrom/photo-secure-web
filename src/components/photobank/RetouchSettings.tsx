@@ -135,16 +135,17 @@ const uiToServer = (uiVal: number, param: ParamConfig): number => {
 };
 
 const opsFromPipeline = (pipeline: PipelineOp[]): OpConfig[] => {
-  return DEFAULT_OPS.map(def => {
-    const found = pipeline.find(p => p.op === def.op);
-    if (!found) return { ...def, enabled: false };
+  const result: OpConfig[] = [];
+  pipeline.forEach(found => {
+    const def = DEFAULT_OPS.find(d => d.op === found.op);
+    if (!def) return;
     const extras: Record<string, unknown> = {};
     Object.keys(found).forEach(k => {
       if (k === 'op') return;
       if (def.params.some(p => p.key === k)) return;
       extras[k] = found[k];
     });
-    return {
+    result.push({
       ...def,
       enabled: true,
       params: def.params.map(param => ({
@@ -154,8 +155,14 @@ const opsFromPipeline = (pipeline: PipelineOp[]): OpConfig[] => {
           : param.value,
       })),
       extras: Object.keys(extras).length > 0 ? extras : def.extras,
-    };
+    });
   });
+  DEFAULT_OPS.forEach(def => {
+    if (!result.some(r => r.op === def.op)) {
+      result.push({ ...def, enabled: false });
+    }
+  });
+  return result;
 };
 
 const opsToJson = (ops: OpConfig[]): PipelineOp[] => {
@@ -424,7 +431,18 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const [saving, setSaving] = useState(false);
   const [currentPreviewPhoto, setCurrentPreviewPhoto] = useState<Photo | null>(previewPhoto || null);
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
   const { toast } = useToast();
+
+  const moveOp = (fromIndex: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= ops.length) return;
+    setOps(prev => {
+      const next = [...prev];
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (previewPhoto && !currentPreviewPhoto) {
@@ -514,24 +532,55 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
   const slidersPanel = (
     <div className="space-y-1">
+      <div className="flex items-center justify-between pb-1 mb-1 border-b border-border/40">
+        <div className="flex items-center gap-1.5">
+          <Icon name={reorderMode ? "Unlock" : "Lock"} size={12} className="text-muted-foreground" />
+          <span className="text-[10px] text-muted-foreground">Порядок</span>
+        </div>
+        <Switch checked={reorderMode} onCheckedChange={setReorderMode} className="scale-[0.7]" />
+      </div>
       {ops.map((op, opIndex) => (
         <div
           key={op.op}
           className={`rounded-lg border px-2.5 py-1.5 transition-colors ${
-            op.enabled
-              ? 'bg-background/60 border-rose-200 dark:border-rose-800/40'
-              : 'bg-muted/30 border-muted'
+            reorderMode
+              ? 'border-dashed cursor-grab bg-muted/20 border-muted-foreground/30'
+              : op.enabled
+                ? 'bg-background/60 border-rose-200 dark:border-rose-800/40'
+                : 'bg-muted/30 border-muted'
           }`}
         >
           <div className="flex items-center justify-between h-6">
-            <span className={`text-[11px] font-medium ${!op.enabled ? 'text-muted-foreground' : ''}`}>
-              {op.label}
-            </span>
-            <Switch checked={op.enabled} onCheckedChange={() => toggleOp(opIndex)} className="scale-[0.8]" />
+            <div className="flex items-center">
+              {reorderMode && (
+                <div className="flex flex-col gap-0.5 mr-1.5">
+                  <button
+                    onClick={() => moveOp(opIndex, 'up')}
+                    disabled={opIndex === 0}
+                    className="h-3.5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30"
+                  >
+                    <Icon name="ChevronUp" size={10} />
+                  </button>
+                  <button
+                    onClick={() => moveOp(opIndex, 'down')}
+                    disabled={opIndex === ops.length - 1}
+                    className="h-3.5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30"
+                  >
+                    <Icon name="ChevronDown" size={10} />
+                  </button>
+                </div>
+              )}
+              <span className={`text-[11px] font-medium ${!op.enabled ? 'text-muted-foreground' : ''}`}>
+                {op.label}
+              </span>
+            </div>
+            {!reorderMode && (
+              <Switch checked={op.enabled} onCheckedChange={() => toggleOp(opIndex)} className="scale-[0.8]" />
+            )}
           </div>
 
           {op.enabled && (
-            <div className="space-y-1 mt-1 pt-1 border-t border-border/40">
+            <div className={`space-y-1 mt-1 pt-1 border-t border-border/40 ${reorderMode ? 'opacity-60 pointer-events-none' : ''}`}>
               {op.params.map(param => (
                 <div key={param.key}>
                   <div className="flex items-center justify-between">
