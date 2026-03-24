@@ -608,7 +608,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
           </div>
 
           <div className="lg:w-64 xl:w-72 flex-shrink-0">
-            <div className="max-h-[35vh] sm:max-h-[45vh] lg:max-h-[55vh] overflow-y-auto pr-0.5 space-y-2 overscroll-contain">
+            <div className="max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh] overflow-y-auto pr-0.5 space-y-2 overscroll-contain">
               {slidersPanel}
               {buttonsPanel}
             </div>
