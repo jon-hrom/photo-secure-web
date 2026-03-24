@@ -509,7 +509,7 @@ def handler(event: dict, context) -> dict:
                     FROM t_p28211681_photo_secure_web.photo_bank
                     WHERE folder_id = %s AND is_trashed = false
                       AND (is_raw = false OR (is_raw = true AND thumbnail_s3_key IS NOT NULL))
-                    ORDER BY created_at DESC
+                    ORDER BY file_name ASC
                     """,
                     (subfolder_id,)
                 )
@@ -595,7 +595,7 @@ def handler(event: dict, context) -> dict:
                 FROM t_p28211681_photo_secure_web.photo_bank
                 WHERE folder_id = %s AND is_trashed = false
                   AND (is_raw = false OR (is_raw = true AND thumbnail_s3_key IS NOT NULL))
-                ORDER BY created_at DESC
+                ORDER BY file_name ASC
                 """,
                 (folder_id,)
             )
