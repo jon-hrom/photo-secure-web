@@ -119,13 +119,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
         
-        # Получаем уникальные фотографии из папки (убираем дубликаты по s3_key)
         cur.execute(
             """
-            SELECT DISTINCT ON (s3_key) s3_key, file_name, s3_url
-            FROM t_p28211681_photo_secure_web.photo_bank 
-            WHERE folder_id = %s AND s3_key IS NOT NULL AND is_trashed = false
-            ORDER BY s3_key, id
+            SELECT s3_key, file_name, s3_url FROM (
+                SELECT DISTINCT ON (s3_key) s3_key, file_name, s3_url
+                FROM t_p28211681_photo_secure_web.photo_bank 
+                WHERE folder_id = %s AND s3_key IS NOT NULL AND is_trashed = false
+                ORDER BY s3_key, id
+            ) sub
+            ORDER BY CAST(NULLIF(regexp_replace(file_name, '[^0-9]', '', 'g'), '') AS bigint) ASC NULLS LAST, file_name ASC
             """,
             (folder_id,)
         )
