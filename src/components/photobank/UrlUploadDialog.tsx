@@ -15,7 +15,7 @@ interface UploadResult {
 interface UrlUploadDialogProps {
   open: boolean;
   onClose: () => void;
-  onUpload: (url: string, folderId?: number, signal?: AbortSignal) => Promise<UploadResult>;
+  onUpload: (url: string, folderId?: number, signal?: AbortSignal, offset?: number) => Promise<UploadResult>;
 }
 
 const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
@@ -69,8 +69,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       let totalUploadedCount = 0;
       let targetFolderId: number | null = null;
 
-      // Первый запрос для получения общего количества
-      const firstResult = await onUpload(url, undefined, abortControllerRef.current?.signal);
+      // Первый запрос для получения общего количества (offset=0)
+      const firstResult = await onUpload(url, undefined, abortControllerRef.current?.signal, 0);
       
       // Проверяем отмену сразу после первого запроса
       if (cancelledRef.current) {
@@ -105,8 +105,8 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
       }
 
       // Загружаем остальные порции по 5 фото
+      let currentOffset = 5;
       while (totalUploadedCount < totalFound) {
-        // Проверяем отмену ДО следующего запроса
         if (cancelledRef.current) {
           setLoading(false);
           setUploadingProgress(null);
@@ -115,9 +115,10 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
 
         setUploadingProgress({ current: 0, total: 5 });
         
-        const result = await onUpload(url, targetFolderId || undefined, abortControllerRef.current?.signal);
+        const result = await onUpload(url, targetFolderId || undefined, abortControllerRef.current?.signal, currentOffset);
         
         totalUploadedCount += result.uploaded;
+        currentOffset += 5;
         setTotalUploaded(totalUploadedCount);
         setProgress({
           found: totalFound,
@@ -125,7 +126,6 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
           total: totalFound
         });
         
-        // Если загрузили меньше 5 — больше файлов нет
         if (result.uploaded < 5) {
           break;
         }

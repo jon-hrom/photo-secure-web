@@ -61,6 +61,7 @@ def handler(event: dict, context) -> dict:
     
     url = body.get('url', '').strip()
     folder_id = body.get('folder_id')
+    offset = int(body.get('offset', 0))
     
     if not url:
         cursor.close()
@@ -129,9 +130,9 @@ def handler(event: dict, context) -> dict:
     # Ограничиваем до 5 файлов за раз (чтобы уложиться в 30 сек)
     max_files = 5
     total_found = len(filtered_urls)
-    filtered_urls = filtered_urls[:max_files]
+    filtered_urls = filtered_urls[offset:offset + max_files]
     
-    print(f'[URL_UPLOAD] Found {total_found} images, will process first {len(filtered_urls)}')
+    print(f'[URL_UPLOAD] Found {total_found} images, offset={offset}, will process {len(filtered_urls)}')
     
     # Настройка S3 (Yandex Cloud)
     from botocore.client import Config

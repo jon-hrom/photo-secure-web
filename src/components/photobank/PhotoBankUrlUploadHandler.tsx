@@ -26,7 +26,7 @@ const PhotoBankUrlUploadHandler = ({
   fetchStorageUsage,
   setSelectedFolder
 }: PhotoBankUrlUploadHandlerProps) => {
-  const handleUpload = async (url: string, folderId?: number, signal?: AbortSignal) => {
+  const handleUpload = async (url: string, folderId?: number, signal?: AbortSignal, offset?: number) => {
     if (!userId) throw new Error('Требуется авторизация');
 
     const response = await fetch('https://functions.poehali.dev/f0385237-b64f-49d6-8491-e534ca5056f7', {
@@ -37,7 +37,8 @@ const PhotoBankUrlUploadHandler = ({
       },
       body: JSON.stringify({
         url,
-        folder_id: folderId || selectedFolder?.id || null
+        folder_id: folderId || selectedFolder?.id || null,
+        offset: offset || 0
       }),
       signal
     });
