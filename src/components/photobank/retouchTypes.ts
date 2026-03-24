@@ -58,7 +58,7 @@ export const DEFAULT_OPS: OpConfig[] = [
     label: 'Тени',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -66,8 +66,7 @@ export const DEFAULT_OPS: OpConfig[] = [
     label: 'Света',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
-      { key: 'knee', label: 'Порог', value: 0, min: -1, max: 1, step: 0.01 },
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -110,6 +109,31 @@ export const DEFAULT_OPS: OpConfig[] = [
   {
     op: 'blackheads',
     label: 'Чистка лица',
+    enabled: true,
+    params: [
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+    ],
+  },
+  {
+    op: 'skin_smooth',
+    label: 'Сглаживание кожи',
+    enabled: true,
+    params: [
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+    ],
+    extras: { mask: { max_det_side: 2500 } },
+  },
+  {
+    op: 'face_enhance',
+    label: 'Улучшение лица',
+    enabled: true,
+    params: [
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+    ],
+  },
+  {
+    op: 'sharpen',
+    label: 'Резкость',
     enabled: true,
     params: [
       { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
@@ -186,8 +210,8 @@ export const buildPreviewFilter = (ops: OpConfig[]): string => {
   const exposure = getParamValue(ops, 'exposure', 'amount');
   const temperature = getParamValue(ops, 'temperature', 'amount');
   const tint = getParamValue(ops, 'tint', 'amount');
-  const shadows = getParamValue(ops, 'shadows', 'amount');
-  const highlights = getParamValue(ops, 'highlights', 'amount');
+  const shadows = getParamValue(ops, 'shadows', 'strength');
+  const highlights = getParamValue(ops, 'highlights', 'strength');
   const contrast = getParamValue(ops, 'contrast2', 'amount');
   const saturation = getParamValue(ops, 'saturation', 'amount');
   const skinStrength = getParamValue(ops, 'skin_fs', 'strength');
