@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -14,6 +14,7 @@ import BeforeAfterPreview from './BeforeAfterPreview';
 import PhotoPickerModal from './PhotoPickerModal';
 
 const PRESETS_API = funcUrls['retouch-presets'];
+const RETOUCH_API = funcUrls['retouch'];
 
 interface RetouchSettingsProps {
   userId: string;
@@ -29,6 +30,9 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const [currentPreviewPhoto, setCurrentPreviewPhoto] = useState<Photo | null>(previewPhoto || null);
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [reorderMode, setReorderMode] = useState(false);
+  const [retouchedUrl, setRetouchedUrl] = useState<string | null>(null);
+  const [testingRetouch, setTestingRetouch] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
   const moveOp = (fromIndex: number, direction: 'up' | 'down') => {
@@ -49,6 +53,16 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
   useEffect(() => {
     loadPreset();
+  }, []);
+
+  useEffect(() => {
+    setRetouchedUrl(null);
+  }, [currentPreviewPhoto?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   const loadPreset = async () => {
@@ -113,6 +127,81 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
   const handleReset = () => {
     setOps(DEFAULT_OPS);
+    setRetouchedUrl(null);
+  };
+
+  const pollTaskStatus = useCallback((taskId: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${RETOUCH_API}?task_id=${taskId}`, {
+          headers: { 'X-User-Id': userId },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.status === 'finished' && data.result_url) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setRetouchedUrl(data.result_url);
+          setTestingRetouch(false);
+        } else if (data.status === 'failed' || data.status === 'error') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setTestingRetouch(false);
+          toast({
+            title: 'Ошибка превью',
+            description: data.error_message || 'Не удалось обработать фото',
+            variant: 'destructive',
+          });
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 2000);
+  }, [userId, toast]);
+
+  const handleTestRetouch = async () => {
+    if (!currentPreviewPhoto?.id) {
+      toast({ title: 'Выберите фото для превью', variant: 'destructive' });
+      return;
+    }
+
+    setTestingRetouch(true);
+    setRetouchedUrl(null);
+
+    try {
+      const pipeline = opsToJson(ops);
+
+      const saveRes = await fetch(PRESETS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({ name: 'preview', pipeline_json: pipeline, is_default: false }),
+      });
+      if (!saveRes.ok) throw new Error('Не удалось сохранить пресет');
+
+      const res = await fetch(RETOUCH_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({ photo_id: currentPreviewPhoto.id, preset: 'preview' }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Ошибка запуска ретуши');
+      }
+
+      const data = await res.json();
+      if (data.task_id) {
+        pollTaskStatus(data.task_id);
+      }
+    } catch (e: unknown) {
+      setTestingRetouch(false);
+      toast({
+        title: 'Ошибка',
+        description: e instanceof Error ? e.message : 'Не удалось запустить превью',
+        variant: 'destructive',
+      });
+    }
   };
 
   const filterStr = useMemo(() => buildPreviewFilter(ops), [ops]);
@@ -207,23 +296,40 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   );
 
   const buttonsPanel = (
-    <div className="flex gap-2 pt-1">
-      <Button
-        onClick={handleSave}
-        disabled={saving}
-        className="flex-1 bg-rose-600 hover:bg-rose-700 text-white h-8 text-xs"
-      >
-        {saving ? (
-          <Icon name="Loader2" size={14} className="mr-1.5 animate-spin" />
-        ) : (
-          <Icon name="Check" size={14} className="mr-1.5" />
-        )}
-        Применить
-      </Button>
-      <Button variant="outline" onClick={handleReset} className="h-8 text-xs">
-        <Icon name="RotateCcw" size={12} className="mr-1" />
-        Сброс
-      </Button>
+    <div className="space-y-1.5 pt-1">
+      {previewSrc && (
+        <Button
+          onClick={handleTestRetouch}
+          disabled={testingRetouch || !currentPreviewPhoto?.id}
+          variant="outline"
+          className="w-full h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+        >
+          {testingRetouch ? (
+            <Icon name="Loader2" size={14} className="mr-1.5 animate-spin" />
+          ) : (
+            <Icon name="Sparkles" size={14} className="mr-1.5" />
+          )}
+          {testingRetouch ? 'Обработка...' : 'Тест на фото'}
+        </Button>
+      )}
+      <div className="flex gap-2">
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 bg-rose-600 hover:bg-rose-700 text-white h-8 text-xs"
+        >
+          {saving ? (
+            <Icon name="Loader2" size={14} className="mr-1.5 animate-spin" />
+          ) : (
+            <Icon name="Check" size={14} className="mr-1.5" />
+          )}
+          Применить
+        </Button>
+        <Button variant="outline" onClick={handleReset} className="h-8 text-xs">
+          <Icon name="RotateCcw" size={12} className="mr-1" />
+          Сброс
+        </Button>
+      </div>
     </div>
   );
 
@@ -250,7 +356,11 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="lg:flex-1 min-w-0">
-            <BeforeAfterPreview src={previewSrc} filterStr={filterStr} />
+            <BeforeAfterPreview
+              src={previewSrc}
+              filterStr={filterStr}
+              retouchedSrc={retouchedUrl || undefined}
+            />
           </div>
 
           <div className="lg:w-64 xl:w-72 flex-shrink-0">

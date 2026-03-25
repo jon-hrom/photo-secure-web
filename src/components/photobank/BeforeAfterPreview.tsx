@@ -4,19 +4,27 @@ import Icon from '@/components/ui/icon';
 interface BeforeAfterPreviewProps {
   src: string;
   filterStr: string;
+  retouchedSrc?: string;
 }
 
-const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterPreviewProps) => {
+const BeforeAfterPreview = ({ src, filterStr, retouchedSrc }: BeforeAfterPreviewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
   const [imgState, setImgState] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [afterState, setAfterState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const dragging = useRef(false);
 
   useEffect(() => {
     setImgState('loading');
   }, [src]);
 
+  useEffect(() => {
+    if (retouchedSrc) setAfterState('loading');
+  }, [retouchedSrc]);
+
   const imgLoaded = imgState === 'loaded';
+  const afterLoaded = afterState === 'loaded';
+  const hasRetouched = !!retouchedSrc;
 
   const updatePosition = useCallback((clientX: number) => {
     const el = containerRef.current;
@@ -90,7 +98,34 @@ const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterPreviewProps) => {
         onError={() => setImgState('error')}
       />
 
-      {imgLoaded && (
+      {imgLoaded && hasRetouched && (
+        <>
+          <img
+            src={retouchedSrc}
+            alt=""
+            className={`absolute inset-0 ${imgClass} ${afterLoaded ? '' : 'hidden'}`}
+            style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}
+            draggable={false}
+            onLoad={() => setAfterState('loaded')}
+            onError={() => setAfterState('error')}
+          />
+          {!afterLoaded && afterState === 'loading' && (
+            <img
+              src={src}
+              alt=""
+              className={`absolute inset-0 ${imgClass}`}
+              style={{
+                filter: filterStr,
+                transition: 'filter 0.1s ease',
+                clipPath: `inset(0 0 0 ${sliderPos}%)`,
+              }}
+              draggable={false}
+            />
+          )}
+        </>
+      )}
+
+      {imgLoaded && !hasRetouched && (
         <img
           src={src}
           alt=""
@@ -119,8 +154,14 @@ const BeforeAfterPreview = ({ src, filterStr }: BeforeAfterPreviewProps) => {
           <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none z-20">
             До
           </div>
-          <div className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none z-20">
+          <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none z-20">
             После
+            {hasRetouched && afterLoaded && (
+              <Icon name="Sparkles" size={10} className="text-amber-400" />
+            )}
+            {hasRetouched && afterState === 'loading' && (
+              <Icon name="Loader2" size={10} className="animate-spin" />
+            )}
           </div>
         </>
       )}
