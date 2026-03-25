@@ -30,38 +30,6 @@ export interface Photo {
 
 export const DEFAULT_OPS: OpConfig[] = [
   {
-    op: 'exposure',
-    label: 'Экспозиция',
-    enabled: true,
-    params: [
-      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
-    ],
-  },
-  {
-    op: 'temperature',
-    label: 'Температура',
-    enabled: true,
-    params: [
-      { key: 'amount', label: 'Тепло', value: 0, min: -1, max: 1, step: 0.01 },
-    ],
-  },
-  {
-    op: 'tint',
-    label: 'Оттенок',
-    enabled: true,
-    params: [
-      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
-    ],
-  },
-  {
-    op: 'shadows',
-    label: 'Тени',
-    enabled: true,
-    params: [
-      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
-    ],
-  },
-  {
     op: 'highlights',
     label: 'Света',
     enabled: true,
@@ -70,19 +38,11 @@ export const DEFAULT_OPS: OpConfig[] = [
     ],
   },
   {
-    op: 'contrast2',
-    label: 'Контраст',
+    op: 'shadows',
+    label: 'Тени',
     enabled: true,
     params: [
-      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
-    ],
-  },
-  {
-    op: 'saturation',
-    label: 'Насыщенность',
-    enabled: true,
-    params: [
-      { key: 'amount', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
+      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -207,28 +167,19 @@ const getParamValue = (ops: OpConfig[], opName: string, paramKey: string): numbe
 };
 
 export const buildPreviewFilter = (ops: OpConfig[]): string => {
-  const exposure = getParamValue(ops, 'exposure', 'amount');
-  const temperature = getParamValue(ops, 'temperature', 'amount');
-  const tint = getParamValue(ops, 'tint', 'amount');
   const shadows = getParamValue(ops, 'shadows', 'strength');
   const highlights = getParamValue(ops, 'highlights', 'strength');
-  const contrast = getParamValue(ops, 'contrast2', 'amount');
-  const saturation = getParamValue(ops, 'saturation', 'amount');
   const skinStrength = getParamValue(ops, 'skin_fs', 'strength');
   const deshineStrength = getParamValue(ops, 'deshine', 'strength');
+  const skinSmooth = getParamValue(ops, 'skin_smooth', 'strength');
+  const sharpen = getParamValue(ops, 'sharpen', 'strength');
 
-  const brightness = 1.0 + exposure * 0.4 + shadows * 0.2 - highlights * 0.1;
-  const contrastVal = 1.0 + contrast * 0.35;
-  const saturateVal = 1.0 + saturation * 0.4;
-  const blurVal = Math.max(0, skinStrength * 0.5 + deshineStrength * 0.08);
+  const brightness = 1.0 + shadows * 0.2 - highlights * 0.1;
+  const blurVal = Math.max(0, skinStrength * 0.3 + skinSmooth * 0.25 + deshineStrength * 0.08);
+  const contrastVal = 1.0 + sharpen * 0.15;
 
-  const sepiaAmount = Math.max(0, temperature * 0.25);
-  const hueRotate = tint * 15;
-
-  let filter = `brightness(${brightness.toFixed(3)}) contrast(${contrastVal.toFixed(3)}) saturate(${saturateVal.toFixed(3)})`;
+  let filter = `brightness(${brightness.toFixed(3)}) contrast(${contrastVal.toFixed(3)})`;
   if (blurVal > 0.01) filter += ` blur(${blurVal.toFixed(2)}px)`;
-  if (sepiaAmount > 0.001) filter += ` sepia(${sepiaAmount.toFixed(3)})`;
-  if (Math.abs(hueRotate) > 0.1) filter += ` hue-rotate(${hueRotate.toFixed(1)}deg)`;
 
   return filter;
 };
