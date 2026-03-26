@@ -99,6 +99,8 @@ def _load_pipeline(conn, preset_name='default'):
         if isinstance(pipeline, str):
             pipeline = json.loads(pipeline)
         if isinstance(pipeline, list) and len(pipeline) > 0:
+            if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
+                return DEFAULT_PIPELINE
             return pipeline
     return DEFAULT_PIPELINE
 

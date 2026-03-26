@@ -32,6 +32,8 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const [reorderMode, setReorderMode] = useState(false);
   const [retouchedUrl, setRetouchedUrl] = useState<string | null>(null);
   const [testingRetouch, setTestingRetouch] = useState(false);
+  const [autoMode, setAutoMode] = useState(false);
+  const [savedManualOps, setSavedManualOps] = useState<OpConfig[] | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
@@ -78,7 +80,12 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
         const pipeline = typeof defaultPreset.pipeline_json === 'string'
           ? JSON.parse(defaultPreset.pipeline_json)
           : defaultPreset.pipeline_json;
-        setOps(opsFromPipeline(pipeline));
+        if (Array.isArray(pipeline) && pipeline.length === 1 && pipeline[0]?.op === 'auto') {
+          setAutoMode(true);
+          setOps(prev => prev.map(o => ({ ...o, enabled: false })));
+        } else {
+          setOps(opsFromPipeline(pipeline));
+        }
       }
     } catch (e) {
       console.error('[RETOUCH SETTINGS] Load failed:', e);
@@ -102,7 +109,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const handleSave = async () => {
     setSaving(true);
     try {
-      const pipeline = opsToJson(ops);
+      const pipeline = autoMode ? [{ op: 'auto' }] : opsToJson(ops);
       const res = await fetch(PRESETS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
@@ -112,7 +119,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
         const data = await res.json();
         throw new Error(data.error || 'Ошибка сохранения');
       }
-      toast({ title: 'Настройки сохранены' });
+      toast({ title: autoMode ? 'Автоматическая ретушь включена' : 'Настройки сохранены' });
       onBack();
     } catch (e: unknown) {
       toast({
@@ -126,7 +133,25 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   };
 
   const handleReset = () => {
+    setAutoMode(false);
+    setSavedManualOps(null);
     setOps(DEFAULT_OPS);
+    setRetouchedUrl(null);
+  };
+
+  const toggleAutoMode = (enabled: boolean) => {
+    if (enabled) {
+      setSavedManualOps(ops);
+      setOps(prev => prev.map(o => ({ ...o, enabled: false })));
+    } else {
+      if (savedManualOps) {
+        setOps(savedManualOps);
+        setSavedManualOps(null);
+      } else {
+        setOps(DEFAULT_OPS);
+      }
+    }
+    setAutoMode(enabled);
     setRetouchedUrl(null);
   };
 
@@ -170,19 +195,24 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
     setRetouchedUrl(null);
 
     try {
-      const pipeline = opsToJson(ops);
+      let presetToUse = 'preview';
 
-      const saveRes = await fetch(PRESETS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({ name: 'preview', pipeline_json: pipeline, is_default: false }),
-      });
-      if (!saveRes.ok) throw new Error('Не удалось сохранить пресет');
+      if (autoMode) {
+        presetToUse = 'auto';
+      } else {
+        const pipeline = opsToJson(ops);
+        const saveRes = await fetch(PRESETS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+          body: JSON.stringify({ name: 'preview', pipeline_json: pipeline, is_default: false }),
+        });
+        if (!saveRes.ok) throw new Error('Не удалось сохранить пресет');
+      }
 
       const res = await fetch(RETOUCH_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({ photo_id: currentPreviewPhoto.id, preset: 'preview' }),
+        body: JSON.stringify({ photo_id: currentPreviewPhoto.id, preset: presetToUse }),
       });
 
       if (!res.ok) {
@@ -218,14 +248,40 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
   const slidersPanel = (
     <div className="space-y-1">
-      <div className="flex items-center justify-between pb-1 mb-1 border-b border-border/40">
-        <div className="flex items-center gap-1.5">
-          <Icon name={reorderMode ? "Unlock" : "Lock"} size={12} className="text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground">Порядок</span>
+      <button
+        onClick={() => toggleAutoMode(!autoMode)}
+        className={`w-full flex items-center gap-2 rounded-lg border px-3 py-2 transition-all text-left ${
+          autoMode
+            ? 'bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 border-violet-300 dark:border-violet-700 shadow-sm'
+            : 'bg-muted/30 border-muted hover:border-muted-foreground/30'
+        }`}
+      >
+        <div className={`flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
+          autoMode ? 'bg-violet-500 text-white' : 'bg-muted text-muted-foreground'
+        }`}>
+          <Icon name="Wand2" size={13} />
         </div>
-        <Switch checked={reorderMode} onCheckedChange={setReorderMode} className="scale-[0.7]" />
-      </div>
-      {ops.map((op, opIndex) => (
+        <div className="flex-1 min-w-0">
+          <div className={`text-[11px] font-medium ${autoMode ? 'text-violet-700 dark:text-violet-300' : 'text-muted-foreground'}`}>
+            Автоматическая ретушь
+          </div>
+          <div className="text-[9px] text-muted-foreground leading-tight">
+            Сервер сам подберёт настройки
+          </div>
+        </div>
+        <Switch checked={autoMode} onCheckedChange={toggleAutoMode} className="scale-[0.8]" />
+      </button>
+
+      {!autoMode && (
+        <div className="flex items-center justify-between pb-1 mb-1 border-b border-border/40">
+          <div className="flex items-center gap-1.5">
+            <Icon name={reorderMode ? "Unlock" : "Lock"} size={12} className="text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">Порядок</span>
+          </div>
+          <Switch checked={reorderMode} onCheckedChange={setReorderMode} className="scale-[0.7]" />
+        </div>
+      )}
+      {!autoMode && ops.map((op, opIndex) => (
         <div
           key={op.op}
           className={`rounded-lg border px-2.5 py-1.5 transition-colors ${
@@ -309,7 +365,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
           ) : (
             <Icon name="Sparkles" size={14} className="mr-1.5" />
           )}
-          {testingRetouch ? 'Обработка...' : 'Тест на фото'}
+          {testingRetouch ? 'Обработка...' : autoMode ? 'Тест авто-ретуши' : 'Тест на фото'}
         </Button>
       )}
       <div className="flex gap-2">
@@ -323,7 +379,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
           ) : (
             <Icon name="Check" size={14} className="mr-1.5" />
           )}
-          Применить
+          {autoMode ? 'Сохранить авто' : 'Применить'}
         </Button>
         <Button variant="outline" onClick={handleReset} className="h-8 text-xs">
           <Icon name="RotateCcw" size={12} className="mr-1" />
