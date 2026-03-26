@@ -9,6 +9,7 @@ export interface RetouchTask {
   error_message?: string;
   file_name?: string;
   progress?: number;
+  created_at?: string;
 }
 
 interface RetouchTaskListProps {

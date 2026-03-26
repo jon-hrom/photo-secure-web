@@ -138,12 +138,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn.close()
 
 
+MAX_ACTIVE_TASKS_PER_USER = 10
+
+
 def _handle_create(event, conn, user_id):
     body = json.loads(event.get('body', '{}') or '{}')
     photo_id = body.get('photo_id')
 
     if not photo_id:
         return _response(400, {'error': 'photo_id is required'})
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT COUNT(*) as cnt FROM retouch_tasks WHERE user_id = %s AND status IN ('queued', 'started') AND created_at > NOW() - INTERVAL '10 minutes'",
+            (user_id,)
+        )
+        active = cur.fetchone()
+        if active and active['cnt'] >= MAX_ACTIVE_TASKS_PER_USER:
+            print(f"[RETOUCH] User {user_id} has {active['cnt']} active tasks, rejecting new task")
+            return _response(429, {'error': f'Слишком много задач в очереди ({active["cnt"]}). Подождите завершения текущих', 'active_tasks': active['cnt']})
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -340,6 +353,9 @@ def _save_retouched_photo(conn, user_id, task, result_key, result_url):
     print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name} (thumbnails: {'yes' if thumb_key else 'no'})")
 
 
+TASK_TIMEOUT_SECONDS = 300
+
+
 def _check_single_task(conn, user_id, task):
     task_id = task['task_id']
     if task['status'] not in ('queued', 'started'):
@@ -349,6 +365,29 @@ def _check_single_task(conn, user_id, task):
             'result_url': _presigned_from_task(task),
             'error_message': task['error_message'],
         }
+
+    from datetime import datetime, timezone
+    created = task.get('created_at')
+    if created:
+        if hasattr(created, 'timestamp'):
+            age_seconds = time.time() - created.timestamp()
+        else:
+            age_seconds = 9999
+        if age_seconds > TASK_TIMEOUT_SECONDS:
+            timeout_msg = f'Задача зависла (>{TASK_TIMEOUT_SECONDS // 60} мин). Попробуйте снова'
+            print(f"[RETOUCH] Task {task_id} timed out after {int(age_seconds)}s, marking as failed")
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE retouch_tasks SET status = 'failed', error_message = %s, updated_at = NOW() WHERE task_id = %s",
+                    (timeout_msg, task_id)
+                )
+                conn.commit()
+            return {
+                'task_id': task_id,
+                'status': 'failed',
+                'result_url': None,
+                'error_message': timeout_msg,
+            }
 
     api_path = f"/v1/tasks/{task_id}"
     sign_headers = _sign("GET", api_path, "")

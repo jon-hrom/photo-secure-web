@@ -5,7 +5,8 @@ import type { RetouchTask } from '@/components/photobank/RetouchTaskList';
 
 const RETOUCH_API = funcUrls['retouch'];
 const RETOUCH_WAKER_API = funcUrls['retouch-waker'];
-const CONCURRENT_LIMIT = 5;
+const CONCURRENT_LIMIT = 3;
+const CLIENT_TASK_TIMEOUT_MS = 10 * 60 * 1000;
 
 interface RetouchSession {
   folderId: number;
@@ -134,7 +135,15 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
       setTasks(prev => prev.map(t => {
         const remote = resultsMap[t.task_id];
-        if (!remote) return t;
+        if (!remote) {
+          if ((t.status === 'queued' || t.status === 'started') && t.created_at) {
+            const age = Date.now() - new Date(t.created_at).getTime();
+            if (age > CLIENT_TASK_TIMEOUT_MS) {
+              return { ...t, status: 'failed' as const, error_message: 'Таймаут: задача не завершилась вовремя', progress: 0 };
+            }
+          }
+          return t;
+        }
 
         let progress = t.progress || 0;
         if (remote.status === 'finished') {
@@ -272,6 +281,11 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
         },
         body: JSON.stringify({ photo_id: photoId })
       });
+      if (res.status === 429 && retriesLeft > 0) {
+        console.log(`[RETOUCH] Queue full for photo ${photoId}, waiting 10s before retry...`);
+        await new Promise(r => setTimeout(r, 10000));
+        return startRetouchForPhoto(photoId, retriesLeft - 1);
+      }
       if ((res.status === 502 || res.status === 504) && retriesLeft > 0) {
         if (retriesLeft === 3) {
           const woken = await wakeRetouchServer();
@@ -290,7 +304,8 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
         task_id: data.task_id,
         status: data.status || 'queued',
         progress: 0,
-        file_name: photo?.file_name
+        file_name: photo?.file_name,
+        created_at: new Date().toISOString()
       };
     } catch (error) {
       console.error('[RETOUCH] Failed for photo', photoId, error);
@@ -331,6 +346,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (batchQueueRef.current.length > 0) {
+      await new Promise(r => setTimeout(r, 1500));
       submitOne(slotId);
     } else {
       checkBatchDone();
