@@ -123,28 +123,30 @@ const S3BrowserTab = ({
                 </tr>
               )}
               {s3Folders.map((folder) => (
-                <tr key={folder.prefix} className="border-b hover:bg-accent/50 cursor-pointer transition-colors group/folder" onClick={() => onNavigate(folder.prefix)}>
+                <tr key={folder.prefix} className="border-b hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => onNavigate(folder.prefix)}>
                   <td className="px-2.5 sm:px-4 py-1.5">
                     <div className="flex items-center gap-2">
                       <Icon name="Folder" size={18} className="text-yellow-500 shrink-0" />
                       <span className="text-blue-600 hover:underline truncate flex-1">{folder.name}/</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 shrink-0 opacity-0 group-hover/folder:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteFolder(folder.prefix);
-                        }}
-                        disabled={deletingFolder === folder.prefix}
-                        title="Удалить папку из S3"
-                      >
-                        {deletingFolder === folder.prefix ? (
-                          <Icon name="Loader2" size={15} className="animate-spin" />
-                        ) : (
-                          <Icon name="Trash2" size={15} />
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteFolder(folder.prefix);
+                          }}
+                          disabled={deletingFolder === folder.prefix}
+                          title="Удалить папку из S3"
+                        >
+                          {deletingFolder === folder.prefix ? (
+                            <Icon name="Loader2" size={15} className="animate-spin" />
+                          ) : (
+                            <Icon name="Trash2" size={15} />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </td>
                   <td className="px-2.5 sm:px-4 py-1.5 text-right text-muted-foreground hidden sm:table-cell">—</td>
