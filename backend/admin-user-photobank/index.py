@@ -168,6 +168,41 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        elif action == 's3_delete_folder':
+            prefix = params.get('prefix', '')
+            if not prefix or not prefix.endswith('/'):
+                return {
+                    'statusCode': 400,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'prefix (ending with /) is required'}),
+                    'isBase64Encoded': False
+                }
+            deleted = []
+            errors = []
+            continuation_token = None
+            while True:
+                list_params = {'Bucket': yc_bucket, 'Prefix': prefix, 'MaxKeys': 1000}
+                if continuation_token:
+                    list_params['ContinuationToken'] = continuation_token
+                resp = yc_s3_client.list_objects_v2(**list_params)
+                objects = resp.get('Contents', [])
+                for obj in objects:
+                    try:
+                        yc_s3_client.delete_object(Bucket=yc_bucket, Key=obj['Key'])
+                        deleted.append(obj['Key'])
+                    except Exception as e:
+                        errors.append({'key': obj['Key'], 'error': str(e)})
+                if resp.get('IsTruncated'):
+                    continuation_token = resp.get('NextContinuationToken')
+                else:
+                    break
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'ok': True, 'deleted_count': len(deleted), 'errors': errors}),
+                'isBase64Encoded': False
+            }
+        
         elif action == 's3_set_cors':
             yc_s3_client.put_bucket_cors(
                 Bucket=yc_bucket,

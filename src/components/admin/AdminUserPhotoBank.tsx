@@ -37,6 +37,7 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
   const [s3Loading, setS3Loading] = useState(false);
   const [s3History, setS3History] = useState<string[]>([]);
   const [s3ViewFile, setS3ViewFile] = useState<S3File | null>(null);
+  const [s3DeletingFolder, setS3DeletingFolder] = useState<string | null>(null);
   const viewerJustClosedRef = useRef(false);
 
   const realUserId = String(userId).replace('vk_', '');
@@ -311,6 +312,31 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
     }
   };
 
+  const handleS3DeleteFolder = async (prefix: string) => {
+    const folderName = prefix.split('/').filter(Boolean).pop() || prefix;
+    if (!confirm(`Удалить папку «${folderName}» и ВСЕ файлы внутри из S3 безвозвратно?`)) return;
+
+    setS3DeletingFolder(prefix);
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 's3_delete_folder', user_id: realUserId, prefix })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success(`Папка удалена (${data.deleted_count} файлов)`);
+        fetchS3(s3Prefix);
+      } else {
+        toast.error(data.error || 'Ошибка удаления');
+      }
+    } catch {
+      toast.error('Ошибка сети');
+    } finally {
+      setS3DeletingFolder(null);
+    }
+  };
+
   const totalPhotos = folders.reduce((sum, f) => sum + (f.photo_count || 0), 0);
 
   return (
@@ -384,6 +410,8 @@ const AdminUserPhotoBank = ({ userId, userName, isOpen, onClose }: AdminUserPhot
                   onBreadcrumbClick={handleS3BreadcrumbClick}
                   onUploadFiles={handleS3Upload}
                   onDeleteFiles={handleS3Delete}
+                  onDeleteFolder={handleS3DeleteFolder}
+                  deletingFolder={s3DeletingFolder}
                 />
               </TabsContent>
             </Tabs>
