@@ -211,7 +211,7 @@ export default function GalleryGrid({
   const gridGap = gallery.grid_gap ?? 8;
 
   const bgTheme = gallery.bg_theme || 'light';
-  const isDarkBg = bgTheme === 'dark' || ((bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color && (() => {
+  const originalIsDark = bgTheme === 'dark' || ((bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color && (() => {
     const hex = gallery.bg_color!.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
@@ -219,13 +219,35 @@ export default function GalleryGrid({
     return (r * 0.299 + g * 0.587 + b * 0.114) < 150;
   })());
 
-  const textColor = gallery.text_color || (isDarkBg ? '#ffffff' : '#111827');
+  const [clientTheme, setClientTheme] = useState<'light' | 'dark' | null>(() => {
+    try {
+      const saved = localStorage.getItem('gallery-client-theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch { /* localStorage unavailable */ }
+    return null;
+  });
+
+  const toggleClientTheme = useCallback(() => {
+    setClientTheme(prev => {
+      const currentDark = prev !== null ? prev === 'dark' : !!originalIsDark;
+      const next = currentDark ? 'light' : 'dark';
+      try { localStorage.setItem('gallery-client-theme', next); } catch { /* noop */ }
+      return next;
+    });
+  }, [originalIsDark]);
+
+  const isDarkBg = clientTheme !== null ? clientTheme === 'dark' : !!originalIsDark;
+
+  const textColor = isDarkBg ? '#ffffff' : '#111827';
   const secondaryText = isDarkBg ? 'rgba(255,255,255,0.6)' : 'rgba(55,65,81,1)';
   const cardBg = isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,1)';
   const cardShadow = isDarkBg ? 'none' : undefined;
 
   const bgStyles: React.CSSProperties = {};
-  if (bgTheme === 'dark') {
+  if (clientTheme !== null) {
+    bgStyles.background = isDarkBg ? '#1a1a2e' : '#f9fafb';
+    bgStyles.transition = 'background 0.3s ease';
+  } else if (bgTheme === 'dark') {
     bgStyles.background = '#1a1a2e';
   } else if (bgTheme === 'auto' && gallery.bg_color) {
     bgStyles.background = gallery.bg_color;
@@ -243,9 +265,11 @@ export default function GalleryGrid({
   }
 
   useEffect(() => {
-    const themeColor = bgTheme === 'dark' ? '#1a1a2e' 
-      : (bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color ? gallery.bg_color 
-      : '#f9fafb';
+    const themeColor = clientTheme !== null
+      ? (isDarkBg ? '#1a1a2e' : '#f9fafb')
+      : bgTheme === 'dark' ? '#1a1a2e' 
+        : (bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color ? gallery.bg_color 
+        : '#f9fafb';
     let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement;
     if (!meta) {
       meta = document.createElement('meta');
@@ -254,7 +278,7 @@ export default function GalleryGrid({
     }
     meta.content = themeColor;
     return () => { meta.content = '#ffffff'; };
-  }, [bgTheme, gallery.bg_color]);
+  }, [bgTheme, gallery.bg_color, clientTheme, isDarkBg]);
 
   const scrollToGrid = () => {
     document.getElementById('gallery-photo-grid')?.scrollIntoView({ behavior: 'smooth' });
@@ -342,6 +366,7 @@ export default function GalleryGrid({
         selectionMode={selectionMode}
         onToggleSelectionMode={toggleSelectionMode}
         onRegisterToDownload={onRegisterToDownload}
+        onToggleTheme={toggleClientTheme}
       />
       <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 md:pt-0"
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
