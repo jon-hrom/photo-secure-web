@@ -386,7 +386,7 @@ export default function GalleryGrid({
         onRegisterToDownload={onRegisterToDownload}
         onToggleTheme={toggleClientTheme}
       />
-      <div id="gallery-photo-grid" className="max-w-7xl mx-auto"
+      <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 md:pt-0"
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
       >
         {gallery.subfolders && gallery.subfolders.length > 0 && (
@@ -415,38 +415,133 @@ export default function GalleryGrid({
             ))}
           </div>
         )}
-        <div 
-          className="flex flex-wrap"
-          style={{ 
-            gap: 0,
-            border: isDarkBg ? 'none' : '1px solid #1a1a2e',
-          }}
-        >
-          {sortedPhotos.map((photo, index) => {
-            const isLandscape = photo.width && photo.height ? photo.width > photo.height : false;
+        {(() => {
+          const portraits: typeof sortedPhotos = [];
+          const landscapes: typeof sortedPhotos = [];
+          const squares: typeof sortedPhotos = [];
+          
+          sortedPhotos.forEach(p => {
+            const w = p.width || 1;
+            const h = p.height || 1;
+            const ratio = w / h;
+            if (ratio > 1.15) landscapes.push(p);
+            else if (ratio < 0.85) portraits.push(p);
+            else squares.push(p);
+          });
+
+          const rows: { photos: typeof sortedPhotos; layout: 'portrait-pair' | 'landscape-row' | 'mixed' | 'grid' }[] = [];
+          let pi = 0, li = 0, si = 0;
+
+          while (pi < portraits.length || li < landscapes.length || si < squares.length) {
+            if (pi < portraits.length && li + 1 < landscapes.length) {
+              rows.push({ photos: [portraits[pi], landscapes[li], landscapes[li + 1]], layout: 'mixed' });
+              pi++; li += 2;
+            } else if (pi < portraits.length && li < landscapes.length && si < squares.length) {
+              rows.push({ photos: [portraits[pi], landscapes[li], squares[si]], layout: 'mixed' });
+              pi++; li++; si++;
+            } else if (pi < portraits.length && si + 1 < squares.length) {
+              rows.push({ photos: [portraits[pi], squares[si], squares[si + 1]], layout: 'mixed' });
+              pi++; si += 2;
+            } else if (pi + 1 < portraits.length) {
+              rows.push({ photos: [portraits[pi], portraits[pi + 1]], layout: 'portrait-pair' });
+              pi += 2;
+            } else if (li + 2 < landscapes.length) {
+              rows.push({ photos: [landscapes[li], landscapes[li + 1], landscapes[li + 2]], layout: 'landscape-row' });
+              li += 3;
+            } else {
+              const remaining: typeof sortedPhotos = [];
+              while (pi < portraits.length) remaining.push(portraits[pi++]);
+              while (li < landscapes.length) remaining.push(landscapes[li++]);
+              while (si < squares.length) remaining.push(squares[si++]);
+              if (remaining.length > 0) rows.push({ photos: remaining, layout: 'grid' });
+            }
+          }
+
+          let globalIndex = 0;
+          return rows.map((row, rowIdx) => {
+            if (row.layout === 'mixed' && row.photos.length === 3) {
+              const [portrait, h1, h2] = row.photos;
+              const idx1 = globalIndex++;
+              const idx2 = globalIndex++;
+              const idx3 = globalIndex++;
+              return (
+                <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
+                  <div style={{ width: '40%', flexShrink: 0 }}>
+                    <GalleryPhotoCard ref={photoCardRef} photo={portrait} index={idx1} gridGap={0} isDarkBg={!!isDarkBg}
+                      screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
+                      watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
+                      onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
+                      isSelected={selectedIds.has(portrait.id)} onToggleSelect={toggleSelect} isLandscape={false} />
+                  </div>
+                  <div className="flex flex-col flex-1" style={{ gap: `${gridGap}px` }}>
+                    <GalleryPhotoCard ref={photoCardRef} photo={h1} index={idx2} gridGap={0} isDarkBg={!!isDarkBg}
+                      screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
+                      watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
+                      onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
+                      isSelected={selectedIds.has(h1.id)} onToggleSelect={toggleSelect} isLandscape={true} />
+                    <GalleryPhotoCard ref={photoCardRef} photo={h2} index={idx3} gridGap={0} isDarkBg={!!isDarkBg}
+                      screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
+                      watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
+                      onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
+                      isSelected={selectedIds.has(h2.id)} onToggleSelect={toggleSelect} isLandscape={true} />
+                  </div>
+                </div>
+              );
+            }
+            if (row.layout === 'portrait-pair') {
+              return (
+                <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
+                  {row.photos.map(p => {
+                    const idx = globalIndex++;
+                    return (
+                      <div key={p.id} style={{ flex: 1 }}>
+                        <GalleryPhotoCard ref={photoCardRef} photo={p} index={idx} gridGap={0} isDarkBg={!!isDarkBg}
+                          screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
+                          watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
+                          onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
+                          isSelected={selectedIds.has(p.id)} onToggleSelect={toggleSelect} isLandscape={false} />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
+            if (row.layout === 'landscape-row') {
+              return (
+                <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
+                  {row.photos.map(p => {
+                    const idx = globalIndex++;
+                    return (
+                      <div key={p.id} style={{ flex: 1 }}>
+                        <GalleryPhotoCard ref={photoCardRef} photo={p} index={idx} gridGap={0} isDarkBg={!!isDarkBg}
+                          screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
+                          watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
+                          onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
+                          isSelected={selectedIds.has(p.id)} onToggleSelect={toggleSelect} isLandscape={true} />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
             return (
-              <GalleryPhotoCard
-                key={photo.id}
-                ref={photoCardRef}
-                photo={photo}
-                index={index}
-                gridGap={0}
-                isDarkBg={!!isDarkBg}
-                screenshotProtection={gallery.screenshot_protection}
-                downloadDisabled={gallery.download_disabled}
-                watermark={gallery.watermark}
-                onPhotoClick={onPhotoClick}
-                onDownloadPhoto={onDownloadPhoto}
-                onAddToFavorites={onAddToFavorites}
-                onPhotoLoad={onPhotoLoad}
-                selectionMode={selectionMode}
-                isSelected={selectedIds.has(photo.id)}
-                onToggleSelect={toggleSelect}
-                isLandscape={isLandscape}
-              />
+              <div key={`row-${rowIdx}`} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+                style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
+                {row.photos.map(p => {
+                  const idx = globalIndex++;
+                  const isL = (p.width || 1) / (p.height || 1) > 1.15;
+                  return (
+                    <GalleryPhotoCard key={p.id} ref={photoCardRef} photo={p} index={idx} gridGap={0} isDarkBg={!!isDarkBg}
+                      screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
+                      watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
+                      onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
+                      isSelected={selectedIds.has(p.id)} onToggleSelect={toggleSelect} isLandscape={isL} />
+                  );
+                })}
+              </div>
             );
-          })}
-        </div>
+          });
+        })()}
       </div>
 
       {selectionMode && (
