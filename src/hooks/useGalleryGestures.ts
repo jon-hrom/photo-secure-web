@@ -65,6 +65,7 @@ export const useGalleryGestures = ({
   const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
   const isDraggingRef = useRef(false);
   const rafRef = useRef<number | null>(null);
+  const pinchEndedAtZeroRef = useRef(false);
 
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < photos.length - 1;
@@ -147,6 +148,7 @@ export const useGalleryGestures = ({
 
     if (touchCount === 1) {
       const currentZoom = zoomRef.current;
+      pinchEndedAtZeroRef.current = false;
       touchStartRef.current = {
         x: e.touches[0].clientX,
         y: e.touches[0].clientY,
@@ -191,14 +193,24 @@ export const useGalleryGestures = ({
       pinchStartRef.current = null;
 
       const currentZ = zoomRef.current;
-      if (currentZ > 0) {
+      if (currentZ > 0 && currentZ < 0.15) {
+        zoomRef.current = 0;
+        panOffsetRef.current = { x: 0, y: 0 };
+        setPanOffset({ x: 0, y: 0 });
+        setZoom(0);
+        applyTransform(0, 0, 0, true);
+        pinchEndedAtZeroRef.current = true;
+      } else if (currentZ > 0) {
         setZoom(currentZ);
         setPanOffset({ ...panOffsetRef.current });
         setIsZooming(false);
+        pinchEndedAtZeroRef.current = false;
       } else {
         panOffsetRef.current = { x: 0, y: 0 };
         setPanOffset({ x: 0, y: 0 });
         setZoom(0);
+        applyTransform(0, 0, 0, true);
+        pinchEndedAtZeroRef.current = true;
       }
       return;
     }
@@ -359,12 +371,18 @@ export const useGalleryGestures = ({
       const distance = getTouchDistance(e.touches);
       const scale = distance / pinchStartRef.current.distance;
       const baseZoom = pinchStartRef.current.zoom === 0 ? 1 : pinchStartRef.current.zoom;
-      const newZoom = Math.max(0, Math.min(3, baseZoom * scale - (pinchStartRef.current.zoom === 0 ? 1 : 0)));
+      let newZoom = Math.max(0, Math.min(3, baseZoom * scale - (pinchStartRef.current.zoom === 0 ? 1 : 0)));
+
+      if (newZoom < 0.15) {
+        newZoom = 0;
+        panOffsetRef.current = { x: 0, y: 0 };
+      }
+
       zoomRef.current = newZoom;
 
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
-        applyTransform(newZoom, panOffsetRef.current.x, panOffsetRef.current.y, false);
+        applyTransform(newZoom, panOffsetRef.current.x, panOffsetRef.current.y, newZoom === 0);
       });
       return;
     }
