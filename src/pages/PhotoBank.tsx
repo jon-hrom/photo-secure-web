@@ -434,13 +434,13 @@ const PhotoBank = () => {
                   }
                 });
               }}
+              clientUploadSlot={userId && selectedFolder ? (
+                <ClientUploadViewer
+                  parentFolderId={selectedFolder.id}
+                  userId={parseInt(userId, 10)}
+                />
+              ) : undefined}
             />
-            {userId && selectedFolder && (
-              <ClientUploadViewer
-                parentFolderId={selectedFolder.id}
-                userId={parseInt(userId, 10)}
-              />
-            )}
           </>
         )}
       </div>

@@ -1,6 +1,18 @@
 import { useCallback, useEffect } from 'react';
+import heic2any from 'heic2any';
 import { useToast } from '@/hooks/use-toast';
 import { ClientUploadFolder, UploadedPhoto } from './useClientUploadState';
+
+const isHeicFile = (file: File) => {
+  const ext = file.name.toLowerCase().split('.').pop();
+  return ext === 'heic' || ext === 'heif' || file.type === 'image/heic' || file.type === 'image/heif';
+};
+
+const convertHeicToJpeg = async (file: File): Promise<File> => {
+  const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 }) as Blob;
+  const newName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
+  return new File([blob], newName, { type: 'image/jpeg' });
+};
 
 const CLIENT_UPLOAD_URL = 'https://functions.poehali.dev/06dd3267-2ef6-45bc-899c-50f86e9d36e1';
 
@@ -329,8 +341,16 @@ export function useFileUploadHandler({
     const errors: string[] = [];
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+      let file = files[i];
       try {
+        if (isHeicFile(file)) {
+          try {
+            file = await convertHeicToJpeg(file);
+          } catch (heicErr) {
+            console.warn('HEIC conversion failed, uploading as-is:', heicErr);
+          }
+        }
+
         const urlRes = await fetch(CLIENT_UPLOAD_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

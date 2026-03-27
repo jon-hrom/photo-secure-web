@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,7 @@ const ClientDetailRefunds = ({
   handleDeleteRefund,
   formatDate,
 }: ClientDetailRefundsProps) => {
+  const [refundOpen, setRefundOpen] = useState(false);
   const completedPayments = payments.filter(p => p.status === 'completed');
 
   const getPaymentLabel = (payment: Payment) => {
@@ -103,12 +105,21 @@ const ClientDetailRefunds = ({
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader
+          className="cursor-pointer select-none hover:bg-muted/50 transition-colors rounded-t-lg"
+          onClick={() => setRefundOpen(!refundOpen)}
+        >
           <CardTitle className="text-base sm:text-lg flex items-center gap-2">
             <Icon name="RotateCcw" size={18} />
             Оформить возврат
+            <Icon
+              name={refundOpen ? "ChevronUp" : "ChevronDown"}
+              size={18}
+              className="ml-auto text-muted-foreground"
+            />
           </CardTitle>
         </CardHeader>
+        {refundOpen && (
         <CardContent className="space-y-4 pb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -226,6 +237,7 @@ const ClientDetailRefunds = ({
             {newRefund.type === 'cancellation' ? 'Аннулировать' : 'Оформить возврат'}
           </Button>
         </CardContent>
+        )}
       </Card>
 
       {refunds.length > 0 && (

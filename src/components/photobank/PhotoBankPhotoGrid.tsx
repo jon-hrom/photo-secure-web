@@ -64,6 +64,7 @@ interface PhotoBankPhotoGridProps {
   onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
   onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
   onNavigateToParent?: () => void;
+  clientUploadSlot?: React.ReactNode;
 }
 
 const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
@@ -120,7 +121,8 @@ const PhotoBankPhotoGrid = ({
   onCreateSubfolder,
   onOpenSubfolderSettings,
   onDeleteSubfolder,
-  onNavigateToParent
+  onNavigateToParent,
+  clientUploadSlot
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
@@ -270,11 +272,14 @@ const PhotoBankPhotoGrid = ({
         )}
 
         {!loading && selectedFolder && photos.length === 0 && !uploading && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Icon name="ImageOff" size={48} className="mx-auto mb-4 opacity-50" />
-            <p>В этой папке пока нет фотографий</p>
-            {!isTechRejectsFolder && <p className="text-sm mt-2">Загрузите фото, чтобы начать работу</p>}
-          </div>
+          <>
+            {clientUploadSlot}
+            <div className="text-center py-12 text-muted-foreground">
+              <Icon name="ImageOff" size={48} className="mx-auto mb-4 opacity-50" />
+              <p>В этой папке пока нет фотографий</p>
+              {!isTechRejectsFolder && <p className="text-sm mt-2">Загрузите фото, чтобы начать работу</p>}
+            </div>
+          </>
         )}
 
         {!loading && photos.length > 0 && (
@@ -323,6 +328,7 @@ const PhotoBankPhotoGrid = ({
                 ))}
               </div>
             </div>
+            {clientUploadSlot}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
               {sortedPhotos.map((photo) => (
                 <div key={photo.id} className="relative">

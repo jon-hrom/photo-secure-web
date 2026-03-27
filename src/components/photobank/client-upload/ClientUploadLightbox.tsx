@@ -1,7 +1,42 @@
 import { useState, useEffect, useCallback } from "react";
+import heic2any from "heic2any";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 import type { ClientPhoto } from "./types";
+
+const isHeicFile = (name: string) => {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.heic') || lower.endsWith('.heif');
+};
+
+function useHeicUrl(photo: ClientPhoto) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isHeicFile(photo.file_name)) {
+      setUrl(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(photo.s3_url);
+        const blob = await res.blob();
+        const jpeg = await heic2any({ blob, toType: 'image/jpeg', quality: 0.9 }) as Blob;
+        if (!cancelled) setUrl(URL.createObjectURL(jpeg));
+      } catch {
+        if (!cancelled) setUrl(photo.s3_url);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [photo.s3_url, photo.file_name]);
+
+  return { displayUrl: url || photo.s3_url, loading: loading && isHeicFile(photo.file_name) };
+}
 
 interface ClientUploadLightboxProps {
   photos: ClientPhoto[];
@@ -12,6 +47,7 @@ interface ClientUploadLightboxProps {
 const ClientUploadLightbox = ({ photos, startIndex, onClose }: ClientUploadLightboxProps) => {
   const [index, setIndex] = useState(startIndex);
   const photo = photos[index];
+  const { displayUrl, loading: heicLoading } = useHeicUrl(photo || { s3_url: '', file_name: '', id: 0, file_size: 0 });
 
   const goPrev = useCallback(() => {
     setIndex((i) => (i > 0 ? i - 1 : photos.length - 1));
@@ -94,13 +130,20 @@ const ClientUploadLightbox = ({ photos, startIndex, onClose }: ClientUploadLight
         </div>
       </div>
 
-      <img
-        src={photo.s3_url}
-        alt={photo.file_name}
-        className="max-h-[85vh] max-w-[90vw] object-contain select-none"
-        onClick={(e) => e.stopPropagation()}
-        draggable={false}
-      />
+      {heicLoading ? (
+        <div className="flex flex-col items-center gap-3">
+          <Icon name="Loader2" size={40} className="animate-spin text-white/60" />
+          <p className="text-white/60 text-sm">Конвертация HEIC...</p>
+        </div>
+      ) : (
+        <img
+          src={displayUrl}
+          alt={photo.file_name}
+          className="max-h-[85vh] max-w-[90vw] object-contain select-none"
+          onClick={(e) => e.stopPropagation()}
+          draggable={false}
+        />
+      )}
 
       {photos.length > 1 && (
         <>

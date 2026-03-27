@@ -284,7 +284,7 @@ const ClientUploadViewer = ({
   if (folders.length === 0) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 mb-4">
       <div className="flex items-center gap-2 px-1">
         <Icon name="UserPlus" size={18} className="text-teal-500" />
         <h3 className="text-sm font-semibold text-foreground">
