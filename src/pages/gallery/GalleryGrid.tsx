@@ -457,23 +457,33 @@ export default function GalleryGrid({
             }
           }
 
+          const calcMixedPct = (portrait: Photo, h1: Photo, h2: Photo) => {
+            const pR = (portrait.width || 2) / (portrait.height || 3);
+            const hR1 = (h1.width || 3) / (h1.height || 2);
+            const hR2 = (h2.width || 3) / (h2.height || 2);
+            const invSum = (1 / hR1) + (1 / hR2);
+            const pPct = invSum / (invSum + (1 / pR)) * 100;
+            return Math.max(35, Math.min(65, pPct));
+          };
+
           let globalIndex = 0;
           return rows.map((row, rowIdx) => {
             if (row.layout === 'mixed' && row.photos.length === 3) {
               const [portrait, h1, h2] = row.photos;
+              const pPct = calcMixedPct(portrait, h1, h2);
               const idx1 = globalIndex++;
               const idx2 = globalIndex++;
               const idx3 = globalIndex++;
               return (
-                <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
-                  <div style={{ width: '40%', flexShrink: 0 }}>
+                <div key={`row-${rowIdx}`} className="flex items-stretch" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
+                  <div style={{ width: `calc(${pPct}% - ${gridGap / 2}px)`, flexShrink: 0 }}>
                     <GalleryPhotoCard ref={photoCardRef} photo={portrait} index={idx1} gridGap={0} isDarkBg={!!isDarkBg}
                       screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
                       watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
                       onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
                       isSelected={selectedIds.has(portrait.id)} onToggleSelect={toggleSelect} isLandscape={false} />
                   </div>
-                  <div className="flex flex-col flex-1" style={{ gap: `${gridGap}px` }}>
+                  <div className="flex flex-col" style={{ width: `calc(${100 - pPct}% - ${gridGap / 2}px)`, flexShrink: 0, gap: `${gridGap}px` }}>
                     <GalleryPhotoCard ref={photoCardRef} photo={h1} index={idx2} gridGap={0} isDarkBg={!!isDarkBg}
                       screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
                       watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
