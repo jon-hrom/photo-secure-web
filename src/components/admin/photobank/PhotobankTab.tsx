@@ -4,7 +4,8 @@ import Icon from '@/components/ui/icon';
 import { useState, useMemo } from 'react';
 import FolderRow from './FolderRow';
 import type { PhotoFolder, Photo } from './types';
-import { formatBytes } from './types';
+import { usePhotoFrames } from '@/hooks/usePhotoFrames';
+import AdminPhotoCard from './AdminPhotoCard';
 
 type SortField = 'name' | 'shot_date' | 'created_at';
 type SortDirection = 'asc' | 'desc';
@@ -65,6 +66,7 @@ const PhotobankTab = ({
   const getSubfolders = (parentId: number) => folders.filter(f => f.parent_folder_id === parentId);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const { frameMode, setFrameMode, getFrameStyle } = usePhotoFrames();
 
   const sortedPhotos = useMemo(() => {
     return [...photos].sort((a, b) => {
@@ -192,41 +194,40 @@ const PhotobankTab = ({
                       )}
                     </button>
                   ))}
+                  <div className="ml-auto flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground mr-1">Рамки:</span>
+                    {([
+                      { mode: 'none' as const, label: 'Нет', icon: 'Square' },
+                      { mode: 'theme' as const, label: 'Тема', icon: 'Frame' },
+                      { mode: 'adaptive' as const, label: 'Адаптивные', icon: 'Palette' },
+                    ]).map(({ mode, label, icon }) => (
+                      <button
+                        key={mode}
+                        onClick={() => setFrameMode(mode)}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                          frameMode === mode
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        <Icon name={icon} size={12} />
+                        <span className="hidden sm:inline">{label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                  {sortedPhotos.map((photo) => {
-                    const isSelected = selectedPhotos.has(photo.id);
-                    return (
-                      <div key={photo.id} className="flex flex-col">
-                        <div
-                          className={`relative bg-gray-50 rounded-lg overflow-hidden cursor-pointer group transition-all aspect-[4/5] border ${isSelected ? 'ring-2 ring-red-500 border-red-400' : 'border-gray-200 hover:border-gray-300'}`}
-                          onClick={() => onViewPhoto(photo)}
-                        >
-                          <div className="w-full h-full flex items-center justify-center p-1">
-                            {photo.is_video ? (
-                              <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded"><Icon name="Play" size={32} className="text-white/70" /></div>
-                            ) : (
-                              <img src={photo.thumbnail_s3_url || photo.s3_url || ''} alt={photo.file_name} className="max-w-full max-h-full object-contain" loading="lazy" />
-                            )}
-                          </div>
-                          {photo.is_raw && <span className="absolute top-1 right-1 text-[9px] bg-orange-500 text-white px-1 rounded">RAW</span>}
-                          {photo.tech_reject_reason && <span className="absolute top-1 left-7"><Icon name="AlertTriangle" size={14} className="text-red-500 drop-shadow" /></span>}
-                          <div className={`absolute top-1 left-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} onClick={(e) => onTogglePhotoSelection(photo.id, e)}>
-                            <Checkbox checked={isSelected} className="h-5 w-5 bg-white/80 border-gray-400 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
-                          </div>
-                          {(photo.photo_download_count ?? 0) > 0 && (
-                            <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-emerald-600/90 flex items-center gap-1">
-                              <Icon name="Download" size={10} className="text-white" />
-                              <span className="text-white text-[10px] font-medium">{photo.photo_download_count}</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mt-1 px-0.5 truncate" title={photo.file_name}>
-                          {photo.file_name}
-                        </p>
-                      </div>
-                    );
-                  })}
+                  {sortedPhotos.map((photo) => (
+                    <AdminPhotoCard
+                      key={photo.id}
+                      photo={photo}
+                      isSelected={selectedPhotos.has(photo.id)}
+                      onToggleSelection={onTogglePhotoSelection}
+                      onViewPhoto={onViewPhoto}
+                      frameMode={frameMode}
+                      getFrameStyle={getFrameStyle}
+                    />
+                  ))}
                 </div>
               </>
             )}

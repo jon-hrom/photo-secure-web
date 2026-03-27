@@ -6,6 +6,7 @@ import PhotoGridCard from './PhotoGridCard';
 import PhotoGridViewer from './PhotoGridViewer';
 import PhotoExifDialog from './PhotoExifDialog';
 import VideoPlayer from './VideoPlayer';
+import { usePhotoFrames } from '@/hooks/usePhotoFrames';
 
 type SortField = 'name' | 'shot_date' | 'created_at';
 type SortDirection = 'asc' | 'desc';
@@ -126,6 +127,7 @@ const PhotoBankPhotoGrid = ({
   const [viewVideo, setViewVideo] = useState<Photo | null>(null);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const { frameMode, setFrameMode, getFrameStyle } = usePhotoFrames();
 
   const naturalCompare = (a: string, b: string): number => {
     const re = /(\d+)|(\D+)/g;
@@ -299,6 +301,27 @@ const PhotoBankPhotoGrid = ({
                   )}
                 </button>
               ))}
+              <div className="ml-auto flex items-center gap-1">
+                <span className="text-xs text-muted-foreground mr-1">Рамки:</span>
+                {([
+                  { mode: 'none' as const, label: 'Нет', icon: 'Square' },
+                  { mode: 'theme' as const, label: 'Тема', icon: 'Frame' },
+                  { mode: 'adaptive' as const, label: 'Адаптивные', icon: 'Palette' },
+                ]).map(({ mode, label, icon }) => (
+                  <button
+                    key={mode}
+                    onClick={() => setFrameMode(mode)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                      frameMode === mode
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    <Icon name={icon} size={12} />
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
               {sortedPhotos.map((photo) => (
@@ -313,6 +336,8 @@ const PhotoBankPhotoGrid = ({
                     onDownload={handleDownload}
                     onDeletePhoto={onDeletePhoto}
                     onShowExif={(photo) => setExifPhoto(photo)}
+                    frameMode={frameMode}
+                    getFrameStyle={getFrameStyle}
                   />
                 {isTechRejectsFolder && photo.tech_reject_reason && (
                   <div className="mt-1 space-y-1">

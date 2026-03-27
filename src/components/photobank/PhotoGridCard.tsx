@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
+import { extractDominantColor } from '@/utils/dominantColor';
 
 interface Photo {
   id: number;
@@ -21,6 +22,8 @@ interface Photo {
   photo_download_count?: number;
 }
 
+type FrameMode = 'none' | 'theme' | 'adaptive';
+
 interface PhotoGridCardProps {
   photo: Photo;
   selectionMode: boolean;
@@ -31,6 +34,8 @@ interface PhotoGridCardProps {
   onDeletePhoto: (photoId: number, fileName: string) => void;
   onShowExif?: (photo: Photo) => void;
   isAdminViewing?: boolean;
+  frameMode?: FrameMode;
+  getFrameStyle?: (dominantColor?: string) => CSSProperties;
 }
 
 const PhotoGridCard = ({
@@ -42,12 +47,22 @@ const PhotoGridCard = ({
   onDownload,
   onDeletePhoto,
   onShowExif,
-  isAdminViewing = false
+  isAdminViewing = false,
+  frameMode = 'none',
+  getFrameStyle
 }: PhotoGridCardProps) => {
   const [showButtons, setShowButtons] = useState(false);
   const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [dominantColor, setDominantColor] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (frameMode !== 'adaptive') return;
+    const imgUrl = photo.thumbnail_s3_url || photo.s3_url;
+    if (!imgUrl) return;
+    extractDominantColor(imgUrl).then(setDominantColor);
+  }, [frameMode, photo.thumbnail_s3_url, photo.s3_url]);
 
   useEffect(() => {
     return () => {
@@ -83,15 +98,27 @@ const PhotoGridCard = ({
     setImageLoaded(true);
   };
 
+  const frameStyle = frameMode !== 'none' && getFrameStyle
+    ? getFrameStyle(dominantColor)
+    : {};
+
+  const hasFrame = frameMode !== 'none';
+
   return (
     <div className="flex flex-col">
       <div
-        className={`relative group rounded-lg overflow-hidden border transition-colors bg-gray-50 aspect-[4/5] ${
+        className={`rounded-lg transition-all ${hasFrame ? 'rounded-xl' : ''}`}
+        style={hasFrame ? { ...frameStyle, borderRadius: 12 } : undefined}
+      >
+      <div
+        className={`relative group rounded-lg overflow-hidden border transition-colors bg-gray-50 dark:bg-gray-900 aspect-[4/5] ${
           isSelected 
             ? 'border-primary ring-2 ring-primary' 
             : showButtons
             ? 'border-primary'
-            : 'border-gray-200 hover:border-gray-300'
+            : hasFrame
+            ? 'border-transparent'
+            : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
         }`}
         onClick={handleClick}
         style={{ touchAction: 'manipulation', WebkitTouchCallout: 'none' } as React.CSSProperties}
@@ -217,6 +244,7 @@ const PhotoGridCard = ({
             )}
           </>
         )}
+      </div>
       </div>
       <p className="text-xs text-muted-foreground mt-1.5 px-0.5 truncate" title={photo.file_name}>
         {photo.file_name}
