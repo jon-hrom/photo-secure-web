@@ -31,6 +31,7 @@ export interface Photo {
   tech_reject_reason: string | null;
   tech_analyzed: boolean;
   created_at: string;
+  shot_date?: string | null;
   photo_download_count: number;
 }
 

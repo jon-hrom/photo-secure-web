@@ -13,8 +13,28 @@ from psycopg2.extras import RealDictCursor
 import boto3
 from botocore.client import Config
 from PIL import Image
+from PIL.ExifTags import Base as ExifBase
 import io
 import requests
+from datetime import datetime
+
+def _extract_shot_date(file_bytes):
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        exif = img.getexif()
+        if not exif:
+            return None
+        for tag_id in [ExifBase.DateTimeOriginal, ExifBase.DateTimeDigitized, ExifBase.DateTime]:
+            val = exif.get(tag_id)
+            if val:
+                try:
+                    return datetime.strptime(str(val), '%Y:%m:%d %H:%M:%S')
+                except Exception:
+                    continue
+    except Exception as e:
+        print(f'[EXIF] Failed to extract shot_date: {e}')
+    return None
+
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
@@ -201,6 +221,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             pb.tech_reject_reason,
                             pb.tech_analyzed,
                             pb.created_at,
+                            pb.shot_date,
                             COALESCE(
                                 (SELECT COUNT(*) 
                                  FROM t_p28211681_photo_secure_web.download_logs dl 
@@ -223,6 +244,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     for photo in photos:
                         if photo['created_at']:
                             photo['created_at'] = photo['created_at'].isoformat()
+                        if photo.get('shot_date'):
+                            photo['shot_date'] = photo['shot_date'].isoformat()
                         
                         # Если в БД уже есть URL с cdn.poehali.dev - используем его (публичный CDN)
                         if photo.get('s3_url') and 'cdn.poehali.dev' in photo['s3_url']:
@@ -530,20 +553,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     except Exception as e:
                         print(f'[UPLOAD_DIRECT] Thumbnail generation failed: {e}')
                 
+                shot_date = _extract_shot_date(file_bytes)
+                if shot_date:
+                    print(f'[UPLOAD_DIRECT] Extracted shot_date: {shot_date}')
+                
                 print('[UPLOAD_DIRECT] Inserting to DB')
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
-                        (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, file_size, width, height)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id, file_name, s3_key, file_size, created_at
-                    ''', (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, file_size, width, height))
+                        (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, file_size, width, height, shot_date)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id, file_name, s3_key, file_size, created_at, shot_date
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url, file_size, width, height, shot_date))
                     conn.commit()
                     photo = cur.fetchone()
                     print(f'[UPLOAD_DIRECT] DB insert success, photo_id={photo["id"]}')
                     
                     if photo['created_at']:
                         photo['created_at'] = photo['created_at'].isoformat()
+                    if photo.get('shot_date'):
+                        photo['shot_date'] = photo['shot_date'].isoformat()
                 
                 # Проверяем, нужно ли генерировать превью для RAW
                 raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
@@ -601,6 +630,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                shot_date = None
+                image_data = None
                 if not width or not height:
                     print(f'[CONFIRM_UPLOAD] Getting dimensions from S3 image')
                     try:
@@ -615,22 +646,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         width = None
                         height = None
                 
+                if image_data:
+                    shot_date = _extract_shot_date(image_data)
+                else:
+                    try:
+                        image_response = yc_s3_client.get_object(Bucket=yc_bucket, Key=s3_key)
+                        image_data = image_response['Body'].read()
+                        shot_date = _extract_shot_date(image_data)
+                    except Exception:
+                        pass
+                if shot_date:
+                    print(f'[CONFIRM_UPLOAD] Extracted shot_date: {shot_date}')
+                
                 s3_url = f'https://storage.yandexcloud.net/{yc_bucket}/{s3_key}'
                 
                 print(f'[CONFIRM_UPLOAD] Inserting to DB...')
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
                         INSERT INTO photo_bank 
-                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id, file_name, s3_key, file_size, created_at
-                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height))
+                        (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, shot_date)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id, file_name, s3_key, file_size, created_at, shot_date
+                    ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, width, height, shot_date))
                     conn.commit()
                     photo = cur.fetchone()
                     print(f'[CONFIRM_UPLOAD] Inserted photo id={photo["id"]}')
                     
                     if photo['created_at']:
                         photo['created_at'] = photo['created_at'].isoformat()
+                    if photo.get('shot_date'):
+                        photo['shot_date'] = photo['shot_date'].isoformat()
                 
                 # Проверяем, нужно ли генерировать превью для RAW
                 raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}

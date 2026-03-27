@@ -311,6 +311,7 @@ def handle_list_photos(conn, target_user_id, folder_id, yc_s3_client, yc_bucket)
                 pb.tech_reject_reason,
                 pb.tech_analyzed,
                 pb.created_at,
+                pb.shot_date,
                 COALESCE(
                     (SELECT COUNT(*) 
                      FROM {SCHEMA}.download_logs dl 
@@ -328,6 +329,8 @@ def handle_list_photos(conn, target_user_id, folder_id, yc_s3_client, yc_bucket)
         for photo in photos:
             if photo['created_at']:
                 photo['created_at'] = photo['created_at'].isoformat()
+            if photo.get('shot_date'):
+                photo['shot_date'] = photo['shot_date'].isoformat()
             
             if photo.get('s3_url') and 'cdn.poehali.dev' in photo['s3_url']:
                 pass

@@ -1,11 +1,14 @@
 import { Card, CardContent } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import PhotoGridHeader from './PhotoGridHeader';
 import PhotoGridCard from './PhotoGridCard';
 import PhotoGridViewer from './PhotoGridViewer';
 import PhotoExifDialog from './PhotoExifDialog';
 import VideoPlayer from './VideoPlayer';
+
+type SortField = 'name' | 'shot_date' | 'created_at';
+type SortDirection = 'asc' | 'desc';
 
 interface Photo {
   id: number;
@@ -21,6 +24,7 @@ interface Photo {
   width: number | null;
   height: number | null;
   created_at: string;
+  shot_date?: string | null;
   tech_reject_reason?: string | null;
   tech_analyzed?: boolean;
   photo_download_count?: number;
@@ -120,7 +124,56 @@ const PhotoBankPhotoGrid = ({
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
   const [viewVideo, setViewVideo] = useState<Photo | null>(null);
-  
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const naturalCompare = (a: string, b: string): number => {
+    const re = /(\d+)|(\D+)/g;
+    const aParts = a.match(re) || [];
+    const bParts = b.match(re) || [];
+    for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+      if (i >= aParts.length) return -1;
+      if (i >= bParts.length) return 1;
+      const aNum = parseInt(aParts[i]);
+      const bNum = parseInt(bParts[i]);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        if (aNum !== bNum) return aNum - bNum;
+      } else {
+        const cmp = aParts[i].localeCompare(bParts[i]);
+        if (cmp !== 0) return cmp;
+      }
+    }
+    return 0;
+  };
+
+  const sortedPhotos = useMemo(() => {
+    const sorted = [...photos].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'name') {
+        cmp = naturalCompare(a.file_name.toLowerCase(), b.file_name.toLowerCase());
+      } else if (sortField === 'shot_date') {
+        const aDate = a.shot_date || a.created_at || '';
+        const bDate = b.shot_date || b.created_at || '';
+        cmp = aDate.localeCompare(bDate);
+      } else {
+        const aDate = a.created_at || '';
+        const bDate = b.created_at || '';
+        cmp = aDate.localeCompare(bDate);
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [photos, sortField, sortDirection]);
+
+  const handleSortChange = (field: SortField) => {
+    if (field === sortField) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'name' ? 'asc' : 'desc');
+    }
+  };
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Б';
     const k = 1024;
@@ -143,12 +196,12 @@ const PhotoBankPhotoGrid = ({
 
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (!viewPhoto) return;
-    const currentIndex = photos.findIndex(p => p.id === viewPhoto.id);
+    const currentIndex = sortedPhotos.findIndex(p => p.id === viewPhoto.id);
     if (currentIndex === -1) return;
     
     const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex >= 0 && newIndex < photos.length) {
-      setViewPhoto(photos[newIndex]);
+    if (newIndex >= 0 && newIndex < sortedPhotos.length) {
+      setViewPhoto(sortedPhotos[newIndex]);
     }
   };
 
@@ -223,20 +276,44 @@ const PhotoBankPhotoGrid = ({
         )}
 
         {!loading && photos.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
-            {photos.map((photo) => (
-              <div key={photo.id} className="relative">
-                <PhotoGridCard
-                  photo={photo}
-                  selectionMode={selectionMode}
-                  isSelected={selectedPhotos.has(photo.id)}
-                  emailVerified={emailVerified}
-                  isAdminViewing={isAdminViewing}
-                  onPhotoClick={handlePhotoClick}
-                  onDownload={handleDownload}
-                  onDeletePhoto={onDeletePhoto}
-                  onShowExif={(photo) => setExifPhoto(photo)}
-                />
+          <>
+            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+              <span className="text-xs text-muted-foreground mr-1">Сортировка:</span>
+              {([
+                { field: 'name' as SortField, label: 'По имени' },
+                { field: 'shot_date' as SortField, label: 'По дате съёмки' },
+                { field: 'created_at' as SortField, label: 'По дате загрузки' },
+              ]).map(({ field, label }) => (
+                <button
+                  key={field}
+                  onClick={() => handleSortChange(field)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    sortField === field 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {label}
+                  {sortField === field && (
+                    <Icon name={sortDirection === 'asc' ? 'ArrowUp' : 'ArrowDown'} size={12} />
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+              {sortedPhotos.map((photo) => (
+                <div key={photo.id} className="relative">
+                  <PhotoGridCard
+                    photo={photo}
+                    selectionMode={selectionMode}
+                    isSelected={selectedPhotos.has(photo.id)}
+                    emailVerified={emailVerified}
+                    isAdminViewing={isAdminViewing}
+                    onPhotoClick={handlePhotoClick}
+                    onDownload={handleDownload}
+                    onDeletePhoto={onDeletePhoto}
+                    onShowExif={(photo) => setExifPhoto(photo)}
+                  />
                 {isTechRejectsFolder && photo.tech_reject_reason && (
                   <div className="mt-1 space-y-1">
                     <div className="text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 bg-red-100 text-red-700 rounded text-center truncate" title={getRejectionReasonLabel(photo.tech_reject_reason)}>
@@ -257,12 +334,13 @@ const PhotoBankPhotoGrid = ({
               </div>
             ))}
           </div>
+          </>
         )}
       </CardContent>
 
       <PhotoGridViewer
         viewPhoto={viewPhoto}
-        photos={photos}
+        photos={sortedPhotos}
         onClose={() => setViewPhoto(null)}
         onNavigate={handleNavigate}
         onDownload={handleDownload}
