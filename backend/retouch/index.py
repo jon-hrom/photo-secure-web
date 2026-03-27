@@ -223,6 +223,8 @@ def _handle_create(event, conn, user_id):
 
     task_id = result.get("task_id", "")
     status = result.get("status", "queued")
+    if status == 'failed' or not task_id:
+        print(f"[RETOUCH] WARNING: Task created with status={status}, task_id={task_id}. Full response: {json.dumps(result, default=str)[:500]}")
 
     with conn.cursor() as cur:
         cur.execute(
@@ -408,7 +410,12 @@ def _check_single_task(conn, user_id, task):
     new_status = remote.get("status", task['status'])
     result_data = remote.get("result", {}) or {}
     result_key = result_data.get("out_key") or remote.get("out_key") or remote.get("result_key")
-    error_msg = remote.get("error") or result_data.get("error")
+    error_msg = remote.get("error") or result_data.get("error") or remote.get("message")
+
+    if new_status == 'failed':
+        print(f"[RETOUCH] Task {task_id} FAILED on remote server. Full response: {json.dumps(remote, default=str)[:1000]}")
+        if not error_msg:
+            error_msg = f"Сервер ретуши вернул ошибку (статус: failed)"
 
     update_fields = ['status = %s', 'updated_at = NOW()']
     update_values = [new_status]
