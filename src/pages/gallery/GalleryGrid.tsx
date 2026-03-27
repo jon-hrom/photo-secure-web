@@ -227,16 +227,13 @@ export default function GalleryGrid({
     return null;
   });
 
-  const toggleClientTheme = useCallback(() => {
-    setClientTheme(prev => {
-      const currentDark = prev !== null ? prev === 'dark' : !!originalIsDark;
-      const next = currentDark ? 'light' : 'dark';
-      try { localStorage.setItem('gallery-client-theme', next); } catch { /* noop */ }
-      return next;
-    });
-  }, [originalIsDark]);
-
   const isDarkBg = clientTheme !== null ? clientTheme === 'dark' : !!originalIsDark;
+
+  const toggleClientTheme = useCallback(() => {
+    const next = isDarkBg ? 'light' : 'dark';
+    setClientTheme(next);
+    try { localStorage.setItem('gallery-client-theme', next); } catch { /* noop */ }
+  }, [isDarkBg]);
 
   const textColor = isDarkBg ? '#ffffff' : '#111827';
   const secondaryText = isDarkBg ? 'rgba(255,255,255,0.6)' : 'rgba(55,65,81,1)';

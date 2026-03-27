@@ -69,12 +69,13 @@ export default function GalleryToolbar({
       <div className="max-w-7xl mx-auto px-2 sm:px-4">
         <div className="flex items-center gap-2 py-2 sm:py-2.5 overflow-x-auto">
           <button
-            onClick={onToggleTheme}
+            onClick={(e) => { e.stopPropagation(); onToggleTheme?.(); }}
             className="flex items-center justify-center rounded-full transition-all active:scale-90 touch-manipulation flex-shrink-0"
             style={{
               width: 36,
               height: 36,
               background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+              WebkitTapHighlightColor: 'transparent',
             }}
             aria-label={isDarkBg ? 'Светлая тема' : 'Тёмная тема'}
           >
