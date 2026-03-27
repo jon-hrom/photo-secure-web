@@ -23,6 +23,7 @@ interface GalleryViewerImageProps {
   isDragging: boolean;
   isZooming: boolean;
   isFullscreen: boolean;
+  isLandscapeMobile?: boolean;
   screenshotProtection: boolean;
   showFullImage: boolean;
   fullImageLoaded: boolean;
@@ -53,6 +54,7 @@ export default function GalleryViewerImage({
   isDragging,
   isZooming,
   isFullscreen,
+  isLandscapeMobile = false,
   screenshotProtection,
   showFullImage,
   fullImageLoaded,
@@ -74,10 +76,11 @@ export default function GalleryViewerImage({
   // dvh — dynamic viewport height (учитывает скрывающийся адресбар на Android/iOS)
   // fallback на 100vh для браузеров без поддержки dvh
   const vh = 'calc(var(--dvh, 1vh) * 100)';
-  const imgMaxWidth = isFullscreen
+  const isFull = isFullscreen || isLandscapeMobile;
+  const imgMaxWidth = isFull
     ? 'calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))'
     : (zoom === 0 ? '96vw' : '100%');
-  const imgMaxHeight = isFullscreen
+  const imgMaxHeight = isFull
     ? vh
     : (zoom === 0 ? `calc(${vh} - 100px)` : vh);
 
@@ -143,8 +146,8 @@ export default function GalleryViewerImage({
             style={{
               maxWidth: imgMaxWidth,
               maxHeight: imgMaxHeight,
-              width: isFullscreen ? '100vw' : undefined,
-              height: isFullscreen ? '100vh' : undefined,
+              width: isFull ? '100vw' : undefined,
+              height: isFull ? vh : undefined,
               touchAction: 'none',
               pointerEvents: 'none',
             }}
@@ -236,13 +239,15 @@ export default function GalleryViewerImage({
         )}
       </div>
 
-      {/* Кнопка полного экрана — правый нижний угол */}
       <button
         onClick={onToggleFullscreen}
         className="absolute z-50 flex items-center justify-center rounded-full bg-black/40 active:bg-black/70 backdrop-blur-sm transition-all w-9 h-9 sm:w-11 sm:h-11"
         style={{
           right: 'max(12px, env(safe-area-inset-right))',
           bottom: 'max(12px, env(safe-area-inset-bottom))',
+          opacity: showUI ? 1 : 0,
+          pointerEvents: showUI ? 'auto' : 'none',
+          transition: 'opacity 0.3s',
         }}
         title={isFullscreen ? 'Выйти из полного экрана' : 'Полный экран'}
       >

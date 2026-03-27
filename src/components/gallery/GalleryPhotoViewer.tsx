@@ -69,6 +69,7 @@ export default function GalleryPhotoViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showUI, setShowUI] = useState(true);
+  const [isLandscapeMobile, setIsLandscapeMobile] = useState(false);
 
   const currentPhoto = photos[currentIndex];
 
@@ -139,18 +140,20 @@ export default function GalleryPhotoViewer({
     };
   }, []);
 
-  // На мобиле landscape — только скрываем UI, без принудительного fullscreen (iOS не поддерживает)
   useEffect(() => {
     const isTouch = 'ontouchstart' in window;
     if (!isTouch) return;
     const mq = window.matchMedia('(orientation: landscape)');
-    const onChange = (e: MediaQueryListEvent) => {
-      if (e.matches) {
+    const apply = (landscape: boolean) => {
+      setIsLandscapeMobile(landscape);
+      if (landscape) {
         setShowUI(false);
       } else {
         setShowUI(true);
       }
     };
+    apply(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => apply(e.matches);
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, []);
@@ -304,6 +307,7 @@ export default function GalleryPhotoViewer({
             isDragging={isDragging}
             isZooming={isZooming}
             isFullscreen={isFullscreen}
+            isLandscapeMobile={isLandscapeMobile}
             screenshotProtection={screenshotProtection}
             showFullImage={showFullImage}
             fullImageLoaded={fullImageLoaded}
