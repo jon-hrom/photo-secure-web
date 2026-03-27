@@ -40,9 +40,13 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
   return (
     <div
       ref={ref}
-      className={`group relative rounded-md sm:rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation${isLandscape ? ' col-span-2 md:col-span-1' : ''}`}
+      className={`group relative overflow-hidden cursor-pointer touch-manipulation ${
+        isLandscape 
+          ? 'w-full sm:w-1/2 md:w-1/2 lg:w-1/3' 
+          : 'w-1/2 sm:w-1/3 md:w-1/4 lg:w-1/4'
+      }`}
       style={{ 
-        marginBottom: `${gridGap}px`,
+        flexShrink: 0,
         opacity: 0,
         transform: 'translateY(12px)',
         transition: `opacity 0.25s ease, transform 0.25s ease`,
@@ -50,6 +54,8 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
         outlineOffset: '-3px',
         willChange: 'opacity, transform',
         contain: 'layout style paint',
+        borderRight: isDarkBg ? 'none' : '1px solid rgba(30,30,50,0.15)',
+        borderBottom: isDarkBg ? 'none' : '1px solid rgba(30,30,50,0.15)',
       }}
       onClick={() => selectionMode ? onToggleSelect?.(photo) : onPhotoClick(photo)}
     >

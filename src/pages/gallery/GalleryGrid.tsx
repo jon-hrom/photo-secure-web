@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import GalleryCover from './components/GalleryCover';
 import GalleryToolbar from './components/GalleryToolbar';
 import GalleryPhotoCard from './components/GalleryPhotoCard';
@@ -323,6 +323,27 @@ export default function GalleryGrid({
     }
   }, []);
 
+  const sortedPhotos = useMemo(() => {
+    return [...gallery.photos].sort((a, b) => {
+      const re = /(\d+)|(\D+)/g;
+      const aParts = a.file_name.toLowerCase().match(re) || [];
+      const bParts = b.file_name.toLowerCase().match(re) || [];
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+        if (i >= aParts.length) return -1;
+        if (i >= bParts.length) return 1;
+        const aNum = parseInt(aParts[i]);
+        const bNum = parseInt(bParts[i]);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          if (aNum !== bNum) return aNum - bNum;
+        } else {
+          const cmp = aParts[i].localeCompare(bParts[i]);
+          if (cmp !== 0) return cmp;
+        }
+      }
+      return 0;
+    });
+  }, [gallery.photos]);
+
   return (
     <div className="min-h-screen" style={{
       ...bgStyles,
@@ -365,7 +386,7 @@ export default function GalleryGrid({
         onRegisterToDownload={onRegisterToDownload}
         onToggleTheme={toggleClientTheme}
       />
-      <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 md:pt-0"
+      <div id="gallery-photo-grid" className="max-w-7xl mx-auto"
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
       >
         {gallery.subfolders && gallery.subfolders.length > 0 && (
@@ -395,10 +416,13 @@ export default function GalleryGrid({
           </div>
         )}
         <div 
-          className="grid grid-cols-2 [grid-auto-flow:dense] md:columns-3 lg:columns-4 md:block"
-          style={{ gap: `${gridGap}px`, columnGap: `${gridGap}px` }}
+          className="flex flex-wrap"
+          style={{ 
+            gap: 0,
+            border: isDarkBg ? 'none' : '1px solid #1a1a2e',
+          }}
         >
-          {gallery.photos.map((photo, index) => {
+          {sortedPhotos.map((photo, index) => {
             const isLandscape = photo.width && photo.height ? photo.width > photo.height : false;
             return (
               <GalleryPhotoCard
@@ -406,7 +430,7 @@ export default function GalleryGrid({
                 ref={photoCardRef}
                 photo={photo}
                 index={index}
-                gridGap={gridGap}
+                gridGap={0}
                 isDarkBg={!!isDarkBg}
                 screenshotProtection={gallery.screenshot_protection}
                 downloadDisabled={gallery.download_disabled}

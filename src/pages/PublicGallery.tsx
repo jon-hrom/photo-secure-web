@@ -225,7 +225,7 @@ export default function PublicGallery() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <LoadingIndicators
         showProgress={state.showProgress}
         loadingProgress={actualProgress}
