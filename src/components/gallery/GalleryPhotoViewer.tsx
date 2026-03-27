@@ -124,13 +124,16 @@ export default function GalleryPhotoViewer({
     };
   }, []);
 
-  // Sync isFullscreen state with native fullscreen events
+  const isLandscapeMobileRef = useRef(false);
+
   useEffect(() => {
     const onFsChange = () => {
       const doc = document as ExtendedDocument;
       const isFull = !!(document.fullscreenElement || doc.webkitFullscreenElement);
       setIsFullscreen(isFull);
-      if (!isFull) setShowUI(true);
+      if (!isFull && !isLandscapeMobileRef.current) {
+        setShowUI(true);
+      }
     };
     document.addEventListener('fullscreenchange', onFsChange);
     document.addEventListener('webkitfullscreenchange', onFsChange);
@@ -146,17 +149,20 @@ export default function GalleryPhotoViewer({
     const mq = window.matchMedia('(orientation: landscape)');
     const apply = (landscape: boolean) => {
       setIsLandscapeMobile(landscape);
+      isLandscapeMobileRef.current = landscape;
       if (landscape) {
         setShowUI(false);
+        enterFullscreen();
       } else {
         setShowUI(true);
+        exitFullscreen();
       }
     };
-    apply(mq.matches);
+    if (mq.matches) apply(true);
     const onChange = (e: MediaQueryListEvent) => apply(e.matches);
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
-  }, []);
+  }, [enterFullscreen, exitFullscreen]);
 
   // Exit fullscreen on unmount
   useEffect(() => {
