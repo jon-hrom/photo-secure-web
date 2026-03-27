@@ -82,6 +82,8 @@ const ProjectCard = ({
                   <Label className="text-xs text-muted-foreground shrink-0">Дата съёмки:</Label>
                   <Input
                     type="date"
+                    min="2020-01-01"
+                    max="2099-12-31"
                     value={(() => {
                       if (!project.startDate) return '';
                       if (typeof project.startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(project.startDate)) {
@@ -96,7 +98,11 @@ const ProjectCard = ({
                     })()}
                     onChange={(e) => {
                       e.stopPropagation();
-                      onUpdateDate(e.target.value);
+                      const val = e.target.value;
+                      if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) return;
+                      const year = val ? parseInt(val.split('-')[0], 10) : 0;
+                      if (val && (year < 2020 || year > 2099)) return;
+                      onUpdateDate(val);
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="text-xs h-8 w-full sm:w-40"
