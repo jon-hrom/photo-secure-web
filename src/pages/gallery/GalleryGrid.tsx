@@ -429,7 +429,7 @@ export default function GalleryGrid({
             else squares.push(p);
           });
 
-          const rows: { photos: typeof sortedPhotos; layout: 'portrait-pair' | 'landscape-row' | 'mixed' | 'grid' }[] = [];
+          const rows: { photos: typeof sortedPhotos; layout: 'portrait-trio' | 'landscape-row' | 'mixed' | 'grid' }[] = [];
           let pi = 0, li = 0, si = 0;
 
           while (pi < portraits.length || li < landscapes.length || si < squares.length) {
@@ -442,12 +442,21 @@ export default function GalleryGrid({
             } else if (pi < portraits.length && si + 1 < squares.length) {
               rows.push({ photos: [portraits[pi], squares[si], squares[si + 1]], layout: 'mixed' });
               pi++; si += 2;
-            } else if (pi + 1 < portraits.length) {
-              rows.push({ photos: [portraits[pi], portraits[pi + 1]], layout: 'portrait-pair' });
-              pi += 2;
+            } else if (pi + 2 < portraits.length) {
+              rows.push({ photos: [portraits[pi], portraits[pi + 1], portraits[pi + 2]], layout: 'portrait-trio' });
+              pi += 3;
+            } else if (pi + 1 < portraits.length && li < landscapes.length) {
+              rows.push({ photos: [portraits[pi], portraits[pi + 1], landscapes[li]], layout: 'portrait-trio' });
+              pi += 2; li++;
+            } else if (pi + 1 < portraits.length && si < squares.length) {
+              rows.push({ photos: [portraits[pi], portraits[pi + 1], squares[si]], layout: 'portrait-trio' });
+              pi += 2; si++;
             } else if (li + 2 < landscapes.length) {
               rows.push({ photos: [landscapes[li], landscapes[li + 1], landscapes[li + 2]], layout: 'landscape-row' });
               li += 3;
+            } else if (si + 2 < squares.length) {
+              rows.push({ photos: [squares[si], squares[si + 1], squares[si + 2]], layout: 'landscape-row' });
+              si += 3;
             } else {
               const remaining: typeof sortedPhotos = [];
               while (pi < portraits.length) remaining.push(portraits[pi++]);
@@ -498,7 +507,7 @@ export default function GalleryGrid({
                 </div>
               );
             }
-            if (row.layout === 'portrait-pair') {
+            if (row.layout === 'portrait-trio') {
               return (
                 <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
                   {row.photos.map(p => {
