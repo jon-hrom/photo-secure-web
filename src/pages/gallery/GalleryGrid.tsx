@@ -416,158 +416,53 @@ export default function GalleryGrid({
           </div>
         )}
         {(() => {
-          const portraits: typeof sortedPhotos = [];
-          const landscapes: typeof sortedPhotos = [];
-          const squares: typeof sortedPhotos = [];
-          
-          sortedPhotos.forEach(p => {
-            const w = p.width || 1;
-            const h = p.height || 1;
-            const ratio = w / h;
-            if (ratio > 1.15) landscapes.push(p);
-            else if (ratio < 0.85) portraits.push(p);
-            else squares.push(p);
+          const targetHeight = 280;
+          const containerWidth = typeof window !== 'undefined' ? Math.min(window.innerWidth - 32, 1280) : 1200;
+
+          const justifiedRows: { photos: Photo[]; height: number }[] = [];
+          let currentRow: Photo[] = [];
+          let currentAR = 0;
+
+          sortedPhotos.forEach((photo, i) => {
+            const ar = (photo.width || 1) / (photo.height || 1);
+            currentRow.push(photo);
+            currentAR += ar;
+
+            const gaps = currentRow.length > 1 ? (currentRow.length - 1) * gridGap : 0;
+            const rowHeight = (containerWidth - gaps) / currentAR;
+
+            if (rowHeight <= targetHeight || i === sortedPhotos.length - 1) {
+              const finalHeight = i === sortedPhotos.length - 1 && rowHeight > targetHeight * 1.5
+                ? targetHeight
+                : rowHeight;
+              justifiedRows.push({ photos: [...currentRow], height: finalHeight });
+              currentRow = [];
+              currentAR = 0;
+            }
           });
 
-          type RowLayout = 'quad-mixed' | 'four-equal' | 'landscape-four' | 'grid';
-          const rows: { photos: typeof sortedPhotos; layout: RowLayout }[] = [];
-          let pi = 0, li = 0, si = 0;
-
-          const horizLeft = () => (landscapes.length - li) + (squares.length - si);
-
-          while (pi < portraits.length || li < landscapes.length || si < squares.length) {
-            if (pi + 1 < portraits.length && horizLeft() >= 4) {
-              const batch: Photo[] = [];
-              for (let n = 0; n < 4; n++) {
-                if (li < landscapes.length) { batch.push(landscapes[li++]); }
-                else if (si < squares.length) { batch.push(squares[si++]); }
-              }
-              rows.push({ photos: [portraits[pi], batch[0], batch[1], batch[2], batch[3], portraits[pi + 1]], layout: 'quad-mixed' });
-              pi += 2;
-            } else if (pi + 1 < portraits.length && horizLeft() >= 2) {
-              const batch: Photo[] = [];
-              for (let n = 0; n < 2; n++) {
-                if (li < landscapes.length) batch.push(landscapes[li++]);
-                else if (si < squares.length) batch.push(squares[si++]);
-              }
-              rows.push({ photos: [portraits[pi], batch[0], batch[1], portraits[pi + 1]], layout: 'quad-mixed' });
-              pi += 2;
-            } else if (pi < portraits.length && horizLeft() >= 2) {
-              const batch: Photo[] = [];
-              for (let n = 0; n < 2; n++) {
-                if (li < landscapes.length) batch.push(landscapes[li++]);
-                else if (si < squares.length) batch.push(squares[si++]);
-              }
-              rows.push({ photos: [portraits[pi], batch[0], batch[1]], layout: 'quad-mixed' });
-              pi++;
-            } else if (pi + 3 < portraits.length) {
-              rows.push({ photos: [portraits[pi], portraits[pi + 1], portraits[pi + 2], portraits[pi + 3]], layout: 'four-equal' });
-              pi += 4;
-            } else if (horizLeft() >= 4) {
-              const batch: Photo[] = [];
-              for (let n = 0; n < 4; n++) {
-                if (li < landscapes.length) batch.push(landscapes[li++]);
-                else if (si < squares.length) batch.push(squares[si++]);
-              }
-              rows.push({ photos: batch, layout: 'landscape-four' });
-            } else {
-              const remaining: typeof sortedPhotos = [];
-              while (pi < portraits.length) remaining.push(portraits[pi++]);
-              while (li < landscapes.length) remaining.push(landscapes[li++]);
-              while (si < squares.length) remaining.push(squares[si++]);
-              if (remaining.length > 0) rows.push({ photos: remaining, layout: 'grid' });
-            }
-          }
-
-          const calcMixedPct = (portrait: Photo, h1: Photo, h2: Photo) => {
-            const pR = (portrait.width || 2) / (portrait.height || 3);
-            const hR1 = (h1.width || 3) / (h1.height || 2);
-            const hR2 = (h2.width || 3) / (h2.height || 2);
-            const invSum = (1 / hR1) + (1 / hR2);
-            const pPct = invSum / (invSum + (1 / pR)) * 100;
-            return Math.max(35, Math.min(65, pPct));
-          };
-
-          const renderCard = (photo: Photo, isL: boolean) => {
-            const idx = globalIndex++;
-            return (
-              <GalleryPhotoCard key={photo.id} ref={photoCardRef} photo={photo} index={idx} gridGap={0} isDarkBg={!!isDarkBg}
-                screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
-                watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
-                onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
-                isSelected={selectedIds.has(photo.id)} onToggleSelect={toggleSelect} isLandscape={isL} />
-            );
-          };
-
           let globalIndex = 0;
-          return rows.map((row, rowIdx) => {
-            if (row.layout === 'quad-mixed' && row.photos.length === 6) {
-              const [p1, h1, h2, h3, h4, p2] = row.photos;
-              return (
-                <div key={`row-${rowIdx}`} className="flex items-stretch" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
-                  <div style={{ flex: 1 }}>{renderCard(p1, false)}</div>
-                  <div className="flex flex-col" style={{ flex: 1, gap: `${gridGap}px` }}>
-                    {renderCard(h1, true)}
-                    {renderCard(h2, true)}
-                  </div>
-                  <div className="flex flex-col" style={{ flex: 1, gap: `${gridGap}px` }}>
-                    {renderCard(h3, true)}
-                    {renderCard(h4, true)}
-                  </div>
-                  <div style={{ flex: 1 }}>{renderCard(p2, false)}</div>
-                </div>
-              );
-            }
-            if (row.layout === 'quad-mixed' && row.photos.length === 4) {
-              const [p1, h1, h2, p2] = row.photos;
-              const pR1 = (p1.width || 2) / (p1.height || 3);
-              const pR2 = (p2.width || 2) / (p2.height || 3);
-              const hR1 = (h1.width || 3) / (h1.height || 2);
-              const hR2 = (h2.width || 3) / (h2.height || 2);
-              const midRatio = 1 / ((1 / hR1) + (1 / hR2));
-              return (
-                <div key={`row-${rowIdx}`} className="flex items-stretch" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
-                  <div style={{ flex: pR1 }}>{renderCard(p1, false)}</div>
-                  <div className="flex flex-col" style={{ flex: midRatio * 2, gap: `${gridGap}px` }}>
-                    {renderCard(h1, true)}
-                    {renderCard(h2, true)}
-                  </div>
-                  <div style={{ flex: pR2 }}>{renderCard(p2, false)}</div>
-                </div>
-              );
-            }
-            if (row.layout === 'quad-mixed' && row.photos.length === 3) {
-              const [portrait, h1, h2] = row.photos;
-              const pPct = calcMixedPct(portrait, h1, h2);
-              return (
-                <div key={`row-${rowIdx}`} className="flex items-stretch" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
-                  <div style={{ width: `calc(${pPct}% - ${gridGap / 2}px)`, flexShrink: 0 }}>{renderCard(portrait, false)}</div>
-                  <div className="flex flex-col" style={{ width: `calc(${100 - pPct}% - ${gridGap / 2}px)`, flexShrink: 0, gap: `${gridGap}px` }}>
-                    {renderCard(h1, true)}
-                    {renderCard(h2, true)}
-                  </div>
-                </div>
-              );
-            }
-            if (row.layout === 'four-equal') {
-              return (
-                <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
-                  {row.photos.map(p => (<div key={p.id} style={{ flex: 1 }}>{renderCard(p, false)}</div>))}
-                </div>
-              );
-            }
-            if (row.layout === 'landscape-four') {
-              return (
-                <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
-                  {row.photos.map(p => (<div key={p.id} style={{ flex: 1 }}>{renderCard(p, true)}</div>))}
-                </div>
-              );
-            }
+          return justifiedRows.map((row, rowIdx) => {
+            const gaps = row.photos.length > 1 ? (row.photos.length - 1) * gridGap : 0;
+            const availW = containerWidth - gaps;
+            const totalAR = row.photos.reduce((sum, p) => sum + (p.width || 1) / (p.height || 1), 0);
+
             return (
-              <div key={`row-${rowIdx}`} className="flex flex-wrap" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
-                {row.photos.map(p => {
-                  const isL = (p.width || 1) / (p.height || 1) > 1.15;
-                  return (<div key={p.id} style={{ flex: '1 1 22%', minWidth: '22%' }}>{renderCard(p, isL)}</div>);
+              <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
+                {row.photos.map(photo => {
+                  const ar = (photo.width || 1) / (photo.height || 1);
+                  const w = (ar / totalAR) * availW;
+                  const idx = globalIndex++;
+                  const isL = ar > 1.15;
+                  return (
+                    <div key={photo.id} style={{ width: `${(w / containerWidth) * 100}%`, flexShrink: 0, flexGrow: 1 }}>
+                      <GalleryPhotoCard ref={photoCardRef} photo={photo} index={idx} gridGap={0} isDarkBg={!!isDarkBg}
+                        screenshotProtection={gallery.screenshot_protection} downloadDisabled={gallery.download_disabled}
+                        watermark={gallery.watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
+                        onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
+                        isSelected={selectedIds.has(photo.id)} onToggleSelect={toggleSelect} isLandscape={isL} />
+                    </div>
+                  );
                 })}
               </div>
             );
