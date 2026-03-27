@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { Client, Payment, Refund } from '@/components/clients/ClientsTypes';
+import { todayLocalDate } from '@/utils/dateFormat';
 
 export const createAddRefundHandler = (
   localClient: Client,
@@ -57,7 +58,7 @@ export const createAddRefundHandler = (
       reason: '',
       type: 'refund',
       method: '',
-      date: new Date().toISOString().split('T')[0],
+      date: todayLocalDate(),
     });
     toast.success(refund.type === 'cancellation' ? 'Аннулирование оформлено' : 'Возврат оформлен');
   };

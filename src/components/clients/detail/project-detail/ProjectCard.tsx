@@ -91,18 +91,18 @@ const ProjectCard = ({
                       }
                       try {
                         const date = new Date(project.startDate);
-                        return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
+                        if (isNaN(date.getTime())) return '';
+                        const y = date.getFullYear();
+                        const m = String(date.getMonth() + 1).padStart(2, '0');
+                        const d = String(date.getDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
                       } catch {
                         return '';
                       }
                     })()}
                     onChange={(e) => {
                       e.stopPropagation();
-                      const val = e.target.value;
-                      if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) return;
-                      const year = val ? parseInt(val.split('-')[0], 10) : 0;
-                      if (val && (year < 2020 || year > 2099)) return;
-                      onUpdateDate(val);
+                      onUpdateDate(e.target.value);
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="text-xs h-8 w-full sm:w-40"

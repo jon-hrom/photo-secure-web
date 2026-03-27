@@ -8,6 +8,7 @@ import { useClientDetailState } from '@/components/clients/dialog/ClientDetailDi
 import { useClientDetailHandlers } from '@/components/clients/dialog/ClientDetailDialogHandlers';
 import UnsavedProjectDialog from '@/components/clients/UnsavedProjectDialog';
 import { useState, useEffect } from 'react';
+import { todayLocalDate } from '@/utils/dateFormat';
 
 interface ClientDetailDialogProps {
   open: boolean;
@@ -205,7 +206,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
               name: '',
               budget: '',
               description: '',
-              startDate: new Date().toISOString().split('T')[0],
+              startDate: todayLocalDate(),
               shootingStyleId: '',
               shooting_time: '10:00',
               shooting_duration: 120,

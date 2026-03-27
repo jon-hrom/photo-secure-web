@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { Client, Project, Payment } from '@/components/clients/ClientsTypes';
+import { todayLocalDate } from '@/utils/dateFormat';
 
 export const createAddPaymentHandler = (
   localClient: Client,
@@ -98,7 +99,7 @@ export const createAddPaymentHandler = (
       projectId: '', 
       amount: '', 
       method: 'cash', 
-      date: new Date().toISOString().split('T')[0],
+      date: todayLocalDate(),
       splitAcrossProjects: false
     });
     toast.success('Платёж добавлен');

@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { todayLocalDate } from '@/utils/dateFormat';
 
 interface Plan {
   plan_id: number;
@@ -69,7 +70,7 @@ export const UsersTab = ({ users, plans, onUpdateUser }: UsersTabProps) => {
       ...user,
       plan_id: user.plan_id || null,
       custom_price: plan?.price_rub || 0,
-      started_at: new Date().toISOString().split('T')[0],
+      started_at: todayLocalDate(),
       ended_at: ''
     });
   };

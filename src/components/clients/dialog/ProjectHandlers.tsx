@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { Client, Project, Payment } from '@/components/clients/ClientsTypes';
 import { sendProjectNotification, sendProjectUpdateNotification } from './NotificationService';
+import { todayLocalDate } from '@/utils/dateFormat';
 
 export const createAddProjectHandler = (
   localClient: Client,
@@ -23,7 +24,7 @@ export const createAddProjectHandler = (
       name: newProject.name,
       status: 'new',
       budget: parseFloat(newProject.budget),
-      startDate: new Date(newProject.startDate).toISOString(),
+      startDate: newProject.startDate + 'T12:00:00.000Z',
       description: newProject.description,
       shootingStyleId: newProject.shootingStyleId,
       shooting_time: newProject.shooting_time,
@@ -83,7 +84,7 @@ export const createAddProjectHandler = (
           // Find the newly created project by matching name and date (including temp ID as it's saved to DB)
           const realProject = updatedClientData?.projects?.find((p: Project) => 
             p.name === newProject.name && 
-            p.startDate === new Date(newProject.startDate).toISOString()
+            p.startDate === newProject.startDate + 'T12:00:00.000Z'
           );
           
           if (realProject) {
@@ -118,7 +119,7 @@ export const createAddProjectHandler = (
       name: '', 
       budget: '', 
       description: '',
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: todayLocalDate(),
       shootingStyleId: '',
       shooting_time: '10:00',
       shooting_duration: 120,

@@ -99,13 +99,7 @@ const NewProjectForm = ({
               min="2020-01-01"
               max="2099-12-31"
               value={newProject.startDate}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) return;
-                const year = val ? parseInt(val.split('-')[0], 10) : 0;
-                if (val && (year < 2020 || year > 2099)) return;
-                setNewProject({ ...newProject, startDate: val });
-              }}
+              onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
               className="text-xs h-9"
             />
           </div>

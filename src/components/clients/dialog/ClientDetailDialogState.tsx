@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Client } from '@/components/clients/ClientsTypes';
 import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
+import { todayLocalDate } from '@/utils/dateFormat';
 
 export const useClientDetailState = (client: Client | null, open: boolean) => {
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
@@ -14,7 +15,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     name: '', 
     budget: '', 
     description: '',
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: todayLocalDate(),
     shootingStyleId: '',
     shooting_time: '10:00',
     shooting_duration: 120,
@@ -26,7 +27,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     method: 'card', 
     description: '', 
     projectId: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayLocalDate(),
     splitAcrossProjects: false
   });
   const [newRefund, setNewRefund] = useState({
@@ -36,7 +37,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     reason: '',
     type: 'refund',
     method: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayLocalDate(),
   });
   const [newComment, setNewComment] = useState('');
   const [newMessage, setNewMessage] = useState({ 
@@ -108,7 +109,7 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
             name: saved.name || '',
             budget: saved.budget || '',
             description: saved.description || '',
-            startDate: saved.startDate || new Date().toISOString().split('T')[0],
+            startDate: saved.startDate || todayLocalDate(),
             shootingStyleId: saved.shootingStyleId || '',
             shooting_time: saved.shooting_time || '10:00',
             shooting_duration: saved.shooting_duration || 120,
