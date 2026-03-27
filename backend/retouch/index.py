@@ -415,7 +415,13 @@ def _check_single_task(conn, user_id, task):
     if new_status == 'failed':
         print(f"[RETOUCH] Task {task_id} FAILED on remote server. Full response: {json.dumps(remote, default=str)[:1000]}")
         if not error_msg:
-            error_msg = f"Сервер ретуши вернул ошибку (статус: failed)"
+            error_msg = "Сервер ретуши вернул ошибку"
+        elif 'download_file' in error_msg or 's3transfer' in error_msg:
+            print(f"[RETOUCH] Task {task_id}: S3 download error detected")
+            error_msg = "Сервер не смог скачать файл для обработки. Попробуйте снова"
+        elif len(error_msg) > 200:
+            last_line = error_msg.strip().split('\n')[-1].strip()
+            error_msg = last_line if last_line else "Ошибка обработки на сервере"
 
     update_fields = ['status = %s', 'updated_at = NOW()']
     update_values = [new_status]

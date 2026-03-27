@@ -5,7 +5,7 @@ import type { RetouchTask } from '@/components/photobank/RetouchTaskList';
 
 const RETOUCH_API = funcUrls['retouch'];
 const RETOUCH_WAKER_API = funcUrls['retouch-waker'];
-const CONCURRENT_LIMIT = 3;
+const CONCURRENT_LIMIT = 1;
 const CLIENT_TASK_TIMEOUT_MS = 10 * 60 * 1000;
 
 interface RetouchSession {
@@ -326,6 +326,25 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const waitForTaskCompletion = (taskId: string, timeoutMs = 10 * 60 * 1000): Promise<string> => {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        const current = tasksRef.current.find(t => t.task_id === taskId);
+        if (current && (current.status === 'finished' || current.status === 'failed')) {
+          resolve(current.status);
+          return;
+        }
+        if (Date.now() - start > timeoutMs) {
+          resolve('timeout');
+          return;
+        }
+        setTimeout(check, 2000);
+      };
+      setTimeout(check, 3000);
+    });
+  };
+
   const submitOne = async (slotId: number) => {
     if (batchQueueRef.current.length === 0) {
       checkBatchDone();
@@ -335,17 +354,24 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     activeSubmitsRef.current++;
     console.log(`[RETOUCH] Slot ${slotId}: submitting photo ${photo.id} (${photo.file_name}), active=${activeSubmitsRef.current}, queue=${batchQueueRef.current.length}`);
 
+    let taskId = '';
     try {
       const task = await startRetouchForPhoto(photo.id);
       if (task) {
+        taskId = task.task_id;
         setTasks(prev => [...prev, task]);
       }
     } finally {
       activeSubmitsRef.current--;
-      console.log(`[RETOUCH] Slot ${slotId}: done photo ${photo.id}, active=${activeSubmitsRef.current}, queue=${batchQueueRef.current.length}`);
+      console.log(`[RETOUCH] Slot ${slotId}: submitted photo ${photo.id}, task=${taskId}, active=${activeSubmitsRef.current}, queue=${batchQueueRef.current.length}`);
     }
 
     if (batchQueueRef.current.length > 0) {
+      if (taskId) {
+        console.log(`[RETOUCH] Slot ${slotId}: waiting for task ${taskId} to complete before next photo...`);
+        const result = await waitForTaskCompletion(taskId);
+        console.log(`[RETOUCH] Slot ${slotId}: task ${taskId} completed with status: ${result}`);
+      }
       await new Promise(r => setTimeout(r, 1500));
       submitOne(slotId);
     } else {
