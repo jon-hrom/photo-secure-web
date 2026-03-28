@@ -699,8 +699,10 @@ def handler(event, context):
 
     if immediate_project_id and delay_seconds > 0:
         import time as _time
-        print(f"[IMMEDIATE] Waiting {delay_seconds}s before sending reminder (let booking notification arrive first)")
-        _time.sleep(delay_seconds)
+        import random
+        actual_delay = random.randint(30, 60)
+        print(f"[IMMEDIATE] Waiting {actual_delay}s before sending reminder (let booking notification arrive first)")
+        _time.sleep(actual_delay)
 
     if immediate_project_id:
         try:
