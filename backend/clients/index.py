@@ -1070,7 +1070,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                     }, headers={'Content-Type': 'application/json'}, timeout=1)
                                 except requests.exceptions.ReadTimeout:
                                     pass
-                                print(f'[URGENT_REMINDER] Triggered immediate reminders for project {project_id}, {hours_until:.1f}h until shooting (with 30s delay)')
+                                print(f'[URGENT_REMINDER] Triggered immediate reminder for project {project_id}, {hours_until:.1f}h until shooting')
                         except Exception as e:
                             print(f'[URGENT_REMINDER] Error: {e}')
             

@@ -695,6 +695,12 @@ def handler(event, context):
             }
 
     immediate_project_id = body.get('immediate_project_id')
+    delay_seconds = int(body.get('delay_seconds', 0))
+
+    if immediate_project_id and delay_seconds > 0:
+        import time as _time
+        print(f"[IMMEDIATE] Waiting {delay_seconds}s before sending reminder (let booking notification arrive first)")
+        _time.sleep(delay_seconds)
 
     if immediate_project_id:
         try:
@@ -755,12 +761,6 @@ def handler(event, context):
                             'body': json.dumps({'success': True, 'immediate': True, 'skipped': True, 'reason': 'Shooting is today, 24h reminder not applicable'}),
                             'isBase64Encoded': False
                         }
-
-                    delay = int(body.get('delay_seconds', 0))
-                    if delay > 0:
-                        import time
-                        print(f"[IMMEDIATE] Waiting {delay}s before sending reminder (let booking notification arrive first)")
-                        time.sleep(delay)
 
                     result = send_reminder(rtype, dict(proj), client_data, photographer_data, creds, tz_label, hours_until)
                     log_reminder(conn, proj['project_id'], rtype, 'both', True)
