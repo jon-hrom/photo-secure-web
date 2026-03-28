@@ -1066,11 +1066,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 try:
                                     requests.post(reminders_cron_url, json={
                                         'immediate_project_id': project_id,
-                                        'delay_seconds': 15
+                                        'delay_seconds': 30
                                     }, headers={'Content-Type': 'application/json'}, timeout=1)
                                 except requests.exceptions.ReadTimeout:
                                     pass
-                                print(f'[URGENT_REMINDER] Triggered immediate reminders for project {project_id}, {hours_until:.1f}h until shooting (with 15s delay)')
+                                print(f'[URGENT_REMINDER] Triggered immediate reminders for project {project_id}, {hours_until:.1f}h until shooting (with 30s delay)')
                         except Exception as e:
                             print(f'[URGENT_REMINDER] Error: {e}')
             
