@@ -504,7 +504,8 @@ def send_project_notifications(conn, project_id):
                 COALESCE(u.display_name, u.name, u.email) as photographer_name,
                 COALESCE(u.phone_number, u.phone) as photographer_phone,
                 u.telegram_chat_id as photographer_telegram,
-                u.email as photographer_email
+                u.email as photographer_email,
+                u.green_api_instance_id, u.green_api_token
             FROM {SCHEMA}.client_projects cp
             JOIN {SCHEMA}.clients c ON cp.client_id = c.id
             LEFT JOIN {SCHEMA}.users u ON c.photographer_id = u.id
@@ -516,7 +517,7 @@ def send_project_notifications(conn, project_id):
 
         project_data = {'id': row['id'], 'name': row['name'], 'budget': row['budget'], 'start_date': row['start_date'], 'shooting_time': row['shooting_time'], 'shooting_address': row['shooting_address'], 'shooting_duration': row['shooting_duration'], 'description': row['description']}
         client_data = {'id': row['client_id'], 'name': row['client_name'], 'phone': row['client_phone'], 'telegram_chat_id': row['client_telegram'], 'email': row['client_email']}
-        photographer_data = {'id': row['photographer_id'], 'name': row['photographer_name'], 'phone': row['photographer_phone'], 'telegram_chat_id': row['photographer_telegram'], 'email': row['photographer_email']}
+        photographer_data = {'id': row['photographer_id'], 'name': row['photographer_name'], 'phone': row['photographer_phone'], 'telegram_chat_id': row['photographer_telegram'], 'email': row['photographer_email'], 'green_api_instance_id': row.get('green_api_instance_id'), 'green_api_token': row.get('green_api_token')}
 
         cur.execute(f"""
             SELECT SUM(amount) as total_paid FROM {SCHEMA}.client_payments
@@ -526,7 +527,34 @@ def send_project_notifications(conn, project_id):
         prepaid = float(payment_row['total_paid']) if payment_row and payment_row['total_paid'] else 0
         payment_data = {'budget': project_data.get('budget', 0), 'prepaid': prepaid} if project_data.get('budget') else None
 
-    results = {'client_telegram': False, 'client_email': False, 'photographer_telegram': False, 'photographer_email': False}
+    results = {'client_telegram': False, 'client_email': False, 'photographer_telegram': False, 'photographer_email': False, 'client_whatsapp': False, 'photographer_whatsapp': False}
+
+    wa_instance = photographer_data.get('green_api_instance_id') or ''
+    wa_token = photographer_data.get('green_api_token') or ''
+    if not wa_instance or not wa_token:
+        creds = get_max_credentials()
+        wa_instance = creds.get('instance_id', '')
+        wa_token = creds.get('token', '')
+
+    if wa_instance and wa_token and client_data.get('phone'):
+        wa_msg = format_project_notification_for_client(project_data, photographer_data, payment_data)
+        wa_msg = wa_msg.replace('<b>', '').replace('</b>', '')
+        try:
+            send_via_green_api(wa_instance, wa_token, client_data['phone'], wa_msg)
+            results['client_whatsapp'] = True
+            print(f"[BOOKING_NOTIF] WA Client {client_data.get('name')} OK")
+        except Exception as e:
+            print(f"[BOOKING_NOTIF] WA Client error: {e}")
+
+    if wa_instance and wa_token and photographer_data.get('phone'):
+        wa_msg = format_project_notification_for_photographer(project_data, client_data, payment_data)
+        wa_msg = wa_msg.replace('<b>', '').replace('</b>', '')
+        try:
+            send_via_green_api(wa_instance, wa_token, photographer_data['phone'], wa_msg)
+            results['photographer_whatsapp'] = True
+            print(f"[BOOKING_NOTIF] WA Photographer {photographer_data.get('name')} OK")
+        except Exception as e:
+            print(f"[BOOKING_NOTIF] WA Photographer error: {e}")
 
     if client_data.get('telegram_chat_id'):
         message = format_project_notification_for_client(project_data, photographer_data, payment_data)
