@@ -266,11 +266,11 @@ def build_login_alert_html(device_info: str, ip_address: str, login_method_label
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">&#128274; Вход в аккаунт</h1>
+        <h1 style="color: white; margin: 0; font-size: 24px;">&#128274; Вход с нового устройства</h1>
     </div>
     <div style="background: #f8f9fa; padding: 30px; border-radius: 10px;">
         <p style="font-size: 16px;">Здравствуйте, {display_name}!</p>
-        <p style="font-size: 15px;">Зафиксирован вход в ваш аккаунт:</p>
+        <p style="font-size: 15px;">Зафиксирован вход в ваш аккаунт с нового устройства:</p>
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <tr><td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">&#128241; Устройство</td><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">{device_info}</td></tr>
             <tr><td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">&#127760; IP-адрес</td><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">{ip_address}</td></tr>
@@ -287,6 +287,25 @@ def build_login_alert_html(device_info: str, ip_address: str, login_method_label
 </html>'''
 
 
+def is_known_device(conn, user_id, raw_user_agent: str) -> bool:
+    current_fingerprint = parse_user_agent(raw_user_agent)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT user_agent FROM {SCHEMA}.active_sessions
+                WHERE user_id = %s AND is_valid = TRUE
+                ORDER BY last_activity DESC LIMIT 50
+            """, (user_id,))
+            rows = cur.fetchall()
+            for row in rows:
+                prev_fingerprint = parse_user_agent(row.get('user_agent') or '')
+                if prev_fingerprint == current_fingerprint:
+                    return True
+    except Exception as e:
+        print(f"[SECURITY-NOTIFY] Error checking known devices: {e}")
+    return False
+
+
 def handle_login_alert(conn, body: dict) -> Dict[str, Any]:
     user_id = body.get('user_id')
     raw_device = body.get('device_info', '')
@@ -297,6 +316,10 @@ def handle_login_alert(conn, body: dict) -> Dict[str, Any]:
     if not user_id:
         return {'error': 'user_id is required'}, 400
 
+    if is_known_device(conn, user_id, raw_device):
+        print(f"[SECURITY-NOTIFY] Known device for user {user_id}: {device_info}, skipping notification")
+        return {'success': True, 'skipped': True, 'reason': 'known_device'}, 200
+
     user = get_user_by_id(conn, user_id)
     if not user:
         return {'error': 'User not found'}, 404
@@ -306,7 +329,7 @@ def handle_login_alert(conn, body: dict) -> Dict[str, Any]:
     display_name = user.get('display_name') or 'Пользователь'
 
     max_message = (
-        f"\U0001f510 Вход в аккаунт\n\n"
+        f"\U0001f510 Вход с нового устройства\n\n"
         f"\U0001f4f1 Устройство: {device_info}\n"
         f"\U0001f310 IP: {ip_address}\n"
         f"\U0001f511 Способ: {login_method_label}\n"
@@ -320,9 +343,10 @@ def handle_login_alert(conn, body: dict) -> Dict[str, Any]:
     email_sent = False
     if user.get('email'):
         html = build_login_alert_html(device_info, ip_address, login_method_label, local_time, display_name)
-        email_sent = send_email_to_photographer(user['email'], '\U0001f510 Вход в аккаунт — FotoMix', html)
+        email_sent = send_email_to_photographer(user['email'], '\U0001f510 Вход с нового устройства — FotoMix', html)
 
-    return {'success': True, 'max_sent': max_sent, 'email_sent': email_sent}, 200
+    print(f"[SECURITY-NOTIFY] New device alert for user {user_id}: {device_info}")
+    return {'success': True, 'max_sent': max_sent, 'email_sent': email_sent, 'new_device': True}, 200
 
 
 def handle_gallery_viewed(conn, body: dict) -> Dict[str, Any]:
