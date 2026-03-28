@@ -112,10 +112,13 @@ export const useAuth = () => {
     }));
 
     try {
-      const { checkBiometricAvailability, isBiometricRegistered, registerBiometric } = await import('@/utils/biometricAuth');
+      const { checkBiometricAvailability, isBiometricRegistered, registerBiometric, updateBiometricToken } = await import('@/utils/biometricAuth');
       const available = await checkBiometricAvailability();
       const alreadyRegistered = isBiometricRegistered();
-      if (available && !alreadyRegistered && email) {
+      if (alreadyRegistered && token) {
+        updateBiometricToken(token);
+        console.log('[AUTH] Biometric token updated');
+      } else if (available && !alreadyRegistered && email) {
         const biometricRes = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=biometric_enabled');
         const biometricData = await biometricRes.json();
         if (biometricData.value === true) {

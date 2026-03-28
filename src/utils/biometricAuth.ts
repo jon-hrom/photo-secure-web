@@ -1,9 +1,6 @@
 const BIOMETRIC_CREDENTIAL_KEY = 'biometric_credential';
 const BIOMETRIC_USER_KEY = 'biometric_user_data';
-const BIOMETRIC_INTEGRITY_KEY = 'biometric_integrity';
-const BIOMETRIC_CREATED_KEY = 'biometric_created_at';
 const BIOMETRIC_FAIL_KEY = 'biometric_fail_count';
-const MAX_CREDENTIAL_AGE_DAYS = 90;
 const MAX_FAIL_ATTEMPTS = 5;
 const FAIL_LOCKOUT_MS = 300000;
 
@@ -12,62 +9,6 @@ export interface BiometricUserData {
   email: string;
   token?: string;
 }
-
-const getDeviceFingerprint = (): string => {
-  const parts = [
-    navigator.userAgent,
-    navigator.language,
-    screen.width + 'x' + screen.height,
-    new Date().getTimezoneOffset().toString(),
-  ];
-  return parts.join('|');
-};
-
-const computeHMAC = async (data: string, key: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const keyData = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(key),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const signature = await crypto.subtle.sign('HMAC', keyData, encoder.encode(data));
-  const bytes = new Uint8Array(signature);
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-};
-
-const verifyIntegrity = async (data: string): Promise<boolean> => {
-  const storedHmac = localStorage.getItem(BIOMETRIC_INTEGRITY_KEY);
-  if (!storedHmac) return false;
-  try {
-    const fingerprint = getDeviceFingerprint();
-    const computed = await computeHMAC(data, fingerprint);
-    return computed === storedHmac;
-  } catch {
-    return false;
-  }
-};
-
-const setIntegrity = async (data: string): Promise<void> => {
-  try {
-    const fingerprint = getDeviceFingerprint();
-    const hmac = await computeHMAC(data, fingerprint);
-    localStorage.setItem(BIOMETRIC_INTEGRITY_KEY, hmac);
-  } catch {
-    // silently fail
-  }
-};
-
-const isCredentialExpired = (): boolean => {
-  const created = localStorage.getItem(BIOMETRIC_CREATED_KEY);
-  if (!created) {
-    localStorage.setItem(BIOMETRIC_CREATED_KEY, Date.now().toString());
-    return false;
-  }
-  const age = Date.now() - parseInt(created, 10);
-  return age > MAX_CREDENTIAL_AGE_DAYS * 24 * 60 * 60 * 1000;
-};
 
 const isLockedOut = (): boolean => {
   const failData = localStorage.getItem(BIOMETRIC_FAIL_KEY);
@@ -128,10 +69,6 @@ export const isBiometricRegistered = (): boolean => {
   const userData = localStorage.getItem(BIOMETRIC_USER_KEY);
   console.log('[Biometric] isRegistered check:', { hasCred: !!cred, hasUserData: !!userData });
   if (!cred || !userData) return false;
-  if (isCredentialExpired()) {
-    removeBiometric();
-    return false;
-  }
   return true;
 };
 
@@ -145,6 +82,16 @@ export const getBiometricUserData = (): BiometricUserData | null => {
   } catch {
     return null;
   }
+};
+
+export const updateBiometricToken = (token: string): void => {
+  const data = localStorage.getItem(BIOMETRIC_USER_KEY);
+  if (!data) return;
+  try {
+    const parsed = JSON.parse(data);
+    parsed.token = token;
+    localStorage.setItem(BIOMETRIC_USER_KEY, JSON.stringify(parsed));
+  } catch { /* ignore */ }
 };
 
 const generateChallenge = (): Uint8Array => {
@@ -216,9 +163,7 @@ export const registerBiometric = async (userData: BiometricUserData): Promise<bo
 
       localStorage.setItem(BIOMETRIC_CREDENTIAL_KEY, credentialId);
       localStorage.setItem(BIOMETRIC_USER_KEY, dataStr);
-      localStorage.setItem(BIOMETRIC_CREATED_KEY, Date.now().toString());
 
-      await setIntegrity(dataStr);
       resetFailures();
       console.log('[Biometric] Registration OK. Credential saved. Email:', userData.email);
       return true;
@@ -244,18 +189,6 @@ export const authenticateWithBiometric = async (): Promise<BiometricUserData | n
 
   const storedData = localStorage.getItem(BIOMETRIC_USER_KEY);
   if (!storedData) return null;
-
-  const hasIntegrity = !!localStorage.getItem(BIOMETRIC_INTEGRITY_KEY);
-  if (hasIntegrity) {
-    const integrityOk = await verifyIntegrity(storedData);
-    if (!integrityOk) {
-      console.error('[Biometric] Data integrity check failed — possible tampering');
-      removeBiometric();
-      return null;
-    }
-  } else {
-    await setIntegrity(storedData);
-  }
 
   try {
     const challenge = generateChallenge();
@@ -310,10 +243,10 @@ export const verifyTokenWithServer = async (token: string): Promise<boolean> => 
 export const removeBiometric = (): void => {
   localStorage.removeItem(BIOMETRIC_CREDENTIAL_KEY);
   localStorage.removeItem(BIOMETRIC_USER_KEY);
-  localStorage.removeItem(BIOMETRIC_INTEGRITY_KEY);
-  localStorage.removeItem(BIOMETRIC_CREATED_KEY);
   localStorage.removeItem(BIOMETRIC_FAIL_KEY);
   localStorage.removeItem('biometric_prompt_dismissed');
+  localStorage.removeItem('biometric_integrity');
+  localStorage.removeItem('biometric_created_at');
 };
 
 export const isBiometricEnabledSetting = (): boolean => {

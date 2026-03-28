@@ -376,15 +376,11 @@ const Settings = () => {
                     onClick={() => {
                       const bioCredential = localStorage.getItem('biometric_credential');
                       const bioUserData = localStorage.getItem('biometric_user_data');
-                      const bioIntegrity = localStorage.getItem('biometric_integrity');
-                      const bioCreated = localStorage.getItem('biometric_created_at');
                       
                       localStorage.clear();
                       
                       if (bioCredential) localStorage.setItem('biometric_credential', bioCredential);
                       if (bioUserData) localStorage.setItem('biometric_user_data', bioUserData);
-                      if (bioIntegrity) localStorage.setItem('biometric_integrity', bioIntegrity);
-                      if (bioCreated) localStorage.setItem('biometric_created_at', bioCreated);
                       
                       window.location.href = '/';
                     }}
