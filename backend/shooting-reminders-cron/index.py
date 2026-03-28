@@ -424,6 +424,192 @@ def determine_pending_reminders(hours_until: float, already_sent: set, is_today:
     return pending
 
 
+def format_project_notification_for_client(project_data, photographer_data, payment_data=None):
+    date_str = project_data.get('start_date', '')
+    if date_str and hasattr(date_str, 'strftime'):
+        date_str = date_str.strftime('%d.%m.%Y')
+    time_str = str(project_data.get('shooting_time', ''))[:5] if project_data.get('shooting_time') else 'не указано'
+    duration_minutes = project_data.get('shooting_duration') or 120
+    duration_hours = int(duration_minutes) // 60 or 1
+    message = f"""📸 <b>Новая бронь на фотосессию!</b>
+
+🎬 <b>Услуга:</b> {project_data.get('name') or 'Съёмка'}
+📅 <b>Дата:</b> {date_str}
+🕐 <b>Время:</b> {time_str}
+⏱ <b>Длительность:</b> {duration_hours} ч
+📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}"""
+    description = project_data.get('description', '')
+    if description:
+        message += f"\n\n📝 <b>Пожелания:</b> {description}"
+    message += f"""
+
+👤 <b>Фотограф:</b> {photographer_data.get('name') or 'Фотограф'}
+📞 <b>Телефон фотографа:</b> {photographer_data.get('phone') or 'не указан'}"""
+    if payment_data:
+        budget = float(payment_data.get('budget', 0))
+        prepaid = float(payment_data.get('prepaid', 0))
+        remaining = budget - prepaid
+        message += f"\n\n💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽"
+        if prepaid > 0:
+            message += f"\n✅ <b>Предоплата:</b> {prepaid:,.0f} ₽\n💳 <b>Остаток к оплате:</b> {remaining:,.0f} ₽"
+        else:
+            message += f"\n💳 <b>К оплате:</b> {budget:,.0f} ₽"
+    message += "\n\nЕсли есть вопросы или нужно перенести съёмку — свяжитесь с фотографом.\n\nДо встречи! 📷"
+    return message
+
+
+def format_project_notification_for_photographer(project_data, client_data, payment_data=None):
+    date_str = project_data.get('start_date', '')
+    if date_str and hasattr(date_str, 'strftime'):
+        date_str = date_str.strftime('%d.%m.%Y')
+    time_str = str(project_data.get('shooting_time', ''))[:5] if project_data.get('shooting_time') else 'не указано'
+    duration_minutes = project_data.get('shooting_duration') or 120
+    duration_hours = int(duration_minutes) // 60 or 1
+    message = f"""📸 <b>Новый заказ!</b>
+
+📅 <b>Дата съёмки:</b> {date_str}
+🕐 <b>Время:</b> {time_str}
+⏱ <b>Длительность:</b> {duration_hours} ч
+📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}
+
+👤 <b>Клиент:</b> {client_data.get('name') or 'Клиент'}
+📞 <b>Телефон:</b> {client_data.get('phone') or 'не указан'}"""
+    if client_data.get('email'):
+        message += f"\n📧 <b>Email:</b> {client_data['email']}"
+    if payment_data:
+        budget = float(payment_data.get('budget', 0))
+        prepaid = float(payment_data.get('prepaid', 0))
+        remaining = budget - prepaid
+        message += f"\n\n💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽"
+        if prepaid > 0:
+            message += f"\n✅ <b>Предоплата:</b> {prepaid:,.0f} ₽\n💳 <b>Остаток к получению:</b> {remaining:,.0f} ₽"
+        else:
+            message += f"\n💳 <b>К оплате:</b> {budget:,.0f} ₽"
+    description = project_data.get('description', '')
+    if description:
+        message += f"\n\n📝 <b>Пожелания:</b> {description}"
+    message += "\n\n🎯 Удачной съёмки!"
+    return message
+
+
+def send_project_notifications(conn, project_id):
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT 
+                cp.id, cp.name, cp.budget, cp.start_date, cp.shooting_time, cp.shooting_address,
+                cp.shooting_duration, cp.description,
+                c.id as client_id, c.name as client_name, c.phone as client_phone,
+                c.email as client_email, c.telegram_chat_id as client_telegram,
+                u.id as photographer_id,
+                COALESCE(u.display_name, u.name, u.email) as photographer_name,
+                COALESCE(u.phone_number, u.phone) as photographer_phone,
+                u.telegram_chat_id as photographer_telegram,
+                u.email as photographer_email
+            FROM {SCHEMA}.client_projects cp
+            JOIN {SCHEMA}.clients c ON cp.client_id = c.id
+            LEFT JOIN {SCHEMA}.users u ON c.photographer_id = u.id
+            WHERE cp.id = {escape_sql(project_id)}
+        """)
+        row = cur.fetchone()
+        if not row:
+            return {'success': False, 'error': 'Project not found'}
+
+        project_data = {'id': row['id'], 'name': row['name'], 'budget': row['budget'], 'start_date': row['start_date'], 'shooting_time': row['shooting_time'], 'shooting_address': row['shooting_address'], 'shooting_duration': row['shooting_duration'], 'description': row['description']}
+        client_data = {'id': row['client_id'], 'name': row['client_name'], 'phone': row['client_phone'], 'telegram_chat_id': row['client_telegram'], 'email': row['client_email']}
+        photographer_data = {'id': row['photographer_id'], 'name': row['photographer_name'], 'phone': row['photographer_phone'], 'telegram_chat_id': row['photographer_telegram'], 'email': row['photographer_email']}
+
+        cur.execute(f"""
+            SELECT SUM(amount) as total_paid FROM {SCHEMA}.client_payments
+            WHERE project_id = {escape_sql(project_id)} AND status = 'completed'
+        """)
+        payment_row = cur.fetchone()
+        prepaid = float(payment_row['total_paid']) if payment_row and payment_row['total_paid'] else 0
+        payment_data = {'budget': project_data.get('budget', 0), 'prepaid': prepaid} if project_data.get('budget') else None
+
+    results = {'client_telegram': False, 'client_email': False, 'photographer_telegram': False, 'photographer_email': False}
+
+    if client_data.get('telegram_chat_id'):
+        message = format_project_notification_for_client(project_data, photographer_data, payment_data)
+        r = send_via_telegram(client_data['telegram_chat_id'], message)
+        results['client_telegram'] = r.get('success', False) if isinstance(r, dict) else False
+
+    if client_data.get('email'):
+        date_str = project_data.get('start_date', '')
+        if date_str and hasattr(date_str, 'strftime'):
+            date_str = date_str.strftime('%d.%m.%Y')
+        time_str = str(project_data.get('shooting_time', ''))[:5] if project_data.get('shooting_time') else ''
+        duration_minutes = project_data.get('shooting_duration') or 120
+        duration_hours = int(duration_minutes) // 60 or 1
+        lines = [
+            f"🎬 <b>Услуга:</b> {project_data.get('name') or 'Съёмка'}",
+            f"📅 <b>Дата:</b> {date_str}",
+            f"🕐 <b>Время:</b> {time_str}",
+            f"⏱ <b>Длительность:</b> {duration_hours} ч",
+            f"📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}",
+        ]
+        description = project_data.get('description', '')
+        if description:
+            lines.append(f"📝 <b>Пожелания:</b> {description}")
+        lines.extend(["", f"👤 <b>Фотограф:</b> {photographer_data.get('name') or 'Фотограф'}", f"📞 <b>Телефон фотографа:</b> {photographer_data.get('phone') or 'не указан'}"])
+        if payment_data:
+            budget = float(payment_data.get('budget', 0))
+            prepaid_val = float(payment_data.get('prepaid', 0))
+            remaining = budget - prepaid_val
+            lines.append("")
+            lines.append(f"💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽".replace(',', ' '))
+            if prepaid_val > 0:
+                lines.append(f"✅ <b>Предоплата:</b> {prepaid_val:,.0f} ₽".replace(',', ' '))
+                lines.append(f"💳 <b>Остаток к оплате:</b> {remaining:,.0f} ₽".replace(',', ' '))
+            else:
+                lines.append(f"💳 <b>К оплате:</b> {budget:,.0f} ₽".replace(',', ' '))
+        lines.extend(["", "До встречи на съёмке! 📷"])
+        html = build_email_html("📸 Новая бронь на фотосессию!", lines)
+        results['client_email'] = send_via_email(client_data['email'], f"📸 Съёмка {date_str} в {time_str}", html)
+
+    if photographer_data.get('telegram_chat_id'):
+        message = format_project_notification_for_photographer(project_data, client_data, payment_data)
+        r = send_via_telegram(photographer_data['telegram_chat_id'], message)
+        results['photographer_telegram'] = r.get('success', False) if isinstance(r, dict) else False
+
+    if photographer_data.get('email'):
+        date_str = project_data.get('start_date', '')
+        if date_str and hasattr(date_str, 'strftime'):
+            date_str = date_str.strftime('%d.%m.%Y')
+        time_str = str(project_data.get('shooting_time', ''))[:5] if project_data.get('shooting_time') else ''
+        duration_minutes = project_data.get('shooting_duration') or 120
+        duration_hours = int(duration_minutes) // 60 or 1
+        lines = [
+            f"📅 <b>Дата съёмки:</b> {date_str}",
+            f"🕐 <b>Время:</b> {time_str}",
+            f"⏱ <b>Длительность:</b> {duration_hours} ч",
+            f"📍 <b>Место:</b> {project_data.get('shooting_address') or 'не указано'}",
+            "",
+            f"👤 <b>Клиент:</b> {client_data.get('name') or 'Клиент'}",
+            f"📞 <b>Телефон:</b> {client_data.get('phone') or 'не указан'}",
+        ]
+        if client_data.get('email'):
+            lines.append(f"📧 <b>Email:</b> {client_data['email']}")
+        if payment_data:
+            budget = float(payment_data.get('budget', 0))
+            prepaid_val = float(payment_data.get('prepaid', 0))
+            remaining = budget - prepaid_val
+            lines.append("")
+            lines.append(f"💰 <b>Стоимость съёмки:</b> {budget:,.0f} ₽".replace(',', ' '))
+            if prepaid_val > 0:
+                lines.append(f"✅ <b>Предоплата:</b> {prepaid_val:,.0f} ₽".replace(',', ' '))
+                lines.append(f"💳 <b>Остаток к получению:</b> {remaining:,.0f} ₽".replace(',', ' '))
+            else:
+                lines.append(f"💳 <b>К оплате:</b> {budget:,.0f} ₽".replace(',', ' '))
+        description = project_data.get('description', '')
+        if description:
+            lines.extend(["", f"📝 <b>Пожелания:</b> {description}"])
+        lines.extend(["", "🎯 Удачной съёмки!"])
+        html = build_email_html("📸 Новый заказ!", lines)
+        results['photographer_email'] = send_via_email(photographer_data['email'], f"📸 Новый заказ — {date_str} в {time_str}", html)
+
+    return {'success': True, 'results': results}
+
+
 def handler(event, context):
     """Крон напоминаний о съёмках: 24ч, 5ч, 1ч. WhatsApp + Telegram + Email. Каскадная логика — догоняет пропущенные напоминания."""
 
@@ -449,6 +635,37 @@ def handler(event, context):
             body = json.loads(event['body'])
         except:
             pass
+    action = body.get('action')
+    if action == 'send_project_notification':
+        project_id = body.get('project_id')
+        if not project_id:
+            conn.close()
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'project_id is required'}),
+                'isBase64Encoded': False
+            }
+        try:
+            result = send_project_notifications(conn, project_id)
+            print(f"[BOOKING_NOTIF] Project {project_id}: {result}")
+            conn.close()
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(result),
+                'isBase64Encoded': False
+            }
+        except Exception as e:
+            print(f"[BOOKING_NOTIF_ERROR] {e}")
+            conn.close()
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': str(e)}),
+                'isBase64Encoded': False
+            }
+
     immediate_project_id = body.get('immediate_project_id')
 
     if immediate_project_id:

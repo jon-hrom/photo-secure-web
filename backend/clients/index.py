@@ -1050,7 +1050,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if is_new_project and start_date and project.get('shooting_time'):
                         # Telegram + Email
                         try:
-                            telegram_notif_url = 'https://functions.poehali.dev/9768a392-3928-4880-bccc-dd33983ce097'
+                            telegram_notif_url = 'https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c'
                             requests.post(telegram_notif_url, json={
                                 'action': 'send_project_notification',
                                 'project_id': project_id
