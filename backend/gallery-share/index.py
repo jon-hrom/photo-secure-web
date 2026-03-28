@@ -252,7 +252,8 @@ def handler(event: dict, context) -> dict:
                         cover_text_position = %s,
                         cover_title = %s, cover_font_size = %s,
                         mobile_cover_photo_id = %s, mobile_cover_focus_x = %s, mobile_cover_focus_y = %s,
-                        client_upload_enabled = %s, client_folders_visibility = %s
+                        client_upload_enabled = %s, client_folders_visibility = %s,
+                        view_notified = FALSE
                     WHERE short_code = %s
                     """,
                     (expires_at, password_hash, download_disabled,

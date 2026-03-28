@@ -157,6 +157,14 @@ export function useGalleryLoader(code?: string, clientId?: number) {
         setPhotosLoaded(0);
         setLoadingProgress(0);
       }
+
+      if (code) {
+        fetch('https://functions.poehali.dev/daa3aafa-4f33-4c1f-b261-6679431cdf4b', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'gallery_viewed', short_code: code })
+        }).catch(() => {});
+      }
     } catch (err: unknown) {
       console.error('[PUBLIC_GALLERY] Error:', err);
       setError(err instanceof Error ? err.message : 'Ошибка загрузки');

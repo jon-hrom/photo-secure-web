@@ -129,6 +129,20 @@ export const useAuth = () => {
     } catch (e) {
       console.log('[AUTH] Biometric auto-register skipped:', e);
     }
+
+    const loginMethod = sessionStorage.getItem('login_method') || 'password';
+    sessionStorage.removeItem('login_method');
+    fetch('https://functions.poehali.dev/daa3aafa-4f33-4c1f-b261-6679431cdf4b', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'login_alert',
+        user_id: uid,
+        device_info: navigator.userAgent,
+        ip_address: '',
+        login_method: loginMethod
+      })
+    }).catch(() => {});
   };
 
   const handleLogout = () => {

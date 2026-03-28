@@ -1,0 +1,67 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request returns CORS headers",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET request returns method not allowed",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 405,
+      "expectedBody": {
+        "error": "Method not allowed"
+      }
+    },
+    {
+      "name": "POST without action returns error",
+      "method": "POST",
+      "path": "/",
+      "body": {"_empty": true},
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "action is required"
+      }
+    },
+    {
+      "name": "POST with unknown action returns error",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "unknown_action"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "Unknown action: unknown_action"
+      }
+    },
+    {
+      "name": "Login alert without user_id returns error",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "login_alert",
+        "device_info": "iPhone 14, Safari",
+        "ip_address": "1.2.3.4"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "user_id is required"
+      }
+    },
+    {
+      "name": "Gallery viewed without short_code returns error",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "gallery_viewed"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "short_code is required"
+      }
+    }
+  ]
+}

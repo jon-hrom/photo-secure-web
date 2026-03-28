@@ -138,6 +138,7 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
       if (result) {
         setAutoAuthState('success');
         playSuccessSound();
+        sessionStorage.setItem('login_method', 'biometric');
         setTimeout(() => {
           onLoginSuccess(result.userId, result.email, result.token);
         }, 600);

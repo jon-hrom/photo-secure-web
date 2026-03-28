@@ -42,6 +42,7 @@ const BiometricLoginButton = ({ onLoginSuccess, biometricGlobalEnabled, autoAuth
       const result = await authenticateWithBiometric();
       if (result) {
         setAnimState('success');
+        sessionStorage.setItem('login_method', 'biometric');
         setTimeout(() => {
           onLoginSuccess(result.userId, result.email, result.token);
         }, 600);
