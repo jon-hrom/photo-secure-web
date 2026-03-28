@@ -1048,18 +1048,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ))
                     
                     if is_new_project and start_date and project.get('shooting_time'):
-                        # Telegram + Email
-                        try:
-                            telegram_notif_url = 'https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c'
-                            requests.post(telegram_notif_url, json={
-                                'action': 'send_project_notification',
-                                'project_id': project_id
-                            }, timeout=5)
-                            print(f'[TELEGRAM_NOTIF] Sent notification for project {project_id}')
-                        except Exception as e:
-                            print(f'[TELEGRAM_NOTIF] Error: {e}')
-                        # MAX (WhatsApp) — отправляется из фронтенда через NotificationService.ts
-                        # Немедленное напоминание если до съёмки < 24 часов
+                        # Уведомления о новом заказе отправляются из фронтенда через NotificationService.ts
+                        # (WhatsApp + Telegram + Email в расширенном формате)
+                        # Здесь только срочное напоминание если до съёмки < 24 часов
                         try:
                             from datetime import time as time_type
                             shooting_time_str = project.get('shooting_time', '12:00')
