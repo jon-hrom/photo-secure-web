@@ -239,6 +239,12 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
         console.log('[LOGIN] GPS unavailable, backend will use IP geolocation');
       }
 
+      let deviceId = localStorage.getItem('fm_device_id');
+      if (!deviceId) {
+        deviceId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem('fm_device_id', deviceId);
+      }
+
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -246,7 +252,8 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
           action: 'login', 
           email, 
           password,
-          gps_location: gpsLocation
+          gps_location: gpsLocation,
+          device_id: deviceId
         }),
       });
 

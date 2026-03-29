@@ -74,7 +74,7 @@ def get_ip_geolocation(ip: str) -> str:
         print(f"[GEOLOCATION] Error fetching geo for {ip}: {type(e).__name__} - {e}")
         return ip
 
-def generate_access_token(user_id: int, ip_address: str, user_agent: str, gps_location: str = None) -> tuple[str, str]:
+def generate_access_token(user_id: int, ip_address: str, user_agent: str, gps_location: str = None, device_id: str = None) -> tuple[str, str]:
     """Генерация Access Token и создание сессии
     
     Args:
@@ -82,6 +82,7 @@ def generate_access_token(user_id: int, ip_address: str, user_agent: str, gps_lo
         ip_address: IP адрес клиента
         user_agent: User-Agent браузера
         gps_location: JSON строка с GPS координатами от фронтенда (опционально)
+        device_id: Уникальный ID устройства из localStorage (опционально)
     """
     session_id = str(uuid.uuid4())
     issued_at = datetime.now()
@@ -93,7 +94,6 @@ def generate_access_token(user_id: int, ip_address: str, user_agent: str, gps_lo
     
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     
-    # Приоритет GPS геолокации над IP
     if gps_location:
         print(f"[GEOLOCATION] Using GPS location from client: {gps_location[:100]}")
         ip_with_geo = gps_location
@@ -106,9 +106,9 @@ def generate_access_token(user_id: int, ip_address: str, user_agent: str, gps_lo
         with conn.cursor() as cur:
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.active_sessions 
-                (session_id, user_id, token_hash, created_at, expires_at, last_activity, ip_address, user_agent)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (session_id, user_id, token_hash, issued_at, expires_at, issued_at, ip_with_geo, user_agent))
+                (session_id, user_id, token_hash, created_at, expires_at, last_activity, ip_address, user_agent, device_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (session_id, user_id, token_hash, issued_at, expires_at, issued_at, ip_with_geo, user_agent, device_id or ''))
         conn.commit()
     finally:
         conn.close()
@@ -493,7 +493,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             elif action == 'login':
                 email = body.get('email')
                 password = body.get('password')
-                gps_location = body.get('gps_location')  # GPS координаты от фронтенда
+                gps_location = body.get('gps_location')
+                device_id = body.get('device_id', '')
                 
                 if not email or not password:
                     return {
@@ -583,7 +584,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
-                token, session_id = generate_access_token(user['id'], ip_address, user_agent, gps_location)
+                token, session_id = generate_access_token(user['id'], ip_address, user_agent, gps_location, device_id)
                 
                 return {
                     'statusCode': 200,
@@ -600,7 +601,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             elif action == 'verify-2fa':
                 user_id = body.get('userId')
                 code = body.get('code')
-                gps_location = body.get('gps_location')  # GPS координаты от фронтенда
+                gps_location = body.get('gps_location')
+                device_id = body.get('device_id', '')
                 
                 if not user_id or not code:
                     return {
@@ -632,7 +634,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 conn.commit()
                 
                 user_agent = event.get('headers', {}).get('User-Agent', '')
-                token, session_id = generate_access_token(user_id, ip_address, user_agent, gps_location)
+                token, session_id = generate_access_token(user_id, ip_address, user_agent, gps_location, device_id)
                 
                 return {
                     'statusCode': 200,

@@ -287,8 +287,63 @@ def build_login_alert_html(device_info: str, ip_address: str, login_method_label
 </html>'''
 
 
-def is_known_device(conn, user_id, raw_user_agent: str) -> bool:
-    current_fingerprint = parse_user_agent(raw_user_agent)
+def extract_device_type(ua: str) -> str:
+    if not ua:
+        return ""
+    if "iPhone" in ua:
+        return "iPhone"
+    if "iPad" in ua:
+        return "iPad"
+    if "Android" in ua:
+        model = _re.search(r';\s*([^;)]+)\s*Build', ua)
+        model_name = model.group(1).strip() if model else ''
+        return f"Android:{model_name}" if model_name else "Android"
+    if "Macintosh" in ua:
+        return "Mac"
+    if "Windows" in ua:
+        return "Windows"
+    if "Linux" in ua:
+        return "Linux"
+    return "Unknown"
+
+
+def extract_browser_family(ua: str) -> str:
+    if not ua:
+        return ""
+    if "YaBrowser" in ua:
+        return "YaBrowser"
+    if "Edg/" in ua:
+        return "Edge"
+    if "OPR/" in ua or "Opera" in ua:
+        return "Opera"
+    if "Chrome/" in ua and "Safari/" in ua:
+        return "Chrome"
+    if "Safari/" in ua and "Chrome" not in ua:
+        return "Safari"
+    if "Firefox/" in ua:
+        return "Firefox"
+    return ""
+
+
+def is_known_device(conn, user_id, raw_user_agent: str, device_id: str = '') -> bool:
+    if device_id:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    SELECT device_id FROM {SCHEMA}.active_sessions
+                    WHERE user_id = %s AND is_valid = TRUE AND device_id = %s
+                    LIMIT 1
+                """, (user_id, device_id))
+                if cur.fetchone():
+                    print(f"[SECURITY-NOTIFY] Known device by device_id: {device_id}")
+                    return True
+        except Exception as e:
+            print(f"[SECURITY-NOTIFY] Error checking device_id: {e}")
+
+    current_device = extract_device_type(raw_user_agent)
+    current_browser = extract_browser_family(raw_user_agent)
+    if not current_device:
+        return False
     try:
         with conn.cursor() as cur:
             cur.execute(f"""
@@ -298,8 +353,10 @@ def is_known_device(conn, user_id, raw_user_agent: str) -> bool:
             """, (user_id,))
             rows = cur.fetchall()
             for row in rows:
-                prev_fingerprint = parse_user_agent(row.get('user_agent') or '')
-                if prev_fingerprint == current_fingerprint:
+                prev_ua = row.get('user_agent') or ''
+                prev_device = extract_device_type(prev_ua)
+                prev_browser = extract_browser_family(prev_ua)
+                if prev_device == current_device and prev_browser == current_browser:
                     return True
     except Exception as e:
         print(f"[SECURITY-NOTIFY] Error checking known devices: {e}")
@@ -312,11 +369,12 @@ def handle_login_alert(conn, body: dict) -> Dict[str, Any]:
     device_info = parse_user_agent(raw_device)
     ip_address = body.get('ip_address', 'Неизвестен')
     login_method = body.get('login_method', 'password')
+    device_id = body.get('device_id', '')
 
     if not user_id:
         return {'error': 'user_id is required'}, 400
 
-    if is_known_device(conn, user_id, raw_device):
+    if is_known_device(conn, user_id, raw_device, device_id):
         print(f"[SECURITY-NOTIFY] Known device for user {user_id}: {device_info}, skipping notification")
         return {'success': True, 'skipped': True, 'reason': 'known_device'}, 200
 
