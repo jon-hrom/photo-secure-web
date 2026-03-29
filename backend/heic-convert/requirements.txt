@@ -1,0 +1,4 @@
+psycopg2-binary>=2.9.11
+boto3>=1.42.25
+Pillow>=10.0.0
+pillow-heif>=0.16.0

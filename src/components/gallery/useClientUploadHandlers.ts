@@ -15,6 +15,7 @@ const convertHeicToJpeg = async (file: File): Promise<File> => {
 };
 
 const CLIENT_UPLOAD_URL = 'https://functions.poehali.dev/06dd3267-2ef6-45bc-899c-50f86e9d36e1';
+const HEIC_CONVERT_URL = 'https://functions.poehali.dev/d7480573-de41-457c-a5cd-dffe681a591f';
 
 interface UseClientUploadHandlersProps {
   shortCode: string;
@@ -403,6 +404,44 @@ export function useFileUploadHandler({
 
         if (confirmRes.ok) {
           const data = await confirmRes.json();
+          const s3KeyLower = (s3_key || '').toLowerCase();
+          if (s3KeyLower.endsWith('.heic') || s3KeyLower.endsWith('.heif')) {
+            try {
+              const convertRes = await fetch(HEIC_CONVERT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'convert_single', s3_key })
+              });
+              if (convertRes.ok) {
+                const convertData = await convertRes.json();
+                if (convertData.new_s3_key) {
+                  const presignRes = await fetch(CLIENT_UPLOAD_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'client_list_photos',
+                      short_code: shortCode,
+                      client_id: clientId,
+                      upload_folder_id: activeFolderId
+                    })
+                  });
+                  if (presignRes.ok) {
+                    const listData = await presignRes.json();
+                    const convertedPhoto = (listData.photos || []).find(
+                      (p: { file_name: string }) => p.file_name === file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg')
+                    );
+                    if (convertedPhoto) {
+                      uploaded.push({ photo_id: convertedPhoto.photo_id, file_name: convertedPhoto.file_name, s3_url: convertedPhoto.s3_url });
+                      setUploadProgress({ current: i + 1, total: files.length });
+                      continue;
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn('Server HEIC conversion failed:', e);
+            }
+          }
           uploaded.push({ photo_id: data.photo_id ?? data.id ?? 0, file_name: data.file_name, s3_url: data.s3_url });
         } else {
           errors.push(`${file.name}: ошибка подтверждения`);
