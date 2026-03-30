@@ -26,10 +26,17 @@
       "name": "POST plugin without auth returns 401",
       "method": "POST",
       "path": "/",
-      "body": {"action": "plugin", "plugin": "gfpgan", "photo_id": 1},
+      "body": {"action": "plugin", "plugins": ["gfpgan"], "photo_id": 1},
       "expectedStatus": 401,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET check_plugins returns 200",
+      "method": "GET",
+      "path": "/?check_plugins=1",
+      "headers": {"X-User-Id": "test-user-123"},
+      "expectedStatus": 200
     }
   ]
 }

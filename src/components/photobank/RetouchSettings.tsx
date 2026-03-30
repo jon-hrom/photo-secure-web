@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import funcUrls from '@/../backend/func2url.json';
@@ -27,21 +28,21 @@ const AI_TOOLS = [
   {
     key: 'gfpgan',
     label: 'Улучшение лиц',
-    description: 'GFPGAN — восстановление и улучшение деталей лица',
+    description: 'GFPGAN — восстановление и детализация лица',
     icon: 'Smile' as const,
     color: 'violet',
   },
   {
     key: 'remove_bg',
     label: 'Удаление фона',
-    description: 'AI-модель RMBG — автоматическое удаление фона',
+    description: 'RMBG — автоматическое удаление фона',
     icon: 'Scissors' as const,
     color: 'blue',
   },
   {
     key: 'upscale',
     label: 'Увеличение разрешения',
-    description: 'RealESRGAN — увеличение разрешения с сохранением качества',
+    description: 'RealESRGAN — апскейл с сохранением качества',
     icon: 'Maximize2' as const,
     color: 'emerald',
   },
@@ -60,7 +61,9 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const [savedManualOps, setSavedManualOps] = useState<OpConfig[] | null>(null);
   const [slidersExpanded, setSlidersExpanded] = useState(false);
   const [aiToolsExpanded, setAiToolsExpanded] = useState(true);
-  const [runningPlugin, setRunningPlugin] = useState<string | null>(null);
+  const [selectedPlugins, setSelectedPlugins] = useState<Set<string>>(new Set());
+  const [runningPlugins, setRunningPlugins] = useState(false);
+  const [pluginProgress, setPluginProgress] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
@@ -263,14 +266,34 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
     }
   };
 
-  const handleRunPlugin = async (pluginKey: string) => {
+  const togglePlugin = (key: string) => {
+    setSelectedPlugins(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleRunPlugins = async () => {
     if (!currentPreviewPhoto?.id) {
       toast({ title: 'Сначала выберите фото', variant: 'destructive' });
       return;
     }
+    if (selectedPlugins.size === 0) {
+      toast({ title: 'Выберите хотя бы один инструмент', variant: 'destructive' });
+      return;
+    }
 
-    setRunningPlugin(pluginKey);
+    const pluginOrder = AI_TOOLS.filter(t => selectedPlugins.has(t.key)).map(t => t.key);
+
+    setRunningPlugins(true);
     setRetouchedUrl(null);
+    const labels = pluginOrder.map(k => AI_TOOLS.find(t => t.key === k)?.label).join(' → ');
+    setPluginProgress(`Обработка: ${labels}...`);
 
     try {
       const res = await fetch(RETOUCH_API, {
@@ -278,21 +301,34 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({
           action: 'plugin',
-          plugin: pluginKey,
+          plugins: pluginOrder,
           photo_id: currentPreviewPhoto.id,
         }),
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'Ошибка плагина');
+        throw new Error(errData.error || 'Ошибка обработки');
       }
 
       const data = await res.json();
       if (data.result_url) {
         setRetouchedUrl(data.result_url);
-        const tool = AI_TOOLS.find(t => t.key === pluginKey);
-        toast({ title: `${tool?.label || 'Плагин'} — готово` });
+        const applied = data.plugins_applied || pluginOrder;
+        const appliedLabels = applied.map((k: string) => AI_TOOLS.find(t => t.key === k)?.label).filter(Boolean).join(', ');
+        toast({ title: `Готово: ${appliedLabels}` });
+      }
+
+      if (data.steps) {
+        const failed = data.steps.filter((s: { success: boolean }) => !s.success);
+        if (failed.length > 0) {
+          const failedNames = failed.map((s: { plugin: string }) => AI_TOOLS.find(t => t.key === s.plugin)?.label).join(', ');
+          toast({
+            title: 'Некоторые инструменты не сработали',
+            description: failedNames,
+            variant: 'destructive',
+          });
+        }
       }
     } catch (e: unknown) {
       toast({
@@ -301,7 +337,8 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
         variant: 'destructive',
       });
     } finally {
-      setRunningPlugin(null);
+      setRunningPlugins(false);
+      setPluginProgress('');
     }
   };
 
@@ -331,7 +368,9 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
             AI-инструменты
           </div>
           <div className="text-[9px] text-muted-foreground leading-tight">
-            Нейросетевая обработка фото
+            {selectedPlugins.size > 0
+              ? `Выбрано: ${selectedPlugins.size} из ${AI_TOOLS.length}`
+              : 'Нейросетевая обработка фото'}
           </div>
         </div>
         <Icon
@@ -344,56 +383,69 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
       {aiToolsExpanded && (
         <div className="p-2 space-y-1.5 bg-background/40">
           {AI_TOOLS.map(tool => {
-            const isRunning = runningPlugin === tool.key;
-            const colorMap: Record<string, string> = {
-              violet: 'border-violet-200 dark:border-violet-800/40 hover:bg-violet-50/50 dark:hover:bg-violet-950/20',
-              blue: 'border-blue-200 dark:border-blue-800/40 hover:bg-blue-50/50 dark:hover:bg-blue-950/20',
-              emerald: 'border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20',
-            };
+            const isSelected = selectedPlugins.has(tool.key);
             const iconColorMap: Record<string, string> = {
               violet: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
               blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
               emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
             };
-            const btnColorMap: Record<string, string> = {
-              violet: 'bg-violet-600 hover:bg-violet-700 text-white',
-              blue: 'bg-blue-600 hover:bg-blue-700 text-white',
-              emerald: 'bg-emerald-600 hover:bg-emerald-700 text-white',
-            };
 
             return (
-              <div
+              <label
                 key={tool.key}
-                className={`rounded-lg border px-2.5 py-2 transition-colors ${colorMap[tool.color] || ''}`}
+                className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/20 shadow-sm'
+                    : 'border-border/60 hover:border-border hover:bg-muted/20'
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <div className={`flex items-center justify-center w-7 h-7 rounded-lg ${iconColorMap[tool.color] || ''}`}>
-                    <Icon name={tool.icon} size={14} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[11px] font-medium">{tool.label}</div>
-                    <div className="text-[9px] text-muted-foreground leading-tight">{tool.description}</div>
-                  </div>
-                  <Button
-                    size="sm"
-                    disabled={isRunning || !!runningPlugin || !currentPreviewPhoto?.id}
-                    onClick={() => handleRunPlugin(tool.key)}
-                    className={`h-7 px-2.5 text-[10px] ${btnColorMap[tool.color] || ''}`}
-                  >
-                    {isRunning ? (
-                      <Icon name="Loader2" size={12} className="animate-spin" />
-                    ) : (
-                      <Icon name="Play" size={11} className="mr-0.5" />
-                    )}
-                    {isRunning ? '' : 'Запуск'}
-                  </Button>
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => togglePlugin(tool.key)}
+                  className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                />
+                <div className={`flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${iconColorMap[tool.color] || ''}`}>
+                  <Icon name={tool.icon} size={14} />
                 </div>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-medium">{tool.label}</div>
+                  <div className="text-[9px] text-muted-foreground leading-tight">{tool.description}</div>
+                </div>
+              </label>
             );
           })}
-          {!currentPreviewPhoto?.id && (
-            <div className="text-[9px] text-muted-foreground text-center py-1">
-              Выберите фото для применения AI-инструментов
+
+          {selectedPlugins.size > 0 && (
+            <div className="pt-1">
+              {selectedPlugins.size > 1 && (
+                <div className="text-[9px] text-indigo-600 dark:text-indigo-400 mb-1.5 flex items-center gap-1">
+                  <Icon name="ArrowRight" size={10} />
+                  Цепочка: {AI_TOOLS.filter(t => selectedPlugins.has(t.key)).map(t => t.label).join(' → ')}
+                </div>
+              )}
+              <Button
+                onClick={handleRunPlugins}
+                disabled={runningPlugins || !currentPreviewPhoto?.id}
+                className="w-full h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {runningPlugins ? (
+                  <>
+                    <Icon name="Loader2" size={14} className="mr-1.5 animate-spin" />
+                    {pluginProgress || 'Обработка...'}
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Zap" size={14} className="mr-1.5" />
+                    Запустить AI ({selectedPlugins.size})
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {!currentPreviewPhoto?.id && selectedPlugins.size > 0 && (
+            <div className="text-[9px] text-amber-600 dark:text-amber-400 text-center py-0.5">
+              Сначала выберите фото для обработки
             </div>
           )}
         </div>

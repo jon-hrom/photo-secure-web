@@ -182,6 +182,32 @@ def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id):
     return out_key, None
 
 
+def _check_plugins_available():
+    results = {}
+    for key, cfg in PLUGIN_CONFIGS.items():
+        try:
+            url = RETOUCH_BASE_URL + cfg['api_path']
+            sign_headers = _sign("GET", cfg['api_path'], "")
+            r = requests.get(url, headers=sign_headers, timeout=(3, 5))
+            results[key] = {
+                'available': r.status_code in (200, 405, 400, 422),
+                'status_code': r.status_code,
+                'label': cfg['label'],
+                'plugin_name': cfg['plugin_name'],
+            }
+            print(f"[PLUGIN CHECK] {key}: status={r.status_code}, available={results[key]['available']}")
+        except requests.RequestException as e:
+            results[key] = {
+                'available': False,
+                'status_code': 0,
+                'label': cfg['label'],
+                'plugin_name': cfg['plugin_name'],
+                'error': str(e)[:100],
+            }
+            print(f"[PLUGIN CHECK] {key}: FAILED — {e}")
+    return results
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Ретушь фотографий — отправка на обработку, AI-плагины и проверка статуса задачи"""
     method = event.get('httpMethod', 'GET')
@@ -194,6 +220,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     if not user_id:
         return _response(401, {'error': 'User not authenticated'})
+
+    params = event.get('queryStringParameters', {}) or {}
+    if params.get('check_plugins') == '1':
+        plugins_status = _check_plugins_available()
+        return _response(200, {'plugins': plugins_status})
 
     db_url = os.environ.get('DATABASE_URL')
     conn = psycopg2.connect(db_url)
@@ -224,11 +255,19 @@ MAX_ACTIVE_TASKS_PER_USER = 10
 def _handle_plugin(body, conn, user_id):
     photo_id = body.get('photo_id')
     plugin = body.get('plugin')
+    plugins = body.get('plugins')
 
     if not photo_id:
         return _response(400, {'error': 'photo_id is required'})
-    if not plugin or plugin not in PLUGIN_CONFIGS:
-        return _response(400, {'error': f'Unknown plugin. Available: {", ".join(PLUGIN_CONFIGS.keys())}'})
+
+    plugin_list = []
+    if plugins and isinstance(plugins, list):
+        plugin_list = [p for p in plugins if p in PLUGIN_CONFIGS]
+    elif plugin and plugin in PLUGIN_CONFIGS:
+        plugin_list = [plugin]
+
+    if not plugin_list:
+        return _response(400, {'error': f'No valid plugins. Available: {", ".join(PLUGIN_CONFIGS.keys())}'})
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -241,22 +280,43 @@ def _handle_plugin(body, conn, user_id):
         return _response(404, {'error': 'Photo not found'})
 
     s3_client = _get_s3_client()
-    result_key, error = _run_plugin(s3_client, photo['s3_key'], plugin, user_id, photo_id)
+    current_key = photo['s3_key']
+    results = []
 
-    if error:
-        return _response(500, {'error': error})
+    for p_key in plugin_list:
+        print(f"[RETOUCH PLUGIN CHAIN] Step: {p_key}, input: {current_key}")
+        result_key, error = _run_plugin(s3_client, current_key, p_key, user_id, photo_id)
+        if error:
+            results.append({'plugin': p_key, 'success': False, 'error': error})
+            print(f"[RETOUCH PLUGIN CHAIN] {p_key} failed: {error}")
+            break
 
-    presigned = _presigned_url(result_key)
-    storage_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
+        storage_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
+        results.append({'plugin': p_key, 'success': True, 'result_key': result_key})
+        current_key = result_key
 
-    _save_plugin_result(conn, user_id, photo, result_key, storage_url, s3_client, plugin)
+    last_success = None
+    for r in reversed(results):
+        if r.get('success') and r.get('result_key'):
+            last_success = r
+            break
 
-    return _response(200, {
-        'success': True,
-        'result_url': presigned,
-        'result_key': result_key,
-        'plugin': plugin,
-    })
+    if last_success:
+        final_key = last_success['result_key']
+        presigned = _presigned_url(final_key)
+        final_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{final_key}"
+        label_parts = [PLUGIN_CONFIGS[p]['label'] for p in plugin_list if any(r.get('plugin') == p and r.get('success') for r in results)]
+        _save_plugin_result(conn, user_id, photo, final_key, final_url, s3_client, '+'.join(plugin_list))
+
+        return _response(200, {
+            'success': True,
+            'result_url': presigned,
+            'result_key': final_key,
+            'plugins_applied': [r['plugin'] for r in results if r.get('success')],
+            'steps': results,
+        })
+
+    return _response(500, {'error': 'All plugins failed', 'steps': results})
 
 
 def _save_plugin_result(conn, user_id, original_photo, result_key, result_url, s3_client, plugin_key):
