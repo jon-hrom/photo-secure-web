@@ -2,15 +2,13 @@ import json
 import os
 import io
 import time
-import hmac
-import hashlib
-import secrets
 import uuid
 import base64
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
+from requests.auth import HTTPBasicAuth
 import boto3
 from botocore.client import Config
 from PIL import Image
@@ -19,9 +17,13 @@ import numpy as np
 
 RETOUCH_BASE_URL = os.environ.get("RETOUCH_BASE_URL", "").rstrip("/")
 
-HMAC_CLIENT_ID = "foto-mix"
-HMAC_SECRET = os.environ.get("HMAC_SECRET_FOTO_MIX", "")
+RETOUCH_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
+RETOUCH_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
 S3_BUCKET = "foto-mix"
+
+
+def _basic_auth():
+    return HTTPBasicAuth(RETOUCH_USER, RETOUCH_PASS)
 
 
 def _get_s3_client():
@@ -43,17 +45,7 @@ def _presigned_url(s3_key):
     )
 
 
-def _sign(method: str, path: str, body_str: str = "") -> dict:
-    ts = str(int(time.time()))
-    nonce = secrets.token_hex(16)
-    msg = f"{method}\n{path}\n{ts}\n{nonce}\n{body_str}"
-    sig = hmac.new(HMAC_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
-    return {
-        "X-Client-Id": HMAC_CLIENT_ID,
-        "X-Timestamp": ts,
-        "X-Nonce": nonce,
-        "X-Signature": sig,
-    }
+
 
 
 def _cors_headers():
@@ -193,11 +185,10 @@ def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id, mask_b64=None,
         }
 
     body_str = json.dumps(req_body)
-    sign_headers = {"Content-Type": "application/json", **_sign("POST", cfg['api_path'], body_str)}
 
     print(f"[RETOUCH PLUGIN] POST {api_url}, body_size={len(body_str)}")
     t0 = time.time()
-    r = requests.post(api_url, data=body_str.encode("utf-8"), headers=sign_headers, timeout=(10, 180))
+    r = requests.post(api_url, data=body_str.encode("utf-8"), headers={"Content-Type": "application/json"}, auth=_basic_auth(), timeout=(10, 180))
     elapsed = round(time.time() - t0, 3)
     print(f"[RETOUCH PLUGIN] Response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
 
@@ -230,8 +221,7 @@ def _check_plugins_available():
     for key, cfg in PLUGIN_CONFIGS.items():
         try:
             url = RETOUCH_BASE_URL + cfg['api_path']
-            sign_headers = _sign("GET", cfg['api_path'], "")
-            r = requests.get(url, headers=sign_headers, timeout=(3, 5))
+            r = requests.get(url, auth=_basic_auth(), timeout=(3, 5))
             results[key] = {
                 'available': r.status_code in (200, 405, 400, 422),
                 'status_code': r.status_code,
@@ -437,11 +427,10 @@ def _try_lama_prepass(s3_client, in_key, user_id, photo_id, conn=None):
             'ldm_steps': ldm_steps,
         }
         body_str = json.dumps(req_body)
-        sign_headers = {"Content-Type": "application/json", **_sign("POST", api_path, body_str)}
 
         print(f"[LAMA PREPASS] POST {api_url}, body_size={len(body_str)}")
         t0 = time.time()
-        r = requests.post(api_url, data=body_str.encode("utf-8"), headers=sign_headers, timeout=(10, 180))
+        r = requests.post(api_url, data=body_str.encode("utf-8"), headers={"Content-Type": "application/json"}, auth=_basic_auth(), timeout=(10, 180))
         elapsed = round(time.time() - t0, 3)
         print(f"[LAMA PREPASS] Response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
 
@@ -470,6 +459,65 @@ def _try_lama_prepass(s3_client, in_key, user_id, photo_id, conn=None):
     except Exception as e:
         print(f"[LAMA PREPASS] Error (non-fatal): {e}")
         return in_key
+
+
+def _iopaint_inpaint(s3_client, in_key, mask_b64, conn=None):
+    resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
+    file_bytes = resp['Body'].read()
+    img_b64 = base64.b64encode(file_bytes).decode('utf-8')
+
+    api_url = RETOUCH_BASE_URL + '/api/v1/inpaint'
+    ldm_steps = _get_ldm_steps(conn) if conn else 20
+    req_body = {'image': img_b64, 'mask': mask_b64, 'ldm_steps': ldm_steps}
+    body_str = json.dumps(req_body)
+
+    print(f"[IOPAINT] POST {api_url}, ldm_steps={ldm_steps}, body_size={len(body_str)}")
+    t0 = time.time()
+    r = requests.post(api_url, data=body_str.encode("utf-8"), headers={"Content-Type": "application/json"}, auth=_basic_auth(), timeout=(10, 180))
+    elapsed = round(time.time() - t0, 3)
+    print(f"[IOPAINT] inpaint response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
+
+    if r.status_code != 200:
+        return None, f"Inpaint error: {r.status_code} {r.text[:200]}"
+
+    content_type = r.headers.get('Content-Type', '')
+    if 'image' in content_type:
+        return r.content, None
+    elif 'json' in content_type:
+        data = r.json()
+        b64 = data.get('image') or data.get('output')
+        if b64:
+            return base64.b64decode(b64), None
+    return r.content, None
+
+
+def _iopaint_plugin(s3_client, in_key, plugin_name, api_path):
+    resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
+    file_bytes = resp['Body'].read()
+    img_b64 = base64.b64encode(file_bytes).decode('utf-8')
+
+    api_url = RETOUCH_BASE_URL + api_path
+    req_body = {'plugin': plugin_name, 'img': img_b64}
+    body_str = json.dumps(req_body)
+
+    print(f"[IOPAINT] POST {api_url}, plugin={plugin_name}, body_size={len(body_str)}")
+    t0 = time.time()
+    r = requests.post(api_url, data=body_str.encode("utf-8"), headers={"Content-Type": "application/json"}, auth=_basic_auth(), timeout=(10, 180))
+    elapsed = round(time.time() - t0, 3)
+    print(f"[IOPAINT] plugin response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
+
+    if r.status_code != 200:
+        return None, f"Plugin {plugin_name} error: {r.status_code} {r.text[:200]}"
+
+    content_type = r.headers.get('Content-Type', '')
+    if 'image' in content_type:
+        return r.content, None
+    elif 'json' in content_type:
+        data = r.json()
+        b64 = data.get('image') or data.get('output')
+        if b64:
+            return base64.b64decode(b64), None
+    return r.content, None
 
 
 def _handle_create(event, conn, user_id):
@@ -504,76 +552,55 @@ def _handle_create(event, conn, user_id):
 
     in_key = photo['s3_key']
     if photo.get('is_raw'):
-        print(f"[RETOUCH] RAW file detected, sending original: {in_key}")
+        print(f"[RETOUCH] RAW file detected: {in_key}")
     out_prefix = f"retouch/{user_id}/{photo_id}"
 
-    preset_name = body.get('preset', 'default')
-    pipeline = _load_pipeline(conn, preset_name)
-    is_auto = preset_name in ('auto', 'default')
-    print(f"[RETOUCH] Using preset '{preset_name}' (auto={is_auto}): {json.dumps(pipeline)}")
-
-    if is_auto and not photo.get('is_raw'):
-        s3_client = _get_s3_client()
-        cleaned_key = _try_lama_prepass(s3_client, in_key, user_id, photo_id, conn=conn)
-        if cleaned_key != in_key:
-            print(f"[RETOUCH] LaMa pre-pass applied: {in_key} → {cleaned_key}")
-            in_key = cleaned_key
-
-    path = "/v1/retouch"
-    req_body = {
-        "in_bucket": S3_BUCKET,
-        "in_key": in_key,
-        "out_bucket": S3_BUCKET,
-        "out_prefix": out_prefix,
-        "debug": True,
-        "pipeline": pipeline,
-    }
-    body_str = json.dumps(req_body, separators=(",", ":"), ensure_ascii=False)
-    sign_headers = {"Content-Type": "application/json", **_sign("POST", path, body_str)}
-
-    full_url = RETOUCH_BASE_URL + path
-    print(f"[RETOUCH] POST {full_url}")
-    print(f"[RETOUCH] Body: {body_str[:300]}")
+    s3_client = _get_s3_client()
+    task_id = uuid.uuid4().hex
+    current_key = in_key
+    steps_done = []
 
     try:
-        t0 = time.time()
-        r = requests.post(
-            full_url,
-            data=body_str.encode("utf-8"),
-            headers=sign_headers,
-            timeout=(5, 25)
-        )
-        elapsed = round(time.time() - t0, 3)
-        print(f"[RETOUCH] Response: status={r.status_code}, time={elapsed}s, body={r.text[:500]}")
-        r.raise_for_status()
-        result = r.json()
-    except requests.ConnectionError as e:
-        elapsed = round(time.time() - t0, 3)
-        print(f"[ERROR] Retouch connection failed after {elapsed}s: {e}")
-        return _response(502, {'error': f'Cannot connect to retouch server ({elapsed}s)', 'url': full_url})
-    except requests.Timeout as e:
-        elapsed = round(time.time() - t0, 3)
-        print(f"[ERROR] Retouch timeout after {elapsed}s: {e}")
-        return _response(504, {'error': f'Retouch server timeout ({elapsed}s)', 'url': full_url})
-    except requests.RequestException as e:
-        elapsed = round(time.time() - t0, 3)
-        print(f"[ERROR] Retouch API call failed after {elapsed}s: {e}")
-        return _response(502, {'error': f'Retouch service error ({elapsed}s): {e}'})
+        if not photo.get('is_raw'):
+            cleaned_key = _try_lama_prepass(s3_client, current_key, user_id, photo_id, conn=conn)
+            if cleaned_key != current_key:
+                print(f"[RETOUCH] LaMa pre-pass applied: {current_key} -> {cleaned_key}")
+                current_key = cleaned_key
+                steps_done.append('lama_prepass')
 
-    task_id = result.get("task_id", "")
-    status = result.get("status", "queued")
-    if status == 'failed' or not task_id:
-        print(f"[RETOUCH] WARNING: Task created with status={status}, task_id={task_id}. Full response: {json.dumps(result, default=str)[:500]}")
+        gfpgan_bytes, err = _iopaint_plugin(s3_client, current_key, 'GFPGAN', '/api/v1/run_plugin_gen_image')
+        if gfpgan_bytes and not err and len(gfpgan_bytes) > 1000:
+            out_key = f"{out_prefix}/gfpgan_{uuid.uuid4().hex[:8]}.png"
+            s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=gfpgan_bytes, ContentType='image/png')
+            current_key = out_key
+            steps_done.append('face_enhance')
+            print(f"[RETOUCH] GFPGAN done: {out_key}")
+        else:
+            print(f"[RETOUCH] GFPGAN skipped or failed: {err}")
+
+    except Exception as e:
+        print(f"[RETOUCH] Processing error: {e}")
+
+    result_key = current_key if current_key != in_key else None
+    status = 'finished' if result_key else 'failed'
+    error_msg = None if result_key else 'Не удалось обработать фото. Сервер ретуши недоступен или не смог обработать файл'
+
+    result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}" if result_key else None
 
     with conn.cursor() as cur:
         cur.execute(
-            '''INSERT INTO retouch_tasks (user_id, photo_id, task_id, status, in_bucket, in_key, out_bucket, out_prefix)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
-            (user_id, photo_id, task_id, status, S3_BUCKET, in_key, S3_BUCKET, out_prefix)
+            '''INSERT INTO retouch_tasks (user_id, photo_id, task_id, status, in_bucket, in_key, out_bucket, out_prefix, result_key, result_url, error_message)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+            (user_id, photo_id, task_id, status, S3_BUCKET, in_key, S3_BUCKET, out_prefix, result_key, result_url, error_msg)
         )
         conn.commit()
 
-    return _response(200, {'task_id': task_id, 'status': status})
+    if status == 'finished' and result_key:
+        _save_retouched_photo(conn, user_id, {'photo_id': photo_id, 'result_key': result_key}, result_key, result_url)
+
+    print(f"[RETOUCH] Done: task_id={task_id}, status={status}, steps={steps_done}")
+    presigned = _presigned_url(result_key) if result_key else None
+    return _response(200, {'task_id': task_id, 'status': status, 'result_url': presigned, 'steps': steps_done})
 
 
 def _presigned_from_task(task):
@@ -699,101 +726,11 @@ TASK_TIMEOUT_SECONDS = 300
 
 def _check_single_task(conn, user_id, task):
     task_id = task['task_id']
-    if task['status'] not in ('queued', 'started'):
-        return {
-            'task_id': task_id,
-            'status': task['status'],
-            'result_url': _presigned_from_task(task),
-            'error_message': task['error_message'],
-        }
-
-    from datetime import datetime, timezone
-    created = task.get('created_at')
-    if created:
-        if hasattr(created, 'timestamp'):
-            age_seconds = time.time() - created.timestamp()
-        else:
-            age_seconds = 9999
-        if age_seconds > TASK_TIMEOUT_SECONDS:
-            timeout_msg = f'Задача зависла (>{TASK_TIMEOUT_SECONDS // 60} мин). Попробуйте снова'
-            print(f"[RETOUCH] Task {task_id} timed out after {int(age_seconds)}s, marking as failed")
-            with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE retouch_tasks SET status = 'failed', error_message = %s, updated_at = NOW() WHERE task_id = %s",
-                    (timeout_msg, task_id)
-                )
-                conn.commit()
-            return {
-                'task_id': task_id,
-                'status': 'failed',
-                'result_url': None,
-                'error_message': timeout_msg,
-            }
-
-    api_path = f"/v1/tasks/{task_id}"
-    sign_headers = _sign("GET", api_path, "")
-    status_url = RETOUCH_BASE_URL + api_path
-    try:
-        r = requests.get(status_url, headers=sign_headers, timeout=(3, 10))
-        r.raise_for_status()
-        remote = r.json()
-    except requests.RequestException as e:
-        print(f"[ERROR] Status check failed for {task_id}: {e}")
-        return {
-            'task_id': task_id,
-            'status': task['status'],
-            'result_url': _presigned_from_task(task),
-            'error_message': task['error_message'],
-        }
-
-    new_status = remote.get("status", task['status'])
-    result_data = remote.get("result", {}) or {}
-    result_key = result_data.get("out_key") or remote.get("out_key") or remote.get("result_key")
-    error_msg = remote.get("error") or result_data.get("error") or remote.get("message")
-
-    if new_status == 'failed':
-        print(f"[RETOUCH] Task {task_id} FAILED on remote server. Full response: {json.dumps(remote, default=str)[:1000]}")
-        if not error_msg:
-            error_msg = "Сервер ретуши вернул ошибку"
-        elif 'download_file' in error_msg or 's3transfer' in error_msg:
-            print(f"[RETOUCH] Task {task_id}: S3 download error detected")
-            error_msg = "Сервер не смог скачать файл для обработки. Попробуйте снова"
-        elif len(error_msg) > 200:
-            last_line = error_msg.strip().split('\n')[-1].strip()
-            error_msg = last_line if last_line else "Ошибка обработки на сервере"
-
-    update_fields = ['status = %s', 'updated_at = NOW()']
-    update_values = [new_status]
-    storage_url = None
-
-    if result_key:
-        storage_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
-        update_fields.append('result_key = %s')
-        update_values.append(result_key)
-        update_fields.append('result_url = %s')
-        update_values.append(storage_url)
-
-    if error_msg:
-        update_fields.append('error_message = %s')
-        update_values.append(error_msg)
-
-    update_values.append(task_id)
-    with conn.cursor() as cur:
-        cur.execute(
-            f"UPDATE retouch_tasks SET {', '.join(update_fields)} WHERE task_id = %s",
-            update_values
-        )
-        conn.commit()
-
-    if new_status == 'finished' and result_key:
-        _save_retouched_photo(conn, user_id, task, result_key, storage_url)
-
-    presigned = _presigned_url(result_key) if result_key else _presigned_from_task(task)
     return {
         'task_id': task_id,
-        'status': new_status,
-        'result_url': presigned,
-        'error_message': error_msg or task['error_message'],
+        'status': task['status'],
+        'result_url': _presigned_from_task(task),
+        'error_message': task.get('error_message'),
     }
 
 
