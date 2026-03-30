@@ -73,12 +73,28 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
   const totalBatchSize = totalBatchSizeRef.current > tasks.length ? totalBatchSizeRef.current : tasks.length;
 
+  const [fakeProgress, setFakeProgress] = useState(0);
+
+  useEffect(() => {
+    const hasStartedNoId = tasks.some(t => t.status === 'started' && !t.task_id);
+    if (!hasStartedNoId) {
+      setFakeProgress(0);
+      return;
+    }
+    setFakeProgress(5);
+    const interval = setInterval(() => {
+      setFakeProgress(prev => prev < 85 ? prev + 2 : prev);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [tasks]);
+
   const totalProgress = (() => {
     if (tasks.length === 0) return 0;
     const total = totalBatchSize || tasks.length;
     const done = tasks.reduce((sum, t) => {
       if (t.status === 'finished') return sum + 100;
       if (t.status === 'failed') return sum + 100;
+      if (t.status === 'started' && !t.task_id) return sum + fakeProgress;
       return sum + (t.progress || 0);
     }, 0);
     return Math.round(done / total);
@@ -427,14 +443,27 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     photosRef.current = photos;
     totalBatchSizeRef.current = 1;
     setSubmitting(true);
+    const photo = photos.find(p => p.id === photoId);
+    const pendingTask: RetouchTask = {
+      photo_id: photoId,
+      task_id: '',
+      status: 'started',
+      progress: 0,
+      file_name: photo?.file_name,
+      created_at: new Date().toISOString()
+    };
+    setTasks([pendingTask]);
     const serverReady = await ensureServerReady();
     if (!serverReady) {
+      setTasks([{ ...pendingTask, status: 'failed', error_message: 'Сервис недоступен' }]);
       setSubmitting(false);
       return;
     }
     const task = await startRetouchForPhoto(photoId);
     if (task) {
       setTasks([task]);
+    } else {
+      setTasks([{ ...pendingTask, status: 'failed', error_message: 'Не удалось запустить ретушь' }]);
     }
     setSubmitting(false);
   };
