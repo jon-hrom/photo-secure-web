@@ -1,0 +1,1 @@
+{"tests": [{"name": "Get retouch settings", "method": "GET", "path": "/", "expectedStatus": 401, "expectedBody": {"error": "string"}, "bodyMatcher": "partial"}, {"name": "Update without auth", "method": "POST", "path": "/", "expectedStatus": 401, "expectedBody": {"error": "string"}, "bodyMatcher": "partial"}]}

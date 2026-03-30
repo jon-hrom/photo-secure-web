@@ -107,6 +107,25 @@ def _load_pipeline(conn, preset_name='default'):
     return DEFAULT_PIPELINE
 
 
+def _get_setting(conn, key, default='20'):
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT value FROM retouch_settings WHERE key = %s LIMIT 1", (key,))
+            row = cur.fetchone()
+            return row['value'] if row else default
+    except Exception:
+        return default
+
+
+def _get_ldm_steps(conn):
+    val = _get_setting(conn, 'ldm_steps', '20')
+    try:
+        steps = int(val)
+        return max(1, min(50, steps))
+    except (ValueError, TypeError):
+        return 20
+
+
 PLUGIN_CONFIGS = {
     'gfpgan': {
         'api_path': '/api/v1/run_plugin_gen_image',
@@ -140,7 +159,7 @@ PLUGIN_CONFIGS = {
 }
 
 
-def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id, mask_b64=None):
+def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id, mask_b64=None, conn=None):
     cfg = PLUGIN_CONFIGS.get(plugin_key)
     if not cfg:
         return None, f"Unknown plugin: {plugin_key}"
@@ -158,10 +177,12 @@ def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id, mask_b64=None)
     api_url = RETOUCH_BASE_URL + cfg['api_path']
 
     if plugin_key == 'inpaint':
+        ldm_steps = _get_ldm_steps(conn) if conn else 20
+        print(f"[RETOUCH PLUGIN] Using ldm_steps={ldm_steps}")
         req_body = {
             'image': img_b64,
             'mask': mask_b64,
-            'ldm_steps': 20,
+            'ldm_steps': ldm_steps,
         }
     else:
         body_field = cfg.get('body_field', 'img')
@@ -313,7 +334,7 @@ def _handle_plugin(body, conn, user_id):
 
     for p_key in plugin_list:
         print(f"[RETOUCH PLUGIN CHAIN] Step: {p_key}, input: {current_key}")
-        result_key, error = _run_plugin(s3_client, current_key, p_key, user_id, photo_id, mask_b64=mask_b64)
+        result_key, error = _run_plugin(s3_client, current_key, p_key, user_id, photo_id, mask_b64=mask_b64, conn=conn)
         if error:
             results.append({'plugin': p_key, 'success': False, 'error': error})
             print(f"[RETOUCH PLUGIN CHAIN] {p_key} failed: {error}")
@@ -381,7 +402,7 @@ def _save_plugin_result(conn, user_id, original_photo, result_key, result_url, s
     print(f"[RETOUCH PLUGIN] Saved {plugin_key} result to folder {retouch_folder_id}: {file_name}")
 
 
-def _try_lama_prepass(s3_client, in_key, user_id, photo_id):
+def _try_lama_prepass(s3_client, in_key, user_id, photo_id, conn=None):
     try:
         from skin_mask import build_auto_mask
         print(f"[LAMA PREPASS] Building auto mask for {in_key}")
@@ -408,10 +429,12 @@ def _try_lama_prepass(s3_client, in_key, user_id, photo_id):
 
         api_path = '/api/v1/inpaint'
         api_url = RETOUCH_BASE_URL + api_path
+        ldm_steps = _get_ldm_steps(conn) if conn else 20
+        print(f"[LAMA PREPASS] Using ldm_steps={ldm_steps}")
         req_body = {
             'image': img_b64,
             'mask': mask_b64,
-            'ldm_steps': 20,
+            'ldm_steps': ldm_steps,
         }
         body_str = json.dumps(req_body)
         sign_headers = {"Content-Type": "application/json", **_sign("POST", api_path, body_str)}
@@ -491,7 +514,7 @@ def _handle_create(event, conn, user_id):
 
     if is_auto and not photo.get('is_raw'):
         s3_client = _get_s3_client()
-        cleaned_key = _try_lama_prepass(s3_client, in_key, user_id, photo_id)
+        cleaned_key = _try_lama_prepass(s3_client, in_key, user_id, photo_id, conn=conn)
         if cleaned_key != in_key:
             print(f"[RETOUCH] LaMa pre-pass applied: {in_key} → {cleaned_key}")
             in_key = cleaned_key
