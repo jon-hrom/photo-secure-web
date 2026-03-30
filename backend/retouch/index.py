@@ -110,50 +110,74 @@ PLUGIN_CONFIGS = {
         'api_path': '/api/v1/run_plugin_gen_image',
         'plugin_name': 'GFPGAN',
         'label': 'Улучшение лиц',
+        'body_field': 'img',
+        'name_field': 'plugin',
     },
     'remove_bg': {
         'api_path': '/api/v1/run_plugin_gen_mask',
         'plugin_name': 'briaai/RMBG-1.4',
         'label': 'Удаление фона',
+        'body_field': 'img',
+        'name_field': 'plugin',
     },
     'upscale': {
         'api_path': '/api/v1/run_plugin_gen_image',
         'plugin_name': 'RealESRGAN',
         'label': 'Увеличение разрешения',
+        'body_field': 'img',
+        'name_field': 'plugin',
+    },
+    'inpaint': {
+        'api_path': '/api/v1/inpaint',
+        'plugin_name': 'lama',
+        'label': 'Точечная ретушь (LaMa)',
+        'body_field': 'image',
+        'name_field': None,
+        'requires_mask': True,
     },
 }
 
 
-def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id):
+import base64
+
+
+def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id, mask_b64=None):
     cfg = PLUGIN_CONFIGS.get(plugin_key)
     if not cfg:
         return None, f"Unknown plugin: {plugin_key}"
+
+    if cfg.get('requires_mask') and not mask_b64:
+        return None, f"Plugin {plugin_key} requires mask"
 
     print(f"[RETOUCH PLUGIN] Running {plugin_key} on {in_key}")
 
     resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
     file_bytes = resp['Body'].read()
 
-    import base64
     img_b64 = base64.b64encode(file_bytes).decode('utf-8')
 
     api_url = RETOUCH_BASE_URL + cfg['api_path']
-    req_body = {
-        'name': cfg['plugin_name'],
-        'image': img_b64,
-    }
-    if 'gen_mask' in cfg['api_path']:
+
+    if plugin_key == 'inpaint':
         req_body = {
-            'name': cfg['plugin_name'],
             'image': img_b64,
+            'mask': mask_b64,
+            'ldm_steps': 20,
+        }
+    else:
+        body_field = cfg.get('body_field', 'img')
+        name_field = cfg.get('name_field', 'plugin')
+        req_body = {
+            name_field: cfg['plugin_name'],
+            body_field: img_b64,
         }
 
     body_str = json.dumps(req_body)
     sign_headers = {"Content-Type": "application/json", **_sign("POST", cfg['api_path'], body_str)}
 
-    print(f"[RETOUCH PLUGIN] POST {api_url}")
+    print(f"[RETOUCH PLUGIN] POST {api_url}, body_size={len(body_str)}")
     t0 = time.time()
-    r = requests.post(api_url, data=body_str.encode("utf-8"), headers=sign_headers, timeout=(10, 120))
+    r = requests.post(api_url, data=body_str.encode("utf-8"), headers=sign_headers, timeout=(10, 180))
     elapsed = round(time.time() - t0, 3)
     print(f"[RETOUCH PLUGIN] Response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
 
@@ -170,13 +194,12 @@ def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id):
         elif data.get('output'):
             result_bytes = base64.b64decode(data['output'])
         else:
-            return None, f"No image in plugin response"
+            return None, "No image in plugin response"
     else:
         result_bytes = r.content
 
     out_key = f"retouch/{user_id}/{photo_id}/plugin_{plugin_key}_{uuid.uuid4().hex[:8]}.png"
     s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=result_bytes, ContentType='image/png')
-    result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{out_key}"
     print(f"[RETOUCH PLUGIN] Saved result: {out_key}")
 
     return out_key, None
@@ -256,6 +279,7 @@ def _handle_plugin(body, conn, user_id):
     photo_id = body.get('photo_id')
     plugin = body.get('plugin')
     plugins = body.get('plugins')
+    mask_b64 = body.get('mask')
 
     if not photo_id:
         return _response(400, {'error': 'photo_id is required'})
@@ -268,6 +292,11 @@ def _handle_plugin(body, conn, user_id):
 
     if not plugin_list:
         return _response(400, {'error': f'No valid plugins. Available: {", ".join(PLUGIN_CONFIGS.keys())}'})
+
+    for p_key in plugin_list:
+        cfg = PLUGIN_CONFIGS.get(p_key, {})
+        if cfg.get('requires_mask') and not mask_b64:
+            return _response(400, {'error': f'Plugin {p_key} requires mask field (base64 B&W image)'})
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -285,7 +314,7 @@ def _handle_plugin(body, conn, user_id):
 
     for p_key in plugin_list:
         print(f"[RETOUCH PLUGIN CHAIN] Step: {p_key}, input: {current_key}")
-        result_key, error = _run_plugin(s3_client, current_key, p_key, user_id, photo_id)
+        result_key, error = _run_plugin(s3_client, current_key, p_key, user_id, photo_id, mask_b64=mask_b64)
         if error:
             results.append({'plugin': p_key, 'success': False, 'error': error})
             print(f"[RETOUCH PLUGIN CHAIN] {p_key} failed: {error}")

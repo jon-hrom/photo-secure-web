@@ -28,7 +28,7 @@ const AI_TOOLS = [
   {
     key: 'gfpgan',
     label: 'Улучшение лиц',
-    description: 'GFPGAN — восстановление и детализация лица',
+    description: 'GFPGAN — убрать блеск, тени, сгладить кожу',
     icon: 'Smile' as const,
     color: 'violet',
   },
@@ -45,6 +45,14 @@ const AI_TOOLS = [
     description: 'RealESRGAN — апскейл с сохранением качества',
     icon: 'Maximize2' as const,
     color: 'emerald',
+  },
+  {
+    key: 'inpaint',
+    label: 'Точечная ретушь (LaMa)',
+    description: 'Удаление дефектов кистью — прыщи, пятна, лишние объекты',
+    icon: 'Eraser' as const,
+    color: 'amber',
+    requiresMask: true,
   },
 ];
 
@@ -64,6 +72,10 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const [selectedPlugins, setSelectedPlugins] = useState<Set<string>>(new Set());
   const [runningPlugins, setRunningPlugins] = useState(false);
   const [pluginProgress, setPluginProgress] = useState('');
+  const [showMaskEditor, setShowMaskEditor] = useState(false);
+  const [brushSize, setBrushSize] = useState(20);
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const maskDrawing = useRef(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
@@ -267,15 +279,58 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   };
 
   const togglePlugin = (key: string) => {
+    const tool = AI_TOOLS.find(t => t.key === key);
     setSelectedPlugins(prev => {
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
+        if (key === 'inpaint') setShowMaskEditor(false);
       } else {
         next.add(key);
+        if ((tool as { requiresMask?: boolean })?.requiresMask) setShowMaskEditor(true);
       }
       return next;
     });
+  };
+
+  const initMaskCanvas = useCallback(() => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  const getMaskBase64 = (): string | null => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return null;
+    const dataUrl = canvas.toDataURL('image/png');
+    return dataUrl.split(',')[1] || null;
+  };
+
+  const handleMaskDraw = (e: React.MouseEvent<HTMLCanvasElement>, isStart = false) => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return;
+    if (isStart) maskDrawing.current = true;
+    if (!maskDrawing.current) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(x, y, brushSize * scaleX, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const clearMask = () => {
+    initMaskCanvas();
   };
 
   const handleRunPlugins = async () => {
@@ -290,20 +345,32 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
     const pluginOrder = AI_TOOLS.filter(t => selectedPlugins.has(t.key)).map(t => t.key);
 
+    let maskB64: string | null = null;
+    if (pluginOrder.includes('inpaint')) {
+      maskB64 = getMaskBase64();
+      if (!maskB64) {
+        toast({ title: 'Нарисуйте маску для точечной ретуши', variant: 'destructive' });
+        return;
+      }
+    }
+
     setRunningPlugins(true);
     setRetouchedUrl(null);
     const labels = pluginOrder.map(k => AI_TOOLS.find(t => t.key === k)?.label).join(' → ');
     setPluginProgress(`Обработка: ${labels}...`);
 
     try {
+      const reqBody: Record<string, unknown> = {
+        action: 'plugin',
+        plugins: pluginOrder,
+        photo_id: currentPreviewPhoto.id,
+      };
+      if (maskB64) reqBody.mask = maskB64;
+
       const res = await fetch(RETOUCH_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({
-          action: 'plugin',
-          plugins: pluginOrder,
-          photo_id: currentPreviewPhoto.id,
-        }),
+        body: JSON.stringify(reqBody),
       });
 
       if (!res.ok) {
@@ -388,6 +455,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
               violet: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
               blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
               emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+              amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
             };
 
             return (
@@ -414,6 +482,67 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
               </label>
             );
           })}
+
+          {showMaskEditor && selectedPlugins.has('inpaint') && previewSrc && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800/40 p-2 space-y-1.5 bg-amber-50/30 dark:bg-amber-950/10">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-medium text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                  <Icon name="PaintBucket" size={12} />
+                  Рисуйте кистью по дефектам
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearMask}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    <Icon name="Undo2" size={10} className="mr-0.5" />
+                    Очистить
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[9px] text-muted-foreground">Кисть:</span>
+                <Slider
+                  value={[brushSize]}
+                  min={5}
+                  max={50}
+                  step={1}
+                  onValueChange={([v]) => setBrushSize(v)}
+                  className="flex-1"
+                />
+                <span className="text-[9px] font-mono text-muted-foreground w-6 text-right">{brushSize}</span>
+              </div>
+              <div className="relative rounded overflow-hidden border border-border/60">
+                <img
+                  src={previewSrc}
+                  alt="Preview"
+                  className="w-full block"
+                  onLoad={(e) => {
+                    const img = e.currentTarget;
+                    const canvas = maskCanvasRef.current;
+                    if (canvas) {
+                      canvas.width = img.naturalWidth;
+                      canvas.height = img.naturalHeight;
+                      initMaskCanvas();
+                    }
+                  }}
+                />
+                <canvas
+                  ref={maskCanvasRef}
+                  className="absolute inset-0 w-full h-full opacity-40 cursor-crosshair"
+                  onMouseDown={(e) => handleMaskDraw(e, true)}
+                  onMouseMove={handleMaskDraw}
+                  onMouseUp={() => { maskDrawing.current = false; }}
+                  onMouseLeave={() => { maskDrawing.current = false; }}
+                />
+              </div>
+              <div className="text-[8px] text-muted-foreground text-center">
+                Белые области будут зачищены и заполнены AI
+              </div>
+            </div>
+          )}
 
           {selectedPlugins.size > 0 && (
             <div className="pt-1">
