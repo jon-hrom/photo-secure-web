@@ -374,7 +374,13 @@ def _save_plugin_result(conn, user_id, original_photo, result_key, result_url, s
 
     retouch_folder_id = _get_or_create_retouch_folder(conn, user_id, original['folder_id'])
 
-    thumb_key, thumb_url, grid_key, grid_url = _generate_thumbnails(s3_client, result_key)
+    try:
+        resp = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
+        file_bytes = resp['Body'].read()
+        thumb_key, thumb_url, grid_key, grid_url = _generate_thumbnails_from_bytes(s3_client, result_key, file_bytes)
+    except Exception as e:
+        print(f"[RETOUCH PLUGIN] Could not generate thumbnails: {e}")
+        thumb_key, thumb_url, grid_key, grid_url = None, None, None, None
 
     base_name = original['file_name'].rsplit('.', 1)[0] if '.' in original['file_name'] else original['file_name']
     label = PLUGIN_CONFIGS.get(plugin_key, {}).get('label', plugin_key)
@@ -512,12 +518,15 @@ def _handle_create(event, conn, user_id):
             out_key = f"{out_prefix}/gfpgan_{uuid.uuid4().hex[:8]}.png"
             s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=gfpgan_bytes, ContentType='image/png')
             current_key = out_key
+            last_bytes = gfpgan_bytes
             steps_done.append('face_enhance')
             print(f"[RETOUCH] GFPGAN done: {out_key}")
         else:
+            last_bytes = None
             print(f"[RETOUCH] GFPGAN skipped or failed: {err}")
 
     except Exception as e:
+        last_bytes = None
         print(f"[RETOUCH] Processing error: {e}")
 
     result_key = current_key if current_key != in_key else None
@@ -535,7 +544,7 @@ def _handle_create(event, conn, user_id):
         conn.commit()
 
     if status == 'finished' and result_key:
-        _save_retouched_photo(conn, user_id, {'photo_id': photo_id, 'result_key': result_key}, result_key, result_url)
+        _save_retouched_photo(conn, user_id, {'photo_id': photo_id, 'result_key': result_key}, result_key, result_url, result_bytes=last_bytes)
 
     print(f"[RETOUCH] Done: task_id={task_id}, status={status}, steps={steps_done}")
     presigned = _presigned_url(result_key) if result_key else None
@@ -576,17 +585,11 @@ def _get_or_create_retouch_folder(conn, user_id, parent_folder_id):
         return new_folder['id']
 
 
-def _generate_thumbnails(s3_client, result_key):
-    """Скачивает фото из S3 и генерирует thumbnail + grid thumbnail"""
+def _generate_thumbnails_from_bytes(s3_client, result_key, file_bytes):
     try:
-        print(f"[RETOUCH] Downloading {result_key} for thumbnail generation")
-        response = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
-        file_bytes = response['Body'].read()
-
         img = Image.open(io.BytesIO(file_bytes))
         if img.mode != 'RGB':
             img = img.convert('RGB')
-        orig_img = img.copy()
 
         prefix = result_key.rsplit('/', 1)[0] if '/' in result_key else ''
         thumb_prefix = f"{prefix}/thumbnails" if prefix else "thumbnails"
@@ -597,24 +600,22 @@ def _generate_thumbnails(s3_client, result_key):
         thumb_key = f"{thumb_prefix}/{uuid.uuid4()}.jpg"
         s3_client.put_object(Bucket=S3_BUCKET, Key=thumb_key, Body=thumb_buf.getvalue(), ContentType='image/jpeg')
         thumb_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{thumb_key}"
-        print(f"[RETOUCH] Thumbnail created: {thumb_key}")
 
-        orig_img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+        img.thumbnail((400, 400), Image.Resampling.LANCZOS)
         grid_buf = io.BytesIO()
-        orig_img.save(grid_buf, format='JPEG', quality=60, optimize=True)
+        img.save(grid_buf, format='JPEG', quality=60, optimize=True)
         grid_key = f"{thumb_prefix}/grid_{uuid.uuid4()}.jpg"
         s3_client.put_object(Bucket=S3_BUCKET, Key=grid_key, Body=grid_buf.getvalue(), ContentType='image/jpeg')
         grid_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{grid_key}"
-        print(f"[RETOUCH] Grid thumbnail created: {grid_key}")
 
+        print(f"[RETOUCH] Thumbnails created: {thumb_key}, {grid_key}")
         return thumb_key, thumb_url, grid_key, grid_url
     except Exception as e:
         print(f"[RETOUCH] Thumbnail generation failed: {e}")
         return None, None, None, None
 
 
-def _save_retouched_photo(conn, user_id, task, result_key, result_url):
-    """Сохраняет обработанное фото в подпапку 'Ретушь' с генерацией thumbnail. Сервер ретуши сам конвертирует RAW→TIFF→JPG и загружает JPG в S3."""
+def _save_retouched_photo(conn, user_id, task, result_key, result_url, result_bytes=None):
     photo_id = task['photo_id']
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -639,7 +640,9 @@ def _save_retouched_photo(conn, user_id, task, result_key, result_url):
             return
 
     s3_client = _get_s3_client()
-    thumb_key, thumb_url, grid_key, grid_url = _generate_thumbnails(s3_client, result_key)
+    thumb_key, thumb_url, grid_key, grid_url = None, None, None, None
+    if result_bytes:
+        thumb_key, thumb_url, grid_key, grid_url = _generate_thumbnails_from_bytes(s3_client, result_key, result_bytes)
 
     orig_name = original['file_name']
     base_name = orig_name.rsplit('.', 1)[0] if '.' in orig_name else orig_name
