@@ -105,8 +105,85 @@ def _load_pipeline(conn, preset_name='default'):
     return DEFAULT_PIPELINE
 
 
+PLUGIN_CONFIGS = {
+    'gfpgan': {
+        'api_path': '/api/v1/run_plugin_gen_image',
+        'plugin_name': 'GFPGAN',
+        'label': 'Улучшение лиц',
+    },
+    'remove_bg': {
+        'api_path': '/api/v1/run_plugin_gen_mask',
+        'plugin_name': 'briaai/RMBG-1.4',
+        'label': 'Удаление фона',
+    },
+    'upscale': {
+        'api_path': '/api/v1/run_plugin_gen_image',
+        'plugin_name': 'RealESRGAN',
+        'label': 'Увеличение разрешения',
+    },
+}
+
+
+def _run_plugin(s3_client, in_key, plugin_key, user_id, photo_id):
+    cfg = PLUGIN_CONFIGS.get(plugin_key)
+    if not cfg:
+        return None, f"Unknown plugin: {plugin_key}"
+
+    print(f"[RETOUCH PLUGIN] Running {plugin_key} on {in_key}")
+
+    resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
+    file_bytes = resp['Body'].read()
+
+    import base64
+    img_b64 = base64.b64encode(file_bytes).decode('utf-8')
+
+    api_url = RETOUCH_BASE_URL + cfg['api_path']
+    req_body = {
+        'name': cfg['plugin_name'],
+        'image': img_b64,
+    }
+    if 'gen_mask' in cfg['api_path']:
+        req_body = {
+            'name': cfg['plugin_name'],
+            'image': img_b64,
+        }
+
+    body_str = json.dumps(req_body)
+    sign_headers = {"Content-Type": "application/json", **_sign("POST", cfg['api_path'], body_str)}
+
+    print(f"[RETOUCH PLUGIN] POST {api_url}")
+    t0 = time.time()
+    r = requests.post(api_url, data=body_str.encode("utf-8"), headers=sign_headers, timeout=(10, 120))
+    elapsed = round(time.time() - t0, 3)
+    print(f"[RETOUCH PLUGIN] Response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
+
+    if r.status_code != 200:
+        return None, f"Plugin error: {r.status_code} {r.text[:200]}"
+
+    content_type = r.headers.get('Content-Type', '')
+    if 'image' in content_type:
+        result_bytes = r.content
+    elif 'json' in content_type:
+        data = r.json()
+        if data.get('image'):
+            result_bytes = base64.b64decode(data['image'])
+        elif data.get('output'):
+            result_bytes = base64.b64decode(data['output'])
+        else:
+            return None, f"No image in plugin response"
+    else:
+        result_bytes = r.content
+
+    out_key = f"retouch/{user_id}/{photo_id}/plugin_{plugin_key}_{uuid.uuid4().hex[:8]}.png"
+    s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=result_bytes, ContentType='image/png')
+    result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{out_key}"
+    print(f"[RETOUCH PLUGIN] Saved result: {out_key}")
+
+    return out_key, None
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Ретушь фотографий — отправка на обработку и проверка статуса задачи"""
+    """Ретушь фотографий — отправка на обработку, AI-плагины и проверка статуса задачи"""
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
@@ -129,6 +206,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return _response(403, {'error': 'Email not verified'})
 
         if method == 'POST':
+            body = json.loads(event.get('body', '{}') or '{}')
+            if body.get('action') == 'plugin':
+                return _handle_plugin(body, conn, user_id)
             return _handle_create(event, conn, user_id)
         elif method == 'GET':
             return _handle_status(event, conn, user_id)
@@ -139,6 +219,78 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 MAX_ACTIVE_TASKS_PER_USER = 10
+
+
+def _handle_plugin(body, conn, user_id):
+    photo_id = body.get('photo_id')
+    plugin = body.get('plugin')
+
+    if not photo_id:
+        return _response(400, {'error': 'photo_id is required'})
+    if not plugin or plugin not in PLUGIN_CONFIGS:
+        return _response(400, {'error': f'Unknown plugin. Available: {", ".join(PLUGIN_CONFIGS.keys())}'})
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            'SELECT id, s3_key, file_name FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
+            (photo_id, user_id)
+        )
+        photo = cur.fetchone()
+
+    if not photo or not photo['s3_key']:
+        return _response(404, {'error': 'Photo not found'})
+
+    s3_client = _get_s3_client()
+    result_key, error = _run_plugin(s3_client, photo['s3_key'], plugin, user_id, photo_id)
+
+    if error:
+        return _response(500, {'error': error})
+
+    presigned = _presigned_url(result_key)
+    storage_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
+
+    _save_plugin_result(conn, user_id, photo, result_key, storage_url, s3_client, plugin)
+
+    return _response(200, {
+        'success': True,
+        'result_url': presigned,
+        'result_key': result_key,
+        'plugin': plugin,
+    })
+
+
+def _save_plugin_result(conn, user_id, original_photo, result_key, result_url, s3_client, plugin_key):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT folder_id, file_name, file_size, width, height FROM photo_bank WHERE id = %s",
+            (original_photo['id'],)
+        )
+        original = cur.fetchone()
+
+    if not original:
+        return
+
+    retouch_folder_id = _get_or_create_retouch_folder(conn, user_id, original['folder_id'])
+
+    thumb_key, thumb_url, grid_key, grid_url = _generate_thumbnails(s3_client, result_key)
+
+    base_name = original['file_name'].rsplit('.', 1)[0] if '.' in original['file_name'] else original['file_name']
+    label = PLUGIN_CONFIGS.get(plugin_key, {}).get('label', plugin_key)
+    file_name = f"{base_name}_{plugin_key}.png"
+
+    with conn.cursor() as cur:
+        cur.execute(
+            '''INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url,
+               thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url,
+               file_size, width, height, content_type)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+            (retouch_folder_id, user_id, file_name, result_key, result_url,
+             thumb_key, thumb_url, grid_key, grid_url,
+             original['file_size'] or 0, original['width'], original['height'],
+             'image/png')
+        )
+        conn.commit()
+    print(f"[RETOUCH PLUGIN] Saved {plugin_key} result to folder {retouch_folder_id}: {file_name}")
 
 
 def _handle_create(event, conn, user_id):

@@ -21,6 +21,15 @@
       "expectedStatus": 401,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST plugin without auth returns 401",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "plugin", "plugin": "gfpgan", "photo_id": 1},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
     }
   ]
 }

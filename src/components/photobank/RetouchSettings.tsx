@@ -23,6 +23,30 @@ interface RetouchSettingsProps {
   photos?: Photo[];
 }
 
+const AI_TOOLS = [
+  {
+    key: 'gfpgan',
+    label: 'Улучшение лиц',
+    description: 'GFPGAN — восстановление и улучшение деталей лица',
+    icon: 'Smile' as const,
+    color: 'violet',
+  },
+  {
+    key: 'remove_bg',
+    label: 'Удаление фона',
+    description: 'AI-модель RMBG — автоматическое удаление фона',
+    icon: 'Scissors' as const,
+    color: 'blue',
+  },
+  {
+    key: 'upscale',
+    label: 'Увеличение разрешения',
+    description: 'RealESRGAN — увеличение разрешения с сохранением качества',
+    icon: 'Maximize2' as const,
+    color: 'emerald',
+  },
+];
+
 const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchSettingsProps) => {
   const [ops, setOps] = useState<OpConfig[]>(DEFAULT_OPS);
   const [loading, setLoading] = useState(true);
@@ -34,6 +58,9 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const [testingRetouch, setTestingRetouch] = useState(false);
   const [autoMode, setAutoMode] = useState(false);
   const [savedManualOps, setSavedManualOps] = useState<OpConfig[] | null>(null);
+  const [slidersExpanded, setSlidersExpanded] = useState(false);
+  const [aiToolsExpanded, setAiToolsExpanded] = useState(true);
+  const [runningPlugin, setRunningPlugin] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
@@ -83,8 +110,10 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
         if (Array.isArray(pipeline) && pipeline.length === 1 && pipeline[0]?.op === 'auto') {
           setAutoMode(true);
           setOps(prev => prev.map(o => ({ ...o, enabled: false })));
+          setSlidersExpanded(false);
         } else {
           setOps(opsFromPipeline(pipeline));
+          setSlidersExpanded(false);
         }
       }
     } catch (e) {
@@ -143,6 +172,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
     if (enabled) {
       setSavedManualOps(ops);
       setOps(prev => prev.map(o => ({ ...o, enabled: false })));
+      setSlidersExpanded(false);
     } else {
       if (savedManualOps) {
         setOps(savedManualOps);
@@ -150,6 +180,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
       } else {
         setOps(DEFAULT_OPS);
       }
+      setSlidersExpanded(true);
     }
     setAutoMode(enabled);
     setRetouchedUrl(null);
@@ -179,9 +210,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
             variant: 'destructive',
           });
         }
-      } catch {
-        // ignore polling errors
-      }
+      } catch { /* polling error */ }
     }, 2000);
   }, [userId, toast]);
 
@@ -234,6 +263,48 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
     }
   };
 
+  const handleRunPlugin = async (pluginKey: string) => {
+    if (!currentPreviewPhoto?.id) {
+      toast({ title: 'Сначала выберите фото', variant: 'destructive' });
+      return;
+    }
+
+    setRunningPlugin(pluginKey);
+    setRetouchedUrl(null);
+
+    try {
+      const res = await fetch(RETOUCH_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({
+          action: 'plugin',
+          plugin: pluginKey,
+          photo_id: currentPreviewPhoto.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Ошибка плагина');
+      }
+
+      const data = await res.json();
+      if (data.result_url) {
+        setRetouchedUrl(data.result_url);
+        const tool = AI_TOOLS.find(t => t.key === pluginKey);
+        toast({ title: `${tool?.label || 'Плагин'} — готово` });
+      }
+    } catch (e: unknown) {
+      toast({
+        title: 'Ошибка',
+        description: e instanceof Error ? e.message : 'Не удалось выполнить',
+        variant: 'destructive',
+      });
+    } finally {
+      setRunningPlugin(null);
+    }
+  };
+
   const filterStr = useMemo(() => buildPreviewFilter(ops), [ops]);
 
   const previewSrc = currentPreviewPhoto ? getPhotoPreviewUrl(currentPreviewPhoto) : '';
@@ -245,6 +316,90 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
       </div>
     );
   }
+
+  const aiToolsPanel = (
+    <div className="rounded-xl border border-indigo-200 dark:border-indigo-800/50 overflow-hidden">
+      <button
+        onClick={() => setAiToolsExpanded(!aiToolsExpanded)}
+        className="w-full flex items-center gap-2 px-3 py-2.5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-950/60 dark:hover:to-purple-950/60 transition-colors"
+      >
+        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500 text-white">
+          <Icon name="Cpu" size={13} />
+        </div>
+        <div className="flex-1 text-left">
+          <div className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
+            AI-инструменты
+          </div>
+          <div className="text-[9px] text-muted-foreground leading-tight">
+            Нейросетевая обработка фото
+          </div>
+        </div>
+        <Icon
+          name="ChevronDown"
+          size={14}
+          className={`text-muted-foreground transition-transform ${aiToolsExpanded ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {aiToolsExpanded && (
+        <div className="p-2 space-y-1.5 bg-background/40">
+          {AI_TOOLS.map(tool => {
+            const isRunning = runningPlugin === tool.key;
+            const colorMap: Record<string, string> = {
+              violet: 'border-violet-200 dark:border-violet-800/40 hover:bg-violet-50/50 dark:hover:bg-violet-950/20',
+              blue: 'border-blue-200 dark:border-blue-800/40 hover:bg-blue-50/50 dark:hover:bg-blue-950/20',
+              emerald: 'border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20',
+            };
+            const iconColorMap: Record<string, string> = {
+              violet: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
+              blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+              emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+            };
+            const btnColorMap: Record<string, string> = {
+              violet: 'bg-violet-600 hover:bg-violet-700 text-white',
+              blue: 'bg-blue-600 hover:bg-blue-700 text-white',
+              emerald: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+            };
+
+            return (
+              <div
+                key={tool.key}
+                className={`rounded-lg border px-2.5 py-2 transition-colors ${colorMap[tool.color] || ''}`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`flex items-center justify-center w-7 h-7 rounded-lg ${iconColorMap[tool.color] || ''}`}>
+                    <Icon name={tool.icon} size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] font-medium">{tool.label}</div>
+                    <div className="text-[9px] text-muted-foreground leading-tight">{tool.description}</div>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={isRunning || !!runningPlugin || !currentPreviewPhoto?.id}
+                    onClick={() => handleRunPlugin(tool.key)}
+                    className={`h-7 px-2.5 text-[10px] ${btnColorMap[tool.color] || ''}`}
+                  >
+                    {isRunning ? (
+                      <Icon name="Loader2" size={12} className="animate-spin" />
+                    ) : (
+                      <Icon name="Play" size={11} className="mr-0.5" />
+                    )}
+                    {isRunning ? '' : 'Запуск'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {!currentPreviewPhoto?.id && (
+            <div className="text-[9px] text-muted-foreground text-center py-1">
+              Выберите фото для применения AI-инструментов
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   const slidersPanel = (
     <div className="space-y-1">
@@ -273,81 +428,109 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
       </button>
 
       {!autoMode && (
-        <div className="flex items-center justify-between pb-1 mb-1 border-b border-border/40">
-          <div className="flex items-center gap-1.5">
-            <Icon name={reorderMode ? "Unlock" : "Lock"} size={12} className="text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground">Порядок</span>
-          </div>
-          <Switch checked={reorderMode} onCheckedChange={setReorderMode} className="scale-[0.7]" />
-        </div>
-      )}
-      {!autoMode && ops.map((op, opIndex) => (
-        <div
-          key={op.op}
-          className={`rounded-lg border px-2.5 py-1.5 transition-colors ${
-            reorderMode
-              ? 'border-dashed cursor-grab bg-muted/20 border-muted-foreground/30'
-              : op.enabled
-                ? 'bg-background/60 border-rose-200 dark:border-rose-800/40'
-                : 'bg-muted/30 border-muted'
-          }`}
-        >
-          <div className="flex items-center justify-between h-6">
-            <div className="flex items-center">
-              {reorderMode && (
-                <div className="flex flex-col gap-0.5 mr-1.5">
-                  <button
-                    onClick={() => moveOp(opIndex, 'up')}
-                    disabled={opIndex === 0}
-                    className="h-3.5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30"
-                  >
-                    <Icon name="ChevronUp" size={10} />
-                  </button>
-                  <button
-                    onClick={() => moveOp(opIndex, 'down')}
-                    disabled={opIndex === ops.length - 1}
-                    className="h-3.5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30"
-                  >
-                    <Icon name="ChevronDown" size={10} />
-                  </button>
-                </div>
-              )}
-              <span className={`text-[11px] font-medium ${!op.enabled ? 'text-muted-foreground' : ''}`}>
-                {op.label}
-              </span>
+        <div className="rounded-xl border border-rose-200 dark:border-rose-800/40 overflow-hidden">
+          <button
+            onClick={() => setSlidersExpanded(!slidersExpanded)}
+            className="w-full flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-950/30 dark:to-pink-950/30 hover:from-rose-100 hover:to-pink-100 dark:hover:from-rose-950/50 dark:hover:to-pink-950/50 transition-colors"
+          >
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-500 text-white">
+              <Icon name="SlidersHorizontal" size={13} />
             </div>
-            {!reorderMode && (
-              <Switch checked={op.enabled} onCheckedChange={() => toggleOp(opIndex)} className="scale-[0.8]" />
-            )}
-          </div>
+            <div className="flex-1 text-left">
+              <div className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                Ручные настройки
+              </div>
+              <div className="text-[9px] text-muted-foreground leading-tight">
+                {ops.filter(o => o.enabled).length} из {ops.length} операций включено
+              </div>
+            </div>
+            <Icon
+              name="ChevronDown"
+              size={14}
+              className={`text-muted-foreground transition-transform ${slidersExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
 
-          {op.enabled && (
-            <div className={`space-y-1 mt-1 pt-1 border-t border-border/40 ${reorderMode ? 'opacity-60 pointer-events-none' : ''}`}>
-              {op.params.map(param => (
-                <div key={param.key}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground">{param.label}</span>
-                    <span className={`text-[10px] font-mono px-1 py-px rounded ${
-                      param.value === 0 ? 'bg-muted text-muted-foreground' : param.value > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-                    }`}>
-                      {isSymmetricParam(param) ? (param.value > 0 ? '+' : '') : ''}{Math.round(param.value * 100) / 100}
-                    </span>
+          {slidersExpanded && (
+            <div className="p-2 space-y-1 bg-background/40">
+              <div className="flex items-center justify-between pb-1 mb-1 border-b border-border/40">
+                <div className="flex items-center gap-1.5">
+                  <Icon name={reorderMode ? "Unlock" : "Lock"} size={12} className="text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground">Порядок</span>
+                </div>
+                <Switch checked={reorderMode} onCheckedChange={setReorderMode} className="scale-[0.7]" />
+              </div>
+              {ops.map((op, opIndex) => (
+                <div
+                  key={op.op}
+                  className={`rounded-lg border px-2.5 py-1.5 transition-colors ${
+                    reorderMode
+                      ? 'border-dashed cursor-grab bg-muted/20 border-muted-foreground/30'
+                      : op.enabled
+                        ? 'bg-background/60 border-rose-200 dark:border-rose-800/40'
+                        : 'bg-muted/30 border-muted'
+                  }`}
+                >
+                  <div className="flex items-center justify-between h-6">
+                    <div className="flex items-center">
+                      {reorderMode && (
+                        <div className="flex flex-col gap-0.5 mr-1.5">
+                          <button
+                            onClick={() => moveOp(opIndex, 'up')}
+                            disabled={opIndex === 0}
+                            className="h-3.5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30"
+                          >
+                            <Icon name="ChevronUp" size={10} />
+                          </button>
+                          <button
+                            onClick={() => moveOp(opIndex, 'down')}
+                            disabled={opIndex === ops.length - 1}
+                            className="h-3.5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30"
+                          >
+                            <Icon name="ChevronDown" size={10} />
+                          </button>
+                        </div>
+                      )}
+                      <span className={`text-[11px] font-medium ${!op.enabled ? 'text-muted-foreground' : ''}`}>
+                        {op.label}
+                      </span>
+                    </div>
+                    {!reorderMode && (
+                      <Switch checked={op.enabled} onCheckedChange={() => toggleOp(opIndex)} className="scale-[0.8]" />
+                    )}
                   </div>
-                  <Slider
-                    value={[param.value]}
-                    min={param.min}
-                    max={param.max}
-                    step={param.step}
-                    onValueChange={([v]) => updateParam(opIndex, param.key, v)}
-                    onDoubleClick={() => updateParam(opIndex, param.key, isSymmetricParam(param) ? 0 : (param.min + param.max) / 2)}
-                    className="w-full"
-                  />
+
+                  {op.enabled && (
+                    <div className={`space-y-1 mt-1 pt-1 border-t border-border/40 ${reorderMode ? 'opacity-60 pointer-events-none' : ''}`}>
+                      {op.params.map(param => (
+                        <div key={param.key}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{param.label}</span>
+                            <span className={`text-[10px] font-mono px-1 py-px rounded ${
+                              param.value === 0 ? 'bg-muted text-muted-foreground' : param.value > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                            }`}>
+                              {isSymmetricParam(param) ? (param.value > 0 ? '+' : '') : ''}{Math.round(param.value * 100) / 100}
+                            </span>
+                          </div>
+                          <Slider
+                            value={[param.value]}
+                            min={param.min}
+                            max={param.max}
+                            step={param.step}
+                            onValueChange={([v]) => updateParam(opIndex, param.key, v)}
+                            onDoubleClick={() => updateParam(opIndex, param.key, isSymmetricParam(param) ? 0 : (param.min + param.max) / 2)}
+                            className="w-full"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
-      ))}
+      )}
     </div>
   );
 
@@ -421,6 +604,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
           <div className="lg:w-64 xl:w-72 flex-shrink-0">
             <div className="max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh] overflow-y-auto pr-0.5 space-y-2 overscroll-contain">
+              {aiToolsPanel}
               {slidersPanel}
               {buttonsPanel}
             </div>
