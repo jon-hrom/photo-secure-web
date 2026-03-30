@@ -126,21 +126,21 @@ PLUGIN_CONFIGS = {
         'api_path': '/api/v1/run_plugin_gen_image',
         'plugin_name': 'GFPGAN',
         'label': 'Улучшение лиц',
-        'body_field': 'img',
+        'body_field': 'image',
         'name_field': 'name',
     },
     'remove_bg': {
         'api_path': '/api/v1/run_plugin_gen_mask',
         'plugin_name': 'briaai/RMBG-1.4',
         'label': 'Удаление фона',
-        'body_field': 'img',
+        'body_field': 'image',
         'name_field': 'name',
     },
     'upscale': {
         'api_path': '/api/v1/run_plugin_gen_image',
         'plugin_name': 'RealESRGAN',
         'label': 'Увеличение разрешения',
-        'body_field': 'img',
+        'body_field': 'image',
         'name_field': 'name',
     },
     'inpaint': {
@@ -436,7 +436,7 @@ def _iopaint_plugin(s3_client, in_key, plugin_name, api_path):
     img_b64 = base64.b64encode(file_bytes).decode('utf-8')
 
     api_url = RETOUCH_BASE_URL + api_path
-    req_body = {'name': plugin_name, 'img': img_b64}
+    req_body = {'name': plugin_name, 'image': img_b64}
     body_str = json.dumps(req_body)
 
     print(f"[IOPAINT] POST {api_url}, plugin={plugin_name}, body_size={len(body_str)}")
