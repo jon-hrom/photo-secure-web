@@ -87,9 +87,7 @@ export const DEFAULT_OPS: OpConfig[] = [
     op: 'face_enhance',
     label: 'Улучшение лица',
     enabled: true,
-    params: [
-      { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
-    ],
+    params: [],
   },
   {
     op: 'sharpen',
