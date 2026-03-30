@@ -15,7 +15,10 @@ from PIL import Image
 import numpy as np
 
 
-RETOUCH_BASE_URL = os.environ.get("RETOUCH_BASE_URL", "").rstrip("/")
+_raw_retouch_url = os.environ.get("RETOUCH_BASE_URL", "").strip().rstrip("/")
+if _raw_retouch_url and ":8080" not in _raw_retouch_url and _raw_retouch_url.startswith("http://84.252.138.16"):
+    _raw_retouch_url = _raw_retouch_url.replace("http://84.252.138.16", "http://84.252.138.16:8080")
+RETOUCH_BASE_URL = _raw_retouch_url
 
 RETOUCH_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
 RETOUCH_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")

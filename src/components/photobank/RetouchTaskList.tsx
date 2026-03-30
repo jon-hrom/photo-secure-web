@@ -85,7 +85,7 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
       <div className="space-y-1 sm:space-y-1.5 max-h-48 sm:max-h-60 overflow-y-auto -mx-1 px-1">
         {tasks.map((task) => (
           <div
-            key={task.task_id || task.photo_id}
+            key={`${task.photo_id}-${task.task_id || 'pending'}`}
             className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 px-2 sm:px-3 rounded-lg bg-white/50 dark:bg-gray-800/50"
           >
             <div className="flex-shrink-0 w-4 sm:w-5">
