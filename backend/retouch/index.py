@@ -151,6 +151,13 @@ PLUGIN_CONFIGS = {
         'name_field': None,
         'requires_mask': True,
     },
+    'skin_retouch': {
+        'api_path': '/api/v1/run_plugin_gen_mask',
+        'plugin_name': 'SkinRetouch',
+        'label': 'Маска дефектов кожи',
+        'body_field': 'image',
+        'name_field': 'name',
+    },
 }
 
 
@@ -402,8 +409,73 @@ def _save_plugin_result(conn, user_id, original_photo, result_key, result_url, s
 
 
 def _try_lama_prepass(s3_client, in_key, user_id, photo_id, conn=None):
-    print(f"[LAMA PREPASS] Skipped — skin_mask not available in IOPaint mode")
-    return in_key
+    print(f"[LAMA PREPASS] Generating mask via SkinRetouch plugin on IOPaint server")
+
+    resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
+    file_bytes = resp['Body'].read()
+    img_b64 = base64.b64encode(file_bytes).decode('utf-8')
+
+    mask_url = RETOUCH_BASE_URL + '/api/v1/run_plugin_gen_mask'
+    mask_body = json.dumps({'name': 'SkinRetouch', 'image': img_b64})
+
+    t0 = time.time()
+    try:
+        r = requests.post(
+            mask_url,
+            data=mask_body.encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            auth=_basic_auth(),
+            timeout=(10, 120),
+        )
+    except requests.RequestException as e:
+        print(f"[LAMA PREPASS] SkinRetouch plugin request failed: {e}")
+        return in_key
+
+    elapsed = round(time.time() - t0, 3)
+    print(f"[LAMA PREPASS] Mask response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
+
+    if r.status_code != 200:
+        print(f"[LAMA PREPASS] SkinRetouch plugin error: {r.status_code} {r.text[:200]}")
+        return in_key
+
+    content_type = r.headers.get('Content-Type', '')
+    if 'image' in content_type:
+        mask_bytes = r.content
+    elif 'json' in content_type:
+        data = r.json()
+        b64 = data.get('mask') or data.get('image') or data.get('output')
+        if not b64:
+            print("[LAMA PREPASS] No mask in plugin response")
+            return in_key
+        mask_bytes = base64.b64decode(b64)
+    else:
+        mask_bytes = r.content
+
+    if len(mask_bytes) < 100:
+        print("[LAMA PREPASS] Mask too small, skipping inpaint")
+        return in_key
+
+    mask_arr = np.frombuffer(mask_bytes, dtype=np.uint8)
+    mask_img = Image.open(io.BytesIO(mask_bytes)).convert('L')
+    mask_np = np.array(mask_img)
+    white_pct = np.count_nonzero(mask_np) * 100 / max(1, mask_np.size)
+    print(f"[LAMA PREPASS] Mask coverage: {white_pct:.2f}%")
+
+    if white_pct < 0.01:
+        print("[LAMA PREPASS] Mask is empty, no defects found — skipping inpaint")
+        return in_key
+
+    mask_b64 = base64.b64encode(mask_bytes).decode('utf-8')
+
+    inpaint_bytes, err = _iopaint_inpaint(s3_client, in_key, mask_b64, conn=conn)
+    if err or not inpaint_bytes or len(inpaint_bytes) < 1000:
+        print(f"[LAMA PREPASS] Inpaint failed: {err}")
+        return in_key
+
+    out_key = f"retouch/{user_id}/{photo_id}/lama_prepass_{uuid.uuid4().hex[:8]}.png"
+    s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=inpaint_bytes, ContentType='image/png')
+    print(f"[LAMA PREPASS] Saved cleaned image: {out_key}")
+    return out_key
 
 
 def _iopaint_inpaint(s3_client, in_key, mask_b64, conn=None):
