@@ -2,14 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import funcUrls from '@/../backend/func2url.json';
 import { useRetouch } from '@/contexts/RetouchContext';
 import RetouchWakeStatus from './RetouchWakeStatus';
 import RetouchTaskList from './RetouchTaskList';
 import RetouchPhotoSelector from './RetouchPhotoSelector';
 import RetouchSettings from './RetouchSettings';
 
-const PHOTOBANK_FOLDERS_API = funcUrls['photobank-folders'];
+const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
 
 interface Photo {
   id: number;
