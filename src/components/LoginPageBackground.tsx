@@ -19,9 +19,9 @@ const LoginPageBackground = ({ children }: LoginPageBackgroundProps) => {
       
       if (selectedVideoId) {
         try {
-          // Загружаем список видео с сервера
-
+          if (!API_URL) throw new Error('API_URL not configured');
           const response = await fetch(`${API_URL}?type=video`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const data = await response.json();
 
           
@@ -67,7 +67,9 @@ const LoginPageBackground = ({ children }: LoginPageBackgroundProps) => {
 
       if (videoId) {
         try {
+          if (!API_URL) throw new Error('API_URL not configured');
           const response = await fetch(`${API_URL}?type=video`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const data = await response.json();
 
           

@@ -34,8 +34,9 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   useEffect(() => {
     const loadMobileBackground = async () => {
       try {
-        // Пробуем загрузить из БД
+        if (!SETTINGS_API) throw new Error('SETTINGS_API URL not configured');
         const response = await fetch(SETTINGS_API);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         
         if (data.success && data.settings?.login_mobile_background_url) {
@@ -73,7 +74,9 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
       let mobileUrl: string | null = null;
 
       try {
+        if (!SETTINGS_API) throw new Error('SETTINGS_API URL not configured');
         const response = await fetch(SETTINGS_API);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (data.success && data.settings) {
           const dbVideoId = data.settings.login_background_video_id;
@@ -88,7 +91,9 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
 
       // Всегда получаем свежий presigned URL из S3
       try {
+        if (!API_URL) throw new Error('API_URL not configured');
         const res = await fetch(`${API_URL}?type=video`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const d = await res.json();
         if (d.success && d.files) {
           const found = d.files.find((v: { id: string; url: string }) => v.id === videoId);
@@ -140,7 +145,9 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
         } else {
           // Загружаем с сервера (fallback)
           try {
+            if (!API_URL) throw new Error('API_URL not configured');
             const response = await fetch(`${API_URL}?type=video`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
 
             
