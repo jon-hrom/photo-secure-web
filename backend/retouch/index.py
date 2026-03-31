@@ -97,6 +97,8 @@ def _load_pipeline(conn, preset_name='default'):
             pipeline = json.loads(pipeline)
         if isinstance(pipeline, list) and len(pipeline) > 0:
             if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
+                if 'ai_plugins' in pipeline[0]:
+                    return pipeline
                 return DEFAULT_PIPELINE
             return pipeline
     return DEFAULT_PIPELINE
@@ -537,6 +539,19 @@ def _iopaint_plugin(s3_client, in_key, plugin_name, api_path):
     return r.content, None
 
 
+def _get_enabled_ai_plugins(conn):
+    pipeline = _load_pipeline(conn, 'default')
+    if isinstance(pipeline, list) and len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
+        return None
+    if isinstance(pipeline, list):
+        for step in pipeline:
+            if step.get('op') == 'auto' and 'ai_plugins' in step:
+                plugins = step['ai_plugins']
+                if isinstance(plugins, list):
+                    return plugins
+    return None
+
+
 def _handle_create(event, conn, user_id):
     body = json.loads(event.get('body', '{}') or '{}')
     photo_id = body.get('photo_id')
@@ -567,6 +582,20 @@ def _handle_create(event, conn, user_id):
     if not photo['s3_key']:
         return _response(400, {'error': 'Photo has no S3 file'})
 
+    ai_plugins = _get_enabled_ai_plugins(conn)
+    print(f"[RETOUCH] AI plugins from preset: {ai_plugins}")
+
+    use_lama = ai_plugins is None or 'inpaint' in ai_plugins
+    use_gfpgan = ai_plugins is None or 'gfpgan' in ai_plugins
+    use_upscale = ai_plugins is not None and 'upscale' in ai_plugins
+    use_remove_bg = ai_plugins is not None and 'remove_bg' in ai_plugins
+
+    if ai_plugins is not None and len(ai_plugins) == 0:
+        use_lama = False
+        use_gfpgan = False
+
+    print(f"[RETOUCH] Steps enabled: lama={use_lama}, gfpgan={use_gfpgan}, upscale={use_upscale}, remove_bg={use_remove_bg}")
+
     in_key = photo['s3_key']
     if photo.get('is_raw'):
         print(f"[RETOUCH] RAW file detected: {in_key}")
@@ -576,26 +605,51 @@ def _handle_create(event, conn, user_id):
     task_id = uuid.uuid4().hex
     current_key = in_key
     steps_done = []
+    last_bytes = None
 
     try:
-        if not photo.get('is_raw'):
+        if use_lama and not photo.get('is_raw'):
             cleaned_key = _try_lama_prepass(s3_client, current_key, user_id, photo_id, conn=conn)
             if cleaned_key != current_key:
                 print(f"[RETOUCH] LaMa pre-pass applied: {current_key} -> {cleaned_key}")
                 current_key = cleaned_key
                 steps_done.append('lama_prepass')
 
-        gfpgan_bytes, err = _iopaint_plugin(s3_client, current_key, 'GFPGAN', '/api/v1/run_plugin_gen_image')
-        if gfpgan_bytes and not err and len(gfpgan_bytes) > 1000:
-            out_key = f"{out_prefix}/gfpgan_{uuid.uuid4().hex[:8]}.png"
-            s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=gfpgan_bytes, ContentType='image/png')
-            current_key = out_key
-            last_bytes = gfpgan_bytes
-            steps_done.append('face_enhance')
-            print(f"[RETOUCH] GFPGAN done: {out_key}")
-        else:
-            last_bytes = None
-            print(f"[RETOUCH] GFPGAN skipped or failed: {err}")
+        if use_gfpgan:
+            gfpgan_bytes, err = _iopaint_plugin(s3_client, current_key, 'GFPGAN', '/api/v1/run_plugin_gen_image')
+            if gfpgan_bytes and not err and len(gfpgan_bytes) > 1000:
+                out_key = f"{out_prefix}/gfpgan_{uuid.uuid4().hex[:8]}.png"
+                s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=gfpgan_bytes, ContentType='image/png')
+                current_key = out_key
+                last_bytes = gfpgan_bytes
+                steps_done.append('face_enhance')
+                print(f"[RETOUCH] GFPGAN done: {out_key}")
+            else:
+                print(f"[RETOUCH] GFPGAN skipped or failed: {err}")
+
+        if use_upscale:
+            upscale_bytes, err = _iopaint_plugin(s3_client, current_key, 'RealESRGAN', '/api/v1/run_plugin_gen_image')
+            if upscale_bytes and not err and len(upscale_bytes) > 1000:
+                out_key = f"{out_prefix}/upscale_{uuid.uuid4().hex[:8]}.png"
+                s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=upscale_bytes, ContentType='image/png')
+                current_key = out_key
+                last_bytes = upscale_bytes
+                steps_done.append('upscale')
+                print(f"[RETOUCH] Upscale done: {out_key}")
+            else:
+                print(f"[RETOUCH] Upscale skipped or failed: {err}")
+
+        if use_remove_bg:
+            rmbg_bytes, err = _iopaint_plugin(s3_client, current_key, 'briaai/RMBG-1.4', '/api/v1/run_plugin_gen_mask')
+            if rmbg_bytes and not err and len(rmbg_bytes) > 1000:
+                out_key = f"{out_prefix}/rmbg_{uuid.uuid4().hex[:8]}.png"
+                s3_client.put_object(Bucket=S3_BUCKET, Key=out_key, Body=rmbg_bytes, ContentType='image/png')
+                current_key = out_key
+                last_bytes = rmbg_bytes
+                steps_done.append('remove_bg')
+                print(f"[RETOUCH] Remove BG done: {out_key}")
+            else:
+                print(f"[RETOUCH] Remove BG skipped or failed: {err}")
 
     except Exception as e:
         last_bytes = None

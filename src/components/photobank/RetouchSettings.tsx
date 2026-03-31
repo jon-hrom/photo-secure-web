@@ -126,6 +126,10 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
           setAutoMode(true);
           setOps(prev => prev.map(o => ({ ...o, enabled: false })));
           setSlidersExpanded(false);
+          const savedPlugins = pipeline[0]?.ai_plugins;
+          if (Array.isArray(savedPlugins) && savedPlugins.length > 0) {
+            setSelectedPlugins(new Set(savedPlugins));
+          }
         } else {
           setOps(opsFromPipeline(pipeline));
           setSlidersExpanded(false);
@@ -153,7 +157,8 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const handleSave = async () => {
     setSaving(true);
     try {
-      const pipeline = autoMode ? [{ op: 'auto' }] : opsToJson(ops);
+      const aiPlugins = Array.from(selectedPlugins);
+      const pipeline = autoMode ? [{ op: 'auto', ai_plugins: aiPlugins }] : opsToJson(ops);
       const res = await fetch(PRESETS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
