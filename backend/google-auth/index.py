@@ -1,8 +1,4 @@
-"""
-Business: Безопасная авторизация через Google OAuth 2.0 с PKCE и JWT сессиями
-Args: event с httpMethod, queryStringParameters для OAuth callback
-Returns: HTTP response с данными авторизации или редиректом
-"""
+"""Google OAuth 2.0 авторизация с PKCE и JWT сессиями."""
 
 import json
 import os

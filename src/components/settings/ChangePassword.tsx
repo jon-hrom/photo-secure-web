@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import funcUrls from '../../../backend/func2url.json';
 
 interface ChangePasswordProps {
   userId: number;
@@ -60,7 +59,7 @@ const ChangePassword = ({ userId }: ChangePasswordProps) => {
     setLoading(true);
 
     try {
-      const changePasswordUrl = funcUrls['change-password'];
+      const changePasswordUrl = 'https://functions.poehali.dev/6ed2f37f-45ea-4674-8fd8-60d84755b4a7';
       const response = await fetch(changePasswordUrl, {
         method: 'POST',
         headers: {
@@ -98,7 +97,7 @@ const ChangePassword = ({ userId }: ChangePasswordProps) => {
     setLoading(true);
 
     try {
-      const changePasswordUrl = funcUrls['change-password'];
+      const changePasswordUrl = 'https://functions.poehali.dev/6ed2f37f-45ea-4674-8fd8-60d84755b4a7';
       const response = await fetch(changePasswordUrl, {
         method: 'POST',
         headers: {

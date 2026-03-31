@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import func2url from '@/../backend/func2url.json';
 
-const SETTINGS_URL = (func2url as Record<string, string>)['retouch-settings'];
+const SETTINGS_URL = 'https://functions.poehali.dev/11b2e111-ecc1-4a1d-b54f-432aecd16aec';
 
 const QUALITY_LABELS: Record<number, string> = {
   5: 'Быстро',

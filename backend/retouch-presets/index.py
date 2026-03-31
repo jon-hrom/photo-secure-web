@@ -24,7 +24,7 @@ def _response(status_code, body):
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Управление пресетами ретуши — CRUD для pipeline-конфигураций"""
+    """Управление пресетами ретуши — CRUD для pipeline-конфигураций."""
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':

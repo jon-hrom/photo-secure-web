@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import funcUrls from '../../backend/func2url.json';
 
 const VKCallbackDirect = () => {
   const [searchParams] = useSearchParams();
@@ -33,7 +32,7 @@ const VKCallbackDirect = () => {
 
       try {
         // Вызываем backend ОДИН РАЗ
-        const vkAuthUrl = funcUrls['vk-auth'];
+        const vkAuthUrl = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
         const params = new URLSearchParams({
           code,
           state,

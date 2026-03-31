@@ -11,7 +11,6 @@ import { BackgroundVideo } from './appearance/VideoUploader';
 import DesktopBackgroundManager from './appearance/DesktopBackgroundManager';
 import MobileBackgroundManager from './appearance/MobileBackgroundManager';
 import VideoBackgroundManagerWrapper from './appearance/VideoBackgroundManagerWrapper';
-import funcUrls from '../../../backend/func2url.json';
 
 interface AdminAppearanceProps {
   colors: {
@@ -26,7 +25,7 @@ interface AdminAppearanceProps {
 }
 
 const AdminAppearance = ({ colors, onColorChange, onSave }: AdminAppearanceProps) => {
-  const API_URL = funcUrls['background-media'];
+  const API_URL = 'https://functions.poehali.dev/e14599a3-7e42-421d-b200-7e41d0291ad7';
   const [isExpanded, setIsExpanded] = useState(true);
   const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>([]);
   const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(

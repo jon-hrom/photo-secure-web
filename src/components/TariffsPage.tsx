@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PromoCodeInput } from './PromoCodeInput';
-import funcUrls from '../../backend/func2url.json';
 
 interface Plan {
   plan_id: number;
@@ -107,7 +106,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
 
     setIsApplying(true);
     try {
-      const applyTariffUrl = funcUrls['apply-tariff'];
+      const applyTariffUrl = 'https://functions.poehali.dev/7565304f-3423-48fd-a77c-95c59c65714d';
       const response = await fetch(applyTariffUrl, {
         method: 'POST',
         headers: {

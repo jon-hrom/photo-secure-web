@@ -206,12 +206,7 @@ def build_meeting_datetime(date_value: Any, time_value: Any) -> Any:
     return datetime.combine(date_part, time_part)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    '''
-    Business: Управление клиентами и их данными (CRUD операции)
-    Args: event с httpMethod, headers (X-User-Id), body, queryStringParameters
-          context с request_id
-    Returns: HTTP response с данными клиентов
-    '''
+    '''Управление клиентами и их данными — CRUD операции.'''
     method: str = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':

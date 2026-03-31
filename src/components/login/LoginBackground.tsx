@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import funcUrls from '../../../backend/func2url.json';
 
 interface LoginBackgroundProps {
   backgroundImage: string | null;
@@ -16,8 +15,8 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const videoRef = useRef<HTMLVideoElement>(null);
   const [fadeOpacity, setFadeOpacity] = useState(0);
   const animationFrameRef = useRef<number | null>(null);
-  const API_URL = funcUrls['background-media'];
-  const SETTINGS_API = funcUrls['background-settings'];
+  const API_URL = 'https://functions.poehali.dev/e14599a3-7e42-421d-b200-7e41d0291ad7';
+  const SETTINGS_API = 'https://functions.poehali.dev/27bedb10-0577-4edb-87c8-23b5c01de71c';
 
   // Определяем мобильное устройство
   useEffect(() => {

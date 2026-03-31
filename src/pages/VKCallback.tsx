@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
-import funcUrls from '../../backend/func2url.json';
 
 const VKCallback = () => {
   const [searchParams] = useSearchParams();
@@ -32,7 +31,7 @@ const VKCallback = () => {
       }
 
       try {
-        const vkAuthUrl = funcUrls['vk-auth'];
+        const vkAuthUrl = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
         console.log('VKCallback: Calling backend:', vkAuthUrl);
         const callbackUrl = `${vkAuthUrl}?action=callback&code=${code}&state=${state}${device_id ? `&device_id=${device_id}` : ''}`;
         const response = await fetch(callbackUrl);

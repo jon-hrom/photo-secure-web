@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import funcUrls from '../../backend/func2url.json';
 
 export interface UserSettings {
   id: number;
@@ -80,7 +79,7 @@ export const useSettingsData = () => {
     }
 
     try {
-      const settingsUrl = funcUrls['user-settings'];
+      const settingsUrl = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
       const response = await fetch(settingsUrl, {
         method: 'GET',
         headers: {
@@ -127,7 +126,7 @@ export const useSettingsData = () => {
     setSaving(true);
 
     try {
-      const settingsUrl = funcUrls['user-settings'];
+      const settingsUrl = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
       const response = await fetch(settingsUrl, {
         method: 'POST',
         headers: {

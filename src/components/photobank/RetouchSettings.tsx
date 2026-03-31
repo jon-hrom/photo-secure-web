@@ -5,7 +5,6 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
-import funcUrls from '@/../backend/func2url.json';
 import {
   OpConfig, Photo, DEFAULT_OPS,
   isSymmetricParam, opsFromPipeline, opsToJson,
@@ -14,8 +13,8 @@ import {
 import BeforeAfterPreview from './BeforeAfterPreview';
 import PhotoPickerModal from './PhotoPickerModal';
 
-const PRESETS_API = funcUrls['retouch-presets'];
-const RETOUCH_API = funcUrls['retouch'];
+const PRESETS_API = 'https://functions.poehali.dev/885fca99-51b3-4dd5-97da-cde77d340794';
+const RETOUCH_API = 'https://functions.poehali.dev/c95989eb-d7f0-4fac-b9c9-f8ab0fb61aff';
 
 interface RetouchSettingsProps {
   userId: string;

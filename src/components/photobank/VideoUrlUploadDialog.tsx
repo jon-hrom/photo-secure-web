@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
-import func2url from '../../../backend/func2url.json';
 import VideoUrlInput from './video-upload/VideoUrlInput';
 import VideoPreviewCard from './video-upload/VideoPreviewCard';
 import VideoUploadProgress from './video-upload/VideoUploadProgress';
@@ -146,7 +145,7 @@ export default function VideoUrlUploadDialog({
     setVideoInfo(null);
 
     try {
-      const response = await fetch(func2url['video-url-upload'], {
+      const response = await fetch('https://functions.poehali.dev/25e04767-4a20-4d36-a344-002f961f5af5', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({ url: url.trim(), mode: 'extract', audio_only: audioOnly })
@@ -184,7 +183,7 @@ export default function VideoUrlUploadDialog({
     startProgressTimer(selQ?.filesize || videoInfo.filesize || 0);
 
     try {
-      const response = await fetch(func2url['video-url-upload'], {
+      const response = await fetch('https://functions.poehali.dev/25e04767-4a20-4d36-a344-002f961f5af5', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({
@@ -240,7 +239,7 @@ export default function VideoUrlUploadDialog({
     startProgressTimer(selQ?.filesize || videoInfo?.filesize || 0);
 
     try {
-      const response = await fetch(func2url['video-url-upload'], {
+      const response = await fetch('https://functions.poehali.dev/25e04767-4a20-4d36-a344-002f961f5af5', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({

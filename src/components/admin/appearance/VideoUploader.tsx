@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import funcUrls from '../../../../backend/func2url.json';
 import Icon from '@/components/ui/icon';
 import VideoPreviewModal from './video/VideoPreviewModal';
 import VideoGallery, { BackgroundVideo } from './video/VideoGallery';
@@ -31,7 +30,7 @@ const VideoUploader = ({
   const [isLoadingVideos, setIsLoadingVideos] = useState(true);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const API_URL = funcUrls['background-media'];
+  const API_URL = 'https://functions.poehali.dev/e14599a3-7e42-421d-b200-7e41d0291ad7';
 
   // Загружаем список видео при монтировании
   useEffect(() => {

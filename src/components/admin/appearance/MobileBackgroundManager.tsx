@@ -1,7 +1,6 @@
 import { toast as sonnerToast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import { BackgroundImage } from './BackgroundGallery';
-import funcUrls from '../../../../backend/func2url.json';
 
 interface MobileBackgroundManagerProps {
   API_URL: string;
@@ -18,7 +17,7 @@ const MobileBackgroundManager = ({
   selectedMobileBackgroundId,
   setSelectedMobileBackgroundId,
 }: MobileBackgroundManagerProps) => {
-  const SETTINGS_API = funcUrls['background-settings'];
+  const SETTINGS_API = 'https://functions.poehali.dev/27bedb10-0577-4edb-87c8-23b5c01de71c';
 
   const saveToDatabase = async (mobileUrl: string) => {
     try {

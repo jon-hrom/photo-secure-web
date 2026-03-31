@@ -7,9 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { isAdminUser } from '@/utils/adminCheck';
 import Icon from '@/components/ui/icon';
-import funcUrls from '../../backend/func2url.json';
 
-const API_URL = (funcUrls as Record<string, string>)['retouch-presets'];
+const API_URL = 'https://functions.poehali.dev/885fca99-51b3-4dd5-97da-cde77d340794';
 
 interface PipelineOp {
   op: string;

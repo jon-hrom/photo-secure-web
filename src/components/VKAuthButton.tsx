@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import funcUrls from '../../backend/func2url.json';
 
 interface VKAuthButtonProps {
   onSuccess: (userId: number, email?: string) => void;
@@ -31,11 +30,7 @@ const VKAuthButton = ({ onSuccess, disabled }: VKAuthButtonProps) => {
     playSuccessSound();
     
     try {
-      const vkAuthUrl = funcUrls['vk-auth'];
-      if (!vkAuthUrl) {
-        toast.error('VK авторизация недоступна');
-        return;
-      }
+      const vkAuthUrl = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
 
       window.location.href = `${vkAuthUrl}?action=start&device_id=web`;
     } catch (error) {

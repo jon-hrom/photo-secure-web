@@ -1,5 +1,3 @@
-import funcUrls from '../../../../backend/func2url.json';
-
 export interface PhotoFolder {
   id: number;
   folder_name: string;
@@ -48,7 +46,7 @@ export interface S3File {
   storage_class: string;
 }
 
-export const API_URL = (funcUrls as Record<string, string>)['admin-user-photobank'];
+export const API_URL = 'https://functions.poehali.dev/a208c6fd-7d0c-49d9-bb82-05ae005d465d';
 
 export const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 Б';

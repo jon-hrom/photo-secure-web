@@ -1,8 +1,4 @@
-"""
-Business: Смена пароля пользователя с подтверждением по email (инициация и подтверждение)
-Args: event с httpMethod, headers с X-User-Id, body с old_password/new_password или verification_code
-Returns: HTTP response с результатом операции
-"""
+"""Смена пароля пользователя с подтверждением по email."""
 
 import json
 import os

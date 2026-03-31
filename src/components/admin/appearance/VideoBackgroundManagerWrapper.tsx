@@ -1,6 +1,5 @@
 import { toast as sonnerToast } from 'sonner';
 import VideoUploader, { BackgroundVideo } from './VideoUploader';
-import funcUrls from '../../../../backend/func2url.json';
 
 interface VideoBackgroundManagerWrapperProps {
   backgroundVideos: BackgroundVideo[];
@@ -17,7 +16,7 @@ const VideoBackgroundManagerWrapper = ({
   setSelectedVideoId,
   setSelectedBackgroundId,
 }: VideoBackgroundManagerWrapperProps) => {
-  const SETTINGS_API = funcUrls['background-settings'];
+  const SETTINGS_API = 'https://functions.poehali.dev/27bedb10-0577-4edb-87c8-23b5c01de71c';
 
   const handleVideosChange = (videos: BackgroundVideo[]) => {
     setBackgroundVideos(videos);

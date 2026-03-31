@@ -49,7 +49,7 @@ def resp(code, body):
 
 
 def handler(event: dict, context) -> dict:
-    '''Универсальная загрузка видео по ссылке — YouTube, VK, RuTube, файлообменники и прямые ссылки'''
+    '''Универсальная загрузка видео по ссылке — YouTube, VK, RuTube и прямые ссылки.'''
     if event.get('httpMethod') == 'OPTIONS':
         return {
             'statusCode': 200,

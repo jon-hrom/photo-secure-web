@@ -23,7 +23,7 @@ def _response(status_code, body):
 
 
 def handler(event, context):
-    """Управление настройками ретуши — чтение и обновление параметров (ldm_steps и др.)"""
+    """Управление настройками ретуши — чтение и обновление параметров."""
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':

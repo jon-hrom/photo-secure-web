@@ -4,7 +4,6 @@ import Icon from '@/components/ui/icon';
 import { Document, Message, Booking, Project, Payment, Client } from '@/components/clients/ClientsTypes';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import funcUrls from '../../../../backend/func2url.json';
 import DocumentListItem from './DocumentListItem';
 import DocumentPreviewModal from './DocumentPreviewModal';
 import MessageHistory from './MessageHistory';
@@ -122,7 +121,8 @@ const ClientDetailDocumentsHistory = ({
         fileSize: base64Data.length
       });
 
-      const response = await fetch(funcUrls['clients'], {
+      const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
+      const response = await fetch(CLIENTS_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -214,7 +214,8 @@ const ClientDetailDocumentsHistory = ({
     try {
       const userId = localStorage.getItem('userId');
       console.log('[Delete] Deleting document:', { documentId, documentName, userId });
-      const url = `${funcUrls['clients']}?action=delete_document&documentId=${documentId}`;
+      const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
+      const url = `${CLIENTS_API}?action=delete_document&documentId=${documentId}`;
       console.log('[Delete] URL:', url);
       
       const response = await fetch(url, {

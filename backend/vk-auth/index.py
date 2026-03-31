@@ -1,8 +1,4 @@
-"""
-Business: VK OAuth авторизация с JWT сессиями
-Args: event с httpMethod, queryStringParameters для OAuth callback
-Returns: HTTP response с редиректом или JWT токеном
-"""
+"""VK OAuth авторизация с JWT сессиями."""
 
 import json
 import os

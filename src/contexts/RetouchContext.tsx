@@ -1,10 +1,9 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
-import funcUrls from '@/../backend/func2url.json';
 import { playSuccessSound } from '@/utils/notificationSound';
 import type { RetouchTask } from '@/components/photobank/RetouchTaskList';
 
-const RETOUCH_API = funcUrls['retouch'];
-const RETOUCH_WAKER_API = funcUrls['retouch-waker'];
+const RETOUCH_API = 'https://functions.poehali.dev/c95989eb-d7f0-4fac-b9c9-f8ab0fb61aff';
+const RETOUCH_WAKER_API = 'https://functions.poehali.dev/d668813e-6fa2-4d11-b5bf-4bb013473dbc';
 const CONCURRENT_LIMIT = 1;
 const CLIENT_TASK_TIMEOUT_MS = 10 * 60 * 1000;
 

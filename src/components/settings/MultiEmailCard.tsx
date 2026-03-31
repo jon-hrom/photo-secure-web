@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
-import funcUrls from '../../../backend/func2url.json';
 
 interface UserEmail {
   id: number;
@@ -57,7 +56,8 @@ const MultiEmailCard = ({ userId }: MultiEmailCardProps) => {
   const loadEmails = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${funcUrls['user-settings']}?action=get-emails`, {
+      const USER_SETTINGS_API = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
+      const response = await fetch(`${USER_SETTINGS_API}?action=get-emails`, {
         headers: {
           'X-User-Id': userId.toString(),
         },
@@ -88,7 +88,8 @@ const MultiEmailCard = ({ userId }: MultiEmailCardProps) => {
   const handleSetPrimary = async (emailId: number) => {
     try {
       setSettingPrimary(true);
-      const response = await fetch(funcUrls['user-settings'], {
+      const USER_SETTINGS_API = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
+      const response = await fetch(USER_SETTINGS_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

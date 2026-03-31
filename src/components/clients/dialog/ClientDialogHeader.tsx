@@ -5,7 +5,6 @@ import { formatPhoneNumber } from '@/utils/phoneFormat';
 import { Client } from '@/components/clients/ClientsTypes';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import func2url from '../../../../backend/func2url.json';
 
 interface ClientDialogHeaderProps {
   localClient: Client;
@@ -13,7 +12,7 @@ interface ClientDialogHeaderProps {
   setLocalClient: (client: Client) => void;
 }
 
-const INVITE_API = func2url['telegram-invite'];
+const INVITE_API = 'https://functions.poehali.dev/3128bc7e-f0d6-4d0a-a73e-91eb657795a0';
 
 const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient }: ClientDialogHeaderProps) => {
   const client = localClient;

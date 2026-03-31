@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
-import funcUrls from '../../backend/func2url.json';
 
 const GoogleCallback = () => {
   const [searchParams] = useSearchParams();
@@ -39,7 +38,7 @@ const GoogleCallback = () => {
       }
 
       try {
-        const googleAuthUrl = funcUrls['google-auth'];
+        const googleAuthUrl = 'https://functions.poehali.dev/a362a521-0759-4577-adbf-7960bf063100';
         console.log('GoogleCallback: Calling backend:', googleAuthUrl);
         const response = await fetch(`${googleAuthUrl}?code=${code}&state=${state}`);
         const data = await response.json();
