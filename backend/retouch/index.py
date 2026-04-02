@@ -5,6 +5,7 @@ import time
 import uuid
 import hashlib
 import hmac as hmac_mod
+import secrets as secrets_mod
 import base64
 from typing import Dict, Any
 import psycopg2
@@ -321,24 +322,20 @@ def _check_plugins_available():
     return results
 
 
-def _hmac_headers(method, path, body_bytes=b""):
-    ts = str(int(time.time()))
-    body_sha = hashlib.sha256(body_bytes).hexdigest()
-    canonical = f"{method}\n{path}\n{ts}\n{body_sha}"
-    sig = hmac_mod.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
-    return {"X-API-Key": "foto-mix", "X-Timestamp": ts, "X-Signature": sig}
+HMAC_CLIENT_ID = os.environ.get("HMAC_CLIENT_ID", "client1")
 
 
-def _retouch_api_headers(method="POST", path="/v1/retouch", body_bytes=b""):
+def _retouch_api_headers(method="POST", path="/v1/retouch", body_str=""):
     hdrs = {"Content-Type": "application/json"}
     if HMAC_SECRET:
         ts = str(int(time.time()))
-        body_sha = hashlib.sha256(body_bytes).hexdigest()
-        canonical = f"{method}\n{path}\n{ts}\n{body_sha}"
-        sig = hmac_mod.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
-        hdrs["x-api-key"] = HMAC_SECRET
-        hdrs["x-timestamp"] = ts
-        hdrs["x-signature"] = sig
+        nonce = secrets_mod.token_hex(16)
+        msg = f"{method}\n{path}\n{ts}\n{nonce}\n{body_str}"
+        sig = hmac_mod.new(HMAC_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
+        hdrs["X-Client-Id"] = HMAC_CLIENT_ID
+        hdrs["X-Timestamp"] = ts
+        hdrs["X-Nonce"] = nonce
+        hdrs["X-Signature"] = sig
     return hdrs
 
 
@@ -357,62 +354,37 @@ def _probe_retouch_api():
         "out_bucket": "foto-mix",
         "out_prefix": "retouch/probe_test/",
     }
-    body_bytes = json.dumps(body_data).encode()
+    body_str = json.dumps(body_data, separators=(",", ":"), ensure_ascii=False)
 
-    variants = {}
-
-    try:
-        r1 = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_bytes,
-                           headers={"Content-Type": "application/json"}, timeout=15)
-        variants["no_auth"] = {"status": r1.status_code, "body": r1.text[:500]}
-    except Exception as e:
-        variants["no_auth"] = {"error": str(e)}
+    hdrs = _retouch_api_headers("POST", "/v1/retouch", body_str)
+    results["sent_headers"] = {k: v for k, v in hdrs.items()}
+    results["client_id"] = HMAC_CLIENT_ID
+    results["hmac_secret_len"] = len(HMAC_SECRET)
 
     try:
-        r2 = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_bytes,
-                           headers={"Content-Type": "application/json", "x-api-key": HMAC_SECRET}, timeout=15)
-        variants["x_api_key_only"] = {"status": r2.status_code, "body": r2.text[:500]}
+        r = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_str.encode(),
+                          headers=hdrs, timeout=30)
+        results["retouch_response"] = {"status": r.status_code, "body": r.text[:2000]}
     except Exception as e:
-        variants["x_api_key_only"] = {"error": str(e)}
+        results["retouch_response"] = {"error": str(e)}
 
-    ts = str(int(time.time()))
-    body_sha = hashlib.sha256(body_bytes).hexdigest()
-    canonical = f"POST\n/v1/retouch\n{ts}\n{body_sha}"
-    sig = hmac_mod.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
-
+    task_id = None
     try:
-        r3 = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_bytes,
-                           headers={"Content-Type": "application/json",
-                                    "x-api-key": HMAC_SECRET, "x-timestamp": ts, "x-signature": sig}, timeout=15)
-        variants["full_hmac_lower"] = {"status": r3.status_code, "body": r3.text[:500]}
-    except Exception as e:
-        variants["full_hmac_lower"] = {"error": str(e)}
+        data = json.loads(results.get("retouch_response", {}).get("body", "{}"))
+        task_id = data.get("task_id") or data.get("id")
+    except Exception:
+        pass
 
-    try:
-        session = requests.Session()
-        session.headers.update({
-            "Content-Type": "application/json",
-            "X-API-Key": HMAC_SECRET,
-            "X-Timestamp": ts,
-            "X-Signature": sig,
-        })
-        r4 = session.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_bytes, timeout=15)
-        variants["full_hmac_session"] = {"status": r4.status_code, "body": r4.text[:500],
-                                         "req_headers": dict(r4.request.headers)}
-    except Exception as e:
-        variants["full_hmac_session"] = {"error": str(e)}
+    if task_id:
+        results["task_id"] = task_id
+        time.sleep(5)
+        try:
+            get_hdrs = _retouch_api_headers("GET", f"/v1/tasks/{task_id}", "")
+            r2 = requests.get(f"{RETOUCH_API_URL}/v1/tasks/{task_id}", headers=get_hdrs, timeout=15)
+            results["task_status"] = {"status": r2.status_code, "body": r2.text[:2000]}
+        except Exception as e:
+            results["task_status"] = {"error": str(e)}
 
-    try:
-        r5 = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_bytes,
-                           headers={"Content-Type": "application/json",
-                                    "Authorization": f"Bearer {HMAC_SECRET}"}, timeout=15)
-        variants["bearer"] = {"status": r5.status_code, "body": r5.text[:500]}
-    except Exception as e:
-        variants["bearer"] = {"error": str(e)}
-
-    results["variants"] = variants
-    results["hmac_secret_len"] = len(HMAC_SECRET) if HMAC_SECRET else 0
-    results["hmac_secret_first4"] = HMAC_SECRET[:4] if HMAC_SECRET else ""
     return _response(200, results)
 
 
