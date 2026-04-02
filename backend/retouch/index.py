@@ -429,7 +429,70 @@ def _presigned_from_task(task):
     return None
 
 
+def _sync_task_from_api(conn, user_id, task):
+    """If task is still active, check API for updates and sync to DB."""
+    if task['status'] not in ('queued', 'started', 'processing'):
+        return task
+
+    api_task_id = task['task_id']
+    path = f"/v1/tasks/{api_task_id}"
+    headers = _retouch_api_headers("GET", path, "")
+    try:
+        r = requests.get(f"{RETOUCH_API_URL}{path}", headers=headers, timeout=(5, 15))
+        if r.status_code != 200:
+            return task
+        data = r.json()
+    except Exception as e:
+        print(f"[RETOUCH] API check failed for {api_task_id}: {e}")
+        return task
+
+    api_status = data.get("status", task['status'])
+
+    if api_status == "finished":
+        inner = data.get("result") or {}
+        result_key = inner.get("out_key")
+        if result_key:
+            result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE retouch_tasks SET status='finished', result_key=%s, result_url=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                    (result_key, result_url, api_task_id, user_id)
+                )
+                conn.commit()
+            try:
+                photo_id = task.get('photo_id')
+                if photo_id:
+                    s3_client = _get_s3_client()
+                    resp = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
+                    result_bytes = resp['Body'].read()
+                    _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, result_bytes=result_bytes)
+            except Exception as e:
+                print(f"[RETOUCH] Failed to save result photo: {e}")
+            task = dict(task)
+            task['status'] = 'finished'
+            task['result_key'] = result_key
+            task['result_url'] = result_url
+        return task
+
+    if api_status in ("failed", "error"):
+        result_inner = data.get("result")
+        error_msg = data.get("error") or (result_inner.get("error") if isinstance(result_inner, dict) else None) or "Processing failed"
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE retouch_tasks SET status='failed', error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                (error_msg, api_task_id, user_id)
+            )
+            conn.commit()
+        task = dict(task)
+        task['status'] = 'failed'
+        task['error_message'] = error_msg
+        return task
+
+    return task
+
+
 def _check_single_task(conn, user_id, task):
+    task = _sync_task_from_api(conn, user_id, task)
     return {
         'task_id': task['task_id'],
         'status': task['status'],
@@ -520,8 +583,9 @@ def _handle_create(event, conn, user_id):
     in_key = photo['s3_key']
     out_prefix = f"retouch/{user_id}/{photo_id}/"
 
-    # --- load pipeline from DB ---
     pipeline = _load_pipeline(conn, 'default')
+    if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
+        pipeline = DEFAULT_PIPELINE
     print(f"[RETOUCH] Pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
 
     # --- submit task to Retouch API ---
@@ -531,64 +595,20 @@ def _handle_create(event, conn, user_id):
         print(f"[RETOUCH] Failed to submit task: {e}")
         return _response(503, {'error': f'Сервер ретуши недоступен: {e}'})
 
-    # --- save initial record in DB ---
     with conn.cursor() as cur:
         cur.execute(
             '''INSERT INTO retouch_tasks (user_id, photo_id, task_id, status, in_bucket, in_key, out_bucket, out_prefix)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
-            (user_id, photo_id, api_task_id, api_status, S3_BUCKET, in_key, S3_BUCKET, out_prefix)
+            (user_id, photo_id, api_task_id, 'started', S3_BUCKET, in_key, S3_BUCKET, out_prefix)
         )
         conn.commit()
 
-    # --- poll for completion ---
-    poll_result = _poll_retouch_task(api_task_id)
-    final_status = poll_result.get("status", "failed")
-
-    result_key = None
-    result_url = None
-    error_msg = None
-    steps = []
-
-    if final_status == "finished":
-        inner = poll_result.get("result") or {}
-        result_key = inner.get("out_key")
-        if result_key:
-            result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
-            steps = inner.get("steps", [])
-        else:
-            final_status = "failed"
-            error_msg = "API returned finished but no out_key"
-    else:
-        error_msg = poll_result.get("error") or poll_result.get("result", {}).get("error") or "Processing failed"
-
-    # --- update DB record ---
-    with conn.cursor() as cur:
-        cur.execute(
-            '''UPDATE retouch_tasks
-               SET status = %s, result_key = %s, result_url = %s, error_message = %s, updated_at = NOW()
-               WHERE task_id = %s AND user_id = %s''',
-            (final_status, result_key, result_url, error_msg, api_task_id, user_id)
-        )
-        conn.commit()
-
-    # --- if finished, download result, generate thumbnails, save to photo_bank ---
-    if final_status == "finished" and result_key:
-        try:
-            s3_client = _get_s3_client()
-            resp = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
-            result_bytes = resp['Body'].read()
-            _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, result_bytes=result_bytes)
-        except Exception as e:
-            print(f"[RETOUCH] Failed to save retouched photo: {e}")
-
-    presigned = _presigned_url(result_key) if result_key else None
-    print(f"[RETOUCH] Done: task_id={api_task_id}, status={final_status}, result_key={result_key}")
-
+    print(f"[RETOUCH] Submitted: task_id={api_task_id}, api_status={api_status}")
     return _response(200, {
         'task_id': api_task_id,
-        'status': final_status,
-        'result_url': presigned,
-        'steps': steps,
+        'status': 'started',
+        'result_url': None,
+        'steps': [],
     })
 
 
