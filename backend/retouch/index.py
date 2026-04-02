@@ -3,6 +3,7 @@ import os
 import io
 import time
 import uuid
+# v2: auto-wake VM + retries
 import base64
 from typing import Dict, Any
 import psycopg2
@@ -23,6 +24,70 @@ RETOUCH_BASE_URL = _raw_retouch_url
 RETOUCH_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
 RETOUCH_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
 S3_BUCKET = "foto-mix"
+
+YC_INSTANCE_ID = os.environ.get("YC_INSTANCE_ID", "")
+YC_OAUTH_TOKEN = os.environ.get("YC_OAUTH_TOKEN", "")
+IAM_URL = "https://iam.api.cloud.yandex.net/iam/v1/tokens"
+COMPUTE_BASE = "https://compute.api.cloud.yandex.net/compute/v1"
+
+
+def _ensure_iopaint_ready(max_wait=120):
+    health_url = RETOUCH_BASE_URL + "/health"
+    try:
+        r = requests.get(health_url, timeout=(3, 5))
+        if r.status_code == 200:
+            print("[WAKE] IOPaint already healthy")
+            return True
+    except Exception:
+        pass
+
+    print("[WAKE] IOPaint not responding, waking VM...")
+    if YC_INSTANCE_ID and YC_OAUTH_TOKEN:
+        try:
+            from urllib import request as urlreq
+            iam_data = json.dumps({"yandexPassportOauthToken": YC_OAUTH_TOKEN}).encode()
+            iam_req = urlreq.Request(IAM_URL, data=iam_data, headers={"Content-Type": "application/json"}, method="POST")
+            with urlreq.urlopen(iam_req, timeout=10) as resp:
+                iam_token = json.loads(resp.read())["iamToken"]
+
+            status_req = urlreq.Request(
+                f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}",
+                headers={"Authorization": f"Bearer {iam_token}", "Content-Type": "application/json"},
+                method="GET",
+            )
+            with urlreq.urlopen(status_req, timeout=10) as resp:
+                vm_status = json.loads(resp.read()).get("status", "UNKNOWN")
+            print(f"[WAKE] VM status: {vm_status}")
+
+            if vm_status == "STOPPED":
+                start_req = urlreq.Request(
+                    f"{COMPUTE_BASE}/instances/{YC_INSTANCE_ID}:start",
+                    headers={"Authorization": f"Bearer {iam_token}", "Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlreq.urlopen(start_req, timeout=10) as resp:
+                    pass
+                print("[WAKE] VM start command sent")
+        except Exception as e:
+            print(f"[WAKE] Failed to wake VM: {e}")
+
+    deadline = time.time() + max_wait
+    attempt = 0
+    while time.time() < deadline:
+        attempt += 1
+        try:
+            r = requests.get(health_url, timeout=(5, 10))
+            if r.status_code == 200:
+                print(f"[WAKE] IOPaint ready after {attempt} attempts")
+                return True
+        except Exception:
+            pass
+        wait = min(5, 2 + attempt)
+        print(f"[WAKE] Attempt {attempt} failed, waiting {wait}s...")
+        time.sleep(wait)
+
+    print(f"[WAKE] IOPaint not ready after {max_wait}s")
+    return False
 
 
 def _basic_auth():
@@ -330,6 +395,9 @@ def _handle_plugin(body, conn, user_id):
     if not photo or not photo['s3_key']:
         return _response(404, {'error': 'Photo not found'})
 
+    if not _ensure_iopaint_ready(max_wait=90):
+        return _response(503, {'error': 'Сервер ретуши не готов. Попробуйте через 1-2 минуты'})
+
     s3_client = _get_s3_client()
     current_key = photo['s3_key']
     results = []
@@ -420,21 +488,30 @@ def _try_lama_prepass(s3_client, in_key, user_id, photo_id, conn=None):
     mask_url = RETOUCH_BASE_URL + '/api/v1/run_plugin_gen_mask'
     mask_body = json.dumps({'name': 'SkinRetouch', 'image': img_b64})
 
-    t0 = time.time()
-    try:
-        r = requests.post(
-            mask_url,
-            data=mask_body.encode('utf-8'),
-            headers={'Content-Type': 'application/json'},
-            auth=_basic_auth(),
-            timeout=(10, 120),
-        )
-    except requests.RequestException as e:
-        print(f"[LAMA PREPASS] SkinRetouch plugin request failed: {e}")
-        return in_key
+    r = None
+    for attempt in range(3):
+        t0 = time.time()
+        try:
+            r = requests.post(
+                mask_url,
+                data=mask_body.encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                auth=_basic_auth(),
+                timeout=(15, 120),
+            )
+            elapsed = round(time.time() - t0, 3)
+            print(f"[LAMA PREPASS] Mask response: status={r.status_code}, time={elapsed}s, size={len(r.content)}, attempt={attempt+1}")
+            break
+        except requests.RequestException as e:
+            elapsed = round(time.time() - t0, 3)
+            print(f"[LAMA PREPASS] SkinRetouch attempt {attempt+1} failed after {elapsed}s: {e}")
+            if attempt < 2:
+                time.sleep(5)
+            else:
+                return in_key
 
-    elapsed = round(time.time() - t0, 3)
-    print(f"[LAMA PREPASS] Mask response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
+    if r is None:
+        return in_key
 
     if r.status_code != 200:
         print(f"[LAMA PREPASS] SkinRetouch plugin error: {r.status_code} {r.text[:200]}")
@@ -510,7 +587,7 @@ def _iopaint_inpaint(s3_client, in_key, mask_b64, conn=None):
     return r.content, None
 
 
-def _iopaint_plugin(s3_client, in_key, plugin_name, api_path):
+def _iopaint_plugin(s3_client, in_key, plugin_name, api_path, max_retries=2):
     resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
     file_bytes = resp['Body'].read()
     img_b64 = base64.b64encode(file_bytes).decode('utf-8')
@@ -519,24 +596,39 @@ def _iopaint_plugin(s3_client, in_key, plugin_name, api_path):
     req_body = {'name': plugin_name, 'image': img_b64}
     body_str = json.dumps(req_body)
 
-    print(f"[IOPAINT] POST {api_url}, plugin={plugin_name}, body_size={len(body_str)}")
-    t0 = time.time()
-    r = requests.post(api_url, data=body_str.encode("utf-8"), headers={"Content-Type": "application/json"}, auth=_basic_auth(), timeout=(10, 180))
-    elapsed = round(time.time() - t0, 3)
-    print(f"[IOPAINT] plugin response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
+    last_err = None
+    for attempt in range(max_retries + 1):
+        print(f"[IOPAINT] POST {api_url}, plugin={plugin_name}, body_size={len(body_str)}, attempt={attempt+1}")
+        t0 = time.time()
+        try:
+            r = requests.post(api_url, data=body_str.encode("utf-8"), headers={"Content-Type": "application/json"}, auth=_basic_auth(), timeout=(15, 180))
+            elapsed = round(time.time() - t0, 3)
+            print(f"[IOPAINT] plugin response: status={r.status_code}, time={elapsed}s, size={len(r.content)}")
 
-    if r.status_code != 200:
-        return None, f"Plugin {plugin_name} error: {r.status_code} {r.text[:200]}"
+            if r.status_code != 200:
+                last_err = f"Plugin {plugin_name} error: {r.status_code} {r.text[:200]}"
+                if attempt < max_retries:
+                    time.sleep(3)
+                    continue
+                return None, last_err
 
-    content_type = r.headers.get('Content-Type', '')
-    if 'image' in content_type:
-        return r.content, None
-    elif 'json' in content_type:
-        data = r.json()
-        b64 = data.get('image') or data.get('output')
-        if b64:
-            return base64.b64decode(b64), None
-    return r.content, None
+            content_type = r.headers.get('Content-Type', '')
+            if 'image' in content_type:
+                return r.content, None
+            elif 'json' in content_type:
+                data = r.json()
+                b64 = data.get('image') or data.get('output')
+                if b64:
+                    return base64.b64decode(b64), None
+            return r.content, None
+        except requests.RequestException as e:
+            elapsed = round(time.time() - t0, 3)
+            last_err = f"Plugin {plugin_name} request failed: {e}"
+            print(f"[IOPAINT] Attempt {attempt+1} failed after {elapsed}s: {e}")
+            if attempt < max_retries:
+                time.sleep(5)
+
+    return None, last_err
 
 
 def _get_enabled_ai_plugins(conn):
@@ -595,6 +687,9 @@ def _handle_create(event, conn, user_id):
         use_gfpgan = False
 
     print(f"[RETOUCH] Steps enabled: lama={use_lama}, gfpgan={use_gfpgan}, upscale={use_upscale}, remove_bg={use_remove_bg}")
+
+    if not _ensure_iopaint_ready(max_wait=90):
+        return _response(503, {'error': 'Сервер ретуши не готов. Попробуйте через 1-2 минуты — сервер запускается'})
 
     in_key = photo['s3_key']
     if photo.get('is_raw'):

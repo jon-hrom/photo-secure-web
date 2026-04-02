@@ -301,6 +301,15 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
         await new Promise(r => setTimeout(r, 10000));
         return startRetouchForPhoto(photoId, retriesLeft - 1);
       }
+      if (res.status === 503 && retriesLeft > 0) {
+        console.log(`[RETOUCH] Server warming up for photo ${photoId}, waking and retrying...`);
+        const woken = await wakeRetouchServer();
+        if (!woken) {
+          return { photo_id: photoId, task_id: '', status: 'failed', error_message: 'Сервер ретуши не запустился', file_name: photo?.file_name };
+        }
+        await new Promise(r => setTimeout(r, 5000));
+        return startRetouchForPhoto(photoId, retriesLeft - 1);
+      }
       if ((res.status === 502 || res.status === 504) && retriesLeft > 0) {
         if (retriesLeft === 3) {
           const woken = await wakeRetouchServer();
