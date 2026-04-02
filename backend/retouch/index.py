@@ -267,45 +267,57 @@ def _probe_retouch_api():
         results["health"] = {"error": str(e)}
 
     test_key = "photobank/12/222/8ddc92c3-ef32-4694-8e5b-d61bc05be36d.jpg"
-    body_data = {
-        "in_bucket": "foto-mix",
-        "in_key": test_key,
-        "out_bucket": "foto-mix",
-        "out_prefix": "retouch/probe_test/",
+
+    pipelines_to_test = {
+        "iopaint_lama_gfpgan": [
+            {"op": "lama"},
+            {"op": "gfpgan"},
+        ],
+        "inpaint_gfpgan": [
+            {"op": "inpaint"},
+            {"op": "gfpgan"},
+        ],
+        "face_enhance_skin": [
+            {"op": "skin_smooth", "strength": 0.5},
+            {"op": "face_enhance", "strength": 0.8},
+        ],
+        "empty_pipeline": [],
     }
-    body_str = json.dumps(body_data, separators=(",", ":"), ensure_ascii=False)
 
-    candidates = [
-        HMAC_CLIENT_ID,
-        "foto-mix", "fotomix", "foto_mix",
-        "poehali", "client1", "retouch",
-        "admin", "api", "default",
-    ]
-    for cid in candidates:
-        result = _try_client_id(cid, body_str)
-        status = result.get("status", 0)
-        results[f"client_{cid[:20]}"] = result
-        if status != 401:
-            results["working_client_id"] = cid
-            task_id = None
+    for name, pipeline in pipelines_to_test.items():
+        body_data = {
+            "in_bucket": "foto-mix",
+            "in_key": test_key,
+            "out_bucket": "foto-mix",
+            "out_prefix": f"retouch/probe_{name}/",
+            "pipeline": pipeline,
+        }
+        body_str = json.dumps(body_data, separators=(",", ":"), ensure_ascii=False)
+        hdrs = _retouch_api_headers("POST", "/v1/retouch", body_str)
+        try:
+            r = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_str.encode(), headers=hdrs, timeout=15)
+            results[f"submit_{name}"] = {"status": r.status_code, "body": r.text[:500]}
+        except Exception as e:
+            results[f"submit_{name}"] = {"error": str(e)}
+
+    time.sleep(8)
+
+    for name in pipelines_to_test:
+        submit = results.get(f"submit_{name}", {})
+        try:
+            data = json.loads(submit.get("body", "{}"))
+            tid = data.get("task_id") or data.get("id")
+        except Exception:
+            tid = None
+        if tid:
             try:
-                data = json.loads(result.get("body", "{}"))
-                task_id = data.get("task_id") or data.get("id")
-            except Exception:
-                pass
-            if task_id:
-                results["task_id"] = task_id
-                time.sleep(5)
-                try:
-                    get_hdrs = _retouch_api_headers("GET", f"/v1/tasks/{task_id}", "")
-                    r2 = requests.get(f"{RETOUCH_API_URL}/v1/tasks/{task_id}", headers=get_hdrs, timeout=15)
-                    results["task_status"] = {"status": r2.status_code, "body": r2.text[:2000]}
-                except Exception as e:
-                    results["task_status"] = {"error": str(e)}
-            break
+                path = f"/v1/tasks/{tid}"
+                hdrs = _retouch_api_headers("GET", path, "")
+                r2 = requests.get(f"{RETOUCH_API_URL}{path}", headers=hdrs, timeout=15)
+                results[f"result_{name}"] = {"status": r2.status_code, "body": r2.text[:1000]}
+            except Exception as e:
+                results[f"result_{name}"] = {"error": str(e)}
 
-    results["env_client_id"] = HMAC_CLIENT_ID
-    results["hmac_secret_len"] = len(HMAC_SECRET)
     return _response(200, results)
 
 
