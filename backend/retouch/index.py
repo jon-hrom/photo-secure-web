@@ -3,7 +3,8 @@ import os
 import io
 import time
 import uuid
-# v2: auto-wake VM + retries
+import hashlib
+import hmac as hmac_mod
 import base64
 from typing import Dict, Any
 import psycopg2
@@ -24,6 +25,8 @@ RETOUCH_BASE_URL = _raw_retouch_url
 RETOUCH_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
 RETOUCH_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
 S3_BUCKET = "foto-mix"
+RETOUCH_API_URL = "https://retouch.foto-mix.ru"
+HMAC_SECRET = os.environ.get("HMAC_SECRET_FOTO_MIX", "")
 
 YC_INSTANCE_ID = os.environ.get("YC_INSTANCE_ID", "")
 YC_OAUTH_TOKEN = os.environ.get("YC_OAUTH_TOKEN", "")
@@ -318,6 +321,115 @@ def _check_plugins_available():
     return results
 
 
+def _hmac_headers(method, path, body_bytes=b""):
+    ts = str(int(time.time()))
+    body_sha = hashlib.sha256(body_bytes).hexdigest()
+    canonical = f"{method}\n{path}\n{ts}\n{body_sha}"
+    sig = hmac_mod.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+    return {"X-API-Key": "foto-mix", "X-Timestamp": ts, "X-Signature": sig}
+
+
+def _probe_retouch_api():
+    results = {}
+    try:
+        r = requests.get(f"{RETOUCH_API_URL}/health", timeout=10)
+        results["health"] = {"status": r.status_code, "body": r.text[:500]}
+    except Exception as e:
+        results["health"] = {"error": str(e)}
+
+    body = json.dumps({}).encode()
+    try:
+        hdrs = _hmac_headers("POST", "/v1/retouch", body)
+        hdrs["Content-Type"] = "application/json"
+        r = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body, headers=hdrs, timeout=10)
+        results["post_empty_hmac"] = {"status": r.status_code, "body": r.text[:1000]}
+    except Exception as e:
+        results["post_empty_hmac"] = {"error": str(e)}
+
+    try:
+        r2 = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body, headers={"Content-Type": "application/json"}, timeout=10)
+        results["post_empty_no_hmac"] = {"status": r2.status_code, "body": r2.text[:500]}
+    except Exception as e:
+        results["post_empty_no_hmac"] = {"error": str(e)}
+
+    body3 = json.dumps({"image_url": "https://storage.yandexcloud.net/foto-mix/test.jpg", "plugins": ["gfpgan"]}).encode()
+    try:
+        hdrs3 = _hmac_headers("POST", "/v1/retouch", body3)
+        hdrs3["Content-Type"] = "application/json"
+        r3 = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body3, headers=hdrs3, timeout=10)
+        results["post_url_hmac"] = {"status": r3.status_code, "body": r3.text[:1000]}
+    except Exception as e:
+        results["post_url_hmac"] = {"error": str(e)}
+
+    body4 = json.dumps({
+        "in_bucket": "foto-mix",
+        "in_key": "nonexistent/test.jpg",
+        "out_bucket": "foto-mix",
+    }).encode()
+    try:
+        hdrs4 = _hmac_headers("POST", "/v1/retouch", body4)
+        hdrs4["Content-Type"] = "application/json"
+        results["sent_hmac_headers"] = {k: v for k, v in hdrs4.items() if k.startswith("X-")}
+        r4 = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body4, headers=hdrs4, timeout=15)
+        results["post_s3_keys"] = {"status": r4.status_code, "body": r4.text[:1500], "resp_headers": dict(r4.headers)}
+    except Exception as e:
+        results["post_s3_keys"] = {"error": str(e)}
+
+    body5 = json.dumps({
+        "in_bucket": "foto-mix",
+        "in_key": "nonexistent/test.jpg",
+        "out_bucket": "foto-mix",
+        "out_prefix": "retouch/test/output",
+        "plugins": ["gfpgan"],
+    }).encode()
+    try:
+        hdrs5 = _hmac_headers("POST", "/v1/retouch", body5)
+        hdrs5["Content-Type"] = "application/json"
+        r5 = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body5, headers=hdrs5, timeout=15)
+        results["post_full_x_headers"] = {"status": r5.status_code, "body": r5.text[:1500]}
+    except Exception as e:
+        results["post_full_x_headers"] = {"error": str(e)}
+
+    try:
+        ts = str(int(time.time()))
+        body_sha = hashlib.sha256(body5).hexdigest()
+        canonical = f"POST\n/v1/retouch\n{ts}\n{body_sha}"
+        sig = hmac_mod.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+        auth_hdrs = {
+            "Content-Type": "application/json",
+            "Authorization": f"HMAC {sig}",
+            "X-Timestamp": ts,
+        }
+        r5b = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body5, headers=auth_hdrs, timeout=15)
+        results["post_auth_bearer"] = {"status": r5b.status_code, "body": r5b.text[:1500]}
+    except Exception as e:
+        results["post_auth_bearer"] = {"error": str(e)}
+
+    try:
+        ts2 = str(int(time.time()))
+        body_sha2 = hashlib.sha256(body5).hexdigest()
+        canonical2 = f"POST\n/v1/retouch\n{ts2}\n{body_sha2}"
+        sig2 = hmac_mod.new(HMAC_SECRET.encode(), canonical2.encode(), hashlib.sha256).hexdigest()
+        bearer_hdrs = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {HMAC_SECRET}",
+        }
+        r5c = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body5, headers=bearer_hdrs, timeout=15)
+        results["post_bearer_secret"] = {"status": r5c.status_code, "body": r5c.text[:1500]}
+    except Exception as e:
+        results["post_bearer_secret"] = {"error": str(e)}
+
+    try:
+        hdrs6 = _hmac_headers("GET", "/v1/tasks/test-nonexistent")
+        r6 = requests.get(f"{RETOUCH_API_URL}/v1/tasks/test-nonexistent", headers=hdrs6, timeout=10)
+        results["get_task_hmac"] = {"status": r6.status_code, "body": r6.text[:500]}
+    except Exception as e:
+        results["get_task_hmac"] = {"error": str(e)}
+
+    results["hmac_secret_set"] = bool(HMAC_SECRET)
+    return _response(200, results)
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Ретушь фотографий — отправка на обработку, AI-плагины и проверка статуса задачи"""
     method = event.get('httpMethod', 'GET')
@@ -335,6 +447,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if params.get('check_plugins') == '1':
         plugins_status = _check_plugins_available()
         return _response(200, {'plugins': plugins_status})
+
+    if params.get('probe_api') == '1':
+        return _probe_retouch_api()
 
     db_url = os.environ.get('DATABASE_URL')
     conn = psycopg2.connect(db_url)
