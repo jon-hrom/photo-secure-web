@@ -151,7 +151,15 @@ def _get_ldm_steps(conn):
 # Retouch API interaction
 # ---------------------------------------------------------------------------
 
-def _submit_retouch_task(in_key, out_prefix, pipeline):
+def _build_out_key(in_key):
+    """photobank/12/222/file.jpg -> photobank/12/222/retouch/file.jpg"""
+    parts = in_key.rsplit("/", 1)
+    if len(parts) == 2:
+        return f"{parts[0]}/retouch/{parts[1]}"
+    return f"retouch/{in_key}"
+
+
+def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
     """POST /v1/retouch -- create a new retouch task on the API server."""
     body_data = {
         "in_bucket": S3_BUCKET,
@@ -160,10 +168,12 @@ def _submit_retouch_task(in_key, out_prefix, pipeline):
         "out_prefix": out_prefix,
         "pipeline": pipeline,
     }
+    if out_key:
+        body_data["out_key"] = out_key
     body_str = json.dumps(body_data, separators=(",", ":"), ensure_ascii=False)
     headers = _retouch_api_headers("POST", "/v1/retouch", body_str)
 
-    print(f"[RETOUCH API] POST /v1/retouch  in_key={in_key}  out_prefix={out_prefix}")
+    print(f"[RETOUCH API] POST /v1/retouch  in_key={in_key}  out_prefix={out_prefix}  out_key={out_key}")
     r = requests.post(
         f"{RETOUCH_API_URL}/v1/retouch",
         data=body_str.encode("utf-8"),
@@ -295,11 +305,14 @@ def _probe_retouch_api():
     }
 
     for name, pipeline in pipelines_to_test.items():
+        probe_out_key = _build_out_key(test_key)
+        probe_out_prefix = probe_out_key.rsplit("/", 1)[0] + "/"
         body_data = {
             "in_bucket": "foto-mix",
             "in_key": test_key,
             "out_bucket": "foto-mix",
-            "out_prefix": f"retouch/probe_{name}/",
+            "out_prefix": probe_out_prefix,
+            "out_key": probe_out_key.replace(".jpg", f"_probe_{name}.jpg"),
             "pipeline": pipeline,
         }
         body_str = json.dumps(body_data, separators=(",", ":"), ensure_ascii=False)
@@ -530,7 +543,8 @@ def _sync_task_from_api(conn, user_id, task):
         error_msg = data.get("error") or (result_inner.get("error") if isinstance(result_inner, dict) else None) or "Processing failed"
 
         is_lama_error = 'iopaint_inpaint_lama' in str(error_msg) or 'lama_inpaint' in str(error_msg)
-        already_retried = task.get('out_prefix', '').endswith('_nolama/')
+        prev_err = task.get('error_message') or ''
+        already_retried = prev_err.startswith('__retry__:')
 
         if is_lama_error and not already_retried:
             print(f"[RETOUCH] lama_inpaint failed, retrying without blackheads+lama_inpaint")
@@ -540,8 +554,9 @@ def _sync_task_from_api(conn, user_id, task):
                 print(f"[RETOUCH] Fallback pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
 
                 in_key = task['in_key']
-                out_prefix = f"{task.get('out_prefix', '').rstrip('/')}_nolama/"
-                new_api_task_id, new_status = _submit_retouch_task(in_key, out_prefix, pipeline)
+                fallback_out_key = _build_out_key(in_key)
+                out_prefix = fallback_out_key.rsplit("/", 1)[0] + "/" if "/" in fallback_out_key else "retouch/"
+                new_api_task_id, new_status = _submit_retouch_task(in_key, out_prefix, pipeline, out_key=fallback_out_key)
 
                 with conn.cursor() as cur:
                     cur.execute(
@@ -665,16 +680,18 @@ def _handle_create(event, conn, user_id):
         return _response(400, {'error': 'Photo has no S3 file'})
 
     in_key = photo['s3_key']
-    out_prefix = f"retouch/{user_id}/{photo_id}/"
+    out_key = _build_out_key(in_key)
+    out_prefix = out_key.rsplit("/", 1)[0] + "/" if "/" in out_key else "retouch/"
 
     pipeline = _load_pipeline(conn, 'default')
     if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
         pipeline = DEFAULT_PIPELINE
     print(f"[RETOUCH] Pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
+    print(f"[RETOUCH] in_key={in_key}  out_key={out_key}  out_prefix={out_prefix}")
 
     # --- submit task to Retouch API ---
     try:
-        api_task_id, api_status = _submit_retouch_task(in_key, out_prefix, pipeline)
+        api_task_id, api_status = _submit_retouch_task(in_key, out_prefix, pipeline, out_key=out_key)
     except Exception as e:
         print(f"[RETOUCH] Failed to submit task: {e}")
         return _response(503, {'error': f'Сервер ретуши недоступен: {e}'})
