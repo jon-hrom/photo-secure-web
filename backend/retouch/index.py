@@ -399,15 +399,6 @@ def _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, resul
 
     retouch_folder_id = _get_or_create_retouch_folder(conn, user_id, original['folder_id'])
 
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute(
-            "SELECT id FROM photo_bank WHERE folder_id = %s AND s3_key = %s AND is_trashed = FALSE LIMIT 1",
-            (retouch_folder_id, result_key)
-        )
-        if cur.fetchone():
-            print(f"[RETOUCH] Photo already exists in retouch folder, skipping")
-            return
-
     s3_client = _get_s3_client()
     thumb_key, thumb_url, grid_key, grid_url = None, None, None, None
     if result_bytes:
@@ -417,19 +408,39 @@ def _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, resul
     base_name = orig_name.rsplit('.', 1)[0] if '.' in orig_name else orig_name
     file_name = f"{base_name}.jpg"
 
-    with conn.cursor() as cur:
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            '''INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url,
-               thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url,
-               file_size, width, height, content_type)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-            (retouch_folder_id, user_id, file_name, result_key, result_url,
-             thumb_key, thumb_url, grid_key, grid_url,
-             original['file_size'] or 0, original['width'], original['height'],
-             'image/jpeg')
+            "SELECT id FROM photo_bank WHERE folder_id = %s AND s3_key = %s AND is_trashed = FALSE LIMIT 1",
+            (retouch_folder_id, result_key)
         )
-        conn.commit()
-    print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name} (thumbnails: {'yes' if thumb_key else 'no'})")
+        existing = cur.fetchone()
+
+    if existing:
+        with conn.cursor() as cur:
+            cur.execute(
+                '''UPDATE photo_bank SET s3_url = %s,
+                   thumbnail_s3_key = COALESCE(%s, thumbnail_s3_key), thumbnail_s3_url = COALESCE(%s, thumbnail_s3_url),
+                   grid_thumbnail_s3_key = COALESCE(%s, grid_thumbnail_s3_key), grid_thumbnail_s3_url = COALESCE(%s, grid_thumbnail_s3_url),
+                   updated_at = NOW()
+                   WHERE id = %s''',
+                (result_url, thumb_key, thumb_url, grid_key, grid_url, existing['id'])
+            )
+            conn.commit()
+        print(f"[RETOUCH] Updated existing retouched photo {existing['id']} in folder {retouch_folder_id}")
+    else:
+        with conn.cursor() as cur:
+            cur.execute(
+                '''INSERT INTO photo_bank (folder_id, user_id, file_name, s3_key, s3_url,
+                   thumbnail_s3_key, thumbnail_s3_url, grid_thumbnail_s3_key, grid_thumbnail_s3_url,
+                   file_size, width, height, content_type)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                (retouch_folder_id, user_id, file_name, result_key, result_url,
+                 thumb_key, thumb_url, grid_key, grid_url,
+                 original['file_size'] or 0, original['width'], original['height'],
+                 'image/jpeg')
+            )
+            conn.commit()
+        print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name} (thumbnails: {'yes' if thumb_key else 'no'})")
 
 
 # ---------------------------------------------------------------------------
