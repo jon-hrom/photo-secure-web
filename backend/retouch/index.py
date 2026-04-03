@@ -32,8 +32,6 @@ DEFAULT_PIPELINE = [
     {"op": "highlights", "strength": 0.08},
     {"op": "shadows", "strength": 0.06},
     {"op": "deshine", "strength": 0.30, "mask": {"max_det_side": 2500}},
-    {"op": "blackheads", "strength": 0.45, "ksize": 11, "thr_q": 95, "thr_min": 10, "max_area": 500, "dilate_spots": 1, "mask_only": True},
-    {"op": "lama_inpaint", "strength": 1.0, "dilate": 2},
     {"op": "skin_fs", "strength": 0.55, "tone_sigma_s": 220, "tone_sigma_r": 0.11, "texture_radius": 6.0, "texture_amount": 0.25, "mask": {"max_det_side": 2500}},
     {"op": "skin_smooth", "strength": 0.12, "mask": {"max_det_side": 2500}},
     {"op": "face_enhance", "strength": 0.18},
@@ -487,11 +485,24 @@ def _sync_task_from_api(conn, user_id, task):
                 photo_id = task.get('photo_id')
                 if photo_id:
                     s3_client = _get_s3_client()
-                    resp = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
-                    result_bytes = resp['Body'].read()
+                    print(f"[RETOUCH] Downloading result from S3: bucket={S3_BUCKET} key={result_key}")
+                    for attempt in range(3):
+                        try:
+                            resp = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
+                            result_bytes = resp['Body'].read()
+                            print(f"[RETOUCH] Downloaded {len(result_bytes)} bytes from S3")
+                            break
+                        except Exception as s3_err:
+                            print(f"[RETOUCH] S3 download attempt {attempt+1}/3 failed: {s3_err}")
+                            if attempt < 2:
+                                time.sleep(3)
+                            else:
+                                raise
                     _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, result_bytes=result_bytes)
             except Exception as e:
+                import traceback
                 print(f"[RETOUCH] Failed to save result photo: {e}")
+                print(f"[RETOUCH] Traceback: {traceback.format_exc()}")
             task = dict(task)
             task['status'] = 'finished'
             task['result_key'] = result_key
