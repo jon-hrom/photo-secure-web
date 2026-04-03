@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
 import { useRetouch } from '@/contexts/RetouchContext';
 
@@ -89,20 +90,22 @@ const RetouchLightbox = ({
 
   if (!task) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95"
+      className="fixed inset-0 flex items-center justify-center bg-black"
+      style={{ zIndex: 99999, width: '100vw', height: '100dvh', top: 0, left: 0 }}
       onClick={onClose}
     >
       <div
-        className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 sm:px-5 py-3 z-10 bg-gradient-to-b from-black/60 to-transparent"
+        className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-5 z-10"
+        style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-white/60 text-xs sm:text-sm flex-shrink-0">
             {index + 1} / {tasks.length}
           </span>
-          <span className="text-white text-xs sm:text-sm truncate">
+          <span className="text-white text-xs sm:text-sm truncate max-w-[50vw]">
             {task.file_name || `Фото #${task.photo_id}`}
           </span>
         </div>
@@ -110,20 +113,20 @@ const RetouchLightbox = ({
           <button
             onClick={handleDownload}
             disabled={downloading}
-            className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
+            className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
             title="Скачать"
           >
             {downloading ? (
-              <Icon name="Loader2" size={18} className="animate-spin" />
+              <Icon name="Loader2" size={20} className="animate-spin" />
             ) : (
-              <Icon name="Download" size={18} />
+              <Icon name="Download" size={20} />
             )}
           </button>
           <button
-            onClick={onClose}
-            className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
           >
-            <Icon name="X" size={20} />
+            <Icon name="X" size={22} />
           </button>
         </div>
       </div>
@@ -131,28 +134,29 @@ const RetouchLightbox = ({
       <img
         src={task.result_url}
         alt={task.file_name || ''}
-        className="max-h-[85vh] max-w-[90vw] object-contain select-none"
-        onClick={e => e.stopPropagation()}
+        className="w-full h-full object-contain select-none pointer-events-none"
+        style={{ padding: '56px 0 max(16px, env(safe-area-inset-bottom))' }}
         draggable={false}
       />
 
       {tasks.length > 1 && (
         <>
           <button
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors backdrop-blur-sm"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm"
             onClick={e => { e.stopPropagation(); goPrev(); }}
           >
-            <Icon name="ChevronLeft" size={24} />
+            <Icon name="ChevronLeft" size={28} />
           </button>
           <button
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors backdrop-blur-sm"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm"
             onClick={e => { e.stopPropagation(); goNext(); }}
           >
-            <Icon name="ChevronRight" size={24} />
+            <Icon name="ChevronRight" size={28} />
           </button>
         </>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 
