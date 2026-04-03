@@ -32,6 +32,8 @@ DEFAULT_PIPELINE = [
     {"op": "highlights", "strength": 0.08},
     {"op": "shadows", "strength": 0.06},
     {"op": "deshine", "strength": 0.30, "mask": {"max_det_side": 2500}},
+    {"op": "blackheads", "strength": 0.45, "ksize": 11, "thr_q": 95, "thr_min": 10, "max_area": 500, "dilate_spots": 1, "mask_only": True},
+    {"op": "lama_inpaint", "strength": 1.0, "dilate": 2},
     {"op": "skin_fs", "strength": 0.55, "tone_sigma_s": 220, "tone_sigma_r": 0.11, "texture_radius": 6.0, "texture_amount": 0.25, "mask": {"max_det_side": 2500}},
     {"op": "skin_smooth", "strength": 0.12, "mask": {"max_det_side": 2500}},
     {"op": "face_enhance", "strength": 0.18},
@@ -268,19 +270,28 @@ def _probe_retouch_api():
     test_key = "photobank/12/222/8ddc92c3-ef32-4694-8e5b-d61bc05be36d.jpg"
 
     pipelines_to_test = {
-        "iopaint_lama_gfpgan": [
+        "blackheads_lama": [
+            {"op": "blackheads", "strength": 0.45, "ksize": 11, "thr_q": 95, "thr_min": 10, "max_area": 500, "dilate_spots": 1, "mask_only": True},
+            {"op": "lama_inpaint", "strength": 1.0, "dilate": 2},
+        ],
+        "lama_inpaint_only": [
+            {"op": "lama_inpaint", "strength": 1.0},
+        ],
+        "lama_only": [
             {"op": "lama"},
-            {"op": "gfpgan"},
         ],
-        "inpaint_gfpgan": [
+        "inpaint_only": [
             {"op": "inpaint"},
-            {"op": "gfpgan"},
         ],
-        "face_enhance_skin": [
-            {"op": "skin_smooth", "strength": 0.5},
-            {"op": "face_enhance", "strength": 0.8},
+        "full_no_lama": [
+            {"op": "highlights", "strength": 0.08},
+            {"op": "shadows", "strength": 0.06},
+            {"op": "deshine", "strength": 0.30, "mask": {"max_det_side": 2500}},
+            {"op": "skin_fs", "strength": 0.55, "tone_sigma_s": 220, "tone_sigma_r": 0.11, "texture_radius": 6.0, "texture_amount": 0.25, "mask": {"max_det_side": 2500}},
+            {"op": "skin_smooth", "strength": 0.12, "mask": {"max_det_side": 2500}},
+            {"op": "face_enhance", "strength": 0.18},
+            {"op": "sharpen", "strength": 0.18},
         ],
-        "empty_pipeline": [],
     }
 
     for name, pipeline in pipelines_to_test.items():
@@ -299,7 +310,7 @@ def _probe_retouch_api():
         except Exception as e:
             results[f"submit_{name}"] = {"error": str(e)}
 
-    time.sleep(8)
+    time.sleep(20)
 
     for name in pipelines_to_test:
         submit = results.get(f"submit_{name}", {})
@@ -456,7 +467,12 @@ def _sync_task_from_api(conn, user_id, task):
     if task['status'] not in ('queued', 'started', 'processing'):
         return task
 
-    api_task_id = task['task_id']
+    db_task_id = task['task_id']
+    retry_marker = task.get('error_message') or ''
+    if retry_marker.startswith('__retry__:'):
+        api_task_id = retry_marker.split(':', 1)[1]
+    else:
+        api_task_id = db_task_id
     path = f"/v1/tasks/{api_task_id}"
     headers = _retouch_api_headers("GET", path, "")
     try:
@@ -477,8 +493,8 @@ def _sync_task_from_api(conn, user_id, task):
             result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
             with conn.cursor() as cur:
                 cur.execute(
-                    "UPDATE retouch_tasks SET status='finished', result_key=%s, result_url=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
-                    (result_key, result_url, api_task_id, user_id)
+                    "UPDATE retouch_tasks SET status='finished', result_key=%s, result_url=%s, error_message=NULL, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                    (result_key, result_url, db_task_id, user_id)
                 )
                 conn.commit()
             try:
@@ -512,10 +528,40 @@ def _sync_task_from_api(conn, user_id, task):
     if api_status in ("failed", "error"):
         result_inner = data.get("result")
         error_msg = data.get("error") or (result_inner.get("error") if isinstance(result_inner, dict) else None) or "Processing failed"
+
+        is_lama_error = 'iopaint_inpaint_lama' in str(error_msg) or 'lama_inpaint' in str(error_msg)
+        already_retried = task.get('out_prefix', '').endswith('_nolama/')
+
+        if is_lama_error and not already_retried:
+            print(f"[RETOUCH] lama_inpaint failed, retrying without blackheads+lama_inpaint")
+            try:
+                pipeline = _load_pipeline(conn, 'default')
+                pipeline = [s for s in pipeline if s.get('op') not in ('blackheads', 'lama_inpaint')]
+                print(f"[RETOUCH] Fallback pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
+
+                in_key = task['in_key']
+                out_prefix = f"{task.get('out_prefix', '').rstrip('/')}_nolama/"
+                new_api_task_id, new_status = _submit_retouch_task(in_key, out_prefix, pipeline)
+
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE retouch_tasks SET status='started', out_prefix=%s, error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                        (out_prefix, f"__retry__:{new_api_task_id}", db_task_id, user_id)
+                    )
+                    conn.commit()
+                print(f"[RETOUCH] Fallback: original={api_task_id} retry={new_api_task_id}")
+                task = dict(task)
+                task['status'] = 'started'
+                task['out_prefix'] = out_prefix
+                task['error_message'] = f"__retry__:{new_api_task_id}"
+                return task
+            except Exception as retry_err:
+                print(f"[RETOUCH] Fallback retry failed: {retry_err}")
+
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE retouch_tasks SET status='failed', error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
-                (error_msg, api_task_id, user_id)
+                (error_msg, db_task_id, user_id)
             )
             conn.commit()
         task = dict(task)
@@ -528,11 +574,14 @@ def _sync_task_from_api(conn, user_id, task):
 
 def _check_single_task(conn, user_id, task):
     task = _sync_task_from_api(conn, user_id, task)
+    err = task.get('error_message') or ''
+    if err.startswith('__retry__:'):
+        err = None
     return {
         'task_id': task['task_id'],
         'status': task['status'],
         'result_url': _presigned_from_task(task),
-        'error_message': task.get('error_message'),
+        'error_message': err,
     }
 
 
