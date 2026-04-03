@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useRetouch } from '@/contexts/RetouchContext';
 
 export interface RetouchTask {
@@ -260,132 +261,139 @@ const RetouchLightbox = ({
   const scale = zoom === 0 ? 1 : 1 + zoom;
   const showNav = tasks.length > 1 && zoom === 0;
 
-  return createPortal(
-    <div
-      ref={containerRef}
-      className="fixed inset-0 flex items-center justify-center bg-black"
-      style={{ zIndex: 99999, width: '100vw', height: '100dvh', top: 0, left: 0, touchAction: 'none' }}
-      onClick={zoom === 0 ? onClose : undefined}
-    >
-      <div
-        className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-5 z-20"
-        style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
-        onClick={e => e.stopPropagation()}
+  return (
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }} modal={true}>
+      <DialogContent
+        hideCloseButton
+        className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none"
+        style={{ touchAction: 'none' }}
+        onEscapeKeyDown={(e) => { e.stopPropagation(); }}
+        onPointerDownOutside={(e) => { e.preventDefault(); }}
+        onInteractOutside={(e) => { e.preventDefault(); }}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-white/60 text-xs sm:text-sm flex-shrink-0">
-            {index + 1} / {tasks.length}
-          </span>
-          <span className="text-white text-xs sm:text-sm truncate max-w-[40vw]">
-            {task.file_name || `Фото #${task.photo_id}`}
-          </span>
-          {zoom > 0 && (
-            <span className="text-white/50 text-xs flex-shrink-0">
-              {Math.round(scale * 100)}%
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          {originalUrl && (
-            <button
-              onClick={() => { setShowBefore(v => !v); resetView(); }}
-              className={`h-8 sm:h-9 flex items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
-                showBefore
-                  ? 'bg-white/25 text-white'
-                  : 'bg-white/10 text-white/80 hover:bg-white/15'
-              }`}
+        <VisuallyHidden>
+          <DialogTitle>Просмотр ретуши</DialogTitle>
+        </VisuallyHidden>
+        <div ref={containerRef} className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
+
+          <div
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-5 z-20"
+            style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-white/60 text-xs sm:text-sm flex-shrink-0">
+                {index + 1} / {tasks.length}
+              </span>
+              <span className="text-white text-xs sm:text-sm truncate max-w-[40vw]">
+                {task.file_name || `Фото #${task.photo_id}`}
+              </span>
+              {zoom > 0 && (
+                <span className="text-white/50 text-xs flex-shrink-0">
+                  {Math.round(scale * 100)}%
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {originalUrl && (
+                <button
+                  onClick={() => { setShowBefore(v => !v); resetView(); }}
+                  className={`h-8 sm:h-9 flex items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
+                    showBefore
+                      ? 'bg-white/25 text-white'
+                      : 'bg-white/10 text-white/80 hover:bg-white/15'
+                  }`}
+                >
+                  <Icon name="ArrowLeftRight" size={14} />
+                  <span>{showBefore ? 'До' : 'После'}</span>
+                </button>
+              )}
+              {zoom > 0 && (
+                <button
+                  onClick={resetView}
+                  className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
+                  title="Сбросить масштаб"
+                >
+                  <Icon name="Minimize2" size={18} />
+                </button>
+              )}
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
+                title="Скачать"
+              >
+                {downloading ? (
+                  <Icon name="Loader2" size={20} className="animate-spin" />
+                ) : (
+                  <Icon name="Download" size={20} />
+                )}
+              </button>
+              <button
+                onClick={onClose}
+                className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
+              >
+                <Icon name="X" size={22} />
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="w-full h-full flex items-center justify-center overflow-hidden"
+            style={{
+              cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
+              touchAction: 'none',
+              padding: '52px 0 max(8px, env(safe-area-inset-bottom))',
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            <img
+              src={showBefore ? originalUrl : task.result_url}
+              alt={task.file_name || ''}
+              className="max-w-full max-h-full object-contain select-none"
+              style={{
+                transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
+                transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                pointerEvents: zoom === 0 ? 'auto' : 'none',
+              }}
+              onClick={handleImageClick}
+              draggable={false}
+            />
+          </div>
+
+          {showBefore && originalUrl && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm"
+              style={{ bottom: 'max(16px, env(safe-area-inset-bottom))' }}
             >
-              <Icon name="ArrowLeftRight" size={14} />
-              <span>{showBefore ? 'До' : 'После'}</span>
-            </button>
+              <span className="text-white/90 text-xs font-medium">Оригинал</span>
+            </div>
           )}
-          {zoom > 0 && (
-            <button
-              onClick={resetView}
-              className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
-              title="Сбросить масштаб"
-            >
-              <Icon name="Minimize2" size={18} />
-            </button>
+
+          {showNav && (
+            <>
+              <button
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm z-10"
+                onClick={() => navigate('prev')}
+              >
+                <Icon name="ChevronLeft" size={28} />
+              </button>
+              <button
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm z-10"
+                onClick={() => navigate('next')}
+              >
+                <Icon name="ChevronRight" size={28} />
+              </button>
+            </>
           )}
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
-            title="Скачать"
-          >
-            {downloading ? (
-              <Icon name="Loader2" size={20} className="animate-spin" />
-            ) : (
-              <Icon name="Download" size={20} />
-            )}
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
-            className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
-          >
-            <Icon name="X" size={22} />
-          </button>
         </div>
-      </div>
-
-      <div
-        className="w-full h-full flex items-center justify-center overflow-hidden"
-        style={{
-          cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
-          touchAction: 'none',
-          padding: '52px 0 max(8px, env(safe-area-inset-bottom))',
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onClick={e => e.stopPropagation()}
-      >
-        <img
-          src={showBefore ? originalUrl : task.result_url}
-          alt={task.file_name || ''}
-          className="max-w-full max-h-full object-contain select-none"
-          style={{
-            transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
-            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-            pointerEvents: zoom === 0 ? 'auto' : 'none',
-          }}
-          onClick={handleImageClick}
-          draggable={false}
-        />
-      </div>
-
-      {showBefore && originalUrl && (
-        <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm"
-          style={{ bottom: 'max(16px, env(safe-area-inset-bottom))' }}
-        >
-          <span className="text-white/90 text-xs font-medium">Оригинал</span>
-        </div>
-      )}
-
-      {showNav && (
-        <>
-          <button
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm z-10"
-            onClick={e => { e.stopPropagation(); navigate('prev'); }}
-          >
-            <Icon name="ChevronLeft" size={28} />
-          </button>
-          <button
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm z-10"
-            onClick={e => { e.stopPropagation(); navigate('next'); }}
-          >
-            <Icon name="ChevronRight" size={28} />
-          </button>
-        </>
-      )}
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 };
 
