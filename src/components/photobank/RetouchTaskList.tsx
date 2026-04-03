@@ -24,16 +24,19 @@ const RetouchLightbox = ({
   tasks,
   startIndex,
   onClose,
+  originalPhotos,
 }: {
   tasks: RetouchTask[];
   startIndex: number;
   onClose: () => void;
+  originalPhotos: { id: number; s3_url?: string; thumbnail_s3_url?: string; data_url?: string }[];
 }) => {
   const [index, setIndex] = useState(startIndex);
   const [downloading, setDownloading] = useState(false);
   const [zoom, setZoom] = useState(0);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [showBefore, setShowBefore] = useState(false);
 
   const zoomRef = useRef(zoom);
   const panRef = useRef(panOffset);
@@ -48,6 +51,8 @@ const RetouchLightbox = ({
   useEffect(() => { panRef.current = panOffset; }, [panOffset]);
 
   const task = tasks[index];
+  const originalPhoto = originalPhotos.find(p => p.id === task?.photo_id);
+  const originalUrl = originalPhoto?.thumbnail_s3_url || originalPhoto?.s3_url || originalPhoto?.data_url || '';
 
   const resetView = useCallback(() => {
     setZoom(0);
@@ -56,6 +61,7 @@ const RetouchLightbox = ({
 
   const navigate = useCallback((dir: 'prev' | 'next') => {
     resetView();
+    setShowBefore(false);
     setIndex(i => {
       if (dir === 'prev') return i > 0 ? i - 1 : tasks.length - 1;
       return i < tasks.length - 1 ? i + 1 : 0;
@@ -280,6 +286,19 @@ const RetouchLightbox = ({
           )}
         </div>
         <div className="flex items-center gap-1">
+          {originalUrl && (
+            <button
+              onClick={() => { setShowBefore(v => !v); resetView(); }}
+              className={`h-8 sm:h-9 flex items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
+                showBefore
+                  ? 'bg-white/25 text-white'
+                  : 'bg-white/10 text-white/80 hover:bg-white/15'
+              }`}
+            >
+              <Icon name="ArrowLeftRight" size={14} />
+              <span>{showBefore ? 'До' : 'После'}</span>
+            </button>
+          )}
           {zoom > 0 && (
             <button
               onClick={resetView}
@@ -327,7 +346,7 @@ const RetouchLightbox = ({
         onClick={e => e.stopPropagation()}
       >
         <img
-          src={task.result_url}
+          src={showBefore ? originalUrl : task.result_url}
           alt={task.file_name || ''}
           className="max-w-full max-h-full object-contain select-none"
           style={{
@@ -339,6 +358,15 @@ const RetouchLightbox = ({
           draggable={false}
         />
       </div>
+
+      {showBefore && originalUrl && (
+        <div
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm"
+          style={{ bottom: 'max(16px, env(safe-area-inset-bottom))' }}
+        >
+          <span className="text-white/90 text-xs font-medium">Оригинал</span>
+        </div>
+      )}
 
       {showNav && (
         <>
@@ -362,7 +390,7 @@ const RetouchLightbox = ({
 };
 
 const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskListProps) => {
-  const { totalProgress, totalBatchSize, isProcessing } = useRetouch();
+  const { totalProgress, totalBatchSize, isProcessing, photos } = useRetouch();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   if (tasks.length === 0) return null;
@@ -503,6 +531,7 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
           tasks={finishedTasks}
           startIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
+          originalPhotos={photos}
         />
       )}
     </>

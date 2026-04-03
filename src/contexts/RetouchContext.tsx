@@ -16,6 +16,7 @@ interface RetouchSession {
 
 interface RetouchContextValue {
   tasks: RetouchTask[];
+  photos: Photo[];
   isProcessing: boolean;
   waking: boolean;
   wakeStatus: string | null;
@@ -57,6 +58,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const [minimized, setMinimized] = useState(false);
   const [session, setSession] = useState<RetouchSession | null>(null);
   const [batchPending, setBatchPending] = useState(false);
+  const [photos, setPhotos] = useState<Photo[]>([]);
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retouchCompleteCalledRef = useRef(false);
@@ -450,6 +452,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
   const handleRetouchSingle = async (photoId: number, photos: Photo[]) => {
     photosRef.current = photos;
+    setPhotos(photos);
     totalBatchSizeRef.current = 1;
     setSubmitting(true);
     const photo = photos.find(p => p.id === photoId);
@@ -480,6 +483,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const handleRetouchAll = async (photos: Photo[]) => {
     if (photos.length === 0) return;
     photosRef.current = photos;
+    setPhotos(photos);
     totalBatchSizeRef.current = photos.length;
     setSubmitting(true);
     setBatchPending(true);
@@ -522,7 +526,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <RetouchContext.Provider value={{
-      tasks, isProcessing, waking, wakeStatus, submitting, minimized, session,
+      tasks, photos, isProcessing, waking, wakeStatus, submitting, minimized, session,
       totalProgress, totalBatchSize, setMinimized, startSession, fullClose,
       handleRetouchSingle, handleRetouchAll, retryTask, retryAllFailed
     }}>
