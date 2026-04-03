@@ -73,6 +73,16 @@ export const DEFAULT_OPS: OpConfig[] = [
     params: [
       { key: 'strength', label: 'Сила', value: 0, min: -1, max: 1, step: 0.01 },
     ],
+    extras: { ksize: 11, thr_q: 95, thr_min: 10, max_area: 500, dilate_spots: 1, mask_only: true },
+  },
+  {
+    op: 'lama_inpaint',
+    label: 'AI-ретушь (LaMa)',
+    enabled: true,
+    params: [
+      { key: 'strength', label: 'Сила', value: 0, min: 0, max: 1, step: 0.01 },
+      { key: 'dilate', label: 'Расширение маски', value: 2, min: 0, max: 10, step: 1 },
+    ],
   },
   {
     op: 'skin_smooth',
