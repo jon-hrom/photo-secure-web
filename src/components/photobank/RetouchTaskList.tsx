@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
 import { useRetouch } from '@/contexts/RetouchContext';
@@ -31,26 +31,46 @@ const RetouchLightbox = ({
 }) => {
   const [index, setIndex] = useState(startIndex);
   const [downloading, setDownloading] = useState(false);
+  const [zoom, setZoom] = useState(0);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(panOffset);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const pinchStartRef = useRef<number | null>(null);
+  const pinchZoomStartRef = useRef(0);
+  const lastTapRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { panRef.current = panOffset; }, [panOffset]);
 
   const task = tasks[index];
 
-  const goPrev = useCallback(() => {
-    setIndex(i => (i > 0 ? i - 1 : tasks.length - 1));
-  }, [tasks.length]);
+  const resetView = useCallback(() => {
+    setZoom(0);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
 
-  const goNext = useCallback(() => {
-    setIndex(i => (i < tasks.length - 1 ? i + 1 : 0));
-  }, [tasks.length]);
+  const navigate = useCallback((dir: 'prev' | 'next') => {
+    resetView();
+    setIndex(i => {
+      if (dir === 'prev') return i > 0 ? i - 1 : tasks.length - 1;
+      return i < tasks.length - 1 ? i + 1 : 0;
+    });
+  }, [tasks.length, resetView]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft') goPrev();
-      if (e.key === 'ArrowRight') goNext();
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
+      if (e.key === 'ArrowLeft') navigate('prev');
+      if (e.key === 'ArrowRight') navigate('next');
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose, goPrev, goNext]);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [onClose, navigate]);
 
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -66,6 +86,147 @@ const RetouchLightbox = ({
       window.scrollTo(0, scrollY);
     };
   }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.15 : 0.15;
+      setZoom(prev => {
+        if (prev === 0 && delta > 0) { setPanOffset({ x: 0, y: 0 }); return 1.0; }
+        const next = prev + delta;
+        if (next < 0.3) { setPanOffset({ x: 0, y: 0 }); return 0; }
+        return Math.min(4, next);
+      });
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  const getTouchDist = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
+      if (zoomRef.current > 0) {
+        dragStartRef.current = {
+          x: e.touches[0].clientX, y: e.touches[0].clientY,
+          ox: panRef.current.x, oy: panRef.current.y
+        };
+      }
+    } else if (e.touches.length === 2) {
+      pinchStartRef.current = getTouchDist(e.touches);
+      pinchZoomStartRef.current = zoomRef.current;
+      touchStartRef.current = null;
+      dragStartRef.current = null;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartRef.current) {
+      e.preventDefault();
+      const dist = getTouchDist(e.touches);
+      const scale = dist / pinchStartRef.current;
+      const base = pinchZoomStartRef.current || 1;
+      const newZoom = Math.max(0, Math.min(4, base * scale));
+      if (newZoom < 0.3) {
+        setZoom(0);
+        setPanOffset({ x: 0, y: 0 });
+      } else {
+        setZoom(newZoom);
+      }
+      return;
+    }
+    if (e.touches.length === 1 && dragStartRef.current && zoomRef.current > 0) {
+      e.preventDefault();
+      setIsDragging(true);
+      const dx = e.touches[0].clientX - dragStartRef.current.x;
+      const dy = e.touches[0].clientY - dragStartRef.current.y;
+      setPanOffset({ x: dragStartRef.current.ox + dx, y: dragStartRef.current.oy + dy });
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    pinchStartRef.current = null;
+    setIsDragging(false);
+
+    const start = touchStartRef.current;
+    if (!start) { dragStartRef.current = null; return; }
+
+    const end = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY, time: Date.now() };
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const dt = end.time - start.time;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    if (absDx < 10 && absDy < 10 && dt < 300) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 350) {
+        lastTapRef.current = 0;
+        if (zoomRef.current === 0) {
+          setZoom(1.5);
+          setPanOffset({ x: 0, y: 0 });
+        } else {
+          resetView();
+        }
+      } else {
+        lastTapRef.current = now;
+      }
+      touchStartRef.current = null;
+      dragStartRef.current = null;
+      return;
+    }
+
+    if (zoomRef.current === 0 && dt < 400 && absDx > 50 && absDx > absDy * 1.5) {
+      if (dx < 0) navigate('next');
+      else navigate('prev');
+    }
+
+    if (zoomRef.current === 0 && dt < 400 && absDy > 80 && absDy > absDx * 1.5 && dy > 0) {
+      onClose();
+    }
+
+    touchStartRef.current = null;
+    dragStartRef.current = null;
+  }, [navigate, onClose, resetView]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (zoomRef.current > 0) {
+      dragStartRef.current = { x: e.clientX, y: e.clientY, ox: panRef.current.x, oy: panRef.current.y };
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (dragStartRef.current && zoomRef.current > 0) {
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      setPanOffset({ x: dragStartRef.current.ox + dx, y: dragStartRef.current.oy + dy });
+    }
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    dragStartRef.current = null;
+    setIsDragging(false);
+  }, []);
+
+  const handleImageClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDragging) return;
+    if (zoomRef.current === 0) {
+      setZoom(1.5);
+      setPanOffset({ x: 0, y: 0 });
+    } else {
+      resetView();
+    }
+  }, [isDragging, resetView]);
 
   const handleDownload = async () => {
     if (!task?.result_url || downloading) return;
@@ -90,14 +251,18 @@ const RetouchLightbox = ({
 
   if (!task) return null;
 
+  const scale = zoom === 0 ? 1 : 1 + zoom;
+  const showNav = tasks.length > 1 && zoom === 0;
+
   return createPortal(
     <div
+      ref={containerRef}
       className="fixed inset-0 flex items-center justify-center bg-black"
-      style={{ zIndex: 99999, width: '100vw', height: '100dvh', top: 0, left: 0 }}
-      onClick={onClose}
+      style={{ zIndex: 99999, width: '100vw', height: '100dvh', top: 0, left: 0, touchAction: 'none' }}
+      onClick={zoom === 0 ? onClose : undefined}
     >
       <div
-        className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-5 z-10"
+        className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-5 z-20"
         style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
         onClick={e => e.stopPropagation()}
       >
@@ -105,11 +270,25 @@ const RetouchLightbox = ({
           <span className="text-white/60 text-xs sm:text-sm flex-shrink-0">
             {index + 1} / {tasks.length}
           </span>
-          <span className="text-white text-xs sm:text-sm truncate max-w-[50vw]">
+          <span className="text-white text-xs sm:text-sm truncate max-w-[40vw]">
             {task.file_name || `Фото #${task.photo_id}`}
           </span>
+          {zoom > 0 && (
+            <span className="text-white/50 text-xs flex-shrink-0">
+              {Math.round(scale * 100)}%
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
+          {zoom > 0 && (
+            <button
+              onClick={resetView}
+              className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
+              title="Сбросить масштаб"
+            >
+              <Icon name="Minimize2" size={18} />
+            </button>
+          )}
           <button
             onClick={handleDownload}
             disabled={downloading}
@@ -131,25 +310,47 @@ const RetouchLightbox = ({
         </div>
       </div>
 
-      <img
-        src={task.result_url}
-        alt={task.file_name || ''}
-        className="w-full h-full object-contain select-none pointer-events-none"
-        style={{ padding: '56px 0 max(16px, env(safe-area-inset-bottom))' }}
-        draggable={false}
-      />
+      <div
+        className="w-full h-full flex items-center justify-center overflow-hidden"
+        style={{
+          cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
+          touchAction: 'none',
+          padding: '52px 0 max(8px, env(safe-area-inset-bottom))',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onClick={e => e.stopPropagation()}
+      >
+        <img
+          src={task.result_url}
+          alt={task.file_name || ''}
+          className="max-w-full max-h-full object-contain select-none"
+          style={{
+            transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
+            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+            pointerEvents: zoom === 0 ? 'auto' : 'none',
+          }}
+          onClick={handleImageClick}
+          draggable={false}
+        />
+      </div>
 
-      {tasks.length > 1 && (
+      {showNav && (
         <>
           <button
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm"
-            onClick={e => { e.stopPropagation(); goPrev(); }}
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm z-10"
+            onClick={e => { e.stopPropagation(); navigate('prev'); }}
           >
             <Icon name="ChevronLeft" size={28} />
           </button>
           <button
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm"
-            onClick={e => { e.stopPropagation(); goNext(); }}
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm z-10"
+            onClick={e => { e.stopPropagation(); navigate('next'); }}
           >
             <Icon name="ChevronRight" size={28} />
           </button>
