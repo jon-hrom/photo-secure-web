@@ -220,8 +220,6 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
 
   const wakeRetouchServer = async (): Promise<boolean> => {
     if (!sessionRef.current) return false;
-    setWaking(true);
-    setWakeStatus('waking');
     try {
       const res = await fetch(`${RETOUCH_WAKER_API}?action=wake`, { method: 'POST' });
       if (!res.ok) {
@@ -232,11 +230,14 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
       const data = await res.json();
 
       if (data.action === 'already_running') {
-        setWakeStatus('готов');
+        setWakeStatus(null);
         setWaking(false);
         markActive();
         return true;
       }
+
+      setWaking(true);
+      setWakeStatus('waking');
 
       if (data.action === 'starting' || data.action === 'already_starting') {
         const maxWait = 90;
