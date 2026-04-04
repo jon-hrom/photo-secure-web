@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import VKCallback from "./pages/VKCallback";
@@ -33,6 +33,17 @@ import { RetouchProvider } from "./contexts/RetouchContext";
 import FloatingRetouchBar from "./components/photobank/FloatingRetouchBar";
 
 const queryClient = new QueryClient();
+
+const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/privacy-policy', '/s/', '/g/', '/client/'];
+
+const ConditionalRetouchBar = () => {
+  const { pathname } = useLocation();
+  const isPublicPage = PUBLIC_PATHS.some(p =>
+    p === '/' ? pathname === '/' : pathname.startsWith(p)
+  );
+  if (isPublicPage) return null;
+  return <FloatingRetouchBar />;
+};
 
 const App = () => {
   const [newYearMode, setNewYearMode] = useState(false);
@@ -90,8 +101,8 @@ const App = () => {
         {newYearMode && <NewYearDecorations />}
         <Toaster />
         <Sonner />
-        <FloatingRetouchBar />
         <BrowserRouter>
+        <ConditionalRetouchBar />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/help" element={<Help />} />
