@@ -526,34 +526,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 thumbnail_s3_url = None
                 grid_thumbnail_s3_key = None
                 grid_thumbnail_s3_url = None
+                shot_date = _extract_shot_date(file_bytes)
                 if file_ext.lower() in ['jpg', 'jpeg', 'png']:
                     try:
                         print(f'[UPLOAD_DIRECT] Generating thumbnail for {file_ext}')
                         img = Image.open(io.BytesIO(file_bytes))
-                        orig_img = img.copy()
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        del file_bytes
 
                         img.thumbnail((800, 800), Image.Resampling.LANCZOS)
                         thumb_buffer = io.BytesIO()
                         img.save(thumb_buffer, format='JPEG', quality=85)
-                        thumb_bytes = thumb_buffer.getvalue()
                         thumbnail_s3_key = f'{folder["s3_prefix"]}thumbnails/{uuid.uuid4()}.jpg'
-                        old_s3_client.put_object(Bucket=old_bucket, Key=thumbnail_s3_key, Body=thumb_bytes, ContentType='image/jpeg')
+                        old_s3_client.put_object(Bucket=old_bucket, Key=thumbnail_s3_key, Body=thumb_buffer.getvalue(), ContentType='image/jpeg')
                         thumbnail_s3_url = f'https://storage.yandexcloud.net/{old_bucket}/{thumbnail_s3_key}'
+                        del thumb_buffer
                         print(f'[UPLOAD_DIRECT] Thumbnail created: {thumbnail_s3_key}')
 
-                        orig_img.thumbnail((400, 400), Image.Resampling.LANCZOS)
-                        if orig_img.mode != 'RGB':
-                            orig_img = orig_img.convert('RGB')
+                        img.thumbnail((400, 400), Image.Resampling.LANCZOS)
                         grid_buffer = io.BytesIO()
-                        orig_img.save(grid_buffer, format='JPEG', quality=60, optimize=True)
+                        img.save(grid_buffer, format='JPEG', quality=60, optimize=True)
                         grid_thumbnail_s3_key = f'{folder["s3_prefix"]}thumbnails/grid_{uuid.uuid4()}.jpg'
                         old_s3_client.put_object(Bucket=old_bucket, Key=grid_thumbnail_s3_key, Body=grid_buffer.getvalue(), ContentType='image/jpeg')
                         grid_thumbnail_s3_url = f'https://storage.yandexcloud.net/{old_bucket}/{grid_thumbnail_s3_key}'
+                        del grid_buffer, img
                         print(f'[UPLOAD_DIRECT] Grid thumbnail created: {grid_thumbnail_s3_key}')
                     except Exception as e:
                         print(f'[UPLOAD_DIRECT] Thumbnail generation failed: {e}')
-                
-                shot_date = _extract_shot_date(file_bytes)
+                else:
+                    del file_bytes
                 if shot_date:
                     print(f'[UPLOAD_DIRECT] Extracted shot_date: {shot_date}')
                 
