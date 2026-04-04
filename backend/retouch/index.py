@@ -167,6 +167,7 @@ def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
         "out_bucket": S3_BUCKET,
         "out_prefix": out_prefix,
         "pipeline": pipeline,
+        "debug": True,
     }
     if out_key:
         body_data["out_key"] = out_key
