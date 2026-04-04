@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
 
 import { useRetouch } from '@/contexts/RetouchContext';
@@ -262,8 +263,8 @@ const RetouchLightbox = ({
   const scale = zoom === 0 ? 1 : 1 + zoom;
   const showNav = tasks.length > 1 && zoom === 0;
 
-  return (
-    <div className="fixed inset-0 z-[9999] bg-black/95" style={{ touchAction: 'none' }}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black/95" style={{ touchAction: 'none', width: '100vw', height: '100vh' }}>
       <div ref={containerRef} className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
 
           <div
@@ -394,7 +395,8 @@ const RetouchLightbox = ({
             </>
           )}
         </div>
-      </div>
+      </div>,
+    document.body
   );
 };
 
