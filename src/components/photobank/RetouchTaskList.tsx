@@ -342,7 +342,7 @@ const RetouchLightbox = ({
           <div
             className="w-full h-full flex items-center justify-center overflow-hidden"
             style={{
-              cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
+              cursor: zoom === 0 ? 'default' : (isDragging ? 'grabbing' : 'grab'),
               touchAction: 'none',
               padding: '52px 0 max(8px, env(safe-area-inset-bottom))',
             }}
@@ -358,8 +358,10 @@ const RetouchLightbox = ({
             <img
               src={showBefore ? originalUrl : task.result_url}
               alt={task.file_name || ''}
-              className="max-w-full max-h-full object-contain select-none pointer-events-none"
+              className="object-contain select-none pointer-events-none"
               style={{
+                maxWidth: '100%',
+                maxHeight: 'calc(100vh - 60px)',
                 transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
               }}
