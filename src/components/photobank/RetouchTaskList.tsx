@@ -211,6 +211,14 @@ const RetouchLightbox = ({
     }
   }, []);
 
+  const handleContainerClick = useCallback((e: React.MouseEvent) => {
+    if (isDragging) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (zoomRef.current > 0) {
+      resetView();
+    }
+  }, [isDragging, resetView]);
+
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (dragStartRef.current && zoomRef.current > 0) {
       const dx = e.clientX - dragStartRef.current.x;
@@ -227,13 +235,7 @@ const RetouchLightbox = ({
   const handleImageClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (isDragging) return;
-    if (zoomRef.current === 0) {
-      setZoom(1.5);
-      setPanOffset({ x: 0, y: 0 });
-    } else {
-      resetView();
-    }
-  }, [isDragging, resetView]);
+  }, [isDragging]);
 
   const handleDownload = async () => {
     if (!task?.result_url || downloading) return;
@@ -351,28 +353,38 @@ const RetouchLightbox = ({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onClick={handleContainerClick}
           >
             <img
               src={showBefore ? originalUrl : task.result_url}
               alt={task.file_name || ''}
-              className="max-w-full max-h-full object-contain select-none"
+              className="max-w-full max-h-full object-contain select-none pointer-events-none"
               style={{
                 transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-                pointerEvents: zoom === 0 ? 'auto' : 'none',
               }}
-              onClick={handleImageClick}
               draggable={false}
             />
           </div>
 
-          {showBefore && originalUrl && (
+          {showBefore && originalUrl && zoom === 0 && (
             <div
               className="absolute left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm"
               style={{ bottom: 'max(16px, env(safe-area-inset-bottom))' }}
             >
               <span className="text-white/90 text-xs font-medium">Оригинал</span>
             </div>
+          )}
+
+          {zoom > 0 && (
+            <button
+              onClick={resetView}
+              className="absolute left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-5 py-2.5 rounded-full bg-black/70 backdrop-blur-sm text-white text-sm font-medium active:bg-black/90 transition-colors"
+              style={{ bottom: 'max(20px, env(safe-area-inset-bottom))' }}
+            >
+              <Icon name="Minimize2" size={16} />
+              Уменьшить
+            </button>
           )}
 
           {showNav && (
