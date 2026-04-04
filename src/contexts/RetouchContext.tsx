@@ -242,12 +242,13 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
       setWakeStatus('waking');
 
       if (data.action === 'starting' || data.action === 'already_starting') {
-        const maxWait = 90;
-        const interval = 5;
+        const maxWait = 180;
+        const interval = 4;
+        let vmRunning = false;
         for (let elapsed = 0; elapsed < maxWait; elapsed += interval) {
           await new Promise(r => setTimeout(r, interval * 1000));
           try {
-            const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
+            const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(10000) });
             if (probe.ok) {
               const probeData = await probe.json();
               if (probeData.probe?.reachable) {
@@ -258,6 +259,18 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
               }
             }
           } catch { /* still starting */ }
+          if (!vmRunning && elapsed >= 20) {
+            try {
+              const statusRes = await fetch(`${RETOUCH_WAKER_API}?action=wake`, { method: 'POST' });
+              if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                if (statusData.action === 'already_running') {
+                  vmRunning = true;
+                  setWakeStatus('vm_ready');
+                }
+              }
+            } catch { /* ignore */ }
+          }
         }
         setWakeStatus('Сервис не успел запуститься. Попробуйте через пару минут');
         setWaking(false);

@@ -22,6 +22,7 @@ const RetouchWakeStatus = ({ waking, wakeStatus }: RetouchWakeStatusProps) => {
   if (!wakeStatus || !visible) return null;
 
   if (waking) {
+    const isVmReady = wakeStatus === 'vm_ready';
     return (
       <div className="rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 dark:border-amber-800 p-3 sm:p-5 flex items-start gap-3 sm:gap-4 shadow-sm">
         <div className="relative flex-shrink-0 mt-0.5">
@@ -30,10 +31,10 @@ const RetouchWakeStatus = ({ waking, wakeStatus }: RetouchWakeStatusProps) => {
         </div>
         <div className="flex flex-col gap-0.5 sm:gap-1">
           <span className="text-xs sm:text-sm font-medium text-amber-900 dark:text-amber-100">
-            Сервис запускается, пожалуйста подождите
+            {isVmReady ? 'Сервер запущен, загружается сервис ретуши...' : 'Сервис запускается, пожалуйста подождите'}
           </span>
           <span className="text-[10px] sm:text-xs text-amber-600/80 dark:text-amber-400/70">
-            Обычно это занимает около минуты
+            {isVmReady ? 'Осталось совсем немного' : 'Обычно это занимает 1–2 минуты'}
           </span>
         </div>
       </div>
