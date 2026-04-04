@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+
 import { useRetouch } from '@/contexts/RetouchContext';
 
 export interface RetouchTask {
@@ -264,19 +263,8 @@ const RetouchLightbox = ({
   const showNav = tasks.length > 1 && zoom === 0;
 
   return (
-    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }} modal={true}>
-      <DialogContent
-        hideCloseButton
-        className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 rounded-none"
-        style={{ touchAction: 'none' }}
-        onEscapeKeyDown={(e) => { e.stopPropagation(); }}
-        onPointerDownOutside={(e) => { e.preventDefault(); }}
-        onInteractOutside={(e) => { e.preventDefault(); }}
-      >
-        <VisuallyHidden>
-          <DialogTitle>Просмотр ретуши</DialogTitle>
-        </VisuallyHidden>
-        <div ref={containerRef} className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
+    <div className="fixed inset-0 z-[9999] bg-black/95" style={{ touchAction: 'none' }}>
+      <div ref={containerRef} className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
 
           <div
             className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-5 z-20"
@@ -406,8 +394,7 @@ const RetouchLightbox = ({
             </>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
   );
 };
 
