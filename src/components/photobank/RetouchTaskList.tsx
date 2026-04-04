@@ -204,6 +204,7 @@ const RetouchLightbox = ({
   }, []);
 
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     if (isDragging) return;
     if ((e.target as HTMLElement).closest('button')) return;
     if (zoomRef.current > 0) {
@@ -226,6 +227,7 @@ const RetouchLightbox = ({
 
   const handleImageClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (isDragging) return;
   }, [isDragging]);
 
@@ -256,7 +258,7 @@ const RetouchLightbox = ({
   const showNav = tasks.length > 1 && zoom === 0;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-black/95" style={{ touchAction: 'none', width: '100vw', height: '100vh' }}>
+    <div className="fixed inset-0 z-[9999] bg-black/95" style={{ touchAction: 'none', width: '100vw', height: '100vh' }} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
       <div ref={containerRef} className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
 
           <div

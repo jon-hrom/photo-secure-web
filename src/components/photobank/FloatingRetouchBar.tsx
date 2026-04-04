@@ -171,7 +171,7 @@ const FloatingRetouchBar = () => {
 
       {showDialog && session && (
         <Dialog open={true} onOpenChange={handleDialogClose}>
-          <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] sm:max-h-[85vh] overflow-y-auto bg-gradient-to-br from-rose-50/80 via-pink-50/60 to-purple-50/80 dark:from-rose-950/80 dark:via-pink-950/60 dark:to-purple-950/80 backdrop-blur-sm rounded-2xl sm:rounded-xl mx-auto">
+          <DialogContent onPointerDownOutside={e => e.preventDefault()} onInteractOutside={e => e.preventDefault()} className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] sm:max-h-[85vh] overflow-y-auto bg-gradient-to-br from-rose-50/80 via-pink-50/60 to-purple-50/80 dark:from-rose-950/80 dark:via-pink-950/60 dark:to-purple-950/80 backdrop-blur-sm rounded-2xl sm:rounded-xl mx-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <Icon name="Sparkles" size={18} className="text-rose-600" />
