@@ -80,17 +80,9 @@ const RetouchLightbox = ({
   }, [onClose, navigate]);
 
   useEffect(() => {
-    const scrollY = window.scrollY;
     document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
     return () => {
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      window.scrollTo(0, scrollY);
     };
   }, []);
 
@@ -287,7 +279,7 @@ const RetouchLightbox = ({
             <div className="flex items-center gap-1">
               {originalUrl && (
                 <button
-                  onClick={() => { setShowBefore(v => !v); resetView(); }}
+                  onClick={(e) => { e.stopPropagation(); setShowBefore(v => !v); resetView(); }}
                   className={`h-8 sm:h-9 flex items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
                     showBefore
                       ? 'bg-white/25 text-white'
@@ -300,7 +292,7 @@ const RetouchLightbox = ({
               )}
               {zoom > 0 && (
                 <button
-                  onClick={resetView}
+                  onClick={(e) => { e.stopPropagation(); resetView(); }}
                   className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
                   title="Сбросить масштаб"
                 >
@@ -308,7 +300,7 @@ const RetouchLightbox = ({
                 </button>
               )}
               <button
-                onClick={handleDownload}
+                onClick={(e) => { e.stopPropagation(); handleDownload(); }}
                 disabled={downloading}
                 className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
                 title="Скачать"
@@ -320,7 +312,7 @@ const RetouchLightbox = ({
                 )}
               </button>
               <button
-                onClick={onClose}
+                onClick={(e) => { e.stopPropagation(); onClose(); }}
                 className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
               >
                 <Icon name="X" size={22} />
@@ -349,8 +341,8 @@ const RetouchLightbox = ({
               alt={task.file_name || ''}
               className="object-contain select-none pointer-events-none"
               style={{
-                maxWidth: '100%',
-                maxHeight: 'calc(100vh - 60px)',
+                maxWidth: '90vw',
+                maxHeight: '85vh',
                 transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
               }}
