@@ -19,6 +19,7 @@ interface RetouchTaskListProps {
   tasks: RetouchTask[];
   onRetryTask: (task: RetouchTask) => void;
   onRetryAllFailed: () => void;
+  onLightboxChange?: (open: boolean) => void;
 }
 
 const RetouchLightbox = ({
@@ -272,7 +273,7 @@ const RetouchLightbox = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] bg-black/95"
+      className="fixed inset-0 z-[9999] bg-black"
       style={{ touchAction: 'none' }}
       onClick={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
@@ -300,7 +301,9 @@ const RetouchLightbox = ({
               )}
               {originalUrl && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); setShowBefore(v => !v); resetView(); }}
+                  onMouseDown={e => e.stopPropagation()}
+                  onPointerDown={e => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); setShowBefore(v => !v); }}
                   className={`h-8 sm:h-9 flex items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors backdrop-blur-sm ${
                     showBefore
                       ? 'bg-white/25 text-white'
@@ -396,9 +399,13 @@ const RetouchLightbox = ({
   );
 };
 
-const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskListProps) => {
+const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onLightboxChange }: RetouchTaskListProps) => {
   const { totalProgress, totalBatchSize, isProcessing, photos } = useRetouch();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    onLightboxChange?.(lightboxIndex !== null);
+  }, [lightboxIndex, onLightboxChange]);
 
   if (tasks.length === 0) return null;
 
