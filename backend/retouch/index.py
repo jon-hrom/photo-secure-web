@@ -30,7 +30,7 @@ POLL_TIMEOUT = 120
 
 DEFAULT_PIPELINE = [
     {"op": "advanced_spots", "strength": 1.0, "thr": 6},
-    {"op": "lama_inpaint", "strength": 1.0, "dilate": 3}
+    {"op": "lama_inpaint", "strength": 1.0, "dilate": 3, "use_exclude": False}
 ]
 
 
