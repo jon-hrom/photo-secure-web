@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useRetouch } from '@/contexts/RetouchContext';
 import RetouchWakeStatus from './RetouchWakeStatus';
-import RetouchTaskList from './RetouchTaskList';
+import RetouchTaskList, { RetouchLightbox } from './RetouchTaskList';
+import type { RetouchTask } from './RetouchTaskList';
 
 const FloatingRetouchBar = () => {
   const {
     tasks, isProcessing, waking, wakeStatus, minimized, session,
-    totalProgress, totalBatchSize, fullClose, retryTask, retryAllFailed, setMinimized
+    totalProgress, totalBatchSize, fullClose, retryTask, retryAllFailed, setMinimized, photos
   } = useRetouch();
 
   const [showDialog, setShowDialog] = useState(false);
@@ -17,6 +18,8 @@ const FloatingRetouchBar = () => {
   const [position, setPosition] = useState({ x: -1, y: -1 });
   const [mounted, setMounted] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxTasks, setLightboxTasks] = useState<RetouchTask[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
   const wasDraggedRef = useRef(false);
@@ -97,6 +100,16 @@ const FloatingRetouchBar = () => {
     fullClose();
   };
 
+  const handleOpenLightbox = useCallback((finishedTasks: RetouchTask[], startIndex: number) => {
+    setLightboxTasks(finishedTasks);
+    setLightboxIndex(startIndex);
+    setLightboxOpen(true);
+  }, []);
+
+  const handleCloseLightbox = useCallback(() => {
+    setLightboxOpen(false);
+  }, []);
+
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
   const finishedCount = tasks.filter(t => t.status === 'finished').length;
   const displayTotal = totalBatchSize > tasks.length ? totalBatchSize : tasks.length;
@@ -172,7 +185,7 @@ const FloatingRetouchBar = () => {
 
       {showDialog && session && (
         <Dialog open={true} onOpenChange={handleDialogClose}>
-          <DialogContent onPointerDownOutside={e => e.preventDefault()} onInteractOutside={e => e.preventDefault()} onFocusOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()} className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] sm:max-h-[85vh] overflow-y-auto bg-gradient-to-br from-rose-50/80 via-pink-50/60 to-purple-50/80 dark:from-rose-950/80 dark:via-pink-950/60 dark:to-purple-950/80 backdrop-blur-sm rounded-2xl sm:rounded-xl mx-auto">
+          <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] sm:max-h-[85vh] overflow-y-auto bg-gradient-to-br from-rose-50/80 via-pink-50/60 to-purple-50/80 dark:from-rose-950/80 dark:via-pink-950/60 dark:to-purple-950/80 backdrop-blur-sm rounded-2xl sm:rounded-xl mx-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <Icon name="Sparkles" size={18} className="text-rose-600" />
@@ -189,7 +202,7 @@ const FloatingRetouchBar = () => {
               tasks={tasks}
               onRetryTask={retryTask}
               onRetryAllFailed={retryAllFailed}
-              onLightboxChange={setLightboxOpen}
+              onOpenLightbox={handleOpenLightbox}
             />
           </DialogContent>
         </Dialog>
@@ -228,6 +241,15 @@ const FloatingRetouchBar = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {lightboxOpen && lightboxTasks.length > 0 && (
+        <RetouchLightbox
+          tasks={lightboxTasks}
+          startIndex={lightboxIndex}
+          onClose={handleCloseLightbox}
+          originalPhotos={photos}
+        />
+      )}
     </>
   );
 };

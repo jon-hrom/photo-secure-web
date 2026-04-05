@@ -19,10 +19,10 @@ interface RetouchTaskListProps {
   tasks: RetouchTask[];
   onRetryTask: (task: RetouchTask) => void;
   onRetryAllFailed: () => void;
-  onLightboxChange?: (open: boolean) => void;
+  onOpenLightbox?: (tasks: RetouchTask[], startIndex: number) => void;
 }
 
-const RetouchLightbox = ({
+export const RetouchLightbox = ({
   tasks,
   startIndex,
   onClose,
@@ -399,13 +399,8 @@ const RetouchLightbox = ({
   );
 };
 
-const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onLightboxChange }: RetouchTaskListProps) => {
-  const { totalProgress, totalBatchSize, isProcessing, photos } = useRetouch();
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    onLightboxChange?.(lightboxIndex !== null);
-  }, [lightboxIndex, onLightboxChange]);
+const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onOpenLightbox }: RetouchTaskListProps) => {
+  const { totalProgress, totalBatchSize, isProcessing } = useRetouch();
 
   if (tasks.length === 0) return null;
 
@@ -420,11 +415,12 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onLightboxChang
 
   const openLightbox = (task: RetouchTask) => {
     const idx = finishedTasks.findIndex(t => t.task_id === task.task_id);
-    if (idx >= 0) setLightboxIndex(idx);
+    if (idx >= 0 && onOpenLightbox) {
+      onOpenLightbox(finishedTasks, idx);
+    }
   };
 
   return (
-    <>
       <div className="rounded-xl border bg-white/60 dark:bg-gray-900/60 p-3 sm:p-4 space-y-3 sm:space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
@@ -539,16 +535,6 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onLightboxChang
           </div>
         )}
       </div>
-
-      {lightboxIndex !== null && finishedTasks.length > 0 && (
-        <RetouchLightbox
-          tasks={finishedTasks}
-          startIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-          originalPhotos={photos}
-        />
-      )}
-    </>
   );
 };
 
