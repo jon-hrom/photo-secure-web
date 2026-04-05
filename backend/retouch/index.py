@@ -35,7 +35,7 @@ DEFAULT_PIPELINE = [
     {"op": "blackheads", "strength": 0.6, "mask_only": True},
     {"op": "advanced_spots", "strength": 1.0, "thr": 8},
     {"op": "lama_spots", "strength": 1.0},
-    {"op": "lama_inpaint", "dilate": 30, "strength": 0.9, "exclude_dilate_px": 14, "exclude_brows": True, "exclude_mouth": True, "exclude_nose": False},
+    {"op": "lama_inpaint", "dilate": 3, "strength": 1.0, "exclude_dilate_px": 14, "exclude_brows": True, "exclude_mouth": True, "exclude_nose": False},
     {"op": "skin_fs", "strength": 0.55, "tone_sigma_s": 220, "tone_sigma_r": 0.11, "texture_radius": 6.0, "texture_amount": 0.25, "mask": {"max_det_side": 2500}},
     {"op": "skin_smooth", "strength": 0.12, "mask": {"max_det_side": 2500}},
     {"op": "face_enhance", "strength": 0.18},
