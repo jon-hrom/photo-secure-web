@@ -333,10 +333,11 @@ const RetouchLightbox = ({
           </div>
 
           <div
-            className="relative w-full h-full flex items-center justify-center overflow-auto"
+            className="relative w-full h-full flex items-center justify-center overflow-hidden"
             style={{
-              cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
+              cursor: zoom === 0 ? 'default' : (isDragging ? 'grabbing' : 'grab'),
               touchAction: 'none',
+              padding: '48px 0 0',
             }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -347,37 +348,21 @@ const RetouchLightbox = ({
             onMouseLeave={handleMouseUp}
             onClick={handleContainerClick}
           >
-            {zoom === 0 && (
-              <img
-                src={showBefore ? originalUrl : task.result_url}
-                alt={task.file_name || ''}
-                className="object-contain select-none touch-manipulation absolute inset-0"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  touchAction: 'none',
-                  pointerEvents: 'none',
-                }}
-                draggable={false}
-              />
-            )}
-
-            {zoom > 0 && (
-              <img
-                src={showBefore ? originalUrl : task.result_url}
-                alt={task.file_name || ''}
-                className="object-contain select-none touch-manipulation absolute inset-0"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
-                  transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-                  touchAction: 'none',
-                  pointerEvents: 'none',
-                }}
-                draggable={false}
-              />
-            )}
+            <img
+              src={showBefore ? originalUrl : task.result_url}
+              alt={task.file_name || ''}
+              className="select-none touch-manipulation"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                transform: zoom > 0 ? `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)` : undefined,
+                transition: zoom > 0 && !isDragging ? 'transform 0.2s ease-out' : 'none',
+                touchAction: 'none',
+                pointerEvents: 'none',
+              }}
+              draggable={false}
+            />
           </div>
 
           {showBefore && originalUrl && zoom === 0 && (
