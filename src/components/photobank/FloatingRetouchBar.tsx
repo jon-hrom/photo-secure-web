@@ -5,22 +5,18 @@ import Icon from '@/components/ui/icon';
 import { useRetouch } from '@/contexts/RetouchContext';
 import RetouchWakeStatus from './RetouchWakeStatus';
 import RetouchTaskList, { RetouchLightbox } from './RetouchTaskList';
-import type { RetouchTask } from './RetouchTaskList';
 
 const FloatingRetouchBar = () => {
   const {
     tasks, isProcessing, waking, wakeStatus, minimized, session,
-    totalProgress, totalBatchSize, fullClose, retryTask, retryAllFailed, setMinimized, photos
+    totalProgress, totalBatchSize, fullClose, retryTask, retryAllFailed, setMinimized, photos,
+    lightboxData, lightboxDataRef, closeRetouchLightbox
   } = useRetouch();
 
   const [showDialog, setShowDialog] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [position, setPosition] = useState({ x: -1, y: -1 });
   const [mounted, setMounted] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxTasks, setLightboxTasks] = useState<RetouchTask[]>([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const lightboxOpenRef = useRef(false);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
   const wasDraggedRef = useRef(false);
@@ -81,7 +77,7 @@ const FloatingRetouchBar = () => {
   };
 
   const handleDialogClose = (newOpen: boolean) => {
-    if (!newOpen && !lightboxOpenRef.current) {
+    if (!newOpen && !lightboxDataRef.current) {
       setShowDialog(false);
     }
   };
@@ -100,18 +96,6 @@ const FloatingRetouchBar = () => {
     setShowDialog(false);
     fullClose();
   };
-
-  const handleOpenLightbox = useCallback((finishedTasks: RetouchTask[], startIndex: number) => {
-    lightboxOpenRef.current = true;
-    setLightboxTasks(finishedTasks);
-    setLightboxIndex(startIndex);
-    setLightboxOpen(true);
-  }, []);
-
-  const handleCloseLightbox = useCallback(() => {
-    lightboxOpenRef.current = false;
-    setLightboxOpen(false);
-  }, []);
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
   const finishedCount = tasks.filter(t => t.status === 'finished').length;
@@ -205,7 +189,6 @@ const FloatingRetouchBar = () => {
               tasks={tasks}
               onRetryTask={retryTask}
               onRetryAllFailed={retryAllFailed}
-              onOpenLightbox={handleOpenLightbox}
             />
           </DialogContent>
         </Dialog>
@@ -245,11 +228,11 @@ const FloatingRetouchBar = () => {
         </DialogContent>
       </Dialog>
 
-      {lightboxOpen && lightboxTasks.length > 0 && (
+      {lightboxData && (
         <RetouchLightbox
-          tasks={lightboxTasks}
-          startIndex={lightboxIndex}
-          onClose={handleCloseLightbox}
+          tasks={lightboxData.tasks}
+          startIndex={lightboxData.startIndex}
+          onClose={closeRetouchLightbox}
           originalPhotos={photos}
         />
       )}

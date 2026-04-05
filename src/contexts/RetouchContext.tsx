@@ -32,6 +32,10 @@ interface RetouchContextValue {
   handleRetouchAll: (photos: Photo[]) => Promise<void>;
   retryTask: (task: RetouchTask) => Promise<void>;
   retryAllFailed: () => Promise<void>;
+  lightboxData: { tasks: RetouchTask[]; startIndex: number } | null;
+  lightboxDataRef: React.RefObject<{ tasks: RetouchTask[]; startIndex: number } | null>;
+  openRetouchLightbox: (tasks: RetouchTask[], startIndex: number) => void;
+  closeRetouchLightbox: () => void;
 }
 
 interface Photo {
@@ -59,6 +63,19 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<RetouchSession | null>(null);
   const [batchPending, setBatchPending] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [lightboxData, setLightboxData] = useState<{ tasks: RetouchTask[]; startIndex: number } | null>(null);
+  const lightboxDataRef = useRef<typeof lightboxData>(null);
+
+  const openRetouchLightbox = useCallback((tasks: RetouchTask[], startIndex: number) => {
+    const data = { tasks, startIndex };
+    lightboxDataRef.current = data;
+    setLightboxData(data);
+  }, []);
+
+  const closeRetouchLightbox = useCallback(() => {
+    lightboxDataRef.current = null;
+    setLightboxData(null);
+  }, []);
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retouchCompleteCalledRef = useRef(false);
@@ -541,7 +558,8 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     <RetouchContext.Provider value={{
       tasks, photos, isProcessing, waking, wakeStatus, submitting, minimized, session,
       totalProgress, totalBatchSize, setMinimized, startSession, fullClose,
-      handleRetouchSingle, handleRetouchAll, retryTask, retryAllFailed
+      handleRetouchSingle, handleRetouchAll, retryTask, retryAllFailed,
+      lightboxData, lightboxDataRef, openRetouchLightbox, closeRetouchLightbox
     }}>
       {children}
     </RetouchContext.Provider>

@@ -19,7 +19,6 @@ interface RetouchTaskListProps {
   tasks: RetouchTask[];
   onRetryTask: (task: RetouchTask) => void;
   onRetryAllFailed: () => void;
-  onOpenLightbox?: (tasks: RetouchTask[], startIndex: number) => void;
 }
 
 export const RetouchLightbox = ({
@@ -399,8 +398,34 @@ export const RetouchLightbox = ({
   );
 };
 
-const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onOpenLightbox }: RetouchTaskListProps) => {
-  const { totalProgress, totalBatchSize, isProcessing } = useRetouch();
+const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskListProps) => {
+  const { totalProgress, totalBatchSize, isProcessing, openRetouchLightbox } = useRetouch();
+  const listRef = useRef<HTMLDivElement>(null);
+  const finishedTasksRef = useRef<RetouchTask[]>([]);
+
+  const finishedTasks = tasks.filter(t => t.status === 'finished' && t.result_url);
+  finishedTasksRef.current = finishedTasks;
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const viewBtn = target.closest('[data-view-task]');
+      if (viewBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const taskId = viewBtn.getAttribute('data-view-task');
+        const ft = finishedTasksRef.current;
+        const idx = ft.findIndex(t => String(t.task_id || t.photo_id) === taskId);
+        if (idx >= 0) {
+          openRetouchLightbox(ft, idx);
+        }
+      }
+    };
+    el.addEventListener('click', handler, true);
+    return () => el.removeEventListener('click', handler, true);
+  }, [openRetouchLightbox]);
 
   if (tasks.length === 0) return null;
 
@@ -411,17 +436,8 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onOpenLightbox 
   const allDone = !isProcessing && activeCount === 0;
   const currentPhoto = tasks.find(t => t.status === 'started' || t.status === 'queued');
 
-  const finishedTasks = tasks.filter(t => t.status === 'finished' && t.result_url);
-
-  const openLightbox = (task: RetouchTask) => {
-    const idx = finishedTasks.findIndex(t => t.task_id === task.task_id);
-    if (idx >= 0 && onOpenLightbox) {
-      onOpenLightbox(finishedTasks, idx);
-    }
-  };
-
   return (
-      <div className="rounded-xl border bg-white/60 dark:bg-gray-900/60 p-3 sm:p-4 space-y-3 sm:space-y-4">
+      <div ref={listRef} className="rounded-xl border bg-white/60 dark:bg-gray-900/60 p-3 sm:p-4 space-y-3 sm:space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-1.5 sm:gap-2">
@@ -478,9 +494,7 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onOpenLightbox 
               className={`flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 px-2 sm:px-3 rounded-lg bg-white/50 dark:bg-gray-800/50 ${
                 task.status === 'finished' && task.result_url ? 'cursor-pointer hover:bg-white/80 dark:hover:bg-gray-700/60 transition-colors' : ''
               }`}
-              onClick={() => {
-                if (task.status === 'finished' && task.result_url) openLightbox(task);
-              }}
+              {...(task.status === 'finished' && task.result_url ? { 'data-view-task': String(task.task_id || task.photo_id) } : {})}
             >
               <div className="flex-shrink-0 w-4 sm:w-5">
                 {task.status === 'queued' && (
@@ -509,7 +523,7 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed, onOpenLightbox 
 
               {task.status === 'finished' && task.result_url && (
                 <button
-                  onClick={e => { e.stopPropagation(); openLightbox(task); }}
+                  data-view-task={String(task.task_id || task.photo_id)}
                   className="flex items-center gap-1 text-blue-600 hover:text-blue-700 active:text-blue-800 flex-shrink-0 text-[10px] sm:text-xs transition-colors py-0.5 px-1 rounded active:bg-blue-50 dark:active:bg-blue-950/30"
                 >
                   <Icon name="Eye" size={11} className="sm:w-3 sm:h-3" />
