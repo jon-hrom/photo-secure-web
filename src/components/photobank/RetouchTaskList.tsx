@@ -38,6 +38,7 @@ const RetouchLightbox = ({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [showBefore, setShowBefore] = useState(false);
+  const [wasDragged, setWasDragged] = useState(false);
 
   const zoomRef = useRef(zoom);
   const panRef = useRef(panOffset);
@@ -46,7 +47,6 @@ const RetouchLightbox = ({
   const pinchStartRef = useRef<number | null>(null);
   const pinchZoomStartRef = useRef(0);
   const lastTapRef = useRef(0);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { panRef.current = panOffset; }, [panOffset]);
@@ -80,27 +80,43 @@ const RetouchLightbox = ({
   }, [onClose, navigate]);
 
   useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    const originalPosition = document.body.style.position;
+    const originalWidth = document.body.style.width;
+    const scrollY = window.scrollY;
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = originalOverflow;
+      document.body.style.position = originalPosition;
+      document.body.style.width = originalWidth;
+      document.body.style.top = '';
+      window.scrollTo(0, scrollY);
     };
   }, []);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.15 : 0.15;
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
       setZoom(prev => {
-        if (prev === 0 && delta > 0) { setPanOffset({ x: 0, y: 0 }); return 1.0; }
-        const next = prev + delta;
-        if (next < 0.3) { setPanOffset({ x: 0, y: 0 }); return 0; }
-        return Math.min(4, next);
+        if (prev === 0 && delta > 0) {
+          setPanOffset({ x: 0, y: 0 });
+          return 1.1;
+        }
+        if (prev === 0 && delta < 0) return 0;
+        const newZoom = prev + delta;
+        if (newZoom < 0.5) {
+          setPanOffset({ x: 0, y: 0 });
+          return 0;
+        }
+        return Math.min(4, newZoom);
       });
     };
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
   }, []);
 
   const getTouchDist = (touches: React.TouchList) => {
@@ -170,7 +186,7 @@ const RetouchLightbox = ({
       if (now - lastTapRef.current < 350) {
         lastTapRef.current = 0;
         if (zoomRef.current === 0) {
-          setZoom(1.5);
+          setZoom(2.0);
           setPanOffset({ x: 0, y: 0 });
         } else {
           resetView();
@@ -197,23 +213,17 @@ const RetouchLightbox = ({
   }, [navigate, onClose, resetView]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setWasDragged(false);
     if (zoomRef.current > 0) {
       dragStartRef.current = { x: e.clientX, y: e.clientY, ox: panRef.current.x, oy: panRef.current.y };
       setIsDragging(true);
     }
   }, []);
 
-  const handleContainerClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isDragging) return;
-    if ((e.target as HTMLElement).closest('button')) return;
-    if (zoomRef.current > 0) {
-      resetView();
-    }
-  }, [isDragging, resetView]);
-
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (dragStartRef.current && zoomRef.current > 0) {
+      setWasDragged(true);
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
       setPanOffset({ x: dragStartRef.current.ox + dx, y: dragStartRef.current.oy + dy });
@@ -225,11 +235,14 @@ const RetouchLightbox = ({
     setIsDragging(false);
   }, []);
 
-  const handleImageClick = useCallback((e: React.MouseEvent) => {
+  const handleContainerClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
-    if (isDragging) return;
-  }, [isDragging]);
+    if (wasDragged) { setWasDragged(false); return; }
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (zoomRef.current > 0) {
+      resetView();
+    }
+  }, [wasDragged, resetView]);
 
   const handleDownload = async () => {
     if (!task?.result_url || downloading) return;
@@ -254,80 +267,76 @@ const RetouchLightbox = ({
 
   if (!task) return null;
 
-  const scale = zoom === 0 ? 1 : 1 + zoom;
+  const scale = 1 + zoom;
   const showNav = tasks.length > 1 && zoom === 0;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-black/95" style={{ touchAction: 'none', width: '100vw', height: '100vh' }} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-      <div ref={containerRef} className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
+    <div
+      className="fixed inset-0 z-[9999] bg-black/95"
+      style={{ touchAction: 'none' }}
+      onClick={e => e.stopPropagation()}
+      onMouseDown={e => e.stopPropagation()}
+      onPointerDown={e => e.stopPropagation()}
+    >
+      <div className="relative w-full h-full flex items-center justify-center" style={{ touchAction: 'none' }}>
 
           <div
-            className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-5 z-20"
-            style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-2 sm:px-4 z-50"
+            style={{ paddingTop: 'max(8px, env(safe-area-inset-top))' }}
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-white/60 text-xs sm:text-sm flex-shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <div className="text-white/80 text-xs sm:text-sm bg-black/30 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-full shrink-0">
                 {index + 1} / {tasks.length}
-              </span>
-              <span className="text-white text-xs sm:text-sm truncate max-w-[40vw]">
+              </div>
+              <div className="text-white/80 text-xs sm:text-sm bg-black/30 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-full truncate max-w-[120px] sm:max-w-xs">
                 {task.file_name || `Фото #${task.photo_id}`}
-              </span>
-              {zoom > 0 && (
-                <span className="text-white/50 text-xs flex-shrink-0">
-                  {Math.round(scale * 100)}%
-                </span>
-              )}
+              </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {zoom > 0 && (
+                <div className="text-white/80 text-xs sm:text-sm bg-black/30 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">
+                  {Math.round(scale * 100)}%
+                </div>
+              )}
               {originalUrl && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowBefore(v => !v); resetView(); }}
-                  className={`h-8 sm:h-9 flex items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
+                  className={`h-8 sm:h-9 flex items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors backdrop-blur-sm ${
                     showBefore
                       ? 'bg-white/25 text-white'
-                      : 'bg-white/10 text-white/80 hover:bg-white/15'
+                      : 'bg-white/10 text-white/80 hover:bg-white/20'
                   }`}
                 >
                   <Icon name="ArrowLeftRight" size={14} />
                   <span>{showBefore ? 'До' : 'После'}</span>
                 </button>
               )}
-              {zoom > 0 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); resetView(); }}
-                  className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
-                  title="Сбросить масштаб"
-                >
-                  <Icon name="Minimize2" size={18} />
-                </button>
-              )}
               <button
                 onClick={(e) => { e.stopPropagation(); handleDownload(); }}
                 disabled={downloading}
-                className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
+                className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 h-10 sm:h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 px-2 sm:px-2.5 hover:scale-110 active:scale-95"
                 title="Скачать"
               >
                 {downloading ? (
-                  <Icon name="Loader2" size={20} className="animate-spin" />
+                  <Icon name="Loader2" size={16} className="text-white animate-spin" />
                 ) : (
-                  <Icon name="Download" size={20} />
+                  <Icon name="Download" size={16} className="text-white" />
                 )}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/25 transition-colors"
+                className="w-10 h-10 sm:w-8 sm:h-8 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
               >
-                <Icon name="X" size={22} />
+                <Icon name="X" size={20} className="text-white" />
               </button>
             </div>
           </div>
 
           <div
-            className="w-full h-full flex items-center justify-center overflow-hidden"
+            className="relative w-full h-full flex items-center justify-center overflow-auto"
             style={{
-              cursor: zoom === 0 ? 'default' : (isDragging ? 'grabbing' : 'grab'),
+              cursor: zoom === 0 ? 'zoom-in' : (isDragging ? 'grabbing' : 'grab'),
               touchAction: 'none',
-              padding: '52px 0 max(8px, env(safe-area-inset-bottom))',
             }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -338,18 +347,37 @@ const RetouchLightbox = ({
             onMouseLeave={handleMouseUp}
             onClick={handleContainerClick}
           >
-            <img
-              src={showBefore ? originalUrl : task.result_url}
-              alt={task.file_name || ''}
-              className="object-contain select-none pointer-events-none"
-              style={{
-                maxWidth: '90vw',
-                maxHeight: '85vh',
-                transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
-                transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-              }}
-              draggable={false}
-            />
+            {zoom === 0 && (
+              <img
+                src={showBefore ? originalUrl : task.result_url}
+                alt={task.file_name || ''}
+                className="object-contain select-none touch-manipulation absolute inset-0"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  touchAction: 'none',
+                  pointerEvents: 'none',
+                }}
+                draggable={false}
+              />
+            )}
+
+            {zoom > 0 && (
+              <img
+                src={showBefore ? originalUrl : task.result_url}
+                alt={task.file_name || ''}
+                className="object-contain select-none touch-manipulation absolute inset-0"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  transform: `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)`,
+                  transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                  touchAction: 'none',
+                  pointerEvents: 'none',
+                }}
+                draggable={false}
+              />
+            )}
           </div>
 
           {showBefore && originalUrl && zoom === 0 && (
@@ -361,35 +389,24 @@ const RetouchLightbox = ({
             </div>
           )}
 
-          {zoom > 0 && (
-            <button
-              onClick={resetView}
-              className="absolute left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-5 py-2.5 rounded-full bg-black/70 backdrop-blur-sm text-white text-sm font-medium active:bg-black/90 transition-colors"
-              style={{ bottom: 'max(20px, env(safe-area-inset-bottom))' }}
-            >
-              <Icon name="Minimize2" size={16} />
-              Уменьшить
-            </button>
-          )}
-
           {showNav && (
             <>
               <button
-                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm z-10"
+                className="absolute left-1 sm:left-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 min-w-[44px] min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
                 onClick={() => navigate('prev')}
               >
-                <Icon name="ChevronLeft" size={28} />
+                <Icon name="ChevronLeft" size={24} className="text-white" />
               </button>
               <button
-                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 active:bg-black/80 text-white transition-colors backdrop-blur-sm z-10"
+                className="absolute right-1 sm:right-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 min-w-[44px] min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
                 onClick={() => navigate('next')}
               >
-                <Icon name="ChevronRight" size={28} />
+                <Icon name="ChevronRight" size={24} className="text-white" />
               </button>
             </>
           )}
         </div>
-      </div>,
+    </div>,
     document.body
   );
 };
