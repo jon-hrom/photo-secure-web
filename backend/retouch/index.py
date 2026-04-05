@@ -29,8 +29,8 @@ POLL_INTERVAL = 3
 POLL_TIMEOUT = 120
 
 DEFAULT_PIPELINE = [
-    {"op": "advanced_spots", "strength": 2.0},
-    {"op": "lama_inpaint", "dilate": 24, "strength": 1.0}
+    {"op": "blackheads", "strength": 1.0, "thr_q": 85, "thr_min": 4, "max_area": 2000, "dilate_spots": 3, "inpaint_radius": 2, "mask": {"dilate_px": 6, "blur_sigma": 1.0, "skin_erode_px": 10}, "exclude": {"exclude_nose": False}},
+    {"op": "lama_inpaint", "dilate": 20, "use_exclude": True}
 ]
 
 
