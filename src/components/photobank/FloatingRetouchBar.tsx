@@ -20,6 +20,7 @@ const FloatingRetouchBar = () => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxTasks, setLightboxTasks] = useState<RetouchTask[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const lightboxOpenRef = useRef(false);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
   const wasDraggedRef = useRef(false);
@@ -80,7 +81,7 @@ const FloatingRetouchBar = () => {
   };
 
   const handleDialogClose = (newOpen: boolean) => {
-    if (!newOpen && !lightboxOpen) {
+    if (!newOpen && !lightboxOpenRef.current) {
       setShowDialog(false);
     }
   };
@@ -101,12 +102,14 @@ const FloatingRetouchBar = () => {
   };
 
   const handleOpenLightbox = useCallback((finishedTasks: RetouchTask[], startIndex: number) => {
+    lightboxOpenRef.current = true;
     setLightboxTasks(finishedTasks);
     setLightboxIndex(startIndex);
     setLightboxOpen(true);
   }, []);
 
   const handleCloseLightbox = useCallback(() => {
+    lightboxOpenRef.current = false;
     setLightboxOpen(false);
   }, []);
 
