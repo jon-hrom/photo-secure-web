@@ -30,7 +30,7 @@ POLL_TIMEOUT = 120
 
 DEFAULT_PIPELINE = [
     {"op": "blackheads", "strength": 1.0, "thr_q": 92, "thr_min": 8, "max_area": 900, "dilate_spots": 1, "inpaint_radius": 3, "mask": {"max_det_side": 3000, "dilate_px": 6, "blur_sigma": 1.0, "skin_erode_px": 10}, "exclude": {"exclude_nose": True}, "mask_only": True},
-    {"op": "lama_inpaint", "dilate": 24, "blur": 1.2, "use_exclude": false}
+    {"op": "lama_inpaint", "dilate": 24, "blur": 1.2, "use_exclude": False}
 ]
 
 
@@ -677,7 +677,7 @@ def _handle_create(event, conn, user_id):
     out_key = _build_out_key(in_key)
     out_prefix = out_key.rsplit("/", 1)[0] + "/" if "/" in out_key else "retouch/"
 
-    pipeline = _load_pipeline(conn, 'debug_test')
+    pipeline = _load_pipeline(conn, 'skin_spots_strong')
     if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
         pipeline = DEFAULT_PIPELINE
     print(f"[RETOUCH] Pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
