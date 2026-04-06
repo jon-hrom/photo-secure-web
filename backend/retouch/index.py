@@ -30,7 +30,7 @@ POLL_TIMEOUT = 120
 
 DEFAULT_PIPELINE = [
     {"op": "blackheads", "strength": 1.0, "thr_q": 92, "thr_min": 8, "max_area": 900, "dilate_spots": 1, "inpaint_radius": 3, "mask": {"max_det_side": 3000, "dilate_px": 6, "blur_sigma": 1.0, "skin_erode_px": 10}, "exclude": {"exclude_nose": True}, "mask_only": True},
-    {"op": "lama_inpaint", "dilate": 56, "blur": 1.8, "use_exclude": true}
+    {"op": "lama_inpaint", "dilate": 56, "blur": 1.8, "use_exclude": True}
 ]
 
 
@@ -160,7 +160,6 @@ def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
         "out_bucket": S3_BUCKET,
         "out_prefix": out_prefix,
         "pipeline": pipeline,
-        "debug": True,
     }
     if out_key:
         body_data["out_key"] = out_key
@@ -168,6 +167,7 @@ def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
     headers = _retouch_api_headers("POST", "/v1/retouch", body_str)
 
     print(f"[RETOUCH API] POST /v1/retouch  in_key={in_key}  out_prefix={out_prefix}  out_key={out_key}")
+    print(f"[RETOUCH API] Full body: {body_str[:2000]}")
     r = requests.post(
         f"{RETOUCH_API_URL}/v1/retouch",
         data=body_str.encode("utf-8"),
