@@ -22,7 +22,7 @@ from PIL import Image
 S3_BUCKET = "foto-mix"
 RETOUCH_API_URL = "https://retouch.foto-mix.ru"
 HMAC_SECRET = os.environ.get("HMAC_SECRET_FOTO_MIX", "")
-HMAC_CLIENT_ID = "foto-mix"
+HMAC_CLIENT_ID = os.environ.get("HMAC_CLIENT_ID", "foto-mix")
 
 MAX_ACTIVE_TASKS_PER_USER = 10
 POLL_INTERVAL = 3
@@ -168,8 +168,8 @@ def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
     headers = _retouch_api_headers("POST", "/v1/retouch", body_str)
 
     print(f"[RETOUCH API] POST /v1/retouch  in_key={in_key}  out_prefix={out_prefix}  out_key={out_key}")
-    print(f"[RETOUCH API] Request body: {body_str[:1000]}")
-    print(f"[RETOUCH API] Request headers: {json.dumps({k: v for k, v in headers.items() if k != 'X-Signature'})}")
+    print(f"[RETOUCH API] Request body length: {len(body_str)}, has pipeline: {'pipeline' in body_str}")
+    print(f"[RETOUCH API] HMAC_CLIENT_ID={HMAC_CLIENT_ID}, HMAC_SECRET set={bool(HMAC_SECRET)}, HMAC_SECRET len={len(HMAC_SECRET)}")
     r = requests.post(
         f"{RETOUCH_API_URL}/v1/retouch",
         data=body_str.encode("utf-8"),
