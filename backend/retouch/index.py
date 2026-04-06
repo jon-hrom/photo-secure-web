@@ -168,6 +168,8 @@ def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
     headers = _retouch_api_headers("POST", "/v1/retouch", body_str)
 
     print(f"[RETOUCH API] POST /v1/retouch  in_key={in_key}  out_prefix={out_prefix}  out_key={out_key}")
+    print(f"[RETOUCH API] Request body: {body_str[:1000]}")
+    print(f"[RETOUCH API] Request headers: {json.dumps({k: v for k, v in headers.items() if k != 'X-Signature'})}")
     r = requests.post(
         f"{RETOUCH_API_URL}/v1/retouch",
         data=body_str.encode("utf-8"),
