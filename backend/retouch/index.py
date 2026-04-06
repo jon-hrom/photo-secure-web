@@ -2,7 +2,7 @@ import json
 import os
 import io
 import time
-import uuid  # force redeploy to pick up new secrets
+import uuid
 import hashlib
 import hmac as hmac_mod
 import secrets as secrets_mod
