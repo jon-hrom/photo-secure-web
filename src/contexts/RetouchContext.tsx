@@ -327,7 +327,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
           'Content-Type': 'application/json',
           'X-User-Id': sessionRef.current.userId
         },
-        body: JSON.stringify({ photo_id: photoId })
+        body: JSON.stringify({ photo_id: photoId, preset: 'preview' })
       });
       if (res.status === 429 && retriesLeft > 0) {
         console.log(`[RETOUCH] Queue full for photo ${photoId}, waiting 10s before retry...`);

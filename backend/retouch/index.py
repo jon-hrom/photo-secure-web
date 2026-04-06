@@ -677,10 +677,12 @@ def _handle_create(event, conn, user_id):
     out_key = _build_out_key(in_key)
     out_prefix = out_key.rsplit("/", 1)[0] + "/" if "/" in out_key else "retouch/"
 
-    pipeline = _load_pipeline(conn, 'skin_spots_strong')
+    preset_name = body.get('preset', 'default')
+    pipeline = _load_pipeline(conn, preset_name)
     if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
         pipeline = DEFAULT_PIPELINE
-    print(f"[RETOUCH] Pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
+    print(f"[RETOUCH] Using preset='{preset_name}' Pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
+    print(f"[RETOUCH] Full pipeline: {json.dumps(pipeline, default=str)[:1000]}")
     print(f"[RETOUCH] in_key={in_key}  out_key={out_key}  out_prefix={out_prefix}")
 
     # --- submit task to Retouch API ---
