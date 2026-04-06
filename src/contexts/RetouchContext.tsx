@@ -92,18 +92,32 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const totalBatchSize = totalBatchSizeRef.current > tasks.length ? totalBatchSizeRef.current : tasks.length;
 
   const [fakeProgress, setFakeProgress] = useState(0);
+  const fakeActiveRef = useRef(false);
+  const fakeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const hasStartedNoId = tasks.some(t => t.status === 'started' && !t.task_id);
-    if (!hasStartedNoId) {
+    if (hasStartedNoId && !fakeActiveRef.current) {
+      fakeActiveRef.current = true;
+      setFakeProgress(5);
+      if (fakeIntervalRef.current) clearInterval(fakeIntervalRef.current);
+      fakeIntervalRef.current = setInterval(() => {
+        setFakeProgress(prev => prev < 85 ? prev + 2 : prev);
+      }, 1000);
+    } else if (!hasStartedNoId && fakeActiveRef.current) {
+      fakeActiveRef.current = false;
+      if (fakeIntervalRef.current) {
+        clearInterval(fakeIntervalRef.current);
+        fakeIntervalRef.current = null;
+      }
       setFakeProgress(0);
-      return;
     }
-    setFakeProgress(5);
-    const interval = setInterval(() => {
-      setFakeProgress(prev => prev < 85 ? prev + 2 : prev);
-    }, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      if (!fakeActiveRef.current && fakeIntervalRef.current) {
+        clearInterval(fakeIntervalRef.current);
+        fakeIntervalRef.current = null;
+      }
+    };
   }, [tasks]);
 
   const totalProgress = (() => {
@@ -187,7 +201,9 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
             pollStartTimeRef.current[t.task_id] = Date.now();
           }
           const elapsed = (Date.now() - pollStartTimeRef.current[t.task_id]) / 1000;
-          progress = Math.min(90, Math.round((elapsed / 45) * 80) + 10);
+          const fast = Math.min(80, Math.round((elapsed / 30) * 80));
+          const slow = elapsed > 30 ? Math.min(18, Math.round((elapsed - 30) / 60 * 18)) : 0;
+          progress = Math.min(98, 10 + fast + slow);
         } else if (remote.status === 'queued') {
           progress = 5;
         }
