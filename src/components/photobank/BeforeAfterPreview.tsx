@@ -8,6 +8,7 @@ interface BeforeAfterPreviewProps {
 }
 
 const BeforeAfterPreview = ({ src, filterStr, retouchedSrc }: BeforeAfterPreviewProps) => {
+  console.log('[BEFORE_AFTER] src:', src?.substring(0, 80), 'retouchedSrc:', retouchedSrc?.substring(0, 80));
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
   const [imgState, setImgState] = useState<'loading' | 'loaded' | 'error'>('loading');
@@ -106,8 +107,8 @@ const BeforeAfterPreview = ({ src, filterStr, retouchedSrc }: BeforeAfterPreview
             className={`absolute inset-0 ${imgClass} ${afterLoaded ? '' : 'hidden'}`}
             style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}
             draggable={false}
-            onLoad={() => setAfterState('loaded')}
-            onError={() => setAfterState('error')}
+            onLoad={() => { console.log('[BEFORE_AFTER] After image LOADED'); setAfterState('loaded'); }}
+            onError={() => { console.error('[BEFORE_AFTER] After image ERROR, url:', retouchedSrc); setAfterState('error'); }}
           />
           {!afterLoaded && afterState === 'loading' && (
             <img

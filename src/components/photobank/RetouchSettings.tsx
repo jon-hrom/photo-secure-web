@@ -186,6 +186,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
         if (data.status === 'finished' && data.result_url) {
           if (pollRef.current) clearInterval(pollRef.current);
+          console.log('[RETOUCH] result_url:', data.result_url);
           setRetouchedUrl(data.result_url);
           setTestingRetouch(false);
         } else if (data.status === 'failed' || data.status === 'error') {
