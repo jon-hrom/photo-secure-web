@@ -30,7 +30,7 @@ POLL_TIMEOUT = 120
 
 DEFAULT_PIPELINE = [
     {"op": "blackheads", "strength": 3.0, "thr_q": 55, "thr_min": 2, "max_area": 8000, "dilate_spots": 5, "inpaint_radius": 2, "mask": {"max_det_side": 3000, "dilate_px": 6, "blur_sigma": 1.0, "skin_erode_px": 10}, "exclude": {"exclude_nose": True}, "mask_only": True},
-    {"op": "lama_inpaint", "dilate": 5, "blur": 1.0, "use_exclude": True}
+    {"op": "lama_inpaint", "dilate": 4, "blur": 1.0, "use_exclude": True}
 ]
 
 
