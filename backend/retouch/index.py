@@ -168,9 +168,6 @@ def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
     headers = _retouch_api_headers("POST", "/v1/retouch", body_str)
 
     print(f"[RETOUCH API] POST /v1/retouch  in_key={in_key}  out_prefix={out_prefix}  out_key={out_key}")
-    print(f"[RETOUCH API] Request body length: {len(body_str)}, has pipeline: {'pipeline' in body_str}")
-    print(f"[RETOUCH API] HMAC_CLIENT_ID={HMAC_CLIENT_ID}, HMAC_SECRET prefix={HMAC_SECRET[:8]}..., len={len(HMAC_SECRET)}")
-    print(f"[RETOUCH API] HMAC msg preview: POST\\n/v1/retouch\\n{headers.get('X-Timestamp','')}\\n{headers.get('X-Nonce','')[:8]}...\\n<body {len(body_str)} chars>")
     r = requests.post(
         f"{RETOUCH_API_URL}/v1/retouch",
         data=body_str.encode("utf-8"),
@@ -178,19 +175,6 @@ def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
         timeout=(10, 30),
     )
     print(f"[RETOUCH API] Response: status={r.status_code} body={r.text[:500]}")
-
-    if r.status_code in (400, 401, 403):
-        print(f"[RETOUCH API] HMAC failed, trying without signature...")
-        plain_headers = {"Content-Type": "application/json"}
-        r2 = requests.post(
-            f"{RETOUCH_API_URL}/v1/retouch",
-            data=body_str.encode("utf-8"),
-            headers=plain_headers,
-            timeout=(10, 30),
-        )
-        print(f"[RETOUCH API] Plain response: status={r2.status_code} body={r2.text[:500]}")
-        if r2.status_code in (200, 201):
-            r = r2
 
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Retouch API error {r.status_code}: {r.text[:300]}")
