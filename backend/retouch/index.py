@@ -677,7 +677,7 @@ def _handle_create(event, conn, user_id):
     out_key = _build_out_key(in_key)
     out_prefix = out_key.rsplit("/", 1)[0] + "/" if "/" in out_key else "retouch/"
 
-    pipeline = _load_pipeline(conn, 'debug_test')
+    pipeline = _load_pipeline(conn, 'default')
     if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
         pipeline = DEFAULT_PIPELINE
     print(f"[RETOUCH] Pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
