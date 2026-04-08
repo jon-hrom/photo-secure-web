@@ -240,9 +240,10 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     img.src = backgroundImage;
   }, [backgroundImage, backgroundVideo]);
 
-  // На мобильных устройствах: если есть мобильная картинка, показываем её вместо видео
-  const shouldShowMobileImage = isMobile && mobileBackgroundImage;
-  const effectiveBackgroundVideo = shouldShowMobileImage ? null : backgroundVideo;
+  // На мобильных: используем мобильное видео если есть, иначе основное видео
+  const effectiveBackgroundVideo = isMobile ? (mobileVideo || backgroundVideo) : backgroundVideo;
+  // Мобильная картинка — только если нет видео вообще
+  const shouldShowMobileImage = isMobile && mobileBackgroundImage && !effectiveBackgroundVideo;
 
   return (
     <>
