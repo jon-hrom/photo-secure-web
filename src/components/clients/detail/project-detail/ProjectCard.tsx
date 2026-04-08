@@ -9,6 +9,7 @@ import { ShootingStyleSelector } from '@/components/clients/dialog/ShootingStyle
 import { getShootingStyles } from '@/data/shootingStyles';
 import { getUserTimezoneShort } from '@/utils/regionTimezone';
 import DurationSelect from './DurationSelect';
+import { useState, useRef, useEffect } from 'react';
 
 interface ProjectCardProps {
   project: Project;
@@ -45,6 +46,31 @@ const ProjectCard = ({
   onTouchStart,
   onTouchEnd,
 }: ProjectCardProps) => {
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [budgetValue, setBudgetValue] = useState(String(project.budget));
+  const budgetInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setBudgetValue(String(project.budget));
+  }, [project.budget]);
+
+  useEffect(() => {
+    if (isEditingBudget && budgetInputRef.current) {
+      budgetInputRef.current.focus();
+      budgetInputRef.current.select();
+    }
+  }, [isEditingBudget]);
+
+  const handleBudgetSave = () => {
+    const parsed = parseFloat(budgetValue);
+    if (!isNaN(parsed) && parsed >= 0 && parsed !== project.budget) {
+      onUpdateProject({ budget: parsed });
+    } else {
+      setBudgetValue(String(project.budget));
+    }
+    setIsEditingBudget(false);
+  };
+
   return (
     <Card
       key={`project-card-${project.id}-${project.shootingStyleId || 'none'}`}
@@ -74,7 +100,32 @@ const ProjectCard = ({
             {isExpanded && (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm">
-                  <span className="text-muted-foreground">Бюджет: <span className="font-medium text-foreground">{project.budget.toLocaleString('ru-RU')} ₽</span></span>
+                  <span className="text-muted-foreground">Бюджет: {isEditingBudget ? (
+                    <input
+                      ref={budgetInputRef}
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={budgetValue}
+                      onChange={(e) => setBudgetValue(e.target.value)}
+                      onBlur={handleBudgetSave}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleBudgetSave();
+                        if (e.key === 'Escape') {
+                          setBudgetValue(String(project.budget));
+                          setIsEditingBudget(false);
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-block w-28 h-6 px-1.5 text-xs font-medium border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  ) : (
+                    <span
+                      className="font-medium text-foreground cursor-pointer hover:underline decoration-dashed underline-offset-2"
+                      onClick={(e) => { e.stopPropagation(); setIsEditingBudget(true); }}
+                      title="Нажмите для изменения бюджета"
+                    >{project.budget.toLocaleString('ru-RU')} ₽</span>
+                  )}</span>
                   <span className="text-muted-foreground">Оплачено: <span key={`paid-${project.id}-${animateKey}`} className="font-medium text-green-600 dark:text-green-400 inline-block animate-in fade-in zoom-in-50 duration-500">{projectPaid.toLocaleString('ru-RU')} ₽</span></span>
                   <span className="text-muted-foreground">Осталось: <span key={`remaining-${project.id}-${animateKey}`} className="font-medium text-orange-600 dark:text-orange-400 inline-block animate-in fade-in zoom-in-50 duration-500">{projectRemaining.toLocaleString('ru-RU')} ₽</span></span>
                 </div>
