@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface LoginBackgroundProps {
   backgroundImage: string | null;
@@ -15,8 +15,34 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
   const videoRef = useRef<HTMLVideoElement>(null);
   const [fadeOpacity, setFadeOpacity] = useState(0);
   const animationFrameRef = useRef<number | null>(null);
+  const videoPlayAttemptedRef = useRef(false);
   const API_URL = 'https://functions.poehali.dev/e14599a3-7e42-421d-b200-7e41d0291ad7';
   const SETTINGS_API = 'https://functions.poehali.dev/27bedb10-0577-4edb-87c8-23b5c01de71c';
+
+  const tryPlayVideo = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play().then(() => {
+        console.log('[LOGIN_BG] Video play started');
+      }).catch((e) => {
+        console.warn('[LOGIN_BG] Video play failed:', e.message);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleInteraction = () => {
+      tryPlayVideo();
+      videoPlayAttemptedRef.current = true;
+    };
+    document.addEventListener('touchstart', handleInteraction, { once: true });
+    document.addEventListener('click', handleInteraction, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('click', handleInteraction);
+    };
+  }, [tryPlayVideo]);
 
   // Определяем мобильное устройство
   useEffect(() => {
@@ -177,7 +203,25 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
     return () => window.removeEventListener('backgroundVideoChange', handleVideoChange);
   }, [API_URL]);
 
-  // Плавная анимация fade через requestAnimationFrame
+  useEffect(() => {
+    if (!backgroundVideo) return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.setAttribute('webkit-playsinline', 'true');
+    video.setAttribute('x5-playsinline', 'true');
+    video.setAttribute('x5-video-player-type', 'h5');
+    video.load();
+    tryPlayVideo();
+    const retryInterval = setInterval(() => {
+      if (video.paused) {
+        tryPlayVideo();
+      } else {
+        clearInterval(retryInterval);
+      }
+    }, 1000);
+    return () => clearInterval(retryInterval);
+  }, [backgroundVideo, tryPlayVideo]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !backgroundVideo) return;
@@ -280,18 +324,20 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
             loop
             muted
             playsInline
-            preload="metadata"
+            preload="auto"
+            src={effectiveBackgroundVideo}
             className="fixed inset-0 w-full h-full object-cover"
             style={{ 
               zIndex: 0,
               filter: 'saturate(1.3) contrast(1.1)'
             }}
+            onCanPlay={() => {
+              console.log('[LOGIN_BG] Video canPlay');
+              tryPlayVideo();
+            }}
             onLoadedData={() => {
-              console.log('[LOGIN_BG] Video loaded');
-              const video = videoRef.current;
-              if (video) {
-                video.play().catch(() => {});
-              }
+              console.log('[LOGIN_BG] Video loadedData');
+              tryPlayVideo();
             }}
             onError={async () => {
               console.error('[LOGIN_BG] Video URL expired, refreshing from S3...');
@@ -316,13 +362,7 @@ const LoginBackground = ({ backgroundImage, backgroundOpacity }: LoginBackground
               setBackgroundVideo(null);
               setMobileVideo(null);
             }}
-          >
-            {effectiveBackgroundVideo?.includes('.webm') ? (
-              <source src={effectiveBackgroundVideo} type="video/webm" />
-            ) : (
-              <source src={effectiveBackgroundVideo} type="video/mp4" />
-            )}
-          </video>
+          />
           
           {/* Fade-слой для плавного перехода */}
           <div 
