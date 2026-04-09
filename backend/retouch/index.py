@@ -1,12 +1,9 @@
-# v2 - use preset from request body
 import json
 import os
 import io
+import base64
 import time
 import uuid
-import hashlib
-import hmac as hmac_mod
-import secrets as secrets_mod
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -16,28 +13,14 @@ from botocore.client import Config
 from PIL import Image
 
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
 S3_BUCKET = "foto-mix"
-RETOUCH_API_URL = "https://retouch.foto-mix.ru"
-HMAC_SECRET = os.environ.get("HMAC_SECRET_FOTO_MIX", "")
-HMAC_CLIENT_ID = "foto-mix"
-
+RETOUCH_API_URL = "https://io.foto-mix.ru/api/v2/retouch"
+RETOUCH_BASIC_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
+RETOUCH_BASIC_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
 MAX_ACTIVE_TASKS_PER_USER = 10
-POLL_INTERVAL = 3
-POLL_TIMEOUT = 120
+DEFAULT_STRENGTH = 0.6
+DEFAULT_ENHANCE_FACE = False
 
-DEFAULT_PIPELINE = [
-    {"op": "blackheads", "strength": 1.0, "thr_q": 92, "thr_min": 8, "max_area": 900, "dilate_spots": 1, "inpaint_radius": 3, "mask": {"max_det_side": 3000, "dilate_px": 6, "blur_sigma": 1.0, "skin_erode_px": 10}, "exclude": {"exclude_nose": True}, "mask_only": True},
-    {"op": "lama_inpaint", "dilate": 72, "blur": 2.0, "strength": 1.0, "use_exclude": True}
-]
-
-
-# ---------------------------------------------------------------------------
-# S3 helpers
-# ---------------------------------------------------------------------------
 
 def _get_s3_client():
     return boto3.client(
@@ -58,10 +41,6 @@ def _presigned_url(s3_key):
     )
 
 
-# ---------------------------------------------------------------------------
-# HTTP response helpers
-# ---------------------------------------------------------------------------
-
 def _cors_headers():
     return {
         'Access-Control-Allow-Origin': '*',
@@ -80,268 +59,67 @@ def _response(status_code, body):
     }
 
 
-# ---------------------------------------------------------------------------
-# HMAC auth for Retouch API
-# ---------------------------------------------------------------------------
-
-def _retouch_api_headers(method="POST", path="/v1/retouch", body_str=""):
-    hdrs = {"Content-Type": "application/json"}
-    if HMAC_SECRET:
-        ts = str(int(time.time()))
-        nonce = secrets_mod.token_hex(16)
-        msg = f"{method}\n{path}\n{ts}\n{nonce}\n{body_str}"
-        sig = hmac_mod.new(HMAC_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
-        hdrs["X-Client-Id"] = HMAC_CLIENT_ID
-        hdrs["X-Timestamp"] = ts
-        hdrs["X-Nonce"] = nonce
-        hdrs["X-Signature"] = sig
-    return hdrs
-
-
-# ---------------------------------------------------------------------------
-# Pipeline / settings helpers
-# ---------------------------------------------------------------------------
-
-def _load_pipeline(conn, preset_name='default'):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute(
-            'SELECT pipeline_json FROM retouch_presets WHERE name = %s LIMIT 1',
-            (preset_name,)
-        )
-        row = cur.fetchone()
-    if row and row['pipeline_json']:
-        pipeline = row['pipeline_json']
-        if isinstance(pipeline, str):
-            pipeline = json.loads(pipeline)
-        if isinstance(pipeline, list) and len(pipeline) > 0:
-            if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
-                if 'ai_plugins' in pipeline[0]:
-                    return pipeline
-                return DEFAULT_PIPELINE
-            return pipeline
-    return DEFAULT_PIPELINE
-
-
-def _get_setting(conn, key, default='20'):
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT value FROM retouch_settings WHERE key = %s LIMIT 1", (key,))
-            row = cur.fetchone()
-            return row['value'] if row else default
-    except Exception:
-        return default
-
-
-def _get_ldm_steps(conn):
-    val = _get_setting(conn, 'ldm_steps', '20')
-    try:
-        steps = int(val)
-        return max(1, min(50, steps))
-    except (ValueError, TypeError):
-        return 20
-
-
-# ---------------------------------------------------------------------------
-# Retouch API interaction
-# ---------------------------------------------------------------------------
-
 def _build_out_key(in_key):
-    """photobank/12/222/file.jpg -> photobank/12/222/retouch/file.jpg"""
     parts = in_key.rsplit("/", 1)
     if len(parts) == 2:
         return f"{parts[0]}/retouch/{parts[1]}"
     return f"retouch/{in_key}"
 
 
-def _submit_retouch_task(in_key, out_prefix, pipeline, out_key=None):
-    """POST /v1/retouch -- create a new retouch task on the API server."""
-    body_data = {
-        "in_bucket": S3_BUCKET,
-        "in_key": in_key,
-        "out_bucket": S3_BUCKET,
-        "out_prefix": out_prefix,
-        "pipeline": pipeline,
-    }
-    if out_key:
-        body_data["out_key"] = out_key
-    body_str = json.dumps(body_data, separators=(",", ":"), ensure_ascii=False)
-    headers = _retouch_api_headers("POST", "/v1/retouch", body_str)
+def _load_retouch_settings(conn):
+    """Загрузить настройки ретуши из retouch_presets."""
+    strength = DEFAULT_STRENGTH
+    enhance_face = DEFAULT_ENHANCE_FACE
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT pipeline_json FROM retouch_presets WHERE name = 'default' LIMIT 1")
+            row = cur.fetchone()
+            if row and row['pipeline_json']:
+                pipeline = row['pipeline_json']
+                if isinstance(pipeline, str):
+                    pipeline = json.loads(pipeline)
+                if isinstance(pipeline, list) and len(pipeline) > 0:
+                    first = pipeline[0]
+                    if isinstance(first, dict):
+                        strength = first.get('strength', DEFAULT_STRENGTH)
+                        enhance_face = first.get('enhance_face', DEFAULT_ENHANCE_FACE)
+    except Exception as e:
+        print(f"[RETOUCH] Failed to load preset settings: {e}")
+    return strength, enhance_face
 
-    print(f"[RETOUCH API] POST /v1/retouch  in_key={in_key}  out_prefix={out_prefix}  out_key={out_key}")
-    print(f"[RETOUCH API] Full body: {body_str[:2000]}")
-    r = requests.post(
-        f"{RETOUCH_API_URL}/v1/retouch",
-        data=body_str.encode("utf-8"),
-        headers=headers,
-        timeout=(10, 30),
+
+def _call_retouch_api(image_base64, strength=0.6, enhance_face=False):
+    """Отправить фото на io.foto-mix.ru и получить результат."""
+    auth_str = base64.b64encode(f"{RETOUCH_BASIC_USER}:{RETOUCH_BASIC_PASS}".encode()).decode()
+
+    print(f"[RETOUCH] Sending to API: strength={strength}, enhance_face={enhance_face}, image_size={len(image_base64)} chars")
+
+    resp = requests.post(
+        RETOUCH_API_URL,
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Basic {auth_str}'
+        },
+        json={
+            'image': image_base64,
+            'strength': strength,
+            'enhance_face': enhance_face
+        },
+        timeout=(30, 300)
     )
-    print(f"[RETOUCH API] Response: status={r.status_code} body={r.text[:500]}")
 
-    if r.status_code not in (200, 201):
-        raise RuntimeError(f"Retouch API error {r.status_code}: {r.text[:300]}")
-
-    data = r.json()
-    task_id = data.get("task_id") or data.get("id")
-    if not task_id:
-        raise RuntimeError(f"No task_id in response: {r.text[:300]}")
-
-    return task_id, data.get("status", "queued")
-
-
-def _poll_retouch_task(task_id, timeout=POLL_TIMEOUT, interval=POLL_INTERVAL):
-    """GET /v1/tasks/{task_id} -- poll until terminal status or timeout."""
-    path = f"/v1/tasks/{task_id}"
-    deadline = time.time() + timeout
-    last_status = "queued"
-
-    while time.time() < deadline:
-        headers = _retouch_api_headers("GET", path, "")
+    if resp.status_code == 200:
+        content_type = resp.headers.get('Content-Type', '')
+        print(f"[RETOUCH] API returned {len(resp.content)} bytes, content-type: {content_type}")
+        return resp.content
+    else:
         try:
-            r = requests.get(
-                f"{RETOUCH_API_URL}{path}",
-                headers=headers,
-                timeout=(5, 15),
-            )
-        except requests.RequestException as e:
-            print(f"[RETOUCH API] Poll error: {e}")
-            time.sleep(interval)
-            continue
-
-        if r.status_code != 200:
-            print(f"[RETOUCH API] Poll non-200: {r.status_code} {r.text[:200]}")
-            time.sleep(interval)
-            continue
-
-        data = r.json()
-        last_status = data.get("status", last_status)
-        print(f"[RETOUCH API] Poll task={task_id} status={last_status}")
-
-        if last_status not in ("queued", "processing"):
-            return data
-
-        time.sleep(interval)
-
-    return {"status": last_status, "error": "Timeout waiting for task to complete"}
-
-
-# ---------------------------------------------------------------------------
-# Probe / check endpoints
-# ---------------------------------------------------------------------------
-
-def _check_plugins_available():
-    """Check that the Retouch API is reachable."""
-    try:
-        r = requests.get(f"{RETOUCH_API_URL}/health", timeout=10)
-        api_ok = r.status_code == 200
-    except Exception as e:
-        api_ok = False
-
-    return {
-        "retouch_api": {
-            "available": api_ok,
-            "label": "Retouch API (retouch.foto-mix.ru)",
-            "url": RETOUCH_API_URL,
-        }
-    }
-
-
-def _try_client_id(client_id, body_str):
-    ts = str(int(time.time()))
-    nonce = secrets_mod.token_hex(16)
-    msg = f"POST\n/v1/retouch\n{ts}\n{nonce}\n{body_str}"
-    sig = hmac_mod.new(HMAC_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
-    hdrs = {
-        "Content-Type": "application/json",
-        "X-Client-Id": client_id,
-        "X-Timestamp": ts,
-        "X-Nonce": nonce,
-        "X-Signature": sig,
-    }
-    try:
-        r = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_str.encode(), headers=hdrs, timeout=15)
-        return {"status": r.status_code, "body": r.text[:500]}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def _probe_retouch_api():
-    results = {}
-    try:
-        r = requests.get(f"{RETOUCH_API_URL}/health", timeout=10)
-        results["health"] = {"status": r.status_code, "body": r.text[:500]}
-    except Exception as e:
-        results["health"] = {"error": str(e)}
-
-    test_key = "photobank/12/222/8ddc92c3-ef32-4694-8e5b-d61bc05be36d.jpg"
-
-    pipelines_to_test = {
-        "blackheads_lama": [
-            {"op": "blackheads", "strength": 0.45, "ksize": 11, "thr_q": 95, "thr_min": 10, "max_area": 500, "dilate_spots": 1, "mask_only": True},
-            {"op": "lama_inpaint", "strength": 1.0, "dilate": 2},
-        ],
-        "lama_inpaint_only": [
-            {"op": "lama_inpaint", "strength": 1.0},
-        ],
-        "lama_only": [
-            {"op": "lama"},
-        ],
-        "inpaint_only": [
-            {"op": "inpaint"},
-        ],
-        "full_no_lama": [
-            {"op": "highlights", "strength": 0.08},
-            {"op": "shadows", "strength": 0.06},
-            {"op": "deshine", "strength": 0.30, "mask": {"max_det_side": 2500}},
-            {"op": "skin_fs", "strength": 0.55, "tone_sigma_s": 220, "tone_sigma_r": 0.11, "texture_radius": 6.0, "texture_amount": 0.25, "mask": {"max_det_side": 2500}},
-            {"op": "skin_smooth", "strength": 0.12, "mask": {"max_det_side": 2500}},
-            {"op": "face_enhance", "strength": 0.18},
-            {"op": "sharpen", "strength": 0.18},
-        ],
-    }
-
-    for name, pipeline in pipelines_to_test.items():
-        probe_out_key = _build_out_key(test_key)
-        probe_out_prefix = probe_out_key.rsplit("/", 1)[0] + "/"
-        body_data = {
-            "in_bucket": "foto-mix",
-            "in_key": test_key,
-            "out_bucket": "foto-mix",
-            "out_prefix": probe_out_prefix,
-            "out_key": probe_out_key.replace(".jpg", f"_probe_{name}.jpg"),
-            "pipeline": pipeline,
-        }
-        body_str = json.dumps(body_data, separators=(",", ":"), ensure_ascii=False)
-        hdrs = _retouch_api_headers("POST", "/v1/retouch", body_str)
-        try:
-            r = requests.post(f"{RETOUCH_API_URL}/v1/retouch", data=body_str.encode(), headers=hdrs, timeout=15)
-            results[f"submit_{name}"] = {"status": r.status_code, "body": r.text[:500]}
-        except Exception as e:
-            results[f"submit_{name}"] = {"error": str(e)}
-
-    time.sleep(20)
-
-    for name in pipelines_to_test:
-        submit = results.get(f"submit_{name}", {})
-        try:
-            data = json.loads(submit.get("body", "{}"))
-            tid = data.get("task_id") or data.get("id")
+            error_data = resp.json()
+            error_msg = error_data.get('error', f'HTTP {resp.status_code}')
         except Exception:
-            tid = None
-        if tid:
-            try:
-                path = f"/v1/tasks/{tid}"
-                hdrs = _retouch_api_headers("GET", path, "")
-                r2 = requests.get(f"{RETOUCH_API_URL}{path}", headers=hdrs, timeout=15)
-                results[f"result_{name}"] = {"status": r2.status_code, "body": r2.text[:1000]}
-            except Exception as e:
-                results[f"result_{name}"] = {"error": str(e)}
+            error_msg = f'HTTP {resp.status_code}: {resp.text[:200]}'
+        raise RuntimeError(f"Retouch API error: {error_msg}")
 
-    return _response(200, results)
-
-
-# ---------------------------------------------------------------------------
-# Thumbnails and saving results
-# ---------------------------------------------------------------------------
 
 def _generate_thumbnails_from_bytes(s3_client, result_key, file_bytes):
     try:
@@ -374,7 +152,6 @@ def _generate_thumbnails_from_bytes(s3_client, result_key, file_bytes):
 
 
 def _get_or_create_retouch_folder(conn, user_id, parent_folder_id):
-    """Find or create a 'Retouch' subfolder inside the original folder."""
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "SELECT id FROM photo_folders WHERE user_id = %s AND parent_folder_id = %s AND folder_type = 'retouch' AND is_trashed = FALSE LIMIT 1",
@@ -402,7 +179,6 @@ def _get_or_create_retouch_folder(conn, user_id, parent_folder_id):
 
 
 def _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, result_bytes=None):
-    """Save the retouched photo as a new entry in photo_bank under the retouch folder."""
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "SELECT folder_id, file_name, file_size, width, height, content_type FROM photo_bank WHERE id = %s",
@@ -453,154 +229,40 @@ def _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, resul
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                 (retouch_folder_id, user_id, file_name, result_key, result_url,
                  thumb_key, thumb_url, grid_key, grid_url,
-                 original['file_size'] or 0, original['width'], original['height'],
-                 'image/jpeg')
+                 len(result_bytes) if result_bytes else original['file_size'] or 0,
+                 original['width'], original['height'], 'image/jpeg')
             )
             conn.commit()
-        print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name} (thumbnails: {'yes' if thumb_key else 'no'})")
+        print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name}")
 
 
-# ---------------------------------------------------------------------------
-# Task status helpers
-# ---------------------------------------------------------------------------
-
-def _presigned_from_task(task):
-    if task.get('result_key'):
-        return _presigned_url(task['result_key'])
-    return None
-
-
-def _sync_task_from_api(conn, user_id, task):
-    """If task is still active, check API for updates and sync to DB."""
-    if task['status'] not in ('queued', 'started', 'processing'):
-        return task
-
-    db_task_id = task['task_id']
-    retry_marker = task.get('error_message') or ''
-    if retry_marker.startswith('__retry__:'):
-        api_task_id = retry_marker.split(':', 1)[1]
-    else:
-        api_task_id = db_task_id
-    path = f"/v1/tasks/{api_task_id}"
-    headers = _retouch_api_headers("GET", path, "")
+def _check_plugins_available():
     try:
-        r = requests.get(f"{RETOUCH_API_URL}{path}", headers=headers, timeout=(5, 15))
-        if r.status_code != 200:
-            return task
-        data = r.json()
-    except Exception as e:
-        print(f"[RETOUCH] API check failed for {api_task_id}: {e}")
-        return task
+        auth_str = base64.b64encode(f"{RETOUCH_BASIC_USER}:{RETOUCH_BASIC_PASS}".encode()).decode()
+        r = requests.post(
+            RETOUCH_API_URL,
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Basic {auth_str}'
+            },
+            json={'image': '', 'strength': 0.1, 'enhance_face': False},
+            timeout=10
+        )
+        api_ok = r.status_code in (200, 400, 422)
+    except Exception:
+        api_ok = False
 
-    api_status = data.get("status", task['status'])
-
-    if api_status == "finished":
-        inner = data.get("result") or {}
-        result_key = inner.get("out_key")
-        if result_key:
-            result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{result_key}"
-            with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE retouch_tasks SET status='finished', result_key=%s, result_url=%s, error_message=NULL, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
-                    (result_key, result_url, db_task_id, user_id)
-                )
-                conn.commit()
-            try:
-                photo_id = task.get('photo_id')
-                if photo_id:
-                    s3_client = _get_s3_client()
-                    print(f"[RETOUCH] Downloading result from S3: bucket={S3_BUCKET} key={result_key}")
-                    for attempt in range(3):
-                        try:
-                            resp = s3_client.get_object(Bucket=S3_BUCKET, Key=result_key)
-                            result_bytes = resp['Body'].read()
-                            print(f"[RETOUCH] Downloaded {len(result_bytes)} bytes from S3")
-                            break
-                        except Exception as s3_err:
-                            print(f"[RETOUCH] S3 download attempt {attempt+1}/3 failed: {s3_err}")
-                            if attempt < 2:
-                                time.sleep(3)
-                            else:
-                                raise
-                    _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, result_bytes=result_bytes)
-            except Exception as e:
-                import traceback
-                print(f"[RETOUCH] Failed to save result photo: {e}")
-                print(f"[RETOUCH] Traceback: {traceback.format_exc()}")
-            task = dict(task)
-            task['status'] = 'finished'
-            task['result_key'] = result_key
-            task['result_url'] = result_url
-        return task
-
-    if api_status in ("failed", "error"):
-        result_inner = data.get("result")
-        error_msg = data.get("error") or (result_inner.get("error") if isinstance(result_inner, dict) else None) or "Processing failed"
-
-        is_lama_error = 'iopaint_inpaint_lama' in str(error_msg) or 'lama_inpaint' in str(error_msg)
-        prev_err = task.get('error_message') or ''
-        already_retried = prev_err.startswith('__retry__:')
-
-        if is_lama_error and not already_retried:
-            print(f"[RETOUCH] lama_inpaint failed, retrying without blackheads+lama_inpaint")
-            try:
-                pipeline = _load_pipeline(conn, 'default')
-                pipeline = [s for s in pipeline if s.get('op') not in ('blackheads', 'lama_inpaint')]
-                print(f"[RETOUCH] Fallback pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
-
-                in_key = task['in_key']
-                fallback_out_key = _build_out_key(in_key)
-                out_prefix = fallback_out_key.rsplit("/", 1)[0] + "/" if "/" in fallback_out_key else "retouch/"
-                new_api_task_id, new_status = _submit_retouch_task(in_key, out_prefix, pipeline, out_key=fallback_out_key)
-
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "UPDATE retouch_tasks SET status='started', out_prefix=%s, error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
-                        (out_prefix, f"__retry__:{new_api_task_id}", db_task_id, user_id)
-                    )
-                    conn.commit()
-                print(f"[RETOUCH] Fallback: original={api_task_id} retry={new_api_task_id}")
-                task = dict(task)
-                task['status'] = 'started'
-                task['out_prefix'] = out_prefix
-                task['error_message'] = f"__retry__:{new_api_task_id}"
-                return task
-            except Exception as retry_err:
-                print(f"[RETOUCH] Fallback retry failed: {retry_err}")
-
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE retouch_tasks SET status='failed', error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
-                (error_msg, db_task_id, user_id)
-            )
-            conn.commit()
-        task = dict(task)
-        task['status'] = 'failed'
-        task['error_message'] = error_msg
-        return task
-
-    return task
-
-
-def _check_single_task(conn, user_id, task):
-    task = _sync_task_from_api(conn, user_id, task)
-    err = task.get('error_message') or ''
-    if err.startswith('__retry__:'):
-        err = None
     return {
-        'task_id': task['task_id'],
-        'status': task['status'],
-        'result_url': _presigned_from_task(task),
-        'error_message': err,
+        "retouch_api": {
+            "available": api_ok,
+            "label": "Retouch API (io.foto-mix.ru)",
+            "url": RETOUCH_API_URL,
+        }
     }
 
 
-# ---------------------------------------------------------------------------
-# Handlers
-# ---------------------------------------------------------------------------
-
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Retouch photos via the Retouch API, check task status."""
+    """Ретушь фотографий через API io.foto-mix.ru — синхронная обработка."""
     method = event.get('httpMethod', 'GET')
 
     if method == 'OPTIONS':
@@ -616,9 +278,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if params.get('check_plugins') == '1':
         plugins_status = _check_plugins_available()
         return _response(200, {'plugins': plugins_status})
-
-    if params.get('probe_api') == '1':
-        return _probe_retouch_api()
 
     db_url = os.environ.get('DATABASE_URL')
     conn = psycopg2.connect(db_url)
@@ -647,21 +306,18 @@ def _handle_create(event, conn, user_id):
     if not photo_id:
         return _response(400, {'error': 'photo_id is required'})
 
-    # --- rate-limit active tasks ---
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            "SELECT COUNT(*) as cnt FROM retouch_tasks WHERE user_id = %s AND status IN ('queued', 'processing') AND created_at > NOW() - INTERVAL '10 minutes'",
+            "SELECT COUNT(*) as cnt FROM retouch_tasks WHERE user_id = %s AND status IN ('queued', 'processing', 'started') AND created_at > NOW() - INTERVAL '10 minutes'",
             (user_id,)
         )
         active = cur.fetchone()
         if active and active['cnt'] >= MAX_ACTIVE_TASKS_PER_USER:
-            print(f"[RETOUCH] User {user_id} has {active['cnt']} active tasks, rejecting")
             return _response(429, {
                 'error': f'Слишком много задач в очереди ({active["cnt"]}). Подождите завершения текущих',
                 'active_tasks': active['cnt'],
             })
 
-    # --- load photo ---
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             'SELECT id, s3_key, file_name FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
@@ -677,37 +333,89 @@ def _handle_create(event, conn, user_id):
     in_key = photo['s3_key']
     out_key = _build_out_key(in_key)
     out_prefix = out_key.rsplit("/", 1)[0] + "/" if "/" in out_key else "retouch/"
-
-    preset_name = body.get('preset', 'default')
-    pipeline = _load_pipeline(conn, preset_name)
-    if len(pipeline) == 1 and pipeline[0].get('op') == 'auto':
-        pipeline = DEFAULT_PIPELINE
-    print(f"[RETOUCH] Using preset='{preset_name}' Pipeline ({len(pipeline)} steps): {[s.get('op') for s in pipeline]}")
-    print(f"[RETOUCH] Full pipeline: {json.dumps(pipeline, default=str)[:1000]}")
-    print(f"[RETOUCH] in_key={in_key}  out_key={out_key}  out_prefix={out_prefix}")
-
-    # --- submit task to Retouch API ---
-    try:
-        api_task_id, api_status = _submit_retouch_task(in_key, out_prefix, pipeline, out_key=out_key)
-    except Exception as e:
-        print(f"[RETOUCH] Failed to submit task: {e}")
-        return _response(503, {'error': f'Сервер ретуши недоступен: {e}'})
+    task_id = str(uuid.uuid4())
 
     with conn.cursor() as cur:
         cur.execute(
             '''INSERT INTO retouch_tasks (user_id, photo_id, task_id, status, in_bucket, in_key, out_bucket, out_prefix)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
-            (user_id, photo_id, api_task_id, 'started', S3_BUCKET, in_key, S3_BUCKET, out_prefix)
+            (user_id, photo_id, task_id, 'processing', S3_BUCKET, in_key, S3_BUCKET, out_prefix)
         )
         conn.commit()
 
-    print(f"[RETOUCH] Submitted: task_id={api_task_id}, api_status={api_status}")
-    return _response(200, {
-        'task_id': api_task_id,
-        'status': 'started',
-        'result_url': None,
-        'steps': [],
-    })
+    print(f"[RETOUCH] Starting: task_id={task_id}, photo_id={photo_id}, in_key={in_key}")
+
+    try:
+        s3_client = _get_s3_client()
+        print(f"[RETOUCH] Downloading from S3: {in_key}")
+        s3_resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
+        image_bytes = s3_resp['Body'].read()
+        print(f"[RETOUCH] Downloaded {len(image_bytes)} bytes")
+
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+
+        strength = body.get('strength', None)
+        enhance_face = body.get('enhance_face', None)
+        if strength is None or enhance_face is None:
+            db_strength, db_enhance_face = _load_retouch_settings(conn)
+            if strength is None:
+                strength = db_strength
+            if enhance_face is None:
+                enhance_face = db_enhance_face
+
+        result_bytes = _call_retouch_api(image_base64, strength=strength, enhance_face=enhance_face)
+        print(f"[RETOUCH] Got result: {len(result_bytes)} bytes")
+
+        content_type = 'image/jpeg'
+        if result_bytes[:4] == b'\x89PNG':
+            content_type = 'image/png'
+            ext = '.png'
+        else:
+            ext = '.jpg'
+
+        if not out_key.endswith(ext):
+            out_key = out_key.rsplit('.', 1)[0] + ext if '.' in out_key else out_key + ext
+
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=out_key,
+            Body=result_bytes,
+            ContentType=content_type
+        )
+        result_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{out_key}"
+        print(f"[RETOUCH] Uploaded result to S3: {out_key}")
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE retouch_tasks SET status='finished', result_key=%s, result_url=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                (out_key, result_url, task_id, user_id)
+            )
+            conn.commit()
+
+        _save_retouched_photo(conn, user_id, photo_id, out_key, result_url, result_bytes=result_bytes)
+
+        presigned = _presigned_url(out_key)
+        print(f"[RETOUCH] Done: task_id={task_id}")
+
+        return _response(200, {
+            'task_id': task_id,
+            'status': 'finished',
+            'result_url': presigned,
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"[RETOUCH] Failed: {e}")
+        print(f"[RETOUCH] Traceback: {traceback.format_exc()}")
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE retouch_tasks SET status='failed', error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                (str(e)[:500], task_id, user_id)
+            )
+            conn.commit()
+
+        return _response(503, {'error': f'Ошибка ретуши: {str(e)[:200]}'})
 
 
 def _handle_status(event, conn, user_id):
@@ -722,17 +430,24 @@ def _handle_status(event, conn, user_id):
         placeholders = ','.join(['%s'] * len(ids))
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                f'SELECT id, photo_id, task_id, status, result_key, result_url, out_prefix, error_message, created_at, updated_at FROM retouch_tasks WHERE task_id IN ({placeholders}) AND user_id = %s',
+                f'SELECT task_id, status, result_key, result_url, error_message, created_at, updated_at FROM retouch_tasks WHERE task_id IN ({placeholders}) AND user_id = %s',
                 (*ids, user_id)
             )
-            db_tasks = cur.fetchall()
-        results = [_check_single_task(conn, user_id, t) for t in db_tasks]
+            tasks = cur.fetchall()
+        results = []
+        for t in tasks:
+            results.append({
+                'task_id': t['task_id'],
+                'status': t['status'],
+                'result_url': _presigned_url(t['result_key']) if t.get('result_key') else None,
+                'error_message': t.get('error_message'),
+            })
         return _response(200, {'tasks': results})
 
     if not task_id:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                '''SELECT id, photo_id, task_id, status, result_url, error_message, created_at, updated_at
+                '''SELECT task_id, photo_id, status, result_url, error_message, created_at, updated_at
                    FROM retouch_tasks WHERE user_id = %s ORDER BY created_at DESC LIMIT 50''',
                 (user_id,)
             )
@@ -741,7 +456,7 @@ def _handle_status(event, conn, user_id):
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            'SELECT id, photo_id, task_id, status, result_key, result_url, out_prefix, error_message, created_at, updated_at FROM retouch_tasks WHERE task_id = %s AND user_id = %s',
+            'SELECT task_id, status, result_key, result_url, error_message, created_at, updated_at FROM retouch_tasks WHERE task_id = %s AND user_id = %s',
             (task_id, user_id)
         )
         task = cur.fetchone()
@@ -749,4 +464,9 @@ def _handle_status(event, conn, user_id):
     if not task:
         return _response(404, {'error': 'Task not found'})
 
-    return _response(200, _check_single_task(conn, user_id, task))
+    return _response(200, {
+        'task_id': task['task_id'],
+        'status': task['status'],
+        'result_url': _presigned_url(task['result_key']) if task.get('result_key') else None,
+        'error_message': task.get('error_message'),
+    })
