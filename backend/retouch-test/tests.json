@@ -1,0 +1,1 @@
+{"tests": [{"name": "Info endpoint", "method": "GET", "path": "/", "expectedStatus": 200, "expectedBody": {"info": "string"}, "bodyMatcher": "partial"}]}
