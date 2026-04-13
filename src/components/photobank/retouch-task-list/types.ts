@@ -1,7 +1,7 @@
 export interface RetouchTask {
   photo_id: number;
   task_id: string;
-  status: 'queued' | 'started' | 'finished' | 'failed';
+  status: 'queued' | 'started' | 'processing' | 'finished' | 'failed';
   result_url?: string;
   error_message?: string;
   file_name?: string;

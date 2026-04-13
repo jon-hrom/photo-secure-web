@@ -41,10 +41,10 @@ const RetouchTaskList = ({ tasks, onRetryTask, onRetryAllFailed }: RetouchTaskLi
 
   const finishedCount = tasks.filter(t => t.status === 'finished').length;
   const failedCount = tasks.filter(t => t.status === 'failed').length;
-  const activeCount = tasks.filter(t => t.status === 'queued' || t.status === 'started').length;
+  const activeCount = tasks.filter(t => t.status === 'queued' || t.status === 'started' || t.status === 'processing').length;
   const displayTotal = totalBatchSize > tasks.length ? totalBatchSize : tasks.length;
   const allDone = !isProcessing && activeCount === 0;
-  const currentPhoto = tasks.find(t => t.status === 'started' || t.status === 'queued');
+  const currentPhoto = tasks.find(t => t.status === 'started' || t.status === 'queued' || t.status === 'processing');
 
   return (
       <div ref={listRef} className="rounded-xl border bg-white/60 dark:bg-gray-900/60 p-3 sm:p-4 space-y-3 sm:space-y-4">

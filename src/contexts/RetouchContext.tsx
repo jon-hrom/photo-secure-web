@@ -70,7 +70,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     serverStartedRef,
   });
 
-  const isProcessing = tasks.some(t => t.status === 'queued' || t.status === 'started') || submitting || waking || batchPending;
+  const isProcessing = tasks.some(t => t.status === 'queued' || t.status === 'started' || t.status === 'processing') || submitting || waking || batchPending;
 
   const totalBatchSize = totalBatchSizeRef.current > tasks.length ? totalBatchSizeRef.current : tasks.length;
 
@@ -118,7 +118,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (tasks.length === 0) return;
 
-    const hasActive = tasks.some(t => (t.status === 'queued' || t.status === 'started') && t.task_id);
+    const hasActive = tasks.some(t => (t.status === 'queued' || t.status === 'started' || t.status === 'processing') && t.task_id);
     const allDone = !batchPending && tasks.every(t => t.status === 'finished' || t.status === 'failed' || !t.task_id);
 
     if (hasActive && !pollIntervalRef.current) {

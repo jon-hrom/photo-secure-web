@@ -27,7 +27,7 @@ export const useRetouchPolling = ({ tasksRef, sessionRef, setTasks }: UseRetouch
     if (!currentSession) return;
 
     const currentTasks = tasksRef.current;
-    const activeTasks = currentTasks.filter(t => (t.status === 'queued' || t.status === 'started') && t.task_id);
+    const activeTasks = currentTasks.filter(t => (t.status === 'queued' || t.status === 'started' || t.status === 'processing') && t.task_id);
     if (activeTasks.length === 0) return;
 
     pollingRef.current = true;
@@ -57,7 +57,7 @@ export const useRetouchPolling = ({ tasksRef, sessionRef, setTasks }: UseRetouch
       setTasks(prev => prev.map(t => {
         const remote = resultsMap[t.task_id];
         if (!remote) {
-          if ((t.status === 'queued' || t.status === 'started') && t.created_at) {
+          if ((t.status === 'queued' || t.status === 'started' || t.status === 'processing') && t.created_at) {
             const age = Date.now() - new Date(t.created_at).getTime();
             if (age > CLIENT_TASK_TIMEOUT_MS) {
               return { ...t, status: 'failed' as const, error_message: 'Таймаут: задача не завершилась вовремя', progress: 0 };
@@ -69,14 +69,14 @@ export const useRetouchPolling = ({ tasksRef, sessionRef, setTasks }: UseRetouch
         let progress = t.progress || 0;
         if (remote.status === 'finished') {
           progress = 100;
-        } else if (remote.status === 'started') {
+        } else if (remote.status === 'started' || remote.status === 'processing') {
           if (!pollStartTimeRef.current[t.task_id]) {
             pollStartTimeRef.current[t.task_id] = Date.now();
           }
           const elapsed = (Date.now() - pollStartTimeRef.current[t.task_id]) / 1000;
-          const fast = Math.min(80, Math.round((elapsed / 30) * 80));
-          const slow = elapsed > 30 ? Math.min(18, Math.round((elapsed - 30) / 60 * 18)) : 0;
-          progress = Math.min(98, 10 + fast + slow);
+          const fast = Math.min(60, Math.round((elapsed / 120) * 60));
+          const slow = elapsed > 120 ? Math.min(35, Math.round((elapsed - 120) / 480 * 35)) : 0;
+          progress = Math.max(progress, Math.min(98, 5 + fast + slow));
         } else if (remote.status === 'queued') {
           progress = 5;
         }

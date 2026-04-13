@@ -18,7 +18,7 @@ const RetouchTaskItem = ({ task, onRetryTask }: RetouchTaskItemProps) => {
         {task.status === 'queued' && (
           <Icon name="Clock" size={13} className="text-yellow-500 sm:w-3.5 sm:h-3.5" />
         )}
-        {task.status === 'started' && (
+        {(task.status === 'started' || task.status === 'processing') && (
           <Icon name="Loader2" size={13} className="animate-spin text-blue-500 sm:w-3.5 sm:h-3.5" />
         )}
         {task.status === 'finished' && (
@@ -33,7 +33,7 @@ const RetouchTaskItem = ({ task, onRetryTask }: RetouchTaskItemProps) => {
         {task.file_name || `Фото #${task.photo_id}`}
       </span>
 
-      {(task.status === 'started' || task.status === 'queued') && (
+      {(task.status === 'started' || task.status === 'queued' || task.status === 'processing') && (
         <span className="text-[10px] sm:text-xs text-blue-500 font-medium flex-shrink-0 tabular-nums">
           {task.progress || 0}%
         </span>
