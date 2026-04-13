@@ -63,6 +63,13 @@ def _response(status_code, body):
     }
 
 
+def _extract_s3_key(url):
+    prefix = f"https://storage.yandexcloud.net/{S3_BUCKET}/"
+    if url and url.startswith(prefix):
+        return url[len(prefix):]
+    return None
+
+
 def _build_out_key(in_key):
     parts = in_key.rsplit("/", 1)
     if len(parts) == 2:
@@ -132,8 +139,13 @@ def _check_api_status(api_task_id):
     )
     print(f"[RETOUCH] Status check {api_task_id}: status={resp.status_code} body={resp.text[:500]}")
 
-    if resp.status_code == 200:
-        return resp.json()
+    if resp.status_code in (200, 202):
+        try:
+            return resp.json()
+        except Exception:
+            text = resp.text.strip()
+            if text:
+                return json.loads(text)
     return {'status': 'pending'}
 
 
@@ -261,11 +273,32 @@ def _download_result_and_save(conn, user_id, task, result_url_from_api):
         out_key = out_key.rsplit('.', 1)[0] + '.jpg' if '.' in out_key else out_key + '.jpg'
 
     print(f"[RETOUCH] Downloading result from: {result_url_from_api}")
-    resp = requests.get(result_url_from_api, timeout=(10, 60))
-    if resp.status_code != 200:
-        raise RuntimeError(f"Failed to download result: HTTP {resp.status_code}")
+    result_bytes = None
+    s3_key_from_url = _extract_s3_key(result_url_from_api)
+    if s3_key_from_url:
+        try:
+            print(f"[RETOUCH] Trying S3 direct download: {s3_key_from_url}")
+            obj = s3_client.get_object(Bucket=S3_BUCKET, Key=s3_key_from_url)
+            result_bytes = obj['Body'].read()
+            print(f"[RETOUCH] S3 direct download OK: {len(result_bytes)} bytes")
+        except Exception as e:
+            print(f"[RETOUCH] S3 direct download failed: {e}")
 
-    result_bytes = resp.content
+    if not result_bytes:
+        download_headers = {}
+        if 'io.foto-mix.ru' in result_url_from_api:
+            download_headers['Authorization'] = _auth_header()
+        resp = requests.get(result_url_from_api, headers=download_headers, timeout=(10, 120))
+        if resp.status_code == 403:
+            resp = requests.get(
+                result_url_from_api,
+                headers={'Authorization': _auth_header()},
+                timeout=(10, 120)
+            )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Failed to download result: HTTP {resp.status_code}")
+        result_bytes = resp.content
+
     print(f"[RETOUCH] Downloaded {len(result_bytes)} bytes")
 
     if result_bytes[:2] == b'P6' or result_bytes[:2] == b'P3':
@@ -526,15 +559,33 @@ def _sync_task_from_api(conn, user_id, task):
                 task['status'] = 'failed'
                 task['error_message'] = str(e)[:300]
         else:
-            result_s3_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/retouch_results/{api_task_id}.jpg"
-            try:
-                out_key, final_url = _download_result_and_save(conn, user_id, task, result_s3_url)
+            fallback_urls = [
+                f"{API_BASE}/result/{api_task_id}",
+                f"https://storage.yandexcloud.net/{S3_BUCKET}/retouch_results/{api_task_id}.jpg",
+            ]
+            downloaded = False
+            for fallback_url in fallback_urls:
+                try:
+                    print(f"[RETOUCH] Trying fallback URL: {fallback_url}")
+                    out_key, final_url = _download_result_and_save(conn, user_id, task, fallback_url)
+                    task = dict(task)
+                    task['status'] = 'finished'
+                    task['result_key'] = out_key
+                    task['result_url'] = final_url
+                    downloaded = True
+                    break
+                except Exception as e:
+                    print(f"[RETOUCH] Fallback {fallback_url} failed: {e}")
+            if not downloaded:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE retouch_tasks SET status='failed', error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                        ("Не удалось скачать результат ретуши", api_task_id, user_id)
+                    )
+                    conn.commit()
                 task = dict(task)
-                task['status'] = 'finished'
-                task['result_key'] = out_key
-                task['result_url'] = final_url
-            except Exception as e:
-                print(f"[RETOUCH] Failed to download from fallback S3 path: {e}")
+                task['status'] = 'failed'
+                task['error_message'] = 'Не удалось скачать результат ретуши'
 
         return task
 

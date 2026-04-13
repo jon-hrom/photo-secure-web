@@ -1,0 +1,1 @@
+UPDATE retouch_tasks SET status = 'processing', error_message = NULL, updated_at = NOW() WHERE task_id = '64acaef5-300b-4326-91e0-9901b6ed007f';
