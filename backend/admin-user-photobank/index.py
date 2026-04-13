@@ -244,6 +244,47 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        elif action == 's3_inspect':
+            s3_key = params.get('key')
+            if not s3_key:
+                return {
+                    'statusCode': 400,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'key is required'}),
+                    'isBase64Encoded': False
+                }
+            import binascii
+            head = yc_s3_client.head_object(Bucket=yc_bucket, Key=s3_key)
+            obj = yc_s3_client.get_object(Bucket=yc_bucket, Key=s3_key, Range='bytes=0-31')
+            first_bytes = obj['Body'].read()
+            hex_str = binascii.hexlify(first_bytes).decode()
+            magic = 'unknown'
+            if first_bytes[:3] == b'\xff\xd8\xff':
+                magic = 'JPEG'
+            elif first_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+                magic = 'PNG'
+            elif first_bytes[:4] == b'RIFF' and first_bytes[8:12] == b'WEBP':
+                magic = 'WEBP'
+            elif first_bytes[:4] == b'GIF8':
+                magic = 'GIF'
+            elif first_bytes[:1] == b'{':
+                magic = 'JSON (not an image!)'
+            elif first_bytes[:5] == b'<?xml' or first_bytes[:1] == b'<':
+                magic = 'XML/HTML (not an image!)'
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({
+                    'key': s3_key,
+                    'content_type': head.get('ContentType'),
+                    'content_length': head.get('ContentLength'),
+                    'last_modified': str(head.get('LastModified')),
+                    'magic_bytes': hex_str,
+                    'detected_format': magic,
+                }),
+                'isBase64Encoded': False
+            }
+        
         return {
             'statusCode': 400,
             'headers': CORS_HEADERS,
