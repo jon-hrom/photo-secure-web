@@ -46,7 +46,9 @@ export const useRetouchPolling = ({ tasksRef, sessionRef, setTasks }: UseRetouch
         return;
       }
 
-      const statuses = data.tasks.map((t: { task_id?: string; status?: string }) => `${t.task_id?.slice(0,8)}=${t.status}`);
+      const statuses = data.tasks.map((t: { task_id?: string; status?: string; error_message?: string; result_url?: string }) =>
+        `${t.task_id?.slice(0,8)}=${t.status}${t.error_message ? ' err:' + t.error_message : ''}${t.result_url ? ' url:yes' : ''}`
+      );
       console.log(`[RETOUCH] Poll: ${data.tasks.length} tasks, statuses: ${statuses.join(', ')}`);
 
       const resultsMap: Record<string, (typeof data.tasks)[0]> = {};

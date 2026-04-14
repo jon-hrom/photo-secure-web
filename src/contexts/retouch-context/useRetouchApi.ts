@@ -151,7 +151,14 @@ export const useRetouchApi = ({
         }
         return startRetouchForPhoto(photoId, retriesLeft - 1);
       }
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      if (!res.ok) {
+        let errorMsg = `API returned ${res.status}`;
+        try {
+          const errData = await res.json();
+          if (errData.error) errorMsg = errData.error;
+        } catch { /* parse error */ }
+        return { photo_id: photoId, task_id: '', status: 'failed' as const, error_message: errorMsg, file_name: photo?.file_name };
+      }
       const data = await res.json();
       return {
         photo_id: photoId,

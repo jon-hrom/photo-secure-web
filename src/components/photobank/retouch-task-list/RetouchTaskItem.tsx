@@ -29,9 +29,14 @@ const RetouchTaskItem = ({ task, onRetryTask }: RetouchTaskItemProps) => {
         )}
       </div>
 
-      <span className="truncate flex-1 text-muted-foreground">
-        {task.file_name || `Фото #${task.photo_id}`}
-      </span>
+      <div className="truncate flex-1 min-w-0">
+        <span className="text-muted-foreground">
+          {task.file_name || `Фото #${task.photo_id}`}
+        </span>
+        {task.status === 'failed' && task.error_message && (
+          <div className="text-[10px] text-red-400 truncate">{task.error_message}</div>
+        )}
+      </div>
 
       {(task.status === 'started' || task.status === 'queued' || task.status === 'processing') && (
         <span className="text-[10px] sm:text-xs text-blue-500 font-medium flex-shrink-0 tabular-nums">
