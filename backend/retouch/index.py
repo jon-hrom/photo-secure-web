@@ -98,28 +98,33 @@ def _load_retouch_settings(conn):
     return strength, enhance_face
 
 
-def _submit_async_task(image_base64, strength=0.6, enhance_face=False):
-    """POST /api/v2/submit — поставить задачу в очередь, получить task_id."""
+def _submit_s3_task(bucket, in_key, out_key=None, strength=0.6, enhance_face=False):
+    """POST /api/v2/submit_s3 — отправить задачу по S3-ключам, без скачивания/base64."""
+    payload = {
+        'bucket': bucket,
+        'in_key': in_key,
+        'strength': strength,
+        'enhance_face': enhance_face
+    }
+    if out_key:
+        payload['out_key'] = out_key
+
     resp = requests.post(
-        f"{API_BASE}/submit",
+        f"{API_BASE}/submit_s3",
         headers={
             'Content-Type': 'application/json',
             'Authorization': _auth_header()
         },
-        json={
-            'image': image_base64,
-            'strength': strength,
-            'enhance_face': enhance_face
-        },
+        json=payload,
         timeout=(30, 120)
     )
-    print(f"[RETOUCH] Submit response: status={resp.status_code} body={resp.text[:500]}")
+    print(f"[RETOUCH] Submit S3 response: status={resp.status_code} body={resp.text[:500]}")
 
     if resp.status_code in (200, 201, 202):
         data = resp.json()
         api_task_id = data.get('task_id')
         if not api_task_id:
-            raise RuntimeError(f"No task_id in submit response: {resp.text[:300]}")
+            raise RuntimeError(f"No task_id in submit_s3 response: {resp.text[:300]}")
         return api_task_id, data.get('status', 'queued')
     else:
         try:
@@ -127,7 +132,7 @@ def _submit_async_task(image_base64, strength=0.6, enhance_face=False):
             error_msg = error_data.get('error', f'HTTP {resp.status_code}')
         except Exception:
             error_msg = f'HTTP {resp.status_code}: {resp.text[:200]}'
-        raise RuntimeError(f"Retouch API submit error: {error_msg}")
+        raise RuntimeError(f"Retouch API submit_s3 error: {error_msg}")
 
 
 def _check_api_status(api_task_id):
@@ -433,18 +438,16 @@ def _handle_create(event, conn, user_id):
         if enhance_face is None:
             enhance_face = db_enhance_face
 
-    print(f"[RETOUCH] Starting: photo_id={photo_id}, in_key={in_key}, strength={strength}")
+    print(f"[RETOUCH] Starting S3 task: photo_id={photo_id}, in_key={in_key}, out_key={out_key}, strength={strength}")
 
     try:
-        s3_client = _get_s3_client()
-        print(f"[RETOUCH] Downloading from S3: {in_key}")
-        s3_resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
-        image_bytes = s3_resp['Body'].read()
-        print(f"[RETOUCH] Downloaded {len(image_bytes)} bytes")
-
-        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-
-        api_task_id, api_status = _submit_async_task(image_base64, strength=strength, enhance_face=enhance_face)
+        api_task_id, api_status = _submit_s3_task(
+            bucket=S3_BUCKET,
+            in_key=in_key,
+            out_key=out_key,
+            strength=strength,
+            enhance_face=enhance_face
+        )
         print(f"[RETOUCH] Submitted: api_task_id={api_task_id}, status={api_status}")
 
         with conn.cursor() as cur:
