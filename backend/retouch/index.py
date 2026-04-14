@@ -238,8 +238,7 @@ def _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, resul
             cur.execute(
                 '''UPDATE photo_bank SET s3_url = %s,
                    thumbnail_s3_key = COALESCE(%s, thumbnail_s3_key), thumbnail_s3_url = COALESCE(%s, thumbnail_s3_url),
-                   grid_thumbnail_s3_key = COALESCE(%s, grid_thumbnail_s3_key), grid_thumbnail_s3_url = COALESCE(%s, grid_thumbnail_s3_url),
-                   updated_at = NOW()
+                   grid_thumbnail_s3_key = COALESCE(%s, grid_thumbnail_s3_key), grid_thumbnail_s3_url = COALESCE(%s, grid_thumbnail_s3_url)
                    WHERE id = %s''',
                 (result_url, thumb_key, thumb_url, grid_key, grid_url, existing['id'])
             )
