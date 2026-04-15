@@ -137,10 +137,20 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   }, [tasks, session, batchPending, startPolling, stopPolling, pollIntervalRef]);
 
   const startSession = (newSession: RetouchSession) => {
-    if (sessionRef.current && (isProcessing || tasks.length > 0)) {
+    if (sessionRef.current && isProcessing) {
       sessionRef.current = { ...sessionRef.current, onRetouchComplete: newSession.onRetouchComplete };
       setSession(prev => prev ? { ...prev, onRetouchComplete: newSession.onRetouchComplete } : newSession);
       return;
+    }
+    if (tasks.length > 0 && !isProcessing) {
+      stopPolling();
+      setTasks([]);
+      batchQueueRef.current = [];
+      activeSubmitsRef.current = 0;
+      setBatchPending(false);
+      totalBatchSizeRef.current = 0;
+      setSubmitting(false);
+      pollStartTimeRef.current = {};
     }
     setSession(newSession);
     sessionRef.current = newSession;

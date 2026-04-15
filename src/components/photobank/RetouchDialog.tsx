@@ -43,7 +43,8 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const hasActiveWorkRef = useRef(false);
 
   useEffect(() => {
-    hasActiveWorkRef.current = isProcessing || tasks.length > 0 || minimized;
+    const hasActiveTasks = tasks.some(t => t.status === 'queued' || t.status === 'started' || t.status === 'processing');
+    hasActiveWorkRef.current = isProcessing || hasActiveTasks || minimized;
   }, [isProcessing, tasks, minimized]);
 
   useEffect(() => {
@@ -107,6 +108,11 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   };
 
   const hasTasks = tasks.length > 0 && session?.folderId === folderId;
+  const allDone = hasTasks && tasks.every(t => t.status === 'finished' || t.status === 'failed') && !isProcessing;
+
+  const handleNewRetouch = () => {
+    startSession({ folderId, folderName, userId, onRetouchComplete });
+  };
 
   if (minimized) return null;
 
@@ -148,11 +154,23 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
             <RetouchWakeStatus waking={waking} wakeStatus={wakeStatus} />
 
             {hasTasks && (
-              <RetouchTaskList
-                tasks={tasks}
-                onRetryTask={retryTask}
-                onRetryAllFailed={retryAllFailed}
-              />
+              <>
+                <RetouchTaskList
+                  tasks={tasks}
+                  onRetryTask={retryTask}
+                  onRetryAllFailed={retryAllFailed}
+                />
+                {allDone && (
+                  <Button
+                    onClick={handleNewRetouch}
+                    variant="outline"
+                    className="w-full mt-2"
+                  >
+                    <Icon name="Plus" size={16} className="mr-2" />
+                    Обработать ещё
+                  </Button>
+                )}
+              </>
             )}
 
             {!hasTasks && (
