@@ -589,7 +589,12 @@ def _sync_task_from_api(conn, user_id, task):
         return task
 
     if api_status in ('failed', 'error'):
-        error_msg = data.get('error', 'Processing failed')
+        raw_error = data.get('error', 'Processing failed')
+        if 'timed out' in raw_error.lower() or 'timeout' in raw_error.lower():
+            error_msg = 'Сервер ретуши не успел обработать фото — слишком большой файл или высокая нагрузка. Попробуйте ещё раз'
+        else:
+            error_msg = f'Ошибка обработки: {raw_error[:300]}'
+        print(f"[RETOUCH] Task {api_task_id} failed: {raw_error[:300]}")
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE retouch_tasks SET status='failed', error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
