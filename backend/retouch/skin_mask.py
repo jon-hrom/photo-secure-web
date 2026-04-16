@@ -62,7 +62,7 @@ def _find_face_regions(skin_mask):
     if not label_sizes:
         return skin_mask
 
-    min_face = (sh * sw) * 0.003
+    min_face = (sh * sw) * 0.001
     face_labels = [lid for lid, cnt in label_sizes.items() if cnt > min_face]
 
     if not face_labels:
@@ -110,7 +110,7 @@ def _detect_defects(img_arr, skin_mask):
     gray = np.mean(img_arr.astype(np.float32), axis=2)
 
     img_pil = Image.fromarray(img_arr)
-    blurred = np.mean(np.array(img_pil.filter(ImageFilter.GaussianBlur(radius=3))).astype(np.float32), axis=2)
+    blurred = np.mean(np.array(img_pil.filter(ImageFilter.GaussianBlur(radius=3.0))).astype(np.float32), axis=2)
     detail = gray - blurred
 
     skin_px = gray[skin_mask > 0]
@@ -155,8 +155,8 @@ def _dilate_mask(mask, px):
     if px <= 0:
         return mask
     m = Image.fromarray(mask, mode='L')
-    for _ in range(max(1, px // 3)):
-        m = m.filter(ImageFilter.MaxFilter(min(px * 2 + 1, 7)))
+    for _ in range(max(1, px // 2)):
+        m = m.filter(ImageFilter.MaxFilter(min(px * 2 + 1, 11)))
     return np.array(m)
 
 
@@ -182,7 +182,7 @@ def build_auto_mask(image_bytes):
 
     defects = _detect_defects(img_arr, face_skin)
 
-    dilate_px = max(3, int(min(h, w) * 0.005))
+    dilate_px = max(5, int(min(h, w) * 0.01))
     expanded = _dilate_mask(defects, dilate_px)
     expanded = np.minimum(expanded, face_skin)
 

@@ -81,7 +81,7 @@ export const DEFAULT_OPS: OpConfig[] = [
     enabled: true,
     params: [
       { key: 'strength', label: 'Сила', value: 0, min: 0, max: 1, step: 0.01 },
-      { key: 'dilate', label: 'Расширение маски', value: 2, min: 0, max: 10, step: 1 },
+      { key: 'dilate', label: 'Расширение маски', value: 4, min: 0, max: 15, step: 1 },
     ],
   },
   {
