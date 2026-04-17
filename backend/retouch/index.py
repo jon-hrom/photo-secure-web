@@ -260,8 +260,49 @@ def _save_retouched_photo(conn, user_id, photo_id, result_key, result_url, resul
         print(f"[RETOUCH] Saved retouched photo to folder {retouch_folder_id}: {file_name}")
 
 
-def _download_result_and_save(conn, user_id, task, result_url_from_api):
-    """Скачать результат из S3 (result_url), сохранить в свой бакет и в БД."""
+def _normalize_image_bytes(raw_bytes):
+    """Привести байты к валидному JPEG. Поддерживает JPEG/PNG/PPM/WEBP и JSON-обёртку с base64."""
+    if not raw_bytes:
+        raise RuntimeError("Empty result bytes")
+
+    head = raw_bytes[:1]
+    if head in (b'{', b'['):
+        try:
+            parsed = json.loads(raw_bytes.decode('utf-8', errors='ignore'))
+            b64 = None
+            if isinstance(parsed, dict):
+                b64 = parsed.get('image') or parsed.get('result') or parsed.get('data') or parsed.get('image_base64')
+            if not b64:
+                raise RuntimeError(f"JSON response without image field: {list(parsed.keys()) if isinstance(parsed, dict) else 'list'}")
+            if isinstance(b64, str) and b64.startswith('data:'):
+                b64 = b64.split(',', 1)[1]
+            raw_bytes = base64.b64decode(b64)
+            print(f"[RETOUCH] Decoded base64 from JSON: {len(raw_bytes)} bytes")
+        except Exception as e:
+            raise RuntimeError(f"Failed to parse JSON image response: {e}")
+
+    if raw_bytes[:2] == b'P6' or raw_bytes[:2] == b'P3':
+        print(f"[RETOUCH] PPM format detected, converting to JPEG")
+        img = Image.open(io.BytesIO(raw_bytes))
+        buf = io.BytesIO()
+        img.convert('RGB').save(buf, format='JPEG', quality=95)
+        return buf.getvalue()
+
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+        fmt = (img.format or '').upper()
+        if fmt == 'JPEG':
+            return raw_bytes
+        print(f"[RETOUCH] Converting {fmt} -> JPEG")
+        buf = io.BytesIO()
+        img.convert('RGB').save(buf, format='JPEG', quality=95)
+        return buf.getvalue()
+    except Exception as e:
+        raise RuntimeError(f"Invalid image bytes: {e}")
+
+
+def _save_result_bytes(conn, user_id, task, result_bytes):
+    """Сохранить готовые байты результата в S3 и БД."""
     s3_client = _get_s3_client()
     db_task_id = task['task_id']
     photo_id = task.get('photo_id')
@@ -270,6 +311,34 @@ def _download_result_and_save(conn, user_id, task, result_url_from_api):
 
     if not out_key.endswith('.jpg'):
         out_key = out_key.rsplit('.', 1)[0] + '.jpg' if '.' in out_key else out_key + '.jpg'
+
+    result_bytes = _normalize_image_bytes(result_bytes)
+
+    s3_client.put_object(
+        Bucket=S3_BUCKET,
+        Key=out_key,
+        Body=result_bytes,
+        ContentType='image/jpeg'
+    )
+    final_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{out_key}"
+    print(f"[RETOUCH] Uploaded to S3: {out_key} ({len(result_bytes)} bytes)")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE retouch_tasks SET status='finished', result_key=%s, result_url=%s, error_message=NULL, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+            (out_key, final_url, db_task_id, user_id)
+        )
+        conn.commit()
+
+    if photo_id:
+        _save_retouched_photo(conn, user_id, photo_id, out_key, final_url, result_bytes=result_bytes)
+
+    return out_key, final_url
+
+
+def _download_result_and_save(conn, user_id, task, result_url_from_api):
+    """Скачать результат по URL, сохранить в свой бакет и в БД."""
+    s3_client = _get_s3_client()
 
     print(f"[RETOUCH] Downloading result from: {result_url_from_api}")
     result_bytes = None
@@ -300,33 +369,7 @@ def _download_result_and_save(conn, user_id, task, result_url_from_api):
 
     print(f"[RETOUCH] Downloaded {len(result_bytes)} bytes")
 
-    if result_bytes[:2] == b'P6' or result_bytes[:2] == b'P3':
-        print(f"[RETOUCH] PPM format detected, converting to JPEG")
-        img = Image.open(io.BytesIO(result_bytes))
-        buf = io.BytesIO()
-        img.convert('RGB').save(buf, format='JPEG', quality=95)
-        result_bytes = buf.getvalue()
-
-    s3_client.put_object(
-        Bucket=S3_BUCKET,
-        Key=out_key,
-        Body=result_bytes,
-        ContentType='image/jpeg'
-    )
-    final_url = f"https://storage.yandexcloud.net/{S3_BUCKET}/{out_key}"
-    print(f"[RETOUCH] Uploaded to S3: {out_key}")
-
-    with conn.cursor() as cur:
-        cur.execute(
-            "UPDATE retouch_tasks SET status='finished', result_key=%s, result_url=%s, error_message=NULL, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
-            (out_key, final_url, db_task_id, user_id)
-        )
-        conn.commit()
-
-    if photo_id:
-        _save_retouched_photo(conn, user_id, photo_id, out_key, final_url, result_bytes=result_bytes)
-
-    return out_key, final_url
+    return _save_result_bytes(conn, user_id, task, result_bytes)
 
 
 def _check_plugins_available():
@@ -536,7 +579,36 @@ def _sync_task_from_api(conn, user_id, task):
     api_status = data.get('status', 'pending')
 
     if api_status == 'completed':
+        inline_b64 = data.get('image') or data.get('result') or data.get('image_base64')
         result_url_from_api = data.get('result_url')
+
+        if inline_b64:
+            try:
+                if isinstance(inline_b64, str) and inline_b64.startswith('data:'):
+                    inline_b64 = inline_b64.split(',', 1)[1]
+                decoded = base64.b64decode(inline_b64)
+                print(f"[RETOUCH] Got inline base64 image: {len(decoded)} bytes")
+                out_key, final_url = _save_result_bytes(conn, user_id, task, decoded)
+                task = dict(task)
+                task['status'] = 'finished'
+                task['result_key'] = out_key
+                task['result_url'] = final_url
+                return task
+            except Exception as e:
+                import traceback
+                print(f"[RETOUCH] Failed to save inline image: {e}")
+                print(f"[RETOUCH] Traceback: {traceback.format_exc()}")
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE retouch_tasks SET status='failed', error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                        (f"Ошибка сохранения: {str(e)[:300]}", api_task_id, user_id)
+                    )
+                    conn.commit()
+                task = dict(task)
+                task['status'] = 'failed'
+                task['error_message'] = str(e)[:300]
+                return task
+
         if result_url_from_api:
             try:
                 out_key, final_url = _download_result_and_save(conn, user_id, task, result_url_from_api)
