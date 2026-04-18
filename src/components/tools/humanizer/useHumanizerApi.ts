@@ -119,6 +119,86 @@ export function useHumanizerApi(userId: string | null) {
     }
   }, [userId]);
 
+  const humanizeChunked = useCallback(async (
+    text: string,
+    settings: HumanizerSettings,
+    onProgress?: (done: number, total: number, accumulated: string) => void,
+  ): Promise<{ humanizedText: string; scoreBefore: number; scoreAfter: number }> => {
+    setLoading(true);
+    setPhase('Подготовка…');
+    try {
+      // 1) Быстрый детект before — один запрос
+      const before = await call<{ overall_score: number }>({
+        action: 'detect',
+        text,
+        use_llm: false, // быстрый без LLM, чтобы не тратить время
+      }, userId);
+
+      // 2) Разбиваем текст на чанки по абзацам, по ~2000 символов максимум
+      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim());
+      const chunks: string[] = [];
+      let current = '';
+      for (const p of paragraphs) {
+        if ((current + '\n\n' + p).length > 2000 && current) {
+          chunks.push(current.trim());
+          current = p;
+        } else {
+          current = current ? current + '\n\n' + p : p;
+        }
+      }
+      if (current.trim()) chunks.push(current.trim());
+
+      // 3) Обрабатываем каждый чанк последовательно
+      const results: string[] = [];
+      for (let i = 0; i < chunks.length; i++) {
+        setPhase(`Переписываю часть ${i + 1} из ${chunks.length}…`);
+        try {
+          const res = await call<{ text: string }>({
+            action: 'humanize_chunk',
+            text: chunks[i],
+            style: settings.style,
+            aggression: settings.aggression,
+            preserve_terms: settings.preserveTerms,
+            academic_mode: settings.academicMode,
+            seed: Date.now() + i,
+          }, userId);
+          results.push(res.text);
+        } catch (e) {
+          // Если чанк не обработался — оставляем оригинал
+          console.error(`Chunk ${i + 1} failed:`, e);
+          results.push(chunks[i]);
+        }
+        const accumulated = results.join('\n\n');
+        onProgress?.(i + 1, chunks.length, accumulated);
+      }
+
+      const humanizedText = results.join('\n\n');
+
+      // 4) Финальный детект after с LLM
+      setPhase('Замеряю результат…');
+      let scoreAfter = 0;
+      try {
+        const after = await call<{ overall_score: number }>({
+          action: 'detect',
+          text: humanizedText,
+          use_llm: true,
+        }, userId);
+        scoreAfter = after.overall_score;
+      } catch {
+        scoreAfter = 0;
+      }
+
+      return {
+        humanizedText,
+        scoreBefore: before.overall_score,
+        scoreAfter,
+      };
+    } finally {
+      setLoading(false);
+      setPhase('');
+    }
+  }, [userId]);
+
   const saveDocument = useCallback(async (
     original: string,
     humanized: string,
@@ -173,6 +253,7 @@ export function useHumanizerApi(userId: string | null) {
     detect,
     rewriteSentence,
     humanizeFull,
+    humanizeChunked,
     saveDocument,
     exportDocx,
   };

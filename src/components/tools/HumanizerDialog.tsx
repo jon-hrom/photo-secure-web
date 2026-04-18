@@ -107,54 +107,57 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
     }
   }, [api, handleSubmitText]);
 
-  const handleHumanizeFull = useCallback(async () => {
+  const runHumanize = useCallback(async (runSettings: HumanizerSettings) => {
     if (!currentText) return;
     try {
-      const res = await api.humanizeFull(currentText, settings);
-      setCurrentText(res.humanized_text);
-      setDetectAfter({
-        sentences: res.sentences_after,
-        overall_score: res.score_after,
-        markers: res.markers_after || {},
-      });
+      // Прогрессивное отображение результата по мере обработки чанков
+      const res = await api.humanizeChunked(
+        currentText,
+        runSettings,
+        (done, total, accumulated) => {
+          // Показываем частичный результат в UI в реальном времени
+          if (done < total) {
+            setCurrentText((prev) => {
+              // Если есть уже обработанные чанки — показываем их + остаток оригинала
+              const remaining = prev.split(/\n\s*\n/).slice(done).join('\n\n');
+              return accumulated + (remaining ? '\n\n' + remaining : '');
+            });
+          }
+        },
+      );
+      setCurrentText(res.humanizedText);
+      // Повторный детект с LLM для обновления подсветки
+      try {
+        const afterDetect = await api.detect(res.humanizedText, true);
+        setDetectAfter(afterDetect);
+      } catch {
+        // не критично
+      }
       setTotalRuns((prev) => {
-        if (prev === 0) setFirstScoreBefore(res.score_before);
+        if (prev === 0) setFirstScoreBefore(res.scoreBefore);
         return prev + 1;
       });
-      const baseScore = firstScoreBefore ?? res.score_before;
+      const baseScore = firstScoreBefore ?? res.scoreBefore;
       toast.success(
-        `Прогон ${totalRuns + 1}: ${baseScore.toFixed(0)}% → ${res.score_after.toFixed(0)}%`
+        `Прогон ${totalRuns + 1}: ${baseScore.toFixed(0)}% → ${res.scoreAfter.toFixed(0)}%`
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка очеловечивания');
     }
-  }, [api, currentText, settings, totalRuns, firstScoreBefore]);
+  }, [api, currentText, totalRuns, firstScoreBefore]);
 
-  const handleRerun = useCallback(async () => {
-    if (!currentText) return;
-    // Повторный прогон — усиливаем до extreme если ещё не extreme
+  const handleHumanizeFull = useCallback(() => {
+    runHumanize(settings);
+  }, [runHumanize, settings]);
+
+  const handleRerun = useCallback(() => {
     const rerunSettings: HumanizerSettings = {
       ...settings,
       aggression: 'extreme',
       targetScore: Math.max(3, settings.targetScore - 2),
     };
-    try {
-      const res = await api.humanizeFull(currentText, rerunSettings);
-      setCurrentText(res.humanized_text);
-      setDetectAfter({
-        sentences: res.sentences_after,
-        overall_score: res.score_after,
-        markers: res.markers_after || {},
-      });
-      setTotalRuns((prev) => prev + 1);
-      const baseScore = firstScoreBefore ?? res.score_before;
-      toast.success(
-        `Прогон ${totalRuns + 1}: ${baseScore.toFixed(0)}% → ${res.score_after.toFixed(0)}%`
-      );
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка повторного прогона');
-    }
-  }, [api, currentText, settings, totalRuns, firstScoreBefore]);
+    runHumanize(rerunSettings);
+  }, [runHumanize, settings]);
 
   const handleSelectSentence = useCallback(async (index: number | null) => {
     setSelectedIdx(index);

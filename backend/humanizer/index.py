@@ -1559,6 +1559,40 @@ def handler(event: dict, context) -> dict:
                                     target_score, max_passes, academic_mode=academic_mode)
             return _ok(result)
 
+        elif action == "humanize_chunk":
+            # Быстрое переписывание одного чанка (одного-двух абзацев).
+            # Используется фронтом для итеративной обработки длинных текстов —
+            # без попадания в таймаут 30с.
+            chunk = body.get("text", "")
+            if not chunk or len(chunk) < 5:
+                return _err("chunk too short")
+            if len(chunk) > 4000:
+                return _err("chunk too long (max 4000 chars)")
+            style = body.get("style", "neutral")
+            aggression = body.get("aggression", "extreme")
+            preserve_terms = bool(body.get("preserve_terms", True))
+            academic_mode = bool(body.get("academic_mode", True))
+            seed = int(body.get("seed", 42))
+            # Один проход: переписать и вернуть
+            variants = rewrite_text(
+                chunk,
+                style=style,
+                aggression=aggression,
+                preserve_terms=preserve_terms,
+                num_variants=1,
+                seed=seed,
+                academic_mode=academic_mode,
+            )
+            out_text = variants[0] if variants else chunk
+            # Быстрый детект только по эвристике — без LLM, чтобы не тратить время
+            detection = detect_ai(out_text, use_llm=False)
+            return _ok({
+                "text": out_text,
+                "ai_score": detection["overall_score"],
+                "sentences": detection["sentences"],
+                "markers": detection.get("markers", {}),
+            })
+
         elif action == "save_document":
             if not user_id:
                 return _err("user_id required", 401)
