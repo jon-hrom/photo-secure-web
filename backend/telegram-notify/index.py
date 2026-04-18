@@ -301,6 +301,47 @@ def flush_pending_messages(conn, client_id: int, telegram_chat_id: str) -> dict:
         }
 
 
+def cleanup_expired_messages(conn) -> dict:
+    """Очистка истекших сообщений из буфера (бывший telegram-cleanup-cron).
+    Помечает сообщения старше срока expires_at как 'expired',
+    уведомляет фотографов об этом, а также удаляет старые записи >30 дней."""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT DISTINCT tmq.photographer_id, c.name as client_name
+            FROM {SCHEMA}.telegram_message_queue tmq
+            JOIN {SCHEMA}.clients c ON c.id = tmq.client_id
+            WHERE tmq.status = 'pending'
+              AND tmq.expires_at < CURRENT_TIMESTAMP
+        """)
+        expired_messages = cur.fetchall()
+
+        cur.execute(f"""
+            UPDATE {SCHEMA}.telegram_message_queue
+            SET status = 'expired'
+            WHERE status = 'pending'
+              AND expires_at < CURRENT_TIMESTAMP
+        """)
+        expired_count = cur.rowcount
+
+        # Уведомляем фотографов
+        for msg in expired_messages:
+            try:
+                notify_photographer(conn, msg['photographer_id'],
+                                     msg['client_name'], 'expired')
+            except Exception as e:
+                print(f"[CLEANUP] Notify error: {e}")
+
+        # Удаляем старые записи (>30 дней)
+        cur.execute(f"""
+            DELETE FROM {SCHEMA}.telegram_message_queue
+            WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '30 days'
+        """)
+        deleted_count = cur.rowcount
+        conn.commit()
+
+        return {'expired': expired_count, 'deleted': deleted_count}
+
+
 def send_direct_message(conn, client_id: int, user_id: int, message_text: str) -> dict:
     """Прямая отправка сообщения клиенту в Telegram"""
     with conn.cursor() as cur:
@@ -330,7 +371,7 @@ def get_cors_headers() -> dict:
     return {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, X-User-Id",
+        "Access-Control-Allow-Headers": "Content-Type, X-User-Id, X-Cron-Token",
     }
 
 
@@ -436,7 +477,23 @@ def handler(event, context):
             
             result = flush_pending_messages(conn, client_id, telegram_chat_id)
             return cors_response(200, result)
-        
+
+        # CRON: очистка истекших сообщений (бывший telegram-cleanup-cron)
+        elif action == "cleanup_expired":
+            cron_token = os.environ.get('CRON_TOKEN', '')
+            headers_in = event.get('headers', {}) or {}
+            provided = headers_in.get('X-Cron-Token') or headers_in.get('x-cron-token') or ''
+            if cron_token and provided != cron_token:
+                return cors_response(401, {"error": "Unauthorized cron call"})
+
+            result = cleanup_expired_messages(conn)
+            print(f"[CLEANUP] Expired: {result['expired']}, Deleted: {result['deleted']}")
+            return cors_response(200, {
+                "success": True,
+                "timestamp": datetime.utcnow().isoformat(),
+                **result,
+            })
+
         else:
             return cors_response(400, {"error": f"Unknown action: {action}"})
     

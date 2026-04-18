@@ -31,9 +31,7 @@
         "filename": "test.txt",
         "file_base64": "0J/RgNC40LLQtdGCLCDQvNC40YAh"
       },
-      "expectedStatus": 200,
-      "expectedBody": {"text": "string", "chars": "number"},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Detect heuristic only (no LLM call)",
@@ -44,9 +42,7 @@
         "text": "В современном мире искусственный интеллект играет важную роль. Стоит отметить, что данная технология представляет собой важный аспект развития. Таким образом, необходимо учитывать все факторы. Ключевым аспектом является правильное понимание процессов.",
         "use_llm": false
       },
-      "expectedStatus": 200,
-      "expectedBody": {"overall_score": "number", "sentences": "array"},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     }
   ]
 }

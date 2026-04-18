@@ -133,23 +133,95 @@ def send_email_postbox(to_email: str, subject: str, html_body: str, from_name: s
         print(f'Email error: {str(e)}')
         return False
 
+def _run_cron_pass(conn, schema: str):
+    '''Запуск daily-проверки всех пользователей (бывший birthday-cron).
+    Итерируется по фотографам с включёнными уведомлениями, для каждого
+    делает проверку ДР клиентов и отправляет уведомления без HTTP.'''
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(f'''
+        SELECT DISTINCT u.id, u.email, u.region
+        FROM {schema}.users u
+        INNER JOIN {schema}.birthday_notification_settings bns ON bns.user_id = u.id::text
+        WHERE bns.enabled = TRUE
+    ''')
+    users = cur.fetchall()
+
+    total_checked = 0
+    total_sent = 0
+    results = []
+
+    for user in users:
+        user_id = str(user['id'])
+        try:
+            # Эмулируем GET ?action=check
+            check_event = {
+                'httpMethod': 'GET',
+                'queryStringParameters': {'action': 'check'},
+                'headers': {'X-User-Id': user_id},
+            }
+            check_response = handler(check_event, None)
+            if check_response.get('statusCode') != 200:
+                results.append({'user_id': user_id, 'status': 'check_failed',
+                                'error': check_response.get('body', '')[:200]})
+                continue
+
+            data = json.loads(check_response.get('body', '{}'))
+            upcoming = data.get('upcoming_birthdays', [])
+            total_checked += 1
+
+            for birthday in upcoming:
+                try:
+                    send_event = {
+                        'httpMethod': 'POST',
+                        'body': json.dumps({'action': 'send_notifications', **birthday}),
+                        'headers': {'X-User-Id': user_id},
+                    }
+                    send_response = handler(send_event, None)
+                    if send_response.get('statusCode') == 200:
+                        total_sent += 1
+                        results.append({'user_id': user_id,
+                                        'client': birthday.get('name'),
+                                        'status': 'sent'})
+                    else:
+                        results.append({'user_id': user_id,
+                                        'client': birthday.get('name'),
+                                        'status': 'failed',
+                                        'error': send_response.get('body', '')[:200]})
+                except Exception as e:
+                    results.append({'user_id': user_id,
+                                    'client': birthday.get('name'),
+                                    'status': 'failed', 'error': str(e)})
+        except Exception as e:
+            results.append({'user_id': user_id, 'status': 'check_failed', 'error': str(e)})
+
+    cur.close()
+    return {
+        'timestamp': datetime.now(dt_timezone.utc).isoformat(),
+        'users_checked': total_checked,
+        'notifications_sent': total_sent,
+        'results': results,
+    }
+
+
 def handler(event: dict, context):
-    '''Проверяет дни рождения клиентов и отправляет уведомления за N дней до даты'''
-    
+    '''Проверяет дни рождения клиентов и отправляет уведомления за N дней до даты.
+    Поддерживает action=cron_run для ежедневной автоматической проверки всех пользователей
+    (раньше был отдельной функцией birthday-cron, теперь объединено сюда).'''
+
     method = event.get('httpMethod', 'GET')
-    
+
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id'
+                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-Cron-Token'
             },
             'body': '',
             'isBase64Encoded': False
         }
-    
+
     dsn = os.environ.get('DATABASE_URL')
     if not dsn:
         return {
@@ -158,12 +230,49 @@ def handler(event: dict, context):
             'body': json.dumps({'error': 'Database not configured'}),
             'isBase64Encoded': False
         }
-    
+
     schema = os.environ.get('MAIN_DB_SCHEMA', 't_p28211681_photo_secure_web')
-    
+
+    # Обработка cron_run — без user_id, защита через CRON_TOKEN
+    if method == 'POST':
+        try:
+            body_early = json.loads(event.get('body', '{}') or '{}')
+        except Exception:
+            body_early = {}
+        if body_early.get('action') == 'cron_run':
+            cron_token = os.environ.get('CRON_TOKEN', '')
+            headers_in = event.get('headers', {}) or {}
+            provided = headers_in.get('X-Cron-Token') or headers_in.get('x-cron-token') or ''
+            if cron_token and provided != cron_token:
+                return {
+                    'statusCode': 401,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Unauthorized cron call'}),
+                    'isBase64Encoded': False,
+                }
+            conn_cron = psycopg2.connect(dsn)
+            try:
+                summary = _run_cron_pass(conn_cron, schema)
+                print(f'Birthday cron completed: {json.dumps(summary)[:500]}')
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps(summary),
+                    'isBase64Encoded': False,
+                }
+            except Exception as e:
+                return {
+                    'statusCode': 500,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': str(e)}),
+                    'isBase64Encoded': False,
+                }
+            finally:
+                conn_cron.close()
+
     conn = psycopg2.connect(dsn)
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    
+
     try:
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'check')
