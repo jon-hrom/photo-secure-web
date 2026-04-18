@@ -39,6 +39,28 @@
   background-color: hsl(var(--muted-foreground) / 0.5);
 }
 
+/* Явно видимый скроллбар для правой панели Humanizer */
+.humanizer-right-panel {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.6) hsl(var(--muted) / 0.3);
+}
+.humanizer-right-panel::-webkit-scrollbar {
+  width: 10px;
+}
+.humanizer-right-panel::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 5px;
+}
+.humanizer-right-panel::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--primary) / 0.6);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.humanizer-right-panel::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
 @layer base {
   :root {
     --background: 240 60% 99%;

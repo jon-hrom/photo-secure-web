@@ -415,7 +415,7 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
                 </div>
               </div>
 
-              <div className="space-y-3 lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(95vh-180px)] lg:overflow-y-auto lg:pr-1">
+              <div className="space-y-3 lg:sticky lg:top-0 lg:self-start max-h-[75vh] overflow-y-auto overscroll-contain pr-2 humanizer-right-panel">
                 <ScorePanel
                   scoreBefore={firstScoreBefore ?? detectBefore?.overall_score ?? null}
                   scoreAfter={detectAfter?.overall_score ?? null}
