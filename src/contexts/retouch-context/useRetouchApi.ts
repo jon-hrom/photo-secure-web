@@ -56,34 +56,47 @@ export const useRetouchApi = ({
       setWakeStatus('waking');
 
       if (data.action === 'starting' || data.action === 'already_starting') {
-        const maxWait = 180;
+        const maxWait = 300;
         const interval = 4;
-        let vmRunning = false;
+        const warmupAfterReadyMs = 120_000;
+        let vmReadyAt: number | null = null;
+
         for (let elapsed = 0; elapsed < maxWait; elapsed += interval) {
           await new Promise(r => setTimeout(r, interval * 1000));
-          try {
-            const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(10000) });
-            if (probe.ok) {
-              const probeData = await probe.json();
-              if (probeData.probe?.reachable) {
-                setWakeStatus('готов');
-                setWaking(false);
-                markActive();
-                return true;
-              }
-            }
-          } catch { /* still starting */ }
-          if (!vmRunning && elapsed >= 20) {
+
+          if (vmReadyAt === null) {
             try {
-              const statusRes = await fetch(`${RETOUCH_WAKER_API}?action=wake`, { method: 'POST' });
-              if (statusRes.ok) {
-                const statusData = await statusRes.json();
-                if (statusData.action === 'already_running') {
-                  vmRunning = true;
-                  setWakeStatus('vm_ready');
+              const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(10000) });
+              if (probe.ok) {
+                const probeData = await probe.json();
+                if (probeData.probe?.reachable) {
+                  vmReadyAt = Date.now();
+                  setWakeStatus('warmup');
                 }
               }
-            } catch { /* ignore */ }
+            } catch { /* still starting */ }
+
+            if (vmReadyAt === null && elapsed >= 20) {
+              try {
+                const statusRes = await fetch(`${RETOUCH_WAKER_API}?action=wake`, { method: 'POST' });
+                if (statusRes.ok) {
+                  const statusData = await statusRes.json();
+                  if (statusData.action === 'already_running') {
+                    vmReadyAt = Date.now();
+                    setWakeStatus('warmup');
+                  }
+                }
+              } catch { /* ignore */ }
+            }
+          } else {
+            const waited = Date.now() - vmReadyAt;
+            if (waited >= warmupAfterReadyMs) {
+              setWakeStatus('готов');
+              setWaking(false);
+              markActive();
+              return true;
+            }
+            setWakeStatus(`warmup:${Math.max(0, Math.ceil((warmupAfterReadyMs - waited) / 1000))}`);
           }
         }
         setWakeStatus('Сервис не успел запуститься. Попробуйте через пару минут');
