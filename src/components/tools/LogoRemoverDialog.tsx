@@ -4,9 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
+import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
+import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 
 const LOGO_REMOVE_URL = 'https://functions.poehali.dev/3795ef81-5e3e-451a-b638-0d994d8ee56c';
+const PHOTOBANK_URL = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
 const MAX_SIDE = 1600;
+
+const urlToImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = url;
+  });
 
 interface LogoRemoverDialogProps {
   open: boolean;
@@ -54,6 +66,11 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
   const [brushSize, setBrushSize] = useState(30);
   const [hasMask, setHasMask] = useState(false);
   const [historyLen, setHistoryLen] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [showPicker, setShowPicker] = useState(false);
+  const [showSaver, setShowSaver] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const originalDataUrlRef = useRef<string>('');
   const currentDataUrlRef = useRef<string>('');
@@ -62,9 +79,12 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
   const drawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ dist: number; zoom: number; centerX: number; centerY: number; panX: number; panY: number } | null>(null);
 
   const resetAll = useCallback(() => {
     setStage('upload');
@@ -72,9 +92,18 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
     setLoadingText('');
     setHasMask(false);
     setHistoryLen(0);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
     originalDataUrlRef.current = '';
     currentDataUrlRef.current = '';
     historyRef.current = [];
+    pointersRef.current.clear();
+    pinchRef.current = null;
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   }, []);
 
   useEffect(() => {
@@ -131,7 +160,72 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
     } finally {
       setLoading(false);
     }
-  }, [loadImageIntoCanvas]);
+  }, [loadImageIntoCanvas, toast]);
+
+  const handlePickFromBank = useCallback(async (photo: { s3_url: string; file_name: string }) => {
+    setShowPicker(false);
+    try {
+      setStage('edit');
+      setLoading(true);
+      setLoadingText('Загружаем фото из фотобанка...');
+      await new Promise((r) => setTimeout(r, 50));
+      const img = await urlToImage(photo.s3_url);
+      const dataUrl = imageToDataUrl(img, 'image/jpeg');
+      originalDataUrlRef.current = dataUrl;
+      historyRef.current = [dataUrl];
+      setHistoryLen(1);
+      await loadImageIntoCanvas(dataUrl);
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: 'Не удалось загрузить фото',
+        description: 'Возможно, фото защищено CORS. Попробуйте скачать и загрузить файл.',
+        variant: 'destructive',
+      });
+      setStage('upload');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadImageIntoCanvas, toast]);
+
+  const handleSaveToFolder = useCallback(async (folder: { id: number; folder_name: string }) => {
+    const userId = getAuthUserId();
+    if (!userId) {
+      toast({ title: 'Не удалось определить пользователя', variant: 'destructive' });
+      return;
+    }
+    const canvas = imageCanvasRef.current;
+    if (!canvas) return;
+    try {
+      setSaving(true);
+      setLoading(true);
+      setLoadingText('Сохраняем в фотобанк...');
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const fileName = `logo-removed-${Date.now()}.jpg`;
+      const res = await fetch(PHOTOBANK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({
+          action: 'upload_direct',
+          folder_id: folder.id,
+          file_name: fileName,
+          file_data: dataUrl,
+          width: canvas.width,
+          height: canvas.height,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      toast({ title: 'Сохранено', description: `Фото загружено в «${folder.folder_name}»` });
+      setShowSaver(false);
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Не удалось сохранить', description: String((e as Error)?.message || e), variant: 'destructive' });
+    } finally {
+      setSaving(false);
+      setLoading(false);
+    }
+  }, [toast]);
 
   const getCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = maskCanvasRef.current!;
@@ -171,7 +265,27 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
+    const canvas = e.target as HTMLCanvasElement;
+    canvas.setPointerCapture(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointersRef.current.size === 2) {
+      drawingRef.current = false;
+      lastPointRef.current = null;
+      const pts = Array.from(pointersRef.current.values());
+      const dx = pts[0].x - pts[1].x;
+      const dy = pts[0].y - pts[1].y;
+      pinchRef.current = {
+        dist: Math.hypot(dx, dy),
+        zoom,
+        centerX: (pts[0].x + pts[1].x) / 2,
+        centerY: (pts[0].y + pts[1].y) / 2,
+        panX: pan.x,
+        panY: pan.y,
+      };
+      return;
+    }
+
     drawingRef.current = true;
     lastPointRef.current = null;
     const p = getCanvasPoint(e);
@@ -179,15 +293,44 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (pointersRef.current.size === 2 && pinchRef.current) {
+      const pts = Array.from(pointersRef.current.values());
+      const dx = pts[0].x - pts[1].x;
+      const dy = pts[0].y - pts[1].y;
+      const dist = Math.hypot(dx, dy);
+      const newZoom = Math.min(6, Math.max(1, pinchRef.current.zoom * (dist / pinchRef.current.dist)));
+      const cx = (pts[0].x + pts[1].x) / 2;
+      const cy = (pts[0].y + pts[1].y) / 2;
+      setZoom(newZoom);
+      setPan({
+        x: pinchRef.current.panX + (cx - pinchRef.current.centerX),
+        y: pinchRef.current.panY + (cy - pinchRef.current.centerY),
+      });
+      return;
+    }
+
     if (!drawingRef.current) return;
     const p = getCanvasPoint(e);
     drawAt(p.x, p.y, (e.buttons & 2) === 2 || e.ctrlKey);
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     drawingRef.current = false;
     lastPointRef.current = null;
     try { (e.target as HTMLCanvasElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+  };
+
+  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((z) => Math.min(6, Math.max(1, z * delta)));
   };
 
   const detectAI = useCallback(async () => {
@@ -335,41 +478,71 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
         </DialogHeader>
 
         {stage === 'upload' && (
-          <div
-            className="mt-3 border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const f = e.dataTransfer.files?.[0];
-              if (f) handleFile(f);
-            }}
-          >
-            <Icon name="ImagePlus" size={48} className="mx-auto mb-3 text-muted-foreground" />
-            <p className="font-medium text-sm sm:text-base mb-1">Выберите фото или перетащите сюда</p>
-            <p className="text-xs text-muted-foreground">JPG, PNG, WEBP — до 20 МБ</p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
+          <div className="mt-3 space-y-3">
+            <div
+              className="border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer.files?.[0];
                 if (f) handleFile(f);
-                e.target.value = '';
               }}
-            />
+            >
+              <Icon name="ImagePlus" size={48} className="mx-auto mb-3 text-muted-foreground" />
+              <p className="font-medium text-sm sm:text-base mb-1">Выберите фото или перетащите сюда</p>
+              <p className="text-xs text-muted-foreground">JPG, PNG, WEBP — до 20 МБ</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFile(f);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[11px] text-muted-foreground">или</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => setShowPicker(true)}
+            >
+              <Icon name="FolderOpen" size={18} />
+              Выбрать из фотобанка
+            </Button>
           </div>
         )}
 
         {stage === 'edit' && (
           <div className="mt-3 space-y-3">
-            <div className="relative rounded-xl overflow-hidden border border-border" style={{
-              backgroundImage: 'linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%)',
-              backgroundSize: '20px 20px',
-              backgroundPosition: '0 0, 0 10px, 10px -10px, 10px 0',
-            }}>
-              <div className="relative max-h-[60vh] overflow-auto flex items-center justify-center">
+            <div
+              ref={viewportRef}
+              className="relative rounded-xl overflow-hidden border border-border touch-none"
+              style={{
+                backgroundImage: 'linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%)',
+                backgroundSize: '20px 20px',
+                backgroundPosition: '0 0, 0 10px, 10px -10px, 10px 0',
+                height: '60vh',
+              }}
+              onWheel={onWheel}
+            >
+              <div
+                className="absolute inset-0 flex items-center justify-center"
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transformOrigin: 'center center',
+                  transition: pointersRef.current.size >= 2 ? 'none' : 'transform 0.08s ease-out',
+                }}
+              >
                 <div className="relative">
                   <canvas
                     ref={imageCanvasRef}
@@ -388,8 +561,39 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
                   />
                 </div>
               </div>
+
+              <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
+                <button
+                  onClick={() => setZoom((z) => Math.min(6, z * 1.25))}
+                  className="w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm flex items-center justify-center transition-colors"
+                  title="Приблизить"
+                >
+                  <Icon name="ZoomIn" size={16} />
+                </button>
+                <button
+                  onClick={() => setZoom((z) => Math.max(1, z / 1.25))}
+                  className="w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm flex items-center justify-center transition-colors"
+                  title="Отдалить"
+                >
+                  <Icon name="ZoomOut" size={16} />
+                </button>
+                <button
+                  onClick={resetZoom}
+                  className="w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm flex items-center justify-center transition-colors"
+                  title="Сбросить масштаб"
+                >
+                  <Icon name="Maximize2" size={16} />
+                </button>
+              </div>
+
+              {zoom > 1.01 && (
+                <div className="absolute bottom-2 left-2 text-[11px] text-white bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded">
+                  {Math.round(zoom * 100)}%
+                </div>
+              )}
+
               {loading && (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-sm z-10">
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-sm z-20">
                   <Icon name="Loader2" size={36} className="animate-spin mb-2" />
                   <p className="text-sm">{loadingText || 'Обработка...'}</p>
                 </div>
@@ -430,6 +634,10 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
                 <Icon name="Download" size={16} />
                 Скачать
               </Button>
+              <Button onClick={() => setShowSaver(true)} disabled={loading} variant="outline" size="sm" className="gap-1.5">
+                <Icon name="Save" size={16} />
+                В фотобанк
+              </Button>
               <Button onClick={resetAll} disabled={loading} variant="ghost" size="sm" className="gap-1.5 ml-auto">
                 <Icon name="RotateCcw" size={16} />
                 Новое фото
@@ -437,11 +645,26 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
             </div>
 
             <p className="text-[11px] text-muted-foreground px-1">
-              Закрасьте лого кистью или нажмите «Найти AI». Правая кнопка мыши или Ctrl — ластик маски. Затем «Стереть».
+              Закрасьте лого кистью или нажмите «Найти AI». ПКМ или Ctrl — ластик маски. Два пальца или Ctrl+колесо — масштаб.
             </p>
           </div>
         )}
       </DialogContent>
+
+      <PhotoBankPicker
+        open={showPicker}
+        onOpenChange={setShowPicker}
+        mode="pick"
+        onPick={handlePickFromBank}
+      />
+
+      <PhotoBankPicker
+        open={showSaver}
+        onOpenChange={setShowSaver}
+        mode="save"
+        onSave={handleSaveToFolder}
+        saveDisabled={saving}
+      />
     </Dialog>
   );
 };
