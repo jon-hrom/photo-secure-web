@@ -453,10 +453,23 @@ YGPT_URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 def _yagpt_complete(system: str, user: str, temperature: float = 0.6,
                     max_tokens: int = 2000, model: str = "yandexgpt") -> str:
     """Синхронный вызов YandexGPT."""
-    api_key = os.environ.get("YANDEX_GPT_API_KEY", "").strip()
-    folder = os.environ.get("YANDEX_GPT_FOLDER_ID", "").strip()
+    api_key_raw = os.environ.get("YANDEX_GPT_API_KEY", "")
+    folder_raw = os.environ.get("YANDEX_GPT_FOLDER_ID", "")
+    api_key = api_key_raw.strip()
+    folder = folder_raw.strip()
     if not api_key or not folder:
-        raise RuntimeError("Не настроены секреты YANDEX_GPT_API_KEY и YANDEX_GPT_FOLDER_ID")
+        # Диагностика — показываем что именно пустое (без раскрытия значений)
+        has_key = bool(api_key_raw)
+        has_folder = bool(folder_raw)
+        key_len = len(api_key)
+        folder_len = len(folder)
+        all_env_keys = sorted([k for k in os.environ.keys() if 'YANDEX' in k.upper() or 'GPT' in k.upper()])
+        raise RuntimeError(
+            f"Секреты YandexGPT не настроены. "
+            f"API_KEY: present={has_key}, len={key_len}. "
+            f"FOLDER_ID: present={has_folder}, len={folder_len}. "
+            f"Найденные env-переменные: {all_env_keys}"
+        )
 
     # Модели: yandexgpt (pro) / yandexgpt-lite
     model_uri = f"gpt://{folder}/{model}/latest"
