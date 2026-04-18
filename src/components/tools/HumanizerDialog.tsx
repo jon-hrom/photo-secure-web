@@ -45,6 +45,8 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [variants, setVariants] = useState<string[]>([]);
   const [rightTab, setRightTab] = useState<'settings' | 'variants'>('settings');
+  const [totalRuns, setTotalRuns] = useState<number>(0);
+  const [firstScoreBefore, setFirstScoreBefore] = useState<number | null>(null);
 
   const reset = useCallback(() => {
     setStage('upload');
@@ -57,6 +59,8 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
     setSelectedIdx(null);
     setVariants([]);
     setRightTab('settings');
+    setTotalRuns(0);
+    setFirstScoreBefore(null);
   }, []);
 
   const handleClose = useCallback((v: boolean) => {
@@ -113,13 +117,44 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
         overall_score: res.score_after,
         markers: res.markers_after || {},
       });
+      setTotalRuns((prev) => {
+        if (prev === 0) setFirstScoreBefore(res.score_before);
+        return prev + 1;
+      });
+      const baseScore = firstScoreBefore ?? res.score_before;
       toast.success(
-        `Готово! AI-score: ${res.score_before.toFixed(0)}% → ${res.score_after.toFixed(0)}% за ${res.passes} прох.`
+        `Прогон ${totalRuns + 1}: ${baseScore.toFixed(0)}% → ${res.score_after.toFixed(0)}%`
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка очеловечивания');
     }
-  }, [api, currentText, settings]);
+  }, [api, currentText, settings, totalRuns, firstScoreBefore]);
+
+  const handleRerun = useCallback(async () => {
+    if (!currentText) return;
+    // Повторный прогон — усиливаем до extreme если ещё не extreme
+    const rerunSettings: HumanizerSettings = {
+      ...settings,
+      aggression: 'extreme',
+      targetScore: Math.max(3, settings.targetScore - 2),
+    };
+    try {
+      const res = await api.humanizeFull(currentText, rerunSettings);
+      setCurrentText(res.humanized_text);
+      setDetectAfter({
+        sentences: res.sentences_after,
+        overall_score: res.score_after,
+        markers: res.markers_after || {},
+      });
+      setTotalRuns((prev) => prev + 1);
+      const baseScore = firstScoreBefore ?? res.score_before;
+      toast.success(
+        `Прогон ${totalRuns + 1}: ${baseScore.toFixed(0)}% → ${res.score_after.toFixed(0)}%`
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка повторного прогона');
+    }
+  }, [api, currentText, settings, totalRuns, firstScoreBefore]);
 
   const handleSelectSentence = useCallback(async (index: number | null) => {
     setSelectedIdx(index);
@@ -275,8 +310,28 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
                       size={16}
                       className={api.loading ? 'animate-spin' : ''}
                     />
-                    Очеловечить весь текст
+                    {totalRuns === 0 ? 'Очеловечить весь текст' : 'Очеловечить снова'}
                   </Button>
+                  {totalRuns > 0 && (
+                    <Button
+                      onClick={handleRerun}
+                      disabled={api.loading}
+                      variant="default"
+                      className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                    >
+                      <Icon
+                        name={api.loading ? 'Loader2' : 'Zap'}
+                        size={16}
+                        className={api.loading ? 'animate-spin' : ''}
+                      />
+                      Прогнать ещё раз (усиленно)
+                    </Button>
+                  )}
+                  {totalRuns > 0 && (
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                      Прогонов: {totalRuns}
+                    </span>
+                  )}
                   <Button variant="outline" onClick={handleCopy}>
                     <Icon name="Copy" size={14} className="mr-1.5" />
                     Копировать
@@ -339,7 +394,7 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
 
               <div className="space-y-3">
                 <ScorePanel
-                  scoreBefore={detectBefore?.overall_score ?? null}
+                  scoreBefore={firstScoreBefore ?? detectBefore?.overall_score ?? null}
                   scoreAfter={detectAfter?.overall_score ?? null}
                   markers={(detectAfter?.markers ?? detectBefore?.markers) || {}}
                 />
