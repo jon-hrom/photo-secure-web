@@ -179,11 +179,20 @@ export function useHumanizerApi(userId: string | null) {
 }
 
 export function getSentenceScoreColor(score: number): string {
-  if (score >= 80) return 'bg-orange-300/60 hover:bg-orange-300/80';
-  if (score >= 60) return 'bg-yellow-300/50 hover:bg-yellow-300/70';
-  if (score >= 40) return 'bg-yellow-200/40 hover:bg-yellow-200/60';
-  if (score >= 20) return 'bg-lime-100/40 hover:bg-lime-100/60';
-  return 'hover:bg-muted/50';
+  // Светлая тема: заливка + чёрный текст. Тёмная тема: мягкий бг + светлый текст.
+  if (score >= 80) {
+    return 'bg-red-200 text-red-950 hover:bg-red-300 dark:bg-red-900/60 dark:text-red-50 dark:hover:bg-red-800/70 border-l-4 border-red-500';
+  }
+  if (score >= 60) {
+    return 'bg-orange-200 text-orange-950 hover:bg-orange-300 dark:bg-orange-900/50 dark:text-orange-50 dark:hover:bg-orange-800/60 border-l-4 border-orange-500';
+  }
+  if (score >= 40) {
+    return 'bg-yellow-200 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-900/40 dark:text-yellow-50 dark:hover:bg-yellow-800/60 border-l-4 border-yellow-500';
+  }
+  if (score >= 20) {
+    return 'bg-lime-100 text-lime-950 hover:bg-lime-200 dark:bg-lime-900/30 dark:text-lime-50 dark:hover:bg-lime-800/50 border-l-2 border-lime-400';
+  }
+  return 'hover:bg-muted/60 border-l-2 border-transparent';
 }
 
 export function getOverallColor(score: number): string {

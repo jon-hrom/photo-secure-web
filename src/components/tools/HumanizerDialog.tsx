@@ -372,23 +372,23 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded bg-lime-100/60 border border-lime-300" />
-                    0–40%
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-lime-100 dark:bg-lime-900/50 border border-lime-400" />
+                    0–40% <span className="opacity-70">человек</span>
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded bg-yellow-300/50 border border-yellow-400" />
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-yellow-200 dark:bg-yellow-900/50 border border-yellow-500" />
                     40–60%
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded bg-yellow-300/80 border border-yellow-500" />
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-orange-200 dark:bg-orange-900/60 border border-orange-500" />
                     60–80%
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded bg-orange-300/80 border border-orange-500" />
-                    80–100%
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-red-200 dark:bg-red-900/60 border border-red-500" />
+                    80–100% <span className="opacity-70">AI</span>
                   </span>
-                  <span className="ml-auto">Нажмите на подсвеченное предложение — получите варианты</span>
+                  <span className="ml-auto hidden md:inline">Клик по предложению — варианты</span>
                 </div>
               </div>
 
