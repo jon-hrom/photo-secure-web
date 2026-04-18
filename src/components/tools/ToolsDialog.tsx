@@ -5,6 +5,7 @@ interface ToolsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenLogoRemover: () => void;
+  onOpenHumanizer: () => void;
 }
 
 interface ToolCardProps {
@@ -34,7 +35,7 @@ const ToolCard = ({ icon, title, description, onClick, gradient }: ToolCardProps
   </button>
 );
 
-const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover }: ToolsDialogProps) => {
+const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer }: ToolsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -57,6 +58,17 @@ const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover }: ToolsDialogProps
             onClick={() => {
               onOpenChange(false);
               onOpenLogoRemover();
+            }}
+          />
+
+          <ToolCard
+            icon="Wand2"
+            title="Humanizer — сделать текст человеческим"
+            description="Обходит AI-детекторы с сохранением смысла. Загрузите TXT/DOC/DOCX/PDF или вставьте текст — система найдёт признаки генерации и перепишет их человеческим языком."
+            gradient="from-emerald-500 to-teal-500"
+            onClick={() => {
+              onOpenChange(false);
+              onOpenHumanizer();
             }}
           />
 

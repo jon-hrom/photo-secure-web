@@ -8,6 +8,7 @@ import { useSupportUnread } from '@/hooks/useSupportUnread';
 import Dashboard from '@/components/Dashboard';
 import ToolsDialog from '@/components/tools/ToolsDialog';
 import LogoRemoverDialog from '@/components/tools/LogoRemoverDialog';
+import HumanizerDialog from '@/components/tools/HumanizerDialog';
 import PhotographerChatsModal from '@/components/photobank/PhotographerChatsModal';
 import ClientsPage from '@/components/ClientsPage';
 import PhotobookPage from '@/components/PhotobookPage';
@@ -77,6 +78,7 @@ const AuthenticatedLayout = ({
   const [showMAXChat, setShowMAXChat] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [showLogoRemover, setShowLogoRemover] = useState(false);
+  const [showHumanizer, setShowHumanizer] = useState(false);
   const unreadCount = useUnreadCount(userId);
   const { unreadCount: supportUnread, markRead: markSupportRead } = useSupportUnread(userId);
   const totalUnread = unreadCount + supportUnread;
@@ -250,11 +252,18 @@ const AuthenticatedLayout = ({
         open={showTools}
         onOpenChange={setShowTools}
         onOpenLogoRemover={() => setShowLogoRemover(true)}
+        onOpenHumanizer={() => setShowHumanizer(true)}
       />
 
       <LogoRemoverDialog
         open={showLogoRemover}
         onOpenChange={setShowLogoRemover}
+      />
+
+      <HumanizerDialog
+        open={showHumanizer}
+        onOpenChange={setShowHumanizer}
+        userId={userId?.toString() || null}
       />
     </div>
   );

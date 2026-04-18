@@ -208,7 +208,7 @@ def split_sentences(text: str) -> List[Dict[str, Any]]:
 #                         AI-детектор (гибрид)
 # ======================================================================
 
-# Типичные "AI-штампы" на русском
+# Типичные "AI-штампы" на русском (+ маркеры Томилиной)
 AI_PHRASES = [
     r"в современном мире", r"играет важную роль", r"стоит отметить",
     r"в первую очередь", r"на сегодняшний день", r"в заключение",
@@ -216,11 +216,26 @@ AI_PHRASES = [
     r"необходимо учитывать", r"является одним из", r"в рамках данного",
     r"существует множество", r"представляет собой", r"таким образом",
     r"следует отметить", r"в свою очередь", r"можно сделать вывод",
-    r"в целом", r"в первую очередь", r"однако,?\s", r"тем не менее,?\s",
+    r"в целом", r"однако,?\s", r"тем не менее,?\s",
     r"подводя итог", r"в конечном счёте", r"важной составляющей",
     r"необходимо отметить", r"рассмотрим подробнее", r"особое внимание",
     r"эффективный", r"оптимальный", r"уникальн\w+ возможност",
     r"широкий спектр", r"в условиях современн", r"динамично развива",
+    # --- академические маркеры (Томилина) ---
+    r"\bво-первых\b", r"\bво-вторых\b", r"\bв-третьих\b",
+    r"\bкроме того\b", r"\bболее того\b",
+    r"\bэто означает\b", r"\bэто свидетельствует\b",
+    r"\bэто имеет непосредственное\b", r"\bимеет непосредственное значение\b",
+    r"\bнепосредственное значение для темы\b",
+    # методологически некорректные формулировки (субъект — неодушевлённый)
+    r"\bработа (анализирует|рассматривает|отображает|показывает|демонстрирует|раскрывает|описывает|исследует|посвящена)\b",
+    r"\bглава (анализирует|рассматривает|отображает|показывает|раскрывает|описывает|посвящена)\b",
+    r"\bстатья (анализирует|рассматривает|отображает|показывает|раскрывает|описывает)\b",
+    r"\bисследование (анализирует|рассматривает|показывает|раскрывает|описывает)\b",
+    r"\bзакон (уточняет|указывает|устанавливает|определяет|требует)\b",
+    r"\bсистема (указывает|определяет|требует|устанавливает)\b",
+    r"\bсудебная практика (требует|устанавливает|показывает)\b",
+    r"\bнорма (устанавливает|определяет|требует)\b",
 ]
 AI_PHRASES_RE = re.compile("|".join(AI_PHRASES), re.IGNORECASE)
 
@@ -298,6 +313,41 @@ def _heuristic_ai_score(sentence: str) -> float:
     if wc > 0 and long_words / wc > 0.35:
         score += 6
 
+    # --- маркеры Томилиной ---
+    # 1) длинное тире — (U+2014) — очень сильный индикатор скопированного/сгенерированного
+    em_dashes = s.count("—")
+    if em_dashes >= 1:
+        score += min(18, em_dashes * 9)
+
+    # 2) буква «ё» в академическом тексте (если она есть в словах, где не обязательна)
+    # Смотрим формы вроде "ведёт", "проведён", "отражён" — это маркер, что текст не из акад. редакции
+    if re.search(r"\w*(?:ё)\w+", s):
+        # лёгкий штраф — сам по себе маркер слабый, но в сочетании с другими значимый
+        score += 3
+
+    # 3) чрезмерно длинное предложение (>40 слов)
+    if wc > 40:
+        score += 10
+    if wc > 55:
+        score += 8  # суммарно до +18 за очень длинные
+
+    # 4) английские термины-вставки без кавычек (скачок языка)
+    eng_words = re.findall(r"\b[A-Za-z]{4,}\b", s)
+    if eng_words:
+        # проверяем что это не общеизвестные аббревиатуры типа URL/API (капс) и не в скобках/кавычках
+        non_caps = [w for w in eng_words if not w.isupper()]
+        if non_caps:
+            score += min(10, len(non_caps) * 4)
+
+    # 5) плотные перечисления (3+ запятых подряд близко)
+    commas = s.count(",")
+    if wc > 15 and commas >= 4:
+        score += 5
+
+    # 6) вводная шаблонная связка где-то в середине
+    if re.search(r",\s*(кроме того|более того|следует отметить|необходимо отметить|таким образом|тем не менее)[,\s]", s, re.IGNORECASE):
+        score += 6
+
     return float(min(100, max(0, score)))
 
 
@@ -319,12 +369,77 @@ def _burstiness(sentences: List[Dict[str, Any]]) -> float:
     mean = sum(lens) / len(lens)
     var = sum((x - mean) ** 2 for x in lens) / len(lens)
     std = math.sqrt(var)
-    cv = std / mean if mean > 0 else 0  # коэффициент вариации
-    # AI: cv ~ 0.2-0.35. Человек: cv > 0.5
+    cv = std / mean if mean > 0 else 0
     if cv < 0.25:
         return 15.0
     if cv < 0.4:
         return 8.0
+    return 0.0
+
+
+def _tense_jumps(sentences: List[Dict[str, Any]]) -> float:
+    """
+    Несогласованность времён (Томилина): текст скачет между прошедшим и настоящим.
+    Простая эвристика — доля переходов прош→наст между соседними предложениями.
+    """
+    if len(sentences) < 3:
+        return 0.0
+    past_re = re.compile(r"\w+(?:л|ла|ло|ли|лся|лась|лись|вшись|нут|нута)\b", re.IGNORECASE)
+    pres_re = re.compile(r"\w+(?:ет|ёт|ут|ют|ит|ат|ят|ем|ём|ете|ёте|у|ю)\b", re.IGNORECASE)
+    tenses = []
+    for s in sentences:
+        t = s["text"]
+        p = len(past_re.findall(t))
+        n = len(pres_re.findall(t))
+        if p + n < 2:
+            tenses.append(None)
+        elif p > n * 1.5:
+            tenses.append("past")
+        elif n > p * 1.5:
+            tenses.append("pres")
+        else:
+            tenses.append(None)
+    jumps = 0
+    total = 0
+    for i in range(1, len(tenses)):
+        if tenses[i] and tenses[i - 1] and tenses[i] != tenses[i - 1]:
+            jumps += 1
+        if tenses[i] and tenses[i - 1]:
+            total += 1
+    if total < 3:
+        return 0.0
+    ratio = jumps / total
+    if ratio > 0.4:
+        return 10.0
+    if ratio > 0.25:
+        return 5.0
+    return 0.0
+
+
+def _uniform_paragraph_structure(text: str) -> float:
+    """
+    Маркер Томилиной — одинаковая структура абзацев:
+    «общее утверждение → объяснение → вывод» в каждом абзаце.
+    Эвристика: абзацы имеют очень близкое количество предложений и длину.
+    """
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    if len(paragraphs) < 3:
+        return 0.0
+    sizes = []
+    for p in paragraphs:
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", p) if x]
+        sizes.append(len(sents))
+    mean = sum(sizes) / len(sizes)
+    if mean < 2:
+        return 0.0
+    var = sum((x - mean) ** 2 for x in sizes) / len(sizes)
+    std = math.sqrt(var)
+    cv = std / mean if mean > 0 else 0
+    # Однотипные абзацы = низкий cv по количеству предложений
+    if cv < 0.15 and mean >= 2.5:
+        return 8.0
+    if cv < 0.25:
+        return 4.0
     return 0.0
 
 
@@ -413,6 +528,26 @@ REPLACEMENTS = [
     (r"\bв целях\b", ["чтобы"]),
     (r"\bв рамках\b", ["в"]),
     (r"\bв качестве\b", ["как"]),
+    # --- Томилина ---
+    (r"\bво-первых\b", ["сначала", "прежде всего", "для начала"]),
+    (r"\bво-вторых\b", ["далее", "потом", "ещё"]),
+    (r"\bв-третьих\b", ["и ещё", "следом"]),
+    (r"\bкроме того\b", ["ещё", "помимо этого", "также"]),
+    (r"\bболее того\b", ["и ещё", "причём"]),
+    (r"\bэто означает,?\b", ["то есть", "иначе говоря", "говоря проще"]),
+    (r"\bэто свидетельствует о том,?\b", ["значит", "а это говорит о том"]),
+    (r"\bимеет непосредственное значение\b", ["напрямую важно", "прямо влияет"]),
+    # методологические — чиним субъект (работа/глава/закон)
+    (r"\bработа анализирует\b", ["в работе разбираю", "в исследовании анализирую"]),
+    (r"\bработа рассматривает\b", ["в работе разбираю", "я рассматриваю"]),
+    (r"\bработа показывает\b", ["я показываю", "работа демонстрирует результат"]),
+    (r"\bработа отображает\b", ["работа отражает", "я отражаю"]),
+    (r"\bглава рассматривает\b", ["в этой главе разбираю", "в главе рассматриваю"]),
+    (r"\bглава посвящена\b", ["эту главу посвятил", "в главе говорю о"]),
+    (r"\bстатья рассматривает\b", ["в статье разбираю"]),
+    (r"\bзакон указывает\b", ["закон говорит", "в законе прописано"]),
+    (r"\bзакон устанавливает\b", ["закон закрепляет", "в законе закреплено"]),
+    (r"\bнорма устанавливает\b", ["норма закрепляет", "по норме"]),
 ]
 
 
@@ -503,10 +638,10 @@ def _micro_imperfections(text: str, rng: random.Random) -> str:
     Лёгкие живые шероховатости: иногда «—» вместо «.», иногда «…» в конце.
     НЕ опечатки (это плохо) — только стилистические микрошумы.
     """
-    # Редко заменяем точку на «—» между короткими фразами
+    # Редко заменяем точку на «–» (en dash, НЕ em dash) между короткими фразами
     def maybe_dash(m):
         if rng.random() < 0.08:
-            return " — "
+            return " – "
         return m.group(0)
     text = re.sub(r"\.\s+(?=[А-ЯA-Z])", maybe_dash, text)
     # Редко добавляем многоточие в конце размышления
@@ -517,12 +652,52 @@ def _micro_imperfections(text: str, rng: random.Random) -> str:
     return ". ".join(sentences)
 
 
-def postprocess_antidetect(text: str, style: str, aggression: str, seed: int) -> str:
+def _kill_markers_tomilina(text: str, rng: random.Random) -> str:
+    """
+    Обязательные зачистки по Томилиной:
+      - длинное тире «—» → среднее «–» (или разрыв предложения)
+      - буква «ё» → «е» (академическая норма)
+      - английские термины без нужды → убираем/заменяем
+      - шаблонные «это означает» уже в REPLACEMENTS
+    """
+    # 1. Длинное тире → среднее тире (или разрыв)
+    def replace_em(m):
+        # 30% случаев — ставим точку и разрываем предложение
+        if rng.random() < 0.3:
+            return ". "
+        return " – "
+    text = re.sub(r"\s*—\s*", replace_em, text)
+
+    # 2. «ё» → «е» (только в словах, не в именах — но для академической работы нормально везде)
+    text = text.replace("ё", "е").replace("Ё", "Е")
+
+    # 3. Чистим одиночные английские слова в русском тексте (если не аббревиатура)
+    def check_eng(m):
+        w = m.group(0)
+        # Оставляем аббревиатуры (все заглавные) и короткие (2-3 буквы)
+        if w.isupper() or len(w) <= 3:
+            return w
+        # Оставляем если в кавычках или скобках рядом (проверяется снаружи, тут просто удаляем)
+        return ""
+    # Применяем осторожно: только если английское слово окружено кириллицей
+    text = re.sub(r"(?<=[а-яА-Я\s])\b[A-Za-z]{4,}\b(?=[\s,.:;!?])",
+                  lambda m: "" if rng.random() < 0.5 else m.group(0),
+                  text)
+
+    # 4. Чистим двойные пробелы после удалений
+    text = re.sub(r"\s{2,}", " ", text)
+    text = re.sub(r"\s+([.,;:!?])", r"\1", text)
+    return text
+
+
+def postprocess_antidetect(text: str, style: str, aggression: str, seed: int,
+                            academic_mode: bool = False) -> str:
     """
     Финальный антидетект-постпроцессор. Агрессивность:
       - light  — только замены штампов (30%)
       - medium — штампы + ломка параллелизма + 1 маркер
       - strong — всё + варьирование длины + маркеры + микрошумы
+    academic_mode=True — включает зачистки Томилиной (тире, ё, англ. термины)
     """
     rng = random.Random(seed)
     out = text
@@ -530,15 +705,25 @@ def postprocess_antidetect(text: str, style: str, aggression: str, seed: int) ->
     if aggression in ("light", "medium", "strong"):
         out = _apply_replacements(out, rng)
 
+    # В академическом режиме ВСЕГДА чистим тире/ё/англ.вставки
+    if academic_mode:
+        out = _kill_markers_tomilina(out, rng)
+
     if aggression in ("medium", "strong"):
         out = _break_parallelism(out, rng)
-        out = _inject_human_markers(out, style, rng)
+        # Человеческие маркеры в академическом режиме — сдержанно
+        if not academic_mode:
+            out = _inject_human_markers(out, style, rng)
 
     if aggression == "strong":
         out = _vary_sentence_length(out, rng)
-        out = _micro_imperfections(out, rng)
+        if not academic_mode:
+            out = _micro_imperfections(out, rng)
         # ещё раз замены — уже по новому тексту
         out = _apply_replacements(out, rng)
+        # ещё раз зачистка в акад.режиме
+        if academic_mode:
+            out = _kill_markers_tomilina(out, rng)
 
     # Финальная чистка пробелов
     out = re.sub(r"[ \t]{2,}", " ", out)
@@ -593,22 +778,52 @@ def llm_score_batch(sentences: List[str]) -> List[float]:
         return []
 
 
+def _detect_markers(sentence: str) -> List[str]:
+    """Возвращает список сработавших маркеров в предложении (для UI-подсветки)."""
+    markers = []
+    s = sentence
+    if "—" in s:
+        markers.append("em_dash")
+    if re.search(r"\b(ё|Ё)\w+", s):
+        markers.append("letter_yo")
+    if re.search(r"(?<=[а-яА-Я\s])\b[A-Za-z]{4,}\b", s):
+        markers.append("english_term")
+    if len(re.findall(r"\w+", s)) > 40:
+        markers.append("too_long")
+    if AI_PHRASES_RE.search(s):
+        markers.append("ai_cliche")
+    if re.search(r"\b(во-первых|во-вторых|кроме того|более того|следует отметить)\b", s, re.IGNORECASE):
+        markers.append("template_connector")
+    if re.search(r"\b(работа|глава|статья|исследование|закон|норма|система|судебная практика)\s+(анализирует|рассматривает|показывает|отображает|раскрывает|описывает|указывает|устанавливает|требует|определяет|посвящена)\b", s, re.IGNORECASE):
+        markers.append("methodological_error")
+    if re.search(r"\b(это означает|это свидетельствует|имеет непосредственное значение)\b", s, re.IGNORECASE):
+        markers.append("template_logic")
+    return markers
+
+
 def detect_ai(text: str, use_llm: bool = True) -> Dict[str, Any]:
     """
-    Гибридная детекция. Возвращает список предложений + общий score.
+    Гибридная детекция. Возвращает список предложений + общий score + маркеры.
+    Снижен порог — ловит даже ~7% AI-сигналов.
     """
     sentences = split_sentences(text)
     if not sentences:
-        return {"sentences": [], "overall_score": 0.0, "burstiness_penalty": 0.0}
+        return {"sentences": [], "overall_score": 0.0, "burstiness_penalty": 0.0,
+                "tense_penalty": 0.0, "structure_penalty": 0.0, "markers": {}}
 
     # 1) эвристика
     sentences = score_sentences_heuristic(sentences)
-    # 2) burstiness bonus
-    bp = _burstiness(sentences)
-    for s in sentences:
-        s["heuristic_score"] = min(100.0, s["heuristic_score"] + bp)
 
-    # 3) LLM (батчем по 20 предложений)
+    # 2) Документные бонусы
+    bp = _burstiness(sentences)
+    tp = _tense_jumps(sentences)
+    sp = _uniform_paragraph_structure(text)
+    doc_penalty = bp + tp + sp  # 0..30+
+    for s in sentences:
+        s["heuristic_score"] = min(100.0, s["heuristic_score"] + doc_penalty)
+        s["markers"] = _detect_markers(s["text"])
+
+    # 3) LLM
     llm_scores: List[float] = []
     if use_llm:
         for i in range(0, len(sentences), 20):
@@ -619,28 +834,52 @@ def detect_ai(text: str, use_llm: bool = True) -> Dict[str, Any]:
             else:
                 llm_scores.extend([s["heuristic_score"] for s in sentences[i:i + 20]])
 
-    # 4) объединяем: 40% эвристика + 60% LLM
+    # 4) Объединяем: 45% эвристика + 55% LLM, + «максимальная триггер-линза»
+    #    (берём max между средним и эвристикой с маркерами, чтобы не упустить редкое)
     for i, s in enumerate(sentences):
+        h = s["heuristic_score"]
         if i < len(llm_scores):
-            s["ai_score"] = round(0.4 * s["heuristic_score"] + 0.6 * llm_scores[i], 1)
+            combined = 0.45 * h + 0.55 * llm_scores[i]
+            # Если сработал методологический маркер или AI-штамп — бустим
+            if "methodological_error" in s["markers"] or "ai_cliche" in s["markers"]:
+                combined = max(combined, 55.0)
+            if "template_logic" in s["markers"] and h > 30:
+                combined = max(combined, 60.0)
+            s["ai_score"] = round(min(100, combined), 1)
             s["llm_score"] = round(llm_scores[i], 1)
         else:
-            s["ai_score"] = round(s["heuristic_score"], 1)
+            s["ai_score"] = round(h, 1)
             s["llm_score"] = None
 
-    # 5) общий score: среднее с весом по длине предложения
+    # 5) Общий score: среднее с весом по длине + «пенальти за долю горячих»
     total_weight = 0
     weighted_sum = 0.0
+    hot_count = 0
     for s in sentences:
         w = max(1, len(s["text"].split()))
         total_weight += w
         weighted_sum += s["ai_score"] * w
-    overall = weighted_sum / total_weight if total_weight > 0 else 0
+        if s["ai_score"] >= 50:
+            hot_count += 1
+    base = weighted_sum / total_weight if total_weight > 0 else 0
+    hot_ratio = hot_count / max(1, len(sentences))
+    # Если хотя бы 1 из 10 предложений «горячее» — добавим общий бонус
+    overall = base + min(15, hot_ratio * 40)
+    overall = min(100, overall)
+
+    # Счётчик маркеров по всему тексту
+    marker_counts: Dict[str, int] = {}
+    for s in sentences:
+        for m in s.get("markers", []):
+            marker_counts[m] = marker_counts.get(m, 0) + 1
 
     return {
         "sentences": sentences,
         "overall_score": round(overall, 1),
         "burstiness_penalty": round(bp, 1),
+        "tense_penalty": round(tp, 1),
+        "structure_penalty": round(sp, 1),
+        "markers": marker_counts,
     }
 
 
@@ -663,7 +902,8 @@ AGGRESSION_NOTES = {
 }
 
 
-def _build_rewrite_prompt(style: str, aggression: str, preserve_terms: bool) -> str:
+def _build_rewrite_prompt(style: str, aggression: str, preserve_terms: bool,
+                          academic_mode: bool = False) -> str:
     style_desc = STYLE_DESCRIPTIONS.get(style, STYLE_DESCRIPTIONS["neutral"])
     aggr = AGGRESSION_NOTES.get(aggression, AGGRESSION_NOTES["medium"])
     preserve = (
@@ -671,28 +911,69 @@ def _build_rewrite_prompt(style: str, aggression: str, preserve_terms: bool) -> 
         if preserve_terms else
         "Можно заменять и термины на более простые эквиваленты, если смысл сохраняется. "
     )
-    return (
+
+    # Базовый промпт
+    base = (
         f"Ты — опытный редактор-человек, эксперт в теме текста. Переписываешь AI-тексты так, "
-        f"чтобы они звучали как живая речь человека, который разбирается в предмете.\n\n"
+        f"чтобы они звучали как живая речь человека, который разбирается в предмете. "
+        f"Твоя задача — обойти детекторы AI (GPTZero, AntiPlagiat AI, Turnitin и подобные), "
+        f"но сохранить 100% смысла оригинала.\n\n"
         f"СТИЛЬ: {style_desc}.\n"
         f"АГРЕССИВНОСТЬ: {aggr}\n"
         f"{preserve}"
+    )
+
+    # Универсальные запреты
+    bans = (
         "СТРОГО ЗАПРЕЩЕНО использовать: «в современном мире», «играет важную роль», «стоит отметить», "
         "«в первую очередь», «таким образом», «необходимо», «является», «данный/данные», "
         "«представляет собой», «в рамках», «в качестве», «осуществляет», «не только … но и …», "
-        "«ключевым аспектом», «важно понимать», «следует отметить». "
-        "Избегай параллельных конструкций. Варьируй длину предложений: короткие, средние и длинные вперемешку. "
-        "Добавь 1-2 живых вводных на абзац (кстати, на практике, честно говоря, по-моему). "
-        "Смысл оригинала сохраняй на 100%. Не добавляй выдуманных фактов и цифр. "
-        "Ответ — ТОЛЬКО переписанный текст без комментариев."
+        "«ключевым аспектом», «важно понимать», «следует отметить», «кроме того», «более того», "
+        "«во-первых/во-вторых», «это означает», «это свидетельствует», «имеет непосредственное значение». "
     )
+
+    # Академические правила (Томилина)
+    if academic_mode:
+        academic = (
+            "\n\nКРИТИЧЕСКИ ВАЖНЫЕ ПРАВИЛА АКАДЕМИЧЕСКОГО ТЕКСТА:\n"
+            "1. НИКАКИХ длинных тире (—). Только среднее тире (–) или перестрой предложение без тире.\n"
+            "2. НЕ используй букву «ё» — пиши «е» (ведет, проведен, определен, отражен).\n"
+            "3. Субъект действия = автор (Я/мы), а НЕ «работа»/«глава»/«закон»/«статья». "
+            "   Пиши: «в работе я анализирую», НЕ «работа анализирует». "
+            "   Пиши: «закон закрепляет», а лучше «в законе прописано».\n"
+            "4. НЕ вставляй английские термины без необходимости и без пояснения. "
+            "   Если английский термин обязателен — дай русский перевод в скобках.\n"
+            "5. Следи за временами глаголов — не скачи между прошедшим и настоящим в одном абзаце.\n"
+            "6. СИЛЬНО варьируй длину предложений: 4 слова, 12 слов, 25 слов, 7 слов — вперемешку.\n"
+            "7. Структура абзацев должна быть разной — не строй каждый абзац по схеме "
+            "«общее → объяснение → вывод».\n"
+            "8. Избегай перечислений через «во-первых/во-вторых» — используй естественные связки.\n"
+            "9. Не используй логические штампы «это означает/свидетельствует» — заменяй на «то есть», "
+            "«иначе говоря», «значит».\n"
+            "10. Избегай слишком гладкого текста — добавляй конкретные примеры, уточнения, "
+            "    цифры из оригинала.\n"
+        )
+    else:
+        academic = (
+            "Варьируй длину предложений: короткие, средние и длинные вперемешку. "
+            "Добавь 1-2 живых вводных на абзац (кстати, на практике, честно говоря, по-моему). "
+        )
+
+    tail = (
+        "Избегай параллельных конструкций. "
+        "Смысл оригинала сохраняй на 100%. Не добавляй выдуманных фактов, цифр, источников. "
+        "Не переводи на другой язык. "
+        "Ответ — ТОЛЬКО переписанный текст без комментариев и без обрамляющих кавычек."
+    )
+
+    return base + bans + academic + tail
 
 
 def rewrite_text(text: str, style: str = "neutral", aggression: str = "medium",
                  preserve_terms: bool = True, num_variants: int = 1,
-                 seed: int = 0) -> List[str]:
+                 seed: int = 0, academic_mode: bool = False) -> List[str]:
     """Переписывает один фрагмент. Возвращает список вариантов."""
-    system = _build_rewrite_prompt(style, aggression, preserve_terms)
+    system = _build_rewrite_prompt(style, aggression, preserve_terms, academic_mode)
     variants: List[str] = []
     for i in range(num_variants):
         temp = 0.6 + 0.15 * i  # 0.6, 0.75, 0.9
@@ -700,10 +981,8 @@ def rewrite_text(text: str, style: str = "neutral", aggression: str = "medium",
             out = _yagpt_complete(system, text, temperature=temp, max_tokens=2000, model="yandexgpt")
         except Exception as e:
             out = f"[Ошибка YandexGPT: {e}]"
-        # Чистим: убираем обрамляющие кавычки если есть
         out = out.strip().strip('"«»')
-        # Постпроцессинг антидетект
-        out = postprocess_antidetect(out, style, aggression, seed + i)
+        out = postprocess_antidetect(out, style, aggression, seed + i, academic_mode=academic_mode)
         variants.append(out)
     return variants
 
@@ -713,19 +992,19 @@ def rewrite_text(text: str, style: str = "neutral", aggression: str = "medium",
 # ======================================================================
 
 def humanize_full(text: str, style: str, aggression: str,
-                  preserve_terms: bool, target_score: float = 15.0,
-                  max_passes: int = 3) -> Dict[str, Any]:
+                  preserve_terms: bool, target_score: float = 8.0,
+                  max_passes: int = 4, academic_mode: bool = True) -> Dict[str, Any]:
     """
-    Полный прогон:
+    Полный прогон с гарантией 100% human:
       1) детектим AI-score
-      2) переписываем текст целиком (абзацами, чтобы сохранить структуру)
-      3) замеряем снова
-      4) если > target_score — делаем ещё проход (с увеличенной аггрессивностью)
-    Возвращает финальный текст + до/после скоры.
+      2) переписываем абзацами (чтобы не потерять структуру)
+      3) после каждого прохода — зачистка Томилиной (тире/ё/англ)
+      4) замеряем снова → если > target, усиливаем и повторяем
+      5) финальный фикс: если остались горячие предложения — переписываем их
+         ещё раз индивидуально на максимальной агрессивности
     """
     before = detect_ai(text, use_llm=True)
 
-    # Разбиваем по абзацам и переписываем каждый
     current_text = text
     passes_done = 0
     history: List[Dict[str, Any]] = [{"pass": 0, "score": before["overall_score"]}]
@@ -746,24 +1025,54 @@ def humanize_full(text: str, style: str, aggression: str,
                 preserve_terms=preserve_terms,
                 num_variants=1,
                 seed=p * 97 + hash(para_stripped[:30]) % 10000,
+                academic_mode=academic_mode,
             )
             rewritten_paragraphs.append(variants[0] if variants else para_stripped)
         current_text = "\n\n".join(rewritten_paragraphs)
-        passes_done += 1
 
+        # Финальная зачистка Томилиной на весь текст
+        if academic_mode:
+            current_text = _kill_markers_tomilina(
+                current_text, random.Random(p * 31 + 7)
+            )
+
+        passes_done += 1
         after = detect_ai(current_text, use_llm=True)
         history.append({"pass": passes_done, "score": after["overall_score"]})
 
         if after["overall_score"] <= target_score:
             break
-        # Следующий проход — усиливаем
+        # усиливаем
         if current_aggression == "light":
             current_aggression = "medium"
         elif current_aggression == "medium":
             current_aggression = "strong"
-        # если уже strong — остаёмся на strong, но постпроцесс отработает снова
+
+    # Финальный точечный проход: ищем оставшиеся горячие предложения и переписываем их индивидуально
+    final_check = detect_ai(current_text, use_llm=True)
+    hot_sentences = [s for s in final_check["sentences"] if s["ai_score"] >= 40]
+    if hot_sentences and passes_done < max_passes + 2:
+        for hot in hot_sentences[:10]:  # максимум 10 точечных правок
+            try:
+                fixed = rewrite_text(
+                    hot["text"],
+                    style=style,
+                    aggression="strong",
+                    preserve_terms=preserve_terms,
+                    num_variants=1,
+                    seed=hash(hot["text"]) % 99999,
+                    academic_mode=academic_mode,
+                )
+                if fixed and fixed[0]:
+                    current_text = current_text.replace(hot["text"], fixed[0], 1)
+            except Exception:
+                continue
+        if academic_mode:
+            current_text = _kill_markers_tomilina(current_text, random.Random(42))
+        passes_done += 1
 
     final = detect_ai(current_text, use_llm=True)
+    history.append({"pass": passes_done, "score": final["overall_score"]})
 
     return {
         "original_text": text,
@@ -774,6 +1083,8 @@ def humanize_full(text: str, style: str, aggression: str,
         "history": history,
         "sentences_before": before["sentences"],
         "sentences_after": final["sentences"],
+        "markers_before": before.get("markers", {}),
+        "markers_after": final.get("markers", {}),
     }
 
 
@@ -899,9 +1210,11 @@ def handler(event: dict, context) -> dict:
             style = body.get("style", "neutral")
             aggression = body.get("aggression", "medium")
             preserve_terms = bool(body.get("preserve_terms", True))
+            academic_mode = bool(body.get("academic_mode", True))
             num_variants = min(3, max(1, int(body.get("num_variants", 3))))
             seed = int(body.get("seed", 42))
-            variants = rewrite_text(text, style, aggression, preserve_terms, num_variants, seed)
+            variants = rewrite_text(text, style, aggression, preserve_terms,
+                                     num_variants, seed, academic_mode=academic_mode)
             return _ok({"variants": variants})
 
         elif action == "humanize_full":
@@ -913,9 +1226,11 @@ def handler(event: dict, context) -> dict:
             style = body.get("style", "neutral")
             aggression = body.get("aggression", "medium")
             preserve_terms = bool(body.get("preserve_terms", True))
-            target_score = float(body.get("target_score", 15.0))
-            max_passes = min(4, max(1, int(body.get("max_passes", 3))))
-            result = humanize_full(text, style, aggression, preserve_terms, target_score, max_passes)
+            academic_mode = bool(body.get("academic_mode", True))
+            target_score = float(body.get("target_score", 8.0))
+            max_passes = min(5, max(1, int(body.get("max_passes", 4))))
+            result = humanize_full(text, style, aggression, preserve_terms,
+                                    target_score, max_passes, academic_mode=academic_mode)
             return _ok(result)
 
         elif action == "save_document":
