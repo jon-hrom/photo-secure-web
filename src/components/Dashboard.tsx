@@ -28,9 +28,10 @@ interface DashboardProps {
   onNavigateToPhotoBank?: () => void;
   onOpenAddClient?: () => void;
   onNavigateToSettings?: () => void;
+  onOpenTools?: () => void;
 }
 
-const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], onOpenClientBooking, onMeetingClick, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs, onNavigateToClients, onNavigateToPhotobook, onNavigateToPhotoBank, onOpenAddClient, onNavigateToSettings }: DashboardProps) => {
+const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], onOpenClientBooking, onMeetingClick, onLogout, onOpenAdminPanel, isAdmin, onOpenTariffs, onNavigateToClients, onNavigateToPhotobook, onNavigateToPhotoBank, onOpenAddClient, onNavigateToSettings, onOpenTools }: DashboardProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [trialDaysLeft] = useState(14);
   const [subscriptionDaysLeft] = useState(0);
@@ -249,6 +250,14 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
               >
                 <Icon name="UserPlus" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4" />
                 <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Добавить клиента</span>
+              </button>
+              <button
+                onClick={onOpenTools}
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 hover:scale-105 hover:shadow-lg backdrop-blur-sm rounded-lg transition-all duration-300 active:scale-95 border border-white/20"
+                title="Инструменты"
+              >
+                <Icon name="Wrench" size={14} className="transition-transform duration-300 group-hover:rotate-12 sm:w-4 sm:h-4" />
+                <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Инструменты</span>
               </button>
               <a
                 href="/mobile-upload"

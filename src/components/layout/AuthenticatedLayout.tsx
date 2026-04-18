@@ -6,6 +6,8 @@ import { Client } from '@/components/clients/ClientsTypes';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { useSupportUnread } from '@/hooks/useSupportUnread';
 import Dashboard from '@/components/Dashboard';
+import ToolsDialog from '@/components/tools/ToolsDialog';
+import LogoRemoverDialog from '@/components/tools/LogoRemoverDialog';
 import PhotographerChatsModal from '@/components/photobank/PhotographerChatsModal';
 import ClientsPage from '@/components/ClientsPage';
 import PhotobookPage from '@/components/PhotobookPage';
@@ -73,6 +75,8 @@ const AuthenticatedLayout = ({
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [showMAXChat, setShowMAXChat] = useState(false);
+  const [showTools, setShowTools] = useState(false);
+  const [showLogoRemover, setShowLogoRemover] = useState(false);
   const unreadCount = useUnreadCount(userId);
   const { unreadCount: supportUnread, markRead: markSupportRead } = useSupportUnread(userId);
   const totalUnread = unreadCount + supportUnread;
@@ -203,6 +207,7 @@ const AuthenticatedLayout = ({
               setCurrentPage('clients');
             }}
             onNavigateToSettings={() => setCurrentPage('settings')}
+            onOpenTools={() => setShowTools(true)}
             isAdmin={isAdmin}
           />
         )}
@@ -240,6 +245,17 @@ const AuthenticatedLayout = ({
           supportUnread={supportUnread}
         />
       )}
+
+      <ToolsDialog
+        open={showTools}
+        onOpenChange={setShowTools}
+        onOpenLogoRemover={() => setShowLogoRemover(true)}
+      />
+
+      <LogoRemoverDialog
+        open={showLogoRemover}
+        onOpenChange={setShowLogoRemover}
+      />
     </div>
   );
 };
