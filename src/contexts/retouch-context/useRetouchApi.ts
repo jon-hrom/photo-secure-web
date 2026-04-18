@@ -45,20 +45,31 @@ export const useRetouchApi = ({
       }
       const data = await res.json();
 
+      const warmupAfterReadyMs = 120_000;
+      const maxWait = 300;
+      const interval = 4;
+
       if (data.action === 'already_running') {
-        setWakeStatus(null);
-        setWaking(false);
-        markActive();
-        return true;
+        setWaking(true);
+        const vmReadyAt = Date.now();
+        setWakeStatus(`warmup:${Math.ceil(warmupAfterReadyMs / 1000)}`);
+        while (true) {
+          const waited = Date.now() - vmReadyAt;
+          if (waited >= warmupAfterReadyMs) {
+            setWakeStatus('готов');
+            setWaking(false);
+            markActive();
+            return true;
+          }
+          setWakeStatus(`warmup:${Math.max(0, Math.ceil((warmupAfterReadyMs - waited) / 1000))}`);
+          await new Promise(r => setTimeout(r, 1000));
+        }
       }
 
       setWaking(true);
       setWakeStatus('waking');
 
       if (data.action === 'starting' || data.action === 'already_starting') {
-        const maxWait = 300;
-        const interval = 4;
-        const warmupAfterReadyMs = 120_000;
         let vmReadyAt: number | null = null;
 
         for (let elapsed = 0; elapsed < maxWait; elapsed += interval) {
@@ -71,7 +82,7 @@ export const useRetouchApi = ({
                 const probeData = await probe.json();
                 if (probeData.probe?.reachable) {
                   vmReadyAt = Date.now();
-                  setWakeStatus('warmup');
+                  setWakeStatus(`warmup:${Math.ceil(warmupAfterReadyMs / 1000)}`);
                 }
               }
             } catch { /* still starting */ }
@@ -83,7 +94,7 @@ export const useRetouchApi = ({
                   const statusData = await statusRes.json();
                   if (statusData.action === 'already_running') {
                     vmReadyAt = Date.now();
-                    setWakeStatus('warmup');
+                    setWakeStatus(`warmup:${Math.ceil(warmupAfterReadyMs / 1000)}`);
                   }
                 }
               } catch { /* ignore */ }
@@ -99,6 +110,14 @@ export const useRetouchApi = ({
             setWakeStatus(`warmup:${Math.max(0, Math.ceil((warmupAfterReadyMs - waited) / 1000))}`);
           }
         }
+
+        if (vmReadyAt !== null) {
+          setWakeStatus('готов');
+          setWaking(false);
+          markActive();
+          return true;
+        }
+
         setWakeStatus('Сервис не успел запуститься. Попробуйте через пару минут');
         setWaking(false);
         return false;
@@ -116,14 +135,15 @@ export const useRetouchApi = ({
   };
 
   const ensureServerReady = async (): Promise<boolean> => {
-    markActive();
-    try {
-      const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
-      if (probe.ok) {
-        const data = await probe.json();
-        if (data.probe?.reachable) return true;
-      }
-    } catch { /* not reachable */ }
+    if (serverStartedRef.current) {
+      try {
+        const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
+        if (probe.ok) {
+          const data = await probe.json();
+          if (data.probe?.reachable) return true;
+        }
+      } catch { /* not reachable */ }
+    }
     return await wakeRetouchServer();
   };
 
