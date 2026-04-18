@@ -1,0 +1,52 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Unknown action",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "nonsense"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Detect too short",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "detect", "text": "hi"},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Parse txt file",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "parse_file",
+        "filename": "test.txt",
+        "file_base64": "0J/RgNC40LLQtdGCLCDQvNC40YAh"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {"text": "string", "chars": "number"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Detect heuristic only (no LLM call)",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "detect",
+        "text": "В современном мире искусственный интеллект играет важную роль. Стоит отметить, что данная технология представляет собой важный аспект развития. Таким образом, необходимо учитывать все факторы. Ключевым аспектом является правильное понимание процессов.",
+        "use_llm": false
+      },
+      "expectedStatus": 200,
+      "expectedBody": {"overall_score": "number", "sentences": "array"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
