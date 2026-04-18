@@ -1,7 +1,7 @@
 export type HumanizerStage = 'upload' | 'analyze' | 'editor' | 'done';
 
 export type HumanizerStyle = 'neutral' | 'casual' | 'expert' | 'blogger' | 'business';
-export type HumanizerAggression = 'light' | 'medium' | 'strong';
+export type HumanizerAggression = 'light' | 'medium' | 'strong' | 'extreme';
 
 export interface SentenceInfo {
   index: number;

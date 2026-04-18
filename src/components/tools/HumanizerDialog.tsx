@@ -25,10 +25,10 @@ interface Props {
 
 const DEFAULT_SETTINGS: HumanizerSettings = {
   style: 'neutral',
-  aggression: 'strong',
+  aggression: 'extreme',
   preserveTerms: true,
   academicMode: true,
-  targetScore: 8,
+  targetScore: 5,
 };
 
 const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {

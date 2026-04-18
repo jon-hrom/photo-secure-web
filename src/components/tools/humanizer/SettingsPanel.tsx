@@ -20,9 +20,10 @@ const STYLES: { value: HumanizerStyle; label: string; desc: string }[] = [
 ];
 
 const AGGRESSIONS: { value: HumanizerAggression; label: string; desc: string }[] = [
-  { value: 'light', label: 'Мягко', desc: '30% перефраз' },
-  { value: 'medium', label: 'Средне', desc: '60% перефраз' },
-  { value: 'strong', label: 'Агрессивно', desc: '80% перефраз' },
+  { value: 'light', label: 'Мягко', desc: '30%' },
+  { value: 'medium', label: 'Средне', desc: '60%' },
+  { value: 'strong', label: 'Сильно', desc: '80%' },
+  { value: 'extreme', label: 'Против GigaCheck', desc: '95%' },
 ];
 
 const SettingsPanel = ({ settings, onChange, disabled }: Props) => {
@@ -61,19 +62,21 @@ const SettingsPanel = ({ settings, onChange, disabled }: Props) => {
           value={settings.aggression}
           onValueChange={(v) => onChange({ ...settings, aggression: v as HumanizerAggression })}
           disabled={disabled}
-          className="grid grid-cols-3 gap-2"
+          className="grid grid-cols-2 gap-2"
         >
           {AGGRESSIONS.map((a) => (
             <label
               key={a.value}
-              className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border cursor-pointer transition-all ${
+              className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
                 settings.aggression === a.value
-                  ? 'border-primary bg-primary/5'
+                  ? a.value === 'extreme'
+                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30'
+                    : 'border-primary bg-primary/5'
                   : 'border-border hover:bg-muted/50'
               }`}
             >
               <RadioGroupItem value={a.value} className="sr-only" />
-              <div className="font-medium text-sm">{a.label}</div>
+              <div className={`font-medium text-sm ${a.value === 'extreme' ? 'text-orange-600 dark:text-orange-400' : ''}`}>{a.label}</div>
               <div className="text-xs text-muted-foreground">{a.desc}</div>
             </label>
           ))}

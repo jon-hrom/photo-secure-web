@@ -25,7 +25,7 @@ import random
 import hashlib
 import urllib.request
 import urllib.error
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -690,6 +690,296 @@ def _kill_markers_tomilina(text: str, rng: random.Random) -> str:
     return text
 
 
+# ======================================================================
+#              GIGACHECK-BUSTER: агрессивная human-паcс
+# ======================================================================
+# Эти преобразования ломают статистику, по которой распознаются LLM-тексты:
+# 1) Burstiness — режем/склеиваем предложения, добавляем «ритмические рваные»
+# 2) Perplexity — подставляем низкочастотные синонимы в «слишком гладких» местах
+# 3) Lexical diversity — варьируем союзы, вводные, порядок слов
+# 4) Punctuation entropy — добавляем/убираем запятые в допустимых местах
+# 5) Morphology noise — меняем порядок слов в простых парах
+
+
+# Синонимы: пары (LLM-частое слово) → (человеко-редкое, но уместное)
+LOWPERPLEXITY_SWAPS: List[Tuple[str, List[str]]] = [
+    (r"\bважн(ый|ая|ое|ые|ую|ого|ом|ой)\b", ["значимый", "ощутимый", "заметный", "весомый", "серьёзный"]),
+    (r"\bразвити(е|я|ю|ем|и)\b", ["рост", "движение", "эволюция", "продвижение"]),
+    (r"\bпроцесс(а|у|ом|е|ы|ов|ам|ами|ах)?\b", ["работа", "ход", "дело", "движение"]),
+    (r"\bрезультат(а|у|ом|е|ы|ов|ам|ами|ах)?\b", ["итог", "вывод", "плод", "отдача"]),
+    (r"\bзначи(т|тельн\w+)\b", ["говорит о", "означает", "указывает"]),
+    (r"\bвозможност(ь|и|ью|ей|ям|ями|ях)\b", ["шанс", "выход", "путь", "вариант"]),
+    (r"\bпроблем(а|ы|е|у|ой|ам|ами|ах)\b", ["трудность", "загвоздка", "сложность", "заковырка"]),
+    (r"\bсовременн(ый|ая|ое|ые|ую|ого|ом|ой|ых|ыми)\b", ["нынешний", "сегодняшний", "текущий"]),
+    (r"\bактивно\b", ["бурно", "вовсю", "не останавливаясь", "без передышки"]),
+    (r"\bбыстро\b", ["стремительно", "мигом", "с ходу", "в два счёта"]),
+    (r"\bмного\b", ["куча", "немало", "порядочно", "изрядно"]),
+    (r"\bхорошо\b", ["недурно", "толково", "на совесть", "как надо"]),
+    (r"\bтехнологи(я|и|ю|ей|ям|ями|ях)\b", ["технология", "инструмент", "метод", "приём"]),
+    (r"\bиспользу(ю|ет|ем|ете|ют)\b", ["применяю", "беру", "пускаю в ход", "задействую"]),
+    (r"\bнеобходимо\b", ["нужно", "стоит", "придётся", "надо"]),
+    (r"\bпозволяет\b", ["даёт", "помогает", "открывает"]),
+    (r"\bобеспечивает\b", ["даёт", "создаёт", "гарантирует"]),
+    (r"\bспособствует\b", ["помогает", "работает на", "толкает к"]),
+    (r"\bзанима(ю|ет|ем|ете|ют)\b", ["отводит", "берёт на себя", "держит"]),
+    (r"\bявля(ю|ет|ем|ете|ют)сь?\b", ["это", "становится", "оказывается"]),
+    (r"\bзадач(а|и|е|у|ей|ам|ами|ах)\b", ["задумка", "цель", "дело", "работа"]),
+    (r"\bэффективн(ый|ая|ое|ые|ую|ого|ом|ой)\b", ["толковый", "рабочий", "дельный", "годный"]),
+    (r"\bкачественн(ый|ая|ое|ые|ую|ого|ом|ой)\b", ["добротный", "толковый", "хороший"]),
+    (r"\bсистем(а|ы|е|у|ой|ам|ами|ах)\b", ["схема", "механизм", "связка", "устройство"]),
+]
+
+
+def _swap_lowperplexity(text: str, rng: random.Random, chance: float = 0.55) -> str:
+    """Подмена частых слов на редкие синонимы — повышает perplexity."""
+    out = text
+    for pattern, options in LOWPERPLEXITY_SWAPS:
+        def sub(m, opts=options):
+            if rng.random() > chance:
+                return m.group(0)
+            pick = rng.choice(opts)
+            # Сохраняем капитализацию
+            orig = m.group(0)
+            if orig and orig[0].isupper():
+                pick = pick[0].upper() + pick[1:]
+            return pick
+        out = re.sub(pattern, sub, out, flags=re.IGNORECASE)
+    return out
+
+
+# Человеческие вводные — реже, но разнообразнее
+HUMAN_INSERTS_NEUTRAL = [
+    "по сути", "если честно", "по факту", "на самом деле", "в общем-то",
+    "так-то", "на деле", "по-хорошему", "как ни крути", "в принципе",
+]
+HUMAN_INSERTS_CASUAL = [
+    "короче", "ну вот", "кстати", "вот что", "тут такое дело", "смотри",
+    "получается", "так вот", "как бы то ни было",
+]
+HUMAN_INSERTS_EXPERT = [
+    "на практике", "по моему опыту", "исходя из практики", "в работе",
+    "в реальных условиях", "если копнуть глубже",
+]
+
+
+def _inject_living_voice(text: str, style: str, rng: random.Random,
+                         density: float = 0.25) -> str:
+    """
+    Вставляет «живые» вводные в начало ~25% предложений.
+    Это ломает ровный академический ритм и добавляет burstiness.
+    """
+    pool = HUMAN_INSERTS_NEUTRAL
+    if style == "casual":
+        pool = HUMAN_INSERTS_NEUTRAL + HUMAN_INSERTS_CASUAL
+    elif style == "expert":
+        pool = HUMAN_INSERTS_NEUTRAL + HUMAN_INSERTS_EXPERT
+    elif style == "blogger":
+        pool = HUMAN_INSERTS_CASUAL
+    elif style == "business":
+        pool = HUMAN_INSERTS_NEUTRAL + HUMAN_INSERTS_EXPERT
+
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    result = []
+    for s in sentences:
+        s = s.strip()
+        if not s:
+            continue
+        # Не вставляем в короткие или вопросительные
+        wc = len(re.findall(r"\w+", s))
+        if wc > 6 and not s.endswith("?") and rng.random() < density:
+            intro = rng.choice(pool)
+            # Ставим в начало с маленькой буквы оригинала
+            if s[0].isupper():
+                s = intro.capitalize() + ", " + s[0].lower() + s[1:]
+            else:
+                s = intro + ", " + s
+        result.append(s)
+    return " ".join(result)
+
+
+def _burstify_sentences(text: str, rng: random.Random) -> str:
+    """
+    Режет длинные предложения пополам на границах «, и», «, но», «, что»,
+    а короткие иногда склеивает тире. Это резко повышает burstiness.
+    """
+    out_parts = []
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+
+    i = 0
+    while i < len(sentences):
+        s = sentences[i].strip()
+        if not s:
+            i += 1
+            continue
+
+        wc = len(re.findall(r"\w+", s))
+
+        # Длинное (>22 слов) — режем на «, и / , но / , что / , который»
+        if wc > 22 and rng.random() < 0.7:
+            # Находим подходящее место разреза во второй половине
+            words = s.split()
+            mid = len(words) // 2
+            # Ищем разделитель около середины
+            cut_idx = None
+            for j in range(mid, len(words) - 3):
+                if words[j].rstrip(",").lower() in ("и", "но", "а", "что", "чтобы", "поэтому", "однако"):
+                    if words[j - 1].endswith(","):
+                        cut_idx = j
+                        break
+            if cut_idx:
+                first = " ".join(words[:cut_idx]).rstrip(",") + "."
+                second_head = words[cut_idx].rstrip(",").capitalize()
+                second_rest = " ".join(words[cut_idx + 1:])
+                second = second_head + " " + second_rest
+                out_parts.append(first)
+                out_parts.append(second)
+                i += 1
+                continue
+
+        # Короткое (<8 слов) — иногда склеиваем со следующим через « — »
+        if wc < 8 and i + 1 < len(sentences) and rng.random() < 0.25:
+            next_s = sentences[i + 1].strip()
+            if next_s:
+                merged = s.rstrip(".!?") + " – " + next_s[0].lower() + next_s[1:]
+                out_parts.append(merged)
+                i += 2
+                continue
+
+        out_parts.append(s)
+        i += 1
+
+    return " ".join(out_parts)
+
+
+def _shuffle_word_order(text: str, rng: random.Random) -> str:
+    """
+    Лёгкие перестановки внутри фраз, характерные для русской речи:
+    «быстро работает» → «работает быстро»
+    «постоянно использует» → «использует постоянно»
+    """
+    # Наречие + глагол → глагол + наречие (с вероятностью)
+    adverbs = r"(быстро|медленно|постоянно|часто|редко|сильно|слабо|активно|полностью|практически|обычно|реально|легко|сложно)"
+    verb_ending = r"([а-яё]+(?:ет|ют|ит|ат|ят|ем|ём|ал|ала|али|ло))"
+
+    def swap(m):
+        if rng.random() < 0.5:
+            return f"{m.group(2)} {m.group(1)}"
+        return m.group(0)
+
+    text = re.sub(rf"\b{adverbs}\s+{verb_ending}\b", swap, text, flags=re.IGNORECASE)
+    return text
+
+
+def _punctuation_entropy(text: str, rng: random.Random) -> str:
+    """
+    Повышает энтропию пунктуации — то, на что смотрят статистические детекторы.
+    - иногда заменяет ', и' на '. И'
+    - иногда заменяет ', но' на '. Но'
+    - иногда ставит тире вместо 'это'/'является'
+    """
+    # ', и' → '. И' (редко, ~15%)
+    def comma_i(m):
+        return ". И" if rng.random() < 0.2 else m.group(0)
+    text = re.sub(r",\s+и\s+", lambda m: ". И " if rng.random() < 0.2 else m.group(0), text)
+    text = re.sub(r",\s+но\s+", lambda m: ". Но " if rng.random() < 0.15 else m.group(0), text)
+    text = re.sub(r",\s+а\s+", lambda m: ". А " if rng.random() < 0.12 else m.group(0), text)
+    # «это» в середине → тире
+    text = re.sub(r"\s+—\s+это\s+", lambda m: " – " if rng.random() < 0.5 else " – это ", text)
+    return text
+
+
+def _drop_predictable_words(text: str, rng: random.Random) -> str:
+    """
+    Убирает «предсказуемые» LLM-связки: «при этом», «в то же время», «в данном случае».
+    Эти слова резко повышают вероятность определения текста как AI.
+    """
+    predictable = [
+        r"\bпри этом[,\s]*", r"\bв то же время[,\s]*", r"\bв данном случае[,\s]*",
+        r"\bв свою очередь[,\s]*", r"\bпо сути говоря[,\s]*",
+        r"\bтем самым[,\s]*", r"\bв частности[,\s]*",
+        r"\bбезусловно[,\s]*", r"\bнесомненно[,\s]*",
+    ]
+    for pat in predictable:
+        text = re.sub(pat, lambda m: "" if rng.random() < 0.75 else m.group(0),
+                       text, flags=re.IGNORECASE)
+    # Лишние пробелы/запятые
+    text = re.sub(r"\s{2,}", " ", text)
+    text = re.sub(r",\s*,", ",", text)
+    text = re.sub(r"^\s*,\s*", "", text, flags=re.MULTILINE)
+    return text
+
+
+def _add_subjective_voice(text: str, rng: random.Random) -> str:
+    """
+    Превращает часть безличных конструкций в личные — это сильно снижает AI-score.
+    «Следует учитывать» → «Я учитываю»
+    «Можно сказать, что» → «Скажу так:»
+    """
+    subj_replacements = [
+        (r"\bследует учитывать\b", ["я учитываю", "стоит держать в голове", "держу в уме"]),
+        (r"\bможно сказать,?\s*что\b", ["скажу так —", "по сути —", "если коротко —"]),
+        (r"\bнеобходимо понимать,?\s*что\b", ["важно понять —", "держу в уме —"]),
+        (r"\bстоит отметить,?\s*что\b", ["замечу —", "добавлю —", "подчеркну —"]),
+        (r"\bследует подчеркнуть,?\s*что\b", ["отмечу —", "добавлю —"]),
+        (r"\bочевидно,?\s*что\b", ["понятно —", "ясно —", "видно —"]),
+    ]
+    for pat, opts in subj_replacements:
+        def sub(m, opts=opts):
+            if rng.random() < 0.7:
+                pick = rng.choice(opts)
+                if m.group(0)[0].isupper():
+                    pick = pick[0].upper() + pick[1:]
+                return pick
+            return m.group(0)
+        text = re.sub(pat, sub, text, flags=re.IGNORECASE)
+    return text
+
+
+def human_pass(text: str, style: str, rng: random.Random,
+               strength: str = "high") -> str:
+    """
+    Главная функция: запускает всю цепочку гиперчеловеческих преобразований.
+    strength: low | mid | high | extreme
+    """
+    out = text
+
+    # Шаг 1 — убираем предсказуемые LLM-связки
+    out = _drop_predictable_words(out, rng)
+
+    # Шаг 2 — подмена частых слов на редкие синонимы
+    chance = {"low": 0.3, "mid": 0.45, "high": 0.6, "extreme": 0.8}.get(strength, 0.55)
+    out = _swap_lowperplexity(out, rng, chance=chance)
+
+    # Шаг 3 — субъективизация (безличное → личное)
+    out = _add_subjective_voice(out, rng)
+
+    # Шаг 4 — режем/склеиваем для burstiness
+    if strength in ("mid", "high", "extreme"):
+        out = _burstify_sentences(out, rng)
+
+    # Шаг 5 — перестановки порядка слов
+    if strength in ("high", "extreme"):
+        out = _shuffle_word_order(out, rng)
+
+    # Шаг 6 — пунктуационная энтропия
+    if strength in ("high", "extreme"):
+        out = _punctuation_entropy(out, rng)
+
+    # Шаг 7 — вставка живого голоса
+    density = {"low": 0.1, "mid": 0.18, "high": 0.25, "extreme": 0.35}.get(strength, 0.25)
+    out = _inject_living_voice(out, style, rng, density=density)
+
+    # На extreme — второй прогон синонимов
+    if strength == "extreme":
+        out = _swap_lowperplexity(out, rng, chance=0.5)
+
+    # Финальная чистка
+    out = re.sub(r"\s{2,}", " ", out)
+    out = re.sub(r"\s+([.,;:!?])", r"\1", out)
+    out = re.sub(r"([.!?])\s*([.!?])+", r"\1", out)
+    return out.strip()
+
+
 def postprocess_antidetect(text: str, style: str, aggression: str, seed: int,
                             academic_mode: bool = False) -> str:
     """
@@ -702,28 +992,41 @@ def postprocess_antidetect(text: str, style: str, aggression: str, seed: int,
     rng = random.Random(seed)
     out = text
 
-    if aggression in ("light", "medium", "strong"):
+    if aggression in ("light", "medium", "strong", "extreme"):
         out = _apply_replacements(out, rng)
 
     # В академическом режиме ВСЕГДА чистим тире/ё/англ.вставки
     if academic_mode:
         out = _kill_markers_tomilina(out, rng)
 
-    if aggression in ("medium", "strong"):
+    if aggression in ("medium", "strong", "extreme"):
         out = _break_parallelism(out, rng)
         # Человеческие маркеры в академическом режиме — сдержанно
         if not academic_mode:
             out = _inject_human_markers(out, style, rng)
 
-    if aggression == "strong":
+    if aggression in ("strong", "extreme"):
         out = _vary_sentence_length(out, rng)
         if not academic_mode:
             out = _micro_imperfections(out, rng)
         # ещё раз замены — уже по новому тексту
         out = _apply_replacements(out, rng)
-        # ещё раз зачистка в акад.режиме
-        if academic_mode:
-            out = _kill_markers_tomilina(out, rng)
+
+    # === GIGACHECK-BUSTER human_pass ===
+    # Запускаем для medium и выше. На extreme — максимальная сила.
+    strength_map = {
+        "light": None,  # не запускаем
+        "medium": "mid",
+        "strong": "high",
+        "extreme": "extreme",
+    }
+    hp_strength = strength_map.get(aggression)
+    if hp_strength:
+        out = human_pass(out, style, rng, strength=hp_strength)
+
+    # Повторная зачистка Томилиной после human_pass (human_pass мог добавить тире)
+    if academic_mode:
+        out = _kill_markers_tomilina(out, rng)
 
     # Финальная чистка пробелов
     out = re.sub(r"[ \t]{2,}", " ", out)
@@ -899,6 +1202,7 @@ AGGRESSION_NOTES = {
     "light":   "Перефразируй осторожно, почти не меняя длину фраз. Сохраняй 70% лексики.",
     "medium":  "Перефразируй ощутимо, варьируй длину предложений, убери AI-штампы. Меняй до 60% лексики.",
     "strong":  "Переписывай радикально: разбей длинные фразы, вставляй живые вводные (я думаю, кстати, на практике), используй просторечия где уместно, убирай все канцеляризмы, сильно варьируй ритм. Меняй до 80% лексики, но СМЫСЛ СОХРАНЯЙ НА 100%.",
+    "extreme": "МАКСИМАЛЬНО агрессивный режим против GigaCheck/GPTZero. Переписывай так, будто живой человек печатает на клавиатуре — с разной длиной предложений (от 3 до 40 слов ВПЕРЕМЕШКУ), неожиданными словами, низкочастотными синонимами, личными оборотами («я думаю», «по-моему», «как мне кажется», «на моём опыте»), разговорными связками («ну», «вот», «короче», «кстати», «по сути», «на самом деле»). ОБЯЗАТЕЛЬНО: хотя бы одно очень короткое предложение (2-5 слов) на абзац. ОБЯЗАТЕЛЬНО: хотя бы одна риторическая вставка или вопрос самому себе. Меняй до 95% лексики. Используй синонимы, которые LLM использует редко.",
 }
 
 
@@ -916,8 +1220,15 @@ def _build_rewrite_prompt(style: str, aggression: str, preserve_terms: bool,
     base = (
         f"Ты — опытный редактор-человек, эксперт в теме текста. Переписываешь AI-тексты так, "
         f"чтобы они звучали как живая речь человека, который разбирается в предмете. "
-        f"Твоя задача — обойти детекторы AI (GPTZero, AntiPlagiat AI, Turnitin и подобные), "
+        f"Твоя задача — обойти детекторы AI (GigaCheck, GPTZero, AntiPlagiat AI, Turnitin и подобные), "
         f"но сохранить 100% смысла оригинала.\n\n"
+        f"СТАТИСТИЧЕСКИЕ ДЕТЕКТОРЫ (типа GigaCheck) ловят:\n"
+        f"- слишком ровную длину предложений → ПИШИ РАЗНОЙ ДЛИНЫ (3, 15, 8, 30 слов вперемешку)\n"
+        f"- предсказуемые слова («важный», «современный», «эффективный») → бери редкие синонимы\n"
+        f"- гладкие связки («при этом», «в данном случае», «следует отметить») → УБИРАЙ или заменяй на «ну», «вот», «кстати»\n"
+        f"- безличные конструкции («можно отметить», «следует учитывать») → переводи в ЛИЧНЫЕ («я учитываю», «на мой взгляд»)\n"
+        f"- симметричную пунктуацию → ИНОГДА ставь тире вместо запятой, точку вместо «, и»\n"
+        f"- лексическую бедность → используй РАЗНЫЕ слова для одного понятия в соседних фразах\n\n"
         f"СТИЛЬ: {style_desc}.\n"
         f"АГРЕССИВНОСТЬ: {aggr}\n"
         f"{preserve}"
@@ -1047,6 +1358,8 @@ def humanize_full(text: str, style: str, aggression: str,
             current_aggression = "medium"
         elif current_aggression == "medium":
             current_aggression = "strong"
+        elif current_aggression == "strong":
+            current_aggression = "extreme"
 
     # Финальный точечный проход: ищем оставшиеся горячие предложения и переписываем их индивидуально
     final_check = detect_ai(current_text, use_llm=True)
@@ -1057,7 +1370,7 @@ def humanize_full(text: str, style: str, aggression: str,
                 fixed = rewrite_text(
                     hot["text"],
                     style=style,
-                    aggression="strong",
+                    aggression="extreme",
                     preserve_terms=preserve_terms,
                     num_variants=1,
                     seed=hash(hot["text"]) % 99999,
