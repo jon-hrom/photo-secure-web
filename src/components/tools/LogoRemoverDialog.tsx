@@ -1,62 +1,26 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
-
-const LOGO_REMOVE_URL = 'https://functions.poehali.dev/3795ef81-5e3e-451a-b638-0d994d8ee56c';
-const PHOTOBANK_URL = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
-const MAX_SIDE = 1600;
-
-const urlToImage = (url: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
-    img.src = url;
-  });
+import UploadStage from '@/components/tools/logoRemover/UploadStage';
+import EditorCanvas from '@/components/tools/logoRemover/EditorCanvas';
+import EditorToolbar from '@/components/tools/logoRemover/EditorToolbar';
+import {
+  LOGO_REMOVE_URL,
+  PHOTOBANK_URL,
+  Stage,
+  urlToImage,
+  fileToImage,
+  dataUrlToBase64,
+  imageToDataUrl,
+} from '@/components/tools/logoRemover/utils';
 
 interface LogoRemoverDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-type Stage = 'upload' | 'edit';
-
-const fileToImage = (file: File): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = (e) => {
-      URL.revokeObjectURL(url);
-      reject(e);
-    };
-    img.src = url;
-  });
-
-const dataUrlToBase64 = (dataUrl: string) => dataUrl.split(',')[1] || '';
-
-const imageToDataUrl = (img: HTMLImageElement, mime = 'image/jpeg'): string => {
-  let w = img.naturalWidth;
-  let h = img.naturalHeight;
-  const scale = Math.min(1, MAX_SIDE / Math.max(w, h));
-  w = Math.round(w * scale);
-  h = Math.round(h * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(img, 0, 0, w, h);
-  return canvas.toDataURL(mime, 0.92);
-};
 
 const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
   const { toast } = useToast();
@@ -478,175 +442,46 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
         </DialogHeader>
 
         {stage === 'upload' && (
-          <div className="mt-3 space-y-3">
-            <div
-              className="border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                const f = e.dataTransfer.files?.[0];
-                if (f) handleFile(f);
-              }}
-            >
-              <Icon name="ImagePlus" size={48} className="mx-auto mb-3 text-muted-foreground" />
-              <p className="font-medium text-sm sm:text-base mb-1">Выберите фото или перетащите сюда</p>
-              <p className="text-xs text-muted-foreground">JPG, PNG, WEBP — до 20 МБ</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
-                  e.target.value = '';
-                }}
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-[11px] text-muted-foreground">или</span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => setShowPicker(true)}
-            >
-              <Icon name="FolderOpen" size={18} />
-              Выбрать из фотобанка
-            </Button>
-          </div>
+          <UploadStage
+            fileInputRef={fileInputRef}
+            onFile={handleFile}
+            onOpenPicker={() => setShowPicker(true)}
+          />
         )}
 
         {stage === 'edit' && (
           <div className="mt-3 space-y-3">
-            <div
-              ref={viewportRef}
-              className="relative rounded-xl overflow-hidden border border-border touch-none"
-              style={{
-                backgroundImage: 'linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%)',
-                backgroundSize: '20px 20px',
-                backgroundPosition: '0 0, 0 10px, 10px -10px, 10px 0',
-                height: '60vh',
-              }}
+            <EditorCanvas
+              viewportRef={viewportRef}
+              imageCanvasRef={imageCanvasRef}
+              maskCanvasRef={maskCanvasRef}
+              pointersRef={pointersRef}
+              zoom={zoom}
+              pan={pan}
+              loading={loading}
+              loadingText={loadingText}
+              brushSize={brushSize}
+              setBrushSize={setBrushSize}
+              setZoom={setZoom}
+              resetZoom={resetZoom}
               onWheel={onWheel}
-            >
-              <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{
-                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                  transformOrigin: 'center center',
-                  transition: pointersRef.current.size >= 2 ? 'none' : 'transform 0.08s ease-out',
-                }}
-              >
-                <div className="relative">
-                  <canvas
-                    ref={imageCanvasRef}
-                    className="block max-w-full h-auto select-none"
-                    style={{ maxHeight: '60vh' }}
-                  />
-                  <canvas
-                    ref={maskCanvasRef}
-                    className="absolute inset-0 w-full h-full touch-none cursor-crosshair"
-                    style={{ maxHeight: '60vh' }}
-                    onPointerDown={onPointerDown}
-                    onPointerMove={onPointerMove}
-                    onPointerUp={onPointerUp}
-                    onPointerCancel={onPointerUp}
-                    onContextMenu={(e) => e.preventDefault()}
-                  />
-                </div>
-              </div>
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+            />
 
-              <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
-                <button
-                  onClick={() => setZoom((z) => Math.min(6, z * 1.25))}
-                  className="w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm flex items-center justify-center transition-colors"
-                  title="Приблизить"
-                >
-                  <Icon name="ZoomIn" size={16} />
-                </button>
-                <button
-                  onClick={() => setZoom((z) => Math.max(1, z / 1.25))}
-                  className="w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm flex items-center justify-center transition-colors"
-                  title="Отдалить"
-                >
-                  <Icon name="ZoomOut" size={16} />
-                </button>
-                <button
-                  onClick={resetZoom}
-                  className="w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm flex items-center justify-center transition-colors"
-                  title="Сбросить масштаб"
-                >
-                  <Icon name="Maximize2" size={16} />
-                </button>
-              </div>
-
-              {zoom > 1.01 && (
-                <div className="absolute bottom-2 left-2 text-[11px] text-white bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded">
-                  {Math.round(zoom * 100)}%
-                </div>
-              )}
-
-              {loading && (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-sm z-20">
-                  <Icon name="Loader2" size={36} className="animate-spin mb-2" />
-                  <p className="text-sm">{loadingText || 'Обработка...'}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 px-1">
-              <Icon name="Brush" size={16} className="text-muted-foreground flex-shrink-0" />
-              <span className="text-xs text-muted-foreground flex-shrink-0 w-10">{brushSize}px</span>
-              <Slider
-                value={[brushSize]}
-                min={5}
-                max={80}
-                step={1}
-                onValueChange={(v) => setBrushSize(v[0])}
-                className="flex-1"
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={detectAI} disabled={loading} variant="default" size="sm" className="gap-1.5">
-                <Icon name="Sparkles" size={16} />
-                Найти AI
-              </Button>
-              <Button onClick={inpaint} disabled={loading || !hasMask} variant="default" size="sm" className="gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90">
-                <Icon name="Eraser" size={16} />
-                Стереть
-              </Button>
-              <Button onClick={clearMask} disabled={loading || !hasMask} variant="outline" size="sm" className="gap-1.5">
-                <Icon name="X" size={16} />
-                Очистить кисть
-              </Button>
-              <Button onClick={undo} disabled={loading || historyLen < 2} variant="outline" size="sm" className="gap-1.5">
-                <Icon name="Undo2" size={16} />
-                Отменить
-              </Button>
-              <Button onClick={download} disabled={loading} variant="outline" size="sm" className="gap-1.5">
-                <Icon name="Download" size={16} />
-                Скачать
-              </Button>
-              <Button onClick={() => setShowSaver(true)} disabled={loading} variant="outline" size="sm" className="gap-1.5">
-                <Icon name="Save" size={16} />
-                В фотобанк
-              </Button>
-              <Button onClick={resetAll} disabled={loading} variant="ghost" size="sm" className="gap-1.5 ml-auto">
-                <Icon name="RotateCcw" size={16} />
-                Новое фото
-              </Button>
-            </div>
-
-            <p className="text-[11px] text-muted-foreground px-1">
-              Закрасьте лого кистью или нажмите «Найти AI». ПКМ или Ctrl — ластик маски. Два пальца или Ctrl+колесо — масштаб.
-            </p>
+            <EditorToolbar
+              loading={loading}
+              hasMask={hasMask}
+              historyLen={historyLen}
+              onDetectAI={detectAI}
+              onInpaint={inpaint}
+              onClearMask={clearMask}
+              onUndo={undo}
+              onDownload={download}
+              onOpenSaver={() => setShowSaver(true)}
+              onReset={resetAll}
+            />
           </div>
         )}
       </DialogContent>
