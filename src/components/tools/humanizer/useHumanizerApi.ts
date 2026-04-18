@@ -123,39 +123,82 @@ export function useHumanizerApi(userId: string | null) {
     text: string,
     settings: HumanizerSettings,
     onProgress?: (done: number, total: number, accumulated: string) => void,
-  ): Promise<{ humanizedText: string; scoreBefore: number; scoreAfter: number }> => {
+    cachedDetect?: { overall_score: number; sentences: { text: string; ai_score: number; paragraph: number }[] } | null,
+  ): Promise<{
+    humanizedText: string;
+    scoreBefore: number;
+    scoreAfter: number;
+    rolledBack: boolean;
+  }> => {
     setLoading(true);
-    setPhase('Подготовка…');
+    setPhase('Оцениваю исходный текст…');
     try {
-      // 1) Быстрый детект before — один запрос
-      const before = await call<{ overall_score: number }>({
+      // 1) ЧЕСТНЫЙ детект before — с LLM (либо берём из кеша)
+      const before = cachedDetect || await call<{
+        overall_score: number;
+        sentences: { text: string; ai_score: number; paragraph: number }[];
+      }>({
         action: 'detect',
         text,
-        use_llm: false, // быстрый без LLM, чтобы не тратить время
+        use_llm: true,
       }, userId);
 
-      // 2) Разбиваем текст на чанки по абзацам, по ~2000 символов максимум
+      // 2) Разбиваем текст на абзацы
       const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim());
-      const chunks: string[] = [];
-      let current = '';
-      for (const p of paragraphs) {
-        if ((current + '\n\n' + p).length > 2000 && current) {
-          chunks.push(current.trim());
-          current = p;
+
+      // Определяем средний AI-score каждого абзаца (на основе detect before)
+      const paragraphScores = new Map<number, number>();
+      const paragraphCounts = new Map<number, number>();
+      for (const s of before.sentences) {
+        paragraphScores.set(s.paragraph, (paragraphScores.get(s.paragraph) || 0) + s.ai_score);
+        paragraphCounts.set(s.paragraph, (paragraphCounts.get(s.paragraph) || 0) + 1);
+      }
+      const paragraphAvgScore = (idx: number): number => {
+        const sum = paragraphScores.get(idx) || 0;
+        const cnt = paragraphCounts.get(idx) || 1;
+        return sum / cnt;
+      };
+
+      // 3) Группируем в чанки ~2000 символов
+      type Chunk = { text: string; paraIndices: number[]; avgScore: number };
+      const chunks: Chunk[] = [];
+      let currentText = '';
+      let currentIndices: number[] = [];
+      for (let i = 0; i < paragraphs.length; i++) {
+        const p = paragraphs[i];
+        if ((currentText + '\n\n' + p).length > 2000 && currentText) {
+          const avg = currentIndices.reduce((a, idx) => a + paragraphAvgScore(idx), 0) / currentIndices.length;
+          chunks.push({ text: currentText.trim(), paraIndices: [...currentIndices], avgScore: avg });
+          currentText = p;
+          currentIndices = [i];
         } else {
-          current = current ? current + '\n\n' + p : p;
+          currentText = currentText ? currentText + '\n\n' + p : p;
+          currentIndices.push(i);
         }
       }
-      if (current.trim()) chunks.push(current.trim());
+      if (currentText.trim()) {
+        const avg = currentIndices.reduce((a, idx) => a + paragraphAvgScore(idx), 0) / currentIndices.length;
+        chunks.push({ text: currentText.trim(), paraIndices: [...currentIndices], avgScore: avg });
+      }
 
-      // 3) Обрабатываем каждый чанк последовательно
+      // 4) Обрабатываем каждый чанк. Если чанк уже «человеческий» (<30%) — пропускаем.
       const results: string[] = [];
+      let skipped = 0;
       for (let i = 0; i < chunks.length; i++) {
-        setPhase(`Переписываю часть ${i + 1} из ${chunks.length}…`);
+        const chunk = chunks[i];
+        // Если этот чанк уже хороший — не трогаем
+        if (chunk.avgScore < 30) {
+          results.push(chunk.text);
+          skipped++;
+          setPhase(`Часть ${i + 1}/${chunks.length}: уже человеческая (${chunk.avgScore.toFixed(0)}%), пропускаю`);
+          onProgress?.(i + 1, chunks.length, results.join('\n\n'));
+          continue;
+        }
+        setPhase(`Переписываю часть ${i + 1}/${chunks.length} (AI: ${chunk.avgScore.toFixed(0)}%)…`);
         try {
-          const res = await call<{ text: string }>({
+          const res = await call<{ text: string; ai_score: number }>({
             action: 'humanize_chunk',
-            text: chunks[i],
+            text: chunk.text,
             style: settings.style,
             aggression: settings.aggression,
             preserve_terms: settings.preserveTerms,
@@ -164,19 +207,17 @@ export function useHumanizerApi(userId: string | null) {
           }, userId);
           results.push(res.text);
         } catch (e) {
-          // Если чанк не обработался — оставляем оригинал
           console.error(`Chunk ${i + 1} failed:`, e);
-          results.push(chunks[i]);
+          results.push(chunk.text);
         }
-        const accumulated = results.join('\n\n');
-        onProgress?.(i + 1, chunks.length, accumulated);
+        onProgress?.(i + 1, chunks.length, results.join('\n\n'));
       }
 
       const humanizedText = results.join('\n\n');
 
-      // 4) Финальный детект after с LLM
-      setPhase('Замеряю результат…');
-      let scoreAfter = 0;
+      // 5) Финальный детект after — такой же честный (с LLM)
+      setPhase('Проверяю результат…');
+      let scoreAfter = before.overall_score;
       try {
         const after = await call<{ overall_score: number }>({
           action: 'detect',
@@ -185,13 +226,23 @@ export function useHumanizerApi(userId: string | null) {
         }, userId);
         scoreAfter = after.overall_score;
       } catch {
-        scoreAfter = 0;
+        scoreAfter = before.overall_score;
+      }
+
+      // 6) ЗАЩИТА: если стало ХУЖЕ на 5+ пунктов — откатываем
+      let finalText = humanizedText;
+      let rolledBack = false;
+      if (scoreAfter > before.overall_score + 5) {
+        finalText = text;
+        scoreAfter = before.overall_score;
+        rolledBack = true;
       }
 
       return {
-        humanizedText,
+        humanizedText: finalText,
         scoreBefore: before.overall_score,
         scoreAfter,
+        rolledBack,
       };
     } finally {
       setLoading(false);
