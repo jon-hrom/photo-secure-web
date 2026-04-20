@@ -1,14 +1,17 @@
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/ui/tabs';
 import { Client } from '@/components/clients/ClientsTypes';
+import Icon from '@/components/ui/icon';
 import ClientDialogHeader from '@/components/clients/dialog/ClientDialogHeader';
 import ClientDialogTabs from '@/components/clients/dialog/ClientDialogTabs';
 import ClientDialogContent from '@/components/clients/dialog/ClientDialogContent';
 import { useClientDetailState } from '@/components/clients/dialog/ClientDetailDialogState';
 import { useClientDetailHandlers } from '@/components/clients/dialog/ClientDetailDialogHandlers';
 import UnsavedProjectDialog from '@/components/clients/UnsavedProjectDialog';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { todayLocalDate } from '@/utils/dateFormat';
+import { toast } from 'sonner';
 
 interface ClientDetailDialogProps {
   open: boolean;
@@ -22,6 +25,32 @@ interface ClientDetailDialogProps {
 const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNewProjectForm, onNewProjectFormOpened }: ClientDetailDialogProps) => {
   const [isUnsavedProjectDialogOpen, setIsUnsavedProjectDialogOpen] = useState(false);
   const [shouldShowProjectWarning, setShouldShowProjectWarning] = useState(false);
+  const [dirtyProjects, setDirtyProjects] = useState<Record<number, boolean>>({});
+  const [unsavedAlert, setUnsavedAlert] = useState<
+    | { kind: 'close' }
+    | { kind: 'tab'; target: string }
+    | null
+  >(null);
+
+  const hasUnsavedProjectChanges = useMemo(
+    () => Object.values(dirtyProjects).some(Boolean),
+    [dirtyProjects]
+  );
+
+  const handleProjectDirtyChange = useCallback((projectId: number, dirty: boolean) => {
+    setDirtyProjects((prev) => {
+      const wasDirty = !!prev[projectId];
+      if (wasDirty === dirty) return prev;
+      const next = { ...prev };
+      if (dirty) next[projectId] = true;
+      else delete next[projectId];
+      return next;
+    });
+  }, []);
+
+  const handleBlockedNavigation = useCallback(() => {
+    toast.warning('Сначала сохраните изменения в проекте или отмените их');
+  }, []);
 
   const {
     tabs,
@@ -62,8 +91,20 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
   useEffect(() => {
     if (!open) {
       setShouldShowProjectWarning(false);
+      setDirtyProjects({});
+      setUnsavedAlert(null);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!hasUnsavedProjectChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedProjectChanges]);
 
   useEffect(() => {
     if (open && shouldOpenNewProjectForm) {
@@ -129,10 +170,27 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
     setNewRefund,
   );
 
+  const guardedOnOpenChange = (next: boolean) => {
+    if (!next && hasUnsavedProjectChanges) {
+      setUnsavedAlert({ kind: 'close' });
+      return;
+    }
+    onOpenChange(next);
+  };
+
+  const guardedSetActiveTab = (tab: string) => {
+    if (tab === activeTab) return;
+    if (hasUnsavedProjectChanges) {
+      setUnsavedAlert({ kind: 'tab', target: tab });
+      return;
+    }
+    setActiveTab(tab);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+        <Tabs value={activeTab} onValueChange={guardedSetActiveTab} className="flex flex-col h-full">
           <div className="flex-shrink-0">
             <ClientDialogHeader 
               localClient={localClient} 
@@ -185,13 +243,69 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
               showSwipeHint={showSwipeHint}
               tabs={tabs}
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              setActiveTab={guardedSetActiveTab}
               isNewProjectOpen={isNewProjectOpen}
               setIsNewProjectOpen={setIsNewProjectOpen}
+              onProjectDirtyChange={handleProjectDirtyChange}
+              hasUnsavedProjectChanges={hasUnsavedProjectChanges}
+              onBlockedNavigation={handleBlockedNavigation}
             />
           </div>
         </Tabs>
       </DialogContent>
+
+      <Dialog
+        open={unsavedAlert !== null}
+        onOpenChange={(o) => { if (!o) setUnsavedAlert(null); }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon name="AlertTriangle" size={20} className="text-orange-500" />
+              У вас остались несохранённые данные
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 pt-2 text-sm text-muted-foreground">
+                <p>
+                  Вы изменили данные проекта, но не нажали кнопку <b className="text-foreground">«Сохранить изменения»</b>.
+                </p>
+                <p>
+                  Если уйти сейчас — изменения не попадут в базу, и клиент не получит уведомление.
+                </p>
+                <p>
+                  Нажмите «Остаться», вернитесь в карточку проекта и нажмите «Сохранить» — все правки уйдут в базу, а клиенту придёт одно общее сообщение об изменениях.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setUnsavedAlert(null)}
+            >
+              Остаться и сохранить
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!unsavedAlert) return;
+                if (unsavedAlert.kind === 'close') {
+                  setDirtyProjects({});
+                  setUnsavedAlert(null);
+                  onOpenChange(false);
+                } else {
+                  setDirtyProjects({});
+                  const target = unsavedAlert.target;
+                  setUnsavedAlert(null);
+                  setActiveTab(target);
+                }
+              }}
+            >
+              Отменить изменения и уйти
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <UnsavedProjectDialog
         open={isUnsavedProjectDialogOpen}

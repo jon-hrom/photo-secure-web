@@ -32,6 +32,7 @@ interface ClientDetailProjectsProps {
   formatDate: (dateString: string) => string;
   isNewProjectOpen?: boolean;
   setIsNewProjectOpen?: (open: boolean) => void;
+  onProjectDirtyChange?: (projectId: number, dirty: boolean) => void;
 }
 
 const ClientDetailProjects = ({
@@ -49,6 +50,7 @@ const ClientDetailProjects = ({
   formatDate,
   isNewProjectOpen: externalIsNewProjectOpen,
   setIsNewProjectOpen: externalSetIsNewProjectOpen,
+  onProjectDirtyChange,
 }: ClientDetailProjectsProps) => {
   const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
   const [selectorKeys, setSelectorKeys] = useState<Record<number, number>>({});
@@ -88,6 +90,44 @@ const ClientDetailProjects = ({
     updateProjectShootingStyleRef.current(projectId, styleId);
     setSelectorKeys(prev => ({ ...prev, [projectId]: (prev[projectId] || 0) + 1 }));
   }, []);
+
+  const handleSaveProjectChanges = useCallback(
+    async (projectId: number, updates: Partial<Project>) => {
+      if (!updates || Object.keys(updates).length === 0) return;
+
+      const hasDateChange = 'startDate' in updates;
+      const hasStatusChange = 'status' in updates;
+      const hasStyleChange = 'shootingStyleId' in updates;
+
+      const updatesForMain: Partial<Project> = { ...updates };
+      if (hasDateChange) delete updatesForMain.startDate;
+      if (hasStatusChange) delete updatesForMain.status;
+      if (hasStyleChange) delete updatesForMain.shootingStyleId;
+
+      if (hasDateChange && updates.startDate !== undefined) {
+        updateProjectDate(projectId, updates.startDate as string);
+      }
+      if (hasStyleChange && updates.shootingStyleId !== undefined) {
+        handleShootingStyleChange(projectId, updates.shootingStyleId as string);
+      }
+
+      if (Object.keys(updatesForMain).length > 0) {
+        await handleUpdateProject(projectId, updatesForMain);
+      }
+
+      if (hasStatusChange && updates.status !== undefined) {
+        await updateProjectStatus(projectId, updates.status);
+      }
+    },
+    [handleUpdateProject, updateProjectDate, updateProjectStatus, handleShootingStyleChange]
+  );
+
+  const handleDirtyChange = useCallback(
+    (projectId: number, dirty: boolean) => {
+      onProjectDirtyChange?.(projectId, dirty);
+    },
+    [onProjectDirtyChange]
+  );
 
   const getProjectPayments = (projectId: number) => {
     const projectPayments = payments.filter(p => p.projectId === projectId && p.status === 'completed');
@@ -186,10 +226,8 @@ const ClientDetailProjects = ({
           statusBadge={getStatusBadge(project.status)}
           onToggleExpand={() => setExpandedProjects(prev => ({ ...prev, [project.id]: !prev[project.id] }))}
           onDelete={() => handleDeleteProject(project.id)}
-          onUpdateProject={(updates) => handleUpdateProject(project.id, updates)}
-          onUpdateStatus={(status) => updateProjectStatus(project.id, status)}
-          onUpdateDate={(date) => updateProjectDate(project.id, date)}
-          onShootingStyleChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
+          onSaveChanges={(updates) => handleSaveProjectChanges(project.id, updates)}
+          onDirtyChange={(dirty) => handleDirtyChange(project.id, dirty)}
           onTouchStart={(e) => handleTouchStart(e, project.id)}
           onTouchEnd={(e) => handleTouchEnd(e, project.id)}
         />
@@ -266,10 +304,8 @@ const ClientDetailProjects = ({
                     statusBadge={getStatusBadge(project.status)}
                     onToggleExpand={() => setExpandedProjects(prev => ({ ...prev, [project.id]: !prev[project.id] }))}
                     onDelete={() => handleDeleteProject(project.id)}
-                    onUpdateProject={(updates) => handleUpdateProject(project.id, updates)}
-                    onUpdateStatus={(status) => updateProjectStatus(project.id, status)}
-                    onUpdateDate={(date) => updateProjectDate(project.id, date)}
-                    onShootingStyleChange={(styleId) => handleShootingStyleChange(project.id, styleId)}
+                    onSaveChanges={(updates) => handleSaveProjectChanges(project.id, updates)}
+                    onDirtyChange={(dirty) => handleDirtyChange(project.id, dirty)}
                     onTouchStart={(e) => handleTouchStart(e, project.id)}
                     onTouchEnd={(e) => handleTouchEnd(e, project.id)}
                   />

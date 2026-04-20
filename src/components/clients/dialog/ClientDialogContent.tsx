@@ -56,6 +56,9 @@ interface ClientDialogContentProps {
   setActiveTab: (tab: string) => void;
   isNewProjectOpen?: boolean;
   setIsNewProjectOpen?: (open: boolean) => void;
+  onProjectDirtyChange?: (projectId: number, dirty: boolean) => void;
+  hasUnsavedProjectChanges?: boolean;
+  onBlockedNavigation?: () => void;
 }
 
 const ClientDialogContent = ({
@@ -104,6 +107,9 @@ const ClientDialogContent = ({
   setActiveTab,
   isNewProjectOpen,
   setIsNewProjectOpen,
+  onProjectDirtyChange,
+  hasUnsavedProjectChanges,
+  onBlockedNavigation,
 }: ClientDialogContentProps) => {
   return (
     <div className="relative h-full">
@@ -125,12 +131,20 @@ const ClientDialogContent = ({
       )}
       <SwipeContainer
         onSwipeLeft={() => {
+          if (hasUnsavedProjectChanges) {
+            onBlockedNavigation?.();
+            return;
+          }
           const currentIndex = tabs.indexOf(activeTab as any);
           if (currentIndex > 0) {
             setActiveTab(tabs[currentIndex - 1]);
           }
         }}
         onSwipeRight={() => {
+          if (hasUnsavedProjectChanges) {
+            onBlockedNavigation?.();
+            return;
+          }
           const currentIndex = tabs.indexOf(activeTab as any);
           if (currentIndex < tabs.length - 1) {
             setActiveTab(tabs[currentIndex + 1]);
@@ -168,6 +182,7 @@ const ClientDialogContent = ({
             formatDate={formatDate}
             isNewProjectOpen={isNewProjectOpen}
             setIsNewProjectOpen={setIsNewProjectOpen}
+            onProjectDirtyChange={onProjectDirtyChange}
           />
         </TabsContent>
 
