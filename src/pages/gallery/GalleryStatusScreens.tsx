@@ -1,5 +1,6 @@
 import Icon from '@/components/ui/icon';
 import PasswordForm from './PasswordForm';
+import BlockedContactButton from './BlockedContactButton';
 
 interface LoadingScreenProps {
   type: 'loading';
@@ -9,6 +10,7 @@ interface BlockedScreenProps {
   type: 'blocked';
   code: string | undefined;
   photographerEmail: string | null;
+  photographerId: number | null;
 }
 
 interface ErrorScreenProps {
@@ -70,6 +72,9 @@ const GalleryStatusScreens = (props: GalleryStatusScreenProps) => {
                 {props.photographerEmail}
               </a>
             </div>
+          )}
+          {props.code && props.photographerId && (
+            <BlockedContactButton code={props.code} photographerId={props.photographerId} />
           )}
         </div>
       </div>

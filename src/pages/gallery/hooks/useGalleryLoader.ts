@@ -83,6 +83,7 @@ export function useGalleryLoader(code?: string, clientId?: number) {
   const [photosLoaded, setPhotosLoaded] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [photographerEmail, setPhotographerEmail] = useState('');
+  const [blockedPhotographerId, setBlockedPhotographerId] = useState<number | null>(null);
 
   const buildUrl = (enteredPassword?: string, cid?: number) => {
     const passwordParam = enteredPassword || password;
@@ -129,6 +130,7 @@ export function useGalleryLoader(code?: string, clientId?: number) {
         console.log('[PUBLIC_GALLERY] Gallery link is blocked');
         setIsBlocked(true);
         setPhotographerEmail(data.photographer_email || '');
+        setBlockedPhotographerId(data.photographer_id ?? null);
         setLoading(false);
         return;
       }
@@ -137,6 +139,7 @@ export function useGalleryLoader(code?: string, clientId?: number) {
         console.log('[PUBLIC_GALLERY] Gallery link expired');
         setIsBlocked(true);
         setPhotographerEmail(data.photographer_email || '');
+        setBlockedPhotographerId(data.photographer_id ?? null);
         setLoading(false);
         return;
       }
@@ -221,6 +224,7 @@ export function useGalleryLoader(code?: string, clientId?: number) {
     photosLoaded,
     isBlocked,
     photographerEmail,
+    blockedPhotographerId,
     setPassword,
     setPhotosLoaded,
     handlePasswordSubmit,

@@ -43,6 +43,7 @@ export default function PublicGallery() {
     photosLoaded,
     isBlocked,
     photographerEmail,
+    blockedPhotographerId,
     setPassword,
     setPhotosLoaded,
     handlePasswordSubmit,
@@ -118,7 +119,14 @@ export default function PublicGallery() {
   }
 
   if (isBlocked) {
-    return <GalleryStatusScreens type="blocked" code={code} photographerEmail={photographerEmail} />;
+    return (
+      <GalleryStatusScreens
+        type="blocked"
+        code={code}
+        photographerEmail={photographerEmail}
+        photographerId={blockedPhotographerId}
+      />
+    );
   }
 
   if (error) {

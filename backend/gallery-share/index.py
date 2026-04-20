@@ -407,7 +407,8 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({
                         'error': 'Gallery link blocked',
                         'blocked': True,
-                        'photographer_email': photographer_email_check
+                        'photographer_email': photographer_email_check,
+                        'photographer_id': photographer_id_for_check
                     })
                 }
             
@@ -447,7 +448,8 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({
                         'error': 'Gallery link expired',
                         'expired': True,
-                        'photographer_email': photographer_email_check
+                        'photographer_email': photographer_email_check,
+                        'photographer_id': photographer_id_for_check
                     })
                 }
             
