@@ -87,30 +87,58 @@
   }
 }
 
-/* Видимые иконки календаря / времени в тёмной теме */
+/* Видимые иконки календаря / времени */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="week"]::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 4px;
+  border-radius: 4px;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+
+/* Светлая тема: чёрные иконки */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="week"]::-webkit-calendar-picker-indicator {
+  filter: invert(0) brightness(0);
+}
+
+/* Тёмная тема: белые иконки (инвертируем чёрный SVG в белый) */
 .dark input[type="date"]::-webkit-calendar-picker-indicator,
 .dark input[type="time"]::-webkit-calendar-picker-indicator,
 .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
 .dark input[type="month"]::-webkit-calendar-picker-indicator,
 .dark input[type="week"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(2);
-  opacity: 0.9;
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 4px;
-  transition:
-    background-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+  filter: invert(1) brightness(100);
 }
-.dark input[type="date"]::-webkit-calendar-picker-indicator:hover,
-.dark input[type="time"]::-webkit-calendar-picker-indicator:hover,
-.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
-.dark input[type="month"]::-webkit-calendar-picker-indicator:hover,
-.dark input[type="week"]::-webkit-calendar-picker-indicator:hover {
-  background-color: hsl(var(--primary) / 0.25);
-  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.6);
+
+/* Hover-эффект в обеих темах */
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover,
+input[type="week"]::-webkit-calendar-picker-indicator:hover {
+  background-color: hsl(var(--primary) / 0.2);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.5);
   transform: scale(1.1);
+}
+
+/* Светлая тема — нативный color-scheme */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: light;
 }
 .dark input[type="date"],
 .dark input[type="time"],
