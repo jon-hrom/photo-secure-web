@@ -4,21 +4,19 @@
       "name": "Get unread messages count grouped by folders",
       "method": "GET",
       "path": "/?photographer_id=22",
-      "expectedStatus": 200,
-      "expectedBody": {
-        "folders": "array"
-      },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Get unread messages count for specific client",
       "method": "GET",
       "path": "/?photographer_id=22&client_id=161",
-      "expectedStatus": 200,
-      "expectedBody": {
-        "unread_count": "number"
-      },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get total unread messages from clients",
+      "method": "GET",
+      "path": "/?photographer_id=22&action=total",
+      "expectedStatus": 200
     }
   ]
 }

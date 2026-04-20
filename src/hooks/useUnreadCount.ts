@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 const MAX_API_URL = 'https://functions.poehali.dev/0a053c97-18f2-42c4-95e3-8f02894ee0c1';
+const CLIENT_MESSAGES_UNREAD_URL = 'https://functions.poehali.dev/ac9cc03a-3a9c-4359-acca-5cf58252f6d1';
 
 const getSessionToken = () => {
   const authSession = localStorage.getItem('authSession');
@@ -22,18 +23,36 @@ export const useUnreadCount = (userId: number | string | null) => {
     if (!userId) return;
     try {
       const token = getSessionToken();
-      const response = await fetch(`${MAX_API_URL}?action=unread_count`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': String(userId),
-          'X-Session-Token': token,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUnreadCount(data.unread_count || 0);
+
+      // Параллельно считаем непрочитанные из MAX-мессенджера и из чатов с клиентами
+      const [maxResp, clientResp] = await Promise.all([
+        fetch(`${MAX_API_URL}?action=unread_count`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': String(userId),
+            'X-Session-Token': token,
+          },
+        }).catch(() => null),
+        fetch(`${CLIENT_MESSAGES_UNREAD_URL}?action=total&photographer_id=${encodeURIComponent(String(userId))}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch(() => null),
+      ]);
+
+      let maxCount = 0;
+      let clientCount = 0;
+
+      if (maxResp && maxResp.ok) {
+        const data = await maxResp.json();
+        maxCount = Number(data.unread_count) || 0;
       }
+      if (clientResp && clientResp.ok) {
+        const data = await clientResp.json();
+        clientCount = Number(data.unread_count) || 0;
+      }
+
+      setUnreadCount(maxCount + clientCount);
     } catch {
       // silently fail
     }

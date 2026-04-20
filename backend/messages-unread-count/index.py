@@ -28,6 +28,12 @@ def handler(event: dict, context) -> dict:
         params = event.get('queryStringParameters', {}) or {}
         photographer_id = params.get('photographer_id')
         client_id = params.get('client_id')
+        action = params.get('action', '')
+        
+        # Если photographer_id не пришёл — берём из заголовка X-User-Id
+        if not photographer_id:
+            headers = event.get('headers', {}) or {}
+            photographer_id = headers.get('X-User-Id') or headers.get('x-user-id')
         
         if not photographer_id:
             return {
@@ -46,6 +52,27 @@ def handler(event: dict, context) -> dict:
         
         conn = psycopg2.connect(dsn)
         cur = conn.cursor()
+        
+        # action=total — общее число непрочитанных сообщений ОТ КЛИЕНТОВ для фотографа
+        if action == 'total':
+            query = f'''
+                SELECT COUNT(*) FROM t_p28211681_photo_secure_web.client_messages
+                WHERE photographer_id = {int(photographer_id)}
+                  AND sender_type = 'client'
+                  AND is_read = FALSE
+                  AND COALESCE(removed_for_all, FALSE) = FALSE
+                  AND COALESCE(hidden_for_photographer, FALSE) = FALSE
+            '''
+            cur.execute(query)
+            row = cur.fetchone()
+            unread_count = int(row[0]) if row else 0
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'unread_count': unread_count})
+            }
         
         # Если указан client_id - вернуть непрочитанные сообщения ОТ ФОТОГРАФА для этого клиента
         if client_id:
