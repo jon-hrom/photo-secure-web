@@ -61,6 +61,63 @@
   background-color: hsl(var(--primary) / 0.9);
 }
 
+/* Мигающая плашка «Изменения не сохранены» */
+@keyframes unsaved-blink {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1.15) saturate(1.15);
+    box-shadow:
+      0 0 18px 2px rgba(255, 196, 0, 0.85),
+      0 0 6px rgba(255, 80, 80, 0.6);
+  }
+  50% {
+    opacity: 0.55;
+    filter: brightness(0.85) saturate(1);
+    box-shadow: 0 0 6px rgba(255, 196, 0, 0.3);
+  }
+}
+.unsaved-blink {
+  animation: unsaved-blink 1.1s ease-in-out infinite;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .unsaved-blink {
+    animation: none;
+  }
+}
+
+/* Видимые иконки календаря / времени в тёмной теме */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.dark input[type="month"]::-webkit-calendar-picker-indicator,
+.dark input[type="week"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2);
+  opacity: 0.9;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.dark input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.dark input[type="time"]::-webkit-calendar-picker-indicator:hover,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+.dark input[type="month"]::-webkit-calendar-picker-indicator:hover,
+.dark input[type="week"]::-webkit-calendar-picker-indicator:hover {
+  background-color: hsl(var(--primary) / 0.25);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.6);
+  transform: scale(1.1);
+}
+.dark input[type="date"],
+.dark input[type="time"],
+.dark input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
 @layer base {
   :root {
     --background: 240 60% 99%;

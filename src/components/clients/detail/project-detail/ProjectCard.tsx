@@ -197,8 +197,12 @@ const ProjectCard = ({
                 </span>
               )}
               {isDirty && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary">
-                  <Icon name="Pencil" size={12} />
+                <span
+                  className="unsaved-blink inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-extrabold uppercase tracking-wide text-white bg-gradient-to-r from-red-500 via-orange-500 to-yellow-400 shadow-[0_0_14px_rgba(255,196,0,0.75)] ring-2 ring-yellow-300/80"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <Icon name="AlertTriangle" size={12} />
                   Изменения не сохранены
                 </span>
               )}
@@ -247,7 +251,7 @@ const ProjectCard = ({
                       updateDraft({ startDate: e.target.value });
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs h-8 w-full sm:w-40"
+                    className="text-xs h-8 w-full sm:w-44 pr-1"
                   />
                 </div>
                 {draft.shootingStyleId && (
@@ -260,7 +264,7 @@ const ProjectCard = ({
               </>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             <Button
               variant="default"
               size="sm"
@@ -269,18 +273,19 @@ const ProjectCard = ({
                 e.stopPropagation();
                 handleSave();
               }}
-              title={isDirty ? 'Сохранить изменения' : 'Нет изменений для сохранения'}
-              className="h-9"
+              title={isDirty ? 'Сохранить и отправить изменения клиенту' : 'Нет изменений для сохранения'}
+              className="h-9 max-w-full whitespace-normal text-left leading-tight"
             >
               {isSaving ? (
                 <>
-                  <Icon name="Loader2" size={16} className="mr-1.5 animate-spin" />
+                  <Icon name="Loader2" size={16} className="mr-1.5 shrink-0 animate-spin" />
                   Сохраняю...
                 </>
               ) : (
                 <>
-                  <Icon name="Save" size={16} className="mr-1.5" />
-                  Сохранить
+                  <Icon name="Save" size={16} className="mr-1.5 shrink-0" />
+                  <span className="hidden sm:inline">Сохранить и отправить изменения клиенту</span>
+                  <span className="sm:hidden">Сохранить и отправить</span>
                 </>
               )}
             </Button>
@@ -372,12 +377,14 @@ const ProjectCard = ({
           </div>
 
           {isDirty && (
-            <div className="sticky bottom-0 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 bg-background/95 backdrop-blur border-t flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Icon name="Info" size={14} className="text-primary" />
-                Нажмите «Сохранить», чтобы отправить уведомление клиенту
+            <div className="sticky bottom-0 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 bg-background/95 backdrop-blur border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <span className="text-[11px] sm:text-xs text-muted-foreground flex items-start gap-1.5 leading-snug">
+                <Icon name="Info" size={14} className="text-primary shrink-0 mt-0.5" />
+                <span>
+                  При нажатии на кнопку «Сохранить изменения» сообщение клиенту <b className="text-foreground">не будет отправлено</b> об изменениях в проекте.
+                </span>
               </span>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                 <Button variant="outline" size="sm" onClick={handleReset} disabled={isSaving}>
                   Отменить
                 </Button>

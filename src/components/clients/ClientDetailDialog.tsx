@@ -258,14 +258,14 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
         open={unsavedAlert !== null}
         onOpenChange={(o) => { if (!o) setUnsavedAlert(null); }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg sm:max-w-xl p-5 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Icon name="AlertTriangle" size={20} className="text-orange-500" />
-              У вас остались несохранённые данные
+            <DialogTitle className="flex items-start gap-2 text-base sm:text-lg leading-tight pr-4">
+              <Icon name="AlertTriangle" size={20} className="text-orange-500 shrink-0 mt-0.5" />
+              <span>У вас остались несохранённые данные</span>
             </DialogTitle>
             <DialogDescription asChild>
-              <div className="space-y-2 pt-2 text-sm text-muted-foreground">
+              <div className="space-y-2 pt-2 text-sm text-muted-foreground break-words">
                 <p>
                   Вы изменили данные проекта, но не нажали кнопку <b className="text-foreground">«Сохранить изменения»</b>.
                 </p>
@@ -278,10 +278,11 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
               </div>
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-2">
             <Button
               variant="outline"
               onClick={() => setUnsavedAlert(null)}
+              className="w-full sm:w-auto"
             >
               Остаться и сохранить
             </Button>
@@ -300,6 +301,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
                   setActiveTab(target);
                 }
               }}
+              className="w-full sm:w-auto"
             >
               Отменить изменения и уйти
             </Button>
