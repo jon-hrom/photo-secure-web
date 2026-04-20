@@ -172,7 +172,7 @@ export default function ChatMessage({
   return (
     <div
       data-message-id={message.id}
-      className={`flex ${isMyMessage ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 ${highlight ? 'animate-pulse' : ''}`}
+      className={`flex w-full ${isMyMessage ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 ${highlight ? 'animate-pulse' : ''}`}
     >
       {selectionMode && (
         <button
@@ -189,7 +189,7 @@ export default function ChatMessage({
           {isSelected && <Icon name="Check" size={12} />}
         </button>
       )}
-      <div className={`flex flex-col min-w-0 ${isMyMessage ? 'items-end' : 'items-start'} max-w-full`}>
+      <div className={`flex flex-col min-w-0 max-w-[85%] sm:max-w-[66%] ${isMyMessage ? 'items-end' : 'items-start'}`}>
         {senderName && (
           <span className="text-xs text-muted-foreground mb-1 px-1">
             {senderName}
@@ -198,9 +198,10 @@ export default function ChatMessage({
         <div
           {...(isRemoved ? {} : longPressHandlers)}
           onClick={handleBubbleClick}
-          className={`relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 select-none ${
+          className={`relative inline-block w-auto max-w-full rounded-lg px-3 py-2 select-none break-words ${
             isRemoved ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 italic' : bubbleBase
           } ${isSelected ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${highlight ? 'ring-2 ring-yellow-400' : ''} cursor-pointer`}
+          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
         >
           {isRemoved ? (
             <p className="flex items-center gap-2 text-sm">
