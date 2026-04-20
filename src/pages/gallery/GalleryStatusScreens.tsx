@@ -73,9 +73,23 @@ const GalleryStatusScreens = (props: GalleryStatusScreenProps) => {
               </a>
             </div>
           )}
-          {props.code && props.photographerId && (
-            <BlockedContactButton code={props.code} photographerId={props.photographerId} />
-          )}
+          {props.code ? (
+            <BlockedContactButton
+              code={props.code}
+              photographerId={props.photographerId}
+              photographerEmail={props.photographerEmail}
+            />
+          ) : props.photographerEmail ? (
+            <a
+              href={`mailto:${props.photographerEmail}`}
+              className="group relative mt-2 block w-full overflow-hidden rounded-xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-6 py-4 text-center font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <span className="flex items-center justify-center gap-2">
+                <Icon name="Mail" size={20} />
+                Написать фотографу
+              </span>
+            </a>
+          ) : null}
         </div>
       </div>
     );

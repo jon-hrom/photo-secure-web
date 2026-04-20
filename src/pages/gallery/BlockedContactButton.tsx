@@ -8,7 +8,8 @@ import ChatModal from '@/components/gallery/ChatModal';
 
 interface BlockedContactButtonProps {
   code: string;
-  photographerId: number;
+  photographerId: number | null;
+  photographerEmail?: string | null;
 }
 
 interface SavedClient {
@@ -18,7 +19,7 @@ interface SavedClient {
   email?: string;
 }
 
-export default function BlockedContactButton({ code, photographerId }: BlockedContactButtonProps) {
+export default function BlockedContactButton({ code, photographerId, photographerEmail }: BlockedContactButtonProps) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [savedClient, setSavedClient] = useState<SavedClient | null>(null);
@@ -29,6 +30,7 @@ export default function BlockedContactButton({ code, photographerId }: BlockedCo
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!photographerId) return;
     try {
       const raw = localStorage.getItem(`client_${photographerId}_${code}`);
       if (raw) {
@@ -46,6 +48,12 @@ export default function BlockedContactButton({ code, photographerId }: BlockedCo
   }, [photographerId, code]);
 
   const handleClick = () => {
+    if (!photographerId) {
+      if (photographerEmail) {
+        window.location.href = `mailto:${photographerEmail}`;
+      }
+      return;
+    }
     if (savedClient?.client_id) {
       setIsChatOpen(true);
     } else {
@@ -92,10 +100,12 @@ export default function BlockedContactButton({ code, photographerId }: BlockedCo
         phone: phone.trim(),
         email: email.trim(),
       };
-      try {
-        localStorage.setItem(`client_${photographerId}_${code}`, JSON.stringify(clientData));
-      } catch {
-        // ignore quota
+      if (photographerId) {
+        try {
+          localStorage.setItem(`client_${photographerId}_${code}`, JSON.stringify(clientData));
+        } catch {
+          // ignore quota
+        }
       }
       setSavedClient(clientData);
       setIsFormOpen(false);
@@ -175,7 +185,7 @@ export default function BlockedContactButton({ code, photographerId }: BlockedCo
         </DialogContent>
       </Dialog>
 
-      {isChatOpen && savedClient?.client_id && (
+      {isChatOpen && savedClient?.client_id && photographerId && (
         <ChatModal
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
