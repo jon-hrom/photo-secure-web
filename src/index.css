@@ -87,7 +87,23 @@
   }
 }
 
-/* Видимые иконки календаря / времени */
+/* Светлая тема — нативный color-scheme (чёрные иконки) */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="week"] {
+  color-scheme: light;
+}
+.dark input[type="date"],
+.dark input[type="time"],
+.dark input[type="datetime-local"],
+.dark input[type="month"],
+.dark input[type="week"] {
+  color-scheme: dark;
+}
+
+/* Видимые иконки календаря / времени — базовые стили */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator,
@@ -101,26 +117,26 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   transition:
     background-color 0.15s ease,
     box-shadow 0.15s ease,
-    transform 0.15s ease,
-    opacity 0.15s ease;
+    transform 0.15s ease;
 }
 
-/* Светлая тема: чёрные иконки */
-input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="time"]::-webkit-calendar-picker-indicator,
-input[type="datetime-local"]::-webkit-calendar-picker-indicator,
-input[type="month"]::-webkit-calendar-picker-indicator,
-input[type="week"]::-webkit-calendar-picker-indicator {
-  filter: invert(0) brightness(0);
+/* Светлая тема — явно чёрные иконки */
+html:not(.dark) input[type="date"]::-webkit-calendar-picker-indicator,
+html:not(.dark) input[type="time"]::-webkit-calendar-picker-indicator,
+html:not(.dark) input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+html:not(.dark) input[type="month"]::-webkit-calendar-picker-indicator,
+html:not(.dark) input[type="week"]::-webkit-calendar-picker-indicator {
+  filter: brightness(0) saturate(100%);
 }
 
-/* Тёмная тема: белые иконки (инвертируем чёрный SVG в белый) */
+/* Тёмная тема — белые иконки: браузер уже отдаёт светлую иконку из-за color-scheme: dark,
+   дополнительно форсируем белый цвет через filter */
 .dark input[type="date"]::-webkit-calendar-picker-indicator,
 .dark input[type="time"]::-webkit-calendar-picker-indicator,
 .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
 .dark input[type="month"]::-webkit-calendar-picker-indicator,
 .dark input[type="week"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(100);
+  filter: brightness(0) saturate(100%) invert(100%);
 }
 
 /* Hover-эффект в обеих темах */
@@ -129,21 +145,9 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
 input[type="month"]::-webkit-calendar-picker-indicator:hover,
 input[type="week"]::-webkit-calendar-picker-indicator:hover {
-  background-color: hsl(var(--primary) / 0.2);
+  background-color: hsl(var(--primary) / 0.25);
   box-shadow: 0 0 0 2px hsl(var(--primary) / 0.5);
   transform: scale(1.1);
-}
-
-/* Светлая тема — нативный color-scheme */
-input[type="date"],
-input[type="time"],
-input[type="datetime-local"] {
-  color-scheme: light;
-}
-.dark input[type="date"],
-.dark input[type="time"],
-.dark input[type="datetime-local"] {
-  color-scheme: dark;
 }
 
 /* Mobile/iOS adaptations для карточки клиента */
