@@ -118,6 +118,28 @@
   color-scheme: dark;
 }
 
+/* Mobile/iOS adaptations для карточки клиента */
+@media (max-width: 640px) {
+  /* iOS: отключаем авто-zoom при фокусе input/select, минимальный размер 16px */
+  [data-radix-dialog-content] input,
+  [data-radix-dialog-content] select,
+  [data-radix-dialog-content] textarea,
+  [data-radix-dialog-content] button {
+    font-size: 16px;
+  }
+  /* Ускоренный scroll и лёгкий тап-хайлайт */
+  [data-radix-dialog-content] {
+    -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Кликабельные элементы проще попадать пальцем */
+  [data-radix-dialog-content] button,
+  [data-radix-dialog-content] [role="button"],
+  [data-radix-dialog-content] a {
+    touch-action: manipulation;
+  }
+}
+
 @layer base {
   :root {
     --background: 240 60% 99%;

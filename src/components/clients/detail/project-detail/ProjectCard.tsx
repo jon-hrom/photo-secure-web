@@ -264,31 +264,37 @@ const ProjectCard = ({
               </>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            <Button
-              variant="default"
-              size="sm"
-              disabled={!isDirty || isSaving}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSave();
-              }}
-              title={isDirty ? 'Сохранить и отправить изменения клиенту' : 'Нет изменений для сохранения'}
-              className="h-9 max-w-full whitespace-normal text-left leading-tight"
-            >
-              {isSaving ? (
-                <>
-                  <Icon name="Loader2" size={16} className="mr-1.5 shrink-0 animate-spin" />
-                  Сохраняю...
-                </>
-              ) : (
-                <>
-                  <Icon name="Save" size={16} className="mr-1.5 shrink-0" />
-                  <span className="hidden sm:inline">Сохранить и отправить изменения клиенту</span>
-                  <span className="sm:hidden">Сохранить и отправить</span>
-                </>
-              )}
-            </Button>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 justify-end">
+            {(isDirty || isSaving) && (
+              <Button
+                variant="default"
+                size="sm"
+                disabled={!isDirty || isSaving}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSave();
+                }}
+                title="Сохранить и отправить изменения клиенту"
+                aria-label="Сохранить и отправить изменения клиенту"
+                className="h-auto min-h-[44px] py-1 px-2.5 whitespace-normal leading-[1.1] text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 max-w-[150px] sm:max-w-[170px]"
+              >
+                {isSaving ? (
+                  <>
+                    <Icon name="Loader2" size={14} className="shrink-0 animate-spin" />
+                    <span>Сохраняю…</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Save" size={14} className="shrink-0" />
+                    <span className="text-left">
+                      Сохранить и отправить
+                      <br />
+                      изменения клиенту
+                    </span>
+                  </>
+                )}
+              </Button>
+            )}
             {isDirty && !isSaving && (
               <Button
                 variant="ghost"
@@ -298,9 +304,10 @@ const ProjectCard = ({
                   handleReset();
                 }}
                 title="Отменить изменения"
-                className="h-9"
+                aria-label="Отменить изменения"
+                className="h-11 w-11 sm:h-9 sm:w-9 p-0"
               >
-                <Icon name="Undo2" size={16} />
+                <Icon name="Undo2" size={18} />
               </Button>
             )}
             <Button
@@ -312,9 +319,10 @@ const ProjectCard = ({
                   onDelete();
                 }
               }}
-              className="h-9"
+              aria-label="Удалить проект"
+              className="h-11 w-11 sm:h-9 sm:w-9 p-0"
             >
-              <Icon name="Trash2" size={16} />
+              <Icon name="Trash2" size={18} />
             </Button>
           </div>
         </div>

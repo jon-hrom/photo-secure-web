@@ -189,9 +189,9 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
 
   return (
     <Dialog open={open} onOpenChange={guardedOnOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col overflow-hidden">
-        <Tabs value={activeTab} onValueChange={guardedSetActiveTab} className="flex flex-col h-full">
-          <div className="flex-shrink-0">
+      <DialogContent className="max-w-4xl w-full h-[100dvh] sm:h-[90vh] max-h-[100dvh] sm:max-h-[90vh] rounded-none sm:rounded-lg p-0 flex flex-col overflow-hidden gap-0">
+        <Tabs value={activeTab} onValueChange={guardedSetActiveTab} className="flex flex-col h-full min-h-0">
+          <div className="flex-shrink-0 safe-top">
             <ClientDialogHeader 
               localClient={localClient} 
               onUpdate={onUpdate}
@@ -199,7 +199,7 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
             />
             <ClientDialogTabs activeTab={activeTab} />
           </div>
-          <div className="flex-1 overflow-y-auto overflow-x-hidden safe-bottom bg-background scroll-smooth scrollbar-visible">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden safe-bottom bg-background scroll-smooth scrollbar-visible overscroll-contain">
             <ClientDialogContent
               localClient={localClient}
               projects={projects}

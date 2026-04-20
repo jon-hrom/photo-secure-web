@@ -44,19 +44,19 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient }: ClientDia
   };
 
   return (
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2 sm:gap-3 text-xl sm:text-2xl">
-        <Icon name="User" size={24} className="text-primary sm:w-7 sm:h-7" />
-        <span className="truncate">{client.name}</span>
+    <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 pr-12">
+      <DialogTitle className="flex items-center gap-2 sm:gap-3 text-lg sm:text-2xl min-w-0">
+        <Icon name="User" size={22} className="text-primary shrink-0 sm:w-7 sm:h-7" />
+        <span className="truncate min-w-0">{client.name}</span>
       </DialogTitle>
-      <div className="flex flex-wrap items-center gap-2 mt-2 text-xs sm:text-sm text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <Icon name="Phone" size={14} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2 text-xs sm:text-sm text-muted-foreground">
+        <div className="flex items-center gap-1 min-w-0 max-w-full">
+          <Icon name="Phone" size={14} className="shrink-0" />
           <span className="truncate">{formatPhoneNumber(client.phone)}</span>
         </div>
         {client.email && (
-          <div className="flex items-center gap-1">
-            <Icon name="Mail" size={14} />
+          <div className="flex items-center gap-1 min-w-0 max-w-full">
+            <Icon name="Mail" size={14} className="shrink-0" />
             <span className="truncate">{client.email}</span>
           </div>
         )}
