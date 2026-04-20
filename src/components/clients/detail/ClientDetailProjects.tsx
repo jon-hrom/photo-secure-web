@@ -24,7 +24,7 @@ interface ClientDetailProjectsProps {
   setNewProject: (project: any) => void;
   handleAddProject: () => Promise<void> | void;
   handleDeleteProject: (projectId: number) => void;
-  handleUpdateProject: (projectId: number, updates: Partial<Project>) => void;
+  handleUpdateProject: (projectId: number, updates: Partial<Project>, notifyClient?: boolean) => void;
   updateProjectStatus: (projectId: number, status: Project['status']) => void;
   updateProjectDate: (projectId: number, newDate: string) => void;
   updateProjectShootingStyle: (projectId: number, styleId: string) => void;
@@ -92,7 +92,7 @@ const ClientDetailProjects = ({
   }, []);
 
   const handleSaveProjectChanges = useCallback(
-    async (projectId: number, updates: Partial<Project>) => {
+    async (projectId: number, updates: Partial<Project>, notifyClient: boolean = false) => {
       if (!updates || Object.keys(updates).length === 0) return;
 
       const hasDateChange = 'startDate' in updates;
@@ -112,7 +112,13 @@ const ClientDetailProjects = ({
       }
 
       if (Object.keys(updatesForMain).length > 0) {
-        await handleUpdateProject(projectId, updatesForMain);
+        await handleUpdateProject(projectId, updatesForMain, notifyClient);
+      } else if (notifyClient && (hasDateChange || hasStatusChange)) {
+        // если менялись только поля-триггеры (дата/статус) — всё равно отправим уведомление
+        const triggerUpdates: Partial<Project> = {};
+        if (hasDateChange) triggerUpdates.startDate = updates.startDate;
+        if (hasStatusChange) triggerUpdates.status = updates.status;
+        await handleUpdateProject(projectId, triggerUpdates, notifyClient);
       }
 
       if (hasStatusChange && updates.status !== undefined) {
@@ -226,7 +232,7 @@ const ClientDetailProjects = ({
           statusBadge={getStatusBadge(project.status)}
           onToggleExpand={() => setExpandedProjects(prev => ({ ...prev, [project.id]: !prev[project.id] }))}
           onDelete={() => handleDeleteProject(project.id)}
-          onSaveChanges={(updates) => handleSaveProjectChanges(project.id, updates)}
+          onSaveChanges={(updates, notifyClient) => handleSaveProjectChanges(project.id, updates, notifyClient)}
           onDirtyChange={(dirty) => handleDirtyChange(project.id, dirty)}
           onTouchStart={(e) => handleTouchStart(e, project.id)}
           onTouchEnd={(e) => handleTouchEnd(e, project.id)}
@@ -304,7 +310,7 @@ const ClientDetailProjects = ({
                     statusBadge={getStatusBadge(project.status)}
                     onToggleExpand={() => setExpandedProjects(prev => ({ ...prev, [project.id]: !prev[project.id] }))}
                     onDelete={() => handleDeleteProject(project.id)}
-                    onSaveChanges={(updates) => handleSaveProjectChanges(project.id, updates)}
+                    onSaveChanges={(updates, notifyClient) => handleSaveProjectChanges(project.id, updates, notifyClient)}
                     onDirtyChange={(dirty) => handleDirtyChange(project.id, dirty)}
                     onTouchStart={(e) => handleTouchStart(e, project.id)}
                     onTouchEnd={(e) => handleTouchEnd(e, project.id)}

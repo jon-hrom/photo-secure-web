@@ -152,7 +152,7 @@ export const createUpdateProjectHandler = (
   onUpdate: (client: Client) => void,
   photographerName?: string
 ) => {
-  return async (projectId: number, updates: Partial<Project>) => {
+  return async (projectId: number, updates: Partial<Project>, notifyClient: boolean = true) => {
     const oldProject = projects.find(p => p.id === projectId);
     const updatedProjects = projects.map(p =>
       p.id === projectId ? { ...p, ...updates } : p
@@ -165,8 +165,8 @@ export const createUpdateProjectHandler = (
 
     onUpdate(updatedClient);
 
-    // Send update notification if important fields changed
-    if (oldProject && photographerName) {
+    // Send update notification if important fields changed AND caller requested notification
+    if (notifyClient && oldProject && photographerName) {
       const importantFieldsChanged = 
         updates.startDate !== undefined ||
         updates.shooting_time !== undefined ||
@@ -177,7 +177,12 @@ export const createUpdateProjectHandler = (
       if (importantFieldsChanged) {
         const updatedProject = updatedProjects.find(p => p.id === projectId);
         if (updatedProject) {
-          await sendProjectUpdateNotification(localClient, oldProject, updatedProject, photographerName);
+          try {
+            await sendProjectUpdateNotification(localClient, oldProject, updatedProject, photographerName);
+            console.log('[PROJECT] Update notification sent for project:', projectId);
+          } catch (error) {
+            console.error('[PROJECT] Error sending update notification:', error);
+          }
         }
       }
     }

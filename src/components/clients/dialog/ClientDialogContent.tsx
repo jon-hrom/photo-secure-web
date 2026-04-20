@@ -21,7 +21,7 @@ interface ClientDialogContentProps {
   setNewProject: (project: any) => void;
   handleAddProject: () => void;
   handleDeleteProject: (projectId: number) => void;
-  handleUpdateProject: (projectId: number, updates: Partial<Project>) => void;
+  handleUpdateProject: (projectId: number, updates: Partial<Project>, notifyClient?: boolean) => void;
   updateProjectStatus: (projectId: number, status: Project['status']) => void;
   updateProjectDate: (projectId: number, newDate: string) => void;
   updateProjectShootingStyle: (projectId: number, styleId: string) => void;

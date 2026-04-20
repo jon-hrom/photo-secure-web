@@ -21,7 +21,7 @@ interface ProjectCardProps {
   statusBadge: JSX.Element;
   onToggleExpand: () => void;
   onDelete: () => void;
-  onSaveChanges: (updates: Partial<Project>) => void | Promise<void>;
+  onSaveChanges: (updates: Partial<Project>, notifyClient?: boolean) => void | Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchEnd: (e: React.TouchEvent) => void;
@@ -136,7 +136,7 @@ const ProjectCard = ({
     setIsEditingBudget(false);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (notifyClient: boolean = false) => {
     if (!isDirty || isSaving) return;
     const updates: Partial<Project> = {};
     if (draft.budget !== originalDraft.budget) updates.budget = draft.budget;
@@ -157,7 +157,7 @@ const ProjectCard = ({
 
     setIsSaving(true);
     try {
-      await onSaveChanges(updates);
+      await onSaveChanges(updates, notifyClient);
     } finally {
       setIsSaving(false);
     }
@@ -272,7 +272,7 @@ const ProjectCard = ({
                 disabled={!isDirty || isSaving}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleSave();
+                  handleSave(true);
                 }}
                 title="Сохранить и отправить изменения клиенту"
                 aria-label="Сохранить и отправить изменения клиенту"
@@ -396,7 +396,7 @@ const ProjectCard = ({
                 <Button variant="outline" size="sm" onClick={handleReset} disabled={isSaving}>
                   Отменить
                 </Button>
-                <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                <Button size="sm" onClick={() => handleSave(false)} disabled={isSaving}>
                   {isSaving ? (
                     <>
                       <Icon name="Loader2" size={14} className="mr-1.5 animate-spin" />
