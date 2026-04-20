@@ -281,13 +281,6 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
           <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-2">
             <Button
               variant="outline"
-              onClick={() => setUnsavedAlert(null)}
-              className="w-full sm:w-auto"
-            >
-              Остаться и сохранить
-            </Button>
-            <Button
-              variant="destructive"
               onClick={() => {
                 if (!unsavedAlert) return;
                 if (unsavedAlert.kind === 'close') {
@@ -304,6 +297,14 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
               className="w-full sm:w-auto"
             >
               Отменить изменения и уйти
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => setUnsavedAlert(null)}
+              className="w-full sm:w-auto"
+              autoFocus
+            >
+              Остаться и сохранить
             </Button>
           </DialogFooter>
         </DialogContent>
