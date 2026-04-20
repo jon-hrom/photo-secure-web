@@ -1,16 +1,9 @@
 import { useMemo } from 'react';
 import Icon from '@/components/ui/icon';
+import { useLongPress } from './chat/useLongPress';
+import type { ChatMessageData, ReplyPreview } from './chat/types';
 
-interface Message {
-  id: number;
-  message: string;
-  sender_type: 'client' | 'photographer';
-  created_at: string;
-  is_read: boolean;
-  is_delivered: boolean;
-  image_url?: string;
-  video_url?: string;
-}
+type Message = ChatMessageData;
 
 interface GalleryPhoto {
   id: number;
@@ -27,6 +20,12 @@ interface ChatMessageProps {
   senderName?: string;
   timezone?: string;
   galleryPhotos?: GalleryPhoto[];
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: number) => void;
+  onOpenMenu?: (id: number, pos: { x: number; y: number }) => void;
+  onJumpToMessage?: (id: number) => void;
+  highlight?: boolean;
 }
 
 const PHOTO_REF_PATTERN = /(?:фото\s*)?(?:\((\d+)\)\.(?:jpg|jpeg|png|gif|webp|heic)|(\d+)\.(?:jpg|jpeg|png|gif|webp|heic)|#(\d+)|(?:фото|photo)\s+(\d+))/gi;
@@ -50,6 +49,46 @@ function findPhotoByRef(num: number, photos: GalleryPhoto[]): GalleryPhoto | und
   return byNumber;
 }
 
+function ReplyBadge({
+  reply,
+  isMyMessage,
+  isEmbedded,
+  onClick,
+}: {
+  reply: ReplyPreview;
+  isMyMessage: boolean;
+  isEmbedded: boolean;
+  onClick?: () => void;
+}) {
+  const borderColor = isEmbedded
+    ? 'border-primary/60'
+    : isMyMessage
+      ? 'border-white/70'
+      : 'border-blue-400';
+  const bg = isEmbedded
+    ? 'bg-black/5 dark:bg-white/10'
+    : isMyMessage
+      ? 'bg-white/15'
+      : 'bg-black/5';
+  const who = reply.sender_type === 'client' ? 'Клиент' : 'Фотограф';
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
+      className={`block w-full text-left mb-1.5 rounded-md border-l-2 ${borderColor} ${bg} px-2 py-1 text-xs`}
+    >
+      <div className="font-semibold truncate opacity-90">{who}</div>
+      <div className="flex items-center gap-1.5 truncate opacity-80">
+        {reply.image_url && <Icon name={reply.video_url ? 'Video' : 'Image'} size={12} />}
+        <span className="truncate">{reply.message || (reply.image_url ? 'Вложение' : '')}</span>
+      </div>
+    </button>
+  );
+}
+
 export default function ChatMessage({ 
   message, 
   isMyMessage, 
@@ -57,7 +96,13 @@ export default function ChatMessage({
   variant = 'default',
   senderName,
   timezone,
-  galleryPhotos = []
+  galleryPhotos = [],
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+  onOpenMenu,
+  onJumpToMessage,
+  highlight = false,
 }: ChatMessageProps) {
   const matchedPhotos = useMemo(() => {
     if (!message.message || galleryPhotos.length === 0) return [];
@@ -89,112 +134,190 @@ export default function ChatMessage({
   };
 
   const isEmbedded = variant === 'embedded';
+  const isRemoved = !!message.removed_for_all;
+
+  const { longPressHandlers, wasLongPress } = useLongPress(
+    (pos) => {
+      if (isRemoved) return;
+      if (selectionMode) {
+        onToggleSelect?.(message.id);
+        return;
+      }
+      onOpenMenu?.(message.id, pos);
+    },
+    { delay: 450 }
+  );
+
+  const handleBubbleClick = (e: React.MouseEvent) => {
+    if (wasLongPress()) {
+      e.preventDefault();
+      return;
+    }
+    if (selectionMode) {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleSelect?.(message.id);
+      return;
+    }
+  };
+
+  const bubbleBase = isEmbedded
+    ? isMyMessage
+      ? 'bg-primary text-primary-foreground'
+      : 'bg-muted text-foreground'
+    : isMyMessage
+      ? 'bg-blue-500 text-white'
+      : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white';
 
   return (
     <div
-      className={`flex flex-col ${isMyMessage ? 'items-end' : 'items-start'}`}
+      data-message-id={message.id}
+      className={`flex ${isMyMessage ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 ${highlight ? 'animate-pulse' : ''}`}
     >
-      {senderName && (
-        <span className="text-xs text-muted-foreground mb-1 px-1">
-          {senderName}
-        </span>
+      {selectionMode && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(message.id);
+          }}
+          className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+            isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-gray-300'
+          }`}
+          aria-label={isSelected ? 'Убрать выбор' : 'Выбрать'}
+        >
+          {isSelected && <Icon name="Check" size={12} />}
+        </button>
       )}
-      <div
-        className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 ${
-          isEmbedded
-            ? isMyMessage
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-foreground'
-            : isMyMessage
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-        }`}
-      >
-        {message.image_url && !message.video_url && (
-          <img 
-            src={message.image_url} 
-            alt="Изображение" 
-            className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity touch-manipulation"
-            onClick={() => onImageClick(message.image_url!)}
-            loading="lazy"
-            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-          />
+      <div className={`flex flex-col min-w-0 ${isMyMessage ? 'items-end' : 'items-start'} max-w-full`}>
+        {senderName && (
+          <span className="text-xs text-muted-foreground mb-1 px-1">
+            {senderName}
+          </span>
         )}
-        {message.video_url && (
-          <div className="relative mb-2">
-            <video 
-              src={message.video_url}
-              poster={message.image_url}
-              controls
-              playsInline
-              className="rounded-lg max-w-full"
-              style={{ maxHeight: '300px' }}
-            />
-          </div>
-        )}
-        {message.message && (
-          <p className="whitespace-pre-wrap break-words">
-            {renderMessageText(message.message)}
-          </p>
-        )}
-        {matchedPhotos.length > 0 && (
-          <div className={`flex flex-wrap gap-1.5 mt-2 ${matchedPhotos.length === 1 ? '' : ''}`}>
-            {matchedPhotos.map(photo => (
-              <div
-                key={photo.id}
-                className="relative rounded-md overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ width: 80, height: 80 }}
-                onClick={() => onImageClick(photo.photo_url)}
-              >
+        <div
+          {...(isRemoved ? {} : longPressHandlers)}
+          onClick={handleBubbleClick}
+          className={`relative max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 select-none ${
+            isRemoved ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 italic' : bubbleBase
+          } ${isSelected ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${highlight ? 'ring-2 ring-yellow-400' : ''} cursor-pointer`}
+        >
+          {isRemoved ? (
+            <p className="flex items-center gap-2 text-sm">
+              <Icon name="Ban" size={14} />
+              Сообщение удалено
+            </p>
+          ) : (
+            <>
+              {message.reply_to && (
+                <ReplyBadge
+                  reply={message.reply_to}
+                  isMyMessage={isMyMessage}
+                  isEmbedded={isEmbedded}
+                  onClick={() => onJumpToMessage?.(message.reply_to!.id)}
+                />
+              )}
+              {message.image_url && !message.video_url && (
                 <img
-                  src={photo.thumbnail_url || photo.photo_url}
-                  alt={photo.file_name}
-                  className="object-cover w-full h-full"
+                  src={message.image_url}
+                  alt="Изображение"
+                  className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity touch-manipulation"
+                  onClick={(e) => {
+                    if (selectionMode) return;
+                    e.stopPropagation();
+                    onImageClick(message.image_url!);
+                  }}
                   loading="lazy"
                   style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5">
-                  <span className="text-[10px] text-white truncate block">{photo.file_name}</span>
+              )}
+              {message.video_url && (
+                <div className="relative mb-2">
+                  <video
+                    src={message.video_url}
+                    poster={message.image_url}
+                    controls
+                    playsInline
+                    className="rounded-lg max-w-full"
+                    style={{ maxHeight: '300px' }}
+                  />
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center gap-2 mt-1">
-          <p className={`text-xs ${
-            isEmbedded
-              ? isMyMessage ? 'opacity-80' : 'text-muted-foreground'
-              : isMyMessage ? 'text-blue-100' : 'text-gray-500'
-          }`}>
-            {new Date(message.created_at + 'Z').toLocaleString('ru-RU', {
-              day: '2-digit',
-              month: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: timezone || undefined
-            })}
-          </p>
-          {isMyMessage && (
-            message.is_read ? (
-              <Icon 
-                name="CheckCheck" 
-                size={14} 
-                className={isEmbedded ? 'text-green-500' : 'text-green-400'} 
-              />
-            ) : message.is_delivered ? (
-              <Icon 
-                name="CheckCheck" 
-                size={14} 
-                className={isEmbedded ? 'opacity-80' : 'text-blue-100'} 
-              />
-            ) : (
-              <Icon 
-                name="Check" 
-                size={14} 
-                className={isEmbedded ? 'opacity-80' : 'text-blue-100'} 
-              />
-            )
+              )}
+              {message.message && (
+                <p className="whitespace-pre-wrap break-words">
+                  {renderMessageText(message.message)}
+                </p>
+              )}
+              {matchedPhotos.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {matchedPhotos.map(photo => (
+                    <div
+                      key={photo.id}
+                      className="relative rounded-md overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                      style={{ width: 80, height: 80 }}
+                      onClick={(e) => {
+                        if (selectionMode) return;
+                        e.stopPropagation();
+                        onImageClick(photo.photo_url);
+                      }}
+                    >
+                      <img
+                        src={photo.thumbnail_url || photo.photo_url}
+                        alt={photo.file_name}
+                        className="object-cover w-full h-full"
+                        loading="lazy"
+                        style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5">
+                        <span className="text-[10px] text-white truncate block">{photo.file_name}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
+          <div className="flex items-center gap-2 mt-1">
+            {message.is_edited && !isRemoved && (
+              <span className={`text-[11px] ${isMyMessage && !isEmbedded ? 'text-blue-100' : 'text-gray-500'} italic`}>
+                ред.
+              </span>
+            )}
+            <p className={`text-xs ${
+              isEmbedded
+                ? isMyMessage ? 'opacity-80' : 'text-muted-foreground'
+                : isMyMessage ? 'text-blue-100' : 'text-gray-500'
+            }`}>
+              {new Date(message.created_at + 'Z').toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: timezone || undefined
+              })}
+            </p>
+            {isMyMessage && !isRemoved && (
+              message.is_read ? (
+                <Icon
+                  name="CheckCheck"
+                  size={14}
+                  className={isEmbedded ? 'text-green-500' : 'text-green-400'}
+                />
+              ) : message.is_delivered ? (
+                <Icon
+                  name="CheckCheck"
+                  size={14}
+                  className={isEmbedded ? 'opacity-80' : 'text-blue-100'}
+                />
+              ) : (
+                <Icon
+                  name="Check"
+                  size={14}
+                  className={isEmbedded ? 'opacity-80' : 'text-blue-100'}
+                />
+              )
+            )}
+          </div>
         </div>
       </div>
     </div>

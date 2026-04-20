@@ -2,6 +2,12 @@ import { useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 
+interface ReplyBanner {
+  id: number;
+  text: string;
+  sender_type: 'client' | 'photographer';
+}
+
 interface ChatInputProps {
   newMessage: string;
   onMessageChange: (message: string) => void;
@@ -13,6 +19,10 @@ interface ChatInputProps {
   sending: boolean;
   onFocus?: () => void;
   variant?: 'default' | 'embedded';
+  replyTo?: ReplyBanner | null;
+  onCancelReply?: () => void;
+  editingId?: number | null;
+  onCancelEdit?: () => void;
 }
 
 export default function ChatInput({
@@ -25,7 +35,11 @@ export default function ChatInput({
   onImageRemove,
   sending,
   onFocus,
-  variant = 'default'
+  variant = 'default',
+  replyTo,
+  onCancelReply,
+  editingId,
+  onCancelEdit,
 }: ChatInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isEmbedded = variant === 'embedded';
@@ -35,6 +49,35 @@ export default function ChatInput({
       ? "p-4 border-t bg-background" 
       : "p-3 sm:p-4 border-t dark:border-gray-800 safe-bottom"
     }>
+      {(replyTo || editingId) && (
+        <div className={`mb-2 flex items-center gap-2 rounded-lg border-l-4 px-3 py-2 ${
+          editingId
+            ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
+            : 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+        }`}>
+          <Icon
+            name={editingId ? 'Pencil' : 'Reply'}
+            size={16}
+            className={editingId ? 'text-amber-600' : 'text-blue-600'}
+          />
+          <div className="flex-1 min-w-0">
+            <div className={`text-xs font-semibold ${editingId ? 'text-amber-700' : 'text-blue-700'}`}>
+              {editingId ? 'Редактирование сообщения' : `Ответ ${replyTo?.sender_type === 'client' ? 'клиенту' : 'фотографу'}`}
+            </div>
+            {replyTo && !editingId && (
+              <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{replyTo.text || 'Вложение'}</div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => (editingId ? onCancelEdit?.() : onCancelReply?.())}
+            className="p-1 rounded hover:bg-black/10"
+            aria-label="Отменить"
+          >
+            <Icon name="X" size={16} />
+          </button>
+        </div>
+      )}
       {selectedImages.length > 0 && (
         <div className="mb-2 flex gap-2 flex-wrap">
           {selectedImages.map((img, index) => {
@@ -117,7 +160,7 @@ export default function ChatInput({
           {sending ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            <Icon name="Send" size={20} />
+            <Icon name={editingId ? 'Check' : 'Send'} size={20} />
           )}
         </Button>
       </div>

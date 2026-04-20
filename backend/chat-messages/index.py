@@ -281,7 +281,93 @@ def handler(event: dict, context) -> dict:
                     'isBase64Encoded': False
                 }
             
+            # action=edit_message - редактирование текста сообщения
+            if action == 'edit_message':
+                message_id = params.get('message_id')
+                new_text = params.get('new_text', '').strip()
+                viewer_type = params.get('viewer_type') or params.get('sender_type')
+                if not message_id or not new_text:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'message_id and new_text required'}),
+                        'isBase64Encoded': False
+                    }
+                cur.execute('''
+                    SELECT sender_type, client_id, photographer_id FROM t_p28211681_photo_secure_web.client_messages
+                    WHERE id = %s
+                ''', (message_id,))
+                row = cur.fetchone()
+                if not row:
+                    cur.close(); conn.close()
+                    return {'statusCode': 404, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'not found'}), 'isBase64Encoded': False}
+                if str(row[1]) != str(client_id) or str(row[2]) != str(photographer_id):
+                    cur.close(); conn.close()
+                    return {'statusCode': 403, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'forbidden'}), 'isBase64Encoded': False}
+                if viewer_type and row[0] != viewer_type:
+                    cur.close(); conn.close()
+                    return {'statusCode': 403, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'can edit only own messages'}), 'isBase64Encoded': False}
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.client_messages
+                    SET content = %s, is_edited = TRUE, edited_at = NOW()
+                    WHERE id = %s
+                ''', (new_text, message_id))
+                conn.commit()
+                cur.close(); conn.close()
+                return {'statusCode': 200, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'success': True}), 'isBase64Encoded': False}
+
+            # action=remove_for_me - скрыть сообщение только у себя
+            if action == 'remove_for_me':
+                message_id = params.get('message_id')
+                message_ids_param = params.get('message_ids')
+                viewer_type = params.get('viewer_type') or params.get('sender_type')
+                if viewer_type not in ('client', 'photographer'):
+                    return {'statusCode': 400, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'viewer_type required'}), 'isBase64Encoded': False}
+                ids_list = []
+                if message_ids_param:
+                    ids_list = [int(x) for x in message_ids_param.split(',') if x.strip().isdigit()]
+                elif message_id:
+                    ids_list = [int(message_id)]
+                if not ids_list:
+                    return {'statusCode': 400, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'message_id required'}), 'isBase64Encoded': False}
+                col = 'hidden_for_client' if viewer_type == 'client' else 'hidden_for_photographer'
+                ids_csv = ','.join(str(i) for i in ids_list)
+                cur.execute(f'''
+                    UPDATE t_p28211681_photo_secure_web.client_messages
+                    SET {col} = TRUE
+                    WHERE id IN ({ids_csv}) AND client_id = %s AND photographer_id = %s
+                ''', (client_id, photographer_id))
+                conn.commit()
+                cur.close(); conn.close()
+                return {'statusCode': 200, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'success': True}), 'isBase64Encoded': False}
+
+            # action=remove_for_all - удалить сообщение у всех (только автор)
+            if action == 'remove_for_all':
+                message_id = params.get('message_id')
+                message_ids_param = params.get('message_ids')
+                viewer_type = params.get('viewer_type') or params.get('sender_type')
+                if viewer_type not in ('client', 'photographer'):
+                    return {'statusCode': 400, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'viewer_type required'}), 'isBase64Encoded': False}
+                ids_list = []
+                if message_ids_param:
+                    ids_list = [int(x) for x in message_ids_param.split(',') if x.strip().isdigit()]
+                elif message_id:
+                    ids_list = [int(message_id)]
+                if not ids_list:
+                    return {'statusCode': 400, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'error': 'message_id required'}), 'isBase64Encoded': False}
+                ids_csv = ','.join(str(i) for i in ids_list)
+                cur.execute(f'''
+                    UPDATE t_p28211681_photo_secure_web.client_messages
+                    SET removed_for_all = TRUE, removed_at = NOW()
+                    WHERE id IN ({ids_csv}) AND client_id = %s AND photographer_id = %s AND sender_type = %s
+                ''', (client_id, photographer_id, viewer_type))
+                conn.commit()
+                cur.close(); conn.close()
+                return {'statusCode': 200, 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}, 'body': json.dumps({'success': True}), 'isBase64Encoded': False}
+
             # action=list (по умолчанию) - список сообщений
+            
+            viewer_type = params.get('viewer_type') or params.get('sender_type') or 'client'
             
             # Помечаем сообщения как доставленные при загрузке чата
             cur.execute('''
@@ -291,27 +377,51 @@ def handler(event: dict, context) -> dict:
             ''', (client_id, photographer_id))
             conn.commit()
             
-            cur.execute('''
-                SELECT id, client_id, photographer_id, content as message, 
-                       sender_type, is_read, created_at, image_url, is_delivered, video_url
-                FROM t_p28211681_photo_secure_web.client_messages
-                WHERE client_id = %s AND photographer_id = %s
-                ORDER BY created_at ASC
+            # Фильтр скрытия для текущего зрителя
+            hidden_col = 'hidden_for_client' if viewer_type == 'client' else 'hidden_for_photographer'
+            cur.execute(f'''
+                SELECT m.id, m.client_id, m.photographer_id, m.content as message, 
+                       m.sender_type, m.is_read, m.created_at, m.image_url, m.is_delivered, m.video_url,
+                       m.is_edited, m.edited_at, m.reply_to_id, m.removed_for_all,
+                       r.content, r.sender_type, r.image_url, r.video_url
+                FROM t_p28211681_photo_secure_web.client_messages m
+                LEFT JOIN t_p28211681_photo_secure_web.client_messages r ON r.id = m.reply_to_id
+                WHERE m.client_id = %s AND m.photographer_id = %s AND m.{hidden_col} = FALSE
+                ORDER BY m.created_at ASC
             ''', (client_id, photographer_id))
             
             messages = []
             for row in cur.fetchall():
+                removed = row[13]
+                reply_payload = None
+                if row[12] is not None:
+                    reply_text = row[14] or ''
+                    reply_sender = row[15]
+                    reply_img = row[16]
+                    reply_vid = row[17]
+                    reply_payload = {
+                        'id': row[12],
+                        'message': '' if not reply_text else (reply_text[:120] + ('…' if len(reply_text) > 120 else '')),
+                        'sender_type': reply_sender,
+                        'image_url': reply_img,
+                        'video_url': reply_vid,
+                    }
                 messages.append({
                     'id': row[0],
                     'client_id': row[1],
                     'photographer_id': row[2],
-                    'message': row[3],
+                    'message': '' if removed else row[3],
                     'sender_type': row[4],
                     'is_read': row[5],
                     'created_at': row[6].isoformat() if row[6] else None,
-                    'image_url': row[7],
+                    'image_url': None if removed else row[7],
                     'is_delivered': row[8],
-                    'video_url': row[9] if len(row) > 9 else None
+                    'video_url': None if removed else row[9],
+                    'is_edited': bool(row[10]) and not removed,
+                    'edited_at': row[11].isoformat() if row[11] else None,
+                    'reply_to_id': row[12],
+                    'reply_to': None if removed else reply_payload,
+                    'removed_for_all': bool(removed),
                 })
             
             cur.close()
@@ -336,6 +446,11 @@ def handler(event: dict, context) -> dict:
             images_base64 = body.get('images_base64', [])
             file_names = body.get('file_names', [])
             image_urls = body.get('image_urls', [])  # Новый формат: готовые CDN URLs
+            reply_to_id = body.get('reply_to_id')
+            try:
+                reply_to_id = int(reply_to_id) if reply_to_id else None
+            except (TypeError, ValueError):
+                reply_to_id = None
             print(f'[POST] Received: client_id={client_id}, photographer_id={photographer_id}, sender_type={sender_type}, message_len={len(message)}, images_base64={len(images_base64)}, image_urls={len(image_urls)}, file_names={file_names}', flush=True)
             
             if not all([client_id, photographer_id, sender_type]):
@@ -535,10 +650,10 @@ def handler(event: dict, context) -> dict:
                 
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url)
-                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s)
+                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url, reply_to_id)
+                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s, %s)
                     RETURNING id, created_at
-                ''', (client_id, photographer_id, message, sender_type, author_name, first_image, first_video))
+                ''', (client_id, photographer_id, message, sender_type, author_name, first_image, first_video, reply_to_id))
                 result = cur.fetchone()
                 message_ids.append(result[0])
                 created_timestamps.append(result[1])

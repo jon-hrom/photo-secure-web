@@ -1,17 +1,9 @@
 import { forwardRef } from 'react';
 import Icon from '@/components/ui/icon';
 import ChatMessage from './ChatMessage';
+import type { ChatMessageData } from './chat/types';
 
-interface Message {
-  id: number;
-  message: string;
-  sender_type: 'client' | 'photographer';
-  created_at: string;
-  is_read: boolean;
-  is_delivered: boolean;
-  image_url?: string;
-  video_url?: string;
-}
+type Message = ChatMessageData;
 
 interface GalleryPhoto {
   id: number;
@@ -31,10 +23,36 @@ interface ChatMessageListProps {
   photographerName?: string;
   timezone?: string;
   galleryPhotos?: GalleryPhoto[];
+  selectionMode?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
+  onOpenMenu?: (id: number, pos: { x: number; y: number }) => void;
+  onJumpToMessage?: (id: number) => void;
+  highlightedId?: number | null;
 }
 
 const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
-  ({ messages, loading, senderType, onImageClick, variant = 'default', isOpponentTyping = false, clientName, photographerName, timezone, galleryPhotos = [] }, ref) => {
+  (
+    {
+      messages,
+      loading,
+      senderType,
+      onImageClick,
+      variant = 'default',
+      isOpponentTyping = false,
+      clientName,
+      photographerName,
+      timezone,
+      galleryPhotos = [],
+      selectionMode = false,
+      selectedIds,
+      onToggleSelect,
+      onOpenMenu,
+      onJumpToMessage,
+      highlightedId,
+    },
+    ref
+  ) => {
     const isEmbedded = variant === 'embedded';
 
     if (loading && messages.length === 0) {
@@ -62,7 +80,6 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
       <>
         {messages.map((msg) => {
           const isMyMessage = msg.sender_type === senderType;
-          
           return (
             <ChatMessage
               key={msg.id}
@@ -73,14 +90,20 @@ const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
               senderName={msg.sender_type === 'client' ? clientName : photographerName}
               timezone={timezone}
               galleryPhotos={galleryPhotos}
+              selectionMode={selectionMode}
+              isSelected={selectedIds?.has(msg.id) ?? false}
+              onToggleSelect={onToggleSelect}
+              onOpenMenu={onOpenMenu}
+              onJumpToMessage={onJumpToMessage}
+              highlight={highlightedId === msg.id}
             />
           );
         })}
         {isOpponentTyping && (
           <div className="flex justify-start mb-3">
             <div className={`inline-block px-4 py-2 rounded-2xl ${
-              isEmbedded 
-                ? 'bg-muted' 
+              isEmbedded
+                ? 'bg-muted'
                 : 'bg-gray-200 dark:bg-gray-700'
             }`}>
               <div className="flex gap-1 items-center">
