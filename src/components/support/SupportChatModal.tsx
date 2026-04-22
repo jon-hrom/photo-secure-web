@@ -27,9 +27,13 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
   const [sending, setSending] = useState(false);
   const [newReply, setNewReply] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevCountRef = useRef(0);
   const isOpenRef = useRef(isOpen);
   isOpenRef.current = isOpen;
+  const resizeRafRef = useRef<number | null>(null);
+  const isTypingRef = useRef(false);
+  const typingPauseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -60,13 +64,13 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
     }
   }, [userId]);
 
-  // Начальная загрузка + поллинг
+  // Начальная загрузка + поллинг (пауза пока пользователь печатает)
   useEffect(() => {
     if (!isOpen) return;
     prevCountRef.current = 0;
     fetchMessages(false);
     const interval = setInterval(() => {
-      if (isOpenRef.current) fetchMessages(true);
+      if (isOpenRef.current && !isTypingRef.current) fetchMessages(true);
     }, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [isOpen, fetchMessages]);
@@ -112,6 +116,39 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
       handleSend();
     }
   };
+
+  // Локальный ввод без единого сетевого запроса — всё уходит только при Send
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNewMessage(e.target.value);
+    // Блокируем поллинг на время набора (обнуляется через 2 сек без ввода)
+    isTypingRef.current = true;
+    if (typingPauseTimerRef.current) clearTimeout(typingPauseTimerRef.current);
+    typingPauseTimerRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+    }, 2000);
+    // Авто-высота textarea через rAF — устраняет layout thrashing на каждый символ
+    const el = e.currentTarget;
+    if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
+    resizeRafRef.current = requestAnimationFrame(() => {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+    });
+  };
+
+  // Сброс высоты при очистке поля (после отправки)
+  useEffect(() => {
+    if (newMessage === '' && textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  }, [newMessage]);
+
+  // Очистка таймеров при размонтировании
+  useEffect(() => {
+    return () => {
+      if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
+      if (typingPauseTimerRef.current) clearTimeout(typingPauseTimerRef.current);
+    };
+  }, []);
 
   const formatTime = (dateStr: string) => {
     const cleaned = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
@@ -207,18 +244,14 @@ export default function SupportChatModal({ isOpen, onClose, userId, userName, us
         <div className="p-3 border-t bg-background">
           <div className="flex gap-2 items-end">
             <textarea
+              ref={textareaRef}
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={handleMessageChange}
               onKeyDown={handleKeyDown}
               placeholder="Напишите ваш вопрос..."
               rows={1}
               className="flex-1 resize-none rounded-xl border bg-muted px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 min-h-[42px] max-h-32 overflow-y-auto"
               style={{ height: 'auto' }}
-              onInput={(e) => {
-                const t = e.currentTarget;
-                t.style.height = 'auto';
-                t.style.height = Math.min(t.scrollHeight, 128) + 'px';
-              }}
             />
             <Button
               onClick={handleSend}
