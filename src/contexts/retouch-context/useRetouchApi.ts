@@ -50,6 +50,23 @@ export const useRetouchApi = ({
       const interval = 4;
 
       if (data.action === 'already_running') {
+        // Сервер уже запущен — сразу проверяем, доступен ли реально.
+        // Если probe отвечает — пропускаем 120-секундный прогрев (он нужен
+        // только после холодного старта VM, пока модели грузятся в RAM).
+        try {
+          const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(8000) });
+          if (probe.ok) {
+            const probeData = await probe.json();
+            if (probeData.probe?.reachable) {
+              setWakeStatus('готов');
+              setWaking(false);
+              markActive();
+              return true;
+            }
+          }
+        } catch { /* probe failed — ждём прогрев */ }
+
+        // Probe не прошёл — сервер жив, но модели могут ещё грузиться. Ждём.
         setWaking(true);
         const vmReadyAt = Date.now();
         setWakeStatus(`warmup:${Math.ceil(warmupAfterReadyMs / 1000)}`);
@@ -60,6 +77,21 @@ export const useRetouchApi = ({
             setWaking(false);
             markActive();
             return true;
+          }
+          // Каждые 5 сек пробуем probe — если сервер стал доступен раньше, выходим.
+          if (waited > 0 && Math.floor(waited / 1000) % 5 === 0) {
+            try {
+              const probe = await fetch(`${RETOUCH_WAKER_API}?probe=1`, { signal: AbortSignal.timeout(5000) });
+              if (probe.ok) {
+                const pd = await probe.json();
+                if (pd.probe?.reachable) {
+                  setWakeStatus('готов');
+                  setWaking(false);
+                  markActive();
+                  return true;
+                }
+              }
+            } catch { /* still warming */ }
           }
           setWakeStatus(`warmup:${Math.max(0, Math.ceil((warmupAfterReadyMs - waited) / 1000))}`);
           await new Promise(r => setTimeout(r, 1000));
