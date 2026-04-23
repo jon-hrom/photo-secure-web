@@ -422,6 +422,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if not user or not user['email_verified_at']:
                 return _response(403, {'error': 'Email not verified'})
 
+        if method == 'GET' and params.get('action') == 'preview_mask':
+            return _handle_preview_mask(conn, user_id, params)
+
         if method == 'POST':
             return _handle_create(event, conn, user_id)
         elif method == 'GET':
@@ -430,6 +433,52 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return _response(405, {'error': 'Method not allowed'})
     finally:
         conn.close()
+
+
+def _handle_preview_mask(conn, user_id, params):
+    """GET ?action=preview_mask&photo_id=X — возвращает автоматическую маску дефектов для фото."""
+    photo_id = params.get('photo_id')
+    if not photo_id:
+        return _response(400, {'error': 'photo_id is required'})
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            'SELECT id, s3_key FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
+            (photo_id, user_id)
+        )
+        photo = cur.fetchone()
+
+    if not photo or not photo['s3_key']:
+        return _response(404, {'error': 'Photo not found'})
+
+    try:
+        from skin_mask import build_auto_mask
+        s3_client = _get_s3_client()
+        s3_resp = s3_client.get_object(Bucket=S3_BUCKET, Key=photo['s3_key'])
+        image_bytes = s3_resp['Body'].read()
+
+        # Ужимаем большие фото для скорости превью (маска всё равно будет растянута в UI)
+        img = Image.open(io.BytesIO(image_bytes))
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        orig_w, orig_h = img.size
+        max_side = 1024
+        if max(orig_w, orig_h) > max_side:
+            ratio = max_side / max(orig_w, orig_h)
+            img = img.resize((int(orig_w * ratio), int(orig_h * ratio)), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=85)
+        preview_bytes = buf.getvalue()
+
+        mask_b64 = build_auto_mask(preview_bytes)
+        return _response(200, {
+            'mask_b64': mask_b64,
+            'width': img.size[0],
+            'height': img.size[1],
+        })
+    except Exception as e:
+        print(f"[RETOUCH] preview_mask error: {e}")
+        return _response(500, {'error': f'Failed to build mask: {str(e)}'})
 
 
 def _handle_create(event, conn, user_id):

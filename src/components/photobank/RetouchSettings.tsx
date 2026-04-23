@@ -44,6 +44,10 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskDrawing = useRef(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showMaskPreview, setShowMaskPreview] = useState(false);
+  const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
+  const [maskPreviewLoading, setMaskPreviewLoading] = useState(false);
+  const maskPreviewCacheRef = useRef<Map<number, string>>(new Map());
   const { toast } = useToast();
 
   const moveOp = (fromIndex: number, direction: 'up' | 'down') => {
@@ -68,7 +72,53 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
   useEffect(() => {
     setRetouchedUrl(null);
+    setMaskPreviewUrl(null);
   }, [currentPreviewPhoto?.id]);
+
+  useEffect(() => {
+    if (!showMaskPreview || !currentPreviewPhoto?.id) {
+      setMaskPreviewUrl(null);
+      setMaskPreviewLoading(false);
+      return;
+    }
+    const photoId = currentPreviewPhoto.id;
+    const cached = maskPreviewCacheRef.current.get(photoId);
+    if (cached) {
+      setMaskPreviewUrl(cached);
+      return;
+    }
+    let cancelled = false;
+    setMaskPreviewLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(
+          `${RETOUCH_API}?action=preview_mask&photo_id=${photoId}`,
+          { headers: { 'X-User-Id': userId } }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Не удалось построить маску');
+        }
+        const data = await res.json();
+        if (cancelled || !data.mask_b64) return;
+        const dataUrl = `data:image/png;base64,${data.mask_b64}`;
+        maskPreviewCacheRef.current.set(photoId, dataUrl);
+        setMaskPreviewUrl(dataUrl);
+      } catch (e) {
+        if (!cancelled) {
+          toast({
+            title: 'Не удалось показать маску',
+            description: e instanceof Error ? e.message : 'Ошибка',
+            variant: 'destructive',
+          });
+          setShowMaskPreview(false);
+        }
+      } finally {
+        if (!cancelled) setMaskPreviewLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showMaskPreview, currentPreviewPhoto?.id, userId, toast]);
 
   useEffect(() => {
     return () => {
@@ -383,12 +433,32 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
         </div>
 
         <div className="flex flex-col lg:flex-row gap-3">
-          <div className="lg:flex-1 min-w-0">
+          <div className="lg:flex-1 min-w-0 space-y-2">
             <BeforeAfterPreview
               src={previewSrc}
               filterStr={filterStr}
               retouchedSrc={retouchedUrl || undefined}
+              maskOverlaySrc={showMaskPreview ? maskPreviewUrl : null}
+              maskLoading={showMaskPreview && maskPreviewLoading}
             />
+            {previewSrc && (
+              <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-muted/30 cursor-pointer select-none hover:bg-muted/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showMaskPreview}
+                  onChange={(e) => setShowMaskPreview(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-border accent-red-500 cursor-pointer"
+                />
+                <Icon name="ScanFace" size={14} className="text-red-500" />
+                <span className="text-[11px] sm:text-xs flex-1">
+                  Предпросмотр маски
+                  <span className="text-muted-foreground ml-1">— где уберутся дефекты</span>
+                </span>
+                {showMaskPreview && maskPreviewLoading && (
+                  <Icon name="Loader2" size={12} className="animate-spin text-muted-foreground" />
+                )}
+              </label>
+            )}
           </div>
 
           <div className="lg:w-64 xl:w-72 flex-shrink-0">

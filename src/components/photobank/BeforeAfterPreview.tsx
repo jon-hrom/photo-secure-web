@@ -5,9 +5,11 @@ interface BeforeAfterPreviewProps {
   src: string;
   filterStr: string;
   retouchedSrc?: string;
+  maskOverlaySrc?: string | null;
+  maskLoading?: boolean;
 }
 
-const BeforeAfterPreview = ({ src, filterStr, retouchedSrc }: BeforeAfterPreviewProps) => {
+const BeforeAfterPreview = ({ src, filterStr, retouchedSrc, maskOverlaySrc, maskLoading }: BeforeAfterPreviewProps) => {
   console.log('[BEFORE_AFTER] src:', src?.substring(0, 80), 'retouchedSrc:', retouchedSrc?.substring(0, 80));
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
@@ -138,6 +140,28 @@ const BeforeAfterPreview = ({ src, filterStr, retouchedSrc }: BeforeAfterPreview
           }}
           draggable={false}
         />
+      )}
+
+      {imgLoaded && maskOverlaySrc && (
+        <img
+          src={maskOverlaySrc}
+          alt=""
+          aria-hidden
+          className={`absolute inset-0 ${imgClass} pointer-events-none z-[5]`}
+          style={{
+            mixBlendMode: 'screen',
+            filter: 'brightness(0) saturate(100%) invert(27%) sepia(91%) saturate(6000%) hue-rotate(355deg) brightness(95%) contrast(110%)',
+            opacity: 0.55,
+          }}
+          draggable={false}
+        />
+      )}
+
+      {imgLoaded && maskLoading && (
+        <div className="absolute top-1.5 left-1/2 -translate-x-1/2 z-20 bg-black/70 text-white text-[10px] font-medium px-2.5 py-1 rounded-full backdrop-blur-sm flex items-center gap-1.5 pointer-events-none">
+          <Icon name="Loader2" size={11} className="animate-spin" />
+          Строю маску…
+        </div>
       )}
 
       {imgLoaded && (
