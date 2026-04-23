@@ -46,6 +46,8 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [showMask, setShowMask] = useState(false);
   const [maskUrl, setMaskUrl] = useState<string | null>(null);
   const [maskLoading, setMaskLoading] = useState(false);
+  const [maskOpacity, setMaskOpacity] = useState(60);
+  const [maskOnly, setMaskOnly] = useState(false);
   const maskCacheRef = useRef<Map<number, string>>(new Map());
   const hasActiveWorkRef = useRef(false);
   const { toast } = useToast();
@@ -274,20 +276,30 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
           <DialogDescription>Предпросмотр автоматической маски лица</DialogDescription>
         </DialogHeader>
         {selectedPhoto && (
-          <div className="relative w-full h-[90vh] flex items-center justify-center bg-black">
-            <img
-              src={getPhotoPreviewUrl(selectedPhoto as RetouchPhoto)}
-              alt={selectedPhoto.file_name}
-              className="absolute inset-0 w-full h-full object-contain"
-              draggable={false}
-            />
-            {maskUrl && (
+          <div className="relative w-full h-[90vh] flex items-center justify-center bg-[#0a0a0a]">
+            {!maskOnly && (
               <img
-                src={maskUrl}
-                alt="mask"
-                className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-screen opacity-60"
-                style={{ filter: 'hue-rotate(310deg) saturate(3)' }}
+                src={getPhotoPreviewUrl(selectedPhoto as RetouchPhoto)}
+                alt={selectedPhoto.file_name}
+                className="absolute inset-0 w-full h-full object-contain"
                 draggable={false}
+              />
+            )}
+            {maskUrl && (
+              <div
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{
+                  opacity: maskOpacity / 100,
+                  backgroundColor: '#ff2d6f',
+                  WebkitMaskImage: `url(${maskUrl})`,
+                  maskImage: `url(${maskUrl})`,
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskSize: 'contain',
+                  maskSize: 'contain',
+                }}
               />
             )}
             {maskLoading && (
@@ -301,6 +313,32 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
             <div className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5">
               <Icon name="ScanFace" size={14} />
               Маска кожи
+            </div>
+
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2.5 flex items-center gap-3 sm:gap-4 text-white text-xs shadow-lg">
+              <div className="flex items-center gap-2 min-w-[160px] sm:min-w-[220px]">
+                <Icon name="Droplet" size={14} className="opacity-80" />
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={maskOpacity}
+                  onChange={(e) => setMaskOpacity(Number(e.target.value))}
+                  className="flex-1 accent-rose-500 cursor-pointer"
+                />
+                <span className="tabular-nums w-8 text-right">{maskOpacity}%</span>
+              </div>
+              <div className="w-px h-5 bg-white/20" />
+              <button
+                onClick={() => setMaskOnly(v => !v)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-colors ${
+                  maskOnly ? 'bg-rose-500 text-white' : 'hover:bg-white/10'
+                }`}
+                title="Показать только маску без фото"
+              >
+                <Icon name={maskOnly ? 'EyeOff' : 'Eye'} size={13} />
+                <span className="hidden sm:inline">{maskOnly ? 'Только маска' : 'С фото'}</span>
+              </button>
             </div>
           </div>
         )}
