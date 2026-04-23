@@ -319,20 +319,29 @@ def build_auto_mask(image_bytes):
     pct = total * 100 / (h * w)
     print(f"[SKIN MASK] Final: {total}px ({pct:.2f}%), dilate={dilate_px}")
 
-    if pct > 15:
+    # Защита от «маска залила всё лицо» — только при действительно огромных значениях.
+    # Лицо с сильным акне реально требует 15–25% кадра, поэтому порог подняли до 30%.
+    if pct > 30:
         print("[SKIN MASK] Too large, reducing")
         gray = np.mean(img_arr.astype(np.float32), axis=2)
         sp = gray[face_skin > 0]
         sm, ss = np.mean(sp), max(8, np.std(sp))
-        strict = ((gray < sm - 2.3 * ss) & (face_skin > 0)).astype(np.uint8) * 255
+        # Мягче порог: 1.8·std вместо 2.3·std, чтобы fallback не обнулял маску.
+        strict = ((gray < sm - 1.8 * ss) & (face_skin > 0)).astype(np.uint8) * 255
         strict_pil = Image.fromarray(strict, mode='L')
         strict = np.array(strict_pil.filter(ImageFilter.MinFilter(3)))
         strict_pil2 = Image.fromarray(strict, mode='L')
         strict = np.array(strict_pil2.filter(ImageFilter.MaxFilter(3)))
-        expanded = _dilate_mask(strict, dilate_px)
-        expanded = np.minimum(expanded, face_skin)
-        pct = np.count_nonzero(expanded) * 100 / (h * w)
-        print(f"[SKIN MASK] Reduced: {pct:.2f}%")
+        strict_expanded = _dilate_mask(strict, dilate_px)
+        strict_expanded = np.minimum(strict_expanded, face_skin)
+        strict_pct = np.count_nonzero(strict_expanded) * 100 / (h * w)
+        print(f"[SKIN MASK] Reduced candidate: {strict_pct:.2f}%")
+        # Применяем fallback ТОЛЬКО если он не обнулил маску.
+        if strict_pct >= 1.0:
+            expanded = strict_expanded
+            pct = strict_pct
+        else:
+            print("[SKIN MASK] Fallback produced empty mask — keep original")
 
     return _mask_to_b64(expanded)
 
