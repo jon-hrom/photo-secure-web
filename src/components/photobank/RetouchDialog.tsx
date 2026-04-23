@@ -299,7 +299,9 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
                   maskPosition: 'center',
                   WebkitMaskSize: 'contain',
                   maskSize: 'contain',
-                }}
+                  WebkitMaskMode: 'alpha',
+                  maskMode: 'alpha',
+                } as React.CSSProperties}
               />
             )}
             {maskLoading && (
@@ -338,6 +340,20 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
               >
                 <Icon name={maskOnly ? 'EyeOff' : 'Eye'} size={13} />
                 <span className="hidden sm:inline">{maskOnly ? 'Только маска' : 'С фото'}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (!selectedPhotoId) return;
+                  maskCacheRef.current.delete(selectedPhotoId);
+                  setMaskUrl(null);
+                  setShowMask(false);
+                  setTimeout(() => setShowMask(true), 50);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full hover:bg-white/10 transition-colors"
+                title="Перестроить маску с сервера"
+              >
+                <Icon name="RefreshCw" size={13} />
+                <span className="hidden sm:inline">Обновить</span>
               </button>
             </div>
           </div>

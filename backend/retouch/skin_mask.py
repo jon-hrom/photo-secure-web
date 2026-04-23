@@ -338,7 +338,17 @@ def build_auto_mask(image_bytes):
 
 
 def _mask_to_b64(mask_array):
-    m = Image.fromarray(mask_array, mode='L')
+    # Отдаём RGBA: R=G=B=255 (белый), A=сама маска. Так:
+    # 1) Бэкенд-инпейнт по-прежнему читает яркость (всё белое там где A>0).
+    # 2) Фронт-CSS mask-image через альфу корректно показывает прозрачные зоны,
+    #    вместо того чтобы заливать весь кадр.
+    h, w = mask_array.shape[:2]
+    rgba = np.zeros((h, w, 4), dtype=np.uint8)
+    rgba[..., 0] = 255
+    rgba[..., 1] = 255
+    rgba[..., 2] = 255
+    rgba[..., 3] = mask_array
+    m = Image.fromarray(rgba, mode='RGBA')
     buf = io.BytesIO()
     m.save(buf, format='PNG')
     return base64.b64encode(buf.getvalue()).decode('utf-8')
