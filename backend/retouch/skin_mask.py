@@ -159,28 +159,48 @@ def _local_stats(values, skin_mask, tile=64):
     means[~valid] = g_mean_fill
     stds[~valid] = g_std_fill
 
-    # Апсемпл до полного размера с билинейной интерполяцией
-    mean_img = np.array(
-        Image.fromarray(means).resize((w, h), Image.BILINEAR),
-        dtype=np.float32,
-    )
-    std_img = np.array(
-        Image.fromarray(stds).resize((w, h), Image.BILINEAR),
-        dtype=np.float32,
-    )
+    # Апсемпл: через uint16 mode 'I;16' — гарантированно работает в PIL.
+    # Масштаб ×100 сохраняет 2 знака точности (значения статистики 0..255).
+    def _upsample(arr_small, out_w, out_h):
+        arr16 = np.clip(arr_small * 100.0, 0, 65535).astype(np.uint16)
+        img = Image.fromarray(arr16, mode='I;16').resize((out_w, out_h), Image.BILINEAR)
+        return np.array(img, dtype=np.float32) / 100.0
 
-    # КЛЮЧ к отсутствию «ступенек»: сильно сгладим карту порогов гауссом.
-    # Радиус порядка размера тайла — полностью размывает границы между тайлами.
+    mean_img = _upsample(means, w, h)
+    std_img = _upsample(stds, w, h)
+
+    # Сглаживание через собственную separable-гауссову свёртку numpy —
+    # избегаем проблем с режимом 'F' в PIL и гарантированно убираем
+    # "ступеньки" на границах тайлов.
     smooth_r = max(16, tile // 2)
-    mean_img = np.array(
-        Image.fromarray(mean_img).filter(ImageFilter.GaussianBlur(radius=smooth_r)),
-        dtype=np.float32,
-    )
-    std_img = np.array(
-        Image.fromarray(std_img).filter(ImageFilter.GaussianBlur(radius=smooth_r)),
-        dtype=np.float32,
-    )
+    mean_img = _gaussian_blur_np(mean_img, smooth_r)
+    std_img = _gaussian_blur_np(std_img, smooth_r)
     return mean_img, std_img
+
+
+def _gaussian_blur_np(arr, radius):
+    """Быстрый сепарабельный гауссов блюр на numpy (без SciPy)."""
+    if radius <= 0:
+        return arr.astype(np.float32)
+    sigma = float(radius) / 2.0
+    k = int(max(3, radius * 2 + 1))
+    x = np.arange(k, dtype=np.float32) - (k - 1) / 2.0
+    kernel = np.exp(-(x * x) / (2.0 * sigma * sigma))
+    kernel /= kernel.sum()
+    # Конволюция по строкам, потом по столбцам.
+    pad = (k - 1) // 2
+    a = arr.astype(np.float32)
+    # По оси X
+    ap = np.pad(a, ((0, 0), (pad, pad)), mode='edge')
+    tmp = np.zeros_like(a)
+    for i, w in enumerate(kernel):
+        tmp += ap[:, i:i + a.shape[1]] * w
+    # По оси Y
+    ap2 = np.pad(tmp, ((pad, pad), (0, 0)), mode='edge')
+    out = np.zeros_like(a)
+    for i, w in enumerate(kernel):
+        out += ap2[i:i + a.shape[0], :] * w
+    return out
 
 
 def _detect_defects(img_arr, skin_mask):
