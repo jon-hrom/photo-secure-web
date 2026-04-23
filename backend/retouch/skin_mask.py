@@ -62,12 +62,10 @@ def _find_face_regions(skin_mask):
     if not label_sizes:
         return skin_mask
 
-    min_face = (sh * sw) * 0.001
-    face_labels = [lid for lid, cnt in label_sizes.items() if cnt > min_face]
-
-    if not face_labels:
-        biggest = max(label_sizes, key=label_sizes.get)
-        face_labels = [biggest]
+    # Берём ТОЛЬКО самый большой connected-компонент. Если одежда+кожа
+    # связаны через шею, это тоже один компонент, но дальше ограничим bbox'ом.
+    biggest = max(label_sizes, key=label_sizes.get)
+    face_labels = [biggest]
 
     face_small = np.zeros((sh, sw), dtype=np.uint8)
     for lid in face_labels:
@@ -79,68 +77,103 @@ def _find_face_regions(skin_mask):
     else:
         face_small_up = face_small
 
-    # Заполняем дыры в маске лица (зоны, которые по цвету не прошли как кожа —
-    # тени под подбородком, нижняя скула и т.д.), используя bounding box + dilation.
+    # Заполняем дыры (тени под подбородком, глаза, рот) через closing.
     face_closed_pil = Image.fromarray(face_small_up, mode='L').filter(
         ImageFilter.MaxFilter(9)
     ).filter(ImageFilter.MinFilter(5))
-    # Сглаживаем край гауссом — уходит угловатость от квадратных ядер MaxFilter.
     blur_r = max(3, min(h, w) // 200)
     face_closed_pil = face_closed_pil.filter(ImageFilter.GaussianBlur(radius=blur_r))
     face_closed = np.array(face_closed_pil)
-    # Порог 64 — плавный округлый контур лица без "ступенек"
     face_closed = np.where(face_closed > 64, 255, 0).astype(np.uint8)
 
-    # Финальная маска: ТОЛЬКО реальные skin-пиксели внутри bounding-зоны лица.
-    # Без этого пересечения в маску попадали брови, волосы у лба, одежда —
-    # всё что умещается в прямоугольник MaxFilter(9).
+    # ГЕОГРАФИЧЕСКОЕ ОГРАНИЧЕНИЕ: находим bbox ЛИЦА по плотности skin-пикселей
+    # в горизонтальных полосах. Лицо — это полоса с максимальной концентрацией
+    # кожи; одежда ниже неё — широкая зона с пробелами.
+    col_density = np.sum(face_closed > 0, axis=1) / max(1, w)
+    # Лицо: горизонтальные ряды с плотностью кожи 20–80% ширины кадра.
+    face_rows = np.where((col_density > 0.10) & (col_density < 0.85))[0]
+    if len(face_rows) > 10:
+        top = int(face_rows[0])
+        # Нижняя граница лица — последний ряд с приличной плотностью, но не "одежда".
+        # Одежда обычно даёт плотность >0.5 сплошняком на большой высоте.
+        # Ищем "провал" после лица: резкое увеличение плотности (воротник)
+        # или сужение после широкой части (шея→плечи).
+        peak_row = int(face_rows[np.argmax(col_density[face_rows])])
+        peak_density = float(col_density[peak_row])
+        # Нижний край: после пика плотность падает (подбородок→шея), потом снова
+        # растёт (одежда). Находим первый локальный минимум после пика.
+        bottom = h
+        for y in range(peak_row + 10, h - 5):
+            # Зона шеи: плотность снизилась относительно пика.
+            if col_density[y] < peak_density * 0.35:
+                # Дальше ищем рост (начало одежды) — это и есть граница.
+                for y2 in range(y, min(h, y + int(h * 0.15))):
+                    if col_density[y2] > peak_density * 0.7:
+                        bottom = y
+                        break
+                if bottom != h:
+                    break
+        # Если не нашли — ограничим 90% от высоты кадра, минус зона явной одежды.
+        if bottom == h:
+            bottom = min(h, peak_row + int((peak_row - top) * 1.3))
+
+        # Горизонтально — bbox головы с запасом 5%.
+        col_sums = np.sum(face_closed[top:bottom] > 0, axis=0)
+        col_nz = np.where(col_sums > 0)[0]
+        if len(col_nz) > 0:
+            left = max(0, int(col_nz[0]) - int(w * 0.02))
+            right = min(w, int(col_nz[-1]) + int(w * 0.02))
+        else:
+            left, right = 0, w
+
+        bbox_mask = np.zeros_like(face_closed)
+        bbox_mask[top:bottom, left:right] = 255
+        face_closed = np.minimum(face_closed, bbox_mask)
+        print(f"[SKIN MASK] Face bbox: y=[{top},{bottom}] x=[{left},{right}], peak_row={peak_row}")
+
+    # Финальная маска: реальные skin-пиксели внутри bbox головы.
     result = np.minimum(skin_mask, face_closed)
     print(f"[SKIN MASK] Face regions: {len(face_labels)}, {np.count_nonzero(result)*100/(h*w):.1f}%")
     return result
 
 
 def _exclude_non_skin(img_arr, mask):
-    """Вычищаем из bounding-маски лица всё, что заведомо НЕ кожа:
-    волосы, брови, усы, тёмные тени, блики, одежду.
+    """Вычищаем из маски всё, что заведомо НЕ кожа.
+    ВАЖНО: прыщи (красноватые пятна) НЕ отсекаем — они нужны для ретуши.
     """
     r = img_arr[:, :, 0].astype(np.float32)
     g = img_arr[:, :, 1].astype(np.float32)
     b = img_arr[:, :, 2].astype(np.float32)
 
     brightness = (r + g + b) / 3.0
-    # 1) Совсем тёмные — волосы, тени, зрачки
-    mask[(brightness < 60) & (mask > 0)] = 0
-
     maxc = np.maximum(np.maximum(r, g), b)
     minc = np.minimum(np.minimum(r, g), b)
     sat = np.zeros_like(brightness)
     nz = maxc > 0
     sat[nz] = (maxc[nz] - minc[nz]) / maxc[nz]
 
-    # 2) Пересвеченные серо-белые зоны (блики на лбу, носу)
-    mask[(sat < 0.07) & (brightness > 215) & (mask > 0)] = 0
+    # 1) Тёмные — волосы брюнет, тени, зрачки
+    mask[(brightness < 55) & (mask > 0)] = 0
 
-    # 3) КОЖА должна удовлетворять YCrCb-фильтру. Применяем тот же критерий
-    #    что и _detect_skin_color, но чуть шире по Cr/Cb. Всё что не попало —
-    #    выбрасываем (это гарантированно убирает волосы, брови, губы, одежду).
-    y = 0.299 * r + 0.587 * g + 0.114 * b
-    cr = (r - y) * 0.713 + 128
-    cb = (b - y) * 0.564 + 128
-    is_skin_lax = (
-        (y > 50) & (y < 240) &
-        (cr > 125) & (cr < 195) &
-        (cb > 75) & (cb < 145)
-    )
-    mask[(~is_skin_lax) & (mask > 0)] = 0
+    # 2) Серо-белые зоны — одежда, фон, засветы без цвета (R≈G≈B)
+    neutral = (sat < 0.12) & (brightness > 120)
+    mask[neutral & (mask > 0)] = 0
 
-    # 4) Тёмно-красные зоны (губы, брови с красноватым оттенком) — R сильно
-    #    больше G, яркость невысокая. Отсекаем.
-    reddish = (r > g + 30) & (r > b + 20) & (brightness < 140)
-    mask[reddish & (mask > 0)] = 0
+    # 3) Пересвет с низкой сатурацией — блики, одежда
+    mask[(sat < 0.08) & (brightness > 200) & (mask > 0)] = 0
 
-    # 5) Волосы-брюнет: низкая насыщенность + темно. Не кожа.
-    hair = (sat < 0.25) & (brightness < 110)
-    mask[hair & (mask > 0)] = 0
+    # 4) Волосы русые/светлые: высокая насыщенность + доминирующий жёлто-коричневый
+    #    (R>G>B с большим разрывом). У кожи разрыв меньше.
+    yellow_hair = (r - b > 55) & (g - b > 30) & (brightness < 180) & (sat > 0.25)
+    mask[yellow_hair & (mask > 0)] = 0
+
+    # 5) Холодные оттенки (синева) — не кожа
+    bluish = (b > r) | (b > g + 15)
+    mask[bluish & (mask > 0)] = 0
+
+    # 6) Зелёные оттенки — не кожа
+    greenish = (g > r + 10) & (g > b + 15)
+    mask[greenish & (mask > 0)] = 0
 
     return mask
 
