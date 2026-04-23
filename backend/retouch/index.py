@@ -9,7 +9,8 @@ from psycopg2.extras import RealDictCursor
 import requests
 import boto3
 from botocore.client import Config
-from PIL import Image
+from PIL import Image, ImageFilter
+import numpy as np
 
 
 S3_BUCKET = "foto-mix"
@@ -335,6 +336,91 @@ def _normalize_image_bytes(raw_bytes):
         raise RuntimeError(f"Invalid image bytes: {e}")
 
 
+def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
+    """Смешивает результат внешнего API с оригиналом по маске кожи:
+    - внутри маски (кожа, дефекты) — пиксели ретуши,
+    - снаружи (волосы, брови, одежда, фон) — пиксели оригинала.
+
+    Это защищает не-кожу от сглаживания внешним API.
+    """
+    from skin_mask import build_face_skin_mask
+
+    # 1) Скачиваем оригинал
+    try:
+        orig_obj = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
+        orig_bytes = orig_obj['Body'].read()
+    except Exception as e:
+        print(f"[RETOUCH] Cannot fetch original {in_key}: {e}")
+        return retouched_bytes
+
+    try:
+        orig_img = Image.open(io.BytesIO(orig_bytes)).convert('RGB')
+        ret_img = Image.open(io.BytesIO(retouched_bytes)).convert('RGB')
+    except Exception as e:
+        print(f"[RETOUCH] Cannot open images for compose: {e}")
+        return retouched_bytes
+
+    # Приводим результат к размеру оригинала (внешний API может отдать другой размер).
+    if ret_img.size != orig_img.size:
+        ret_img = ret_img.resize(orig_img.size, Image.LANCZOS)
+
+    # 2) Строим маску по оригиналу (тот же алгоритм, что и preview_mask).
+    #    Ограничиваем размер превью для скорости (внутри build_auto_mask
+    #    работа уже на 1024-пиксельном max-side, но снаружи мы тоже уменьшим).
+    preview_side = 1024
+    ow, oh = orig_img.size
+    if max(ow, oh) > preview_side:
+        ratio = preview_side / max(ow, oh)
+        small = orig_img.resize((int(ow * ratio), int(oh * ratio)), Image.LANCZOS)
+    else:
+        small = orig_img
+
+    buf = io.BytesIO()
+    small.save(buf, format='JPEG', quality=85)
+    try:
+        mask_b64 = build_face_skin_mask(buf.getvalue())
+    except Exception as e:
+        print(f"[RETOUCH] build_face_skin_mask failed: {e}")
+        return retouched_bytes
+
+    try:
+        mask_png = base64.b64decode(mask_b64)
+        mask_img = Image.open(io.BytesIO(mask_png))
+        # build_auto_mask теперь возвращает RGBA; берём альфу как интенсивность маски.
+        if mask_img.mode == 'RGBA':
+            mask_gray = mask_img.split()[-1]
+        else:
+            mask_gray = mask_img.convert('L')
+    except Exception as e:
+        print(f"[RETOUCH] Cannot decode mask: {e}")
+        return retouched_bytes
+
+    # Маска сейчас в размере small — растягиваем до размера оригинала.
+    if mask_gray.size != orig_img.size:
+        mask_gray = mask_gray.resize(orig_img.size, Image.BILINEAR)
+
+    # 3) Смягчаем края маски, чтобы не было резких границ между "кожа" и "не-кожа".
+    feather_r = max(4, min(ow, oh) // 200)
+    mask_gray = mask_gray.filter(ImageFilter.GaussianBlur(radius=feather_r))
+
+    # 4) Композиция: где маска — берём ретушь, где нет — оригинал.
+    mask_arr = np.array(mask_gray, dtype=np.float32) / 255.0
+    if mask_arr.max() < 0.05:
+        print("[RETOUCH] Empty mask after compose — keeping raw retouched")
+        return retouched_bytes
+
+    mask_arr = mask_arr[..., None]
+    orig_arr = np.array(orig_img, dtype=np.float32)
+    ret_arr = np.array(ret_img, dtype=np.float32)
+    out_arr = ret_arr * mask_arr + orig_arr * (1.0 - mask_arr)
+    out_img = Image.fromarray(np.clip(out_arr, 0, 255).astype(np.uint8), 'RGB')
+
+    out_buf = io.BytesIO()
+    out_img.save(out_buf, format='JPEG', quality=95)
+    print(f"[RETOUCH] Composed with skin mask (coverage={float(mask_arr.mean()) * 100:.1f}%)")
+    return out_buf.getvalue()
+
+
 def _save_result_bytes(conn, user_id, task, result_bytes):
     """Сохранить готовые байты результата в S3 и БД."""
     s3_client = _get_s3_client()
@@ -347,6 +433,15 @@ def _save_result_bytes(conn, user_id, task, result_bytes):
         out_key = out_key.rsplit('.', 1)[0] + '.jpg' if '.' in out_key else out_key + '.jpg'
 
     result_bytes = _normalize_image_bytes(result_bytes)
+
+    # ПОСТ-ОБРАБОТКА: внешний API ретушит ВСЁ изображение (включая волосы, брови,
+    # одежду), что делает их "мультяшными". Смешиваем результат с оригиналом
+    # по нашей маске кожи — вне маски возвращаем пиксели оригинала.
+    try:
+        if in_key:
+            result_bytes = _compose_with_original_by_mask(s3_client, in_key, result_bytes)
+    except Exception as e:
+        print(f"[RETOUCH] Skin-mask compose failed (using raw result): {e}")
 
     s3_client.put_object(
         Bucket=S3_BUCKET,

@@ -342,6 +342,39 @@ def _dilate_mask(mask, px):
     return np.array(m)
 
 
+def build_face_skin_mask(image_bytes):
+    """Возвращает маску ВСЕЙ кожи лица и шеи (без дефектов — всю зону целиком).
+    Используется для композиции результата внешней ретуши с оригиналом:
+    внутри маски применяем ретушь, снаружи (волосы, брови, одежда) — оригинал.
+    """
+    img = Image.open(io.BytesIO(image_bytes))
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    img_arr = np.array(img)
+    h, w = img_arr.shape[:2]
+
+    skin_color = _detect_skin_color(img_arr)
+    pct = np.count_nonzero(skin_color) * 100 / (h * w)
+    if pct < 1:
+        return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
+
+    face_skin = _find_face_regions(skin_color)
+    face_skin = _exclude_non_skin(img_arr, face_skin)
+
+    # Небольшое расширение — чтобы ретушь покрыла тонкие границы кожи
+    # и края дефектов на стыке с волосами/бровями.
+    dilate_px = max(3, int(min(h, w) * 0.006))
+    m = Image.fromarray(face_skin, mode='L')
+    for _ in range(max(1, dilate_px // 2)):
+        m = m.filter(ImageFilter.MaxFilter(min(dilate_px * 2 + 1, 9)))
+    # Закрываем дыры (глаза, рот) внутри зоны кожи, чтобы внутри ретушировалось ровно.
+    m = m.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(5))
+    face_skin = np.array(m)
+
+    print(f"[SKIN MASK] Face skin: {np.count_nonzero(face_skin) * 100 / (h * w):.1f}%")
+    return _mask_to_b64(face_skin)
+
+
 def build_auto_mask(image_bytes):
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode != 'RGB':
