@@ -91,26 +91,56 @@ def _find_face_regions(skin_mask):
     # Порог 64 — плавный округлый контур лица без "ступенек"
     face_closed = np.where(face_closed > 64, 255, 0).astype(np.uint8)
 
-    # Финальная маска: bounding-зона лица ИЛИ сырой skin, если он внутри лица
-    result = np.maximum(face_closed, np.minimum(skin_mask, face_closed))
+    # Финальная маска: ТОЛЬКО реальные skin-пиксели внутри bounding-зоны лица.
+    # Без этого пересечения в маску попадали брови, волосы у лба, одежда —
+    # всё что умещается в прямоугольник MaxFilter(9).
+    result = np.minimum(skin_mask, face_closed)
     print(f"[SKIN MASK] Face regions: {len(face_labels)}, {np.count_nonzero(result)*100/(h*w):.1f}%")
     return result
 
 
 def _exclude_non_skin(img_arr, mask):
+    """Вычищаем из bounding-маски лица всё, что заведомо НЕ кожа:
+    волосы, брови, усы, тёмные тени, блики, одежду.
+    """
     r = img_arr[:, :, 0].astype(np.float32)
     g = img_arr[:, :, 1].astype(np.float32)
     b = img_arr[:, :, 2].astype(np.float32)
 
     brightness = (r + g + b) / 3.0
-    mask[(brightness < 35) & (mask > 0)] = 0
+    # 1) Совсем тёмные — волосы, тени, зрачки
+    mask[(brightness < 60) & (mask > 0)] = 0
 
     maxc = np.maximum(np.maximum(r, g), b)
     minc = np.minimum(np.minimum(r, g), b)
     sat = np.zeros_like(brightness)
     nz = maxc > 0
     sat[nz] = (maxc[nz] - minc[nz]) / maxc[nz]
+
+    # 2) Пересвеченные серо-белые зоны (блики на лбу, носу)
     mask[(sat < 0.07) & (brightness > 215) & (mask > 0)] = 0
+
+    # 3) КОЖА должна удовлетворять YCrCb-фильтру. Применяем тот же критерий
+    #    что и _detect_skin_color, но чуть шире по Cr/Cb. Всё что не попало —
+    #    выбрасываем (это гарантированно убирает волосы, брови, губы, одежду).
+    y = 0.299 * r + 0.587 * g + 0.114 * b
+    cr = (r - y) * 0.713 + 128
+    cb = (b - y) * 0.564 + 128
+    is_skin_lax = (
+        (y > 50) & (y < 240) &
+        (cr > 125) & (cr < 195) &
+        (cb > 75) & (cb < 145)
+    )
+    mask[(~is_skin_lax) & (mask > 0)] = 0
+
+    # 4) Тёмно-красные зоны (губы, брови с красноватым оттенком) — R сильно
+    #    больше G, яркость невысокая. Отсекаем.
+    reddish = (r > g + 30) & (r > b + 20) & (brightness < 140)
+    mask[reddish & (mask > 0)] = 0
+
+    # 5) Волосы-брюнет: низкая насыщенность + темно. Не кожа.
+    hair = (sat < 0.25) & (brightness < 110)
+    mask[hair & (mask > 0)] = 0
 
     return mask
 
