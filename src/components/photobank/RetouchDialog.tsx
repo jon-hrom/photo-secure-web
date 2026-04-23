@@ -2,13 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { useToast } from '@/hooks/use-toast';
 import { useRetouch } from '@/contexts/RetouchContext';
 import RetouchWakeStatus from './RetouchWakeStatus';
 import RetouchTaskList from './RetouchTaskList';
 import RetouchPhotoSelector from './RetouchPhotoSelector';
 import RetouchSettings from './RetouchSettings';
+import { getPhotoPreviewUrl, Photo as RetouchPhoto } from './retouchTypes';
 
 const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
+const RETOUCH_API = 'https://functions.poehali.dev/c95989eb-d7f0-4fac-b9c9-f8ab0fb61aff';
 
 interface Photo {
   id: number;
@@ -40,7 +43,12 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [activeTab, setActiveTab] = useState('single');
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showMask, setShowMask] = useState(false);
+  const [maskUrl, setMaskUrl] = useState<string | null>(null);
+  const [maskLoading, setMaskLoading] = useState(false);
+  const maskCacheRef = useRef<Map<number, string>>(new Map());
   const hasActiveWorkRef = useRef(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const hasActiveTasks = tasks.some(t => t.status === 'queued' || t.status === 'started' || t.status === 'processing');
@@ -114,6 +122,53 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
     startSession({ folderId, folderName, userId, onRetouchComplete });
   };
 
+  const selectedPhoto = photos.find(p => p.id === selectedPhotoId) || null;
+
+  useEffect(() => {
+    if (!showMask || !selectedPhotoId) {
+      setMaskUrl(null);
+      setMaskLoading(false);
+      return;
+    }
+    const cached = maskCacheRef.current.get(selectedPhotoId);
+    if (cached) {
+      setMaskUrl(cached);
+      return;
+    }
+    let cancelled = false;
+    setMaskLoading(true);
+    setMaskUrl(null);
+    (async () => {
+      try {
+        const res = await fetch(
+          `${RETOUCH_API}?action=preview_mask&photo_id=${selectedPhotoId}`,
+          { headers: { 'X-User-Id': userId } }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Не удалось построить маску');
+        }
+        const data = await res.json();
+        if (cancelled || !data.mask_b64) return;
+        const dataUrl = `data:image/png;base64,${data.mask_b64}`;
+        maskCacheRef.current.set(selectedPhotoId, dataUrl);
+        setMaskUrl(dataUrl);
+      } catch (e) {
+        if (!cancelled) {
+          toast({
+            title: 'Не удалось показать маску',
+            description: e instanceof Error ? e.message : 'Ошибка',
+            variant: 'destructive',
+          });
+          setShowMask(false);
+        }
+      } finally {
+        if (!cancelled) setMaskLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showMask, selectedPhotoId, userId, toast]);
+
   if (minimized) return null;
 
   return (
@@ -140,15 +195,35 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         ) : (
           <>
             {!hasTasks && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-fit text-xs text-muted-foreground hover:text-foreground -mt-1"
-                onClick={() => setShowSettings(true)}
-              >
-                <Icon name="SlidersHorizontal" size={14} className="mr-1" />
-                Настройки ретуши
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap -mt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowSettings(true)}
+                >
+                  <Icon name="SlidersHorizontal" size={14} className="mr-1" />
+                  Настройки ретуши
+                </Button>
+                <label
+                  className={`flex items-center gap-1.5 text-xs select-none px-2 py-1 rounded-md transition-colors ${
+                    selectedPhotoId
+                      ? 'text-muted-foreground hover:text-foreground cursor-pointer hover:bg-rose-100/50 dark:hover:bg-rose-900/20'
+                      : 'text-muted-foreground/50 cursor-not-allowed'
+                  }`}
+                  title={selectedPhotoId ? 'Посмотреть маску кожи на выбранном фото' : 'Сначала выберите фото'}
+                >
+                  <input
+                    type="checkbox"
+                    className="accent-rose-500"
+                    checked={showMask}
+                    disabled={!selectedPhotoId}
+                    onChange={(e) => setShowMask(e.target.checked)}
+                  />
+                  <Icon name="ScanFace" size={14} />
+                  Показать маску
+                </label>
+              </div>
             )}
 
             <RetouchWakeStatus waking={waking} wakeStatus={wakeStatus} />
@@ -188,6 +263,46 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
               />
             )}
           </>
+        )}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={showMask && !!selectedPhoto} onOpenChange={(v) => { if (!v) setShowMask(false); }}>
+      <DialogContent className="max-w-[95vw] w-[95vw] sm:max-w-5xl max-h-[95vh] p-0 overflow-hidden bg-black border-none">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Маска кожи</DialogTitle>
+          <DialogDescription>Предпросмотр автоматической маски лица</DialogDescription>
+        </DialogHeader>
+        {selectedPhoto && (
+          <div className="relative w-full h-[90vh] flex items-center justify-center bg-black">
+            <img
+              src={getPhotoPreviewUrl(selectedPhoto as RetouchPhoto)}
+              alt={selectedPhoto.file_name}
+              className="absolute inset-0 w-full h-full object-contain"
+              draggable={false}
+            />
+            {maskUrl && (
+              <img
+                src={maskUrl}
+                alt="mask"
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-screen opacity-60"
+                style={{ filter: 'hue-rotate(310deg) saturate(3)' }}
+                draggable={false}
+              />
+            )}
+            {maskLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <div className="flex items-center gap-2 text-white text-sm bg-black/60 rounded-full px-4 py-2">
+                  <Icon name="Loader2" size={16} className="animate-spin" />
+                  Строю маску...
+                </div>
+              </div>
+            )}
+            <div className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5">
+              <Icon name="ScanFace" size={14} />
+              Маска кожи
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>
