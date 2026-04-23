@@ -84,7 +84,12 @@ def _find_face_regions(skin_mask):
     face_closed_pil = Image.fromarray(face_small_up, mode='L').filter(
         ImageFilter.MaxFilter(9)
     ).filter(ImageFilter.MinFilter(5))
+    # Сглаживаем край гауссом — уходит угловатость от квадратных ядер MaxFilter.
+    blur_r = max(3, min(h, w) // 200)
+    face_closed_pil = face_closed_pil.filter(ImageFilter.GaussianBlur(radius=blur_r))
     face_closed = np.array(face_closed_pil)
+    # Порог 64 — плавный округлый контур лица без "ступенек"
+    face_closed = np.where(face_closed > 64, 255, 0).astype(np.uint8)
 
     # Финальная маска: bounding-зона лица ИЛИ сырой skin, если он внутри лица
     result = np.maximum(face_closed, np.minimum(skin_mask, face_closed))
@@ -111,25 +116,27 @@ def _exclude_non_skin(img_arr, mask):
 
 
 def _local_stats(values, skin_mask, tile=64):
-    """Локальное среднее/std по тайлам, апсемпл до полного размера.
-    Позволяет ловить дефекты в тенях (боковая часть лица), где глобальная
-    статистика смещена ярким центром.
+    """Локальное среднее/std по тайлам с ПЕРЕКРЫТИЕМ, затем апсемпл +
+    сильное гауссово сглаживание. Так граница между тайлами перестаёт
+    проявляться в маске как резкая "ступенька" на лице.
     """
     h, w = values.shape
-    ty = max(1, h // tile)
-    tx = max(1, w // tile)
-    bh = h // ty
-    bw = w // tx
+    # Перекрывающиеся тайлы: шаг = tile/2, окно = tile.
+    step = max(16, tile // 2)
+    ty = max(1, (h + step - 1) // step)
+    tx = max(1, (w + step - 1) // step)
 
     means = np.zeros((ty, tx), dtype=np.float32)
     stds = np.zeros((ty, tx), dtype=np.float32)
 
     for i in range(ty):
         for j in range(tx):
-            y1 = i * bh
-            y2 = h if i == ty - 1 else (i + 1) * bh
-            x1 = j * bw
-            x2 = w if j == tx - 1 else (j + 1) * bw
+            cy = i * step
+            cx = j * step
+            y1 = max(0, cy - tile // 2)
+            y2 = min(h, cy + tile // 2 + step)
+            x1 = max(0, cx - tile // 2)
+            x2 = min(w, cx + tile // 2 + step)
             block_vals = values[y1:y2, x1:x2]
             block_mask = skin_mask[y1:y2, x1:x2] > 0
             if np.count_nonzero(block_mask) > 30:
@@ -140,16 +147,17 @@ def _local_stats(values, skin_mask, tile=64):
                 means[i, j] = np.nan
                 stds[i, j] = np.nan
 
-    # Заполним NaN средним по известным тайлам
+    # Итеративно заполним NaN соседями — избегаем «дырок» там, где
+    # тайл пустой (вне маски лица), чтобы после blur не было тёмных пятен.
     valid = ~np.isnan(means)
     if np.any(valid):
-        global_mean = float(np.mean(means[valid]))
-        global_std = float(np.mean(stds[valid]))
-        means[~valid] = global_mean
-        stds[~valid] = global_std
+        g_mean_fill = float(np.mean(means[valid]))
+        g_std_fill = float(np.mean(stds[valid]))
     else:
-        means[:] = float(np.mean(values))
-        stds[:] = max(5.0, float(np.std(values)))
+        g_mean_fill = float(np.mean(values))
+        g_std_fill = max(5.0, float(np.std(values)))
+    means[~valid] = g_mean_fill
+    stds[~valid] = g_std_fill
 
     # Апсемпл до полного размера с билинейной интерполяцией
     mean_img = np.array(
@@ -158,6 +166,18 @@ def _local_stats(values, skin_mask, tile=64):
     )
     std_img = np.array(
         Image.fromarray(stds).resize((w, h), Image.BILINEAR),
+        dtype=np.float32,
+    )
+
+    # КЛЮЧ к отсутствию «ступенек»: сильно сгладим карту порогов гауссом.
+    # Радиус порядка размера тайла — полностью размывает границы между тайлами.
+    smooth_r = max(16, tile // 2)
+    mean_img = np.array(
+        Image.fromarray(mean_img).filter(ImageFilter.GaussianBlur(radius=smooth_r)),
+        dtype=np.float32,
+    )
+    std_img = np.array(
+        Image.fromarray(std_img).filter(ImageFilter.GaussianBlur(radius=smooth_r)),
         dtype=np.float32,
     )
     return mean_img, std_img
@@ -263,6 +283,16 @@ def build_auto_mask(image_bytes):
 
     dilate_px = max(6, int(min(h, w) * 0.012))
     expanded = _dilate_mask(defects, dilate_px)
+    expanded = np.minimum(expanded, face_skin)
+
+    # Смягчаем края маски — иначе прямоугольные ядра MaxFilter оставляют
+    # угловатые следы на коже после инпейнта.
+    soft_r = max(2, dilate_px // 3)
+    soft = np.array(
+        Image.fromarray(expanded, mode='L').filter(ImageFilter.GaussianBlur(radius=soft_r))
+    )
+    # Порог 40 — круглые края без "ступенек", не теряя центр пятен
+    expanded = np.where(soft > 40, 255, 0).astype(np.uint8)
     expanded = np.minimum(expanded, face_skin)
 
     total = np.count_nonzero(expanded)
