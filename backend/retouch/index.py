@@ -77,6 +77,40 @@ def _build_out_key(in_key):
     return f"retouch/{in_key}"
 
 
+def _ensure_jpeg_bytes(image_bytes, file_name=None):
+    """Конвертирует изображение в JPEG, если формат не JPG/PNG — внешний API ретуши не умеет webp/heic/bmp/tiff/gif.
+    Возвращает (bytes, was_converted).
+    """
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        fmt = (img.format or '').upper()
+    except Exception as e:
+        print(f"[RETOUCH] Cannot open image ({file_name}): {e}")
+        raise
+
+    # JPEG отправляем как есть
+    if fmt in ('JPEG', 'JPG'):
+        return image_bytes, False
+
+    # PNG без альфы — API обычно ест. С альфой — лучше сразу в JPEG.
+    if fmt == 'PNG' and img.mode in ('RGB', 'L'):
+        return image_bytes, False
+
+    # Всё остальное (WEBP, HEIC, BMP, TIFF, GIF, RGBA-PNG и т.п.) — перегоняем в JPEG
+    if img.mode not in ('RGB', 'L'):
+        if img.mode == 'RGBA' or 'transparency' in img.info:
+            bg = Image.new('RGB', img.size, (255, 255, 255))
+            bg.paste(img.convert('RGBA'), mask=img.convert('RGBA').split()[-1])
+            img = bg
+        else:
+            img = img.convert('RGB')
+
+    buf = io.BytesIO()
+    img.save(buf, format='JPEG', quality=95, optimize=True)
+    print(f"[RETOUCH] Converted {fmt} -> JPEG ({file_name}): {len(image_bytes)} -> {buf.tell()} bytes")
+    return buf.getvalue(), True
+
+
 def _load_retouch_settings(conn):
     strength = DEFAULT_STRENGTH
     enhance_face = DEFAULT_ENHANCE_FACE
@@ -533,6 +567,13 @@ def _handle_create(event, conn, user_id):
         s3_resp = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
         image_bytes = s3_resp['Body'].read()
         print(f"[RETOUCH] Downloaded {len(image_bytes)} bytes")
+
+        try:
+            image_bytes, _converted = _ensure_jpeg_bytes(image_bytes, photo.get('file_name'))
+        except Exception as conv_err:
+            return _response(400, {
+                'error': f'Неподдерживаемый формат файла: {conv_err}'
+            })
 
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
 
