@@ -36,6 +36,57 @@ def _extract_shot_date(file_bytes):
     return None
 
 
+# Форматы, которые внешние сервисы (ретушь, апскейл, GFPGAN) не умеют читать.
+# Конвертируем в JPEG при загрузке в фотобанк.
+_NEEDS_JPEG_CONVERSION = {'WEBP', 'BMP', 'TIFF', 'GIF', 'HEIC', 'HEIF'}
+
+
+def _convert_to_jpeg_if_needed(file_bytes, file_name):
+    """Если формат не JPEG/PNG без альфы — перегоняет в JPEG.
+    Возвращает (new_bytes, new_file_name, was_converted).
+    Безопасно: при любой ошибке возвращает оригинал.
+    """
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        fmt = (img.format or '').upper()
+    except Exception as e:
+        print(f'[CONVERT] Cannot open ({file_name}): {e}')
+        return file_bytes, file_name, False
+
+    # JPEG — оставляем как есть
+    if fmt in ('JPEG', 'JPG'):
+        return file_bytes, file_name, False
+
+    # PNG без прозрачности — большинство сервисов читает нормально
+    if fmt == 'PNG' and img.mode in ('RGB', 'L'):
+        return file_bytes, file_name, False
+
+    # Всё остальное конвертируем (или PNG с альфой → плоский JPEG)
+    needs_conv = fmt in _NEEDS_JPEG_CONVERSION or img.mode not in ('RGB', 'L')
+    if not needs_conv:
+        return file_bytes, file_name, False
+
+    try:
+        if img.mode == 'RGBA' or 'transparency' in img.info:
+            bg = Image.new('RGB', img.size, (255, 255, 255))
+            rgba = img.convert('RGBA')
+            bg.paste(rgba, mask=rgba.split()[-1])
+            img = bg
+        else:
+            img = img.convert('RGB')
+
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=95, optimize=True)
+        new_bytes = buf.getvalue()
+        base = file_name.rsplit('.', 1)[0] if '.' in file_name else file_name
+        new_name = f'{base}.jpg'
+        print(f'[CONVERT] {fmt} -> JPEG ({file_name} -> {new_name}): {len(file_bytes)} -> {len(new_bytes)} bytes')
+        return new_bytes, new_name, True
+    except Exception as e:
+        print(f'[CONVERT] Failed for {file_name}: {e}')
+        return file_bytes, file_name, False
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
     
@@ -494,7 +545,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 file_bytes = base64.b64decode(file_data)
                 file_size = len(file_bytes)
                 print(f'[UPLOAD_DIRECT] File size after decode: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)')
-                
+
+                # Автоконвертация webp/heic/bmp/tiff/gif/rgba-png в JPEG
+                file_bytes, file_name, _converted = _convert_to_jpeg_if_needed(file_bytes, file_name)
+                file_size = len(file_bytes)
+
                 file_ext = file_name.split('.')[-1] if '.' in file_name else 'jpg'
                 # Используем Yandex S3 (как всегда было)
                 s3_key = f'{folder["s3_prefix"]}{uuid.uuid4()}.{file_ext}'
@@ -634,20 +689,50 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 shot_date = None
                 image_data = None
-                if not width or not height:
-                    print(f'[CONFIRM_UPLOAD] Getting dimensions from S3 image')
+
+                # Для не-RAW файлов: скачиваем, при необходимости конвертируем в JPEG
+                raw_exts_check = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
+                is_raw_file = os.path.splitext(file_name.lower())[1] in raw_exts_check
+                needs_download = (not width or not height or not is_raw_file)
+
+                if needs_download and not is_raw_file:
                     try:
                         image_response = yc_s3_client.get_object(Bucket=yc_bucket, Key=s3_key)
                         image_data = image_response['Body'].read()
-                        image = Image.open(io.BytesIO(image_data))
-                        width = image.width
-                        height = image.height
-                        print(f'[CONFIRM_UPLOAD] Extracted dimensions: {width}x{height}')
+                        # Проверяем формат и при необходимости конвертируем
+                        new_bytes, new_file_name, converted = _convert_to_jpeg_if_needed(image_data, file_name)
+                        if converted:
+                            # Заливаем сконвертированный файл под новым ключом
+                            old_key = s3_key
+                            new_key = f'{os.path.dirname(s3_key)}/{uuid.uuid4()}.jpg' if '/' in s3_key else f'{uuid.uuid4()}.jpg'
+                            yc_s3_client.put_object(
+                                Bucket=yc_bucket, Key=new_key, Body=new_bytes,
+                                ContentType='image/jpeg',
+                                Metadata={'user-id': str(user_id), 'folder-id': str(folder_id)}
+                            )
+                            # Удаляем исходный webp/bmp/etc
+                            try:
+                                yc_s3_client.delete_object(Bucket=yc_bucket, Key=old_key)
+                            except Exception as del_e:
+                                print(f'[CONFIRM_UPLOAD] Failed to delete old key {old_key}: {del_e}')
+                            s3_key = new_key
+                            file_name = new_file_name
+                            image_data = new_bytes
+                            file_size = len(new_bytes)
+                            print(f'[CONFIRM_UPLOAD] Converted to JPEG: new s3_key={s3_key}')
+
+                        # Размеры
+                        if not width or not height:
+                            image = Image.open(io.BytesIO(image_data))
+                            width = image.width
+                            height = image.height
+                            print(f'[CONFIRM_UPLOAD] Extracted dimensions: {width}x{height}')
                     except Exception as e:
-                        print(f'[CONFIRM_UPLOAD] Failed to get dimensions: {str(e)}')
-                        width = None
-                        height = None
-                
+                        print(f'[CONFIRM_UPLOAD] Failed to process image: {str(e)}')
+                        if not width or not height:
+                            width = None
+                            height = None
+
                 if image_data:
                     shot_date = _extract_shot_date(image_data)
                 else:
@@ -659,7 +744,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         pass
                 if shot_date:
                     print(f'[CONFIRM_UPLOAD] Extracted shot_date: {shot_date}')
-                
+
                 s3_url = f'https://storage.yandexcloud.net/{yc_bucket}/{s3_key}'
                 
                 print(f'[CONFIRM_UPLOAD] Inserting to DB...')
