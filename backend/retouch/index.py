@@ -483,34 +483,29 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     print(f"[RETOUCH] Skin: type={skin_type} hf_std={hf_std:.1f} blob={blob_density:.1f}% "
           f"→ lf={lf_strength:.2f} hf={hf_from_orig:.2f}")
 
-    # --- Frequency Separation (экономная, in-place) ---
-    # Radius: детали меньше fs_radius попадают в HF (поры, волоски).
-    fs_radius = max(3, min(h_full, w_full) // 250)
+    # --- ПРОСТОЙ АЛЬФА-BLEND ---
+    # Сервер уже сам делает: детекцию, LaMa, frequency separation, skin texture,
+    # restore volume, GFPGAN. Наша задача — применить его результат ТОЛЬКО
+    # на области кожи, а всё остальное (губы/глаза/брови/волосы/одежда/фон)
+    # оставить оригинальным.
+    #
+    # Адаптивная сила: тип кожи → коэффициент смешивания с оригиналом.
+    # Смесь = orig * (1 - m * alpha) + ret * (m * alpha)
+    # где m = маска кожи, alpha = сила под тип кожи.
 
-    # orig_lf через PIL (освобождает память после)
-    orig_lf = np.array(
-        orig_img.filter(ImageFilter.GaussianBlur(radius=fs_radius)), dtype=np.float32
-    )
-    # ret_lf — сразу считаем effective "ret_lf - orig_lf" как дельту, не храним оба.
-    ret_lf = np.array(
-        ret_img.filter(ImageFilter.GaussianBlur(radius=fs_radius)), dtype=np.float32
-    )
-    # delta_lf = (ret_lf - orig_lf) * lf_strength * mask
-    np.subtract(ret_lf, orig_lf, out=ret_lf)
-    np.multiply(ret_lf, lf_strength, out=ret_lf)
-    # Маска: расширяем до 3 каналов только через broadcasting (не копируем).
-    ret_lf *= mask_arr[..., None]
+    # Диагностика: насколько сервер отличается от оригинала на коже?
+    skin_diff = float(np.mean(np.abs(ret_arr[mask_bool] - orig_arr[mask_bool])))
+    print(f"[RETOUCH] Server diff in mask: {skin_diff:.1f} (0=no change, >5=strong)")
 
-    # out = orig (LF + HF уже есть) + delta_lf. HF оригинала сохраняется полностью.
-    # orig_arr уже = orig_lf + orig_hf, поэтому: out = orig_arr + delta_lf.
-    np.add(orig_arr, ret_lf, out=orig_arr)
-    del ret_lf, orig_lf, ret_arr
+    # Эффективная сила смешивания: lf_strength уже учитывает тип кожи.
+    alpha = lf_strength
 
-    # --- Лёгкий цветокор ТОЛЬКО внутри маски ---
-    warm = 0.03 * mask_arr  # половинная сила
-    orig_arr[..., 0] *= (1.0 + warm)
-    orig_arr[..., 2] *= (1.0 - warm)
-    del warm
+    # out = orig + (ret - orig) * mask * alpha (in-place)
+    effective_mask = mask_arr * alpha
+    np.subtract(ret_arr, orig_arr, out=ret_arr)
+    ret_arr *= effective_mask[..., None]
+    np.add(orig_arr, ret_arr, out=orig_arr)
+    del ret_arr, effective_mask
 
     np.clip(orig_arr, 0, 255, out=orig_arr)
     out_img = Image.fromarray(orig_arr.astype(np.uint8), 'RGB')
@@ -518,7 +513,7 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
 
     out_buf = io.BytesIO()
     out_img.save(out_buf, format='JPEG', quality=95)
-    print(f"[RETOUCH] Composed FS: coverage={coverage*100:.1f}% skin={skin_type}")
+    print(f"[RETOUCH] Composed: coverage={coverage*100:.1f}% skin={skin_type} alpha={alpha:.2f}")
     return out_buf.getvalue()
 
 
