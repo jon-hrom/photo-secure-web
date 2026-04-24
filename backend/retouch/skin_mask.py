@@ -511,6 +511,17 @@ def build_face_skin_mask(image_bytes):
     # ИИ-маска: точная, разделяет кожу/волосы/одежду/глаза.
     ai_mask = _call_ai_face_parse(image_bytes, mode="skin")
     if ai_mask is not None:
+        # Вычитаем "защищённые" зоны (губы/глаза/брови/волосы/одежда/очки) —
+        # расширенные с буфером, чтобы в композиции они остались оригинальными.
+        protect = _call_ai_face_parse(image_bytes, mode="protect")
+        if protect is not None:
+            h_arr, w_arr = ai_mask.shape
+            expand_r = max(3, int(min(h_arr, w_arr) * 0.004))
+            pp = Image.fromarray(protect, mode='L').filter(
+                ImageFilter.MaxFilter(min(expand_r * 2 + 1, 15))
+            )
+            protect_exp = np.array(pp)
+            ai_mask = np.where(protect_exp > 128, 0, ai_mask).astype(np.uint8)
         # Лёгкое сглаживание краёв, чтобы не было ступенек.
         m = Image.fromarray(ai_mask, mode='L').filter(ImageFilter.GaussianBlur(radius=1.5))
         ai_mask = np.where(np.array(m) > 128, 255, 0).astype(np.uint8)
@@ -561,7 +572,23 @@ def build_auto_mask(image_bytes):
     # ИИ-маска кожи: точная, минует одежду/волосы/глаза/губы.
     ai_face_skin = _call_ai_face_parse(image_bytes, mode="skin")
     if ai_face_skin is not None:
-        face_skin = ai_face_skin
+        # Получаем маску "не трогать" (губы, глаза, брови, волосы, одежда, очки)
+        # и эрозируем её слегка — чтобы на границах губ/бровей не оставался
+        # тонкий ободок, где DoG мог бы зацепить «дефект».
+        protect = _call_ai_face_parse(image_bytes, mode="protect")
+        if protect is not None:
+            # Небольшое расширение защищённых зон — буфер 3-6px на краях губ/бровей.
+            expand_r = max(3, int(min(h, w) * 0.004))
+            pp = Image.fromarray(protect, mode='L').filter(
+                ImageFilter.MaxFilter(min(expand_r * 2 + 1, 15))
+            )
+            protect = np.array(pp)
+            # Вычитаем защищённые зоны из маски кожи.
+            face_skin = np.where(protect > 128, 0, ai_face_skin).astype(np.uint8)
+            pct_protect = np.count_nonzero(protect) * 100 / (h * w)
+            print(f"[SKIN MASK] AI protect (subtracted): {pct_protect:.1f}%")
+        else:
+            face_skin = ai_face_skin
         pct_ai = np.count_nonzero(face_skin) * 100 / (h * w)
         print(f"[SKIN MASK] AI face skin: {pct_ai:.1f}%")
         if pct_ai < 1:
