@@ -409,50 +409,111 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         print("[RETOUCH] Empty mask after compose — keeping raw retouched")
         return retouched_bytes
 
-    # === Композиция по маске (без FS) ===
-    # Внутри маски: ПОЛНОСТЬЮ ретушь (и тон, и текстура от LaMa — прыщи уходят).
-    # Снаружи маски: ПОЛНОСТЬЮ оригинал (волосы/одежда/щетина нетронуты).
-    # Край маски мягкий (feather_r выше), чтобы переход был плавный.
-    mask_arr = mask_arr[..., None]
+    # === АДАПТИВНАЯ КОМПОЗИЦИЯ с Frequency Separation ===
+    # Идея: разделяем изображение на низкие частоты (тон, цвет, пятна)
+    # и высокие (поры, волоски, текстура). LaMa убирает прыщи на LF, но ломает HF.
+    # Поэтому берём LF от LaMa + HF от оригинала → чистая кожа С СОХРАНЁННОЙ ТЕКСТУРОЙ.
+    #
+    # Адаптивность: анализируем "возраст кожи" по текстурной активности:
+    # - молодая с акне → сильное LF-сглаживание, полная HF (чистая кожа с порами)
+    # - молодая чистая → слабое LF, полная HF (почти не трогаем)
+    # - зрелая/пожилая → очень слабое LF, полная HF (НЕ превращаем в молодого)
     coverage = float(mask_arr.mean())
+    if coverage < 0.01:
+        print("[RETOUCH] Empty mask — keeping raw retouched")
+        return retouched_bytes
 
     orig_arr = np.array(orig_img, dtype=np.float32)
     ret_arr = np.array(ret_img, dtype=np.float32)
 
-    # out = orig + (ret - orig) * mask (in-place для экономии памяти)
-    np.subtract(ret_arr, orig_arr, out=ret_arr)
-    np.multiply(ret_arr, mask_arr, out=ret_arr)
-    np.add(orig_arr, ret_arr, out=orig_arr)
-    del ret_arr, mask_arr
-    out_arr = orig_arr
+    # --- Детектор "возраста кожи" по текстуре на оригинале ---
+    # HF оригинала = orig - blur(orig). std(HF) внутри маски показывает активность текстуры.
+    mask_bool = mask_arr > 0.3
+    # Работаем на уменьшенной версии для скорости детектора.
+    det_side = 512
+    h_full, w_full = orig_arr.shape[:2]
+    scale = det_side / max(h_full, w_full)
+    if scale < 1:
+        det_w, det_h = int(w_full * scale), int(h_full * scale)
+        det_orig = np.array(orig_img.resize((det_w, det_h), Image.BILINEAR), dtype=np.float32)
+        det_mask = np.array(
+            Image.fromarray((mask_bool * 255).astype(np.uint8), 'L').resize((det_w, det_h), Image.BILINEAR)
+        ) > 128
+    else:
+        det_orig = orig_arr.copy()
+        det_mask = mask_bool
 
-    # --- Финальный цветокор на ВЕСЬ кадр (ПОСЛЕ ретуши) ---
-    # 1) Баланс белого к ~5200K: лёгкий +R, −B.
-    out_arr[..., 0] *= 1.04
-    out_arr[..., 2] *= 0.96
+    gray = np.mean(det_orig, axis=2)
+    blur_gray = np.array(
+        Image.fromarray(gray.clip(0, 255).astype(np.uint8), 'L').filter(ImageFilter.GaussianBlur(radius=4)),
+        dtype=np.float32,
+    )
+    hf = gray - blur_gray
+    skin_hf = hf[det_mask]
+    if skin_hf.size > 100:
+        hf_std = float(np.std(skin_hf))
+        # Плотность локальных "всплесков" (прыщи = большие отклонения).
+        blob_density = float(np.mean(np.abs(skin_hf) > 12)) * 100
+    else:
+        hf_std, blob_density = 6.0, 0.0
 
-    # 2) S-кривая контраста (+10%) вокруг 128 — даёт скин-тон, объём.
-    np.subtract(out_arr, 128.0, out=out_arr)
-    np.multiply(out_arr, 1.10, out=out_arr)
-    np.add(out_arr, 128.0, out=out_arr)
+    # Классификация по метрикам:
+    # hf_std < 5 — кожа гладкая (молодая чистая)
+    # hf_std 5-9 — нормальная
+    # hf_std > 9 — сильная текстура (акне ИЛИ морщины)
+    # blob_density > 3% + высокий hf_std → акне (локальные пятна)
+    # blob_density < 1% + высокий hf_std → морщины (равномерная текстура)
+    if hf_std < 5:
+        skin_type = "young_clean"
+        lf_strength = 0.35  # лёгкая коррекция тона
+        hf_from_orig = 1.0
+    elif blob_density > 2.5:
+        skin_type = "young_acne"
+        lf_strength = 0.90  # сильное сглаживание LF
+        hf_from_orig = 1.0  # полностью сохраняем поры
+    elif blob_density < 1.0 and hf_std > 7:
+        skin_type = "mature"
+        lf_strength = 0.25  # НЕ убираем морщины сильно
+        hf_from_orig = 1.0
+    else:
+        skin_type = "normal"
+        lf_strength = 0.60
+        hf_from_orig = 1.0
 
-    # 3) Микро-контраст через unsharp mask.
+    print(f"[RETOUCH] Skin: type={skin_type} hf_std={hf_std:.1f} blob={blob_density:.1f}% "
+          f"→ lf={lf_strength:.2f} hf={hf_from_orig:.2f}")
+
+    # --- Frequency Separation ---
+    # Radius зависит от размера: детали меньше чем blur_r попадают в HF (поры).
+    fs_radius = max(3, min(h_full, w_full) // 250)
+    orig_pil_lf = orig_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
+    ret_pil_lf = ret_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
+    orig_lf = np.array(orig_pil_lf, dtype=np.float32)
+    ret_lf = np.array(ret_pil_lf, dtype=np.float32)
+
+    # HF оригинала (поры, волоски, микротекстура).
+    orig_hf = orig_arr - orig_lf
+
+    # Итоговые LF = orig_lf + (ret_lf - orig_lf) * lf_strength * mask
+    mask_arr3 = mask_arr[..., None]
+    lf_blend = orig_lf + (ret_lf - orig_lf) * lf_strength * mask_arr3
+
+    # Итог = LF_blend + HF_orig * hf_from_orig (HF снаружи маски тоже сохраняем).
+    out_arr = lf_blend + orig_hf * hf_from_orig
+    del orig_lf, ret_lf, orig_hf, lf_blend, ret_arr
+
+    # --- Лёгкий цветокор ТОЛЬКО внутри маски (не трогаем глаза/губы/волосы) ---
+    # Тёплый баланс на коже, чтобы не выглядело желтушно везде.
+    warm_mask = mask_arr3 * 0.5  # половинная сила цветокора
+    out_arr[..., 0] = out_arr[..., 0] * (1 + 0.03 * warm_mask[..., 0])
+    out_arr[..., 2] = out_arr[..., 2] * (1 - 0.03 * warm_mask[..., 0])
+
     np.clip(out_arr, 0, 255, out=out_arr)
-    out_u8 = out_arr.astype(np.uint8)
-    del out_arr
-    out_img = Image.fromarray(out_u8, 'RGB')
-    blurred_u8 = np.array(out_img.filter(ImageFilter.GaussianBlur(radius=3)))
-    micro = out_u8.astype(np.int16) - blurred_u8.astype(np.int16)
-    del blurred_u8
-    boosted = out_u8.astype(np.int16) + (micro * 35 // 100)
-    del micro, out_u8
-    np.clip(boosted, 0, 255, out=boosted)
-    out_img = Image.fromarray(boosted.astype(np.uint8), 'RGB')
-    del boosted
+    out_img = Image.fromarray(out_arr.astype(np.uint8), 'RGB')
 
     out_buf = io.BytesIO()
     out_img.save(out_buf, format='JPEG', quality=95)
-    print(f"[RETOUCH] Composed (coverage={coverage * 100:.1f}%), then grade: warm+contrast+volume")
+    print(f"[RETOUCH] Composed FS: coverage={coverage*100:.1f}% skin={skin_type}")
     return out_buf.getvalue()
 
 
