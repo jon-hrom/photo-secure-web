@@ -13,10 +13,12 @@ def _detect_skin_color(img_arr):
     cr = (r - y) * 0.713 + 128
     cb = (b - y) * 0.564 + 128
 
+    # Расширенный диапазон: ловим тени на переносице, под глазами и
+    # нижнюю часть подбородка (более тёмные и менее насыщенные пиксели).
     skin = (
-        (y > 40) & (y < 245) &
-        (cr > 128) & (cr < 190) &
-        (cb > 77) & (cb < 140)
+        (y > 25) & (y < 250) &
+        (cr > 125) & (cr < 195) &
+        (cb > 72) & (cb < 145)
     )
 
     return skin.astype(np.uint8) * 255
@@ -152,11 +154,14 @@ def _exclude_non_skin(img_arr, mask):
     nz = maxc > 0
     sat[nz] = (maxc[nz] - minc[nz]) / maxc[nz]
 
-    # 1) Тёмные — волосы брюнет, тени, зрачки
-    mask[(brightness < 55) & (mask > 0)] = 0
+    # 1) Тёмные — волосы брюнет, зрачки. Порог понижен, чтобы тени на
+    # переносице и под глазами оставались в маске кожи.
+    mask[(brightness < 35) & (mask > 0)] = 0
 
-    # 2) Серо-белые зоны — одежда, фон, засветы без цвета (R≈G≈B)
-    neutral = (sat < 0.12) & (brightness > 120)
+    # 2) Серо-белые зоны — одежда, фон, засветы без цвета (R≈G≈B).
+    # Смягчили: sat<0.08 (вместо 0.12) — иначе кожа в тени (низкая sat)
+    # ошибочно вырезается.
+    neutral = (sat < 0.08) & (brightness > 140)
     mask[neutral & (mask > 0)] = 0
 
     # 3) Пересвет с низкой сатурацией — блики, одежда
@@ -409,14 +414,16 @@ def build_face_skin_mask(image_bytes):
     face_skin = _find_face_regions(skin_color)
     face_skin = _exclude_non_skin(img_arr, face_skin)
 
-    # Закрываем дыры (глаза, рот) внутри зоны кожи, чтобы внутри ретушировалось ровно.
-    # БЕЗ финального dilate — иначе маска залезает в волосы и чёлку и они размываются.
+    # Плотный closing (Max→Min с большим радиусом) заполняет дыры в тенях
+    # под глазами, на переносице и на подбородке — не вырезая волосы.
+    close_r = max(7, int(min(h, w) * 0.012))
     m = Image.fromarray(face_skin, mode='L')
-    m = m.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(5))
-    # Лёгкая эрозия по периметру, чтобы граница с волосами уходила вглубь кожи.
-    erode_px = max(2, int(min(h, w) * 0.004))
-    m = m.filter(ImageFilter.MinFilter(min(erode_px * 2 + 1, 7)))
+    m = m.filter(ImageFilter.MaxFilter(min(close_r * 2 + 1, 21)))
+    m = m.filter(ImageFilter.MinFilter(min(close_r * 2 + 1, 21)))
+    # Мягкое сглаживание границ.
+    m = m.filter(ImageFilter.GaussianBlur(radius=2))
     face_skin = np.array(m)
+    face_skin = np.where(face_skin > 96, 255, 0).astype(np.uint8)
 
     print(f"[SKIN MASK] Face skin: {np.count_nonzero(face_skin) * 100 / (h * w):.1f}%")
     return _mask_to_b64(face_skin)
