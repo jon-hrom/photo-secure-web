@@ -21,11 +21,27 @@ def _detect_skin_color(img_arr):
         (cb > 72) & (cb < 145)
     )
 
-    return skin.astype(np.uint8) * 255
+    # Блики на коже (белые/молочные пятна от света): очень яркие пиксели
+    # с низкой сатурацией, но при этом чуть «тёплые» (r≥b). Включаем их
+    # в маску кожи — иначе блик на щеке остаётся пробелом.
+    maxc = np.maximum(np.maximum(r, g), b)
+    minc = np.minimum(np.minimum(r, g), b)
+    sat = np.where(maxc > 0, (maxc - minc) / np.maximum(maxc, 1.0), 0.0)
+    highlight = (y > 210) & (sat < 0.15) & (r >= b - 5) & (r >= g - 10)
+
+    return (skin | highlight).astype(np.uint8) * 255
 
 
 def _find_face_regions(skin_mask):
     h, w = skin_mask.shape
+
+    # ПРЕДВАРИТЕЛЬНЫЙ closing: соединяем разорванные тенями половины лица
+    # (правая щека, висок, часть подбородка) с основным объёмом кожи.
+    pre_r = max(5, int(min(h, w) * 0.015))
+    pre_pil = Image.fromarray(skin_mask, mode='L')
+    pre_pil = pre_pil.filter(ImageFilter.MaxFilter(min(pre_r * 2 + 1, 21)))
+    pre_pil = pre_pil.filter(ImageFilter.MinFilter(min(pre_r, 11)))
+    skin_mask = np.array(pre_pil)
 
     step = max(1, min(h, w) // 300)
     small = skin_mask[::step, ::step]
@@ -164,8 +180,10 @@ def _exclude_non_skin(img_arr, mask):
     neutral = (sat < 0.08) & (brightness > 140)
     mask[neutral & (mask > 0)] = 0
 
-    # 3) Пересвет с низкой сатурацией — блики, одежда
-    mask[(sat < 0.08) & (brightness > 200) & (mask > 0)] = 0
+    # 3) Только ОЧЕНЬ пересвеченная одежда/фон — практически ахроматичная
+    # (R≈G≈B) + выше 230. Блики на коже (sat немного выше или яркость ниже)
+    # оставляем в маске, чтобы ретушь их сгладила.
+    mask[(sat < 0.04) & (brightness > 230) & (mask > 0)] = 0
 
     # 4) Волосы русые/светлые: высокая насыщенность + доминирующий жёлто-коричневый
     #    (R>G>B с большим разрывом). У кожи разрыв меньше.
