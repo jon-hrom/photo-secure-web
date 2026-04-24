@@ -554,9 +554,38 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     alpha = lf_strength
 
     # ЭКОНОМНАЯ КОМПОЗИЦИЯ: работаем в uint8 + int16 (в 2 раза меньше памяти чем float32).
-    # Формула: out = orig + (ret - orig) * (mask * alpha)
-    # m_u8 = (mask * alpha * 255) — компонент смешивания в uint8 (0..255)
+    # Формула: out = orig + (ret - orig) * (effective_alpha_per_pixel)
+    #
+    # Базовая маска: m_u8 = mask * alpha
     m_u8 = (mask_arr * alpha * 255.0).clip(0, 255).astype(np.uint8)
+
+    # Для mature лиц: запрашиваем маску НОСА и усиливаем alpha до 0.90 именно там.
+    # На носу особенно заметны возрастные пятна, а морщин на нём мало — можно чистить сильнее.
+    if skin_type in ("mature", "mature_textured"):
+        try:
+            # Импорт локально, чтобы не ломать если skin_mask недоступен
+            from skin_mask import _call_ai_face_parse
+            # Ресайзим исходное изображение чтобы ИИ-маска соответствовала текущему размеру orig_img
+            buf_nose = io.BytesIO()
+            orig_img.save(buf_nose, format='JPEG', quality=85)
+            nose_mask_np = _call_ai_face_parse(buf_nose.getvalue(), mode="nose")
+            if nose_mask_np is not None and nose_mask_np.size > 0:
+                # Маска носа в uint8 0/255. Сглаживаем края.
+                nose_pil = Image.fromarray(nose_mask_np, mode='L').filter(
+                    ImageFilter.GaussianBlur(radius=4)
+                )
+                nose_u8 = np.array(nose_pil)
+                # На носу ставим alpha=0.90 вместо lf_strength (0.60)
+                nose_alpha = int(0.90 * 255)
+                # m_u8 = max(m_u8, nose_mask * 0.90) — поднимаем alpha в зоне носа
+                nose_component = ((nose_u8.astype(np.float32) / 255.0) * nose_alpha).astype(np.uint8)
+                m_u8 = np.maximum(m_u8, nose_component)
+                nose_cov = float(np.count_nonzero(nose_u8 > 128)) * 100 / max(1, nose_u8.size)
+                print(f"[RETOUCH] Nose boost: coverage={nose_cov:.1f}% alpha_on_nose=0.90")
+                del nose_u8, nose_component, nose_mask_np
+        except Exception as e:
+            print(f"[RETOUCH] Nose boost failed (non-critical): {e}")
+
     del mask_arr, det_orig, det_mask  # освобождаем лишнее
 
     orig_u8 = np.array(orig_img, dtype=np.uint8)
