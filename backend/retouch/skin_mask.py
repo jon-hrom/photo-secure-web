@@ -290,16 +290,16 @@ def _detect_defects(img_arr, skin_mask):
     l_mean, l_std = _local_stats(gray, skin_mask, tile=64)
 
     # Тёмные точки: и по локальной, и по глобальной статистике (объединение)
-    dark_local = ((gray < l_mean - 1.3 * l_std) & (skin_mask > 0))
-    dark_global = ((gray < g_mean - 1.6 * g_std) & (skin_mask > 0))
+    dark_local = ((gray < l_mean - 1.0 * l_std) & (skin_mask > 0))
+    dark_global = ((gray < g_mean - 1.3 * g_std) & (skin_mask > 0))
     dark = (dark_local | dark_global).astype(np.uint8) * 255
 
     # Детали/текстура: локальный порог (в тенях шум ниже — отлавливаем всё равно)
     d_abs = np.abs(detail)
     l_det_mean, l_det_std = _local_stats(d_abs, skin_mask, tile=64)
-    texture_local = ((d_abs > l_det_mean + 1.2 * l_det_std) & (skin_mask > 0))
+    texture_local = ((d_abs > l_det_mean + 0.9 * l_det_std) & (skin_mask > 0))
     sd = d_abs[skin_mask > 0]
-    d_thr = max(5, np.percentile(sd, 90)) if len(sd) > 50 else 10
+    d_thr = max(4, np.percentile(sd, 85)) if len(sd) > 50 else 8
     texture_global = ((d_abs > d_thr) & (skin_mask > 0))
     texture = (texture_local | texture_global).astype(np.uint8) * 255
 
@@ -309,12 +309,12 @@ def _detect_defects(img_arr, skin_mask):
     b = img_arr[:, :, 2].astype(np.float32)
     redness = r - (g + b) / 2.0
     l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=64)
-    red_local = ((redness > l_red_mean + 1.2 * l_red_std) & (skin_mask > 0))
+    red_local = ((redness > l_red_mean + 0.9 * l_red_std) & (skin_mask > 0))
     sr = redness[skin_mask > 0]
     if len(sr) > 50:
         r_mean = np.mean(sr)
         r_std = max(3, np.std(sr))
-        red_global = ((redness > r_mean + 1.3 * r_std) & (skin_mask > 0))
+        red_global = ((redness > r_mean + 1.0 * r_std) & (skin_mask > 0))
     else:
         red_global = np.zeros_like(red_local)
     red = (red_local | red_global).astype(np.uint8) * 255
@@ -322,11 +322,9 @@ def _detect_defects(img_arr, skin_mask):
     defects = np.maximum(np.maximum(dark, texture), red)
     defects = np.minimum(defects, skin_mask)
 
-    # Морфология: закрываем дырки (closing), потом лёгкая эрозия чтобы
-    # не захватывать единичный шум, потом опять dilate.
+    # Морфология: только закрытие дыр (без эрозии — она съедала мелкие точки).
     defects_pil = Image.fromarray(defects, mode='L')
     defects_pil = defects_pil.filter(ImageFilter.MaxFilter(3))
-    defects_pil = defects_pil.filter(ImageFilter.MinFilter(3))
     defects = np.array(defects_pil)
 
     cnt = np.count_nonzero(defects)
@@ -400,7 +398,7 @@ def build_auto_mask(image_bytes):
 
     defects = _detect_defects(img_arr, face_skin)
 
-    dilate_px = max(6, int(min(h, w) * 0.012))
+    dilate_px = max(8, int(min(h, w) * 0.016))
     expanded = _dilate_mask(defects, dilate_px)
     expanded = np.minimum(expanded, face_skin)
 
