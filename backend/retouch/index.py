@@ -360,7 +360,19 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         print(f"[RETOUCH] Cannot open images for compose: {e}")
         return retouched_bytes
 
-    # Приводим результат к размеру оригинала (внешний API может отдать другой размер).
+    # ОГРАНИЧЕНИЕ ПАМЯТИ: Cloud Function имеет 256MB лимита.
+    # Фото >2500px по стороне не помещается (float32 * 3 канала * 3 копии = OOM).
+    # Ресайзим ДО композиции, это же разрешение отдаём наружу.
+    MAX_COMPOSE_SIDE = 2500
+    ow_orig, oh_orig = orig_img.size
+    if max(ow_orig, oh_orig) > MAX_COMPOSE_SIDE:
+        scale = MAX_COMPOSE_SIDE / max(ow_orig, oh_orig)
+        new_w = int(ow_orig * scale)
+        new_h = int(oh_orig * scale)
+        orig_img = orig_img.resize((new_w, new_h), Image.LANCZOS)
+        print(f"[RETOUCH] Downscaled {ow_orig}x{oh_orig} -> {new_w}x{new_h} для композиции (лимит памяти)")
+
+    # Приводим результат к размеру оригинала (после возможного ресайза).
     if ret_img.size != orig_img.size:
         ret_img = ret_img.resize(orig_img.size, Image.LANCZOS)
 
