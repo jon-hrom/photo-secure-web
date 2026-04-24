@@ -35,12 +35,14 @@ def _detect_skin_color(img_arr):
 def _find_face_regions(skin_mask):
     h, w = skin_mask.shape
 
-    # ПРЕДВАРИТЕЛЬНЫЙ closing: соединяем разорванные тенями половины лица
-    # (правая щека, висок, часть подбородка) с основным объёмом кожи.
-    pre_r = max(5, int(min(h, w) * 0.015))
+    # ПРЕДВАРИТЕЛЬНЫЙ closing: мягко склеиваем разорванные тенями половины лица.
+    # Радиус подобран так, чтобы маска не расползлась в чёлку/нос:
+    # Max чуть больше Min — результирующее расширение ~2–3px.
+    pre_r_max = max(4, int(min(h, w) * 0.008))
+    pre_r_min = max(3, int(min(h, w) * 0.006))
     pre_pil = Image.fromarray(skin_mask, mode='L')
-    pre_pil = pre_pil.filter(ImageFilter.MaxFilter(min(pre_r * 2 + 1, 21)))
-    pre_pil = pre_pil.filter(ImageFilter.MinFilter(min(pre_r, 11)))
+    pre_pil = pre_pil.filter(ImageFilter.MaxFilter(min(pre_r_max * 2 + 1, 13)))
+    pre_pil = pre_pil.filter(ImageFilter.MinFilter(min(pre_r_min * 2 + 1, 11)))
     skin_mask = np.array(pre_pil)
 
     step = max(1, min(h, w) // 300)
@@ -359,15 +361,15 @@ def _detect_defects(img_arr, skin_mask):
     texture = (texture_local | texture_global).astype(np.uint8) * 255
 
     # Красные пятна: сравниваем redness с ЛОКАЛЬНЫМ средним redness.
-    # Чуть снижены пороги — слабые пятна возле носа/глаза раньше пропадали.
+    # Пороги снижены — слабые прыщи у крыльев носа/у глаз иначе пропадают.
     redness = r - (g + b) / 2.0
-    l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=64)
-    red_local = ((redness > l_red_mean + 1.05 * l_red_std) & (skin_mask > 0))
+    l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=48)
+    red_local = ((redness > l_red_mean + 0.85 * l_red_std) & (skin_mask > 0))
     sr = redness[skin_mask > 0]
     if len(sr) > 50:
         r_mean = np.mean(sr)
         r_std = max(3, np.std(sr))
-        red_global = ((redness > r_mean + 1.15 * r_std) & (skin_mask > 0))
+        red_global = ((redness > r_mean + 0.95 * r_std) & (skin_mask > 0))
     else:
         red_global = np.zeros_like(red_local)
     red = (red_local | red_global).astype(np.uint8) * 255
@@ -432,12 +434,15 @@ def build_face_skin_mask(image_bytes):
     face_skin = _find_face_regions(skin_color)
     face_skin = _exclude_non_skin(img_arr, face_skin)
 
-    # Плотный closing (Max→Min с большим радиусом) заполняет дыры в тенях
-    # под глазами, на переносице и на подбородке — не вырезая волосы.
-    close_r = max(7, int(min(h, w) * 0.012))
+    # Closing: заполняем мелкие дыры (глаза, рот, тени под бровями),
+    # но с радиусом, который НЕ надувает маску в чёлку и нос.
+    close_r = max(4, int(min(h, w) * 0.007))
     m = Image.fromarray(face_skin, mode='L')
-    m = m.filter(ImageFilter.MaxFilter(min(close_r * 2 + 1, 21)))
-    m = m.filter(ImageFilter.MinFilter(min(close_r * 2 + 1, 21)))
+    m = m.filter(ImageFilter.MaxFilter(min(close_r * 2 + 1, 13)))
+    m = m.filter(ImageFilter.MinFilter(min(close_r * 2 + 1, 13)))
+    # Финальная лёгкая эрозия по периметру — убираем «заход» в чёлку/волосы.
+    erode_r = max(2, int(min(h, w) * 0.004))
+    m = m.filter(ImageFilter.MinFilter(min(erode_r * 2 + 1, 7)))
     # Мягкое сглаживание границ.
     m = m.filter(ImageFilter.GaussianBlur(radius=2))
     face_skin = np.array(m)
