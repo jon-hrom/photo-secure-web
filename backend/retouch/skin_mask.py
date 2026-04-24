@@ -164,8 +164,12 @@ def _exclude_non_skin(img_arr, mask):
 
     # 4) Волосы русые/светлые: высокая насыщенность + доминирующий жёлто-коричневый
     #    (R>G>B с большим разрывом). У кожи разрыв меньше.
-    yellow_hair = (r - b > 55) & (g - b > 30) & (brightness < 180) & (sat > 0.25)
+    yellow_hair = (r - b > 35) & (g - b > 18) & (brightness < 195) & (sat > 0.20)
     mask[yellow_hair & (mask > 0)] = 0
+
+    # 4b) Тёмно-русые/каштановые волосы: средняя яркость, тёплый коричневый
+    brown_hair = (r > g) & (g > b) & (r - b > 25) & (brightness < 140) & (sat > 0.18)
+    mask[brown_hair & (mask > 0)] = 0
 
     # 5) Холодные оттенки (синева) — не кожа
     bluish = (b > r) | (b > g + 15)
@@ -361,14 +365,13 @@ def build_face_skin_mask(image_bytes):
     face_skin = _find_face_regions(skin_color)
     face_skin = _exclude_non_skin(img_arr, face_skin)
 
-    # Небольшое расширение — чтобы ретушь покрыла тонкие границы кожи
-    # и края дефектов на стыке с волосами/бровями.
-    dilate_px = max(3, int(min(h, w) * 0.006))
-    m = Image.fromarray(face_skin, mode='L')
-    for _ in range(max(1, dilate_px // 2)):
-        m = m.filter(ImageFilter.MaxFilter(min(dilate_px * 2 + 1, 9)))
     # Закрываем дыры (глаза, рот) внутри зоны кожи, чтобы внутри ретушировалось ровно.
+    # БЕЗ финального dilate — иначе маска залезает в волосы и чёлку и они размываются.
+    m = Image.fromarray(face_skin, mode='L')
     m = m.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(5))
+    # Лёгкая эрозия по периметру, чтобы граница с волосами уходила вглубь кожи.
+    erode_px = max(2, int(min(h, w) * 0.004))
+    m = m.filter(ImageFilter.MinFilter(min(erode_px * 2 + 1, 7)))
     face_skin = np.array(m)
 
     print(f"[SKIN MASK] Face skin: {np.count_nonzero(face_skin) * 100 / (h * w):.1f}%")
