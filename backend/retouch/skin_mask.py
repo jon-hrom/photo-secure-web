@@ -569,41 +569,44 @@ def build_auto_mask(image_bytes):
     h, w = img_arr.shape[:2]
     print(f"[SKIN MASK] Image: {w}x{h}")
 
-    # ИИ-маска кожи: точная, минует одежду/волосы/глаза/губы.
+    # === ИИ-путь: быстро и точно. Возвращаем ЧИСТУЮ маску кожи без DoG. ===
     ai_face_skin = _call_ai_face_parse(image_bytes, mode="skin")
     if ai_face_skin is not None:
-        # Получаем маску "не трогать" (губы, глаза, брови, волосы, одежда, очки)
-        # и эрозируем её слегка — чтобы на границах губ/бровей не оставался
-        # тонкий ободок, где DoG мог бы зацепить «дефект».
+        # Вычитаем защищённые зоны (губы/глаза/брови/волосы/одежда/очки).
         protect = _call_ai_face_parse(image_bytes, mode="protect")
         if protect is not None:
-            # Небольшое расширение защищённых зон — буфер 3-6px на краях губ/бровей.
             expand_r = max(3, int(min(h, w) * 0.004))
             pp = Image.fromarray(protect, mode='L').filter(
                 ImageFilter.MaxFilter(min(expand_r * 2 + 1, 15))
             )
-            protect = np.array(pp)
-            # Вычитаем защищённые зоны из маски кожи.
-            face_skin = np.where(protect > 128, 0, ai_face_skin).astype(np.uint8)
-            pct_protect = np.count_nonzero(protect) * 100 / (h * w)
-            print(f"[SKIN MASK] AI protect (subtracted): {pct_protect:.1f}%")
+            protect_np = np.array(pp)
+            face_skin = np.where(protect_np > 128, 0, ai_face_skin).astype(np.uint8)
         else:
-            face_skin = ai_face_skin
+            face_skin = ai_face_skin.copy()
+
+        # Сглаживание границ: убираем лестницу от resize и ступеньки SegFormer'а.
+        feather_r = max(2, int(min(h, w) * 0.003))
+        sm = Image.fromarray(face_skin, mode='L').filter(
+            ImageFilter.GaussianBlur(radius=feather_r)
+        )
+        face_skin = np.where(np.array(sm) > 96, 255, 0).astype(np.uint8)
+
         pct_ai = np.count_nonzero(face_skin) * 100 / (h * w)
-        print(f"[SKIN MASK] AI face skin: {pct_ai:.1f}%")
+        print(f"[SKIN MASK] AI final skin mask: {pct_ai:.1f}%")
         if pct_ai < 1:
             print("[SKIN MASK] AI: no skin on image — empty mask")
             return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
-    else:
-        # Fallback: старая эвристика.
-        skin_color = _detect_skin_color(img_arr)
-        pct = np.count_nonzero(skin_color) * 100 / (h * w)
-        print(f"[SKIN MASK] Skin color (heuristic): {pct:.1f}%")
-        if pct < 1:
-            print("[SKIN MASK] No skin — empty mask")
-            return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
-        face_skin = _find_face_regions(skin_color)
-        face_skin = _exclude_non_skin(img_arr, face_skin)
+        return _mask_to_b64(face_skin)
+
+    # === Fallback: старая эвристика (DoG + find_face_regions). ===
+    skin_color = _detect_skin_color(img_arr)
+    pct = np.count_nonzero(skin_color) * 100 / (h * w)
+    print(f"[SKIN MASK] Skin color (heuristic): {pct:.1f}%")
+    if pct < 1:
+        print("[SKIN MASK] No skin — empty mask")
+        return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
+    face_skin = _find_face_regions(skin_color)
+    face_skin = _exclude_non_skin(img_arr, face_skin)
 
     defects = _detect_defects(img_arr, face_skin)
 
