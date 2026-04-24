@@ -1,20 +1,19 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import { useToast } from '@/hooks/use-toast';
 import {
-  OpConfig, Photo, DEFAULT_OPS,
-  opsFromPipeline, opsToJson,
+  Photo,
   buildPreviewFilter, getPhotoPreviewUrl,
 } from './retouchTypes';
 import BeforeAfterPreview from './BeforeAfterPreview';
 import PhotoPickerModal from './PhotoPickerModal';
-import AIToolsPanel, { AI_TOOLS } from './AIToolsPanel';
+import AIToolsPanel from './AIToolsPanel';
 import ManualSlidersPanel from './ManualSlidersPanel';
 import RetouchActionButtons from './RetouchActionButtons';
-
-const PRESETS_API = 'https://functions.poehali.dev/885fca99-51b3-4dd5-97da-cde77d340794';
-const RETOUCH_API = 'https://functions.poehali.dev/c95989eb-d7f0-4fac-b9c9-f8ab0fb61aff';
+import { useRetouchPreset } from './retouch/useRetouchPreset';
+import { useRetouchTesting } from './retouch/useRetouchTesting';
+import { useRetouchPlugins } from './retouch/useRetouchPlugins';
+import { useMaskPreview } from './retouch/useMaskPreview';
 
 interface RetouchSettingsProps {
   userId: string;
@@ -24,41 +23,36 @@ interface RetouchSettingsProps {
 }
 
 const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchSettingsProps) => {
-  const [ops, setOps] = useState<OpConfig[]>(DEFAULT_OPS);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [currentPreviewPhoto, setCurrentPreviewPhoto] = useState<Photo | null>(previewPhoto || null);
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [reorderMode, setReorderMode] = useState(false);
-  const [retouchedUrl, setRetouchedUrl] = useState<string | null>(null);
-  const [testingRetouch, setTestingRetouch] = useState(false);
-  const [autoMode, setAutoMode] = useState(false);
-  const [savedManualOps, setSavedManualOps] = useState<OpConfig[] | null>(null);
-  const [slidersExpanded, setSlidersExpanded] = useState(false);
   const [aiToolsExpanded, setAiToolsExpanded] = useState(true);
-  const [selectedPlugins, setSelectedPlugins] = useState<Set<string>>(new Set());
-  const [runningPlugins, setRunningPlugins] = useState(false);
-  const [pluginProgress, setPluginProgress] = useState('');
-  const [showMaskEditor, setShowMaskEditor] = useState(false);
-  const [brushSize, setBrushSize] = useState(20);
-  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const maskDrawing = useRef(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [showMaskPreview, setShowMaskPreview] = useState(false);
-  const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
-  const [maskPreviewLoading, setMaskPreviewLoading] = useState(false);
-  const maskPreviewCacheRef = useRef<Map<number, string>>(new Map());
-  const { toast } = useToast();
 
-  const moveOp = (fromIndex: number, direction: 'up' | 'down') => {
-    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-    if (toIndex < 0 || toIndex >= ops.length) return;
-    setOps(prev => {
-      const next = [...prev];
-      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
-      return next;
-    });
-  };
+  const plugins = useRetouchPlugins({
+    userId,
+    currentPreviewPhotoId: currentPreviewPhoto?.id,
+    setRetouchedUrl: (u) => testing.setRetouchedUrl(u),
+  });
+
+  const preset = useRetouchPreset({
+    userId,
+    onBack,
+    selectedPlugins: plugins.selectedPlugins,
+    setSelectedPlugins: plugins.setSelectedPlugins,
+    setRetouchedUrl: (u) => testing.setRetouchedUrl(u),
+  });
+
+  const testing = useRetouchTesting({
+    userId,
+    currentPreviewPhotoId: currentPreviewPhoto?.id,
+    autoMode: preset.autoMode,
+    ops: preset.ops,
+  });
+
+  const maskPreview = useMaskPreview({
+    userId,
+    currentPreviewPhotoId: currentPreviewPhoto?.id,
+  });
 
   useEffect(() => {
     if (previewPhoto && !currentPreviewPhoto) {
@@ -67,343 +61,14 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   }, [previewPhoto]);
 
   useEffect(() => {
-    loadPreset();
-  }, []);
-
-  useEffect(() => {
-    setRetouchedUrl(null);
-    setMaskPreviewUrl(null);
+    testing.setRetouchedUrl(null);
   }, [currentPreviewPhoto?.id]);
 
-  useEffect(() => {
-    if (!showMaskPreview || !currentPreviewPhoto?.id) {
-      setMaskPreviewUrl(null);
-      setMaskPreviewLoading(false);
-      return;
-    }
-    const photoId = currentPreviewPhoto.id;
-    const cached = maskPreviewCacheRef.current.get(photoId);
-    if (cached) {
-      setMaskPreviewUrl(cached);
-      return;
-    }
-    let cancelled = false;
-    setMaskPreviewLoading(true);
-    (async () => {
-      try {
-        const res = await fetch(
-          `${RETOUCH_API}?action=preview_mask&photo_id=${photoId}`,
-          { headers: { 'X-User-Id': userId } }
-        );
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || 'Не удалось построить маску');
-        }
-        const data = await res.json();
-        if (cancelled || !data.mask_b64) return;
-        const dataUrl = `data:image/png;base64,${data.mask_b64}`;
-        maskPreviewCacheRef.current.set(photoId, dataUrl);
-        setMaskPreviewUrl(dataUrl);
-      } catch (e) {
-        if (!cancelled) {
-          toast({
-            title: 'Не удалось показать маску',
-            description: e instanceof Error ? e.message : 'Ошибка',
-            variant: 'destructive',
-          });
-          setShowMaskPreview(false);
-        }
-      } finally {
-        if (!cancelled) setMaskPreviewLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [showMaskPreview, currentPreviewPhoto?.id, userId, toast]);
-
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
-  const loadPreset = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(PRESETS_API, {
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-      });
-      if (!res.ok) throw new Error('Не удалось загрузить');
-      const data = await res.json();
-      const defaultPreset = (data.presets || []).find((p: { is_default: boolean }) => p.is_default);
-      if (defaultPreset?.pipeline_json) {
-        const pipeline = typeof defaultPreset.pipeline_json === 'string'
-          ? JSON.parse(defaultPreset.pipeline_json)
-          : defaultPreset.pipeline_json;
-        if (Array.isArray(pipeline) && pipeline.length === 1 && pipeline[0]?.op === 'auto') {
-          setAutoMode(true);
-          setOps(prev => prev.map(o => ({ ...o, enabled: false })));
-          setSlidersExpanded(false);
-          const savedPlugins = pipeline[0]?.ai_plugins;
-          if (Array.isArray(savedPlugins) && savedPlugins.length > 0) {
-            setSelectedPlugins(new Set(savedPlugins));
-          }
-        } else {
-          setOps(opsFromPipeline(pipeline));
-          setSlidersExpanded(false);
-        }
-      }
-    } catch (e) {
-      console.error('[RETOUCH SETTINGS] Load failed:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleOp = (index: number) => {
-    setOps(prev => prev.map((o, i) => i === index ? { ...o, enabled: !o.enabled } : o));
-  };
-
-  const updateParam = (opIndex: number, paramKey: string, value: number) => {
-    setOps(prev => prev.map((o, i) =>
-      i === opIndex
-        ? { ...o, params: o.params.map(p => p.key === paramKey ? { ...p, value } : p) }
-        : o
-    ));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const aiPlugins = Array.from(selectedPlugins);
-      const pipeline = autoMode ? [{ op: 'auto', ai_plugins: aiPlugins }] : opsToJson(ops);
-      const res = await fetch(PRESETS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({ name: 'default', pipeline_json: pipeline, is_default: true }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Ошибка сохранения');
-      }
-      toast({ title: autoMode ? 'Автоматическая ретушь включена' : 'Настройки сохранены' });
-      onBack();
-    } catch (e: unknown) {
-      toast({
-        title: 'Ошибка',
-        description: e instanceof Error ? e.message : 'Не удалось сохранить',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleReset = () => {
-    setAutoMode(false);
-    setSavedManualOps(null);
-    setOps(DEFAULT_OPS);
-    setRetouchedUrl(null);
-  };
-
-  const toggleAutoMode = (enabled: boolean) => {
-    if (enabled) {
-      setSavedManualOps(ops);
-      setOps(prev => prev.map(o => ({ ...o, enabled: false })));
-      setSlidersExpanded(false);
-    } else {
-      if (savedManualOps) {
-        setOps(savedManualOps);
-        setSavedManualOps(null);
-      } else {
-        setOps(DEFAULT_OPS);
-      }
-      setSlidersExpanded(true);
-    }
-    setAutoMode(enabled);
-    setRetouchedUrl(null);
-  };
-
-  const pollTaskStatus = useCallback((taskId: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`${RETOUCH_API}?task_id=${taskId}`, {
-          headers: { 'X-User-Id': userId },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-
-        if (data.status === 'finished' && data.result_url) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          console.log('[RETOUCH] result_url:', data.result_url);
-          setRetouchedUrl(data.result_url);
-          setTestingRetouch(false);
-        } else if (data.status === 'failed' || data.status === 'error') {
-          if (pollRef.current) clearInterval(pollRef.current);
-          setTestingRetouch(false);
-          toast({
-            title: 'Ошибка превью',
-            description: data.error_message || 'Не удалось обработать фото',
-            variant: 'destructive',
-          });
-        }
-      } catch { /* polling error */ }
-    }, 2000);
-  }, [userId, toast]);
-
-  const handleTestRetouch = async () => {
-    if (!currentPreviewPhoto?.id) {
-      toast({ title: 'Выберите фото для превью', variant: 'destructive' });
-      return;
-    }
-
-    setTestingRetouch(true);
-    setRetouchedUrl(null);
-
-    try {
-      let presetToUse = 'preview';
-
-      if (autoMode) {
-        presetToUse = 'auto';
-      } else {
-        const pipeline = opsToJson(ops);
-        const saveRes = await fetch(PRESETS_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-          body: JSON.stringify({ name: 'preview', pipeline_json: pipeline, is_default: false }),
-        });
-        if (!saveRes.ok) throw new Error('Не удалось сохранить пресет');
-      }
-
-      const res = await fetch(RETOUCH_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({ photo_id: currentPreviewPhoto.id, preset: presetToUse }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Ошибка запуска ретуши');
-      }
-
-      const data = await res.json();
-      if (data.task_id) {
-        pollTaskStatus(data.task_id);
-      }
-    } catch (e: unknown) {
-      setTestingRetouch(false);
-      toast({
-        title: 'Ошибка',
-        description: e instanceof Error ? e.message : 'Не удалось запустить превью',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const togglePlugin = (key: string) => {
-    const tool = AI_TOOLS.find(t => t.key === key);
-    setSelectedPlugins(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-        if (key === 'inpaint') setShowMaskEditor(false);
-      } else {
-        next.add(key);
-        if ((tool as { requiresMask?: boolean })?.requiresMask) setShowMaskEditor(true);
-      }
-      return next;
-    });
-  };
-
-  const getMaskBase64 = (): string | null => {
-    const canvas = maskCanvasRef.current;
-    if (!canvas) return null;
-    const dataUrl = canvas.toDataURL('image/png');
-    return dataUrl.split(',')[1] || null;
-  };
-
-  const handleRunPlugins = async () => {
-    if (!currentPreviewPhoto?.id) {
-      toast({ title: 'Сначала выберите фото', variant: 'destructive' });
-      return;
-    }
-    if (selectedPlugins.size === 0) {
-      toast({ title: 'Выберите хотя бы один инструмент', variant: 'destructive' });
-      return;
-    }
-
-    const pluginOrder = AI_TOOLS.filter(t => selectedPlugins.has(t.key)).map(t => t.key);
-
-    let maskB64: string | null = null;
-    if (pluginOrder.includes('inpaint')) {
-      maskB64 = getMaskBase64();
-      if (!maskB64) {
-        toast({ title: 'Нарисуйте маску для точечной ретуши', variant: 'destructive' });
-        return;
-      }
-    }
-
-    setRunningPlugins(true);
-    setRetouchedUrl(null);
-    const labels = pluginOrder.map(k => AI_TOOLS.find(t => t.key === k)?.label).join(' → ');
-    setPluginProgress(`Обработка: ${labels}...`);
-
-    try {
-      const reqBody: Record<string, unknown> = {
-        action: 'plugin',
-        plugins: pluginOrder,
-        photo_id: currentPreviewPhoto.id,
-      };
-      if (maskB64) reqBody.mask = maskB64;
-
-      const res = await fetch(RETOUCH_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify(reqBody),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Ошибка обработки');
-      }
-
-      const data = await res.json();
-      if (data.result_url) {
-        setRetouchedUrl(data.result_url);
-        const applied = data.plugins_applied || pluginOrder;
-        const appliedLabels = applied.map((k: string) => AI_TOOLS.find(t => t.key === k)?.label).filter(Boolean).join(', ');
-        toast({ title: `Готово: ${appliedLabels}` });
-      }
-
-      if (data.steps) {
-        const failed = data.steps.filter((s: { success: boolean }) => !s.success);
-        if (failed.length > 0) {
-          const failedNames = failed.map((s: { plugin: string }) => AI_TOOLS.find(t => t.key === s.plugin)?.label).join(', ');
-          toast({
-            title: 'Некоторые инструменты не сработали',
-            description: failedNames,
-            variant: 'destructive',
-          });
-        }
-      }
-    } catch (e: unknown) {
-      toast({
-        title: 'Ошибка',
-        description: e instanceof Error ? e.message : 'Не удалось выполнить',
-        variant: 'destructive',
-      });
-    } finally {
-      setRunningPlugins(false);
-      setPluginProgress('');
-    }
-  };
-
-  const filterStr = useMemo(() => buildPreviewFilter(ops), [ops]);
+  const filterStr = useMemo(() => buildPreviewFilter(preset.ops), [preset.ops]);
 
   const previewSrc = currentPreviewPhoto ? getPhotoPreviewUrl(currentPreviewPhoto) : '';
 
-  if (loading) {
+  if (preset.loading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Icon name="Loader2" size={24} className="animate-spin text-muted-foreground" />
@@ -437,16 +102,16 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
             <BeforeAfterPreview
               src={previewSrc}
               filterStr={filterStr}
-              retouchedSrc={retouchedUrl || undefined}
-              maskOverlaySrc={showMaskPreview ? maskPreviewUrl : null}
-              maskLoading={showMaskPreview && maskPreviewLoading}
+              retouchedSrc={testing.retouchedUrl || undefined}
+              maskOverlaySrc={maskPreview.showMaskPreview ? maskPreview.maskPreviewUrl : null}
+              maskLoading={maskPreview.showMaskPreview && maskPreview.maskPreviewLoading}
             />
             {previewSrc && (
               <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-muted/30 cursor-pointer select-none hover:bg-muted/50 transition-colors">
                 <input
                   type="checkbox"
-                  checked={showMaskPreview}
-                  onChange={(e) => setShowMaskPreview(e.target.checked)}
+                  checked={maskPreview.showMaskPreview}
+                  onChange={(e) => maskPreview.setShowMaskPreview(e.target.checked)}
                   className="w-3.5 h-3.5 rounded border-border accent-red-500 cursor-pointer"
                 />
                 <Icon name="ScanFace" size={14} className="text-red-500" />
@@ -454,7 +119,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
                   Предпросмотр маски
                   <span className="text-muted-foreground ml-1">— где уберутся дефекты</span>
                 </span>
-                {showMaskPreview && maskPreviewLoading && (
+                {maskPreview.showMaskPreview && maskPreview.maskPreviewLoading && (
                   <Icon name="Loader2" size={12} className="animate-spin text-muted-foreground" />
                 )}
               </label>
@@ -466,40 +131,40 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
               <AIToolsPanel
                 aiToolsExpanded={aiToolsExpanded}
                 setAiToolsExpanded={setAiToolsExpanded}
-                selectedPlugins={selectedPlugins}
-                togglePlugin={togglePlugin}
-                showMaskEditor={showMaskEditor}
+                selectedPlugins={plugins.selectedPlugins}
+                togglePlugin={plugins.togglePlugin}
+                showMaskEditor={plugins.showMaskEditor}
                 previewSrc={previewSrc}
-                brushSize={brushSize}
-                setBrushSize={setBrushSize}
-                runningPlugins={runningPlugins}
-                pluginProgress={pluginProgress}
+                brushSize={plugins.brushSize}
+                setBrushSize={plugins.setBrushSize}
+                runningPlugins={plugins.runningPlugins}
+                pluginProgress={plugins.pluginProgress}
                 currentPreviewPhotoId={currentPreviewPhoto?.id}
-                onRunPlugins={handleRunPlugins}
-                maskCanvasRef={maskCanvasRef}
-                maskDrawing={maskDrawing}
+                onRunPlugins={plugins.handleRunPlugins}
+                maskCanvasRef={plugins.maskCanvasRef}
+                maskDrawing={plugins.maskDrawing}
               />
               <ManualSlidersPanel
-                autoMode={autoMode}
-                toggleAutoMode={toggleAutoMode}
-                ops={ops}
-                toggleOp={toggleOp}
-                updateParam={updateParam}
-                moveOp={moveOp}
+                autoMode={preset.autoMode}
+                toggleAutoMode={preset.toggleAutoMode}
+                ops={preset.ops}
+                toggleOp={preset.toggleOp}
+                updateParam={preset.updateParam}
+                moveOp={preset.moveOp}
                 reorderMode={reorderMode}
                 setReorderMode={setReorderMode}
-                slidersExpanded={slidersExpanded}
-                setSlidersExpanded={setSlidersExpanded}
+                slidersExpanded={preset.slidersExpanded}
+                setSlidersExpanded={preset.setSlidersExpanded}
               />
               <RetouchActionButtons
                 previewSrc={previewSrc}
-                testingRetouch={testingRetouch}
+                testingRetouch={testing.testingRetouch}
                 currentPreviewPhotoId={currentPreviewPhoto?.id}
-                autoMode={autoMode}
-                saving={saving}
-                onTestRetouch={handleTestRetouch}
-                onSave={handleSave}
-                onReset={handleReset}
+                autoMode={preset.autoMode}
+                saving={preset.saving}
+                onTestRetouch={testing.handleTestRetouch}
+                onSave={preset.handleSave}
+                onReset={preset.handleReset}
               />
             </div>
           </div>
