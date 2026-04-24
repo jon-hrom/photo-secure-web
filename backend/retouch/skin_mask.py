@@ -270,7 +270,7 @@ def _gaussian_blur_np(arr, radius):
     return out
 
 
-def _detect_defects(img_arr, skin_mask):
+def _detect_defects(img_arr, skin_mask, sensitivity=50):
     h, w = img_arr.shape[:2]
     gray = np.mean(img_arr.astype(np.float32), axis=2)
 
@@ -282,6 +282,12 @@ def _detect_defects(img_arr, skin_mask):
     if len(skin_px) < 50:
         return np.zeros((h, w), dtype=np.uint8)
 
+    # sensitivity 0..100: 50 = текущий баланс; <50 = жёстче (ловим только явные дефекты),
+    # >50 = мягче (захватываем даже слабые пятна). Переводим в линейный сдвиг порогов.
+    s = max(0, min(100, float(sensitivity)))
+    # k: -1.0 при s=0 (пороги выше на 1σ), 0 при s=50, +1.0 при s=100 (пороги ниже на 1σ)
+    k = (50.0 - s) / 50.0
+
     # Глобальные статы (страховка)
     g_mean = float(np.mean(skin_px))
     g_std = max(5.0, float(np.std(skin_px)))
@@ -290,16 +296,18 @@ def _detect_defects(img_arr, skin_mask):
     l_mean, l_std = _local_stats(gray, skin_mask, tile=64)
 
     # Тёмные точки: и по локальной, и по глобальной статистике (объединение)
-    dark_local = ((gray < l_mean - 1.0 * l_std) & (skin_mask > 0))
-    dark_global = ((gray < g_mean - 1.3 * g_std) & (skin_mask > 0))
+    dark_local = ((gray < l_mean - (1.0 + k) * l_std) & (skin_mask > 0))
+    dark_global = ((gray < g_mean - (1.3 + k) * g_std) & (skin_mask > 0))
     dark = (dark_local | dark_global).astype(np.uint8) * 255
 
     # Детали/текстура: локальный порог (в тенях шум ниже — отлавливаем всё равно)
     d_abs = np.abs(detail)
     l_det_mean, l_det_std = _local_stats(d_abs, skin_mask, tile=64)
-    texture_local = ((d_abs > l_det_mean + 0.9 * l_det_std) & (skin_mask > 0))
+    texture_local = ((d_abs > l_det_mean + (0.9 + k) * l_det_std) & (skin_mask > 0))
     sd = d_abs[skin_mask > 0]
-    d_thr = max(4, np.percentile(sd, 85)) if len(sd) > 50 else 8
+    # Перцентиль: при s=0 — 95%, s=50 — 85%, s=100 — 75%
+    perc = max(50, min(99, 85 + int(k * 10)))
+    d_thr = max(4, np.percentile(sd, perc)) if len(sd) > 50 else 8
     texture_global = ((d_abs > d_thr) & (skin_mask > 0))
     texture = (texture_local | texture_global).astype(np.uint8) * 255
 
@@ -309,12 +317,12 @@ def _detect_defects(img_arr, skin_mask):
     b = img_arr[:, :, 2].astype(np.float32)
     redness = r - (g + b) / 2.0
     l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=64)
-    red_local = ((redness > l_red_mean + 0.9 * l_red_std) & (skin_mask > 0))
+    red_local = ((redness > l_red_mean + (0.9 + k) * l_red_std) & (skin_mask > 0))
     sr = redness[skin_mask > 0]
     if len(sr) > 50:
         r_mean = np.mean(sr)
         r_std = max(3, np.std(sr))
-        red_global = ((redness > r_mean + 1.0 * r_std) & (skin_mask > 0))
+        red_global = ((redness > r_mean + (1.0 + k) * r_std) & (skin_mask > 0))
     else:
         red_global = np.zeros_like(red_local)
     red = (red_local | red_global).astype(np.uint8) * 255
@@ -328,7 +336,7 @@ def _detect_defects(img_arr, skin_mask):
     defects = np.array(defects_pil)
 
     cnt = np.count_nonzero(defects)
-    print(f"[SKIN MASK] Defects: {cnt}px, g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
+    print(f"[SKIN MASK] Defects: {cnt}px, sens={s:.0f} k={k:+.2f} g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
     return defects
 
 
@@ -376,14 +384,14 @@ def build_face_skin_mask(image_bytes):
     return _mask_to_b64(face_skin)
 
 
-def build_auto_mask(image_bytes):
+def build_auto_mask(image_bytes, sensitivity=50):
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode != 'RGB':
         img = img.convert('RGB')
 
     img_arr = np.array(img)
     h, w = img_arr.shape[:2]
-    print(f"[SKIN MASK] Image: {w}x{h}")
+    print(f"[SKIN MASK] Image: {w}x{h} sensitivity={sensitivity}")
 
     skin_color = _detect_skin_color(img_arr)
     pct = np.count_nonzero(skin_color) * 100 / (h * w)
@@ -396,7 +404,7 @@ def build_auto_mask(image_bytes):
     face_skin = _find_face_regions(skin_color)
     face_skin = _exclude_non_skin(img_arr, face_skin)
 
-    defects = _detect_defects(img_arr, face_skin)
+    defects = _detect_defects(img_arr, face_skin, sensitivity=sensitivity)
 
     dilate_px = max(8, int(min(h, w) * 0.016))
     expanded = _dilate_mask(defects, dilate_px)

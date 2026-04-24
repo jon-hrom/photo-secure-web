@@ -47,7 +47,9 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   const [showMaskPreview, setShowMaskPreview] = useState(false);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
   const [maskPreviewLoading, setMaskPreviewLoading] = useState(false);
-  const maskPreviewCacheRef = useRef<Map<number, string>>(new Map());
+  const [maskSensitivity, setMaskSensitivity] = useState(50);
+  const [debouncedMaskSensitivity, setDebouncedMaskSensitivity] = useState(50);
+  const maskPreviewCacheRef = useRef<Map<string, string>>(new Map());
   const { toast } = useToast();
 
   const moveOp = (fromIndex: number, direction: 'up' | 'down') => {
@@ -76,13 +78,19 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
   }, [currentPreviewPhoto?.id]);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedMaskSensitivity(maskSensitivity), 300);
+    return () => clearTimeout(t);
+  }, [maskSensitivity]);
+
+  useEffect(() => {
     if (!showMaskPreview || !currentPreviewPhoto?.id) {
       setMaskPreviewUrl(null);
       setMaskPreviewLoading(false);
       return;
     }
     const photoId = currentPreviewPhoto.id;
-    const cached = maskPreviewCacheRef.current.get(photoId);
+    const cacheKey = `${photoId}:${debouncedMaskSensitivity}`;
+    const cached = maskPreviewCacheRef.current.get(cacheKey);
     if (cached) {
       setMaskPreviewUrl(cached);
       return;
@@ -92,7 +100,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
     (async () => {
       try {
         const res = await fetch(
-          `${RETOUCH_API}?action=preview_mask&photo_id=${photoId}`,
+          `${RETOUCH_API}?action=preview_mask&photo_id=${photoId}&sensitivity=${debouncedMaskSensitivity}`,
           { headers: { 'X-User-Id': userId } }
         );
         if (!res.ok) {
@@ -102,7 +110,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
         const data = await res.json();
         if (cancelled || !data.mask_b64) return;
         const dataUrl = `data:image/png;base64,${data.mask_b64}`;
-        maskPreviewCacheRef.current.set(photoId, dataUrl);
+        maskPreviewCacheRef.current.set(cacheKey, dataUrl);
         setMaskPreviewUrl(dataUrl);
       } catch (e) {
         if (!cancelled) {
@@ -118,7 +126,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
       }
     })();
     return () => { cancelled = true; };
-  }, [showMaskPreview, currentPreviewPhoto?.id, userId, toast]);
+  }, [showMaskPreview, currentPreviewPhoto?.id, userId, debouncedMaskSensitivity, toast]);
 
   useEffect(() => {
     return () => {
@@ -442,22 +450,44 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
               maskLoading={showMaskPreview && maskPreviewLoading}
             />
             {previewSrc && (
-              <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-muted/30 cursor-pointer select-none hover:bg-muted/50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={showMaskPreview}
-                  onChange={(e) => setShowMaskPreview(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-border accent-red-500 cursor-pointer"
-                />
-                <Icon name="ScanFace" size={14} className="text-red-500" />
-                <span className="text-[11px] sm:text-xs flex-1">
-                  Предпросмотр маски
-                  <span className="text-muted-foreground ml-1">— где уберутся дефекты</span>
-                </span>
-                {showMaskPreview && maskPreviewLoading && (
-                  <Icon name="Loader2" size={12} className="animate-spin text-muted-foreground" />
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-muted/30 cursor-pointer select-none hover:bg-muted/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={showMaskPreview}
+                    onChange={(e) => setShowMaskPreview(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-border accent-red-500 cursor-pointer"
+                  />
+                  <Icon name="ScanFace" size={14} className="text-red-500" />
+                  <span className="text-[11px] sm:text-xs flex-1">
+                    Предпросмотр маски
+                    <span className="text-muted-foreground ml-1">— где уберутся дефекты</span>
+                  </span>
+                  {showMaskPreview && maskPreviewLoading && (
+                    <Icon name="Loader2" size={12} className="animate-spin text-muted-foreground" />
+                  )}
+                </label>
+                {showMaskPreview && (
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-muted/30">
+                    <Icon name="Gauge" size={14} className="text-red-500" />
+                    <span className="text-[11px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                      Чувствительность
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={maskSensitivity}
+                      onChange={(e) => setMaskSensitivity(Number(e.target.value))}
+                      className="flex-1 accent-red-500 cursor-pointer"
+                      title="Выше — ловим даже слабые пятна"
+                    />
+                    <span className="text-[11px] sm:text-xs tabular-nums w-9 text-right">
+                      {maskSensitivity}%
+                    </span>
+                  </div>
                 )}
-              </label>
+              </div>
             )}
           </div>
 
