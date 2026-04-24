@@ -565,16 +565,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def _handle_preview_mask(conn, user_id, params):
-    """GET ?action=preview_mask&photo_id=X[&sensitivity=0..100] — возвращает автоматическую маску дефектов для фото."""
+    """GET ?action=preview_mask&photo_id=X — возвращает автоматическую маску дефектов для фото."""
     photo_id = params.get('photo_id')
     if not photo_id:
         return _response(400, {'error': 'photo_id is required'})
-
-    try:
-        sensitivity = int(params.get('sensitivity', 50))
-    except (TypeError, ValueError):
-        sensitivity = 50
-    sensitivity = max(0, min(100, sensitivity))
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -605,7 +599,7 @@ def _handle_preview_mask(conn, user_id, params):
         img.save(buf, format='JPEG', quality=85)
         preview_bytes = buf.getvalue()
 
-        mask_b64 = build_auto_mask(preview_bytes, sensitivity=sensitivity)
+        mask_b64 = build_auto_mask(preview_bytes)
         return _response(200, {
             'mask_b64': mask_b64,
             'width': img.size[0],

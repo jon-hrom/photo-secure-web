@@ -48,9 +48,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const [maskLoading, setMaskLoading] = useState(false);
   const [maskOpacity, setMaskOpacity] = useState(60);
   const [maskOnly, setMaskOnly] = useState(false);
-  const [maskSensitivity, setMaskSensitivity] = useState(50);
-  const [debouncedSensitivity, setDebouncedSensitivity] = useState(50);
-  const maskCacheRef = useRef<Map<string, string>>(new Map());
+  const maskCacheRef = useRef<Map<number, string>>(new Map());
   const hasActiveWorkRef = useRef(false);
   const { toast } = useToast();
 
@@ -129,28 +127,23 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
   const selectedPhoto = photos.find(p => p.id === selectedPhotoId) || null;
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSensitivity(maskSensitivity), 300);
-    return () => clearTimeout(t);
-  }, [maskSensitivity]);
-
-  useEffect(() => {
     if (!showMask || !selectedPhotoId) {
       setMaskUrl(null);
       setMaskLoading(false);
       return;
     }
-    const cacheKey = `${selectedPhotoId}:${debouncedSensitivity}`;
-    const cached = maskCacheRef.current.get(cacheKey);
+    const cached = maskCacheRef.current.get(selectedPhotoId);
     if (cached) {
       setMaskUrl(cached);
       return;
     }
     let cancelled = false;
     setMaskLoading(true);
+    setMaskUrl(null);
     (async () => {
       try {
         const res = await fetch(
-          `${RETOUCH_API}?action=preview_mask&photo_id=${selectedPhotoId}&sensitivity=${debouncedSensitivity}`,
+          `${RETOUCH_API}?action=preview_mask&photo_id=${selectedPhotoId}`,
           { headers: { 'X-User-Id': userId } }
         );
         if (!res.ok) {
@@ -160,7 +153,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
         const data = await res.json();
         if (cancelled || !data.mask_b64) return;
         const dataUrl = `data:image/png;base64,${data.mask_b64}`;
-        maskCacheRef.current.set(cacheKey, dataUrl);
+        maskCacheRef.current.set(selectedPhotoId, dataUrl);
         setMaskUrl(dataUrl);
       } catch (e) {
         if (!cancelled) {
@@ -176,7 +169,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       }
     })();
     return () => { cancelled = true; };
-  }, [showMask, selectedPhotoId, userId, debouncedSensitivity, toast]);
+  }, [showMask, selectedPhotoId, userId, toast]);
 
   if (minimized) return null;
 
@@ -325,7 +318,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
             </div>
 
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2.5 flex items-center gap-3 sm:gap-4 text-white text-xs shadow-lg">
-              <div className="flex items-center gap-2 min-w-[140px] sm:min-w-[180px]">
+              <div className="flex items-center gap-2 min-w-[160px] sm:min-w-[220px]">
                 <Icon name="Droplet" size={14} className="opacity-80" />
                 <input
                   type="range"
@@ -336,22 +329,6 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
                   className="flex-1 accent-rose-500 cursor-pointer"
                 />
                 <span className="tabular-nums w-8 text-right">{maskOpacity}%</span>
-              </div>
-              <div className="w-px h-5 bg-white/20" />
-              <div
-                className="flex items-center gap-2 min-w-[140px] sm:min-w-[180px]"
-                title="Чувствительность детекции дефектов. Выше — ловим даже слабые пятна."
-              >
-                <Icon name="Gauge" size={14} className="opacity-80" />
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={maskSensitivity}
-                  onChange={(e) => setMaskSensitivity(Number(e.target.value))}
-                  className="flex-1 accent-rose-500 cursor-pointer"
-                />
-                <span className="tabular-nums w-8 text-right">{maskSensitivity}%</span>
               </div>
               <div className="w-px h-5 bg-white/20" />
               <button
@@ -367,7 +344,7 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
               <button
                 onClick={() => {
                   if (!selectedPhotoId) return;
-                  maskCacheRef.current.clear();
+                  maskCacheRef.current.delete(selectedPhotoId);
                   setMaskUrl(null);
                   setShowMask(false);
                   setTimeout(() => setShowMask(true), 50);

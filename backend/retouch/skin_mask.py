@@ -4,12 +4,245 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
-# =========================================================================
-# Общие утилиты
-# =========================================================================
+def _detect_skin_color(img_arr):
+    r = img_arr[:, :, 0].astype(np.float32)
+    g = img_arr[:, :, 1].astype(np.float32)
+    b = img_arr[:, :, 2].astype(np.float32)
+
+    y = 0.299 * r + 0.587 * g + 0.114 * b
+    cr = (r - y) * 0.713 + 128
+    cb = (b - y) * 0.564 + 128
+
+    skin = (
+        (y > 40) & (y < 245) &
+        (cr > 128) & (cr < 190) &
+        (cb > 77) & (cb < 140)
+    )
+
+    return skin.astype(np.uint8) * 255
+
+
+def _find_face_regions(skin_mask):
+    h, w = skin_mask.shape
+
+    step = max(1, min(h, w) // 300)
+    small = skin_mask[::step, ::step]
+    sh, sw = small.shape
+
+    labels = np.zeros((sh, sw), dtype=np.int32)
+    label_id = 0
+    label_sizes = {}
+
+    visited = set()
+    for y0 in range(0, sh, 4):
+        for x0 in range(0, sw, 4):
+            if small[y0, x0] > 0 and (y0, x0) not in visited:
+                label_id += 1
+                stack = [(y0, x0)]
+                count = 0
+                while stack:
+                    cy, cx = stack.pop()
+                    if (cy, cx) in visited:
+                        continue
+                    if cy < 0 or cy >= sh or cx < 0 or cx >= sw:
+                        continue
+                    if small[cy, cx] == 0:
+                        continue
+                    visited.add((cy, cx))
+                    labels[cy, cx] = label_id
+                    count += 1
+                    if count > 200000:
+                        break
+                    for dy, dx in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+                        ny, nx = cy + dy, cx + dx
+                        if 0 <= ny < sh and 0 <= nx < sw and (ny, nx) not in visited and small[ny, nx] > 0:
+                            stack.append((ny, nx))
+                label_sizes[label_id] = count
+
+    if not label_sizes:
+        return skin_mask
+
+    # Берём ТОЛЬКО самый большой connected-компонент. Если одежда+кожа
+    # связаны через шею, это тоже один компонент, но дальше ограничим bbox'ом.
+    biggest = max(label_sizes, key=label_sizes.get)
+    face_labels = [biggest]
+
+    face_small = np.zeros((sh, sw), dtype=np.uint8)
+    for lid in face_labels:
+        face_small[labels == lid] = 255
+
+    if step > 1:
+        face_pil = Image.fromarray(face_small, mode='L').resize((w, h), Image.NEAREST)
+        face_small_up = np.array(face_pil)
+    else:
+        face_small_up = face_small
+
+    # Заполняем дыры (тени под подбородком, глаза, рот) через closing.
+    face_closed_pil = Image.fromarray(face_small_up, mode='L').filter(
+        ImageFilter.MaxFilter(9)
+    ).filter(ImageFilter.MinFilter(5))
+    blur_r = max(3, min(h, w) // 200)
+    face_closed_pil = face_closed_pil.filter(ImageFilter.GaussianBlur(radius=blur_r))
+    face_closed = np.array(face_closed_pil)
+    face_closed = np.where(face_closed > 64, 255, 0).astype(np.uint8)
+
+    # ГЕОГРАФИЧЕСКОЕ ОГРАНИЧЕНИЕ: находим bbox ЛИЦА по плотности skin-пикселей
+    # в горизонтальных полосах. Лицо — это полоса с максимальной концентрацией
+    # кожи; одежда ниже неё — широкая зона с пробелами.
+    col_density = np.sum(face_closed > 0, axis=1) / max(1, w)
+    # Лицо: горизонтальные ряды с плотностью кожи 20–80% ширины кадра.
+    face_rows = np.where((col_density > 0.10) & (col_density < 0.85))[0]
+    if len(face_rows) > 10:
+        top = int(face_rows[0])
+        # Нижняя граница лица — последний ряд с приличной плотностью, но не "одежда".
+        # Одежда обычно даёт плотность >0.5 сплошняком на большой высоте.
+        # Ищем "провал" после лица: резкое увеличение плотности (воротник)
+        # или сужение после широкой части (шея→плечи).
+        peak_row = int(face_rows[np.argmax(col_density[face_rows])])
+        peak_density = float(col_density[peak_row])
+        # Нижний край: после пика плотность падает (подбородок→шея), потом снова
+        # растёт (одежда). Находим первый локальный минимум после пика.
+        bottom = h
+        for y in range(peak_row + 10, h - 5):
+            # Зона шеи: плотность снизилась относительно пика.
+            if col_density[y] < peak_density * 0.35:
+                # Дальше ищем рост (начало одежды) — это и есть граница.
+                for y2 in range(y, min(h, y + int(h * 0.15))):
+                    if col_density[y2] > peak_density * 0.7:
+                        bottom = y
+                        break
+                if bottom != h:
+                    break
+        # Если не нашли — ограничим 90% от высоты кадра, минус зона явной одежды.
+        if bottom == h:
+            bottom = min(h, peak_row + int((peak_row - top) * 1.3))
+
+        # Горизонтально — bbox головы с запасом 5%.
+        col_sums = np.sum(face_closed[top:bottom] > 0, axis=0)
+        col_nz = np.where(col_sums > 0)[0]
+        if len(col_nz) > 0:
+            left = max(0, int(col_nz[0]) - int(w * 0.02))
+            right = min(w, int(col_nz[-1]) + int(w * 0.02))
+        else:
+            left, right = 0, w
+
+        bbox_mask = np.zeros_like(face_closed)
+        bbox_mask[top:bottom, left:right] = 255
+        face_closed = np.minimum(face_closed, bbox_mask)
+        print(f"[SKIN MASK] Face bbox: y=[{top},{bottom}] x=[{left},{right}], peak_row={peak_row}")
+
+    # Финальная маска: реальные skin-пиксели внутри bbox головы.
+    result = np.minimum(skin_mask, face_closed)
+    print(f"[SKIN MASK] Face regions: {len(face_labels)}, {np.count_nonzero(result)*100/(h*w):.1f}%")
+    return result
+
+
+def _exclude_non_skin(img_arr, mask):
+    """Вычищаем из маски всё, что заведомо НЕ кожа.
+    ВАЖНО: прыщи (красноватые пятна) НЕ отсекаем — они нужны для ретуши.
+    """
+    r = img_arr[:, :, 0].astype(np.float32)
+    g = img_arr[:, :, 1].astype(np.float32)
+    b = img_arr[:, :, 2].astype(np.float32)
+
+    brightness = (r + g + b) / 3.0
+    maxc = np.maximum(np.maximum(r, g), b)
+    minc = np.minimum(np.minimum(r, g), b)
+    sat = np.zeros_like(brightness)
+    nz = maxc > 0
+    sat[nz] = (maxc[nz] - minc[nz]) / maxc[nz]
+
+    # 1) Тёмные — волосы брюнет, тени, зрачки
+    mask[(brightness < 55) & (mask > 0)] = 0
+
+    # 2) Серо-белые зоны — одежда, фон, засветы без цвета (R≈G≈B)
+    neutral = (sat < 0.12) & (brightness > 120)
+    mask[neutral & (mask > 0)] = 0
+
+    # 3) Пересвет с низкой сатурацией — блики, одежда
+    mask[(sat < 0.08) & (brightness > 200) & (mask > 0)] = 0
+
+    # 4) Волосы русые/светлые: высокая насыщенность + доминирующий жёлто-коричневый
+    #    (R>G>B с большим разрывом). У кожи разрыв меньше.
+    yellow_hair = (r - b > 55) & (g - b > 30) & (brightness < 180) & (sat > 0.25)
+    mask[yellow_hair & (mask > 0)] = 0
+
+    # 5) Холодные оттенки (синева) — не кожа
+    bluish = (b > r) | (b > g + 15)
+    mask[bluish & (mask > 0)] = 0
+
+    # 6) Зелёные оттенки — не кожа
+    greenish = (g > r + 10) & (g > b + 15)
+    mask[greenish & (mask > 0)] = 0
+
+    return mask
+
+
+def _local_stats(values, skin_mask, tile=64):
+    """Локальное среднее/std по тайлам с ПЕРЕКРЫТИЕМ, затем апсемпл +
+    сильное гауссово сглаживание. Так граница между тайлами перестаёт
+    проявляться в маске как резкая "ступенька" на лице.
+    """
+    h, w = values.shape
+    # Перекрывающиеся тайлы: шаг = tile/2, окно = tile.
+    step = max(16, tile // 2)
+    ty = max(1, (h + step - 1) // step)
+    tx = max(1, (w + step - 1) // step)
+
+    means = np.zeros((ty, tx), dtype=np.float32)
+    stds = np.zeros((ty, tx), dtype=np.float32)
+
+    for i in range(ty):
+        for j in range(tx):
+            cy = i * step
+            cx = j * step
+            y1 = max(0, cy - tile // 2)
+            y2 = min(h, cy + tile // 2 + step)
+            x1 = max(0, cx - tile // 2)
+            x2 = min(w, cx + tile // 2 + step)
+            block_vals = values[y1:y2, x1:x2]
+            block_mask = skin_mask[y1:y2, x1:x2] > 0
+            if np.count_nonzero(block_mask) > 30:
+                v = block_vals[block_mask]
+                means[i, j] = np.mean(v)
+                stds[i, j] = max(5, np.std(v))
+            else:
+                means[i, j] = np.nan
+                stds[i, j] = np.nan
+
+    # Итеративно заполним NaN соседями — избегаем «дырок» там, где
+    # тайл пустой (вне маски лица), чтобы после blur не было тёмных пятен.
+    valid = ~np.isnan(means)
+    if np.any(valid):
+        g_mean_fill = float(np.mean(means[valid]))
+        g_std_fill = float(np.mean(stds[valid]))
+    else:
+        g_mean_fill = float(np.mean(values))
+        g_std_fill = max(5.0, float(np.std(values)))
+    means[~valid] = g_mean_fill
+    stds[~valid] = g_std_fill
+
+    # Апсемпл: через uint16 mode 'I;16' — гарантированно работает в PIL.
+    # Масштаб ×100 сохраняет 2 знака точности (значения статистики 0..255).
+    def _upsample(arr_small, out_w, out_h):
+        arr16 = np.clip(arr_small * 100.0, 0, 65535).astype(np.uint16)
+        img = Image.fromarray(arr16, mode='I;16').resize((out_w, out_h), Image.BILINEAR)
+        return np.array(img, dtype=np.float32) / 100.0
+
+    mean_img = _upsample(means, w, h)
+    std_img = _upsample(stds, w, h)
+
+    # Сглаживание через собственную separable-гауссову свёртку numpy —
+    # избегаем проблем с режимом 'F' в PIL и гарантированно убираем
+    # "ступеньки" на границах тайлов.
+    smooth_r = max(16, tile // 2)
+    mean_img = _gaussian_blur_np(mean_img, smooth_r)
+    std_img = _gaussian_blur_np(std_img, smooth_r)
+    return mean_img, std_img
+
 
 def _gaussian_blur_np(arr, radius):
-    """Быстрый сепарабельный гауссов блюр на numpy."""
+    """Быстрый сепарабельный гауссов блюр на numpy (без SciPy)."""
     if radius <= 0:
         return arr.astype(np.float32)
     sigma = float(radius) / 2.0
@@ -17,12 +250,15 @@ def _gaussian_blur_np(arr, radius):
     x = np.arange(k, dtype=np.float32) - (k - 1) / 2.0
     kernel = np.exp(-(x * x) / (2.0 * sigma * sigma))
     kernel /= kernel.sum()
+    # Конволюция по строкам, потом по столбцам.
     pad = (k - 1) // 2
     a = arr.astype(np.float32)
+    # По оси X
     ap = np.pad(a, ((0, 0), (pad, pad)), mode='edge')
     tmp = np.zeros_like(a)
     for i, w in enumerate(kernel):
         tmp += ap[:, i:i + a.shape[1]] * w
+    # По оси Y
     ap2 = np.pad(tmp, ((pad, pad), (0, 0)), mode='edge')
     out = np.zeros_like(a)
     for i, w in enumerate(kernel):
@@ -30,355 +266,67 @@ def _gaussian_blur_np(arr, radius):
     return out
 
 
-def _integral(arr):
-    """Интегральное изображение для быстрых сумм по прямоугольникам."""
-    a = arr.astype(np.float64)
-    return np.pad(np.cumsum(np.cumsum(a, axis=0), axis=1), ((1, 0), (1, 0)), mode='constant')
-
-
-def _box_mean_std(values, mask, radius):
-    """Локальные mean/std по квадратному окну радиуса `radius`,
-    усреднение только по пикселям, где mask>0. Результат — полноразмерный
-    float-массив БЕЗ блочных артефактов (окно скользит попиксельно).
-    """
-    h, w = values.shape
-    m = (mask > 0).astype(np.float64)
-    vals = values.astype(np.float64) * m
-    vals2 = (values.astype(np.float64) ** 2) * m
-
-    I_m = _integral(m)
-    I_v = _integral(vals)
-    I_v2 = _integral(vals2)
-
-    r = int(max(1, radius))
-    y1 = np.clip(np.arange(h)[:, None] - r, 0, h)
-    y2 = np.clip(np.arange(h)[:, None] + r + 1, 0, h)
-    x1 = np.clip(np.arange(w)[None, :] - r, 0, w)
-    x2 = np.clip(np.arange(w)[None, :] + r + 1, 0, w)
-
-    def _rect(I):
-        return I[y2, x2] - I[y1, x2] - I[y2, x1] + I[y1, x1]
-
-    cnt = _rect(I_m)
-    sv = _rect(I_v)
-    sv2 = _rect(I_v2)
-
-    cnt_safe = np.maximum(cnt, 1.0)
-    mean = sv / cnt_safe
-    var = np.maximum(0.0, sv2 / cnt_safe - mean * mean)
-    std = np.sqrt(var)
-
-    # Там, где в окне нет маски — возвращаем глобальные.
-    g_vals = values[mask > 0]
-    if g_vals.size > 50:
-        g_mean = float(np.mean(g_vals))
-        g_std = max(3.0, float(np.std(g_vals)))
-    else:
-        g_mean = float(np.mean(values))
-        g_std = max(3.0, float(np.std(values)))
-    empty = cnt < 8
-    mean[empty] = g_mean
-    std[empty] = g_std
-    std = np.maximum(std, 3.0)
-    return mean.astype(np.float32), std.astype(np.float32)
-
-
-# =========================================================================
-# Цветовая детекция кожи (мягкая вероятность)
-# =========================================================================
-
-def _skin_probability(img_arr):
-    """Возвращает float32 карту [0..1] — вероятность, что пиксель является кожей.
-    Комбинируем YCbCr + HSV-гейт + «тёплость» + отсев серости.
-    """
-    r = img_arr[:, :, 0].astype(np.float32)
-    g = img_arr[:, :, 1].astype(np.float32)
-    b = img_arr[:, :, 2].astype(np.float32)
-
-    y = 0.299 * r + 0.587 * g + 0.114 * b
-    cr = (r - y) * 0.713 + 128.0
-    cb = (b - y) * 0.564 + 128.0
-
-    # Гауссов центр кожи в CbCr (классические значения).
-    dcb = cb - 110.0
-    dcr = cr - 152.0
-    p_ycbcr = np.exp(-(dcb * dcb / (2 * 14.0 ** 2) + dcr * dcr / (2 * 10.0 ** 2)))
-
-    maxc = np.maximum(np.maximum(r, g), b)
-    minc = np.minimum(np.minimum(r, g), b)
-    sat = np.where(maxc > 0, (maxc - minc) / np.maximum(maxc, 1.0), 0.0)
-
-    # Яркость в рабочем диапазоне кожи.
-    p_y = np.clip((y - 35.0) / 20.0, 0.0, 1.0) * np.clip((245.0 - y) / 20.0, 0.0, 1.0)
-
-    # Тёплость: R > B, G между ними — типично для кожи всех тонов.
-    warm = np.clip((r - b + 5.0) / 40.0, 0.0, 1.0)
-
-    # Штраф за «холодные» и «зелёные» тона.
-    cold = np.clip((b - r) / 20.0, 0.0, 1.0) + np.clip((b - g - 10.0) / 20.0, 0.0, 1.0)
-    green = np.clip((g - r - 8.0) / 20.0, 0.0, 1.0) * np.clip((g - b - 8.0) / 20.0, 0.0, 1.0)
-    penalty = np.clip(cold + green, 0.0, 1.0)
-
-    # Слишком серые/бесцветные пиксели (одежда, фон) — не кожа.
-    p_sat = np.clip((sat - 0.05) / 0.15, 0.0, 1.0)
-
-    prob = p_ycbcr * p_y * (0.4 + 0.6 * warm) * p_sat * (1.0 - 0.9 * penalty)
-    return np.clip(prob, 0.0, 1.0).astype(np.float32)
-
-
-# =========================================================================
-# Поиск региона лица — крупнейшая связная область по порогу вероятности
-# =========================================================================
-
-def _largest_component(binary):
-    """Возвращает бинарную маску крупнейшей связной компоненты (4-соседство)."""
-    h, w = binary.shape
-    b = (binary > 0).astype(np.uint8)
-    if b.sum() == 0:
-        return b
-    labels = -np.ones((h, w), dtype=np.int32)
-    sizes = []
-    cur = 0
-    # Итеративный flood-fill на numpy-стеке.
-    ys, xs = np.where(b > 0)
-    visited = np.zeros((h, w), dtype=bool)
-    for idx in range(len(ys)):
-        sy, sx = int(ys[idx]), int(xs[idx])
-        if visited[sy, sx]:
-            continue
-        stack = [(sy, sx)]
-        count = 0
-        while stack:
-            cy, cx = stack.pop()
-            if cy < 0 or cy >= h or cx < 0 or cx >= w:
-                continue
-            if visited[cy, cx] or b[cy, cx] == 0:
-                continue
-            visited[cy, cx] = True
-            labels[cy, cx] = cur
-            count += 1
-            stack.append((cy + 1, cx))
-            stack.append((cy - 1, cx))
-            stack.append((cy, cx + 1))
-            stack.append((cy, cx - 1))
-        sizes.append(count)
-        cur += 1
-    if not sizes:
-        return b
-    biggest = int(np.argmax(sizes))
-    return (labels == biggest).astype(np.uint8)
-
-
-def _face_bbox_from_prob(prob, thresh=0.35):
-    """Находит bbox лица по вероятностной карте кожи."""
-    h, w = prob.shape
-    # Работаем на уменьшенной копии — быстрее и устойчивее.
-    scale = max(1, min(h, w) // 220)
-    if scale > 1:
-        small = prob[::scale, ::scale]
-    else:
-        small = prob
-    sh, sw = small.shape
-
-    binary = (small > thresh).astype(np.uint8)
-    # Лёгкое морфо-закрытие, чтобы глаза/рот не дробили область.
-    pil = Image.fromarray((binary * 255).astype(np.uint8), mode='L')
-    pil = pil.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(3))
-    binary = (np.array(pil) > 0).astype(np.uint8)
-
-    comp = _largest_component(binary)
-    if comp.sum() < 50:
-        return 0, h, 0, w
-
-    ys, xs = np.where(comp > 0)
-    top = int(ys.min()) * scale
-    bottom = int(ys.max()) * scale
-    left = int(xs.min()) * scale
-    right = int(xs.max()) * scale
-
-    # Ограничиваем bbox «лицом + шеей»: отбрасываем всё, что ниже 1.3 высоты от top,
-    # если кадр включает плечи/одежду.
-    face_h = bottom - top
-    face_w = right - left
-    if face_h > 0:
-        # Обрезаем низ мягче: до 1.15 высоты лица от верха (голова+шея).
-        max_bottom = top + int(face_h * 1.05)
-        bottom = min(bottom, max_bottom, h)
-
-    # Немного расширяем в стороны, чтобы не обрезать виски.
-    pad_x = int(face_w * 0.04)
-    left = max(0, left - pad_x)
-    right = min(w, right + pad_x)
-    pad_top = int(face_h * 0.02)
-    top = max(0, top - pad_top)
-
-    return top, bottom, left, right
-
-
-# =========================================================================
-# Исключение не-кожи: глаза, брови, губы, волосы, одежда
-# =========================================================================
-
-def _exclude_features(img_arr, skin_prob, bbox):
-    """Уменьшает вероятность для явно не-кожи зон: тёмные провалы глаз/бровей,
-    красные губы, тёмные волосы. Всё на вероятностной основе (без резких порогов).
-    """
-    top, bottom, left, right = bbox
-    h, w = skin_prob.shape
-    r = img_arr[:, :, 0].astype(np.float32)
-    g = img_arr[:, :, 1].astype(np.float32)
-    b = img_arr[:, :, 2].astype(np.float32)
-    y = 0.299 * r + 0.587 * g + 0.114 * b
-    maxc = np.maximum(np.maximum(r, g), b)
-    minc = np.minimum(np.minimum(r, g), b)
-    sat = np.where(maxc > 0, (maxc - minc) / np.maximum(maxc, 1.0), 0.0)
-
-    prob = skin_prob.copy()
-
-    # 1) Тёмные пиксели — волосы, зрачки, брови, ресницы, тени.
-    dark = np.clip((70.0 - y) / 35.0, 0.0, 1.0)
-    prob *= (1.0 - 0.95 * dark)
-
-    # 2) Насыщенные тёмно-цветные — радужка глаз.
-    iris = np.clip((100.0 - y) / 40.0, 0.0, 1.0) * np.clip((sat - 0.30) / 0.25, 0.0, 1.0)
-    prob *= (1.0 - 0.95 * iris)
-
-    # 3) Белки глаз — очень высокая яркость, низкая сатурация, внутри bbox.
-    sclera = np.clip((y - 200.0) / 30.0, 0.0, 1.0) * np.clip((0.12 - sat) / 0.12, 0.0, 1.0)
-    prob *= (1.0 - 0.9 * sclera)
-
-    # 4) Губы — насыщенный красный (r−b велик, r−g заметен).
-    rg = r - g
-    rb = r - b
-    lips = np.clip((rb - 30.0) / 30.0, 0.0, 1.0) * np.clip((rg - 15.0) / 25.0, 0.0, 1.0) \
-           * np.clip((sat - 0.22) / 0.25, 0.0, 1.0) * np.clip((180.0 - y) / 40.0, 0.0, 1.0)
-    prob *= (1.0 - 0.85 * lips)
-
-    # 5) Серо-белые пиксели (одежда, фон): низкая sat + не тёмные.
-    neutral = np.clip((0.10 - sat) / 0.10, 0.0, 1.0) * np.clip((y - 110.0) / 50.0, 0.0, 1.0)
-    prob *= (1.0 - 0.9 * neutral)
-
-    # 6) Жёлто-коричневые волосы (r>g>b с большим разрывом и средней яркостью).
-    hair = np.clip((rb - 30.0) / 30.0, 0.0, 1.0) * np.clip((g - b - 12.0) / 20.0, 0.0, 1.0) \
-           * np.clip((160.0 - y) / 70.0, 0.0, 1.0) * np.clip((sat - 0.18) / 0.25, 0.0, 1.0)
-    prob *= (1.0 - 0.8 * hair)
-
-    # 7) Зона ВНЕ bbox лица — убиваем полностью.
-    outside = np.ones((h, w), dtype=np.float32)
-    outside[top:bottom, left:right] = 0.0
-    prob *= (1.0 - outside)
-
-    return prob
-
-
-# =========================================================================
-# Финальная маска кожи (для композиции с ретушью)
-# =========================================================================
-
-def _build_face_skin_float(img_arr):
-    """Возвращает float32 [0..1] — плавная маска кожи лица с мягкими границами."""
+def _detect_defects(img_arr, skin_mask):
     h, w = img_arr.shape[:2]
-    prob = _skin_probability(img_arr)
+    gray = np.mean(img_arr.astype(np.float32), axis=2)
 
-    # Сгладим вероятность перед поиском bbox, чтобы избежать шумных дырок.
-    prob_smooth = _gaussian_blur_np(prob, radius=max(3, min(h, w) // 250))
-    bbox = _face_bbox_from_prob(prob_smooth, thresh=0.35)
-
-    prob_excl = _exclude_features(img_arr, prob_smooth, bbox)
-
-    # Крупнейшая связная область + мягкое сглаживание границы.
-    binary = (prob_excl > 0.30).astype(np.uint8)
-    comp = _largest_component(binary)
-
-    # Заполнение дыр (глаза, рот, ноздри) внутри контура лица.
-    pil = Image.fromarray((comp * 255).astype(np.uint8), mode='L')
-    close_r = max(5, int(min(h, w) * 0.015))
-    pil = pil.filter(ImageFilter.MaxFilter(min(close_r * 2 + 1, 21)))
-    pil = pil.filter(ImageFilter.MinFilter(min(close_r * 2 + 1, 21)))
-    closed = np.array(pil).astype(np.float32) / 255.0
-
-    # Режем по маске non-skin (чтобы глаза внутри контура не считались кожей).
-    skin_soft = closed * np.clip(prob_excl * 2.0, 0.0, 1.0)
-
-    # Размываем границу — избавляемся от «квадратов».
-    skin_soft = _gaussian_blur_np(skin_soft, radius=max(3, int(min(h, w) * 0.006)))
-    skin_soft = np.clip(skin_soft, 0.0, 1.0)
-
-    # Лёгкая эрозия по периметру — не залезаем в волосы.
-    skin_soft = np.where(skin_soft > 0.35, skin_soft, skin_soft * 0.0)
-    return skin_soft.astype(np.float32)
-
-
-# =========================================================================
-# Детекция дефектов внутри маски кожи
-# =========================================================================
-
-def _remove_large_blobs(mask, blob_radius=6):
-    """Удаляет крупные сплошные заливки, оставляя точечные дефекты."""
-    m = Image.fromarray(mask, mode='L')
-    for _ in range(blob_radius):
-        m = m.filter(ImageFilter.MinFilter(3))
-    for _ in range(blob_radius + 2):
-        m = m.filter(ImageFilter.MaxFilter(3))
-    large = np.array(m)
-    return np.where(large > 0, 0, mask).astype(np.uint8)
-
-
-def _detect_defects(img_arr, skin_soft, sensitivity=50):
-    h, w = img_arr.shape[:2]
-    skin_mask = (skin_soft > 0.5).astype(np.uint8) * 255
-
-    r = img_arr[:, :, 0].astype(np.float32)
-    g = img_arr[:, :, 1].astype(np.float32)
-    b = img_arr[:, :, 2].astype(np.float32)
-    gray = (r + g + b) / 3.0
-    redness = r - (g + b) / 2.0
-
-    # Blur для detail-канала.
     img_pil = Image.fromarray(img_arr)
-    blurred = np.mean(
-        np.array(img_pil.filter(ImageFilter.GaussianBlur(radius=3.0))).astype(np.float32),
-        axis=2
-    )
-    detail = np.abs(gray - blurred)
+    blurred = np.mean(np.array(img_pil.filter(ImageFilter.GaussianBlur(radius=3.0))).astype(np.float32), axis=2)
+    detail = gray - blurred
 
-    if np.count_nonzero(skin_mask) < 100:
+    skin_px = gray[skin_mask > 0]
+    if len(skin_px) < 50:
         return np.zeros((h, w), dtype=np.uint8)
 
-    s = max(0, min(100, float(sensitivity)))
-    if s >= 50:
-        k = -(s - 50.0) / 100.0      # до −0.5 (мягче)
+    # Глобальные статы (страховка)
+    g_mean = float(np.mean(skin_px))
+    g_std = max(5.0, float(np.std(skin_px)))
+
+    # Локальные статы — критично для периферии лица (тени, боковая щека)
+    l_mean, l_std = _local_stats(gray, skin_mask, tile=64)
+
+    # Тёмные точки: и по локальной, и по глобальной статистике (объединение)
+    dark_local = ((gray < l_mean - 1.3 * l_std) & (skin_mask > 0))
+    dark_global = ((gray < g_mean - 1.6 * g_std) & (skin_mask > 0))
+    dark = (dark_local | dark_global).astype(np.uint8) * 255
+
+    # Детали/текстура: локальный порог (в тенях шум ниже — отлавливаем всё равно)
+    d_abs = np.abs(detail)
+    l_det_mean, l_det_std = _local_stats(d_abs, skin_mask, tile=64)
+    texture_local = ((d_abs > l_det_mean + 1.2 * l_det_std) & (skin_mask > 0))
+    sd = d_abs[skin_mask > 0]
+    d_thr = max(5, np.percentile(sd, 90)) if len(sd) > 50 else 10
+    texture_global = ((d_abs > d_thr) & (skin_mask > 0))
+    texture = (texture_local | texture_global).astype(np.uint8) * 255
+
+    # Красные пятна: сравниваем redness с ЛОКАЛЬНЫМ средним redness
+    r = img_arr[:, :, 0].astype(np.float32)
+    g = img_arr[:, :, 1].astype(np.float32)
+    b = img_arr[:, :, 2].astype(np.float32)
+    redness = r - (g + b) / 2.0
+    l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=64)
+    red_local = ((redness > l_red_mean + 1.2 * l_red_std) & (skin_mask > 0))
+    sr = redness[skin_mask > 0]
+    if len(sr) > 50:
+        r_mean = np.mean(sr)
+        r_std = max(3, np.std(sr))
+        red_global = ((redness > r_mean + 1.3 * r_std) & (skin_mask > 0))
     else:
-        k = (50.0 - s) / 70.0        # до +0.71 (жёстче)
+        red_global = np.zeros_like(red_local)
+    red = (red_local | red_global).astype(np.uint8) * 255
 
-    # Радиус окна локальных статов — в % от размера кадра.
-    win_r = max(16, int(min(h, w) * 0.04))
-
-    l_mean_g, l_std_g = _box_mean_std(gray, skin_mask, win_r)
-    l_mean_d, l_std_d = _box_mean_std(detail, skin_mask, win_r)
-    l_mean_r, l_std_r = _box_mean_std(redness, skin_mask, win_r)
-
-    # Тёмные точки — локально ниже среднего кожи.
-    dark = (gray < l_mean_g - (1.15 + k) * l_std_g) & (skin_mask > 0)
-
-    # Текстурные аномалии.
-    texture = (detail > l_mean_d + (1.00 + k) * l_std_d) & (skin_mask > 0)
-
-    # Красные пятна.
-    red = (redness > l_mean_r + (1.00 + k) * l_std_r) & (skin_mask > 0)
-
-    defects = (dark | texture | red).astype(np.uint8) * 255
+    defects = np.maximum(np.maximum(dark, texture), red)
     defects = np.minimum(defects, skin_mask)
 
-    # Морфо-закрытие мелких разрывов.
-    defects_pil = Image.fromarray(defects, mode='L').filter(ImageFilter.MaxFilter(3))
+    # Морфология: закрываем дырки (closing), потом лёгкая эрозия чтобы
+    # не захватывать единичный шум, потом опять dilate.
+    defects_pil = Image.fromarray(defects, mode='L')
+    defects_pil = defects_pil.filter(ImageFilter.MaxFilter(3))
+    defects_pil = defects_pil.filter(ImageFilter.MinFilter(3))
     defects = np.array(defects_pil)
 
-    before = int(np.count_nonzero(defects))
-    defects = _remove_large_blobs(defects, blob_radius=5)
-    after = int(np.count_nonzero(defects))
-
-    print(f"[SKIN MASK] Defects: {after}px (was {before}), sens={s:.0f} k={k:+.2f} win_r={win_r}")
+    cnt = np.count_nonzero(defects)
+    print(f"[SKIN MASK] Defects: {cnt}px, g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
     return defects
 
 
@@ -386,101 +334,119 @@ def _dilate_mask(mask, px):
     if px <= 0:
         return mask
     m = Image.fromarray(mask, mode='L')
+    # Два прохода: crude dilate + closing для склейки соседних пятен.
     for _ in range(max(1, px // 2)):
         m = m.filter(ImageFilter.MaxFilter(min(px * 2 + 1, 13)))
+    # Closing: dilate затем erode — заполняет мелкие промежутки
     m = m.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(3))
     return np.array(m)
 
 
-# =========================================================================
-# Публичный API
-# =========================================================================
-
 def build_face_skin_mask(image_bytes):
-    """Плавная маска кожи лица и шеи (без дефектов — зона целиком)."""
+    """Возвращает маску ВСЕЙ кожи лица и шеи (без дефектов — всю зону целиком).
+    Используется для композиции результата внешней ретуши с оригиналом:
+    внутри маски применяем ретушь, снаружи (волосы, брови, одежда) — оригинал.
+    """
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode != 'RGB':
         img = img.convert('RGB')
     img_arr = np.array(img)
     h, w = img_arr.shape[:2]
 
-    skin_soft = _build_face_skin_float(img_arr)
-    # Бинаризация с мягкими краями через альфу.
-    alpha = np.clip(skin_soft * 255.0, 0, 255).astype(np.uint8)
-
-    # Лёгкая эрозия, чтобы не залезать в волосы.
-    erode_px = max(2, int(min(h, w) * 0.004))
-    alpha_pil = Image.fromarray(alpha, mode='L').filter(
-        ImageFilter.MinFilter(min(erode_px * 2 + 1, 7))
-    )
-    alpha = np.array(alpha_pil)
-
-    pct = np.count_nonzero(alpha > 32) * 100.0 / (h * w)
-    print(f"[SKIN MASK] Face skin: {pct:.1f}%")
-    return _mask_to_b64(alpha)
-
-
-def build_auto_mask(image_bytes, sensitivity=50):
-    img = Image.open(io.BytesIO(image_bytes))
-    if img.mode != 'RGB':
-        img = img.convert('RGB')
-    img_arr = np.array(img)
-    h, w = img_arr.shape[:2]
-    print(f"[SKIN MASK] Image: {w}x{h} sensitivity={sensitivity}")
-
-    skin_soft = _build_face_skin_float(img_arr)
-    skin_pct = float(np.mean(skin_soft > 0.5)) * 100
-    print(f"[SKIN MASK] Face skin region: {skin_pct:.1f}%")
-    if skin_pct < 0.5:
-        print("[SKIN MASK] No face skin — empty mask")
+    skin_color = _detect_skin_color(img_arr)
+    pct = np.count_nonzero(skin_color) * 100 / (h * w)
+    if pct < 1:
         return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
 
-    defects = _detect_defects(img_arr, skin_soft, sensitivity=sensitivity)
+    face_skin = _find_face_regions(skin_color)
+    face_skin = _exclude_non_skin(img_arr, face_skin)
 
-    dilate_px = max(4, int(min(h, w) * 0.008))
+    # Небольшое расширение — чтобы ретушь покрыла тонкие границы кожи
+    # и края дефектов на стыке с волосами/бровями.
+    dilate_px = max(3, int(min(h, w) * 0.006))
+    m = Image.fromarray(face_skin, mode='L')
+    for _ in range(max(1, dilate_px // 2)):
+        m = m.filter(ImageFilter.MaxFilter(min(dilate_px * 2 + 1, 9)))
+    # Закрываем дыры (глаза, рот) внутри зоны кожи, чтобы внутри ретушировалось ровно.
+    m = m.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(5))
+    face_skin = np.array(m)
+
+    print(f"[SKIN MASK] Face skin: {np.count_nonzero(face_skin) * 100 / (h * w):.1f}%")
+    return _mask_to_b64(face_skin)
+
+
+def build_auto_mask(image_bytes):
+    img = Image.open(io.BytesIO(image_bytes))
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+
+    img_arr = np.array(img)
+    h, w = img_arr.shape[:2]
+    print(f"[SKIN MASK] Image: {w}x{h}")
+
+    skin_color = _detect_skin_color(img_arr)
+    pct = np.count_nonzero(skin_color) * 100 / (h * w)
+    print(f"[SKIN MASK] Skin color: {pct:.1f}%")
+
+    if pct < 1:
+        print("[SKIN MASK] No skin — empty mask")
+        return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
+
+    face_skin = _find_face_regions(skin_color)
+    face_skin = _exclude_non_skin(img_arr, face_skin)
+
+    defects = _detect_defects(img_arr, face_skin)
+
+    dilate_px = max(6, int(min(h, w) * 0.012))
     expanded = _dilate_mask(defects, dilate_px)
-    # Ограничиваем маской кожи (мягкой).
-    skin_bin = (skin_soft > 0.5).astype(np.uint8) * 255
-    expanded = np.minimum(expanded, skin_bin)
+    expanded = np.minimum(expanded, face_skin)
 
-    # Сглаживаем края.
-    soft_r = max(2, dilate_px // 2)
+    # Смягчаем края маски — иначе прямоугольные ядра MaxFilter оставляют
+    # угловатые следы на коже после инпейнта.
+    soft_r = max(2, dilate_px // 3)
     soft = np.array(
         Image.fromarray(expanded, mode='L').filter(ImageFilter.GaussianBlur(radius=soft_r))
     )
-    expanded = np.where(soft > 80, 255, 0).astype(np.uint8)
-    expanded = np.minimum(expanded, skin_bin)
-    expanded = _remove_large_blobs(expanded, blob_radius=8)
-    expanded = np.minimum(expanded, skin_bin)
+    # Порог 40 — круглые края без "ступенек", не теряя центр пятен
+    expanded = np.where(soft > 40, 255, 0).astype(np.uint8)
+    expanded = np.minimum(expanded, face_skin)
 
-    pct = np.count_nonzero(expanded) * 100.0 / (h * w)
-    print(f"[SKIN MASK] Final: {pct:.2f}%, dilate={dilate_px}")
+    total = np.count_nonzero(expanded)
+    pct = total * 100 / (h * w)
+    print(f"[SKIN MASK] Final: {total}px ({pct:.2f}%), dilate={dilate_px}")
 
-    # Защита от «залитого» лица — только если маска реально перекрыла всё.
+    # Защита от «маска залила всё лицо» — только при действительно огромных значениях.
+    # Лицо с сильным акне реально требует 15–25% кадра, поэтому порог подняли до 30%.
     if pct > 30:
         print("[SKIN MASK] Too large, reducing")
         gray = np.mean(img_arr.astype(np.float32), axis=2)
-        sp = gray[skin_bin > 0]
-        if sp.size > 50:
-            sm, ss = float(np.mean(sp)), max(8.0, float(np.std(sp)))
-            strict = ((gray < sm - 1.8 * ss) & (skin_bin > 0)).astype(np.uint8) * 255
-            strict_pil = Image.fromarray(strict, mode='L').filter(ImageFilter.MinFilter(3))
-            strict = np.array(strict_pil)
-            strict_pil2 = Image.fromarray(strict, mode='L').filter(ImageFilter.MaxFilter(3))
-            strict = np.array(strict_pil2)
-            strict_expanded = _dilate_mask(strict, dilate_px)
-            strict_expanded = np.minimum(strict_expanded, skin_bin)
-            strict_pct = np.count_nonzero(strict_expanded) * 100.0 / (h * w)
-            if strict_pct >= 1.0:
-                expanded = strict_expanded
+        sp = gray[face_skin > 0]
+        sm, ss = np.mean(sp), max(8, np.std(sp))
+        # Мягче порог: 1.8·std вместо 2.3·std, чтобы fallback не обнулял маску.
+        strict = ((gray < sm - 1.8 * ss) & (face_skin > 0)).astype(np.uint8) * 255
+        strict_pil = Image.fromarray(strict, mode='L')
+        strict = np.array(strict_pil.filter(ImageFilter.MinFilter(3)))
+        strict_pil2 = Image.fromarray(strict, mode='L')
+        strict = np.array(strict_pil2.filter(ImageFilter.MaxFilter(3)))
+        strict_expanded = _dilate_mask(strict, dilate_px)
+        strict_expanded = np.minimum(strict_expanded, face_skin)
+        strict_pct = np.count_nonzero(strict_expanded) * 100 / (h * w)
+        print(f"[SKIN MASK] Reduced candidate: {strict_pct:.2f}%")
+        # Применяем fallback ТОЛЬКО если он не обнулил маску.
+        if strict_pct >= 1.0:
+            expanded = strict_expanded
+            pct = strict_pct
+        else:
+            print("[SKIN MASK] Fallback produced empty mask — keep original")
 
     return _mask_to_b64(expanded)
 
 
 def _mask_to_b64(mask_array):
-    """RGBA-маска: белый цвет + альфа = mask_array.
-    Бэкенд-инпейнт читает яркость (везде 255), фронт — альфу.
-    """
+    # Отдаём RGBA: R=G=B=255 (белый), A=сама маска. Так:
+    # 1) Бэкенд-инпейнт по-прежнему читает яркость (всё белое там где A>0).
+    # 2) Фронт-CSS mask-image через альфу корректно показывает прозрачные зоны,
+    #    вместо того чтобы заливать весь кадр.
     h, w = mask_array.shape[:2]
     rgba = np.zeros((h, w, 4), dtype=np.uint8)
     rgba[..., 0] = 255
