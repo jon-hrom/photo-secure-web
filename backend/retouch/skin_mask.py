@@ -152,8 +152,11 @@ def _exclude_non_skin(img_arr, mask):
     nz = maxc > 0
     sat[nz] = (maxc[nz] - minc[nz]) / maxc[nz]
 
-    # 1) Тёмные — волосы брюнет, тени, зрачки
-    mask[(brightness < 55) & (mask > 0)] = 0
+    # 1) Тёмные — волосы брюнет, тени, зрачки, брови, ресницы
+    mask[(brightness < 65) & (mask > 0)] = 0
+
+    # 1b) Очень насыщенные тёмные пиксели — радужка глаз, зрачки, тушь
+    mask[(brightness < 95) & (sat > 0.35) & (mask > 0)] = 0
 
     # 2) Серо-белые зоны — одежда, фон, засветы без цвета (R≈G≈B)
     neutral = (sat < 0.12) & (brightness > 120)
@@ -161,6 +164,10 @@ def _exclude_non_skin(img_arr, mask):
 
     # 3) Пересвет с низкой сатурацией — блики, одежда
     mask[(sat < 0.08) & (brightness > 200) & (mask > 0)] = 0
+
+    # 3b) Губы — насыщенный красный/розовый с высоким r-b и высоким sat
+    lips = (r - b > 40) & (r - g > 20) & (sat > 0.30) & (brightness < 180)
+    mask[lips & (mask > 0)] = 0
 
     # 4) Волосы русые/светлые: высокая насыщенность + доминирующий жёлто-коричневый
     #    (R>G>B с большим разрывом). У кожи разрыв меньше.
@@ -270,6 +277,23 @@ def _gaussian_blur_np(arr, radius):
     return out
 
 
+def _remove_large_blobs(mask, blob_radius=6):
+    """Удаляет большие сплошные заливки, оставляя точечные дефекты.
+    Логика: сильная эрозия убирает всё, что тоньше 2·blob_radius.
+    То, что осталось — это «ядра» больших пятен (губы, волосы, тени).
+    Расширяем эти ядра обратно и вычитаем из маски.
+    """
+    m = Image.fromarray(mask, mode='L')
+    # Эрозия: убираем всё мелкое (прыщи), остаются только крупные ядра
+    for _ in range(blob_radius):
+        m = m.filter(ImageFilter.MinFilter(3))
+    # Назад расширяем — получаем большие заливки с запасом
+    for _ in range(blob_radius + 2):
+        m = m.filter(ImageFilter.MaxFilter(3))
+    large = np.array(m)
+    return np.where(large > 0, 0, mask).astype(np.uint8)
+
+
 def _detect_defects(img_arr, skin_mask, sensitivity=50):
     h, w = img_arr.shape[:2]
     gray = np.mean(img_arr.astype(np.float32), axis=2)
@@ -285,8 +309,12 @@ def _detect_defects(img_arr, skin_mask, sensitivity=50):
     # sensitivity 0..100: 50 = текущий баланс; <50 = жёстче (ловим только явные дефекты),
     # >50 = мягче (захватываем даже слабые пятна). Переводим в линейный сдвиг порогов.
     s = max(0, min(100, float(sensitivity)))
-    # k: -1.0 при s=0 (пороги выше на 1σ), 0 при s=50, +1.0 при s=100 (пороги ниже на 1σ)
-    k = (50.0 - s) / 50.0
+    # k: +0.7 при s=0 (пороги выше на 0.7σ), 0 при s=50, -0.5 при s=100
+    # Сжали диапазон, чтобы высокая чувствительность не превращала маску в заливку.
+    if s >= 50:
+        k = -(s - 50.0) / 100.0  # до -0.5
+    else:
+        k = (50.0 - s) / 70.0  # до +0.71
 
     # Глобальные статы (страховка)
     g_mean = float(np.mean(skin_px))
@@ -305,8 +333,8 @@ def _detect_defects(img_arr, skin_mask, sensitivity=50):
     l_det_mean, l_det_std = _local_stats(d_abs, skin_mask, tile=64)
     texture_local = ((d_abs > l_det_mean + (0.9 + k) * l_det_std) & (skin_mask > 0))
     sd = d_abs[skin_mask > 0]
-    # Перцентиль: при s=0 — 95%, s=50 — 85%, s=100 — 75%
-    perc = max(50, min(99, 85 + int(k * 10)))
+    # Перцентиль: при s=0 — ~92%, s=50 — 88%, s=100 — ~83% (не опускаем сильно)
+    perc = max(80, min(95, 88 + int(k * 6)))
     d_thr = max(4, np.percentile(sd, perc)) if len(sd) > 50 else 8
     texture_global = ((d_abs > d_thr) & (skin_mask > 0))
     texture = (texture_local | texture_global).astype(np.uint8) * 255
@@ -335,8 +363,14 @@ def _detect_defects(img_arr, skin_mask, sensitivity=50):
     defects_pil = defects_pil.filter(ImageFilter.MaxFilter(3))
     defects = np.array(defects_pil)
 
-    cnt = np.count_nonzero(defects)
-    print(f"[SKIN MASK] Defects: {cnt}px, sens={s:.0f} k={k:+.2f} g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
+    # КРИТИЧНО: отсекаем большие заливки — они всегда ложные срабатывания
+    # (губы, брови, тени, неравномерный загар). Реальные прыщи — точечные.
+    before = np.count_nonzero(defects)
+    defects = _remove_large_blobs(defects, blob_radius=5)
+    after = np.count_nonzero(defects)
+
+    cnt = after
+    print(f"[SKIN MASK] Defects: {cnt}px (was {before} before blob-filter), sens={s:.0f} k={k:+.2f} g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
     return defects
 
 
@@ -406,18 +440,23 @@ def build_auto_mask(image_bytes, sensitivity=50):
 
     defects = _detect_defects(img_arr, face_skin, sensitivity=sensitivity)
 
-    dilate_px = max(8, int(min(h, w) * 0.016))
+    # Компактный dilate — маска должна быть ТОЧЕЧНОЙ, а не заливать всё лицо.
+    dilate_px = max(4, int(min(h, w) * 0.008))
     expanded = _dilate_mask(defects, dilate_px)
     expanded = np.minimum(expanded, face_skin)
 
     # Смягчаем края маски — иначе прямоугольные ядра MaxFilter оставляют
     # угловатые следы на коже после инпейнта.
-    soft_r = max(2, dilate_px // 3)
+    soft_r = max(2, dilate_px // 2)
     soft = np.array(
         Image.fromarray(expanded, mode='L').filter(ImageFilter.GaussianBlur(radius=soft_r))
     )
-    # Порог 40 — круглые края без "ступенек", не теряя центр пятен
-    expanded = np.where(soft > 40, 255, 0).astype(np.uint8)
+    # Порог 80 — отсекаем полупрозрачные края "растёкшейся" маски
+    expanded = np.where(soft > 80, 255, 0).astype(np.uint8)
+    expanded = np.minimum(expanded, face_skin)
+
+    # Ещё раз вырежем крупные заливки, если после dilate что-то срослось
+    expanded = _remove_large_blobs(expanded, blob_radius=8)
     expanded = np.minimum(expanded, face_skin)
 
     total = np.count_nonzero(expanded)
