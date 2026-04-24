@@ -13,21 +13,23 @@ def _detect_skin_color(img_arr):
     cr = (r - y) * 0.713 + 128
     cb = (b - y) * 0.564 + 128
 
-    # Расширенный диапазон: ловим тени на переносице, под глазами и
-    # нижнюю часть подбородка (более тёмные и менее насыщенные пиксели).
+    # Кожа всегда ТЁПЛАЯ: r > g > b (красный > зелёный > синий).
+    # Это критично для отсеивания оливкового/зелёного фона, где g > r.
+    warm = (r > g - 2) & (g > b - 5) & (r > b + 5)
+
+    # YCrCb диапазон (чуть уже чем было, чтобы фон не проходил).
     skin = (
-        (y > 25) & (y < 250) &
-        (cr > 125) & (cr < 195) &
-        (cb > 72) & (cb < 145)
+        (y > 30) & (y < 245) &
+        (cr > 133) & (cr < 190) &
+        (cb > 77) & (cb < 135) &
+        warm
     )
 
-    # Блики на коже (белые/молочные пятна от света): очень яркие пиксели
-    # с низкой сатурацией, но при этом чуть «тёплые» (r≥b). Включаем их
-    # в маску кожи — иначе блик на щеке остаётся пробелом.
+    # Блики на коже (белые/молочные от света): очень яркие + тёплые.
     maxc = np.maximum(np.maximum(r, g), b)
     minc = np.minimum(np.minimum(r, g), b)
     sat = np.where(maxc > 0, (maxc - minc) / np.maximum(maxc, 1.0), 0.0)
-    highlight = (y > 210) & (sat < 0.15) & (r >= b - 5) & (r >= g - 10)
+    highlight = (y > 210) & (sat < 0.15) & warm
 
     return (skin | highlight).astype(np.uint8) * 255
 
@@ -97,10 +99,21 @@ def _find_face_regions(skin_mask):
     else:
         face_small_up = face_small
 
-    # Заполняем дыры (тени под подбородком, глаза, рот) через closing.
-    face_closed_pil = Image.fromarray(face_small_up, mode='L').filter(
-        ImageFilter.MaxFilter(9)
-    ).filter(ImageFilter.MinFilter(5))
+    # Заполняем дыры (тени, глаза, рот, ЩЕТИНА) через агрессивный closing.
+    # Радиус closing зависит от размера кадра — на крупных планах щетинистые
+    # "дыры" в маске достигают 20-30px, нужно большое MaxFilter.
+    close_r = max(9, int(min(h, w) * 0.025))
+    close_k = min(close_r * 2 + 1, 51)
+    if close_k % 2 == 0:
+        close_k += 1
+    face_closed_pil = Image.fromarray(face_small_up, mode='L')
+    # Расширяем (закрываем дыры от щетины и теней)
+    face_closed_pil = face_closed_pil.filter(ImageFilter.MaxFilter(close_k))
+    # Сжимаем обратно, но чуть меньше — чтобы маска осталась с запасом.
+    shrink_k = max(5, close_k - 6)
+    if shrink_k % 2 == 0:
+        shrink_k += 1
+    face_closed_pil = face_closed_pil.filter(ImageFilter.MinFilter(shrink_k))
     blur_r = max(3, min(h, w) // 200)
     face_closed_pil = face_closed_pil.filter(ImageFilter.GaussianBlur(radius=blur_r))
     face_closed = np.array(face_closed_pil)
@@ -151,8 +164,10 @@ def _find_face_regions(skin_mask):
         face_closed = np.minimum(face_closed, bbox_mask)
         print(f"[SKIN MASK] Face bbox: y=[{top},{bottom}] x=[{left},{right}], peak_row={peak_row}")
 
-    # Финальная маска: реальные skin-пиксели внутри bbox головы.
-    result = np.minimum(skin_mask, face_closed)
+    # Финальная маска: используем расширенную face_closed (с залитой щетиной),
+    # а skin_mask — только для проверки что там вообще есть кожа поблизости.
+    # НЕ умножаем на skin_mask, чтобы щетина попала в маску.
+    result = face_closed
     print(f"[SKIN MASK] Face regions: {len(face_labels)}, {np.count_nonzero(result)*100/(h*w):.1f}%")
     return result
 
