@@ -330,18 +330,28 @@ def _detect_defects(img_arr, skin_mask):
     gray = (r + g + b) / 3.0
     redness = r - (g + b) / 2.0
 
-    # Радиусы DoG подбираем по размеру кадра: малый = типичный прыщ ~5-8px,
-    # большой = окружающая кожа ~25-40px. На малом фото уменьшаем.
-    base = max(2, int(min(h, w) * 0.006))
-    sigma_small = base
-    sigma_large = base * 5
+    # Мультимасштабный DoG: ловим прыщи РАЗНЫХ размеров.
+    # На крупном плане (3000px) прыщи 8-20px, на мелком (600px) — 3-6px.
+    # Берём максимум откликов на двух масштабах.
+    small_s = max(2, int(min(h, w) * 0.003))   # мелкие прыщи
+    small_l = small_s * 5
+    mid_s = max(4, int(min(h, w) * 0.010))     # крупные прыщи (crop-фото)
+    mid_l = mid_s * 5
 
-    # 1) Красные blob'ы: пик redness относительно окружения.
-    red_dog = _dog_response(redness, sigma_small, sigma_large)
-    # 2) Тёмные blob'ы: провал яркости (инвертируем — пик становится положительным).
-    dark_dog = _dog_response(-gray, sigma_small, sigma_large)
-    # 3) Яркие blob'ы (сальные блики): пик яркости.
-    bright_dog = _dog_response(gray, sigma_small, sigma_large)
+    red_dog = np.maximum(
+        _dog_response(redness, small_s, small_l),
+        _dog_response(redness, mid_s, mid_l),
+    )
+    dark_dog = np.maximum(
+        _dog_response(-gray, small_s, small_l),
+        _dog_response(-gray, mid_s, mid_l),
+    )
+    bright_dog = np.maximum(
+        _dog_response(gray, small_s, small_l),
+        _dog_response(gray, mid_s, mid_l),
+    )
+    sigma_small = small_s
+    sigma_large = mid_l
 
     # Адаптивные пороги: берём перцентили только по коже.
     rd_skin = red_dog[skin_bin]
@@ -381,10 +391,14 @@ def _detect_defects(img_arr, skin_mask):
              (dark_peaks & ~stubble_zone) |
              (bright_peaks & ~stubble_zone)).astype(np.uint8) * 255
 
-    # Расширяем каждый пик в круг радиуса ~ sigma_small (зона прыща).
-    grow_r = max(2, sigma_small)
+    # Расширяем каждый пик в круг радиуса ~ mid_s (покрываем крупные прыщи).
+    grow_r = max(3, mid_s)
+    max_k = grow_r * 2 + 1
+    if max_k % 2 == 0:
+        max_k += 1
+    max_k = min(max_k, 21)  # лимит 21px чтобы не раздувать тени
     peaks_pil = Image.fromarray(peaks, mode='L').filter(
-        ImageFilter.MaxFilter(min(grow_r * 2 + 1, 11))
+        ImageFilter.MaxFilter(max_k)
     )
     defects = np.array(peaks_pil)
     defects = np.minimum(defects, skin_mask)

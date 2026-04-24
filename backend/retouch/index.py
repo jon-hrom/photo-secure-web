@@ -426,15 +426,33 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     del ret_arr, mask_arr
     out_arr = orig_arr
 
-    # Никакого глобального цветокора — только чистая композиция
-    # "тон ретуши + текстура оригинала" внутри маски, остальное — оригинал.
+    # --- Финальный цветокор на ВЕСЬ кадр (ПОСЛЕ ретуши) ---
+    # 1) Баланс белого к ~5200K: лёгкий +R, −B.
+    out_arr[..., 0] *= 1.04
+    out_arr[..., 2] *= 0.96
+
+    # 2) S-кривая контраста (+10%) вокруг 128 — даёт скин-тон, объём.
+    np.subtract(out_arr, 128.0, out=out_arr)
+    np.multiply(out_arr, 1.10, out=out_arr)
+    np.add(out_arr, 128.0, out=out_arr)
+
+    # 3) Микро-контраст через unsharp mask.
     np.clip(out_arr, 0, 255, out=out_arr)
-    out_img = Image.fromarray(out_arr.astype(np.uint8), 'RGB')
+    out_u8 = out_arr.astype(np.uint8)
     del out_arr
+    out_img = Image.fromarray(out_u8, 'RGB')
+    blurred_u8 = np.array(out_img.filter(ImageFilter.GaussianBlur(radius=3)))
+    micro = out_u8.astype(np.int16) - blurred_u8.astype(np.int16)
+    del blurred_u8
+    boosted = out_u8.astype(np.int16) + (micro * 35 // 100)
+    del micro, out_u8
+    np.clip(boosted, 0, 255, out=boosted)
+    out_img = Image.fromarray(boosted.astype(np.uint8), 'RGB')
+    del boosted
 
     out_buf = io.BytesIO()
     out_img.save(out_buf, format='JPEG', quality=95)
-    print(f"[RETOUCH] Composed with skin mask (coverage={coverage * 100:.1f}%), FS-only, no global grading")
+    print(f"[RETOUCH] Composed (coverage={coverage * 100:.1f}%), then grade: warm+contrast+volume")
     return out_buf.getvalue()
 
 
