@@ -200,6 +200,12 @@ def _exclude_non_skin(img_arr, mask):
     bluish = (b > r) | (b > g + 15)
     mask[bluish & (mask > 0)] = 0
 
+    # 5b) ГУБЫ: сильный красный с высокой сатурацией и заметно более
+    # низкой яркостью, чем остальная кожа. Отсекаем, иначе красные губы
+    # попадают в маску дефектов (ложный «прыщ»).
+    lips = (r - g > 20) & (r - b > 30) & (sat > 0.28) & (brightness < 190)
+    mask[lips & (mask > 0)] = 0
+
     # 6) Зелёные оттенки — не кожа
     greenish = (g > r + 10) & (g > b + 15)
     mask[greenish & (mask > 0)] = 0
@@ -315,13 +321,16 @@ def _detect_defects(img_arr, skin_mask):
     l_mean, l_std = _local_stats(gray, skin_mask, tile=64)
 
     # Тёмные точки: и по локальной, и по глобальной статистике (объединение).
-    # В ТЕНЯХ контраст ниже, поэтому используем НОРМАЛИЗОВАННУЮ яркость —
-    # каждый пиксель делим на локальное среднее, и дальше ищем относительные
-    # провалы. Так прыщи в тени (переносица, под глазом) ловятся так же,
-    # как на освещённой щеке.
+    # Нормализованный канал (dark_norm) помогает в тенях, но он же ловит
+    # щетину и волоски — поэтому требуем АБСОЛЮТНЫЙ провал ≥ 8 единиц,
+    # а не только относительный.
     gray_norm = gray / np.maximum(l_mean, 1.0)
     ln_mean, ln_std = _local_stats(gray_norm, skin_mask, tile=48)
-    dark_norm = ((gray_norm < ln_mean - 1.1 * ln_std) & (skin_mask > 0))
+    dark_norm = (
+        (gray_norm < ln_mean - 1.3 * ln_std) &
+        (gray < l_mean - 8.0) &
+        (skin_mask > 0)
+    )
 
     dark_local = ((gray < l_mean - 1.3 * l_std) & (skin_mask > 0))
     dark_global = ((gray < g_mean - 1.6 * g_std) & (skin_mask > 0))
@@ -375,10 +384,16 @@ def _detect_defects(img_arr, skin_mask):
     l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=48)
     red_local = ((redness > l_red_mean + 0.85 * l_red_std) & (skin_mask > 0))
 
-    # Нормализованная краснота: (redness - local_mean) / max(local_mean, 3)
+    # Нормализованная краснота. Требуем АБСОЛЮТНЫЙ разрыв ≥ 5 единиц
+    # от локального среднего — иначе в маску попадает ровная щетина
+    # и шум на подбородке.
     redness_norm = (redness - l_red_mean) / np.maximum(np.abs(l_red_mean), 3.0)
     rn_mean, rn_std = _local_stats(redness_norm, skin_mask, tile=48)
-    red_norm = ((redness_norm > rn_mean + 0.9 * rn_std) & (redness > 2.0) & (skin_mask > 0))
+    red_norm = (
+        (redness_norm > rn_mean + 1.1 * rn_std) &
+        (redness > l_red_mean + 5.0) &
+        (skin_mask > 0)
+    )
 
     sr = redness[skin_mask > 0]
     if len(sr) > 50:
@@ -391,6 +406,17 @@ def _detect_defects(img_arr, skin_mask):
 
     defects = np.maximum(np.maximum(np.maximum(dark, texture), red), bright)
     defects = np.minimum(defects, skin_mask)
+
+    # ПОДАВЛЕНИЕ ЩЕТИНЫ: там, где ПЛОТНОСТЬ тёмных точек очень высокая —
+    # это не акне, а зона щетины/бороды. Считаем локальную плотность dark
+    # через размытие и отсекаем зоны с плотностью > 25%.
+    dark_density_pil = Image.fromarray(dark, mode='L').filter(
+        ImageFilter.GaussianBlur(radius=max(6, int(min(h, w) * 0.012)))
+    )
+    dark_density = np.array(dark_density_pil)
+    stubble = dark_density > 64  # локально > ~25% тёмных = щетина
+    defects[stubble] = 0
+    stubble_cnt = int(np.count_nonzero(stubble))
 
     # Морфология: закрываем дырки (closing), потом лёгкая эрозия чтобы
     # не захватывать единичный шум, потом опять dilate.
@@ -414,7 +440,7 @@ def _detect_defects(img_arr, skin_mask):
 
     cnt = np.count_nonzero(defects)
     br_cnt = np.count_nonzero(bright)
-    print(f"[SKIN MASK] Defects: {cnt}px (bright={br_cnt}, blob_removed={before_blob - after_blob}), g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
+    print(f"[SKIN MASK] Defects: {cnt}px (bright={br_cnt}, blob_removed={before_blob - after_blob}, stubble={stubble_cnt}), g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
     return defects
 
 
