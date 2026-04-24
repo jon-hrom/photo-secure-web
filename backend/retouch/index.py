@@ -435,6 +435,37 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         print("[RETOUCH] Empty mask — keeping raw retouched")
         return retouched_bytes
 
+    # === ДЕТЕКТОР ПЛАНА (близкий/средний/дальний) ===
+    # По доле кожи в кадре (coverage) определяем тип плана и нужна ли ретушь.
+    # Крупный план: лицо 15%+ кадра → полная ретушь.
+    # Средний план (ростовый): 5-15% → умеренная (×0.6).
+    # Дальний план (группа): 2-5% → лёгкая (×0.3).
+    # Очень дальний (массовка): <2% → пропускаем ретушь.
+    skin_pct = coverage * 100
+    if skin_pct >= 15:
+        shot_type = "closeup"
+        plan_multiplier = 1.0
+    elif skin_pct >= 5:
+        shot_type = "medium"
+        plan_multiplier = 0.6
+    elif skin_pct >= 2:
+        shot_type = "wide"
+        plan_multiplier = 0.3
+    else:
+        shot_type = "very_wide"
+        plan_multiplier = 0.0
+
+    print(f"[RETOUCH] Shot: {shot_type} (skin={skin_pct:.1f}% of frame) → plan_mult={plan_multiplier:.2f}")
+
+    # На очень дальнем плане ретушь бесполезна — слишком мало пикселей на лицах.
+    # Возвращаем оригинал (без применения ретуши сервера вообще).
+    if plan_multiplier == 0:
+        print("[RETOUCH] Very wide shot — skipping retouch, returning original")
+        # Возвращаем оригинал в исходном размере:
+        out_buf = io.BytesIO()
+        orig_img.save(out_buf, format='JPEG', quality=95)
+        return out_buf.getvalue()
+
     # ЭКОНОМИЯ ПАМЯТИ: работаем в int16 вместо float32 (в 2 раза меньше RAM).
     # Детектор возраста кожи запускаем ДО создания больших массивов.
     w_full, h_full = orig_img.size
@@ -550,8 +581,11 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Смесь = orig * (1 - m * alpha) + ret * (m * alpha)
     # где m = маска кожи, alpha = сила под тип кожи.
 
-    # Эффективная сила смешивания: lf_strength уже учитывает тип кожи.
-    alpha = lf_strength
+    # Эффективная сила смешивания: тип кожи × тип плана.
+    # На среднем плане × 0.6, на дальнем × 0.3 — ретушь менее агрессивная
+    # когда лицо занимает небольшую часть кадра.
+    alpha = lf_strength * plan_multiplier
+    print(f"[RETOUCH] Final alpha = {lf_strength:.2f} × {plan_multiplier:.2f} = {alpha:.2f}")
 
     # ЭКОНОМНАЯ КОМПОЗИЦИЯ: работаем в uint8 + int16 (в 2 раза меньше памяти чем float32).
     # Формула: out = orig + (ret - orig) * (effective_alpha_per_pixel)
@@ -559,9 +593,10 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Базовая маска: m_u8 = mask * alpha
     m_u8 = (mask_arr * alpha * 255.0).clip(0, 255).astype(np.uint8)
 
-    # Для mature лиц: запрашиваем маску НОСА и усиливаем alpha до 0.90 именно там.
+    # Для mature лиц КРУПНОГО ПЛАНА: запрашиваем маску НОСА и усиливаем alpha до 0.90.
     # На носу особенно заметны возрастные пятна, а морщин на нём мало — можно чистить сильнее.
-    if skin_type in ("mature", "mature_textured"):
+    # На средних/дальних планах усиление не нужно — лицо и так маленькое.
+    if skin_type in ("mature", "mature_textured") and shot_type == "closeup":
         try:
             # Импорт локально, чтобы не ломать если skin_mask недоступен
             from skin_mask import _call_ai_face_parse
