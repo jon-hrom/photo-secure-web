@@ -314,10 +314,18 @@ def _detect_defects(img_arr, skin_mask):
     # Локальные статы — критично для периферии лица (тени, боковая щека)
     l_mean, l_std = _local_stats(gray, skin_mask, tile=64)
 
-    # Тёмные точки: и по локальной, и по глобальной статистике (объединение)
+    # Тёмные точки: и по локальной, и по глобальной статистике (объединение).
+    # В ТЕНЯХ контраст ниже, поэтому используем НОРМАЛИЗОВАННУЮ яркость —
+    # каждый пиксель делим на локальное среднее, и дальше ищем относительные
+    # провалы. Так прыщи в тени (переносица, под глазом) ловятся так же,
+    # как на освещённой щеке.
+    gray_norm = gray / np.maximum(l_mean, 1.0)
+    ln_mean, ln_std = _local_stats(gray_norm, skin_mask, tile=48)
+    dark_norm = ((gray_norm < ln_mean - 1.1 * ln_std) & (skin_mask > 0))
+
     dark_local = ((gray < l_mean - 1.3 * l_std) & (skin_mask > 0))
     dark_global = ((gray < g_mean - 1.6 * g_std) & (skin_mask > 0))
-    dark = (dark_local | dark_global).astype(np.uint8) * 255
+    dark = (dark_local | dark_global | dark_norm).astype(np.uint8) * 255
 
     # ПЕРЕСВЕТЫ (локальные блики): только ЯРКО выделяющиеся пятна относительно
     # локального среднего по коже. Общую хорошо освещённую зону НЕ трогаем.
@@ -361,10 +369,17 @@ def _detect_defects(img_arr, skin_mask):
     texture = (texture_local | texture_global).astype(np.uint8) * 255
 
     # Красные пятна: сравниваем redness с ЛОКАЛЬНЫМ средним redness.
-    # Пороги снижены — слабые прыщи у крыльев носа/у глаз иначе пропадают.
+    # Плюс нормализованный канал — ловит прыщи в тенях, где абсолютная
+    # краснота ниже, но относительно окружения выделяется.
     redness = r - (g + b) / 2.0
     l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=48)
     red_local = ((redness > l_red_mean + 0.85 * l_red_std) & (skin_mask > 0))
+
+    # Нормализованная краснота: (redness - local_mean) / max(local_mean, 3)
+    redness_norm = (redness - l_red_mean) / np.maximum(np.abs(l_red_mean), 3.0)
+    rn_mean, rn_std = _local_stats(redness_norm, skin_mask, tile=48)
+    red_norm = ((redness_norm > rn_mean + 0.9 * rn_std) & (redness > 2.0) & (skin_mask > 0))
+
     sr = redness[skin_mask > 0]
     if len(sr) > 50:
         r_mean = np.mean(sr)
@@ -372,7 +387,7 @@ def _detect_defects(img_arr, skin_mask):
         red_global = ((redness > r_mean + 0.95 * r_std) & (skin_mask > 0))
     else:
         red_global = np.zeros_like(red_local)
-    red = (red_local | red_global).astype(np.uint8) * 255
+    red = (red_local | red_global | red_norm).astype(np.uint8) * 255
 
     defects = np.maximum(np.maximum(np.maximum(dark, texture), red), bright)
     defects = np.minimum(defects, skin_mask)

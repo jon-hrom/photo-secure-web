@@ -413,11 +413,33 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     orig_arr = np.array(orig_img, dtype=np.float32)
     ret_arr = np.array(ret_img, dtype=np.float32)
     out_arr = ret_arr * mask_arr + orig_arr * (1.0 - mask_arr)
-    out_img = Image.fromarray(np.clip(out_arr, 0, 255).astype(np.uint8), 'RGB')
+
+    # --- Финальный скин-грейдинг: контраст + тёплый тон (~5200K) + объём ---
+    # 1) Баланс белого к 5200K: лёгкий +R, −B относительно нейтрали.
+    #    Множители подобраны эмпирически для естественного тёплого оттенка.
+    warm_r, warm_g, warm_b = 1.04, 1.00, 0.96
+    out_arr[..., 0] *= warm_r
+    out_arr[..., 1] *= warm_g
+    out_arr[..., 2] *= warm_b
+
+    # 2) S-кривая контраста (+10%) вокруг средней точки 128 — даёт скин-тон
+    #    и разделение полутонов, но без пережатия.
+    contrast = 1.10
+    out_arr = (out_arr - 128.0) * contrast + 128.0
+
+    # 3) Микро-контраст (объём) через unsharp mask на яркостном канале.
+    out_arr = np.clip(out_arr, 0, 255)
+    out_img = Image.fromarray(out_arr.astype(np.uint8), 'RGB')
+    blurred = out_img.filter(ImageFilter.GaussianBlur(radius=3))
+    micro = np.array(out_img, dtype=np.float32) - np.array(blurred, dtype=np.float32)
+    volumed = np.array(out_img, dtype=np.float32) + micro * 0.35
+    out_arr = np.clip(volumed, 0, 255)
+
+    out_img = Image.fromarray(out_arr.astype(np.uint8), 'RGB')
 
     out_buf = io.BytesIO()
     out_img.save(out_buf, format='JPEG', quality=95)
-    print(f"[RETOUCH] Composed with skin mask (coverage={float(mask_arr.mean()) * 100:.1f}%)")
+    print(f"[RETOUCH] Composed with skin mask (coverage={float(mask_arr.mean()) * 100:.1f}%), grade: warm+contrast+volume")
     return out_buf.getvalue()
 
 
