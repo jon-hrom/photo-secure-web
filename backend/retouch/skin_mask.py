@@ -1,7 +1,52 @@
 import io
+import os
 import base64
 import numpy as np
+import requests
 from PIL import Image, ImageFilter
+
+
+FACE_PARSE_URL = os.environ.get(
+    "FACE_PARSE_URL",
+    "https://io.foto-mix.ru/api/v2/face_parse",
+)
+FACE_PARSE_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
+FACE_PARSE_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
+FACE_PARSE_TIMEOUT = float(os.environ.get("FACE_PARSE_TIMEOUT", "15"))
+
+
+def _call_ai_face_parse(image_bytes, mode="skin"):
+    """Вызывает ИИ-сегментацию на сервере retouch (SegFormer).
+    Возвращает np.uint8 маску (0/255) или None при любой ошибке — тогда
+    вызывающий код откатится на эвристику.
+    """
+    if not FACE_PARSE_PASS:
+        return None
+    try:
+        b64 = base64.b64encode(image_bytes).decode('ascii')
+        r = requests.post(
+            FACE_PARSE_URL,
+            auth=(FACE_PARSE_USER, FACE_PARSE_PASS),
+            json={"image": b64, "mode": mode},
+            timeout=FACE_PARSE_TIMEOUT,
+        )
+        if r.status_code != 200:
+            print(f"[AI MASK] bad status {r.status_code}: {r.text[:200]}")
+            return None
+        data = r.json()
+        mask_bytes = base64.b64decode(data["mask"])
+        mask_img = Image.open(io.BytesIO(mask_bytes)).convert("L")
+        mask_arr = np.array(mask_img)
+        stats = data.get("stats", {})
+        print(
+            f"[AI MASK] mode={mode} cov={stats.get('coverage_pct')}% "
+            f"infer={stats.get('inference_ms')}ms "
+            f"device={stats.get('device')}"
+        )
+        return mask_arr
+    except Exception as e:
+        print(f"[AI MASK] call failed: {e}")
+        return None
 
 
 def _detect_skin_color(img_arr):
@@ -459,7 +504,19 @@ def build_face_skin_mask(image_bytes):
     """Возвращает маску ВСЕЙ кожи лица и шеи (без дефектов — всю зону целиком).
     Используется для композиции результата внешней ретуши с оригиналом:
     внутри маски применяем ретушь, снаружи (волосы, брови, одежда) — оригинал.
+
+    Сначала пробует ИИ (SegFormer face-parsing на сервере), при недоступности —
+    откат на YCrCb-эвристику.
     """
+    # ИИ-маска: точная, разделяет кожу/волосы/одежду/глаза.
+    ai_mask = _call_ai_face_parse(image_bytes, mode="skin")
+    if ai_mask is not None:
+        # Лёгкое сглаживание краёв, чтобы не было ступенек.
+        m = Image.fromarray(ai_mask, mode='L').filter(ImageFilter.GaussianBlur(radius=1.5))
+        ai_mask = np.where(np.array(m) > 128, 255, 0).astype(np.uint8)
+        return _mask_to_b64(ai_mask)
+
+    # Fallback: эвристика.
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode != 'RGB':
         img = img.convert('RGB')
@@ -501,16 +558,25 @@ def build_auto_mask(image_bytes):
     h, w = img_arr.shape[:2]
     print(f"[SKIN MASK] Image: {w}x{h}")
 
-    skin_color = _detect_skin_color(img_arr)
-    pct = np.count_nonzero(skin_color) * 100 / (h * w)
-    print(f"[SKIN MASK] Skin color: {pct:.1f}%")
-
-    if pct < 1:
-        print("[SKIN MASK] No skin — empty mask")
-        return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
-
-    face_skin = _find_face_regions(skin_color)
-    face_skin = _exclude_non_skin(img_arr, face_skin)
+    # ИИ-маска кожи: точная, минует одежду/волосы/глаза/губы.
+    ai_face_skin = _call_ai_face_parse(image_bytes, mode="skin")
+    if ai_face_skin is not None:
+        face_skin = ai_face_skin
+        pct_ai = np.count_nonzero(face_skin) * 100 / (h * w)
+        print(f"[SKIN MASK] AI face skin: {pct_ai:.1f}%")
+        if pct_ai < 1:
+            print("[SKIN MASK] AI: no skin on image — empty mask")
+            return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
+    else:
+        # Fallback: старая эвристика.
+        skin_color = _detect_skin_color(img_arr)
+        pct = np.count_nonzero(skin_color) * 100 / (h * w)
+        print(f"[SKIN MASK] Skin color (heuristic): {pct:.1f}%")
+        if pct < 1:
+            print("[SKIN MASK] No skin — empty mask")
+            return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
+        face_skin = _find_face_regions(skin_color)
+        face_skin = _exclude_non_skin(img_arr, face_skin)
 
     defects = _detect_defects(img_arr, face_skin)
 
