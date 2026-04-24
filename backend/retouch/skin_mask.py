@@ -301,134 +301,76 @@ def _gaussian_blur_np(arr, radius):
     return out
 
 
+def _dog_response(channel, sigma_small, sigma_large):
+    """Difference of Gaussians: даёт пик на blob'ах ~sigma_small диаметра.
+    Положительные значения = яркие/красные пятна, отрицательные = тёмные.
+    Ровная краснота, щетина и шум на этом масштабе ≈ 0.
+    """
+    s = _gaussian_blur_np(channel, max(1, int(sigma_small)))
+    L = _gaussian_blur_np(channel, max(1, int(sigma_large)))
+    return s - L
+
+
 def _detect_defects(img_arr, skin_mask):
+    """Детектор прыщей через blob-отклик (DoG).
+    Принципы:
+    - Прыщ = ЛОКАЛЬНЫЙ ПИК красноты или яркостного провала размером 3-15px.
+    - Ровная краснота кожи, ухо, шея, щетина, шум — НЕ дают пика на этом
+      масштабе и в маску не попадают.
+    - Каждый найденный пик расширяется в круг ~ радиуса blob'а.
+    """
     h, w = img_arr.shape[:2]
-    gray = np.mean(img_arr.astype(np.float32), axis=2)
-
-    img_pil = Image.fromarray(img_arr)
-    blurred = np.mean(np.array(img_pil.filter(ImageFilter.GaussianBlur(radius=3.0))).astype(np.float32), axis=2)
-    detail = gray - blurred
-
-    skin_px = gray[skin_mask > 0]
-    if len(skin_px) < 50:
+    skin_bin = (skin_mask > 0)
+    if int(np.count_nonzero(skin_bin)) < 50:
         return np.zeros((h, w), dtype=np.uint8)
 
-    # Глобальные статы (страховка)
-    g_mean = float(np.mean(skin_px))
-    g_std = max(5.0, float(np.std(skin_px)))
-
-    # Локальные статы — критично для периферии лица (тени, боковая щека)
-    l_mean, l_std = _local_stats(gray, skin_mask, tile=64)
-
-    # Тёмные точки: и по локальной, и по глобальной статистике (объединение).
-    # Нормализованный канал (dark_norm) помогает в тенях, но он же ловит
-    # щетину и волоски — поэтому требуем АБСОЛЮТНЫЙ провал ≥ 8 единиц,
-    # а не только относительный.
-    gray_norm = gray / np.maximum(l_mean, 1.0)
-    ln_mean, ln_std = _local_stats(gray_norm, skin_mask, tile=48)
-    dark_norm = (
-        (gray_norm < ln_mean - 1.3 * ln_std) &
-        (gray < l_mean - 8.0) &
-        (skin_mask > 0)
-    )
-
-    dark_local = ((gray < l_mean - 1.3 * l_std) & (skin_mask > 0))
-    dark_global = ((gray < g_mean - 1.6 * g_std) & (skin_mask > 0))
-    dark = (dark_local | dark_global | dark_norm).astype(np.uint8) * 255
-
-    # ПЕРЕСВЕТЫ (локальные блики): только ЯРКО выделяющиеся пятна относительно
-    # локального среднего по коже. Общую хорошо освещённую зону НЕ трогаем.
     r = img_arr[:, :, 0].astype(np.float32)
     g = img_arr[:, :, 1].astype(np.float32)
     b = img_arr[:, :, 2].astype(np.float32)
-    maxc = np.maximum(np.maximum(r, g), b)
-    minc = np.minimum(np.minimum(r, g), b)
-    sat = np.zeros_like(gray)
-    nz = maxc > 0
-    sat[nz] = (maxc[nz] - minc[nz]) / maxc[nz]
-    # Жёсткие пороги: +1.8σ локально и +2.0σ глобально, яркость > 200,
-    # низкая сатурация (<0.18). Это только точечные блики.
-    bright_local = (
-        (gray > l_mean + 1.8 * l_std) & (gray > 200) &
-        (sat < 0.18) & (skin_mask > 0)
-    )
-    bright_global = (
-        (gray > g_mean + 2.0 * g_std) & (gray > 210) &
-        (sat < 0.18) & (skin_mask > 0)
-    )
-    bright_raw = (bright_local | bright_global).astype(np.uint8) * 255
-    # Удаляем крупные заливки: блик — это ПЯТНО, а не половина лица.
-    bright_pil = Image.fromarray(bright_raw, mode='L')
-    bright_pil = bright_pil.filter(ImageFilter.MinFilter(3))
-    bright_eroded = np.array(bright_pil)
-    # Если осталось — возвращаем с небольшим dilate обратно.
-    if np.count_nonzero(bright_eroded) > 0:
-        bright_pil2 = Image.fromarray(bright_eroded, mode='L').filter(ImageFilter.MaxFilter(5))
-        bright = np.array(bright_pil2)
-    else:
-        bright = np.zeros_like(bright_raw)
-
-    # Детали/текстура: локальный порог (в тенях шум ниже — отлавливаем всё равно)
-    d_abs = np.abs(detail)
-    l_det_mean, l_det_std = _local_stats(d_abs, skin_mask, tile=64)
-    texture_local = ((d_abs > l_det_mean + 1.2 * l_det_std) & (skin_mask > 0))
-    sd = d_abs[skin_mask > 0]
-    d_thr = max(5, np.percentile(sd, 90)) if len(sd) > 50 else 10
-    texture_global = ((d_abs > d_thr) & (skin_mask > 0))
-    texture = (texture_local | texture_global).astype(np.uint8) * 255
-
-    # Красные пятна: сравниваем redness с ЛОКАЛЬНЫМ средним redness.
-    # Плюс нормализованный канал — ловит прыщи в тенях, где абсолютная
-    # краснота ниже, но относительно окружения выделяется.
+    gray = (r + g + b) / 3.0
     redness = r - (g + b) / 2.0
-    l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=48)
-    red_local = ((redness > l_red_mean + 0.85 * l_red_std) & (skin_mask > 0))
 
-    # Нормализованная краснота. Требуем АБСОЛЮТНЫЙ разрыв ≥ 5 единиц
-    # от локального среднего — иначе в маску попадает ровная щетина
-    # и шум на подбородке.
-    redness_norm = (redness - l_red_mean) / np.maximum(np.abs(l_red_mean), 3.0)
-    rn_mean, rn_std = _local_stats(redness_norm, skin_mask, tile=48)
-    red_norm = (
-        (redness_norm > rn_mean + 1.1 * rn_std) &
-        (redness > l_red_mean + 5.0) &
-        (skin_mask > 0)
+    # Радиусы DoG подбираем по размеру кадра: малый = типичный прыщ ~5-8px,
+    # большой = окружающая кожа ~25-40px. На малом фото уменьшаем.
+    base = max(2, int(min(h, w) * 0.006))
+    sigma_small = base
+    sigma_large = base * 5
+
+    # 1) Красные blob'ы: пик redness относительно окружения.
+    red_dog = _dog_response(redness, sigma_small, sigma_large)
+    # 2) Тёмные blob'ы: провал яркости (инвертируем — пик становится положительным).
+    dark_dog = _dog_response(-gray, sigma_small, sigma_large)
+    # 3) Яркие blob'ы (сальные блики): пик яркости.
+    bright_dog = _dog_response(gray, sigma_small, sigma_large)
+
+    # Адаптивные пороги: берём перцентили только по коже.
+    rd_skin = red_dog[skin_bin]
+    dd_skin = dark_dog[skin_bin]
+    bd_skin = bright_dog[skin_bin]
+
+    # 99-й перцентиль ловит реальные пики, но не широкополосные изменения.
+    red_thr = max(3.0, float(np.percentile(rd_skin, 98))) if rd_skin.size > 100 else 5.0
+    dark_thr = max(3.0, float(np.percentile(dd_skin, 98))) if dd_skin.size > 100 else 5.0
+    bright_thr = max(4.0, float(np.percentile(bd_skin, 99))) if bd_skin.size > 100 else 8.0
+
+    red_peaks = (red_dog > red_thr) & skin_bin
+    dark_peaks = (dark_dog > dark_thr) & skin_bin
+    bright_peaks = (bright_dog > bright_thr) & skin_bin
+
+    peaks = (red_peaks | dark_peaks | bright_peaks).astype(np.uint8) * 255
+
+    # Расширяем каждый пик в круг радиуса ~ sigma_small (зона прыща).
+    grow_r = max(2, sigma_small)
+    peaks_pil = Image.fromarray(peaks, mode='L').filter(
+        ImageFilter.MaxFilter(min(grow_r * 2 + 1, 11))
     )
-
-    sr = redness[skin_mask > 0]
-    if len(sr) > 50:
-        r_mean = np.mean(sr)
-        r_std = max(3, np.std(sr))
-        red_global = ((redness > r_mean + 0.95 * r_std) & (skin_mask > 0))
-    else:
-        red_global = np.zeros_like(red_local)
-    red = (red_local | red_global | red_norm).astype(np.uint8) * 255
-
-    defects = np.maximum(np.maximum(np.maximum(dark, texture), red), bright)
+    defects = np.array(peaks_pil)
     defects = np.minimum(defects, skin_mask)
 
-    # ПОДАВЛЕНИЕ ЩЕТИНЫ: там, где ПЛОТНОСТЬ тёмных точек очень высокая —
-    # это не акне, а зона щетины/бороды. Считаем локальную плотность dark
-    # через размытие и отсекаем зоны с плотностью > 25%.
-    dark_density_pil = Image.fromarray(dark, mode='L').filter(
-        ImageFilter.GaussianBlur(radius=max(6, int(min(h, w) * 0.012)))
-    )
-    dark_density = np.array(dark_density_pil)
-    stubble = dark_density > 64  # локально > ~25% тёмных = щетина
-    defects[stubble] = 0
-    stubble_cnt = int(np.count_nonzero(stubble))
-
-    # Морфология: закрываем дырки (closing), потом лёгкая эрозия чтобы
-    # не захватывать единичный шум, потом опять dilate.
-    defects_pil = Image.fromarray(defects, mode='L')
-    defects_pil = defects_pil.filter(ImageFilter.MaxFilter(3))
-    defects_pil = defects_pil.filter(ImageFilter.MinFilter(3))
-    defects = np.array(defects_pil)
-
-    # КРИТИЧНО: удаляем большие заливки — реальные дефекты всегда точечные.
-    # Большие зоны — это ошибки (глаза, брови, тени, залитый лоб, одежда).
-    before_blob = np.count_nonzero(defects)
-    blob_r = max(6, int(min(h, w) * 0.01))
+    # Удаляем крупные заливки (на случай, если несколько пиков слились в зону >
+    # ~30px — это уже не прыщ, а тень/брови/складка).
+    before_blob = int(np.count_nonzero(defects))
+    blob_r = max(8, int(min(h, w) * 0.018))
     erode_pil = Image.fromarray(defects, mode='L')
     for _ in range(blob_r):
         erode_pil = erode_pil.filter(ImageFilter.MinFilter(3))
@@ -436,11 +378,16 @@ def _detect_defects(img_arr, skin_mask):
         erode_pil = erode_pil.filter(ImageFilter.MaxFilter(3))
     big_blobs = np.array(erode_pil)
     defects = np.where(big_blobs > 0, 0, defects).astype(np.uint8)
-    after_blob = np.count_nonzero(defects)
+    after_blob = int(np.count_nonzero(defects))
 
-    cnt = np.count_nonzero(defects)
-    br_cnt = np.count_nonzero(bright)
-    print(f"[SKIN MASK] Defects: {cnt}px (bright={br_cnt}, blob_removed={before_blob - after_blob}, stubble={stubble_cnt}), g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
+    cnt = after_blob
+    rc = int(np.count_nonzero(red_peaks))
+    dc = int(np.count_nonzero(dark_peaks))
+    bc = int(np.count_nonzero(bright_peaks))
+    print(f"[SKIN MASK] Defects(DoG): {cnt}px "
+          f"red={rc} dark={dc} bright={bc} "
+          f"thr=r{red_thr:.1f}/d{dark_thr:.1f}/b{bright_thr:.1f} "
+          f"sigma={sigma_small}/{sigma_large} blob_removed={before_blob - after_blob}")
     return defects
 
 
