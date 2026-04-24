@@ -471,39 +471,41 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # === ДЕТЕКТОР МОРЩИН через структурный тензор ===
     # Морщины = линейные структуры (λ1 >> λ2, coherence → 1.0)
     # Прыщи/пятна = круглые blob'ы (λ1 ≈ λ2, coherence → 0)
-    # Считаем на gray_blurred чуть-чуть (убирает шум).
-    gx = np.gradient(blur_gray, axis=1).astype(np.float32)
-    gy = np.gradient(blur_gray, axis=0).astype(np.float32)
-    # Компоненты структурного тензора + сглаживание (окно ~11px).
-    def _blur_small(a):
-        return np.array(
-            Image.fromarray(a.clip(-500, 500).astype(np.float32), 'F').filter(
-                ImageFilter.GaussianBlur(radius=5)
-            ),
-            dtype=np.float32,
-        )
-    Jxx = _blur_small(gx * gx)
-    Jyy = _blur_small(gy * gy)
-    Jxy = _blur_small(gx * gy)
-    del gx, gy
-    # Собственные значения 2x2 матрицы [[Jxx,Jxy],[Jxy,Jyy]]
-    trace = Jxx + Jyy
-    det_val = Jxx * Jyy - Jxy * Jxy
-    # discriminant = trace^2/4 - det
-    disc = np.maximum(trace * trace / 4.0 - det_val, 0.0)
-    sq = np.sqrt(disc)
-    lam1 = trace / 2.0 + sq
-    lam2 = trace / 2.0 - sq
-    # Coherence: (λ1-λ2)^2 / (λ1+λ2)^2 — 1.0 для линий, ~0 для круглых blob'ов и плоских зон.
-    denom = (lam1 + lam2) + 1e-6
-    coherence = ((lam1 - lam2) / denom) ** 2
-    # Только на коже и где есть значимый градиент.
-    strong = (trace > 4.0) & det_mask
-    if strong.sum() > 100:
-        wrinkle_score = float(np.mean(coherence[strong])) * 100
-    else:
+    try:
+        gx = np.gradient(blur_gray, axis=1).astype(np.float32)
+        gy = np.gradient(blur_gray, axis=0).astype(np.float32)
+
+        # Сглаживание компонент тензора через uint8-подход (stable в PIL).
+        def _blur_tensor(a):
+            # Нормализуем в uint8 → blur → обратно.
+            amax = float(np.max(np.abs(a))) + 1e-6
+            a_u8 = ((a / amax) * 127.0 + 128.0).clip(0, 255).astype(np.uint8)
+            b_u8 = np.array(
+                Image.fromarray(a_u8, 'L').filter(ImageFilter.GaussianBlur(radius=5))
+            )
+            return (b_u8.astype(np.float32) - 128.0) * (amax / 127.0)
+
+        Jxx = _blur_tensor(gx * gx)
+        Jyy = _blur_tensor(gy * gy)
+        Jxy = _blur_tensor(gx * gy)
+        del gx, gy
+        trace = Jxx + Jyy
+        det_val = Jxx * Jyy - Jxy * Jxy
+        disc = np.maximum(trace * trace / 4.0 - det_val, 0.0)
+        sq = np.sqrt(disc)
+        lam1 = trace / 2.0 + sq
+        lam2 = trace / 2.0 - sq
+        denom = (lam1 + lam2) + 1e-6
+        coherence = ((lam1 - lam2) / denom) ** 2
+        strong = (trace > 4.0) & det_mask
+        if strong.sum() > 100:
+            wrinkle_score = float(np.mean(coherence[strong])) * 100
+        else:
+            wrinkle_score = 0.0
+        del Jxx, Jyy, Jxy, trace, det_val, disc, sq, lam1, lam2, coherence
+    except Exception as e:
+        print(f"[RETOUCH] wrinkle detector failed: {e} — fallback to 0")
         wrinkle_score = 0.0
-    del Jxx, Jyy, Jxy, trace, det_val, disc, sq, lam1, lam2, coherence
 
     # === АДАПТИВНАЯ СИЛА РЕТУШИ ===
     # wrinkle_score (0-100): высокий → много линейных структур (морщины) → щадяще
@@ -513,13 +515,15 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Главная идея: ВЫСОКИЙ wrinkle_score → alpha ВНИЗ, независимо от других метрик.
     # Это защищает пожилые лица от "омолаживания".
     if wrinkle_score > 18:
-        # Много морщин → пожилая кожа, минимум вмешательства.
+        # Пожилая кожа: чуть приглушаем глубокие морщины, но сохраняем характер.
+        # alpha=0.45 — достаточно чтобы T-зона, "гусиные лапки" и носогубные стали мягче,
+        # но форма лица и выраженность остались.
         skin_type = "mature"
-        lf_strength = 0.25
+        lf_strength = 0.45
     elif wrinkle_score > 12 and hf_std > 8:
         # Зрелая с текстурой.
         skin_type = "mature_textured"
-        lf_strength = 0.40
+        lf_strength = 0.55
     elif blob_density > 2.5 and wrinkle_score < 10:
         # Акне на молодой коже (пятна, но мало линий).
         skin_type = "young_acne"
