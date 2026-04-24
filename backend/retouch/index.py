@@ -454,7 +454,7 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
 
     mask_bool = mask_arr > 0.3
 
-    gray = np.mean(det_orig, axis=2)
+    gray = np.mean(det_orig, axis=2).astype(np.float32)
     blur_gray = np.array(
         Image.fromarray(gray.clip(0, 255).astype(np.uint8), 'L').filter(ImageFilter.GaussianBlur(radius=4)),
         dtype=np.float32,
@@ -463,36 +463,77 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     skin_hf = hf[det_mask]
     if skin_hf.size > 100:
         hf_std = float(np.std(skin_hf))
-        # Плотность локальных "всплесков" (прыщи = большие отклонения).
+        # Плотность локальных "всплесков" — грубая оценка дефектов.
         blob_density = float(np.mean(np.abs(skin_hf) > 12)) * 100
     else:
         hf_std, blob_density = 6.0, 0.0
 
-    # Классификация по метрикам:
-    # hf_std < 5 — кожа гладкая (молодая чистая)
-    # hf_std 5-9 — нормальная
-    # hf_std > 9 — сильная текстура (акне ИЛИ морщины)
-    # blob_density > 3% + высокий hf_std → акне (локальные пятна)
-    # blob_density < 1% + высокий hf_std → морщины (равномерная текстура)
-    if hf_std < 5:
-        skin_type = "young_clean"
-        lf_strength = 0.35  # лёгкая коррекция тона
-        hf_from_orig = 1.0
-    elif blob_density > 2.5:
-        skin_type = "young_acne"
-        lf_strength = 0.90  # сильное сглаживание LF
-        hf_from_orig = 1.0  # полностью сохраняем поры
-    elif blob_density < 1.0 and hf_std > 7:
+    # === ДЕТЕКТОР МОРЩИН через структурный тензор ===
+    # Морщины = линейные структуры (λ1 >> λ2, coherence → 1.0)
+    # Прыщи/пятна = круглые blob'ы (λ1 ≈ λ2, coherence → 0)
+    # Считаем на gray_blurred чуть-чуть (убирает шум).
+    gx = np.gradient(blur_gray, axis=1).astype(np.float32)
+    gy = np.gradient(blur_gray, axis=0).astype(np.float32)
+    # Компоненты структурного тензора + сглаживание (окно ~11px).
+    def _blur_small(a):
+        return np.array(
+            Image.fromarray(a.clip(-500, 500).astype(np.float32), 'F').filter(
+                ImageFilter.GaussianBlur(radius=5)
+            ),
+            dtype=np.float32,
+        )
+    Jxx = _blur_small(gx * gx)
+    Jyy = _blur_small(gy * gy)
+    Jxy = _blur_small(gx * gy)
+    del gx, gy
+    # Собственные значения 2x2 матрицы [[Jxx,Jxy],[Jxy,Jyy]]
+    trace = Jxx + Jyy
+    det_val = Jxx * Jyy - Jxy * Jxy
+    # discriminant = trace^2/4 - det
+    disc = np.maximum(trace * trace / 4.0 - det_val, 0.0)
+    sq = np.sqrt(disc)
+    lam1 = trace / 2.0 + sq
+    lam2 = trace / 2.0 - sq
+    # Coherence: (λ1-λ2)^2 / (λ1+λ2)^2 — 1.0 для линий, ~0 для круглых blob'ов и плоских зон.
+    denom = (lam1 + lam2) + 1e-6
+    coherence = ((lam1 - lam2) / denom) ** 2
+    # Только на коже и где есть значимый градиент.
+    strong = (trace > 4.0) & det_mask
+    if strong.sum() > 100:
+        wrinkle_score = float(np.mean(coherence[strong])) * 100
+    else:
+        wrinkle_score = 0.0
+    del Jxx, Jyy, Jxy, trace, det_val, disc, sq, lam1, lam2, coherence
+
+    # === АДАПТИВНАЯ СИЛА РЕТУШИ ===
+    # wrinkle_score (0-100): высокий → много линейных структур (морщины) → щадяще
+    # hf_std: общая активность текстуры
+    # blob_density: круглые пятна (прыщи/постакне)
+    #
+    # Главная идея: ВЫСОКИЙ wrinkle_score → alpha ВНИЗ, независимо от других метрик.
+    # Это защищает пожилые лица от "омолаживания".
+    if wrinkle_score > 18:
+        # Много морщин → пожилая кожа, минимум вмешательства.
         skin_type = "mature"
-        lf_strength = 0.25  # НЕ убираем морщины сильно
-        hf_from_orig = 1.0
+        lf_strength = 0.25
+    elif wrinkle_score > 12 and hf_std > 8:
+        # Зрелая с текстурой.
+        skin_type = "mature_textured"
+        lf_strength = 0.40
+    elif blob_density > 2.5 and wrinkle_score < 10:
+        # Акне на молодой коже (пятна, но мало линий).
+        skin_type = "young_acne"
+        lf_strength = 0.85
+    elif hf_std < 5:
+        skin_type = "young_clean"
+        lf_strength = 0.35
     else:
         skin_type = "normal"
-        lf_strength = 0.60
-        hf_from_orig = 1.0
+        lf_strength = 0.55
+    hf_from_orig = 1.0
 
     print(f"[RETOUCH] Skin: type={skin_type} hf_std={hf_std:.1f} blob={blob_density:.1f}% "
-          f"→ lf={lf_strength:.2f} hf={hf_from_orig:.2f}")
+          f"wrinkle={wrinkle_score:.1f} → alpha={lf_strength:.2f}")
 
     # --- ПРОСТОЙ АЛЬФА-BLEND ---
     # Сервер уже сам делает: детекцию, LaMa, frequency separation, skin texture,
