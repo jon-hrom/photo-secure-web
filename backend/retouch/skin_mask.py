@@ -294,32 +294,47 @@ def _detect_defects(img_arr, skin_mask):
     dark_global = ((gray < g_mean - 1.6 * g_std) & (skin_mask > 0))
     dark = (dark_local | dark_global).astype(np.uint8) * 255
 
-    # Детали/текстура: локальный порог (в тенях шум ниже — отлавливаем всё равно)
-    d_abs = np.abs(detail)
-    l_det_mean, l_det_std = _local_stats(d_abs, skin_mask, tile=64)
-    texture_local = ((d_abs > l_det_mean + 1.2 * l_det_std) & (skin_mask > 0))
-    sd = d_abs[skin_mask > 0]
-    d_thr = max(5, np.percentile(sd, 90)) if len(sd) > 50 else 10
-    texture_global = ((d_abs > d_thr) & (skin_mask > 0))
-    texture = (texture_local | texture_global).astype(np.uint8) * 255
-
-    # Красные пятна: сравниваем redness с ЛОКАЛЬНЫМ средним redness
+    # ПЕРЕСВЕТЫ (блики, жирный блеск на щеках/лбу/носу): яркие зоны с низкой
+    # сатурацией относительно локального среднего по коже. Убираем их как
+    # дефект вместе с прыщами.
     r = img_arr[:, :, 0].astype(np.float32)
     g = img_arr[:, :, 1].astype(np.float32)
     b = img_arr[:, :, 2].astype(np.float32)
+    maxc = np.maximum(np.maximum(r, g), b)
+    minc = np.minimum(np.minimum(r, g), b)
+    sat = np.zeros_like(gray)
+    nz = maxc > 0
+    sat[nz] = (maxc[nz] - minc[nz]) / maxc[nz]
+    # Порог яркости: выше локального среднего + 1.0σ; сатурация ниже 0.22
+    # (блик теряет цвет). Это отличает блик от естественного румянца.
+    bright_local = ((gray > l_mean + 1.0 * l_std) & (sat < 0.22) & (skin_mask > 0))
+    bright_global = ((gray > g_mean + 1.3 * g_std) & (sat < 0.22) & (skin_mask > 0))
+    bright = (bright_local | bright_global).astype(np.uint8) * 255
+
+    # Детали/текстура: локальный порог (в тенях шум ниже — отлавливаем всё равно)
+    d_abs = np.abs(detail)
+    l_det_mean, l_det_std = _local_stats(d_abs, skin_mask, tile=64)
+    texture_local = ((d_abs > l_det_mean + 1.0 * l_det_std) & (skin_mask > 0))
+    sd = d_abs[skin_mask > 0]
+    d_thr = max(5, np.percentile(sd, 88)) if len(sd) > 50 else 10
+    texture_global = ((d_abs > d_thr) & (skin_mask > 0))
+    texture = (texture_local | texture_global).astype(np.uint8) * 255
+
+    # Красные пятна: сравниваем redness с ЛОКАЛЬНЫМ средним redness.
+    # Пороги снижены — слабые пятна возле носа/глаза раньше проходили мимо.
     redness = r - (g + b) / 2.0
     l_red_mean, l_red_std = _local_stats(redness, skin_mask, tile=64)
-    red_local = ((redness > l_red_mean + 1.2 * l_red_std) & (skin_mask > 0))
+    red_local = ((redness > l_red_mean + 0.9 * l_red_std) & (skin_mask > 0))
     sr = redness[skin_mask > 0]
     if len(sr) > 50:
         r_mean = np.mean(sr)
         r_std = max(3, np.std(sr))
-        red_global = ((redness > r_mean + 1.3 * r_std) & (skin_mask > 0))
+        red_global = ((redness > r_mean + 1.0 * r_std) & (skin_mask > 0))
     else:
         red_global = np.zeros_like(red_local)
     red = (red_local | red_global).astype(np.uint8) * 255
 
-    defects = np.maximum(np.maximum(dark, texture), red)
+    defects = np.maximum(np.maximum(np.maximum(dark, texture), red), bright)
     defects = np.minimum(defects, skin_mask)
 
     # Морфология: закрываем дырки (closing), потом лёгкая эрозия чтобы
@@ -330,7 +345,8 @@ def _detect_defects(img_arr, skin_mask):
     defects = np.array(defects_pil)
 
     cnt = np.count_nonzero(defects)
-    print(f"[SKIN MASK] Defects: {cnt}px, g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
+    br_cnt = np.count_nonzero(bright)
+    print(f"[SKIN MASK] Defects: {cnt}px (bright={br_cnt}), g_mean={g_mean:.0f} g_std={g_std:.0f} d_thr={d_thr:.1f}")
     return defects
 
 
