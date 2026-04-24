@@ -361,9 +361,9 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         return retouched_bytes
 
     # ОГРАНИЧЕНИЕ ПАМЯТИ: Cloud Function имеет 256MB лимита.
-    # Фото >2500px по стороне не помещается (float32 * 3 канала * 3 копии = OOM).
+    # Фото >1800px по стороне не помещается (float32 * 3 канала * 3 копии = OOM).
     # Ресайзим ДО композиции, это же разрешение отдаём наружу.
-    MAX_COMPOSE_SIDE = 2500
+    MAX_COMPOSE_SIDE = 1800
     ow_orig, oh_orig = orig_img.size
     if max(ow_orig, oh_orig) > MAX_COMPOSE_SIDE:
         scale = MAX_COMPOSE_SIDE / max(ow_orig, oh_orig)
@@ -435,25 +435,24 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         print("[RETOUCH] Empty mask — keeping raw retouched")
         return retouched_bytes
 
-    orig_arr = np.array(orig_img, dtype=np.float32)
-    ret_arr = np.array(ret_img, dtype=np.float32)
+    # ЭКОНОМИЯ ПАМЯТИ: работаем в int16 вместо float32 (в 2 раза меньше RAM).
+    # Детектор возраста кожи запускаем ДО создания больших массивов.
+    w_full, h_full = orig_img.size
 
-    # --- Детектор "возраста кожи" по текстуре на оригинале ---
-    # HF оригинала = orig - blur(orig). std(HF) внутри маски показывает активность текстуры.
-    mask_bool = mask_arr > 0.3
-    # Работаем на уменьшенной версии для скорости детектора.
+    # --- Детектор "возраста кожи" на уменьшенной версии (512px) ---
     det_side = 512
-    h_full, w_full = orig_arr.shape[:2]
     scale = det_side / max(h_full, w_full)
     if scale < 1:
         det_w, det_h = int(w_full * scale), int(h_full * scale)
         det_orig = np.array(orig_img.resize((det_w, det_h), Image.BILINEAR), dtype=np.float32)
         det_mask = np.array(
-            Image.fromarray((mask_bool * 255).astype(np.uint8), 'L').resize((det_w, det_h), Image.BILINEAR)
+            Image.fromarray((mask_arr > 0.3).astype(np.uint8) * 255, 'L').resize((det_w, det_h), Image.BILINEAR)
         ) > 128
     else:
-        det_orig = orig_arr.copy()
-        det_mask = mask_bool
+        det_orig = np.array(orig_img, dtype=np.float32)
+        det_mask = mask_arr > 0.3
+
+    mask_bool = mask_arr > 0.3
 
     gray = np.mean(det_orig, axis=2)
     blur_gray = np.array(
@@ -505,23 +504,36 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Смесь = orig * (1 - m * alpha) + ret * (m * alpha)
     # где m = маска кожи, alpha = сила под тип кожи.
 
-    # Диагностика: насколько сервер отличается от оригинала на коже?
-    skin_diff = float(np.mean(np.abs(ret_arr[mask_bool] - orig_arr[mask_bool])))
-    print(f"[RETOUCH] Server diff in mask: {skin_diff:.1f} (0=no change, >5=strong)")
-
     # Эффективная сила смешивания: lf_strength уже учитывает тип кожи.
     alpha = lf_strength
 
-    # out = orig + (ret - orig) * mask * alpha (in-place)
-    effective_mask = mask_arr * alpha
-    np.subtract(ret_arr, orig_arr, out=ret_arr)
-    ret_arr *= effective_mask[..., None]
-    np.add(orig_arr, ret_arr, out=orig_arr)
-    del ret_arr, effective_mask
+    # ЭКОНОМНАЯ КОМПОЗИЦИЯ: работаем в uint8 + int16 (в 2 раза меньше памяти чем float32).
+    # Формула: out = orig + (ret - orig) * (mask * alpha)
+    # m_u8 = (mask * alpha * 255) — компонент смешивания в uint8 (0..255)
+    m_u8 = (mask_arr * alpha * 255.0).clip(0, 255).astype(np.uint8)
+    del mask_arr, det_orig, det_mask  # освобождаем лишнее
 
-    np.clip(orig_arr, 0, 255, out=orig_arr)
-    out_img = Image.fromarray(orig_arr.astype(np.uint8), 'RGB')
-    del orig_arr
+    orig_u8 = np.array(orig_img, dtype=np.uint8)
+    ret_u8 = np.array(ret_img, dtype=np.uint8)
+
+    # diff = ret - orig (в int16 чтобы не терять знак)
+    diff = ret_u8.astype(np.int16) - orig_u8.astype(np.int16)
+    del ret_u8
+
+    # Применяем маску канально: diff[y,x,c] *= m_u8[y,x] / 255
+    # Работаем с одним каналом за раз чтобы экономить память.
+    m_f = m_u8.astype(np.float32) / 255.0
+    del m_u8
+    for c in range(3):
+        diff[:, :, c] = (diff[:, :, c].astype(np.float32) * m_f).astype(np.int16)
+    del m_f
+
+    # out = orig + diff (с клиппингом в uint8)
+    result = np.clip(orig_u8.astype(np.int16) + diff, 0, 255).astype(np.uint8)
+    del orig_u8, diff
+
+    out_img = Image.fromarray(result, 'RGB')
+    del result
 
     out_buf = io.BytesIO()
     out_img.save(out_buf, format='JPEG', quality=95)
