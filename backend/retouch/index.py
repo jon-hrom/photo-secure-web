@@ -483,33 +483,38 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     print(f"[RETOUCH] Skin: type={skin_type} hf_std={hf_std:.1f} blob={blob_density:.1f}% "
           f"→ lf={lf_strength:.2f} hf={hf_from_orig:.2f}")
 
-    # --- Frequency Separation ---
-    # Radius зависит от размера: детали меньше чем blur_r попадают в HF (поры).
+    # --- Frequency Separation (экономная, in-place) ---
+    # Radius: детали меньше fs_radius попадают в HF (поры, волоски).
     fs_radius = max(3, min(h_full, w_full) // 250)
-    orig_pil_lf = orig_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
-    ret_pil_lf = ret_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
-    orig_lf = np.array(orig_pil_lf, dtype=np.float32)
-    ret_lf = np.array(ret_pil_lf, dtype=np.float32)
 
-    # HF оригинала (поры, волоски, микротекстура).
-    orig_hf = orig_arr - orig_lf
+    # orig_lf через PIL (освобождает память после)
+    orig_lf = np.array(
+        orig_img.filter(ImageFilter.GaussianBlur(radius=fs_radius)), dtype=np.float32
+    )
+    # ret_lf — сразу считаем effective "ret_lf - orig_lf" как дельту, не храним оба.
+    ret_lf = np.array(
+        ret_img.filter(ImageFilter.GaussianBlur(radius=fs_radius)), dtype=np.float32
+    )
+    # delta_lf = (ret_lf - orig_lf) * lf_strength * mask
+    np.subtract(ret_lf, orig_lf, out=ret_lf)
+    np.multiply(ret_lf, lf_strength, out=ret_lf)
+    # Маска: расширяем до 3 каналов только через broadcasting (не копируем).
+    ret_lf *= mask_arr[..., None]
 
-    # Итоговые LF = orig_lf + (ret_lf - orig_lf) * lf_strength * mask
-    mask_arr3 = mask_arr[..., None]
-    lf_blend = orig_lf + (ret_lf - orig_lf) * lf_strength * mask_arr3
+    # out = orig (LF + HF уже есть) + delta_lf. HF оригинала сохраняется полностью.
+    # orig_arr уже = orig_lf + orig_hf, поэтому: out = orig_arr + delta_lf.
+    np.add(orig_arr, ret_lf, out=orig_arr)
+    del ret_lf, orig_lf, ret_arr
 
-    # Итог = LF_blend + HF_orig * hf_from_orig (HF снаружи маски тоже сохраняем).
-    out_arr = lf_blend + orig_hf * hf_from_orig
-    del orig_lf, ret_lf, orig_hf, lf_blend, ret_arr
+    # --- Лёгкий цветокор ТОЛЬКО внутри маски ---
+    warm = 0.03 * mask_arr  # половинная сила
+    orig_arr[..., 0] *= (1.0 + warm)
+    orig_arr[..., 2] *= (1.0 - warm)
+    del warm
 
-    # --- Лёгкий цветокор ТОЛЬКО внутри маски (не трогаем глаза/губы/волосы) ---
-    # Тёплый баланс на коже, чтобы не выглядело желтушно везде.
-    warm_mask = mask_arr3 * 0.5  # половинная сила цветокора
-    out_arr[..., 0] = out_arr[..., 0] * (1 + 0.03 * warm_mask[..., 0])
-    out_arr[..., 2] = out_arr[..., 2] * (1 - 0.03 * warm_mask[..., 0])
-
-    np.clip(out_arr, 0, 255, out=out_arr)
-    out_img = Image.fromarray(out_arr.astype(np.uint8), 'RGB')
+    np.clip(orig_arr, 0, 255, out=orig_arr)
+    out_img = Image.fromarray(orig_arr.astype(np.uint8), 'RGB')
+    del orig_arr
 
     out_buf = io.BytesIO()
     out_img.save(out_buf, format='JPEG', quality=95)
