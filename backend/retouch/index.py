@@ -409,18 +409,44 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         print("[RETOUCH] Empty mask after compose — keeping raw retouched")
         return retouched_bytes
 
-    # Композиция: ret * mask + orig * (1-mask). Делаем in-place, чтобы не
-    # держать в памяти одновременно три float32-массива (~12MB на 1MP).
+    # === Frequency Separation композиция (мужская кожа, щетина, поры) ===
+    # Идея: внутри маски берём ТОН от ретуши (низкие частоты),
+    # а ТЕКСТУРУ — от оригинала (высокие частоты). Кожа не мылится,
+    # щетина и поры сохраняются.
     mask_arr = mask_arr[..., None]
-    orig_arr = np.array(orig_img, dtype=np.float32)
-    ret_arr = np.array(ret_img, dtype=np.float32)
     coverage = float(mask_arr.mean())
-    # out = orig + (ret - orig) * mask
-    np.subtract(ret_arr, orig_arr, out=ret_arr)
-    np.multiply(ret_arr, mask_arr, out=ret_arr)
-    np.add(orig_arr, ret_arr, out=orig_arr)
-    del ret_arr, mask_arr
-    out_arr = orig_arr  # переиспользуем тот же буфер
+
+    # Радиус разделения частот: ~ диаметр прыща (3-8px на типичном фото).
+    fs_radius = max(3, min(ow, oh) // 250)
+
+    # Высокие частоты оригинала: orig - blur(orig). Делаем через uint8.
+    orig_low_u8 = np.array(
+        orig_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
+    )
+    orig_high = np.array(orig_img, dtype=np.float32) - orig_low_u8.astype(np.float32)
+    del orig_low_u8
+
+    # Низкие частоты ретуши: blur(ret).
+    ret_low_u8 = np.array(
+        ret_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
+    )
+    # Низкие частоты оригинала: blur(orig).
+    orig_low_u8 = np.array(
+        orig_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
+    )
+
+    # Смешиваем low по маске: out_low = orig_low + (ret_low - orig_low) * mask
+    out_low = orig_low_u8.astype(np.float32)
+    diff_low = ret_low_u8.astype(np.float32) - out_low
+    del ret_low_u8, orig_low_u8
+    np.multiply(diff_low, mask_arr, out=diff_low)
+    np.add(out_low, diff_low, out=out_low)
+    del diff_low, mask_arr
+
+    # Финал: out = out_low + orig_high
+    np.add(out_low, orig_high, out=out_low)
+    del orig_high
+    out_arr = out_low
 
     # --- Финальный скин-грейдинг (всё in-place, без лишних копий) ---
     # 1) Баланс белого к ~5200K: лёгкий +R, −B.

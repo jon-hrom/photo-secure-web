@@ -357,7 +357,29 @@ def _detect_defects(img_arr, skin_mask):
     dark_peaks = (dark_dog > dark_thr) & skin_bin
     bright_peaks = (bright_dog > bright_thr) & skin_bin
 
-    peaks = (red_peaks | dark_peaks | bright_peaks).astype(np.uint8) * 255
+    # === ДЕТЕКЦИЯ ЩЕТИНЫ ===
+    # Щетина = ОЧЕНЬ много мелких тёмных точек на единицу площади.
+    # Считаем плотность dark_peaks через размытие. Где плотность высокая —
+    # это борода / щетина, прыщи туда не попадают.
+    dark_density_pil = Image.fromarray(
+        (dark_peaks.astype(np.uint8) * 255), mode='L'
+    ).filter(ImageFilter.GaussianBlur(radius=max(8, int(min(h, w) * 0.020))))
+    dark_density = np.array(dark_density_pil)
+    # Порог 22 = локально >~9% пикселей являются тёмными точками.
+    stubble_zone = dark_density > 22
+
+    # Расширяем зону щетины с запасом, чтобы прыщи между волосками тоже
+    # не попадали в маску (LaMa там сгладит щетину).
+    stubble_pil = Image.fromarray(
+        (stubble_zone.astype(np.uint8) * 255), mode='L'
+    ).filter(ImageFilter.MaxFilter(7))
+    stubble_zone = np.array(stubble_pil) > 0
+
+    # Дефекты = пики, но НЕ в зоне щетины (там оставляем кожу как есть).
+    # Красные пики оставляем даже в щетине — это явные воспаления.
+    peaks = ((red_peaks) |
+             (dark_peaks & ~stubble_zone) |
+             (bright_peaks & ~stubble_zone)).astype(np.uint8) * 255
 
     # Расширяем каждый пик в круг радиуса ~ sigma_small (зона прыща).
     grow_r = max(2, sigma_small)
@@ -366,6 +388,7 @@ def _detect_defects(img_arr, skin_mask):
     )
     defects = np.array(peaks_pil)
     defects = np.minimum(defects, skin_mask)
+    stubble_cnt = int(np.count_nonzero(stubble_zone))
 
     # Удаляем крупные заливки (на случай, если несколько пиков слились в зону >
     # ~30px — это уже не прыщ, а тень/брови/складка).
@@ -385,7 +408,7 @@ def _detect_defects(img_arr, skin_mask):
     dc = int(np.count_nonzero(dark_peaks))
     bc = int(np.count_nonzero(bright_peaks))
     print(f"[SKIN MASK] Defects(DoG): {cnt}px "
-          f"red={rc} dark={dc} bright={bc} "
+          f"red={rc} dark={dc} bright={bc} stubble={stubble_cnt} "
           f"thr=r{red_thr:.1f}/d{dark_thr:.1f}/b{bright_thr:.1f} "
           f"sigma={sigma_small}/{sigma_large} blob_removed={before_blob - after_blob}")
     return defects
