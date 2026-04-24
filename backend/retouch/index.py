@@ -409,74 +409,32 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         print("[RETOUCH] Empty mask after compose — keeping raw retouched")
         return retouched_bytes
 
-    # === Frequency Separation композиция (мужская кожа, щетина, поры) ===
-    # Идея: внутри маски берём ТОН от ретуши (низкие частоты),
-    # а ТЕКСТУРУ — от оригинала (высокие частоты). Кожа не мылится,
-    # щетина и поры сохраняются.
+    # === Композиция по маске (без FS) ===
+    # Внутри маски: ПОЛНОСТЬЮ ретушь (и тон, и текстура от LaMa — прыщи уходят).
+    # Снаружи маски: ПОЛНОСТЬЮ оригинал (волосы/одежда/щетина нетронуты).
+    # Край маски мягкий (feather_r выше), чтобы переход был плавный.
     mask_arr = mask_arr[..., None]
     coverage = float(mask_arr.mean())
 
-    # Радиус разделения частот: ~ диаметр прыща (3-8px на типичном фото).
-    fs_radius = max(3, min(ow, oh) // 250)
+    orig_arr = np.array(orig_img, dtype=np.float32)
+    ret_arr = np.array(ret_img, dtype=np.float32)
 
-    # Высокие частоты оригинала: orig - blur(orig). Делаем через uint8.
-    orig_low_u8 = np.array(
-        orig_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
-    )
-    orig_high = np.array(orig_img, dtype=np.float32) - orig_low_u8.astype(np.float32)
-    del orig_low_u8
+    # out = orig + (ret - orig) * mask (in-place для экономии памяти)
+    np.subtract(ret_arr, orig_arr, out=ret_arr)
+    np.multiply(ret_arr, mask_arr, out=ret_arr)
+    np.add(orig_arr, ret_arr, out=orig_arr)
+    del ret_arr, mask_arr
+    out_arr = orig_arr
 
-    # Низкие частоты ретуши: blur(ret).
-    ret_low_u8 = np.array(
-        ret_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
-    )
-    # Низкие частоты оригинала: blur(orig).
-    orig_low_u8 = np.array(
-        orig_img.filter(ImageFilter.GaussianBlur(radius=fs_radius))
-    )
-
-    # Смешиваем low по маске: out_low = orig_low + (ret_low - orig_low) * mask
-    out_low = orig_low_u8.astype(np.float32)
-    diff_low = ret_low_u8.astype(np.float32) - out_low
-    del ret_low_u8, orig_low_u8
-    np.multiply(diff_low, mask_arr, out=diff_low)
-    np.add(out_low, diff_low, out=out_low)
-    del diff_low, mask_arr
-
-    # Финал: out = out_low + orig_high
-    np.add(out_low, orig_high, out=out_low)
-    del orig_high
-    out_arr = out_low
-
-    # --- Финальный скин-грейдинг (всё in-place, без лишних копий) ---
-    # 1) Баланс белого к ~5200K: лёгкий +R, −B.
-    out_arr[..., 0] *= 1.04
-    out_arr[..., 2] *= 0.96
-
-    # 2) S-кривая контраста (+10%) вокруг 128 — даёт скин-тон, объём.
-    np.subtract(out_arr, 128.0, out=out_arr)
-    np.multiply(out_arr, 1.10, out=out_arr)
-    np.add(out_arr, 128.0, out=out_arr)
-
-    # 3) Микро-контраст через unsharp mask. Конвертим в uint8, блюрим PIL'ом
-    # (он экономно по памяти), и накладываем поверх через float32.
+    # Никакого глобального цветокора — только чистая композиция
+    # "тон ретуши + текстура оригинала" внутри маски, остальное — оригинал.
     np.clip(out_arr, 0, 255, out=out_arr)
-    out_u8 = out_arr.astype(np.uint8)
+    out_img = Image.fromarray(out_arr.astype(np.uint8), 'RGB')
     del out_arr
-    out_img = Image.fromarray(out_u8, 'RGB')
-    blurred_u8 = np.array(out_img.filter(ImageFilter.GaussianBlur(radius=3)))
-    # micro = out_u8 - blurred (в int16, чтобы не уйти в отрицательные uint8)
-    micro = out_u8.astype(np.int16) - blurred_u8.astype(np.int16)
-    del blurred_u8
-    boosted = out_u8.astype(np.int16) + (micro * 35 // 100)
-    del micro, out_u8
-    np.clip(boosted, 0, 255, out=boosted)
-    out_img = Image.fromarray(boosted.astype(np.uint8), 'RGB')
-    del boosted
 
     out_buf = io.BytesIO()
     out_img.save(out_buf, format='JPEG', quality=95)
-    print(f"[RETOUCH] Composed with skin mask (coverage={coverage * 100:.1f}%), grade: warm+contrast+volume")
+    print(f"[RETOUCH] Composed with skin mask (coverage={coverage * 100:.1f}%), FS-only, no global grading")
     return out_buf.getvalue()
 
 
