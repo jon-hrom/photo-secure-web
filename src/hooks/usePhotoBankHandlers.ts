@@ -199,7 +199,7 @@ export const usePhotoBankHandlers = (
 
     const totalBytes = mediaFiles.reduce((sum, f) => sum + (f.size || 1), 0);
     const fileLoaded = new Map<number, number>();
-    const completedCount = 0;
+    let completedCount = 0;
     let lastActiveName = '';
     let rafScheduled = false;
 
