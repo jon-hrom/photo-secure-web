@@ -955,8 +955,6 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     del m_u8
     for c in range(3):
         diff[:, :, c] = (diff[:, :, c].astype(np.float32) * m_f).astype(np.int16)
-    # Сохраняем мягкую маску для smoothing/WB (понадобится ниже).
-    soft_skin_mask = m_f
     del m_f
 
     # out = orig + diff (с клиппингом в uint8)
@@ -992,20 +990,28 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             res_pil = Image.fromarray(result, 'RGB').filter(
                 ImageFilter.GaussianBlur(radius=smooth_radius)
             )
-            blurred = np.array(res_pil, dtype=np.float32)
-            # Маска с feathering для плавного перехода
-            mask_smooth = np.array(
+            blurred_u8 = np.array(res_pil, dtype=np.uint8)
+            del res_pil
+            # Маска с feathering — сразу в uint8 (0..255 * smooth_strength)
+            mask_smooth_u8 = np.array(
                 Image.fromarray(
                     (skin_mask_for_post.astype(np.uint8) * 255), 'L'
                 ).filter(ImageFilter.GaussianBlur(radius=6)),
-                dtype=np.float32,
-            ) / 255.0
-            mask_smooth = mask_smooth * smooth_strength  # сила smoothing per-pixel
-            res_f = result.astype(np.float32)
+                dtype=np.uint8,
+            )
+            # Применяем поканально через int16 — экономим память вдвое vs float32:
+            # out = orig + (blurred - orig) * (mask * strength) / 255
             for c in range(3):
-                res_f[..., c] = res_f[..., c] * (1.0 - mask_smooth) + blurred[..., c] * mask_smooth
-            result = np.clip(res_f, 0, 255).astype(np.uint8)
-            del blurred, res_f, mask_smooth, res_pil
+                diff_c = blurred_u8[..., c].astype(np.int16) - result[..., c].astype(np.int16)
+                # weight = mask_smooth_u8 * smooth_strength → uint16 для precision
+                w = (mask_smooth_u8.astype(np.uint16) * int(smooth_strength * 256)) >> 8
+                # diff_c * w / 255 (через >>8 ≈ /256 для скорости)
+                contrib = (diff_c * w.astype(np.int16)) >> 8
+                result[..., c] = np.clip(
+                    result[..., c].astype(np.int16) + contrib, 0, 255
+                ).astype(np.uint8)
+                del diff_c, w, contrib
+            del blurred_u8, mask_smooth_u8
             print(f"[RETOUCH] [v3] Skin smoothing: shot={shot_type} skin={skin_type} "
                   f"strength={smooth_strength:.2f} radius={smooth_radius}")
     except Exception as e:
@@ -1032,15 +1038,17 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             k_r = 1.0 + (k_r - 1.0) * 0.7
             k_g = 1.0 + (k_g - 1.0) * 0.7
             k_b = 1.0 + (k_b - 1.0) * 0.7
-            # WB применяем НА ВЕСЬ КАДР (а не только в зоне кожи) — иначе
-            # цвет кожи отличается от фона и видна граница маски.
-            res_f = result.astype(np.float32)
-            res_f[..., 0] *= k_r
-            res_f[..., 1] *= k_g
-            res_f[..., 2] *= k_b
-            result = np.clip(res_f, 0, 255).astype(np.uint8)
-            del res_f
-            print(f"[RETOUCH] [v3] WB correction (global): skin RGB=({r_mean:.0f},{g_mean:.0f},{b_mean:.0f}) "
+            # WB применяем НА ВЕСЬ КАДР через LUT (256 значений на канал) —
+            # это в десятки раз дешевле по памяти, чем float32-копия всего кадра.
+            x = np.arange(256, dtype=np.float32)
+            lut_r = np.clip(x * k_r, 0, 255).astype(np.uint8)
+            lut_g = np.clip(x * k_g, 0, 255).astype(np.uint8)
+            lut_b = np.clip(x * k_b, 0, 255).astype(np.uint8)
+            result[..., 0] = lut_r[result[..., 0]]
+            result[..., 1] = lut_g[result[..., 1]]
+            result[..., 2] = lut_b[result[..., 2]]
+            del lut_r, lut_g, lut_b, x
+            print(f"[RETOUCH] [v3] WB correction (global, LUT): skin RGB=({r_mean:.0f},{g_mean:.0f},{b_mean:.0f}) "
                   f"× ({k_r:.2f},{k_g:.2f},{k_b:.2f})")
     except Exception as e:
         print(f"[RETOUCH] WB correction failed (non-critical): {e}")
