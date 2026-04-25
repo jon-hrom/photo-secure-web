@@ -899,6 +899,10 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         except Exception as e:
             print(f"[RETOUCH] Nose boost failed (non-critical): {e}")
 
+    # Сохраняем bool-маску ДО удаления mask_arr — нужна для post-обработки
+    # (smoothing + WB correction в самом конце)
+    skin_mask_for_post = (mask_arr > 0.3).copy()
+
     del mask_arr, det_orig, det_mask  # освобождаем лишнее
 
     orig_u8 = np.array(orig_img, dtype=np.uint8)
@@ -941,9 +945,6 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # diff = ret - orig (в int16 чтобы не терять знак)
     diff = ret_u8.astype(np.int16) - orig_u8.astype(np.int16)
     del ret_u8
-
-    # Сохраняем маску для post-обработки (WB + smoothing) — после del её не будет.
-    skin_mask_for_post = (mask_arr > 0.3).copy()
 
     # Применяем маску канально: diff[y,x,c] *= m_u8[y,x] / 255
     # Работаем с одним каналом за раз чтобы экономить память.
