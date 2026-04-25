@@ -561,6 +561,7 @@ def build_face_skin_mask(image_bytes):
 
 
 def build_auto_mask(image_bytes):
+    import gc
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode != 'RGB':
         img = img.convert('RGB')
@@ -568,10 +569,16 @@ def build_auto_mask(image_bytes):
     img_arr = np.array(img)
     h, w = img_arr.shape[:2]
     print(f"[SKIN MASK] Image: {w}x{h}")
+    img.close()
+    del img
 
     # === ИИ-путь: быстро и точно. Возвращаем ЧИСТУЮ маску кожи без DoG. ===
     ai_face_skin = _call_ai_face_parse(image_bytes, mode="skin")
     if ai_face_skin is not None:
+        # Освобождаем большой numpy перед вторым тяжёлым AI-запросом.
+        del img_arr
+        gc.collect()
+
         # Вычитаем защищённые зоны (губы/глаза/брови/волосы/одежда/очки).
         protect = _call_ai_face_parse(image_bytes, mode="protect")
         if protect is not None:
@@ -581,8 +588,11 @@ def build_auto_mask(image_bytes):
             )
             protect_np = np.array(pp)
             face_skin = np.where(protect_np > 128, 0, ai_face_skin).astype(np.uint8)
+            del pp, protect_np, protect
         else:
             face_skin = ai_face_skin.copy()
+        del ai_face_skin
+        gc.collect()
 
         # Сглаживание границ: убираем лестницу от resize и ступеньки SegFormer'а.
         feather_r = max(2, int(min(h, w) * 0.003))
@@ -590,11 +600,14 @@ def build_auto_mask(image_bytes):
             ImageFilter.GaussianBlur(radius=feather_r)
         )
         face_skin = np.where(np.array(sm) > 96, 255, 0).astype(np.uint8)
+        del sm
 
         pct_ai = np.count_nonzero(face_skin) * 100 / (h * w)
         print(f"[SKIN MASK] AI final skin mask: {pct_ai:.1f}%")
         if pct_ai < 1:
             print("[SKIN MASK] AI: no skin on image — empty mask")
+            del face_skin
+            gc.collect()
             return _mask_to_b64(np.zeros((h, w), dtype=np.uint8))
         return _mask_to_b64(face_skin)
 

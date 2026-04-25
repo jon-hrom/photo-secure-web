@@ -845,30 +845,40 @@ def _handle_preview_mask(conn, user_id, params):
         return _response(404, {'error': 'Photo not found'})
 
     try:
+        import gc
         from skin_mask import build_auto_mask
         s3_client = _get_s3_client()
         s3_resp = s3_client.get_object(Bucket=S3_BUCKET, Key=photo['s3_key'])
         image_bytes = s3_resp['Body'].read()
+        s3_resp = None
 
-        # Ужимаем большие фото для скорости превью (маска всё равно будет растянута в UI)
         img = Image.open(io.BytesIO(image_bytes))
         if img.mode != 'RGB':
             img = img.convert('RGB')
         orig_w, orig_h = img.size
-        max_side = 1024
+        max_side = 768
         if max(orig_w, orig_h) > max_side:
             ratio = max_side / max(orig_w, orig_h)
             img = img.resize((int(orig_w * ratio), int(orig_h * ratio)), Image.LANCZOS)
         buf = io.BytesIO()
-        img.save(buf, format='JPEG', quality=85)
+        img.save(buf, format='JPEG', quality=80)
         preview_bytes = buf.getvalue()
+        out_w, out_h = img.size
+
+        del image_bytes, img, buf
+        gc.collect()
 
         mask_b64 = build_auto_mask(preview_bytes)
+        del preview_bytes
+        gc.collect()
         return _response(200, {
             'mask_b64': mask_b64,
-            'width': img.size[0],
-            'height': img.size[1],
+            'width': out_w,
+            'height': out_h,
         })
+    except MemoryError:
+        print("[RETOUCH] preview_mask OOM")
+        return _response(413, {'error': 'Фото слишком большое для предпросмотра маски'})
     except Exception as e:
         print(f"[RETOUCH] preview_mask error: {e}")
         return _response(500, {'error': f'Failed to build mask: {str(e)}'})
