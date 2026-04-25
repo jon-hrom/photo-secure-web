@@ -942,57 +942,105 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     diff = ret_u8.astype(np.int16) - orig_u8.astype(np.int16)
     del ret_u8
 
+    # Сохраняем маску для post-обработки (WB + smoothing) — после del её не будет.
+    skin_mask_for_post = (mask_arr > 0.3).copy()
+
     # Применяем маску канально: diff[y,x,c] *= m_u8[y,x] / 255
     # Работаем с одним каналом за раз чтобы экономить память.
     m_f = m_u8.astype(np.float32) / 255.0
     del m_u8
     for c in range(3):
         diff[:, :, c] = (diff[:, :, c].astype(np.float32) * m_f).astype(np.int16)
+    # Сохраняем мягкую маску для smoothing/WB (понадобится ниже).
+    soft_skin_mask = m_f
     del m_f
 
     # out = orig + diff (с клиппингом в uint8)
     result = np.clip(orig_u8.astype(np.int16) + diff, 0, 255).astype(np.uint8)
     del orig_u8, diff
 
-    # === WHITE BALANCE НА МАСКЕ КОЖИ ===
-    # Цель: цвет кожи ближе к нейтральному 5200K (D52). На свадьбах обычно
-    # помещение освещено лампами накаливания (~3000K) — кожа уезжает в красно-жёлтый.
-    # Корректируем средний цвет кожи к референсному (R≈G≈B*1.05 — лёгкий тёплый baseline).
+    # === МЯГКОЕ РАЗГЛАЖИВАНИЕ КОЖИ ===
+    # На средних/дальних планах LaMa почти не сглаживает (масштаб мелкий),
+    # поэтому добавляем СВОЁ разглаживание через локальное усреднение
+    # (псевдо-bilateral на numpy). Сила зависит от плана и типа кожи.
     try:
-        wb_mask = (mask_arr > 0.3)
-        if wb_mask.sum() > 200:
-            r_mean = float(np.mean(result[wb_mask, 0]))
-            g_mean = float(np.mean(result[wb_mask, 1]))
-            b_mean = float(np.mean(result[wb_mask, 2]))
-            # Целевой цвет кожи под 5200K: чуть тёплый, естественный.
-            # Берём "среднюю" тоновую яркость текущей кожи как опорную и подгоняем
-            # каналы к референсу skin@5200K: R/G ≈ 1.18, B/G ≈ 0.92 (тёплая кожа,
-            # но не оранжевая как при 3000K где R/G ≈ 1.45).
+        # Базовая сила smoothing
+        if shot_type == "closeup":
+            smooth_strength = 0.25     # сильнее на крупных
+            smooth_radius = 3
+        elif shot_type == "medium":
+            smooth_strength = 0.45     # умеренно
+            smooth_radius = 4
+        elif shot_type == "wide":
+            smooth_strength = 0.30     # лёгкое
+            smooth_radius = 3
+        else:
+            smooth_strength = 0.0
+            smooth_radius = 0
+
+        # На mature кожах (морщины) — снижаем чтобы не превратить в пластик
+        if skin_type in ("mature", "mature_textured"):
+            smooth_strength *= 0.7
+
+        # Smooth маска кожи (без губ/глаз — это уже исключено через protect)
+        if smooth_strength > 0.05 and skin_mask_for_post.sum() > 100:
+            # Гауссово размытие применяем только в зоне маски
+            res_pil = Image.fromarray(result, 'RGB').filter(
+                ImageFilter.GaussianBlur(radius=smooth_radius)
+            )
+            blurred = np.array(res_pil, dtype=np.float32)
+            # Маска с feathering для плавного перехода
+            mask_smooth = np.array(
+                Image.fromarray(
+                    (skin_mask_for_post.astype(np.uint8) * 255), 'L'
+                ).filter(ImageFilter.GaussianBlur(radius=6)),
+                dtype=np.float32,
+            ) / 255.0
+            mask_smooth = mask_smooth * smooth_strength  # сила smoothing per-pixel
+            res_f = result.astype(np.float32)
+            for c in range(3):
+                res_f[..., c] = res_f[..., c] * (1.0 - mask_smooth) + blurred[..., c] * mask_smooth
+            result = np.clip(res_f, 0, 255).astype(np.uint8)
+            del blurred, res_f, mask_smooth, res_pil
+            print(f"[RETOUCH] [v3] Skin smoothing: shot={shot_type} skin={skin_type} "
+                  f"strength={smooth_strength:.2f} radius={smooth_radius}")
+    except Exception as e:
+        print(f"[RETOUCH] Skin smoothing failed (non-critical): {e}")
+
+    # === WHITE BALANCE НА МАСКЕ КОЖИ ===
+    # Цель: цвет кожи ближе к нейтральному 5200K. На свадьбах в помещении
+    # освещение часто 3000K — кожа уезжает в красно-жёлтый.
+    try:
+        if skin_mask_for_post.sum() > 200:
+            r_mean = float(np.mean(result[skin_mask_for_post, 0]))
+            g_mean = float(np.mean(result[skin_mask_for_post, 1]))
+            b_mean = float(np.mean(result[skin_mask_for_post, 2]))
+            # Целевой цвет кожи под 5200K (естественная тёплая кожа, не оранжевая).
             mid = (r_mean + g_mean + b_mean) / 3.0
             target_g = mid
             target_r = mid * 1.18
             target_b = mid * 0.92
-            # Коэффициенты коррекции (с лимитом ±25% чтобы не уехать)
+            # Коэффициенты с лимитом ±25%
             k_r = max(0.75, min(1.25, target_r / max(r_mean, 1.0)))
             k_g = max(0.85, min(1.15, target_g / max(g_mean, 1.0)))
             k_b = max(0.80, min(1.30, target_b / max(b_mean, 1.0)))
-            # Применяем смягчённые (на 60%, чтобы не было резкого скачка)
-            k_r = 1.0 + (k_r - 1.0) * 0.6
-            k_g = 1.0 + (k_g - 1.0) * 0.6
-            k_b = 1.0 + (k_b - 1.0) * 0.6
-            # Применяем по маске (вне маски не меняем)
-            mask_smooth = np.array(
-                Image.fromarray((mask_arr * 255).clip(0, 255).astype(np.uint8), 'L').filter(
-                    ImageFilter.GaussianBlur(radius=8)
-                ),
+            # Применяем смягчённые (×0.7 чтобы не было слишком резкого скачка)
+            k_r = 1.0 + (k_r - 1.0) * 0.7
+            k_g = 1.0 + (k_g - 1.0) * 0.7
+            k_b = 1.0 + (k_b - 1.0) * 0.7
+            # Маска с feathering
+            mask_wb = np.array(
+                Image.fromarray(
+                    (skin_mask_for_post.astype(np.uint8) * 255), 'L'
+                ).filter(ImageFilter.GaussianBlur(radius=10)),
                 dtype=np.float32,
             ) / 255.0
             res_f = result.astype(np.float32)
-            res_f[..., 0] = res_f[..., 0] * (1.0 + (k_r - 1.0) * mask_smooth)
-            res_f[..., 1] = res_f[..., 1] * (1.0 + (k_g - 1.0) * mask_smooth)
-            res_f[..., 2] = res_f[..., 2] * (1.0 + (k_b - 1.0) * mask_smooth)
+            res_f[..., 0] = res_f[..., 0] * (1.0 + (k_r - 1.0) * mask_wb)
+            res_f[..., 1] = res_f[..., 1] * (1.0 + (k_g - 1.0) * mask_wb)
+            res_f[..., 2] = res_f[..., 2] * (1.0 + (k_b - 1.0) * mask_wb)
             result = np.clip(res_f, 0, 255).astype(np.uint8)
-            del res_f, mask_smooth
+            del res_f, mask_wb
             print(f"[RETOUCH] [v3] WB correction: skin RGB=({r_mean:.0f},{g_mean:.0f},{b_mean:.0f}) "
                   f"× ({k_r:.2f},{k_g:.2f},{k_b:.2f})")
     except Exception as e:
