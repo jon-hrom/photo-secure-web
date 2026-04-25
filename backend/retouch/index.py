@@ -474,41 +474,53 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
 
     # 4) Композиция: где маска — берём ретушь, где нет — оригинал.
     mask_arr = np.array(mask_gray, dtype=np.float32) / 255.0
+    initial_mask_pct = float(np.count_nonzero(mask_arr > 0.3)) * 100 / mask_arr.size
+    print(f"[RETOUCH] [v3] Initial SegFormer mask: {initial_mask_pct:.2f}% — checking SCRFD...")
 
-    # === FALLBACK через SCRFD ===
-    # Если build_face_skin_mask вернул пустоту (тёмная сцена / цветной свет /
-    # SegFormer не справился с цветом кожи) — пробуем серверный SCRFD-детектор.
-    # Он находит лица по геометрии и затем SegFormer вызывается per-bbox,
-    # давая точную маску кожи даже в сложном освещении.
+    # === ВСЕГДА запускаем SCRFD ===
+    # SCRFD находит лица по геометрии (надёжно в темноте/цветном свете) и затем
+    # SegFormer вызывается per-bbox каждого лица — даёт намного точнее маску.
+    # Если у SegFormer и так >5% — берём максимум двух (страховка).
     cached_scrfd_mask = None
     cached_scrfd_info = None
-    if mask_arr.max() < 0.05:
-        print("[RETOUCH] Empty mask from SegFormer-only — trying SCRFD detector...")
-        try:
-            from skin_mask import build_focus_mask_via_server
-            srv_buf = io.BytesIO()
-            orig_img.save(srv_buf, format='JPEG', quality=88)
-            srv_bytes = srv_buf.getvalue()
-            del srv_buf
-            srv_arr = np.array(orig_img, dtype=np.uint8)
-            scrfd_mask, scrfd_info = build_focus_mask_via_server(srv_bytes, srv_arr)
-            del srv_arr, srv_bytes
-            if scrfd_mask is not None and np.count_nonzero(scrfd_mask) > 0:
-                pct_scrfd = np.count_nonzero(scrfd_mask) * 100 / scrfd_mask.size
-                print(f"[RETOUCH] SCRFD recovery succeeded: mask {pct_scrfd:.2f}% "
-                      f"(shot={scrfd_info.get('shot_type')}, "
-                      f"faces={scrfd_info.get('focus_faces_count')}/{scrfd_info.get('total_faces')})")
-                mask_arr = scrfd_mask.astype(np.float32) / 255.0
+    try:
+        from skin_mask import build_focus_mask_via_server
+        srv_buf = io.BytesIO()
+        orig_img.save(srv_buf, format='JPEG', quality=88)
+        srv_bytes = srv_buf.getvalue()
+        del srv_buf
+        srv_arr = np.array(orig_img, dtype=np.uint8)
+        scrfd_mask, scrfd_info = build_focus_mask_via_server(srv_bytes, srv_arr)
+        del srv_arr, srv_bytes
+        if scrfd_mask is not None:
+            cached_scrfd_info = scrfd_info
+            scrfd_pct = float(np.count_nonzero(scrfd_mask)) * 100 / scrfd_mask.size
+            print(f"[RETOUCH] [v3] SCRFD result: mask={scrfd_pct:.2f}% "
+                  f"shot={scrfd_info.get('shot_type')} "
+                  f"focus={scrfd_info.get('focus_faces_count')}/"
+                  f"{scrfd_info.get('total_faces')}")
+            if np.count_nonzero(scrfd_mask) > 0:
                 cached_scrfd_mask = scrfd_mask
-                cached_scrfd_info = scrfd_info
-            else:
-                print(f"[RETOUCH] SCRFD also empty: {scrfd_info}")
-                cached_scrfd_info = scrfd_info  # запомним инфо плана
-        except Exception as e:
-            print(f"[RETOUCH] SCRFD recovery failed: {e}")
+                # Берём максимум — если SegFormer дал больше, оставляем его;
+                # если меньше — берём SCRFD-маску (это типичный случай темноты).
+                scrfd_norm = scrfd_mask.astype(np.float32) / 255.0
+                if scrfd_norm.shape != mask_arr.shape:
+                    scrfd_norm = np.array(
+                        Image.fromarray(scrfd_mask, mode='L').resize(
+                            (mask_arr.shape[1], mask_arr.shape[0]), Image.BILINEAR
+                        )
+                    ).astype(np.float32) / 255.0
+                mask_arr = np.maximum(mask_arr, scrfd_norm)
+                final_pct = float(np.count_nonzero(mask_arr > 0.3)) * 100 / mask_arr.size
+                print(f"[RETOUCH] [v3] Combined mask: {final_pct:.2f}% "
+                      f"(was SegFormer={initial_mask_pct:.2f}%, SCRFD={scrfd_pct:.2f}%)")
+        else:
+            print("[RETOUCH] [v3] SCRFD returned None (server unavailable)")
+    except Exception as e:
+        print(f"[RETOUCH] [v3] SCRFD step failed: {e}")
 
     if mask_arr.max() < 0.05:
-        print("[RETOUCH] v2: Empty mask after SegFormer+SCRFD — keeping raw retouched")
+        print("[RETOUCH] [v3] Empty mask after SegFormer+SCRFD — keeping raw retouched")
         return retouched_bytes
 
     # === АДАПТИВНАЯ КОМПОЗИЦИЯ с Frequency Separation ===
@@ -735,11 +747,9 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Эффективная сила смешивания: тип кожи × тип плана.
     alpha = lf_strength * plan_multiplier
 
-    # === DARK SCENE GUARD ===
-    # На тёмных сценах (танцпол, контровый свет, цветная подсветка) LaMa часто
-    # "сходит с ума": воспринимает цветной свет как пятна на коже и пытается их
-    # убрать, тем самым меняя цвет/яркость лица. Признак: средняя яркость кожи
-    # ниже 90 (по Y) → плавно гасим alpha вплоть до 0 при Y<55.
+    # === DARK SCENE GUARD (мягкий) ===
+    # На очень тёмных сценах (Y<35) — отключаем; до Y=70 плавно подымаем.
+    # Раньше было слишком агрессивно (Y<90 уже резало).
     try:
         det_orig_u8 = det_orig.astype(np.uint8)
         if det_mask.sum() > 50:
@@ -751,51 +761,49 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             mean_face_y = float(np.mean(face_y[det_mask]))
         else:
             mean_face_y = 128.0
-        if mean_face_y < 55:
-            dark_factor = 0.0
-        elif mean_face_y < 90:
-            dark_factor = (mean_face_y - 55) / 35.0  # 0..1
+        if mean_face_y < 35:
+            dark_factor = 0.3       # очень темно: 30% силы
+        elif mean_face_y < 70:
+            # 35→70: плавно 0.3→1.0
+            dark_factor = 0.3 + 0.7 * (mean_face_y - 35) / 35.0
         else:
             dark_factor = 1.0
         if dark_factor < 1.0:
-            print(f"[RETOUCH] Dark scene guard: face_Y={mean_face_y:.0f} → factor={dark_factor:.2f}")
+            print(f"[RETOUCH] [v3] Dark scene guard: face_Y={mean_face_y:.0f} → factor={dark_factor:.2f}")
         alpha *= dark_factor
     except Exception as e:
         print(f"[RETOUCH] Dark scene guard failed (non-critical): {e}")
 
-    # === COLOR DRIFT GUARD ===
-    # Если LaMa изменил средний цвет кожи (по сравнению с оригиналом) больше
-    # чем на 12 единиц по любому каналу — у него явно «снесло крышу» от
-    # цветного света. Полностью отключаем смешивание (возвращаем оригинал
-    # в зоне маски).
+    # === COLOR DRIFT GUARD (мягкий) ===
+    # Полное отключение только на очень сильном дрифте (>30). Плавная коррекция
+    # 18-30. До 18 — не трогаем.
     try:
         ret_arr_check = np.array(ret_img, dtype=np.float32)
         orig_arr_check = np.array(orig_img, dtype=np.float32)
-        # Маска кожи в полном размере для проверки
         m_check = mask_arr > 0.3
         if m_check.sum() > 100:
             d_r = float(np.mean(ret_arr_check[m_check, 0] - orig_arr_check[m_check, 0]))
             d_g = float(np.mean(ret_arr_check[m_check, 1] - orig_arr_check[m_check, 1]))
             d_b = float(np.mean(ret_arr_check[m_check, 2] - orig_arr_check[m_check, 2]))
             max_drift = max(abs(d_r), abs(d_g), abs(d_b))
-            if max_drift > 18:
-                print(f"[RETOUCH] Color drift guard: ΔRGB=({d_r:+.1f},{d_g:+.1f},{d_b:+.1f}) "
-                      f"max={max_drift:.1f} > 18 → forcing alpha=0 (use original)")
-                alpha = 0.0
-            elif max_drift > 12:
-                attenuate = 1.0 - (max_drift - 12) / 6.0  # 1..0
-                attenuate = max(0.0, min(1.0, attenuate))
-                print(f"[RETOUCH] Color drift partial: max={max_drift:.1f} → alpha×{attenuate:.2f}")
+            if max_drift > 30:
+                print(f"[RETOUCH] [v3] Color drift heavy: ΔRGB=({d_r:+.1f},{d_g:+.1f},{d_b:+.1f}) "
+                      f"max={max_drift:.1f} > 30 → alpha×0.1")
+                alpha *= 0.1
+            elif max_drift > 18:
+                attenuate = 1.0 - (max_drift - 18) / 12.0
+                attenuate = max(0.1, min(1.0, attenuate))
+                print(f"[RETOUCH] [v3] Color drift partial: max={max_drift:.1f} → alpha×{attenuate:.2f}")
                 alpha *= attenuate
         del ret_arr_check, orig_arr_check
     except Exception as e:
         print(f"[RETOUCH] Color drift guard failed (non-critical): {e}")
 
-    print(f"[RETOUCH] Final alpha = {lf_strength:.2f} × {plan_multiplier:.2f} (after guards) = {alpha:.2f}")
+    print(f"[RETOUCH] [v3] Final alpha = {lf_strength:.2f} × {plan_multiplier:.2f} (after guards) = {alpha:.2f}")
 
     # Если после защит alpha почти 0 — просто возвращаем оригинал.
     if alpha < 0.02:
-        print("[RETOUCH] alpha≈0 after guards — returning ORIGINAL (no retouch applied)")
+        print("[RETOUCH] [v3] alpha≈0 after guards — returning ORIGINAL")
         out_buf = io.BytesIO()
         orig_img.save(out_buf, format='JPEG', quality=95)
         return out_buf.getvalue()
