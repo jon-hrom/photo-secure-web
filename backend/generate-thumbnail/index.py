@@ -66,7 +66,7 @@ def postprocess_raw(raw_data, file_name):
     return Image.fromarray(rgb)
 
 
-def process_single_thumbnail(conn, s3_client, photo_id):
+def process_single_thumbnail(conn, s3_client, photo_id, force=False):
     start = time.time()
     
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -80,7 +80,7 @@ def process_single_thumbnail(conn, s3_client, photo_id):
         if not photo:
             return {'photo_id': photo_id, 'skipped': True, 'reason': 'not found'}
         
-        if photo['thumbnail_s3_key']:
+        if photo['thumbnail_s3_key'] and not force:
             return {'photo_id': photo_id, 'skipped': True, 'reason': 'already exists', 'thumbnail_key': photo['thumbnail_s3_key']}
     
     print(f'[THUMBNAIL] Downloading: {photo["s3_key"]}')
@@ -173,6 +173,7 @@ def handler(event: dict, context) -> dict:
         single_id = body.get('photo_id')
         if single_id:
             photo_ids = [single_id]
+        force = bool(body.get('force', False))
         
         if not photo_ids:
             return {
@@ -202,7 +203,7 @@ def handler(event: dict, context) -> dict:
         
         for photo_id in photo_ids:
             try:
-                result = process_single_thumbnail(conn, s3_client, photo_id)
+                result = process_single_thumbnail(conn, s3_client, photo_id, force=force)
                 results.append(result)
             except Exception as e:
                 print(f'[THUMBNAIL_ERROR] photo_id={photo_id}: {str(e)}')
