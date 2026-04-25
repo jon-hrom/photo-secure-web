@@ -471,8 +471,41 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
 
     # 4) Композиция: где маска — берём ретушь, где нет — оригинал.
     mask_arr = np.array(mask_gray, dtype=np.float32) / 255.0
+
+    # === FALLBACK через SCRFD ===
+    # Если build_face_skin_mask вернул пустоту (тёмная сцена / цветной свет /
+    # SegFormer не справился с цветом кожи) — пробуем серверный SCRFD-детектор.
+    # Он находит лица по геометрии и затем SegFormer вызывается per-bbox,
+    # давая точную маску кожи даже в сложном освещении.
+    cached_scrfd_mask = None
+    cached_scrfd_info = None
     if mask_arr.max() < 0.05:
-        print("[RETOUCH] Empty mask after compose — keeping raw retouched")
+        print("[RETOUCH] Empty mask from SegFormer-only — trying SCRFD detector...")
+        try:
+            from skin_mask import build_focus_mask_via_server
+            srv_buf = io.BytesIO()
+            orig_img.save(srv_buf, format='JPEG', quality=88)
+            srv_bytes = srv_buf.getvalue()
+            del srv_buf
+            srv_arr = np.array(orig_img, dtype=np.uint8)
+            scrfd_mask, scrfd_info = build_focus_mask_via_server(srv_bytes, srv_arr)
+            del srv_arr, srv_bytes
+            if scrfd_mask is not None and np.count_nonzero(scrfd_mask) > 0:
+                pct_scrfd = np.count_nonzero(scrfd_mask) * 100 / scrfd_mask.size
+                print(f"[RETOUCH] SCRFD recovery succeeded: mask {pct_scrfd:.2f}% "
+                      f"(shot={scrfd_info.get('shot_type')}, "
+                      f"faces={scrfd_info.get('focus_faces_count')}/{scrfd_info.get('total_faces')})")
+                mask_arr = scrfd_mask.astype(np.float32) / 255.0
+                cached_scrfd_mask = scrfd_mask
+                cached_scrfd_info = scrfd_info
+            else:
+                print(f"[RETOUCH] SCRFD also empty: {scrfd_info}")
+                cached_scrfd_info = scrfd_info  # запомним инфо плана
+        except Exception as e:
+            print(f"[RETOUCH] SCRFD recovery failed: {e}")
+
+    if mask_arr.max() < 0.05:
+        print("[RETOUCH] Empty mask after all attempts — keeping raw retouched")
         return retouched_bytes
 
     # === АДАПТИВНАЯ КОМПОЗИЦИЯ с Frequency Separation ===
@@ -507,18 +540,26 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     used_source = "fallback_coverage"
 
     # --- Путь 1: серверный SCRFD ---
-    try:
-        from skin_mask import build_focus_mask_via_server
-        # Готовим JPEG того же изображения что в orig_img (после возможного ресайза).
-        srv_buf = io.BytesIO()
-        orig_img.save(srv_buf, format='JPEG', quality=88)
-        srv_bytes = srv_buf.getvalue()
-        orig_for_faces = np.array(orig_img, dtype=np.uint8)
-        focus_mask_u8, shot_info = build_focus_mask_via_server(srv_bytes, orig_for_faces)
-        del orig_for_faces, srv_bytes, srv_buf
-    except Exception as e:
-        print(f"[RETOUCH] SCRFD path failed: {e}")
-        focus_mask_u8, shot_info = None, None
+    # Если ниже выше уже сделали SCRFD-recovery — переиспользуем результат.
+    if cached_scrfd_mask is not None:
+        focus_mask_u8 = cached_scrfd_mask
+        shot_info = cached_scrfd_info
+    elif cached_scrfd_info is not None and cached_scrfd_info.get('shot_type') == 'no_face':
+        # SCRFD уже отвечал и сказал "нет лиц" — не дублируем.
+        focus_mask_u8, shot_info = None, cached_scrfd_info
+    else:
+        try:
+            from skin_mask import build_focus_mask_via_server
+            # Готовим JPEG того же изображения что в orig_img (после ресайза).
+            srv_buf = io.BytesIO()
+            orig_img.save(srv_buf, format='JPEG', quality=88)
+            srv_bytes = srv_buf.getvalue()
+            orig_for_faces = np.array(orig_img, dtype=np.uint8)
+            focus_mask_u8, shot_info = build_focus_mask_via_server(srv_bytes, orig_for_faces)
+            del orig_for_faces, srv_bytes, srv_buf
+        except Exception as e:
+            print(f"[RETOUCH] SCRFD path failed: {e}")
+            focus_mask_u8, shot_info = None, None
 
     # --- Путь 2: локальный анализ skin-маски ---
     if focus_mask_u8 is None:
