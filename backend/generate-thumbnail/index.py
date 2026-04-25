@@ -4,7 +4,7 @@ import os
 import time
 import boto3
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 import rawpy
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -100,6 +100,11 @@ def process_single_thumbnail(conn, s3_client, photo_id):
         source = 'postprocess'
     
     del raw_data
+    
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception as e:
+        print(f'[THUMBNAIL] exif_transpose failed: {e}')
     
     img.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
     

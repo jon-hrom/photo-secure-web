@@ -9,8 +9,44 @@ from psycopg2.extras import RealDictCursor
 import requests
 import boto3
 from botocore.client import Config
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageOps
 import numpy as np
+
+
+RAW_EXTENSIONS = ('.cr2', '.cr3', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw', '.raf')
+
+
+def _is_raw_filename(name):
+    if not name:
+        return False
+    return name.lower().endswith(RAW_EXTENSIONS)
+
+
+def _pick_source_key_for_processing(photo):
+    """Для RAW (CR2/NEF/...) возвращает thumbnail_s3_key (готовый JPEG превью),
+    т.к. cloud-функция не имеет rawpy. Для обычных JPEG/PNG — исходный s3_key.
+    """
+    fname = photo.get('file_name') or ''
+    is_raw = bool(photo.get('is_raw')) or _is_raw_filename(fname)
+    if is_raw:
+        thumb_key = photo.get('thumbnail_s3_key')
+        if thumb_key:
+            return thumb_key, True
+    return photo.get('s3_key'), False
+
+
+def _open_image_oriented(image_bytes):
+    """Открывает фото и применяет EXIF Orientation (вертикальные кадры
+    остаются вертикальными). Возвращает RGB Image.
+    """
+    img = Image.open(io.BytesIO(image_bytes))
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception as e:
+        print(f"[RETOUCH] exif_transpose failed: {e}")
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    return img
 
 
 S3_BUCKET = "foto-mix"
@@ -88,6 +124,24 @@ def _ensure_jpeg_bytes(image_bytes, file_name=None):
     except Exception as e:
         print(f"[RETOUCH] Cannot open image ({file_name}): {e}")
         raise
+
+    # Если EXIF Orientation требует поворота — применяем и пересохраняем,
+    # иначе вертикальные кадры уйдут в API горизонтально.
+    needs_rotate = False
+    try:
+        exif = img.getexif()
+        if exif and exif.get(0x0112, 1) not in (1, 0):
+            needs_rotate = True
+    except Exception:
+        pass
+
+    if needs_rotate:
+        rotated = ImageOps.exif_transpose(img)
+        if rotated.mode not in ('RGB', 'L'):
+            rotated = rotated.convert('RGB')
+        buf = io.BytesIO()
+        rotated.save(buf, format='JPEG', quality=95)
+        return buf.getvalue(), True
 
     # JPEG отправляем как есть
     if fmt in ('JPEG', 'JPG'):
@@ -836,7 +890,7 @@ def _handle_preview_mask(conn, user_id, params):
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            'SELECT id, s3_key FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
+            'SELECT id, s3_key, file_name, is_raw, thumbnail_s3_key FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
             (photo_id, user_id)
         )
         photo = cur.fetchone()
@@ -844,17 +898,23 @@ def _handle_preview_mask(conn, user_id, params):
     if not photo or not photo['s3_key']:
         return _response(404, {'error': 'Photo not found'})
 
+    src_key, used_thumb = _pick_source_key_for_processing(photo)
+    if not src_key:
+        return _response(400, {
+            'error': 'Для RAW-файла ещё не готово превью — повторите через минуту'
+        })
+
     try:
         import gc
         from skin_mask import build_auto_mask
         s3_client = _get_s3_client()
-        s3_resp = s3_client.get_object(Bucket=S3_BUCKET, Key=photo['s3_key'])
+        s3_resp = s3_client.get_object(Bucket=S3_BUCKET, Key=src_key)
         image_bytes = s3_resp['Body'].read()
         s3_resp = None
+        if used_thumb:
+            print(f"[RETOUCH] preview_mask: using thumbnail for RAW ({src_key})")
 
-        img = Image.open(io.BytesIO(image_bytes))
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
+        img = _open_image_oriented(image_bytes)
         orig_w, orig_h = img.size
         max_side = 768
         if max(orig_w, orig_h) > max_side:
@@ -905,7 +965,7 @@ def _handle_create(event, conn, user_id):
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            'SELECT id, s3_key, file_name FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
+            'SELECT id, s3_key, file_name, is_raw, thumbnail_s3_key FROM photo_bank WHERE id = %s AND user_id = %s AND is_trashed = FALSE',
             (photo_id, user_id)
         )
         photo = cur.fetchone()
@@ -915,8 +975,14 @@ def _handle_create(event, conn, user_id):
     if not photo['s3_key']:
         return _response(400, {'error': 'Photo has no S3 file'})
 
-    in_key = photo['s3_key']
-    out_key = _build_out_key(in_key)
+    src_key, used_thumb = _pick_source_key_for_processing(photo)
+    if not src_key:
+        return _response(400, {
+            'error': 'Для RAW-файла ещё не готово превью — повторите через минуту'
+        })
+
+    in_key = src_key
+    out_key = _build_out_key(photo['s3_key'])
     out_prefix = out_key.rsplit("/", 1)[0] + "/" if "/" in out_key else "retouch/"
 
     strength = body.get('strength', None)
