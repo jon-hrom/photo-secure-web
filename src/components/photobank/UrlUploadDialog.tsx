@@ -113,8 +113,6 @@ const UrlUploadDialog = ({ open, onClose, onUpload }: UrlUploadDialogProps) => {
           return;
         }
 
-        setUploadingProgress({ current: 0, total: 5 });
-        
         const result = await onUpload(url, targetFolderId || undefined, abortControllerRef.current?.signal, currentOffset);
         
         totalUploadedCount += result.uploaded;

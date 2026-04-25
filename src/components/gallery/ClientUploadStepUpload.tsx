@@ -82,7 +82,7 @@ export default function ClientUploadStepUpload({
             {uploading ? (
               <>
                 <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
-                Загрузка {uploadProgress.current}/{uploadProgress.total}...
+                Загрузка {Math.min(uploadProgress.total, Math.ceil(uploadProgress.current))}/{uploadProgress.total}...
               </>
             ) : (
               <>
@@ -99,10 +99,13 @@ export default function ClientUploadStepUpload({
       </div>
 
       {uploading && (
-        <div className="w-full rounded-full h-1.5 bg-white/10">
+        <div className="w-full rounded-full h-1.5 bg-white/10 overflow-hidden">
           <div
-            className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-            style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+            className="bg-blue-500 h-1.5 rounded-full"
+            style={{
+              width: `${Math.min(100, (uploadProgress.current / Math.max(1, uploadProgress.total)) * 100)}%`,
+              transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
           />
         </div>
       )}

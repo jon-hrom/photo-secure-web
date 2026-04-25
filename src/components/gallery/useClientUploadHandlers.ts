@@ -341,8 +341,21 @@ export function useFileUploadHandler({
     const uploaded: UploadedPhoto[] = [];
     const errors: string[] = [];
 
+    const totalBytes = Array.from(files).reduce((sum, f) => sum + (f.size || 1), 0);
+    let bytesDone = 0;
+    const reportProgress = () => {
+      const fakeCurrent = totalBytes > 0
+        ? (bytesDone / totalBytes) * files.length
+        : 0;
+      setUploadProgress({
+        current: Math.min(files.length, fakeCurrent),
+        total: files.length,
+      });
+    };
+
     for (let i = 0; i < files.length; i++) {
       let file = files[i];
+      const fileSize = file.size || 1;
       try {
         if (isHeicFile(file)) {
           try {
@@ -368,23 +381,39 @@ export function useFileUploadHandler({
         if (!urlRes.ok) {
           const errData = await urlRes.json();
           errors.push(`${file.name}: ${errData.error || 'ошибка'}`);
-          setUploadProgress({ current: i + 1, total: files.length });
+          bytesDone += fileSize;
+          reportProgress();
           continue;
         }
 
         const { upload_url, s3_key, cdn_url } = await urlRes.json();
 
-        const putRes = await fetch(upload_url, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type || 'image/jpeg' },
-          body: file
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const startBytes = bytesDone;
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              bytesDone = startBytes + e.loaded;
+              reportProgress();
+            }
+          });
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              bytesDone = startBytes + fileSize;
+              reportProgress();
+              resolve();
+            } else {
+              reject(new Error(`PUT ${xhr.status}`));
+            }
+          });
+          xhr.addEventListener('error', () => reject(new Error('Network error')));
+          xhr.addEventListener('abort', () => reject(new Error('Aborted')));
+          xhr.open('PUT', upload_url);
+          xhr.setRequestHeader('Content-Type', file.type || 'image/jpeg');
+          xhr.send(file);
+        }).catch((err) => {
+          throw err;
         });
-
-        if (!putRes.ok) {
-          errors.push(`${file.name}: ошибка загрузки в хранилище`);
-          setUploadProgress({ current: i + 1, total: files.length });
-          continue;
-        }
 
         const confirmRes = await fetch(CLIENT_UPLOAD_URL, {
           method: 'POST',
@@ -432,7 +461,7 @@ export function useFileUploadHandler({
                     );
                     if (convertedPhoto) {
                       uploaded.push({ photo_id: convertedPhoto.photo_id, file_name: convertedPhoto.file_name, s3_url: convertedPhoto.s3_url });
-                      setUploadProgress({ current: i + 1, total: files.length });
+                      reportProgress();
                       continue;
                     }
                   }
@@ -451,7 +480,10 @@ export function useFileUploadHandler({
         errors.push(`${file.name}: ошибка сети`);
       }
 
-      setUploadProgress({ current: i + 1, total: files.length });
+      // На всякий случай — гарантируем что bytesDone выровнен по концу файла
+      const expectedDone = Array.from(files).slice(0, i + 1).reduce((s, f) => s + (f.size || 1), 0);
+      if (bytesDone < expectedDone) bytesDone = expectedDone;
+      reportProgress();
     }
 
     setUploadedPhotos(prev => [...prev, ...uploaded]);
