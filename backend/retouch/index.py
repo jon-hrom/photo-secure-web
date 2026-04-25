@@ -505,7 +505,7 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             print(f"[RETOUCH] SCRFD recovery failed: {e}")
 
     if mask_arr.max() < 0.05:
-        print("[RETOUCH] Empty mask after all attempts — keeping raw retouched")
+        print("[RETOUCH] v2: Empty mask after SegFormer+SCRFD — keeping raw retouched")
         return retouched_bytes
 
     # === АДАПТИВНАЯ КОМПОЗИЦИЯ с Frequency Separation ===
@@ -730,10 +730,72 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # где m = маска кожи, alpha = сила под тип кожи.
 
     # Эффективная сила смешивания: тип кожи × тип плана.
-    # На среднем плане × 0.6, на дальнем × 0.3 — ретушь менее агрессивная
-    # когда лицо занимает небольшую часть кадра.
     alpha = lf_strength * plan_multiplier
-    print(f"[RETOUCH] Final alpha = {lf_strength:.2f} × {plan_multiplier:.2f} = {alpha:.2f}")
+
+    # === DARK SCENE GUARD ===
+    # На тёмных сценах (танцпол, контровый свет, цветная подсветка) LaMa часто
+    # "сходит с ума": воспринимает цветной свет как пятна на коже и пытается их
+    # убрать, тем самым меняя цвет/яркость лица. Признак: средняя яркость кожи
+    # ниже 90 (по Y) → плавно гасим alpha вплоть до 0 при Y<55.
+    try:
+        det_orig_u8 = det_orig.astype(np.uint8)
+        if det_mask.sum() > 50:
+            face_y = (
+                det_orig_u8[:, :, 0].astype(np.float32) * 0.299
+                + det_orig_u8[:, :, 1].astype(np.float32) * 0.587
+                + det_orig_u8[:, :, 2].astype(np.float32) * 0.114
+            )
+            mean_face_y = float(np.mean(face_y[det_mask]))
+        else:
+            mean_face_y = 128.0
+        if mean_face_y < 55:
+            dark_factor = 0.0
+        elif mean_face_y < 90:
+            dark_factor = (mean_face_y - 55) / 35.0  # 0..1
+        else:
+            dark_factor = 1.0
+        if dark_factor < 1.0:
+            print(f"[RETOUCH] Dark scene guard: face_Y={mean_face_y:.0f} → factor={dark_factor:.2f}")
+        alpha *= dark_factor
+    except Exception as e:
+        print(f"[RETOUCH] Dark scene guard failed (non-critical): {e}")
+
+    # === COLOR DRIFT GUARD ===
+    # Если LaMa изменил средний цвет кожи (по сравнению с оригиналом) больше
+    # чем на 12 единиц по любому каналу — у него явно «снесло крышу» от
+    # цветного света. Полностью отключаем смешивание (возвращаем оригинал
+    # в зоне маски).
+    try:
+        ret_arr_check = np.array(ret_img, dtype=np.float32)
+        orig_arr_check = np.array(orig_img, dtype=np.float32)
+        # Маска кожи в полном размере для проверки
+        m_check = mask_arr > 0.3
+        if m_check.sum() > 100:
+            d_r = float(np.mean(ret_arr_check[m_check, 0] - orig_arr_check[m_check, 0]))
+            d_g = float(np.mean(ret_arr_check[m_check, 1] - orig_arr_check[m_check, 1]))
+            d_b = float(np.mean(ret_arr_check[m_check, 2] - orig_arr_check[m_check, 2]))
+            max_drift = max(abs(d_r), abs(d_g), abs(d_b))
+            if max_drift > 18:
+                print(f"[RETOUCH] Color drift guard: ΔRGB=({d_r:+.1f},{d_g:+.1f},{d_b:+.1f}) "
+                      f"max={max_drift:.1f} > 18 → forcing alpha=0 (use original)")
+                alpha = 0.0
+            elif max_drift > 12:
+                attenuate = 1.0 - (max_drift - 12) / 6.0  # 1..0
+                attenuate = max(0.0, min(1.0, attenuate))
+                print(f"[RETOUCH] Color drift partial: max={max_drift:.1f} → alpha×{attenuate:.2f}")
+                alpha *= attenuate
+        del ret_arr_check, orig_arr_check
+    except Exception as e:
+        print(f"[RETOUCH] Color drift guard failed (non-critical): {e}")
+
+    print(f"[RETOUCH] Final alpha = {lf_strength:.2f} × {plan_multiplier:.2f} (after guards) = {alpha:.2f}")
+
+    # Если после защит alpha почти 0 — просто возвращаем оригинал.
+    if alpha < 0.02:
+        print("[RETOUCH] alpha≈0 after guards — returning ORIGINAL (no retouch applied)")
+        out_buf = io.BytesIO()
+        orig_img.save(out_buf, format='JPEG', quality=95)
+        return out_buf.getvalue()
 
     # ЭКОНОМНАЯ КОМПОЗИЦИЯ: работаем в uint8 + int16 (в 2 раза меньше памяти чем float32).
     # Формула: out = orig + (ret - orig) * (effective_alpha_per_pixel)
