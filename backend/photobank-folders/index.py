@@ -336,6 +336,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         
                         result_photos.append(photo)
                 
+                # Авто-триггер генерации превью для RAW-фото без thumbnail
+                # (например, после массового сброса для исправления ориентации)
+                raw_exts = ('.cr2', '.cr3', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw', '.raf')
+                missing_thumb_ids = [
+                    p['id'] for p in result_photos
+                    if not p.get('thumbnail_s3_key')
+                    and (p.get('is_raw') or (p.get('file_name') or '').lower().endswith(raw_exts))
+                ][:5]
+                if missing_thumb_ids:
+                    try:
+                        requests.post(
+                            'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c',
+                            json={'photo_ids': missing_thumb_ids},
+                            timeout=2
+                        )
+                    except Exception as e:
+                        print(f'[LIST_PHOTOS] thumbnail trigger failed: {e}')
+                
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
