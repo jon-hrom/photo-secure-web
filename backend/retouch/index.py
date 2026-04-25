@@ -1029,20 +1029,15 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             k_r = 1.0 + (k_r - 1.0) * 0.7
             k_g = 1.0 + (k_g - 1.0) * 0.7
             k_b = 1.0 + (k_b - 1.0) * 0.7
-            # Маска с feathering
-            mask_wb = np.array(
-                Image.fromarray(
-                    (skin_mask_for_post.astype(np.uint8) * 255), 'L'
-                ).filter(ImageFilter.GaussianBlur(radius=10)),
-                dtype=np.float32,
-            ) / 255.0
+            # WB применяем НА ВЕСЬ КАДР (а не только в зоне кожи) — иначе
+            # цвет кожи отличается от фона и видна граница маски.
             res_f = result.astype(np.float32)
-            res_f[..., 0] = res_f[..., 0] * (1.0 + (k_r - 1.0) * mask_wb)
-            res_f[..., 1] = res_f[..., 1] * (1.0 + (k_g - 1.0) * mask_wb)
-            res_f[..., 2] = res_f[..., 2] * (1.0 + (k_b - 1.0) * mask_wb)
+            res_f[..., 0] *= k_r
+            res_f[..., 1] *= k_g
+            res_f[..., 2] *= k_b
             result = np.clip(res_f, 0, 255).astype(np.uint8)
-            del res_f, mask_wb
-            print(f"[RETOUCH] [v3] WB correction: skin RGB=({r_mean:.0f},{g_mean:.0f},{b_mean:.0f}) "
+            del res_f
+            print(f"[RETOUCH] [v3] WB correction (global): skin RGB=({r_mean:.0f},{g_mean:.0f},{b_mean:.0f}) "
                   f"× ({k_r:.2f},{k_g:.2f},{k_b:.2f})")
     except Exception as e:
         print(f"[RETOUCH] WB correction failed (non-critical): {e}")
