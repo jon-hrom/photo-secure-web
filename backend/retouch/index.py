@@ -447,10 +447,10 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         plan_multiplier = 1.0
     elif skin_pct >= 5:
         shot_type = "medium"
-        plan_multiplier = 0.6
+        plan_multiplier = 0.45
     elif skin_pct >= 2:
         shot_type = "wide"
-        plan_multiplier = 0.3
+        plan_multiplier = 0.22
     else:
         shot_type = "very_wide"
         plan_multiplier = 0.0
@@ -625,6 +625,40 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
 
     orig_u8 = np.array(orig_img, dtype=np.uint8)
     ret_u8 = np.array(ret_img, dtype=np.uint8)
+
+    # === ЗАЩИТА ОТ ПЯТНА ПЕРЕСВЕТА ===
+    # На средних/общих планах ретушь часто осветляет уже яркие участки кожи
+    # (нос, лоб, скулы при контровом свете) — получается белое пятно.
+    # Гасим маску там, где:
+    #   1) пиксель оригинала уже очень светлый (Y > 215) — это естественный блик;
+    #   2) ретушь пытается сделать пиксель ЕЩЁ ярче (ret_Y > orig_Y).
+    # На closeup эффект слабее (там нос-усиление полезно), для medium/wide подавляем
+    # сильнее, т.к. лицо мелкое и пятно сразу бросается в глаза.
+    try:
+        orig_y = (
+            orig_u8[:, :, 0].astype(np.float32) * 0.299
+            + orig_u8[:, :, 1].astype(np.float32) * 0.587
+            + orig_u8[:, :, 2].astype(np.float32) * 0.114
+        )
+        ret_y = (
+            ret_u8[:, :, 0].astype(np.float32) * 0.299
+            + ret_u8[:, :, 1].astype(np.float32) * 0.587
+            + ret_u8[:, :, 2].astype(np.float32) * 0.114
+        )
+        # 0 в самых ярких бликах, 1 в средних/тёмных тонах
+        knee_lo, knee_hi = 200.0, 245.0
+        bright = np.clip((orig_y - knee_lo) / (knee_hi - knee_lo), 0.0, 1.0)
+        # подавление активно только если ретушь делает пиксель ярче
+        brightening = np.clip((ret_y - orig_y) / 20.0, 0.0, 1.0)
+        suppress_strength = 0.55 if shot_type == "closeup" else 0.85
+        attenuation = 1.0 - bright * brightening * suppress_strength
+        # сглаживаем чтобы не было резких границ
+        att_pil = Image.fromarray((attenuation * 255.0).clip(0, 255).astype(np.uint8), 'L')
+        att_pil = att_pil.filter(ImageFilter.GaussianBlur(radius=3))
+        m_u8 = (m_u8.astype(np.float32) * (np.array(att_pil, dtype=np.float32) / 255.0)).clip(0, 255).astype(np.uint8)
+        del orig_y, ret_y, bright, brightening, attenuation, att_pil
+    except Exception as e:
+        print(f"[RETOUCH] Highlight guard failed (non-critical): {e}")
 
     # diff = ret - orig (в int16 чтобы не терять знак)
     diff = ret_u8.astype(np.int16) - orig_u8.astype(np.int16)

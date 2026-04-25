@@ -241,8 +241,11 @@ const PhotoGridHeader = ({
             </div>
             <div className="relative h-2 bg-primary/10 rounded-full overflow-hidden">
               <div 
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-300 ease-out"
-                style={{ width: `${uploadProgress.percent}%` }}
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80 rounded-full"
+                style={{ 
+                  width: `${uploadProgress.percent}%`,
+                  transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
               >
                 <div className="absolute inset-0 bg-white/20 animate-pulse" />
               </div>

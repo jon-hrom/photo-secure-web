@@ -196,6 +196,33 @@ export const usePhotoBankHandlers = (
 
     const BATCH_SIZE = 5;
     let cancelledRef = uploadCancelled;
+
+    const totalBytes = mediaFiles.reduce((sum, f) => sum + (f.size || 1), 0);
+    const fileLoaded = new Map<number, number>();
+    const completedCount = 0;
+    let lastActiveName = '';
+    let rafScheduled = false;
+
+    const flushProgress = () => {
+      rafScheduled = false;
+      let loadedSum = 0;
+      fileLoaded.forEach((v) => { loadedSum += v; });
+      const percent = totalBytes > 0
+        ? Math.min(100, Math.round((loadedSum / totalBytes) * 100))
+        : 0;
+      setUploadProgress({
+        current: Math.min(mediaFiles.length, completedCount + 1),
+        total: mediaFiles.length,
+        percent,
+        currentFileName: lastActiveName,
+      });
+    };
+
+    const scheduleProgressUpdate = () => {
+      if (rafScheduled) return;
+      rafScheduled = true;
+      requestAnimationFrame(flushProgress);
+    };
     
     const uploadSingleFile = async (file: File, index: number) => {
       if (cancelledRef) {
@@ -223,13 +250,10 @@ export const usePhotoBankHandlers = (
           
           xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable) {
-              const filePercent = Math.round((e.loaded / e.total) * 100);
-              setUploadProgress({
-                current: index,
-                total: mediaFiles.length,
-                percent: Math.round(((index + (e.loaded / e.total)) / mediaFiles.length) * 100),
-                currentFileName: `${file.name} (${filePercent}%)`
-              });
+              const prev = fileLoaded.get(index) || 0;
+              if (e.loaded > prev) fileLoaded.set(index, e.loaded);
+              lastActiveName = file.name;
+              scheduleProgressUpdate();
             }
           });
           
@@ -264,10 +288,16 @@ export const usePhotoBankHandlers = (
           const error = await addPhotoResponse.json();
           throw new Error(error.error || 'Failed to add photo to folder');
         }
-        
+
+        fileLoaded.set(index, file.size);
+        completedCount++;
+        scheduleProgressUpdate();
         return;
       }
           
+      lastActiveName = file.name;
+      scheduleProgressUpdate();
+
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const image = new Image();
         image.onload = () => resolve(image);
@@ -276,6 +306,9 @@ export const usePhotoBankHandlers = (
         reader.onload = (e) => { image.src = e.target?.result as string; };
         reader.readAsDataURL(file);
       });
+
+      fileLoaded.set(index, Math.floor(file.size * 0.4));
+      scheduleProgressUpdate();
       
       const width = img.width;
       const height = img.height;
@@ -339,6 +372,10 @@ export const usePhotoBankHandlers = (
         const errorText = await res.text();
         throw new Error(`Upload failed: ${res.status}`);
       }
+
+      fileLoaded.set(index, file.size);
+      completedCount++;
+      scheduleProgressUpdate();
     };
 
     try {
@@ -379,13 +416,8 @@ export const usePhotoBankHandlers = (
           }
         });
         
-        setUploadProgress({
-          current: i + batch.length,
-          total: mediaFiles.length,
-          percent: Math.round(((i + batch.length) / mediaFiles.length) * 100),
-          currentFileName: ''
-        });
-        
+        flushProgress();
+
         if (shouldStop) break;
       }
 
