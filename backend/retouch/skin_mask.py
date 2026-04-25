@@ -668,6 +668,252 @@ def build_auto_mask(image_bytes):
     return _mask_to_b64(expanded)
 
 
+def analyze_faces(img_arr, mask_arr):
+    """Находит отдельные лица в маске кожи и оценивает их размер + резкость.
+
+    Алгоритм:
+    1. Connected components по маске кожи (downsample для скорости).
+    2. Для каждого компонента: bbox, площадь, отношение высоты к высоте кадра.
+    3. Резкость каждого лица — variance Лапласиана grayscale внутри bbox.
+    4. Лицо считается "в фокусе", если sharpness >= 0.5 * max_sharpness среди
+       всех найденных лиц И >= абсолютного порога.
+
+    Args:
+        img_arr: np.uint8 RGB (H, W, 3) — оригинал.
+        mask_arr: np.uint8 (H, W) — маска кожи 0..255.
+
+    Returns:
+        list[dict]: [{
+            'bbox': (top, bottom, left, right),
+            'area_px': int,
+            'height_ratio': float,    # высота лица / высота кадра
+            'width_ratio': float,
+            'sharpness': float,       # variance Лапласиана внутри bbox
+            'in_focus': bool,
+            'is_largest': bool,
+        }, ...] отсортированный по высоте лица убыв.
+    """
+    h, w = mask_arr.shape[:2]
+    if h == 0 or w == 0:
+        return []
+
+    # Downsample для connected components (быстро).
+    step = max(1, min(h, w) // 200)
+    small = (mask_arr[::step, ::step] > 96).astype(np.uint8)
+    sh, sw = small.shape
+    if sh < 4 or sw < 4:
+        return []
+
+    # Простая 4-связная заливка через стек.
+    labels = np.zeros((sh, sw), dtype=np.int32)
+    label_id = 0
+    sizes = {}
+    for y0 in range(sh):
+        for x0 in range(sw):
+            if small[y0, x0] == 0 or labels[y0, x0] != 0:
+                continue
+            label_id += 1
+            stack = [(y0, x0)]
+            count = 0
+            min_y, max_y, min_x, max_x = y0, y0, x0, x0
+            while stack:
+                cy, cx = stack.pop()
+                if cy < 0 or cy >= sh or cx < 0 or cx >= sw:
+                    continue
+                if small[cy, cx] == 0 or labels[cy, cx] != 0:
+                    continue
+                labels[cy, cx] = label_id
+                count += 1
+                if cy < min_y: min_y = cy
+                if cy > max_y: max_y = cy
+                if cx < min_x: min_x = cx
+                if cx > max_x: max_x = cx
+                stack.append((cy + 1, cx))
+                stack.append((cy - 1, cx))
+                stack.append((cy, cx + 1))
+                stack.append((cy, cx - 1))
+            sizes[label_id] = (count, min_y, max_y, min_x, max_x)
+
+    if not sizes:
+        return []
+
+    # Минимальный размер компонента — 0.3% от площади кадра (отсекаем шум).
+    min_count = max(20, int(sh * sw * 0.003))
+
+    # Для оценки резкости — серое изображение оригинала.
+    gray = (
+        img_arr[:, :, 0].astype(np.float32) * 0.299
+        + img_arr[:, :, 1].astype(np.float32) * 0.587
+        + img_arr[:, :, 2].astype(np.float32) * 0.114
+    )
+
+    faces = []
+    for lid, (cnt, mn_y, mx_y, mn_x, mx_x) in sizes.items():
+        if cnt < min_count:
+            continue
+        # Координаты в полном размере.
+        top = int(mn_y * step)
+        bottom = int(min(h, (mx_y + 1) * step))
+        left = int(mn_x * step)
+        right = int(min(w, (mx_x + 1) * step))
+        bb_h = max(1, bottom - top)
+        bb_w = max(1, right - left)
+
+        # Резкость: variance Лапласиана. Считаем по уменьшенной области ради скорости.
+        crop = gray[top:bottom, left:right]
+        # Ограничиваем 256x256 для быстроты.
+        ch, cw = crop.shape
+        max_side = 256
+        if max(ch, cw) > max_side:
+            scale = max_side / max(ch, cw)
+            new_w = max(8, int(cw * scale))
+            new_h = max(8, int(ch * scale))
+            crop_pil = Image.fromarray(crop.clip(0, 255).astype(np.uint8), 'L').resize(
+                (new_w, new_h), Image.BILINEAR
+            )
+            crop_small = np.array(crop_pil, dtype=np.float32)
+        else:
+            crop_small = crop
+
+        # Лапласиан 3x3: -4 в центре, 1 по соседям.
+        if crop_small.shape[0] >= 3 and crop_small.shape[1] >= 3:
+            lap = (
+                -4.0 * crop_small[1:-1, 1:-1]
+                + crop_small[:-2, 1:-1]
+                + crop_small[2:, 1:-1]
+                + crop_small[1:-1, :-2]
+                + crop_small[1:-1, 2:]
+            )
+            sharpness = float(np.var(lap))
+        else:
+            sharpness = 0.0
+
+        faces.append({
+            'bbox': (top, bottom, left, right),
+            'area_px': int(cnt * step * step),
+            'height_ratio': bb_h / float(h),
+            'width_ratio': bb_w / float(w),
+            'sharpness': sharpness,
+        })
+
+    if not faces:
+        return []
+
+    # Сортируем по высоте лица убыв.
+    faces.sort(key=lambda f: f['height_ratio'], reverse=True)
+    faces[0]['is_largest'] = True
+    for f in faces[1:]:
+        f['is_largest'] = False
+
+    # Определение "в фокусе":
+    # - абсолютный порог sharpness > 30 (var Лапласиана для блюра < 30)
+    # - относительный порог: >= 0.4 * max_sharpness (в группе резких лиц
+    #   расфокус заметно ниже)
+    max_sharp = max(f['sharpness'] for f in faces)
+    abs_thr = 30.0
+    rel_thr = max_sharp * 0.4
+    for f in faces:
+        f['in_focus'] = f['sharpness'] >= abs_thr and f['sharpness'] >= rel_thr
+
+    # Если ни одно не в фокусе по абс. порогу — берём самое резкое
+    # (бывает на фото с лёгким общим блюром).
+    if not any(f['in_focus'] for f in faces) and faces:
+        faces[0]['in_focus'] = True
+
+    return faces
+
+
+def classify_shot(faces):
+    """По списку лиц определяет тип плана.
+
+    Правила:
+      - Крупный план: самое крупное резкое лицо занимает >= 25% высоты кадра.
+      - Средний план: 10-25%, либо несколько резких лиц 8-25% (групповой портрет).
+      - Дальний план: 4-10% — обработка совсем лёгкая (разглаживание).
+      - Очень дальний: <4% — пропускаем, ретушь бессмысленна.
+
+    Returns:
+        dict: {
+            'shot_type': 'closeup'|'medium'|'wide'|'very_wide'|'no_face',
+            'plan_multiplier': float,      # коэффициент силы ретуши
+            'focus_faces_count': int,
+            'largest_face_height': float,
+            'reason': str,
+        }
+    """
+    focus_faces = [f for f in faces if f.get('in_focus')]
+    if not focus_faces:
+        return {
+            'shot_type': 'no_face',
+            'plan_multiplier': 0.0,
+            'focus_faces_count': 0,
+            'largest_face_height': 0.0,
+            'reason': 'no_in_focus_faces',
+        }
+
+    largest = max(focus_faces, key=lambda f: f['height_ratio'])
+    h_ratio = largest['height_ratio']
+    n_focus = len(focus_faces)
+
+    if h_ratio >= 0.25:
+        shot = 'closeup'
+        mult = 1.0
+        reason = f'largest_face={h_ratio*100:.0f}%H >=25% → closeup'
+    elif h_ratio >= 0.10 or (n_focus >= 2 and h_ratio >= 0.08):
+        shot = 'medium'
+        mult = 0.45
+        reason = f'largest_face={h_ratio*100:.0f}%H 10-25% (faces={n_focus}) → medium'
+    elif h_ratio >= 0.04:
+        shot = 'wide'
+        mult = 0.20
+        reason = f'largest_face={h_ratio*100:.0f}%H 4-10% → wide (only smoothing)'
+    else:
+        shot = 'very_wide'
+        mult = 0.0
+        reason = f'largest_face={h_ratio*100:.0f}%H <4% → very_wide (skip)'
+
+    return {
+        'shot_type': shot,
+        'plan_multiplier': mult,
+        'focus_faces_count': n_focus,
+        'largest_face_height': h_ratio,
+        'reason': reason,
+    }
+
+
+def build_focus_mask(img_arr, mask_arr):
+    """Возвращает маску кожи только тех лиц, которые в фокусе.
+    Лица не в фокусе (фоновые/расфокус) обнуляются.
+    """
+    h, w = mask_arr.shape[:2]
+    faces = analyze_faces(img_arr, mask_arr)
+    if not faces:
+        return mask_arr.copy(), {'shot_type': 'no_face', 'plan_multiplier': 0.0,
+                                  'focus_faces_count': 0, 'largest_face_height': 0.0,
+                                  'reason': 'no_skin_blobs'}
+
+    focus_faces = [f for f in faces if f.get('in_focus')]
+    if not focus_faces:
+        return np.zeros_like(mask_arr), classify_shot(faces)
+
+    # Строим bbox-маску только для лиц в фокусе с запасом 5% от размера кадра.
+    keep = np.zeros_like(mask_arr)
+    pad_y = int(h * 0.02)
+    pad_x = int(w * 0.02)
+    for f in focus_faces:
+        t, b, l, r = f['bbox']
+        t = max(0, t - pad_y)
+        b = min(h, b + pad_y)
+        l = max(0, l - pad_x)
+        r = min(w, r + pad_x)
+        keep[t:b, l:r] = 255
+
+    focus_mask = np.minimum(mask_arr, keep)
+    info = classify_shot(faces)
+    info['total_faces'] = len(faces)
+    return focus_mask, info
+
+
 def _mask_to_b64(mask_array):
     # Отдаём RGBA: R=G=B=255 (белый), A=сама маска. Так:
     # 1) Бэкенд-инпейнт по-прежнему читает яркость (всё белое там где A>0).

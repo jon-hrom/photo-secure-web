@@ -489,27 +489,60 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         print("[RETOUCH] Empty mask — keeping raw retouched")
         return retouched_bytes
 
-    # === ДЕТЕКТОР ПЛАНА (близкий/средний/дальний) ===
-    # По доле кожи в кадре (coverage) определяем тип плана и нужна ли ретушь.
-    # Крупный план: лицо 15%+ кадра → полная ретушь.
-    # Средний план (ростовый): 5-15% → умеренная (×0.6).
-    # Дальний план (группа): 2-5% → лёгкая (×0.3).
-    # Очень дальний (массовка): <2% → пропускаем ретушь.
-    skin_pct = coverage * 100
-    if skin_pct >= 15:
-        shot_type = "closeup"
-        plan_multiplier = 1.0
-    elif skin_pct >= 5:
-        shot_type = "medium"
-        plan_multiplier = 0.45
-    elif skin_pct >= 2:
-        shot_type = "wide"
-        plan_multiplier = 0.22
-    else:
-        shot_type = "very_wide"
-        plan_multiplier = 0.0
+    # === ДЕТЕКТОР ПЛАНА ПО ОТДЕЛЬНЫМ ЛИЦАМ ===
+    # Прежний детектор по coverage был неточным: на групповом фото 5 мелких
+    # лиц = 10% кадра → попадал в "closeup", хотя по факту это средний план.
+    #
+    # Новый алгоритм:
+    # 1) Находим отдельные лица как connected-components в маске кожи.
+    # 2) Для каждого лица оцениваем его высоту относительно высоты кадра
+    #    и резкость (variance Лапласиана внутри bbox).
+    # 3) Лица с низкой резкостью (вне фокуса) — игнорируем при выборе плана.
+    # 4) Классификация по самому крупному лицу В ФОКУСЕ:
+    #      ≥25% высоты — крупный план (полная ретушь, alpha ×1.0)
+    #      10–25%      — средний план (alpha ×0.45)
+    #       4–10%      — дальний план (только разглаживание, alpha ×0.20)
+    #       <4%        — массовка, ретушь не нужна.
+    # 5) Маска ретуши обнуляется на расфокусных лицах (фоновые гости),
+    #    чтобы LaMa не "пластмассила" размытые лица.
+    try:
+        from skin_mask import build_focus_mask
+        # build_focus_mask ожидает RGB uint8 + uint8 0..255 маску.
+        orig_for_faces = np.array(orig_img, dtype=np.uint8)
+        mask_u8 = (mask_arr * 255.0).clip(0, 255).astype(np.uint8)
+        focus_mask_u8, shot_info = build_focus_mask(orig_for_faces, mask_u8)
+        del orig_for_faces
 
-    print(f"[RETOUCH] Shot: {shot_type} (skin={skin_pct:.1f}% of frame) → plan_mult={plan_multiplier:.2f}")
+        shot_type = shot_info.get('shot_type', 'closeup')
+        plan_multiplier = float(shot_info.get('plan_multiplier', 1.0))
+        print(
+            f"[RETOUCH] Shot detector: {shot_info.get('reason')} "
+            f"focus_faces={shot_info.get('focus_faces_count')} "
+            f"total_faces={shot_info.get('total_faces')} → "
+            f"shot={shot_type} plan_mult={plan_multiplier:.2f}"
+        )
+
+        # Подменяем mask_arr на маску только лиц в фокусе.
+        if focus_mask_u8 is not None and np.count_nonzero(focus_mask_u8) > 0:
+            mask_arr = focus_mask_u8.astype(np.float32) / 255.0
+        # На дальних планах оставляем только лёгкое разглаживание — это
+        # уже учтено через plan_multiplier=0.20.
+    except Exception as e:
+        print(f"[RETOUCH] Face-based shot detector failed, fallback to coverage: {e}")
+        skin_pct = coverage * 100
+        if skin_pct >= 15:
+            shot_type = "closeup"
+            plan_multiplier = 1.0
+        elif skin_pct >= 5:
+            shot_type = "medium"
+            plan_multiplier = 0.45
+        elif skin_pct >= 2:
+            shot_type = "wide"
+            plan_multiplier = 0.22
+        else:
+            shot_type = "very_wide"
+            plan_multiplier = 0.0
+        print(f"[RETOUCH] Fallback shot: {shot_type} (skin={skin_pct:.1f}% of frame) → plan_mult={plan_multiplier:.2f}")
 
     # На очень дальнем плане ретушь бесполезна — слишком мало пикселей на лицах.
     # Возвращаем оригинал (без применения ретуши сервера вообще).
