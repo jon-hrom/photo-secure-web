@@ -747,9 +747,9 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Эффективная сила смешивания: тип кожи × тип плана.
     alpha = lf_strength * plan_multiplier
 
-    # === DARK SCENE GUARD (мягкий) ===
-    # На очень тёмных сценах (Y<35) — отключаем; до Y=70 плавно подымаем.
-    # Раньше было слишком агрессивно (Y<90 уже резало).
+    # === DARK SCENE GUARD ===
+    # На тёмных сценах LaMa склонен делать тёмные/цветные артефакты.
+    # Если лицо явно недосвечено (Y<60) и не близкий план — лучше не рисковать.
     try:
         det_orig_u8 = det_orig.astype(np.uint8)
         if det_mask.sum() > 50:
@@ -761,22 +761,33 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             mean_face_y = float(np.mean(face_y[det_mask]))
         else:
             mean_face_y = 128.0
-        if mean_face_y < 35:
-            dark_factor = 0.3       # очень темно: 30% силы
-        elif mean_face_y < 70:
-            # 35→70: плавно 0.3→1.0
-            dark_factor = 0.3 + 0.7 * (mean_face_y - 35) / 35.0
+
+        # Базовый коэффициент по яркости
+        if mean_face_y < 40:
+            dark_factor = 0.0       # очень темно — не трогаем вообще
+        elif mean_face_y < 80:
+            # 40→80: плавно 0→1
+            dark_factor = (mean_face_y - 40) / 40.0
         else:
             dark_factor = 1.0
+
+        # Дополнительный штраф для не-крупных планов в темноте:
+        # на medium/wide артефакты LaMa особенно заметны.
+        if mean_face_y < 100 and shot_type in ("medium", "wide"):
+            dark_factor *= 0.5
+            print(f"[RETOUCH] [v3] Dark + non-closeup penalty applied")
+
         if dark_factor < 1.0:
-            print(f"[RETOUCH] [v3] Dark scene guard: face_Y={mean_face_y:.0f} → factor={dark_factor:.2f}")
+            print(f"[RETOUCH] [v3] Dark scene guard: face_Y={mean_face_y:.0f} "
+                  f"shot={shot_type} → factor={dark_factor:.2f}")
         alpha *= dark_factor
     except Exception as e:
         print(f"[RETOUCH] Dark scene guard failed (non-critical): {e}")
 
-    # === COLOR DRIFT GUARD (мягкий) ===
-    # Полное отключение только на очень сильном дрифте (>30). Плавная коррекция
-    # 18-30. До 18 — не трогаем.
+    # === COLOR DRIFT GUARD ===
+    # Если LaMa изменил средний цвет/яркость кожи — у него артефакт.
+    # Особенно отслеживаем ПОТЕМНЕНИЕ (это и есть «чёрное пятно»):
+    # отрицательное смещение на 8+ единиц при тёмной сцене — критично.
     try:
         ret_arr_check = np.array(ret_img, dtype=np.float32)
         orig_arr_check = np.array(orig_img, dtype=np.float32)
@@ -786,9 +797,21 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             d_g = float(np.mean(ret_arr_check[m_check, 1] - orig_arr_check[m_check, 1]))
             d_b = float(np.mean(ret_arr_check[m_check, 2] - orig_arr_check[m_check, 2]))
             max_drift = max(abs(d_r), abs(d_g), abs(d_b))
-            if max_drift > 30:
-                print(f"[RETOUCH] [v3] Color drift heavy: ΔRGB=({d_r:+.1f},{d_g:+.1f},{d_b:+.1f}) "
-                      f"max={max_drift:.1f} > 30 → alpha×0.1")
+
+            # Расчёт средней яркости разницы (отрицательная = LaMa затемнил)
+            d_y = 0.299 * d_r + 0.587 * d_g + 0.114 * d_b
+
+            # Защита от ПОТЕМНЕНИЯ (артефакт «чёрное пятно»)
+            if d_y < -8:
+                print(f"[RETOUCH] [v3] LaMa darkening guard: ΔY={d_y:+.1f} → alpha=0 (revert)")
+                alpha = 0.0
+            elif d_y < -4:
+                attenuate = (4 + d_y) / 4.0 + 1.0  # d_y=-4 → 0, d_y=-8 → -1 (clamp)
+                attenuate = max(0.0, min(1.0, attenuate))
+                print(f"[RETOUCH] [v3] LaMa darkening partial: ΔY={d_y:+.1f} → alpha×{attenuate:.2f}")
+                alpha *= attenuate
+            elif max_drift > 30:
+                print(f"[RETOUCH] [v3] Color drift heavy: ΔRGB=({d_r:+.1f},{d_g:+.1f},{d_b:+.1f}) → alpha×0.1")
                 alpha *= 0.1
             elif max_drift > 18:
                 attenuate = 1.0 - (max_drift - 18) / 12.0
