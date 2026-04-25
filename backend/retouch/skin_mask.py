@@ -10,24 +10,35 @@ FACE_PARSE_URL = os.environ.get(
     "FACE_PARSE_URL",
     "https://io.foto-mix.ru/api/v2/face_parse",
 )
+DETECT_FACES_URL = os.environ.get(
+    "DETECT_FACES_URL",
+    "https://io.foto-mix.ru/api/v2/detect_faces",
+)
 FACE_PARSE_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
 FACE_PARSE_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
 FACE_PARSE_TIMEOUT = float(os.environ.get("FACE_PARSE_TIMEOUT", "15"))
+DETECT_FACES_TIMEOUT = float(os.environ.get("DETECT_FACES_TIMEOUT", "20"))
 
 
-def _call_ai_face_parse(image_bytes, mode="skin"):
+def _call_ai_face_parse(image_bytes, mode="skin", bbox=None):
     """Вызывает ИИ-сегментацию на сервере retouch (SegFormer).
     Возвращает np.uint8 маску (0/255) или None при любой ошибке — тогда
     вызывающий код откатится на эвристику.
+
+    Если передан bbox=[x1,y1,x2,y2] — SegFormer работает только внутри bbox
+    (намного точнее на сложном свете, тёмных сценах, цветных фонах).
     """
     if not FACE_PARSE_PASS:
         return None
     try:
         b64 = base64.b64encode(image_bytes).decode('ascii')
+        payload = {"image": b64, "mode": mode}
+        if bbox is not None:
+            payload["bbox"] = list(bbox)
         r = requests.post(
             FACE_PARSE_URL,
             auth=(FACE_PARSE_USER, FACE_PARSE_PASS),
-            json={"image": b64, "mode": mode},
+            json=payload,
             timeout=FACE_PARSE_TIMEOUT,
         )
         if r.status_code != 200:
@@ -38,14 +49,53 @@ def _call_ai_face_parse(image_bytes, mode="skin"):
         mask_img = Image.open(io.BytesIO(mask_bytes)).convert("L")
         mask_arr = np.array(mask_img)
         stats = data.get("stats", {})
+        bbox_info = f" bbox={stats.get('bbox_used')}" if bbox is not None else ""
         print(
-            f"[AI MASK] mode={mode} cov={stats.get('coverage_pct')}% "
+            f"[AI MASK] mode={mode}{bbox_info} cov={stats.get('coverage_pct')}% "
             f"infer={stats.get('inference_ms')}ms "
             f"device={stats.get('device')}"
         )
         return mask_arr
     except Exception as e:
         print(f"[AI MASK] call failed: {e}")
+        return None
+
+
+def _call_ai_detect_faces(image_bytes, max_side=1280, min_score=0.4):
+    """Запрашивает на сервере детектор лиц (SCRFD-10G через InsightFace).
+    Работает по геометрии лица — устойчив к темноте, цветному свету, бликам.
+
+    Returns:
+        list[dict] | None — список лиц с полями:
+          {bbox: [x1,y1,x2,y2], score, landmarks, width, height,
+           height_ratio, sharpness}
+        отсортирован по height_ratio убыв. (главное лицо первым).
+        None — если сервер недоступен или ошибка.
+    """
+    if not FACE_PARSE_PASS:
+        return None
+    try:
+        b64 = base64.b64encode(image_bytes).decode('ascii')
+        r = requests.post(
+            DETECT_FACES_URL,
+            auth=(FACE_PARSE_USER, FACE_PARSE_PASS),
+            json={"image": b64, "max_side": max_side, "min_score": min_score},
+            timeout=DETECT_FACES_TIMEOUT,
+        )
+        if r.status_code != 200:
+            print(f"[AI FACES] bad status {r.status_code}: {r.text[:200]}")
+            return None
+        data = r.json()
+        faces = data.get("faces", [])
+        stats = data.get("stats", {})
+        print(
+            f"[AI FACES] found={len(faces)} infer={stats.get('inference_ms')}ms "
+            f"size={stats.get('width')}x{stats.get('height')} "
+            f"scale={stats.get('scale')}"
+        )
+        return faces
+    except Exception as e:
+        print(f"[AI FACES] call failed: {e}")
         return None
 
 
@@ -912,6 +962,207 @@ def build_focus_mask(img_arr, mask_arr):
     info = classify_shot(faces)
     info['total_faces'] = len(faces)
     return focus_mask, info
+
+
+# Абсолютные пороги, откалиброванные на реальных кадрах (см. логи сервера):
+# - resolution sharpness >= 30 → лицо в фокусе (на blur'ах sharp 6-19)
+# - на закрытых/опущенных глазах sharp может быть ниже, но score детектора
+#   позволяет это компенсировать (score >= 0.7 → точно лицо)
+SERVER_FOCUS_SHARP_ABS = 30.0
+SERVER_FOCUS_SHARP_REL = 0.40   # >= 40% от max sharp в кадре
+SERVER_MIN_SCORE = 0.50         # ниже — детектор не уверен (отсекаем артефакты)
+
+
+def analyze_faces_via_server(image_bytes, h_full, w_full):
+    """Получает список лиц от серверного детектора SCRFD и помечает,
+    какие в фокусе. Если сервер недоступен — возвращает None.
+
+    Args:
+        image_bytes: байты JPEG/PNG для отправки на сервер
+        h_full, w_full: фактические размеры orig_img (после возможного ресайза)
+            — нужны чтобы пересчитать height_ratio в координатах orig_img.
+
+    Returns:
+        list[dict] | None: каждое лицо имеет:
+          {bbox: (top, bottom, left, right) — в координатах orig_img,
+           area_px, height_ratio, sharpness, score, landmarks, in_focus, is_largest}
+    """
+    server_faces = _call_ai_detect_faces(image_bytes, max_side=1280, min_score=0.4)
+    if server_faces is None:
+        return None
+    if not server_faces:
+        return []
+
+    # Сервер возвращает координаты в системе того изображения, что мы отослали.
+    # У нас image_bytes — то же изображение что orig_img, поэтому масштабирование
+    # не требуется. На всякий случай зафиксируем размеры из ответа сервера
+    # (они должны совпадать с h_full/w_full).
+
+    faces = []
+    max_sharp = 0.0
+    for f in server_faces:
+        score = float(f.get('score', 0))
+        if score < SERVER_MIN_SCORE:
+            continue
+        x1, y1, x2, y2 = f['bbox']
+        x1 = max(0, min(w_full - 1, int(x1)))
+        y1 = max(0, min(h_full - 1, int(y1)))
+        x2 = max(x1 + 1, min(w_full, int(x2)))
+        y2 = max(y1 + 1, min(h_full, int(y2)))
+        bb_h = y2 - y1
+        bb_w = x2 - x1
+        sharpness = float(f.get('sharpness', 0))
+        if sharpness > max_sharp:
+            max_sharp = sharpness
+        faces.append({
+            'bbox': (y1, y2, x1, x2),  # унифицированный формат (top,bottom,left,right)
+            'area_px': bb_h * bb_w,
+            'height_ratio': bb_h / float(h_full),
+            'width_ratio': bb_w / float(w_full),
+            'sharpness': sharpness,
+            'score': score,
+            'landmarks': f.get('landmarks', []),
+        })
+
+    if not faces:
+        return []
+
+    faces.sort(key=lambda x: x['height_ratio'], reverse=True)
+    faces[0]['is_largest'] = True
+    for f in faces[1:]:
+        f['is_largest'] = False
+
+    rel_thr = max_sharp * SERVER_FOCUS_SHARP_REL
+    for f in faces:
+        # В фокусе: либо абсолютная резкость высокая, либо относительная.
+        # При очень высоком score (>= 0.85) — даём шанс лицу с чуть меньшей резкостью
+        # (например, опущенное лицо, закрытые глаза).
+        in_focus = (
+            (f['sharpness'] >= SERVER_FOCUS_SHARP_ABS and f['sharpness'] >= rel_thr)
+            or (f['score'] >= 0.85 and f['sharpness'] >= max(15, rel_thr * 0.5))
+        )
+        f['in_focus'] = in_focus
+
+    # Если ни одно не помечено как в фокусе — берём самое крупное+резкое.
+    if not any(f['in_focus'] for f in faces) and faces:
+        # выбираем у кого max(sharpness × height_ratio)
+        best = max(faces, key=lambda f: f['sharpness'] * f['height_ratio'])
+        best['in_focus'] = True
+
+    return faces
+
+
+def build_focus_mask_via_server(image_bytes, orig_img_arr):
+    """Полный пайплайн через серверный детектор:
+    1) Получаем bbox всех лиц от SCRFD.
+    2) Помечаем кто в фокусе по sharpness/score.
+    3) Для каждого лица в фокусе зовём SegFormer с bbox этого лица —
+       получаем точную маску кожи под него, даже на тёмных/цветных кадрах.
+    4) Объединяем все маски в одну.
+
+    Args:
+        image_bytes: JPEG/PNG для отправки на сервер
+        orig_img_arr: np.uint8 (H, W, 3) — нужны размеры
+
+    Returns:
+        (mask_uint8, info_dict) или (None, None) при ошибке сервера.
+    """
+    h, w = orig_img_arr.shape[:2]
+    faces = analyze_faces_via_server(image_bytes, h, w)
+    if faces is None:
+        return None, None  # сервер не ответил — пусть вызывающий упадёт на fallback
+
+    if not faces:
+        return np.zeros((h, w), dtype=np.uint8), {
+            'shot_type': 'no_face',
+            'plan_multiplier': 0.0,
+            'focus_faces_count': 0,
+            'total_faces': 0,
+            'largest_face_height': 0.0,
+            'reason': 'detector_found_no_faces',
+            'source': 'scrfd_server',
+        }
+
+    focus_faces = [f for f in faces if f.get('in_focus')]
+    if not focus_faces:
+        info = classify_shot(faces)
+        info['total_faces'] = len(faces)
+        info['source'] = 'scrfd_server'
+        return np.zeros((h, w), dtype=np.uint8), info
+
+    # Строим маску по каждому лицу в фокусе через серверный SegFormer с bbox.
+    combined = np.zeros((h, w), dtype=np.uint8)
+    bbox_only = np.zeros((h, w), dtype=np.uint8)  # на случай если SegFormer вернёт пусто
+    succeed = 0
+    for f in focus_faces:
+        t, b, l, r = f['bbox']
+        # Пометим bbox как fallback (мягкий эллипс по bbox).
+        # Если SegFormer вернул пустоту — хоть что-то будет.
+        bbox_only[t:b, l:r] = 255
+
+        bbox_xyxy = [l, t, r, b]
+        face_skin = _call_ai_face_parse(image_bytes, mode="skin", bbox=bbox_xyxy)
+        if face_skin is None:
+            continue
+        # Размер маски от сервера должен совпадать с h×w (мы отдали полный кадр).
+        if face_skin.shape != (h, w):
+            try:
+                face_skin = np.array(
+                    Image.fromarray(face_skin, mode='L').resize((w, h), Image.NEAREST)
+                )
+            except Exception:
+                continue
+        combined = np.maximum(combined, face_skin)
+        succeed += 1
+
+    # Вычитаем "защищённые" зоны (губы/глаза/брови/волосы/одежда) — общим вызовом.
+    # Это эффективнее, чем по каждому bbox: protect нужен по всему кадру.
+    if succeed > 0 and combined.max() > 0:
+        try:
+            protect = _call_ai_face_parse(image_bytes, mode="protect")
+            if protect is not None:
+                if protect.shape != (h, w):
+                    protect = np.array(
+                        Image.fromarray(protect, mode='L').resize((w, h), Image.NEAREST)
+                    )
+                expand_r = max(3, int(min(h, w) * 0.004))
+                pp = Image.fromarray(protect, mode='L').filter(
+                    ImageFilter.MaxFilter(min(expand_r * 2 + 1, 15))
+                )
+                protect_exp = np.array(pp)
+                combined = np.where(protect_exp > 128, 0, combined).astype(np.uint8)
+        except Exception as e:
+            print(f"[FOCUS MASK] protect step failed (non-critical): {e}")
+
+    # Если SegFormer всем лицам ответил пустотой — используем bbox как маску
+    # (хуже по точности, но лучше чем ничего).
+    if combined.max() == 0:
+        print(f"[FOCUS MASK] SegFormer returned empty for all {len(focus_faces)} "
+              f"focus faces — falling back to bbox-only mask")
+        # Эллипс по bbox: для каждого focus face впишем эллипс — ближе к форме лица.
+        ellipse = np.zeros((h, w), dtype=np.uint8)
+        for f in focus_faces:
+            t, b, l, r = f['bbox']
+            cy, cx = (t + b) // 2, (l + r) // 2
+            ry, rx = (b - t) // 2, (r - l) // 2
+            yy, xx = np.ogrid[:h, :w]
+            mask_e = ((yy - cy) ** 2 / max(1, ry) ** 2 +
+                      (xx - cx) ** 2 / max(1, rx) ** 2) <= 1.0
+            ellipse[mask_e] = 255
+        combined = ellipse
+
+    # Сглаживаем границы.
+    feather_r = max(2, int(min(h, w) * 0.003))
+    sm = Image.fromarray(combined, mode='L').filter(
+        ImageFilter.GaussianBlur(radius=feather_r)
+    )
+    combined = np.where(np.array(sm) > 96, 255, 0).astype(np.uint8)
+
+    info = classify_shot(faces)
+    info['total_faces'] = len(faces)
+    info['source'] = 'scrfd_server'
+    info['segformer_per_face_succeed'] = succeed
+    return combined, info
 
 
 def _mask_to_b64(mask_array):
