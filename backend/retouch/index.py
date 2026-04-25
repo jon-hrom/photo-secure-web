@@ -837,6 +837,40 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Базовая маска: m_u8 = mask * alpha
     m_u8 = (mask_arr * alpha * 255.0).clip(0, 255).astype(np.uint8)
 
+    # === ЛОКАЛЬНЫЙ DARKENING GUARD (per-pixel) ===
+    # Глобальный guard выше ловит общее затемнение всего лица.
+    # Этот ловит ЛОКАЛЬНЫЕ тёмные пятна (нос, под глазами) — частая ошибка LaMa
+    # на тёмных сценах. Если в пикселе ret_Y - orig_Y < -10 → обнуляем там маску.
+    try:
+        if mean_face_y < 110:  # активируем только в недосвете
+            ret_arr_loc = np.array(ret_img, dtype=np.float32)
+            orig_arr_loc = np.array(orig_img, dtype=np.float32)
+            ret_y_loc = (
+                ret_arr_loc[:, :, 0] * 0.299
+                + ret_arr_loc[:, :, 1] * 0.587
+                + ret_arr_loc[:, :, 2] * 0.114
+            )
+            orig_y_loc = (
+                orig_arr_loc[:, :, 0] * 0.299
+                + orig_arr_loc[:, :, 1] * 0.587
+                + orig_arr_loc[:, :, 2] * 0.114
+            )
+            d_y_loc = ret_y_loc - orig_y_loc
+            # Сглаживаем чтобы не было жёстких границ
+            d_y_pil = Image.fromarray(
+                (d_y_loc.clip(-50, 50) + 50).astype(np.uint8), mode='L'
+            ).filter(ImageFilter.GaussianBlur(radius=4))
+            d_y_smooth = np.array(d_y_pil, dtype=np.float32) - 50.0
+            # Маска местного потемнения: 1.0 в нормальных зонах, 0.0 где LaMa затемнил >10
+            local_attenuate = np.clip(1.0 + d_y_smooth / 10.0, 0.0, 1.0).astype(np.float32)
+            # Ослабляем mask там где локальное потемнение
+            m_u8 = (m_u8.astype(np.float32) * local_attenuate).clip(0, 255).astype(np.uint8)
+            dark_pct = float(np.count_nonzero(d_y_smooth < -10)) * 100 / d_y_smooth.size
+            print(f"[RETOUCH] [v3] Local darkening guard: {dark_pct:.2f}% pixels suppressed")
+            del ret_arr_loc, orig_arr_loc, ret_y_loc, orig_y_loc, d_y_loc, d_y_smooth, local_attenuate
+    except Exception as e:
+        print(f"[RETOUCH] Local darkening guard failed (non-critical): {e}")
+
     # Для mature лиц КРУПНОГО ПЛАНА: запрашиваем маску НОСА и усиливаем alpha до 0.90.
     # На носу особенно заметны возрастные пятна, а морщин на нём мало — можно чистить сильнее.
     # На средних/дальних планах усиление не нужно — лицо и так маленькое.
@@ -919,6 +953,50 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # out = orig + diff (с клиппингом в uint8)
     result = np.clip(orig_u8.astype(np.int16) + diff, 0, 255).astype(np.uint8)
     del orig_u8, diff
+
+    # === WHITE BALANCE НА МАСКЕ КОЖИ ===
+    # Цель: цвет кожи ближе к нейтральному 5200K (D52). На свадьбах обычно
+    # помещение освещено лампами накаливания (~3000K) — кожа уезжает в красно-жёлтый.
+    # Корректируем средний цвет кожи к референсному (R≈G≈B*1.05 — лёгкий тёплый baseline).
+    try:
+        wb_mask = (mask_arr > 0.3)
+        if wb_mask.sum() > 200:
+            r_mean = float(np.mean(result[wb_mask, 0]))
+            g_mean = float(np.mean(result[wb_mask, 1]))
+            b_mean = float(np.mean(result[wb_mask, 2]))
+            # Целевой цвет кожи под 5200K: чуть тёплый, естественный.
+            # Берём "среднюю" тоновую яркость текущей кожи как опорную и подгоняем
+            # каналы к референсу skin@5200K: R/G ≈ 1.18, B/G ≈ 0.92 (тёплая кожа,
+            # но не оранжевая как при 3000K где R/G ≈ 1.45).
+            mid = (r_mean + g_mean + b_mean) / 3.0
+            target_g = mid
+            target_r = mid * 1.18
+            target_b = mid * 0.92
+            # Коэффициенты коррекции (с лимитом ±25% чтобы не уехать)
+            k_r = max(0.75, min(1.25, target_r / max(r_mean, 1.0)))
+            k_g = max(0.85, min(1.15, target_g / max(g_mean, 1.0)))
+            k_b = max(0.80, min(1.30, target_b / max(b_mean, 1.0)))
+            # Применяем смягчённые (на 60%, чтобы не было резкого скачка)
+            k_r = 1.0 + (k_r - 1.0) * 0.6
+            k_g = 1.0 + (k_g - 1.0) * 0.6
+            k_b = 1.0 + (k_b - 1.0) * 0.6
+            # Применяем по маске (вне маски не меняем)
+            mask_smooth = np.array(
+                Image.fromarray((mask_arr * 255).clip(0, 255).astype(np.uint8), 'L').filter(
+                    ImageFilter.GaussianBlur(radius=8)
+                ),
+                dtype=np.float32,
+            ) / 255.0
+            res_f = result.astype(np.float32)
+            res_f[..., 0] = res_f[..., 0] * (1.0 + (k_r - 1.0) * mask_smooth)
+            res_f[..., 1] = res_f[..., 1] * (1.0 + (k_g - 1.0) * mask_smooth)
+            res_f[..., 2] = res_f[..., 2] * (1.0 + (k_b - 1.0) * mask_smooth)
+            result = np.clip(res_f, 0, 255).astype(np.uint8)
+            del res_f, mask_smooth
+            print(f"[RETOUCH] [v3] WB correction: skin RGB=({r_mean:.0f},{g_mean:.0f},{b_mean:.0f}) "
+                  f"× ({k_r:.2f},{k_g:.2f},{k_b:.2f})")
+    except Exception as e:
+        print(f"[RETOUCH] WB correction failed (non-critical): {e}")
 
     out_img = Image.fromarray(result, 'RGB')
     del result
