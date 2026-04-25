@@ -801,13 +801,16 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             # Расчёт средней яркости разницы (отрицательная = LaMa затемнил)
             d_y = 0.299 * d_r + 0.587 * d_g + 0.114 * d_b
 
-            # Защита от ПОТЕМНЕНИЯ (артефакт «чёрное пятно»)
-            if d_y < -8:
+            # Защита от ПОТЕМНЕНИЯ (артефакт «чёрное пятно»).
+            # Пороги ослаблены: лёгкое выравнивание тонов (ΔY ~ -5..-10) — норма,
+            # это не артефакт, и резать alpha из-за этого нельзя.
+            if d_y < -20:
                 print(f"[RETOUCH] [v3] LaMa darkening guard: ΔY={d_y:+.1f} → alpha=0 (revert)")
                 alpha = 0.0
-            elif d_y < -4:
-                attenuate = (4 + d_y) / 4.0 + 1.0  # d_y=-4 → 0, d_y=-8 → -1 (clamp)
-                attenuate = max(0.0, min(1.0, attenuate))
+            elif d_y < -12:
+                # ΔY=-12 → 1.0, ΔY=-20 → 0.3 (минимум 0.3, чтобы не убивать ретушь)
+                attenuate = 1.0 - (abs(d_y) - 12) / 8.0 * 0.7
+                attenuate = max(0.3, min(1.0, attenuate))
                 print(f"[RETOUCH] [v3] LaMa darkening partial: ΔY={d_y:+.1f} → alpha×{attenuate:.2f}")
                 alpha *= attenuate
             elif max_drift > 30:
