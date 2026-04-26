@@ -47,7 +47,7 @@ def postprocess_raw_capture_one_style(raw_data: bytes, file_name: str) -> Image.
             # Все кадры обрабатываются ОДИНАКОВО: яркие остаются яркими, тёмные
             # становятся заметно светлее, но без "поднятых чёрных" как у auto-bright.
             no_auto_bright=True,
-            bright=1.45,
+            bright=1.75,
             gamma=(2.4, 12.92),                      # стандартная sRGB-гамма
             highlight_mode=rawpy.HighlightMode.Blend,
             # user_flip=None → libraw применяет ориентацию из EXIF самостоятельно
