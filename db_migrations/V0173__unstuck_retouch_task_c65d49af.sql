@@ -1,0 +1,1 @@
+UPDATE retouch_tasks SET status='failed', error_message='Сервер ретуши не ответил вовремя. Попробуйте ещё раз', updated_at=NOW() WHERE task_id='c65d49af-e72d-4fbd-901b-fb6800af9730' AND status='processing';

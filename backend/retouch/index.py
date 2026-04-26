@@ -1558,6 +1558,30 @@ def _sync_task_from_api(conn, user_id, task):
         return task
 
     if api_status in ('pending', 'processing'):
+        # ТАЙМАУТ: если задача висит >5 минут — помечаем failed, чтобы UI
+        # не зависал бесконечно. Это страхует от случаев когда внешний API
+        # подтвердил queued, но потом завис на этапе processing.
+        try:
+            from datetime import datetime, timezone, timedelta
+            created = task.get('created_at')
+            if created and isinstance(created, datetime):
+                age = datetime.now(timezone.utc) - created
+                if age > timedelta(minutes=5):
+                    print(f"[RETOUCH] Task {api_task_id} timed out after {age.total_seconds():.0f}s in processing")
+                    error_msg = 'Сервер ретуши не ответил вовремя. Попробуйте ещё раз'
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "UPDATE retouch_tasks SET status='failed', error_message=%s, updated_at=NOW() WHERE task_id=%s AND user_id=%s",
+                            (error_msg, api_task_id, user_id)
+                        )
+                        conn.commit()
+                    task = dict(task)
+                    task['status'] = 'failed'
+                    task['error_message'] = error_msg
+                    return task
+        except Exception as e:
+            print(f"[RETOUCH] Timeout check failed: {e}")
+
         new_status = 'processing'
         if task['status'] != new_status:
             with conn.cursor() as cur:
