@@ -321,8 +321,10 @@ def _apply_highlight_recovery(arr: np.ndarray, strength: float = 0.55) -> None:
         + arr[..., 1].astype(np.uint16) * 150
         + arr[..., 2].astype(np.uint16) * 29
     ) >> 8
-    # Soft highlight mask: 0 при Y<220, 1 при Y>250
-    mask_f = np.clip((y.astype(np.float32) - 220.0) / 30.0, 0.0, 1.0)
+    # Soft highlight mask: 0 при Y<200, 1 при Y>240
+    # Расширили зону (200 вместо 220) — берём не только самый clip,
+    # но и зону где света "лезут к 255".
+    mask_f = np.clip((y.astype(np.float32) - 200.0) / 40.0, 0.0, 1.0)
     del y
     # Растушёвка маски (мягкие границы, чтобы не было ореолов)
     blur_radius = max(8, min(h, w) // 100)
@@ -332,15 +334,39 @@ def _apply_highlight_recovery(arr: np.ndarray, strength: float = 0.55) -> None:
     mask_f = np.array(mask_pil, dtype=np.float32) / 255.0
     del mask_pil
 
-    # В зоне пересвета: каждый канал × (1 - strength * mask * factor),
-    # factor зависит от того насколько канал близок к 255.
-    # Это сжимает 240-255 → 220-245 и убирает clipped-белый.
+    # ШАГ 1: Жёсткое сжатие ярких пикселей.
+    # Раньше factor=0.18 → max сжатие 13% (для Y=255). Этого мало
+    # на физически clipped-окнах. Делаем factor=0.42 → до 30%
+    # затемнения для пикселей Y=255 при strength=1.0.
     for c in range(3):
         ch = arr[..., c].astype(np.float32)
-        # Локальный коэффициент сжатия: сильнее у самых ярких пикселей
-        compress = 1.0 - mask_f * strength * (ch / 255.0) * 0.18
+        compress = 1.0 - mask_f * strength * (ch / 255.0) * 0.42
         arr[..., c] = np.clip(ch * compress, 0, 255).astype(np.uint8)
         del ch, compress
+
+    # ШАГ 2: Локальное обесцвечивание clipped-окон.
+    # Чисто белые пересветы (R=G=B=255) после сжатия каналов остаются
+    # серыми/нейтральными, но если окно тёплое (R>B сильно) — после
+    # сжатия R падает быстрее → появляется холодный синий оттенок.
+    # Принудительно балансируем: в зоне пересвета подтягиваем все каналы
+    # к среднему по пикселю (легкая десатурация только в highlight-зоне).
+    desat_factor = strength * 0.35  # 0..0.35
+    if desat_factor > 0.05:
+        rgb_mean = (
+            arr[..., 0].astype(np.uint16)
+            + arr[..., 1].astype(np.uint16)
+            + arr[..., 2].astype(np.uint16)
+        ) // 3
+        for c in range(3):
+            ch = arr[..., c].astype(np.float32)
+            # Локальная сила десатурации = strength × highlight_mask
+            local = mask_f * desat_factor
+            arr[..., c] = np.clip(
+                ch * (1.0 - local) + rgb_mean.astype(np.float32) * local,
+                0, 255,
+            ).astype(np.uint8)
+            del ch, local
+        del rgb_mean
     del mask_f
 
 
@@ -452,12 +478,23 @@ def _estimate_scene_exposure(arr: np.ndarray) -> dict:
     b = sample[..., 2]
     y = ((r * 77 + g * 150 + b * 29) >> 8).astype(np.uint8)
 
-    median_y = float(np.median(y))
+    # === МЕДИАНА БЕЗ ПЕРЕСВЕТА ===
+    # Если в кадре физический clipping (окна, вспышки), они тянут
+    # медиану вверх, и авто-экспозиция думает что кадр переэкспонирован
+    # → опускает brightness → весь кадр темнеет, лица проваливаются.
+    # Считаем медиану ИСКЛЮЧАЯ зону пересвета (Y > 230) — она не должна
+    # влиять на оценку общей яркости сцены.
+    non_clipped = y < 230
+    if non_clipped.sum() > 100:
+        median_y = float(np.median(y[non_clipped]))
+        p95 = float(np.percentile(y[non_clipped], 95))
+    else:
+        median_y = float(np.median(y))
+        p95 = float(np.percentile(y, 95))
     p05 = float(np.percentile(y, 5))
     p50 = median_y
-    p95 = float(np.percentile(y, 95))
 
-    # Плотность теней и светов
+    # Плотность теней и светов (по полному кадру — для решения о виньетке/HR)
     shadow_density = float(np.mean(y < 64)) * 100.0
     highlight_density = float(np.mean(y > 230)) * 100.0
 
@@ -508,9 +545,13 @@ def _compute_exposure_correction(stats: dict) -> dict:
         skin_delta = target_skin - skin_y
         # Берём средневзвешенное: кожа важнее
         bright_delta = bright_delta * 0.3 + skin_delta * 0.7
-    # Защита от пересвета: если уже много светов — не разгоняем
-    if highlight_density > 8.0:
-        bright_delta *= 0.4
+    # Защита от пересвета: ОСЛАБЛЕНА — теперь у нас отдельный
+    # highlight recovery, который локально приглушает только зону
+    # пересвета. Поэтому общую яркость кадра можно поднимать почти
+    # как обычно. Раньше bright_delta *= 0.4 при density>8% — это
+    # делало весь кадр тёмным когда в углу было яркое окно.
+    if highlight_density > 15.0:
+        bright_delta *= 0.85  # очень сильный пересвет — лёгкая страховка
     brightness = float(np.clip(bright_delta * 0.55, -25.0, 30.0))
 
     # === SHADOW: поднимаем тени если их много ===
@@ -660,12 +701,14 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     # вспышки). Включается АДАПТИВНО по плотности светов в кадре:
     # больше пересветов → сильнее восстановление.
     hd = exp_stats['highlight_density']
-    if hd > 8.0:
-        hr_strength = 0.75
+    if hd > 12.0:
+        hr_strength = 1.0   # критичный clipping (большое окно/вспышка)
+    elif hd > 8.0:
+        hr_strength = 0.85
     elif hd > 4.0:
-        hr_strength = 0.55
+        hr_strength = 0.65
     elif hd > 1.5:
-        hr_strength = 0.30
+        hr_strength = 0.40
     else:
         hr_strength = 0.0  # пересвета почти нет — не трогаем
     if hr_strength > 0:
