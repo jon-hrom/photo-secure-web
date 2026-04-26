@@ -386,6 +386,133 @@ def _estimate_scene_wb(arr: np.ndarray) -> tuple[float, float]:
     return current_kelvin, current_tint
 
 
+def _estimate_scene_exposure(arr: np.ndarray) -> dict:
+    """Оценивает текущую экспозицию кадра по гистограмме яркости.
+
+    Анализирует:
+    - median_y: медианная яркость (главный индикатор экспонирования)
+    - p05, p95: персентили — есть ли провал в тенях/пересвет в светах
+    - skin_y: медианная яркость на телесных тонах (если кожа есть)
+    - shadow_density: % пикселей в нижних 25% диапазона
+    - highlight_density: % пикселей в верхних 10%
+
+    Returns dict с этими метриками + диагностика.
+    """
+    h, w = arr.shape[:2]
+    step = max(1, int(np.sqrt(h * w / 200_000)))
+    sample = arr[::step, ::step].astype(np.int16)
+    r = sample[..., 0]
+    g = sample[..., 1]
+    b = sample[..., 2]
+    y = ((r * 77 + g * 150 + b * 29) >> 8).astype(np.uint8)
+
+    median_y = float(np.median(y))
+    p05 = float(np.percentile(y, 5))
+    p50 = median_y
+    p95 = float(np.percentile(y, 95))
+
+    # Плотность теней и светов
+    shadow_density = float(np.mean(y < 64)) * 100.0
+    highlight_density = float(np.mean(y > 230)) * 100.0
+
+    # Яркость на телесных тонах (для реалистичной кожи)
+    is_skin_like = (r > g + 8) & (g > b + 4) & (r - b > 15) & (y >= 40) & (y <= 240)
+    if is_skin_like.sum() > 200:
+        skin_y = float(np.median(y[is_skin_like]))
+    else:
+        skin_y = -1.0  # нет кожи — не учитываем
+
+    return {
+        'median_y': median_y,
+        'p05': p05,
+        'p50': p50,
+        'p95': p95,
+        'shadow_density': shadow_density,
+        'highlight_density': highlight_density,
+        'skin_y': skin_y,
+    }
+
+
+def _compute_exposure_correction(stats: dict) -> dict:
+    """По статистике сцены подбирает параметры тон-кривой адаптивно.
+
+    Цели:
+    - средняя яркость кадра ~ 110–130 (sRGB 0..255)
+    - кожа ~ 145–175 (классическая средне-светлая кожа)
+    - не уводить света в clipping (highlight_density не должна расти)
+    - в тёмных кадрах сильнее поднимаем тени
+
+    Возвращает dict с параметрами для _build_lut_curve:
+    {black_lift, shadow, brightness, contrast, white_pull, highlight}
+    """
+    median_y = stats['median_y']
+    skin_y = stats['skin_y']
+    p05 = stats['p05']
+    p95 = stats['p95']
+    shadow_density = stats['shadow_density']
+    highlight_density = stats['highlight_density']
+
+    # === BRIGHTNESS: подъём mid-tone до целевой яркости ===
+    # Целевая медиана = 120; отклонение → коррекция (1 ед. brightness ≈ 1 ед. яркости)
+    target_median = 120.0
+    bright_delta = target_median - median_y
+    # Если есть кожа — корректируем по ней (приоритет): целимся в 160
+    if skin_y > 0:
+        target_skin = 160.0
+        skin_delta = target_skin - skin_y
+        # Берём средневзвешенное: кожа важнее
+        bright_delta = bright_delta * 0.3 + skin_delta * 0.7
+    # Защита от пересвета: если уже много светов — не разгоняем
+    if highlight_density > 8.0:
+        bright_delta *= 0.4
+    brightness = float(np.clip(bright_delta * 0.55, -25.0, 30.0))
+
+    # === SHADOW: поднимаем тени если их много ===
+    if shadow_density > 25.0:
+        shadow = 20.0  # тёмный кадр — сильно поднять тени
+    elif shadow_density > 12.0:
+        shadow = 12.0
+    else:
+        shadow = 6.0
+    # Дополнительно: если p05 очень низкий (<20) — провал в тенях
+    if p05 < 20:
+        shadow += 6.0
+    shadow = float(np.clip(shadow, 0.0, 28.0))
+
+    # === HIGHLIGHT: защищаем пересветы ===
+    if highlight_density > 5.0:
+        highlight = -22.0  # активная защита
+    elif highlight_density > 2.0:
+        highlight = -15.0
+    else:
+        highlight = -8.0
+    # Если p95 уже близок к 255 — мощнее
+    if p95 > 248:
+        highlight -= 8.0
+    highlight = float(np.clip(highlight, -35.0, 0.0))
+
+    # === CONTRAST: меньше контраста на flat-кадрах, больше на нормальных ===
+    dynamic_range = p95 - p05
+    if dynamic_range < 130:
+        contrast = 16.0  # плоский кадр — добавить хруста
+    elif dynamic_range > 200:
+        contrast = 6.0   # уже контрастный — слегка
+    else:
+        contrast = 12.0
+
+    # === BLACK LIFT: чуть-чуть, чтобы не было «matte» эффекта ===
+    black_lift = 4.0 if p05 < 10 else 3.0
+
+    return {
+        'black_lift': float(black_lift),
+        'shadow': float(shadow),
+        'brightness': float(brightness),
+        'contrast': float(contrast),
+        'white_pull': 0.0,
+        'highlight': float(highlight),
+    }
+
+
 def _compute_wb_correction(
     current_kelvin: float,
     current_tint: float,
@@ -460,15 +587,28 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     _apply_lut_per_channel(arr, lut_r, lut_g, lut_b)
     del lut_r, lut_g, lut_b
 
-    # 2. Tone — добавляем КОНТРАСТА и ЯРКОСТИ, без агрессивного гашения светов.
-    _apply_lut_global(arr, _build_lut_curve(
-        black_lift=4,        # Чёрный +4 (минимально, чтобы не было flat)
-        shadow=10,           # Тень +10 (поднять тёмные участки лица)
-        brightness=12,       # Яркость +12 (mid-tones светлее)
-        contrast=12,         # Контраст +12 — даёт "хруст" вместо мутности
-        white_pull=0,        # НЕ опускаем белые
-        highlight=-15,       # Highlights -15 (мягко защитить пересвет)
-    ))
+    # 2. Tone — АДАПТИВНАЯ экспозиция: измеряем гистограмму кадра и
+    #    подбираем brightness / shadow / highlight / contrast индивидуально.
+    #    Тёмные кадры подсвечиваем сильнее, пересвеченные — гасим highlights,
+    #    плоские получают больше контраста, контрастные — меньше.
+    exp_stats = _estimate_scene_exposure(arr)
+    exp_params = _compute_exposure_correction(exp_stats)
+    skin_info = (
+        f"skin_y={exp_stats['skin_y']:.0f} "
+        if exp_stats['skin_y'] > 0
+        else "no_skin "
+    )
+    print(
+        f"[C1-PRESET] auto-exposure: median_y={exp_stats['median_y']:.0f} "
+        f"{skin_info}p05={exp_stats['p05']:.0f} p95={exp_stats['p95']:.0f} "
+        f"shadows={exp_stats['shadow_density']:.1f}% "
+        f"highlights={exp_stats['highlight_density']:.1f}% "
+        f"→ brightness={exp_params['brightness']:+.1f} "
+        f"shadow={exp_params['shadow']:+.1f} "
+        f"highlight={exp_params['highlight']:+.1f} "
+        f"contrast={exp_params['contrast']:+.1f}"
+    )
+    _apply_lut_global(arr, _build_lut_curve(**exp_params))
 
     # 3. Saturation — больше сочности (+22)
     _saturation_in_place(arr, factor=1.22)
