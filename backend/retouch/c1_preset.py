@@ -318,6 +318,121 @@ def _apply_vignette(arr, amount=-0.34):
     del mult_u8
 
 
+def _estimate_scene_wb(arr: np.ndarray) -> tuple[float, float]:
+    """Оценивает текущий баланс белого кадра по нейтральным областям.
+
+    Метод:
+    1. Берём пиксели со средней яркостью (Y в [60..220]) — без теней и пересветов.
+    2. Исключаем насыщенные (chroma > 50) — это цветные объекты, не нейтраль.
+    3. Исключаем телесные тона (hue ~ оранжевый) — кожа смещает оценку.
+    4. По оставшимся "почти серым" пикселям считаем среднее R/G/B.
+    5. Соотношение R/B даёт текущую температуру кадра в Кельвинах.
+       (R/B ≈ 1.0 → ~5500K, R/B > 1 → теплее, R/B < 1 → холоднее)
+    6. Соотношение G/((R+B)/2) даёт tint (>1 → зелень, <1 → магента).
+
+    Returns:
+        (current_kelvin, current_tint) — оценка цветовой температуры
+        и тинта исходного кадра.
+    """
+    h, w = arr.shape[:2]
+    # Сэмплируем не весь кадр, а каждые ~4 пикселя — экономия памяти.
+    step = max(1, int(np.sqrt(h * w / 200_000)))
+    sample = arr[::step, ::step].astype(np.int16)
+    r = sample[..., 0]
+    g = sample[..., 1]
+    b = sample[..., 2]
+    y = (r * 77 + g * 150 + b * 29) >> 8  # luma BT.601
+
+    max_c = np.maximum(np.maximum(r, g), b)
+    min_c = np.minimum(np.minimum(r, g), b)
+    chroma = max_c - min_c
+
+    # Маска "почти-нейтрали": средние тона + низкая chroma.
+    neutral = (y >= 60) & (y <= 220) & (chroma <= 35)
+    # Дополнительно отсеиваем телесные тона (R > G > B с заметным запасом).
+    is_skin_like = (r > g + 8) & (g > b + 4) & (r - b > 15)
+    neutral = neutral & (~is_skin_like)
+
+    if neutral.sum() < 200:
+        # Мало нейтральных пикселей — кадр насыщенный/однотонный, не двигаем.
+        return 5500.0, 0.0
+
+    r_mean = float(np.mean(r[neutral]))
+    g_mean = float(np.mean(g[neutral]))
+    b_mean = float(np.mean(b[neutral]))
+
+    # Защита от деления на 0
+    if b_mean < 1 or g_mean < 1:
+        return 5500.0, 0.0
+
+    rb_ratio = r_mean / b_mean
+    # Эмпирическое отображение R/B → Kelvin (откалибровано на тестовых кадрах):
+    #   R/B = 1.00 → 5500K (нейтраль)
+    #   R/B = 1.30 → ~3500K (вольфрам)
+    #   R/B = 0.85 → ~7000K (тень, облачно)
+    # Линейная аппроксимация в логарифме отношения.
+    log_rb = np.log(rb_ratio)
+    current_kelvin = 5500.0 * np.exp(-log_rb * 1.55)
+    current_kelvin = float(np.clip(current_kelvin, 2500.0, 9000.0))
+
+    # Tint: G относительно (R+B)/2. Нейтраль = 1.0
+    rb_avg = (r_mean + b_mean) / 2.0
+    g_ratio = g_mean / max(rb_avg, 1.0)
+    # g_ratio > 1 → перевес зелёного → положительный tint в нашей шкале
+    # g_ratio < 1 → магента → отрицательный
+    current_tint = (g_ratio - 1.0) * 100.0
+    current_tint = float(np.clip(current_tint, -30.0, 30.0))
+
+    return current_kelvin, current_tint
+
+
+def _compute_wb_correction(
+    current_kelvin: float,
+    current_tint: float,
+    target_kelvin: float = 5300.0,
+    target_tint: float = 0.0,
+    strength: float = 0.55,
+) -> tuple[float, float]:
+    """Вычисляет параметры WB-сдвига для приведения кадра к целевому диапазону.
+
+    Не "выкручивает" коррекцию на 100% — атмосфера зала должна сохраниться.
+    Целимся в 5000–5500K с центром 5300K.
+
+    Args:
+        current_kelvin: оцененная температура исходного кадра.
+        current_tint: оцененный tint исходного кадра.
+        target_kelvin: куда хотим прийти (5300K = тёплая нейтраль).
+        target_tint: целевой tint (0 = нейтраль, лёгкая магента в коже).
+        strength: 0..1 — насколько сильно тянем к цели (0.55 = умеренно).
+
+    Returns:
+        (wb_kelvin, wb_tint) — параметры для _wb_shift_lut, которые
+        частично сдвинут текущий кадр к цели.
+    """
+    # Если текущая температура уже в целевом диапазоне — мягкий сдвиг.
+    if 5000.0 <= current_kelvin <= 5500.0:
+        strength *= 0.4
+
+    # Целимся: new_kelvin = current + (target - current) * strength
+    # Но _wb_shift_lut принимает АБСОЛЮТНОЕ значение — пересчитываем
+    # в относительный сдвиг от 5500K.
+    desired_shift = (target_kelvin - current_kelvin) * strength
+    # _wb_shift_lut(kelvin_target=X) делает сдвиг (5500-X)/1000 в "теплее".
+    # Чтобы получить желаемый desired_shift Кельвинов в сторону тепла,
+    # нужно kelvin_target = 5500 - desired_shift.
+    wb_kelvin = 5500.0 - desired_shift
+    wb_kelvin = float(np.clip(wb_kelvin, 4000.0, 7000.0))
+
+    # Tint: компенсируем отклонение, плюс лёгкая магента к цели.
+    tint_correction = (target_tint - current_tint) * strength
+    # _wb_shift_lut: положительный tint = магента (хорошо для кожи).
+    # Если кадр имел избыток зелёного (current_tint > 0), коррекция
+    # будет положительной — ровно то что нужно.
+    wb_tint = float(np.clip(tint_correction, -10.0, 10.0))
+
+    return wb_kelvin, wb_tint
+
+
 def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     """Применяет свадебный пресет Capture One к ретушированному изображению.
 
@@ -331,10 +446,17 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     # Шумодав применяется ОТДЕЛЬНО по skin-mask в index.py
     # (см. apply_skin_denoise_with_mask).
 
-    # 1. WB — лёгкий ТЁПЛЫЙ сдвиг (5200K) + плюсовой tint (магента),
-    #    чтобы убрать зелёный оттенок от вольфрамовых ламп и вернуть
-    #    естественный цвет кожи (5000–5500K — целевой диапазон).
-    lut_r, lut_g, lut_b = _wb_shift_lut(kelvin_target=5200, tint=3.0)
+    # 1. WB — АДАПТИВНЫЙ: оцениваем температуру исходного кадра по
+    #    нейтральным областям и подбираем коррекцию индивидуально.
+    #    Цель — привести кожу к диапазону 5000–5500K, но мягко
+    #    (strength=0.55), чтобы не убить атмосферу зала.
+    cur_k, cur_t = _estimate_scene_wb(arr)
+    wb_k, wb_t = _compute_wb_correction(cur_k, cur_t)
+    print(
+        f"[C1-PRESET] auto-WB: scene≈{cur_k:.0f}K tint={cur_t:+.1f} "
+        f"→ shift kelvin_target={wb_k:.0f}K tint={wb_t:+.1f}"
+    )
+    lut_r, lut_g, lut_b = _wb_shift_lut(kelvin_target=wb_k, tint=wb_t)
     _apply_lut_per_channel(arr, lut_r, lut_g, lut_b)
     del lut_r, lut_g, lut_b
 
