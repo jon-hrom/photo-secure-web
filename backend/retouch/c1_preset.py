@@ -13,7 +13,96 @@
                 Cyan (sat -10.2)
 """
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
+
+
+def _denoise_luminance(arr: np.ndarray, strength: float = 0.6) -> None:
+    """Шумодав: убирает зернистость в плоских областях (кожа, фон),
+    сохраняет резкость кромок и текстуры (волосы, глаза, ткань).
+
+    Метод: edge-preserving smoothing через blend между размытой версией
+    и оригиналом по edge-mask.
+        - Низкие частоты (плоские области) -> размываем -> шум исчезает.
+        - Высокие частоты (кромки) -> оставляем оригинал -> резкость сохраняется.
+
+    Работает in-place, экономно по памяти.
+
+    Args:
+        arr: uint8 RGB массив (H, W, 3), модифицируется in-place.
+        strength: 0..1, сила шумодава. 0.6 = умеренно (рекомендуется).
+    """
+    h, w = arr.shape[:2]
+
+    # 1. Luminance (grayscale) для детекции кромок — быстрая аппроксимация
+    #    Y = 0.299R + 0.587G + 0.114B, считаем как uint16 чтобы не переполниться.
+    y_u16 = (
+        arr[..., 0].astype(np.uint16) * 77
+        + arr[..., 1].astype(np.uint16) * 150
+        + arr[..., 2].astype(np.uint16) * 29
+    ) >> 8  # делим на 256 — приближённо к /255
+
+    y_pil = Image.fromarray(y_u16.astype(np.uint8), 'L')
+    del y_u16
+
+    # 2. Edge map: |original - blurred|. Большие значения = кромка.
+    #    Используем blur radius=1.5 — ловим тонкие детали (ресницы, волосы).
+    y_blurred_small = np.array(
+        y_pil.filter(ImageFilter.GaussianBlur(radius=1.5)),
+        dtype=np.int16,
+    )
+    y_orig = np.array(y_pil, dtype=np.int16)
+    del y_pil
+
+    edge = np.abs(y_orig - y_blurred_small).astype(np.uint8)
+    del y_orig, y_blurred_small
+
+    # Растягиваем edge map: всё что > 6 (порог шума) -> кромка
+    # Маска: 0 = плоская область (размываем), 255 = кромка (не трогаем)
+    edge_mask = np.clip((edge.astype(np.int16) - 4) * 12, 0, 255).astype(np.uint8)
+    del edge
+
+    # Слегка размоем сам edge mask чтобы переход был плавный
+    edge_mask = np.array(
+        Image.fromarray(edge_mask, 'L').filter(ImageFilter.GaussianBlur(radius=1.0)),
+        dtype=np.uint8,
+    )
+
+    # 3. Размываем сам кадр (по каждому каналу) — это и есть "denoised" версия
+    #    Radius=1.2 — достаточно для зерна ISO 1600-3200, не теряя структуру.
+    blur_radius = 1.2
+    for c in range(3):
+        ch_pil = Image.fromarray(arr[..., c], 'L')
+        blurred = np.array(
+            ch_pil.filter(ImageFilter.GaussianBlur(radius=blur_radius)),
+            dtype=np.uint8,
+        )
+        # 4. Blend: где кромка -> оригинал, где плоско -> blurred.
+        #    alpha = edge_mask / 255 * (1 - strength) + (1 - edge_mask/255) * 0
+        #    Проще: result = orig * edge_alpha + blurred * (1 - edge_alpha)
+        #    где edge_alpha учитывает strength.
+        # Эффективная alpha: 1.0 на кромках, (1 - strength) в плоских областях.
+        # alpha_u16 = edge_mask + (1 - edge_mask/255) * (1 - strength) * 255
+        # Упрощаем: alpha = edge_mask + (255 - edge_mask) * (1 - strength)
+        inv_strength = 1.0 - strength
+        alpha = (
+            edge_mask.astype(np.uint16)
+            + ((255 - edge_mask).astype(np.uint16) * int(inv_strength * 256) >> 8)
+        )
+        np.clip(alpha, 0, 255, out=alpha)
+        alpha_u8 = alpha.astype(np.uint8)
+        del alpha
+
+        # result = orig * alpha + blurred * (255 - alpha), всё в uint16, потом >>8
+        orig_ch = arr[..., c].astype(np.uint16)
+        blurred_u16 = blurred.astype(np.uint16)
+        del blurred
+        mixed = (
+            orig_ch * alpha_u8 + blurred_u16 * (255 - alpha_u8)
+        ) // 255
+        arr[..., c] = mixed.astype(np.uint8)
+        del orig_ch, blurred_u16, mixed, alpha_u8
+
+    del edge_mask
 
 
 def _build_lut_curve(black_lift, shadow, brightness, contrast, white_pull, highlight):
@@ -169,6 +258,12 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     """
     arr = np.array(img, dtype=np.uint8)
     del img
+
+    # 0. ШУМОДАВ — всегда первым шагом. Убирает зернистость ISO в плоских
+    #    областях (кожа, фон, потолок), сохраняя резкость кромок (волосы,
+    #    глаза, ткань). Без него последующий контраст +12 и saturation +22
+    #    усиливают шум, и появляются "пятна" на коже.
+    _denoise_luminance(arr, strength=0.6)
 
     # 1. WB — лёгкий тёплый сдвиг и тинт в зелёный
     lut_r, lut_g, lut_b = _wb_shift_lut(kelvin_target=5390, tint=-5.4)
