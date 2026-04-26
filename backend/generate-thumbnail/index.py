@@ -43,11 +43,12 @@ def postprocess_raw_capture_one_style(raw_data: bytes, file_name: str) -> Image.
             demosaic_algorithm=rawpy.DemosaicAlgorithm.AHD,
             output_color=rawpy.ColorSpace.sRGB,      # sRGB для веба
             output_bps=8,
-            # Auto-bright ОТКЛ + ручная экспозиция bright=1.15 — постоянная
-            # яркость для всех кадров, без "приподнятых чёрных" на тёмных сценах.
+            # Auto-bright ОТКЛ + общий подъём bright=1.45 (~+0.5 EV).
+            # Все кадры обрабатываются ОДИНАКОВО: яркие остаются яркими, тёмные
+            # становятся заметно светлее, но без "поднятых чёрных" как у auto-bright.
             no_auto_bright=True,
-            bright=1.15,
-            gamma=(2.4, 12.92),                      # стандартная sRGB-гамма — нормальные глубокие тени
+            bright=1.45,
+            gamma=(2.4, 12.92),                      # стандартная sRGB-гамма
             highlight_mode=rawpy.HighlightMode.Blend,
             # user_flip=None → libraw применяет ориентацию из EXIF самостоятельно
             # (этого требуют все вертикальные CR2). user_flip=0 принудительно ОТКЛЮЧАЕТ поворот.
