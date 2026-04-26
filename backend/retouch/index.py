@@ -1017,29 +1017,77 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     except Exception as e:
         print(f"[RETOUCH] Skin smoothing failed (non-critical): {e}")
 
-    # === WHITE BALANCE НА МАСКЕ КОЖИ ===
-    # Цель: цвет кожи ближе к нейтральному 5200K. На свадьбах в помещении
-    # освещение часто 3000K — кожа уезжает в красно-жёлтый.
+    # === WHITE BALANCE по ЭТАЛОНУ СЕРОГО (white-patch / gray-world hybrid) ===
+    # Главная идея: ищем в кадре светлые НЕЙТРАЛЬНЫЕ пиксели (платье, скатерть,
+    # бумага, стены) — у них R≈G≈B при правильном WB. По их средней разбежке
+    # вычисляем коэффициенты. Это надёжнее, чем тащить кожу к фиксированной
+    # формуле — кожа сама встанет правильно, если нейтрали серые.
     try:
-        if skin_mask_for_post.sum() > 200:
-            r_mean = float(np.mean(result[skin_mask_for_post, 0]))
-            g_mean = float(np.mean(result[skin_mask_for_post, 1]))
-            b_mean = float(np.mean(result[skin_mask_for_post, 2]))
-            # Целевой цвет кожи под 5200K (естественная тёплая кожа, не оранжевая).
-            mid = (r_mean + g_mean + b_mean) / 3.0
-            target_g = mid
-            target_r = mid * 1.18
-            target_b = mid * 0.92
-            # Коэффициенты с лимитом ±25%
-            k_r = max(0.75, min(1.25, target_r / max(r_mean, 1.0)))
-            k_g = max(0.85, min(1.15, target_g / max(g_mean, 1.0)))
-            k_b = max(0.80, min(1.30, target_b / max(b_mean, 1.0)))
-            # Применяем смягчённые (×0.7 чтобы не было слишком резкого скачка)
-            k_r = 1.0 + (k_r - 1.0) * 0.7
-            k_g = 1.0 + (k_g - 1.0) * 0.7
-            k_b = 1.0 + (k_b - 1.0) * 0.7
-            # WB применяем НА ВЕСЬ КАДР через LUT (256 значений на канал) —
-            # это в десятки раз дешевле по памяти, чем float32-копия всего кадра.
+        # Берём яркие пиксели (luma 180..245) и фильтруем "почти серые":
+        # max(R,G,B) - min(R,G,B) <= 35 — это потенциальные нейтрали.
+        # Исключаем зону кожи, чтобы не считать её эталоном.
+        r_ch = result[..., 0]
+        g_ch = result[..., 1]
+        b_ch = result[..., 2]
+        luma = (r_ch.astype(np.uint16) * 76 + g_ch.astype(np.uint16) * 150
+                + b_ch.astype(np.uint16) * 30) >> 8
+        max_c = np.maximum(np.maximum(r_ch, g_ch), b_ch)
+        min_c = np.minimum(np.minimum(r_ch, g_ch), b_ch)
+        chroma = max_c.astype(np.int16) - min_c.astype(np.int16)
+        del max_c, min_c
+
+        neutral_mask = (
+            (luma >= 180) & (luma <= 245)
+            & (chroma <= 35)
+            & (~skin_mask_for_post)
+        )
+        del luma, chroma
+        n_neutral = int(neutral_mask.sum())
+
+        # Если нейтралей мало (<0.5% кадра) — fallback на gray-world по всему
+        # кадру без зоны кожи (надёжнее чем тащить кожу куда-то).
+        if n_neutral >= max(2000, result.shape[0] * result.shape[1] // 200):
+            r_mean = float(np.mean(r_ch[neutral_mask]))
+            g_mean = float(np.mean(g_ch[neutral_mask]))
+            b_mean = float(np.mean(b_ch[neutral_mask]))
+            wb_source = f"neutrals(n={n_neutral})"
+        else:
+            non_skin = ~skin_mask_for_post
+            r_mean = float(np.mean(r_ch[non_skin]))
+            g_mean = float(np.mean(g_ch[non_skin]))
+            b_mean = float(np.mean(b_ch[non_skin]))
+            wb_source = "gray-world(non-skin)"
+            del non_skin
+        del neutral_mask
+
+        # Цель: R = G = B = среднее. Коэффициенты строго относительно G
+        # (зелёный — самый стабильный канал в большинстве сцен).
+        target = (r_mean + g_mean + b_mean) / 3.0
+        k_r = target / max(r_mean, 1.0)
+        k_g = target / max(g_mean, 1.0)
+        k_b = target / max(b_mean, 1.0)
+
+        # Жёсткие границы ±15% — никаких резких сдвигов.
+        k_r = max(0.85, min(1.15, k_r))
+        k_g = max(0.92, min(1.08, k_g))
+        k_b = max(0.85, min(1.15, k_b))
+
+        # Защита от "ухода в зелёный": если коррекция тянет G ВВЕРХ при
+        # одновременном уменьшении R и B — это явный признак неверного эталона
+        # (например, зелёные растения попали в нейтрали). В этом случае не
+        # трогаем G, чтобы не получить зелёный кадр.
+        if k_g > 1.0 and k_r < 1.0 and k_b < 1.0:
+            k_g = 1.0
+            print("[RETOUCH] [v3] WB guard: blocked green-shift")
+
+        # Сглаживаем силу × 0.6 — деликатная коррекция, без резких прыжков.
+        strength = 0.6
+        k_r = 1.0 + (k_r - 1.0) * strength
+        k_g = 1.0 + (k_g - 1.0) * strength
+        k_b = 1.0 + (k_b - 1.0) * strength
+
+        # Применяем через LUT — 1 KB вместо 30 MB float32-копии.
+        if abs(k_r - 1.0) > 0.01 or abs(k_g - 1.0) > 0.01 or abs(k_b - 1.0) > 0.01:
             x = np.arange(256, dtype=np.float32)
             lut_r = np.clip(x * k_r, 0, 255).astype(np.uint8)
             lut_g = np.clip(x * k_g, 0, 255).astype(np.uint8)
@@ -1048,8 +1096,10 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             result[..., 1] = lut_g[result[..., 1]]
             result[..., 2] = lut_b[result[..., 2]]
             del lut_r, lut_g, lut_b, x
-            print(f"[RETOUCH] [v3] WB correction (global, LUT): skin RGB=({r_mean:.0f},{g_mean:.0f},{b_mean:.0f}) "
-                  f"× ({k_r:.2f},{k_g:.2f},{k_b:.2f})")
+            print(f"[RETOUCH] [v3] WB ({wb_source}): RGB=({r_mean:.0f},{g_mean:.0f},{b_mean:.0f}) "
+                  f"→ × ({k_r:.3f},{k_g:.3f},{k_b:.3f})")
+        else:
+            print(f"[RETOUCH] [v3] WB ({wb_source}): already neutral, skip")
     except Exception as e:
         print(f"[RETOUCH] WB correction failed (non-critical): {e}")
 
