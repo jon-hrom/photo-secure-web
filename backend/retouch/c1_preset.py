@@ -162,35 +162,39 @@ def _apply_vignette(arr, amount=-0.34):
 
 
 def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
-    """Применяет свадебный пресет Capture One к ретушированному изображению."""
+    """Применяет свадебный пресет Capture One к ретушированному изображению.
+
+    Версия v2: добавлены сочность и контраст, убраны агрессивные затемнения
+    (highlights -50, whites -22, vignette -0.34) — они делали кадр серым/мутным.
+    """
     arr = np.array(img, dtype=np.uint8)
     del img
 
-    # 1. WB
+    # 1. WB — лёгкий тёплый сдвиг и тинт в зелёный
     lut_r, lut_g, lut_b = _wb_shift_lut(kelvin_target=5390, tint=-5.4)
     _apply_lut_per_channel(arr, lut_r, lut_g, lut_b)
     del lut_r, lut_g, lut_b
 
-    # 2. Exposure
-    _apply_lut_global(arr, _exposure_lut(-0.39))
-
-    # 3. Tone (HDR + brightness + contrast)
+    # 2. Tone — добавляем КОНТРАСТА и ЯРКОСТИ, без агрессивного гашения светов.
     _apply_lut_global(arr, _build_lut_curve(
-        black_lift=15, shadow=7, brightness=22,
-        contrast=-9, white_pull=-22, highlight=-50,
+        black_lift=4,        # Чёрный +4 (минимально, чтобы не было flat)
+        shadow=10,           # Тень +10 (поднять тёмные участки лица)
+        brightness=12,       # Яркость +12 (mid-tones светлее)
+        contrast=12,         # Контраст +12 — даёт "хруст" вместо мутности
+        white_pull=0,        # НЕ опускаем белые
+        highlight=-15,       # Highlights -15 (мягко защитить пересвет)
     ))
 
-    # 4. Saturation
-    _saturation_in_place(arr, factor=1.12)
+    # 3. Saturation — больше сочности (+22)
+    _saturation_in_place(arr, factor=1.22)
 
-    # 5. Color editor
+    # 4. Color editor — приглушаем оранжевый и голубой как в эталоне C1
     color_mask = _hue_classify(arr)
-    _adjust_color_channel(arr, color_mask, 1, sat=-12.8, light=4.4)
-    _adjust_color_channel(arr, color_mask, 2, hue_shift=-3.4, sat=5.8, light=10.8)
-    _adjust_color_channel(arr, color_mask, 3, sat=-10.2)
+    _adjust_color_channel(arr, color_mask, 1, sat=-10, light=4)
+    _adjust_color_channel(arr, color_mask, 2, hue_shift=-3.4, sat=6, light=8)
+    _adjust_color_channel(arr, color_mask, 3, sat=-10)
     del color_mask
 
-    # 6. Vignette
-    _apply_vignette(arr, amount=-0.34)
+    # 5. Vignette — УБРАНА (создавала затемнение по краям/ощущение мутности).
 
     return Image.fromarray(arr, 'RGB')
