@@ -1,4 +1,9 @@
-'''Генерирует JPEG-превью для RAW фотографий'''
+'''Генерирует JPEG-превью для RAW фотографий через полный демозаик rawpy.
+
+КРИТИЧНО: для CR2/NEF/ARW/DNG ВСЕГДА используем postprocess() c camera matrix,
+а не встроенный JPEG-превью камеры (он зашит со своим WB и S-кривой и часто
+даёт красный пере-контраст). Это даёт цвет/тоны как в Capture One/Lightroom.
+'''
 import json
 import os
 import time
@@ -9,61 +14,69 @@ import rawpy
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-MIN_PREVIEW_SIZE = 800
+# Только эти RAW-форматы заведомо умеют postprocess через libraw.
+# Для них ВСЕГДА делаем полноценный демозаик.
+TRUE_RAW_EXT = ('.cr2', '.cr3', '.nef', '.nrw', '.arw', '.srf', '.sr2',
+                '.dng', '.orf', '.rw2', '.raf', '.pef', '.raw', '.rwl', '.iiq', '.3fr')
+
+
+def is_true_raw(file_name: str) -> bool:
+    name = (file_name or '').lower()
+    return any(name.endswith(ext) for ext in TRUE_RAW_EXT)
+
+
+def postprocess_raw_capture_one_style(raw_data: bytes, file_name: str) -> Image.Image:
+    """Полный демозаик с настройками, имитирующими Capture One:
+    - camera WB (как поставила камера, но с матрицей)
+    - AHD demosaic — самый качественный, минимум артефактов
+    - sRGB output
+    - 16-bit обработка → конверсия в 8-bit с гаммой
+    - мягкий highlight recovery (мода 1 = blend)
+    - без auto-bright чтобы не задирать экспозицию
+    - bright=1.0, gamma sRGB (2.4, 12.92) — стандарт
+    """
+    is_dng = file_name.lower().endswith('.dng')
+
+    with rawpy.imread(BytesIO(raw_data)) as raw:
+        params = dict(
+            use_camera_wb=True,                      # WB по матрице камеры
+            demosaic_algorithm=rawpy.DemosaicAlgorithm.AHD,
+            output_color=rawpy.ColorSpace.sRGB,      # sRGB для веба
+            output_bps=8,
+            no_auto_bright=True,                     # не задирать экспозицию
+            bright=1.0,
+            gamma=(2.4, 12.92),                      # стандартная sRGB-гамма
+            highlight_mode=rawpy.HighlightMode.Blend,  # мягкий highlight recovery
+            user_flip=0,                             # ориентацию применяем потом через EXIF
+            half_size=False,                         # ПОЛНОЕ разрешение
+            fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Light,
+        )
+        if is_dng:
+            # У DNG обычно линейные данные, чуть подсветим
+            params['no_auto_bright'] = False
+            params['bright'] = 1.1
+        rgb = raw.postprocess(**params)
+
+    return Image.fromarray(rgb)
+
 
 def try_extract_embedded_jpeg(raw_data):
-    """Извлекает встроенный JPEG-превью из RAW если он достаточного размера"""
+    """Fallback: извлекает встроенный JPEG-превью из RAW.
+    Используется ТОЛЬКО если postprocess упал (например, неизвестная камера).
+    """
     try:
         with rawpy.imread(BytesIO(raw_data)) as raw:
             try:
                 thumb = raw.extract_thumb()
             except rawpy.LibRawNoThumbnailError:
-                print('[THUMBNAIL] No embedded thumbnail found')
                 return None
-            
             if thumb.format == rawpy.ThumbFormat.JPEG:
-                img = Image.open(BytesIO(thumb.data))
-                w, h = img.size
-                print(f'[THUMBNAIL] Embedded JPEG found: {w}x{h}')
-                if min(w, h) >= MIN_PREVIEW_SIZE:
-                    return img
-                else:
-                    print(f'[THUMBNAIL] Embedded JPEG too small ({w}x{h}), will postprocess')
-                    return None
+                return Image.open(BytesIO(thumb.data))
             elif thumb.format == rawpy.ThumbFormat.BITMAP:
-                img = Image.fromarray(thumb.data)
-                w, h = img.size
-                print(f'[THUMBNAIL] Embedded bitmap found: {w}x{h}')
-                if min(w, h) >= MIN_PREVIEW_SIZE:
-                    return img
-                return None
+                return Image.fromarray(thumb.data)
     except Exception as e:
         print(f'[THUMBNAIL] Embedded extract failed: {e}')
     return None
-
-
-def postprocess_raw(raw_data, file_name):
-    """Конвертирует RAW через postprocess с учётом формата"""
-    is_dng = file_name.lower().endswith('.dng')
-    
-    with rawpy.imread(BytesIO(raw_data)) as raw:
-        if is_dng:
-            rgb = raw.postprocess(
-                use_camera_wb=True,
-                half_size=True,
-                no_auto_bright=False,
-                output_bps=8,
-                bright=1.2
-            )
-        else:
-            rgb = raw.postprocess(
-                use_camera_wb=True,
-                half_size=True,
-                no_auto_bright=True,
-                output_bps=8
-            )
-    
-    return Image.fromarray(rgb)
 
 
 def process_single_thumbnail(conn, s3_client, photo_id, force=False):
@@ -90,29 +103,48 @@ def process_single_thumbnail(conn, s3_client, photo_id, force=False):
     dl_time = time.time() - start
     
     print(f'[THUMBNAIL] Downloaded {len(raw_data)//1024//1024}MB in {dl_time:.1f}s, converting...')
-    
-    img = try_extract_embedded_jpeg(raw_data)
-    source = 'embedded'
-    
-    if img is None:
-        print(f'[THUMBNAIL] Fallback to postprocess for {photo["file_name"]}')
-        img = postprocess_raw(raw_data, photo['file_name'])
-        source = 'postprocess'
-    
+
+    img = None
+    source = None
+    file_name = photo['file_name'] or ''
+
+    # Для RAW — ВСЕГДА полный демозаик с матрицей камеры (Capture One-style),
+    # а не встроенный JPEG-превью (он часто красный/перекрученный).
+    if is_true_raw(file_name):
+        try:
+            img = postprocess_raw_capture_one_style(raw_data, file_name)
+            source = 'postprocess(C1-style)'
+        except Exception as e:
+            print(f'[THUMBNAIL] postprocess failed ({e}), fallback to embedded JPEG')
+            img = try_extract_embedded_jpeg(raw_data)
+            source = 'embedded(fallback)'
+    else:
+        # Не RAW (например прислали JPEG с RAW-расширением .raw в имени) — берём embedded
+        img = try_extract_embedded_jpeg(raw_data)
+        source = 'embedded'
+        if img is None:
+            img = postprocess_raw_capture_one_style(raw_data, file_name)
+            source = 'postprocess(fallback)'
+
     del raw_data
-    
+
+    if img is None:
+        raise RuntimeError('Failed to decode RAW: both postprocess and embedded JPEG returned None')
+
     try:
         img = ImageOps.exif_transpose(img)
     except Exception as e:
         print(f'[THUMBNAIL] exif_transpose failed: {e}')
-    
-    img.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
-    
+
+    # Для ретуши нужно высокое разрешение — иначе кожа замыливается.
+    # 2400px по длинной стороне = достаточно для качественной ретуши и не раздувает S3.
+    img.thumbnail((2400, 2400), Image.Resampling.LANCZOS)
+
     jpeg_buffer = BytesIO()
-    img.save(jpeg_buffer, format='JPEG', quality=85)
+    img.save(jpeg_buffer, format='JPEG', quality=92, subsampling=0)
     jpeg_buffer.seek(0)
     del img
-    
+
     print(f'[THUMBNAIL] Generated from {source}')
     
     thumbnail_key = photo['s3_key'].rsplit('.', 1)[0] + '_thumb.jpg'
