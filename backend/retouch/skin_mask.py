@@ -1112,6 +1112,13 @@ def build_focus_mask_via_server(image_bytes, orig_img_arr):
                 )
             except Exception:
                 continue
+        # === АТЕННУАЦИЯ ВТОРОСТЕПЕННЫХ ЛИЦ ===
+        # Главное лицо (is_largest) ретушируется на полную силу.
+        # Второстепенные — на 40% (mask × 0.4), чтобы LaMa не "красил" их
+        # серостью (классический артефакт на мелких лицах с малой
+        # информацией о текстуре кожи).
+        if not f.get('is_largest', False):
+            face_skin = (face_skin.astype(np.float32) * 0.4).astype(np.uint8)
         combined = np.maximum(combined, face_skin)
         succeed += 1
 

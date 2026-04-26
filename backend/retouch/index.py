@@ -837,6 +837,41 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
                 attenuate = max(0.1, min(1.0, attenuate))
                 print(f"[RETOUCH] [v3] Color drift partial: max={max_drift:.1f} → alpha×{attenuate:.2f}")
                 alpha *= attenuate
+
+            # === CHROMA DRIFT GUARD ===
+            # Артефакт «серое пятно»: LaMa не темнит, но ОБЕСЦВЕЧИВАЕТ кожу
+            # (особенно на мелких/боковых лицах, где мало текстуры).
+            # Считаем chroma = max(R,G,B) - min(R,G,B) внутри маски.
+            # Если LaMa уронил chroma > 35% — это серое пятно, откатываем.
+            ret_max = np.maximum(np.maximum(
+                ret_arr_check[m_check, 0], ret_arr_check[m_check, 1]),
+                ret_arr_check[m_check, 2])
+            ret_min = np.minimum(np.minimum(
+                ret_arr_check[m_check, 0], ret_arr_check[m_check, 1]),
+                ret_arr_check[m_check, 2])
+            orig_max = np.maximum(np.maximum(
+                orig_arr_check[m_check, 0], orig_arr_check[m_check, 1]),
+                orig_arr_check[m_check, 2])
+            orig_min = np.minimum(np.minimum(
+                orig_arr_check[m_check, 0], orig_arr_check[m_check, 1]),
+                orig_arr_check[m_check, 2])
+            chroma_ret = float(np.mean(ret_max - ret_min))
+            chroma_orig = float(np.mean(orig_max - orig_min))
+            if chroma_orig > 5:  # имеет смысл проверять только если кожа цветная
+                chroma_ratio = chroma_ret / chroma_orig
+                if chroma_ratio < 0.55:
+                    print(f"[RETOUCH] [v3] Chroma drift heavy: "
+                          f"{chroma_orig:.1f}→{chroma_ret:.1f} "
+                          f"(ratio={chroma_ratio:.2f}) → alpha=0 (revert)")
+                    alpha = 0.0
+                elif chroma_ratio < 0.75:
+                    # ratio=0.75 → 1.0, ratio=0.55 → 0.2
+                    attenuate = (chroma_ratio - 0.55) / 0.20 * 0.8 + 0.2
+                    attenuate = max(0.2, min(1.0, attenuate))
+                    print(f"[RETOUCH] [v3] Chroma drift partial: "
+                          f"ratio={chroma_ratio:.2f} → alpha×{attenuate:.2f}")
+                    alpha *= attenuate
+            del ret_max, ret_min, orig_max, orig_min
         del ret_arr_check, orig_arr_check
     except Exception as e:
         print(f"[RETOUCH] Color drift guard failed (non-critical): {e}")

@@ -298,6 +298,52 @@ def _adjust_color_channel(arr, mask, color_code, hue_shift=0.0, sat=0.0, light=0
             ).astype(np.uint8)
 
 
+def _apply_highlight_recovery(arr: np.ndarray, strength: float = 0.55) -> None:
+    """Локальное затемнение зоны пересвета (вспышки, окна).
+
+    Принцип: строим soft-маску по яркости (Y > 220), растушёвываем её
+    Гауссом, и в этой зоне применяем S-кривую сжатия. Снаружи — кадр
+    не меняется. Это НЕ восстанавливает clipped-данные (их физически
+    нет), но возвращает яркой дыре фактуру за счёт сжатия диапазона
+    240-255 → 220-250 и лёгкого обесцвечивания пересвета (он обычно
+    тёплый из-за окна).
+
+    Args:
+        arr: HxWx3 uint8 (модифицируется in-place)
+        strength: 0..1 — сила восстановления (0 = выкл, 1 = максимум)
+    """
+    if strength < 0.05:
+        return
+    h, w = arr.shape[:2]
+    # Luma BT.601
+    y = (
+        arr[..., 0].astype(np.uint16) * 77
+        + arr[..., 1].astype(np.uint16) * 150
+        + arr[..., 2].astype(np.uint16) * 29
+    ) >> 8
+    # Soft highlight mask: 0 при Y<220, 1 при Y>250
+    mask_f = np.clip((y.astype(np.float32) - 220.0) / 30.0, 0.0, 1.0)
+    del y
+    # Растушёвка маски (мягкие границы, чтобы не было ореолов)
+    blur_radius = max(8, min(h, w) // 100)
+    mask_pil = Image.fromarray(
+        (mask_f * 255).clip(0, 255).astype(np.uint8), 'L'
+    ).filter(ImageFilter.GaussianBlur(radius=blur_radius))
+    mask_f = np.array(mask_pil, dtype=np.float32) / 255.0
+    del mask_pil
+
+    # В зоне пересвета: каждый канал × (1 - strength * mask * factor),
+    # factor зависит от того насколько канал близок к 255.
+    # Это сжимает 240-255 → 220-245 и убирает clipped-белый.
+    for c in range(3):
+        ch = arr[..., c].astype(np.float32)
+        # Локальный коэффициент сжатия: сильнее у самых ярких пикселей
+        compress = 1.0 - mask_f * strength * (ch / 255.0) * 0.18
+        arr[..., c] = np.clip(ch * compress, 0, 255).astype(np.uint8)
+        del ch, compress
+    del mask_f
+
+
 def _apply_vignette(arr, amount=-0.34):
     if abs(amount) < 0.02:
         return
@@ -610,6 +656,25 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     )
     _apply_lut_global(arr, _build_lut_curve(**exp_params))
 
+    # 2.5. HIGHLIGHT RECOVERY — локальное приглушение пересвета (окна,
+    # вспышки). Включается АДАПТИВНО по плотности светов в кадре:
+    # больше пересветов → сильнее восстановление.
+    hd = exp_stats['highlight_density']
+    if hd > 8.0:
+        hr_strength = 0.75
+    elif hd > 4.0:
+        hr_strength = 0.55
+    elif hd > 1.5:
+        hr_strength = 0.30
+    else:
+        hr_strength = 0.0  # пересвета почти нет — не трогаем
+    if hr_strength > 0:
+        print(
+            f"[C1-PRESET] highlight-recovery: density={hd:.1f}% → "
+            f"strength={hr_strength:.2f}"
+        )
+        _apply_highlight_recovery(arr, strength=hr_strength)
+
     # 3. Saturation — больше сочности (+22)
     _saturation_in_place(arr, factor=1.22)
 
@@ -623,6 +688,14 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     _adjust_color_channel(arr, color_mask, 3, sat=-10)
     del color_mask
 
-    # 5. Vignette — УБРАНА (создавала затемнение по краям/ощущение мутности).
+    # 5. Адаптивная виньетка — ТОЛЬКО при сильном пересвете в кадре
+    # (вспышки, контровой свет). Лёгкая, чтобы не сделать кадр "мутным".
+    if exp_stats['highlight_density'] > 6.0:
+        vignette_amount = -0.22 if exp_stats['highlight_density'] > 12.0 else -0.14
+        print(
+            f"[C1-PRESET] adaptive vignette: amount={vignette_amount:.2f} "
+            f"(highlight_density={exp_stats['highlight_density']:.1f}%)"
+        )
+        _apply_vignette(arr, amount=vignette_amount)
 
     return Image.fromarray(arr, 'RGB')
