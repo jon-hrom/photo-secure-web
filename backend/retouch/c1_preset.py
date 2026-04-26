@@ -185,15 +185,26 @@ def _build_lut_curve(black_lift, shadow, brightness, contrast, white_pull, highl
     return np.clip(x * 255.0, 0, 255).astype(np.uint8)
 
 
-def _wb_shift_lut(kelvin_target=5390, tint=-5.4):
-    delta_k = (kelvin_target - 5500) / 1000.0
-    k_r = 1.0 + delta_k * 0.045
-    k_b = 1.0 - delta_k * 0.060
+def _wb_shift_lut(kelvin_target=5200, tint=3.0):
+    """Сдвиг баланса белого по модели Lightroom.
+
+    kelvin_target — цель в Кельвинах. Чем НИЖЕ значение, тем ТЕПЛЕЕ кадр
+    (т.к. фотограф говорит камере "сцена холоднее" → камера компенсирует
+    добавлением тепла). Нейтраль = 5500K.
+    tint — сдвиг между зелёным (-) и магентой (+). Для кожи нужен лёгкий
+    плюс (магента), чтобы убрать зелень от вольфрамового света.
+
+    Корректные коэффициенты: при kelvin_target < 5500 — R растёт, B падает.
+    """
+    delta_k = (5500 - kelvin_target) / 1000.0  # >0 = теплее
+    k_r = 1.0 + delta_k * 0.060   # ниже Kelvin → больше красного
+    k_b = 1.0 - delta_k * 0.045   # ниже Kelvin → меньше синего
     k_g = 1.0
     tint_norm = tint / 100.0
+    # Положительный tint = магента (R+B вверх, G вниз)
     k_g = k_g * (1.0 - tint_norm * 0.05)
-    k_r = k_r * (1.0 + tint_norm * 0.025)
-    k_b = k_b * (1.0 + tint_norm * 0.025)
+    k_r = k_r * (1.0 + tint_norm * 0.020)
+    k_b = k_b * (1.0 + tint_norm * 0.020)
     x = np.arange(256, dtype=np.float32)
     return (
         np.clip(x * k_r, 0, 255).astype(np.uint8),
@@ -320,8 +331,10 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     # Шумодав применяется ОТДЕЛЬНО по skin-mask в index.py
     # (см. apply_skin_denoise_with_mask).
 
-    # 1. WB — лёгкий тёплый сдвиг и тинт в зелёный
-    lut_r, lut_g, lut_b = _wb_shift_lut(kelvin_target=5390, tint=-5.4)
+    # 1. WB — лёгкий ТЁПЛЫЙ сдвиг (5200K) + плюсовой tint (магента),
+    #    чтобы убрать зелёный оттенок от вольфрамовых ламп и вернуть
+    #    естественный цвет кожи (5000–5500K — целевой диапазон).
+    lut_r, lut_g, lut_b = _wb_shift_lut(kelvin_target=5200, tint=3.0)
     _apply_lut_per_channel(arr, lut_r, lut_g, lut_b)
     del lut_r, lut_g, lut_b
 
@@ -338,10 +351,13 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     # 3. Saturation — больше сочности (+22)
     _saturation_in_place(arr, factor=1.22)
 
-    # 4. Color editor — приглушаем оранжевый и голубой как в эталоне C1
+    # 4. Color editor — НЕ душим оранжевый (это кожа!), голубой приглушаем.
     color_mask = _hue_classify(arr)
-    _adjust_color_channel(arr, color_mask, 1, sat=-10, light=4)
+    # Оранжевый (кожа): не трогаем насыщенность, только +4 luminance
+    _adjust_color_channel(arr, color_mask, 1, sat=0, light=4)
+    # Жёлтый: лёгкий сдвиг к оранжевому + чуть насыщеннее
     _adjust_color_channel(arr, color_mask, 2, hue_shift=-3.4, sat=6, light=8)
+    # Голубой/синий: приглушаем (фон)
     _adjust_color_channel(arr, color_mask, 3, sat=-10)
     del color_mask
 
