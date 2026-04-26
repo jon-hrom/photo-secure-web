@@ -57,7 +57,7 @@ API_BASE = "https://io.foto-mix.ru/api/v2"
 RETOUCH_BASIC_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
 RETOUCH_BASIC_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
 MAX_ACTIVE_TASKS_PER_USER = 10
-DEFAULT_STRENGTH = 0.5
+DEFAULT_STRENGTH = 0.6
 DEFAULT_ENHANCE_FACE = False
 
 
@@ -1498,46 +1498,10 @@ def _sync_task_from_api(conn, user_id, task):
     if api_status in ('failed', 'error'):
         raw_error = data.get('error', 'Processing failed')
         is_pipeline_bug = 'pipeline:' in raw_error.lower() or "local variable 'result'" in raw_error.lower()
-        retry_count = int(task.get('retry_count') or 0)
 
-        # АВТО-РЕТРАЙ при баге внешнего API: их пайплайн иногда падает на
-        # "cannot access local variable 'result'" — ретраим со strength=0.65.
-        # Лимит ретраев = 1 (две попытки максимум: исходная + 1 ретрай).
-        if is_pipeline_bug and retry_count < 1:
-            try:
-                print(f"[RETOUCH] Pipeline bug detected for {api_task_id} — retrying with strength=0.65")
-                # Скачиваем исходное фото из S3 заново
-                in_key = task.get('in_key', '')
-                if not in_key:
-                    raise RuntimeError("No in_key for retry")
-                s3_client = _get_s3_client()
-                obj = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
-                src_bytes = obj['Body'].read()
-                jpeg_bytes, _ = _ensure_jpeg_bytes(src_bytes, file_name=in_key)
-                image_b64 = base64.b64encode(jpeg_bytes).decode('ascii')
-                # Сабмитим со strength=0.65 — стабильное значение
-                new_api_id, new_status = _submit_async_task(
-                    image_b64, strength=0.65, enhance_face=False
-                )
-                # Заменяем task_id в БД на новый и сбрасываем статус
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "UPDATE retouch_tasks SET task_id=%s, status='processing', "
-                        "error_message=NULL, retry_count=retry_count+1, updated_at=NOW() "
-                        "WHERE task_id=%s AND user_id=%s",
-                        (new_api_id, api_task_id, user_id)
-                    )
-                    conn.commit()
-                print(f"[RETOUCH] Retried {api_task_id} -> {new_api_id} (strength=0.65)")
-                task = dict(task)
-                task['task_id'] = new_api_id
-                task['status'] = 'processing'
-                task['error_message'] = None
-                task['retry_count'] = retry_count + 1
-                return task
-            except Exception as e:
-                print(f"[RETOUCH] Retry failed: {e}")
-                # Падаем в обычную ветку failed ниже
+        # Авто-ретрай был отключён — он подменял task_id в БД, и фронт терял
+        # связь с новой задачей (поллил старый id, который уже был заменён).
+        # Если внешний API падает — просто помечаем failed.
 
         if 'timed out' in raw_error.lower() or 'timeout' in raw_error.lower():
             error_msg = 'Сервер ретуши не успел обработать фото — слишком большой файл или высокая нагрузка. Попробуйте ещё раз'

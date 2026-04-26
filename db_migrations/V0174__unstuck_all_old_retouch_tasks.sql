@@ -1,0 +1,1 @@
+UPDATE retouch_tasks SET status='failed', error_message='Зависло на стороне сервера ретуши. Попробуйте ещё раз', updated_at=NOW() WHERE status IN ('processing','queued','pending','started') AND created_at < NOW() - INTERVAL '2 minutes';
