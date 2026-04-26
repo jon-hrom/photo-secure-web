@@ -48,7 +48,8 @@ def postprocess_raw_capture_one_style(raw_data: bytes, file_name: str) -> Image.
             gamma=(2.4, 12.92),                      # стандартная sRGB-гамма
             highlight_mode=rawpy.HighlightMode.Blend,  # мягкий highlight recovery
             user_flip=0,                             # ориентацию применяем потом через EXIF
-            half_size=False,                         # ПОЛНОЕ разрешение
+            half_size=True,                          # 1/2 разрешения — важно для лимита памяти 256MB.
+                                                     # 25MP CR2 → 12MP, цвет/WB остаётся полностью правильным.
             fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Light,
         )
         if is_dng:
