@@ -501,8 +501,11 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
                   f"{scrfd_info.get('total_faces')}")
             if np.count_nonzero(scrfd_mask) > 0:
                 cached_scrfd_mask = scrfd_mask
-                # Берём максимум — если SegFormer дал больше, оставляем его;
-                # если меньше — берём SCRFD-маску (это типичный случай темноты).
+                # ВАЖНО: SCRFD даёт маску ТОЛЬКО лиц В ФОКУСЕ.
+                # SegFormer находит ВСЮ кожу в кадре, включая размытые вне-фокусные
+                # лица. Если их оставить — LaMa обработает их и появятся "кубики"
+                # на бокэ-лицах. Поэтому ОГРАНИЧИВАЕМ SegFormer-маску маской фокуса:
+                # берём пересечение (min), а не объединение (max).
                 scrfd_norm = scrfd_mask.astype(np.float32) / 255.0
                 if scrfd_norm.shape != mask_arr.shape:
                     scrfd_norm = np.array(
@@ -510,10 +513,23 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
                             (mask_arr.shape[1], mask_arr.shape[0]), Image.BILINEAR
                         )
                     ).astype(np.float32) / 255.0
-                mask_arr = np.maximum(mask_arr, scrfd_norm)
+                # Растушёвываем focus-маску, чтобы границы фокусной зоны были мягкими
+                # (иначе резкая обводка вокруг лица в фокусе).
+                from PIL import ImageFilter as _IF
+                scrfd_soft = np.array(
+                    Image.fromarray((scrfd_norm * 255).astype(np.uint8), 'L').filter(
+                        _IF.GaussianBlur(radius=12)
+                    ),
+                    dtype=np.float32,
+                ) / 255.0
+                # Не уменьшаем зону фокуса — берём максимум растушёванной и оригинальной
+                scrfd_soft = np.maximum(scrfd_norm, scrfd_soft)
+                # Пересечение: оставляем кожу SegFormer ТОЛЬКО в зоне фокуса
+                mask_arr = mask_arr * scrfd_soft
                 final_pct = float(np.count_nonzero(mask_arr > 0.3)) * 100 / mask_arr.size
-                print(f"[RETOUCH] [v3] Combined mask: {final_pct:.2f}% "
-                      f"(was SegFormer={initial_mask_pct:.2f}%, SCRFD={scrfd_pct:.2f}%)")
+                print(f"[RETOUCH] [v3] Focus-limited mask: {final_pct:.2f}% "
+                      f"(SegFormer={initial_mask_pct:.2f}%, SCRFD={scrfd_pct:.2f}%, "
+                      f"intersected with feathered focus zone)")
         else:
             print("[RETOUCH] [v3] SCRFD returned None (server unavailable)")
     except Exception as e:
