@@ -43,18 +43,19 @@ def postprocess_raw_capture_one_style(raw_data: bytes, file_name: str) -> Image.
             demosaic_algorithm=rawpy.DemosaicAlgorithm.AHD,
             output_color=rawpy.ColorSpace.sRGB,      # sRGB для веба
             output_bps=8,
-            no_auto_bright=True,                     # не задирать экспозицию
+            # Auto-bright ВКЛ + лёгкий лимит на пересвет, как в Capture One —
+            # без него Canon CR2 выходят сильно тёмными.
+            no_auto_bright=False,
+            auto_bright_thr=0.001,                   # 0.1% пикселей в пересвете — мягко
             bright=1.0,
-            gamma=(2.4, 12.92),                      # стандартная sRGB-гамма
-            highlight_mode=rawpy.HighlightMode.Blend,  # мягкий highlight recovery
-            user_flip=0,                             # ориентацию применяем потом через EXIF
-            half_size=True,                          # 1/2 разрешения — важно для лимита памяти 256MB.
-                                                     # 25MP CR2 → 12MP, цвет/WB остаётся полностью правильным.
+            gamma=(2.222, 4.5),                      # BT.709/Rec.709 — мягче и натуральнее в тенях, чем sRGB
+            highlight_mode=rawpy.HighlightMode.Blend,
+            # user_flip=None → libraw применяет ориентацию из EXIF самостоятельно
+            # (этого требуют все вертикальные CR2). user_flip=0 принудительно ОТКЛЮЧАЕТ поворот.
+            half_size=True,                          # 25MP → 12MP, для лимита памяти 256MB
             fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Light,
         )
         if is_dng:
-            # У DNG обычно линейные данные, чуть подсветим
-            params['no_auto_bright'] = False
             params['bright'] = 1.1
         rgb = raw.postprocess(**params)
 
