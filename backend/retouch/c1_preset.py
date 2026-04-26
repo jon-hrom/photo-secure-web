@@ -16,6 +16,63 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
+def apply_skin_denoise_with_mask(
+    img: Image.Image,
+    skin_mask_u8: np.ndarray,
+    strength: float = 0.45,
+) -> Image.Image:
+    """Шумодав, применяемый ТОЛЬКО по skin-mask.
+
+    Вне маски (волосы, фон, одежда, глаза) пиксели остаются ТОЧНО как в
+    оригинале (никакого мыла). Внутри маски — edge-preserving denoise:
+    плоская кожа размывается, кромки (поры, пушок) сохраняются.
+
+    Args:
+        img: PIL RGB изображение (после композиции с оригиналом).
+        skin_mask_u8: uint8 маска (H, W), 0=не кожа, 255=кожа. Должна
+                      совпадать по размеру с img.
+        strength: 0..1, сила шумодава внутри маски (0.45 = умеренно).
+
+    Returns:
+        Новое PIL RGB изображение.
+    """
+    arr = np.array(img, dtype=np.uint8)
+    h, w = arr.shape[:2]
+
+    # Приводим маску к размеру кадра, если нужно
+    if skin_mask_u8.shape != (h, w):
+        mask_pil = Image.fromarray(skin_mask_u8, 'L').resize((w, h), Image.BILINEAR)
+        skin_mask_u8 = np.array(mask_pil, dtype=np.uint8)
+        del mask_pil
+
+    # Если кожи в кадре почти нет — возвращаем оригинал без изменений
+    if int(skin_mask_u8.max()) < 32:
+        return img
+
+    # Перьим маску, чтобы переход кожа/не-кожа был мягким (без обводки)
+    skin_mask_feather = np.array(
+        Image.fromarray(skin_mask_u8, 'L').filter(ImageFilter.GaussianBlur(radius=4)),
+        dtype=np.uint8,
+    )
+
+    # Денойзим копию массива (in-place edge-preserving)
+    arr_denoised = arr.copy()
+    _denoise_luminance(arr_denoised, strength=strength)
+
+    # Бленд: где маска=255 -> denoised, где маска=0 -> оригинал
+    mask_f = skin_mask_feather.astype(np.uint16)
+    inv_f = 255 - mask_f
+    for c in range(3):
+        mixed = (
+            arr_denoised[..., c].astype(np.uint16) * mask_f
+            + arr[..., c].astype(np.uint16) * inv_f
+        ) // 255
+        arr[..., c] = mixed.astype(np.uint8)
+    del arr_denoised, mask_f, inv_f, skin_mask_feather
+
+    return Image.fromarray(arr, 'RGB')
+
+
 def _denoise_luminance(arr: np.ndarray, strength: float = 0.6) -> None:
     """Шумодав: убирает зернистость в плоских областях (кожа, фон),
     сохраняет резкость кромок и текстуры (волосы, глаза, ткань).
@@ -259,11 +316,9 @@ def apply_capture_one_wedding_preset(img: Image.Image) -> Image.Image:
     arr = np.array(img, dtype=np.uint8)
     del img
 
-    # 0. ШУМОДАВ — всегда первым шагом. Убирает зернистость ISO в плоских
-    #    областях (кожа, фон, потолок), сохраняя резкость кромок (волосы,
-    #    глаза, ткань). Без него последующий контраст +12 и saturation +22
-    #    усиливают шум, и появляются "пятна" на коже.
-    _denoise_luminance(arr, strength=0.6)
+    # ВАЖНО: глобальный шумодав здесь ОТКЛЮЧЁН — он мылил фон и волосы.
+    # Шумодав применяется ОТДЕЛЬНО по skin-mask в index.py
+    # (см. apply_skin_denoise_with_mask).
 
     # 1. WB — лёгкий тёплый сдвиг и тинт в зелёный
     lut_r, lut_g, lut_b = _wb_shift_lut(kelvin_target=5390, tint=-5.4)

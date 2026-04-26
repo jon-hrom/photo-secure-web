@@ -1023,6 +1023,19 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Vignette -0.34, Color editor (Orange/Yellow/Cyan).
     out_img = Image.fromarray(result, 'RGB')
     del result
+
+    # === Шумодав ТОЛЬКО по skin-mask (без мыла на фоне/волосах) ===
+    try:
+        from c1_preset import apply_skin_denoise_with_mask
+        skin_mask_u8_for_denoise = (skin_mask_for_post.astype(np.uint8) * 255)
+        out_img = apply_skin_denoise_with_mask(
+            out_img, skin_mask_u8_for_denoise, strength=0.45
+        )
+        del skin_mask_u8_for_denoise
+        print("[RETOUCH] [v3] Skin-only denoise applied (strength=0.45)")
+    except Exception as e:
+        print(f"[RETOUCH] Skin denoise failed (non-critical): {e}")
+
     try:
         from c1_preset import apply_capture_one_wedding_preset
         out_img = apply_capture_one_wedding_preset(out_img)
