@@ -13,7 +13,6 @@ from PIL import Image, ImageOps
 import rawpy
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from c1_preset import apply_capture_one_wedding_preset
 
 # Только эти RAW-форматы заведомо умеют postprocess через libraw.
 # Для них ВСЕГДА делаем полноценный демозаик.
@@ -139,17 +138,9 @@ def process_single_thumbnail(conn, s3_client, photo_id, force=False):
     except Exception as e:
         print(f'[THUMBNAIL] exif_transpose failed: {e}')
 
-    # Уменьшаем ДО применения пресета — пресет тяжёлый по памяти.
+    # Превью отдаём как с камеры (camera WB + лёгкое auto-bright libraw),
+    # БЕЗ цветокора. Пресет применяется только на этапе ретуши.
     img.thumbnail((2400, 2400), Image.Resampling.LANCZOS)
-
-    # === Capture One свадебный пресет (только для RAW) ===
-    if is_true_raw(file_name):
-        try:
-            t_preset = time.time()
-            img = apply_capture_one_wedding_preset(img)
-            print(f'[THUMBNAIL] C1 wedding preset applied in {time.time() - t_preset:.2f}s')
-        except Exception as e:
-            print(f'[THUMBNAIL] C1 preset failed (non-critical): {e}')
 
     jpeg_buffer = BytesIO()
     img.save(jpeg_buffer, format='JPEG', quality=92, subsampling=0)
