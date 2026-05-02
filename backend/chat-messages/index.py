@@ -533,11 +533,17 @@ def handler(event: dict, context) -> dict:
                         original_file_name = file_names[idx] if idx < len(file_names) else None
                         print(f'[CHAT] Image {idx+1}: original_file_name={original_file_name}')
                         
-                        # Проверяем, есть ли фото с таким именем в фотобанке
+                        # Проверяем, есть ли фото с таким именем в фотобанке.
+                        # Автоподмена работает ТОЛЬКО для медиа-расширений (фото/видео).
+                        # Иначе любой документ.jpg-однофамилец из фотобанка подменит вложение.
                         thumbnail_url = None
-                        if original_file_name:
+                        is_media_ext = bool(original_file_name and re.search(
+                            r'\.(cr2|nef|arw|dng|raw|jpg|jpeg|png|heic|heif|webp|mp4|mov|avi|mkv|webm)$',
+                            original_file_name, flags=re.IGNORECASE
+                        ))
+                        if original_file_name and is_media_ext:
                             # Убираем расширение и получаем базовое имя (поддерживаем фото и видео)
-                            base_name = re.sub(r'\.(cr2|nef|arw|dng|raw|jpg|jpeg|png|mp4|mov|avi|mkv|webm)$', '', original_file_name, flags=re.IGNORECASE)
+                            base_name = re.sub(r'\.(cr2|nef|arw|dng|raw|jpg|jpeg|png|heic|heif|webp|mp4|mov|avi|mkv|webm)$', '', original_file_name, flags=re.IGNORECASE)
                             print(f'[CHAT] Searching for thumbnail with base name: {base_name}')
                             
                             # Ищем фото по имени файла (without extension)

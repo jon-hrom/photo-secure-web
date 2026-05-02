@@ -172,14 +172,56 @@ export function useChatApi({
 
     try {
       setSending(true);
-      const base64Images: string[] = [];
-      const fileNames: string[] = [];
-      if (selectedImages.length > 0) {
-        for (const img of selectedImages) {
-          base64Images.push(img.dataUrl);
-          fileNames.push(img.fileName);
+      const uploadedUrls: string[] = [];
+      const fallbackBase64: string[] = [];
+      const fallbackNames: string[] = [];
+
+      // Загружаем каждый файл напрямую в S3 через presigned URL.
+      // Это обходит лимит размера тела на Cloud Functions (~6 МБ),
+      // позволяя слать большие фото, видео и архивы.
+      for (const img of selectedImages) {
+        if (!img.file) {
+          // Старый формат без File-объекта — fallback на base64
+          fallbackBase64.push(img.dataUrl);
+          fallbackNames.push(img.fileName);
+          continue;
+        }
+        try {
+          const contentType = img.file.type || 'application/octet-stream';
+          const presignUrl = `${CHAT_API}?action=get_upload_url&photographer_id=${photographerId}&file_name=${encodeURIComponent(img.fileName)}&content_type=${encodeURIComponent(contentType)}`;
+          const presignResp = await fetch(presignUrl);
+          if (!presignResp.ok) {
+            throw new Error(`presign HTTP ${presignResp.status}`);
+          }
+          const presignData = await presignResp.json();
+          if (!presignData.upload_url || !presignData.cdn_url) {
+            throw new Error('Некорректный ответ presigned URL');
+          }
+
+          const putResp = await fetch(presignData.upload_url, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': contentType,
+              'x-amz-acl': 'public-read',
+            },
+            body: img.file,
+          });
+          if (!putResp.ok) {
+            throw new Error(`S3 PUT HTTP ${putResp.status}`);
+          }
+          uploadedUrls.push(presignData.cdn_url);
+        } catch (uploadErr) {
+          console.error('Direct S3 upload failed, fallback to base64:', uploadErr);
+          // Если файл маленький — пробуем по старой схеме через бэк
+          if (img.dataUrl.length < 5_500_000) {
+            fallbackBase64.push(img.dataUrl);
+            fallbackNames.push(img.fileName);
+          } else {
+            throw new Error(`Не удалось загрузить файл «${img.fileName}». Попробуйте ещё раз или проверьте интернет.`);
+          }
         }
       }
+
       const body: Record<string, unknown> = {
         client_id: clientId,
         photographer_id: photographerId,
@@ -187,16 +229,23 @@ export function useChatApi({
         sender_type: senderType,
       };
       if (replyTo) body.reply_to_id = replyTo.id;
-      if (base64Images.length > 0) {
-        body.images_base64 = base64Images;
-        body.file_names = fileNames;
+      if (uploadedUrls.length > 0) {
+        body.image_urls = uploadedUrls;
       }
+      if (fallbackBase64.length > 0) {
+        body.images_base64 = fallbackBase64;
+        body.file_names = fallbackNames;
+      }
+
       const response = await fetch(CHAT_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!response.ok) throw new Error('Ошибка отправки сообщения');
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`HTTP ${response.status}: ${text || 'не удалось отправить сообщение'}`);
+      }
       setNewMessage('');
       setSelectedImages([]);
       setReplyTo(null);
@@ -204,7 +253,8 @@ export function useChatApi({
       if (onMessageSent) onMessageSent();
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Ошибка при отправке сообщения');
+      const msg = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      alert(`Не удалось отправить сообщение: ${msg}`);
     } finally {
       setSending(false);
     }
