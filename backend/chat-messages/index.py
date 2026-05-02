@@ -66,23 +66,26 @@ def handler(event: dict, context) -> dict:
                 # Ключ для миниатюры (всегда JPEG, маленькая)
                 thumb_key = f"chat-thumb/{photographer_id}/{file_uid}.jpg"
                 
-                # Оригинал
+                # Оригинал — подписываем с ACL public-read, чтобы файл
+                # сразу был публично читаемым через CDN. Фронт обязан
+                # послать заголовок x-amz-acl: public-read при PUT.
                 presigned_url = s3.generate_presigned_url(
                     'put_object',
                     Params={
                         'Bucket': chat_bucket,
                         'Key': s3_key,
                         'ContentType': content_type,
+                        'ACL': 'public-read',
                     },
                     ExpiresIn=900
                 )
-                # Превью (генерирует фронт, грузит параллельно)
                 thumb_presigned_url = s3.generate_presigned_url(
                     'put_object',
                     Params={
                         'Bucket': chat_bucket,
                         'Key': thumb_key,
                         'ContentType': 'image/jpeg',
+                        'ACL': 'public-read',
                     },
                     ExpiresIn=900
                 )

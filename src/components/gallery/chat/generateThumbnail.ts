@@ -64,6 +64,7 @@ export async function generateAndUploadThumbnail(
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', uploadUrl);
       xhr.setRequestHeader('Content-Type', 'image/jpeg');
+      xhr.setRequestHeader('x-amz-acl', 'public-read');
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve();
         else reject(new Error(`Thumb PUT HTTP ${xhr.status}`));

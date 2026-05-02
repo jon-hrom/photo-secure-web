@@ -235,6 +235,7 @@ export function useChatApi({
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', presignData.upload_url);
             xhr.setRequestHeader('Content-Type', contentType);
+            xhr.setRequestHeader('x-amz-acl', 'public-read');
             xhr.upload.addEventListener('progress', (e) => {
               if (e.lengthComputable) {
                 const pct = Math.round((e.loaded / e.total) * 100);
