@@ -128,12 +128,14 @@ export function useChatApi({
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
+    console.log('[CHAT] handleImageSelect: files=', files?.length || 0);
     if (!files || files.length === 0) return;
     const newImages: {dataUrl: string; fileName: string; file?: File}[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const isVideo = file.type.startsWith('video/');
       const maxSize = isVideo ? Infinity : 50 * 1024 * 1024;
+      console.log(`[CHAT] picked: "${file.name}" ${file.size}B ${file.type}`);
       if (file.size > maxSize) {
         alert(`Файл ${file.name} слишком большой. Максимальный размер: 50 МБ`);
         continue;
@@ -145,11 +147,23 @@ export function useChatApi({
       });
       newImages.push({ dataUrl, fileName: file.name, file });
     }
+    console.log(`[CHAT] handleImageSelect: adding ${newImages.length} images to state`);
     setSelectedImages(prev => [...prev, ...newImages]);
+    // Сбрасываем input, чтобы можно было выбрать тот же файл повторно
+    if (e.target) e.target.value = '';
   };
 
   const sendMessage = async () => {
-    if ((!newMessage.trim() && selectedImages.length === 0 && !editingId) || sending) return;
+    console.log('[CHAT] sendMessage CLICKED', {
+      hasText: !!newMessage.trim(),
+      filesCount: selectedImages.length,
+      editingId,
+      sending,
+    });
+    if ((!newMessage.trim() && selectedImages.length === 0 && !editingId) || sending) {
+      console.log('[CHAT] sendMessage SKIPPED — empty or already sending');
+      return;
+    }
 
     if (editingId) {
       if (!newMessage.trim()) return;
