@@ -179,45 +179,50 @@ export function useChatApi({
       // Загружаем каждый файл напрямую в S3 через presigned URL.
       // Это обходит лимит размера тела на Cloud Functions (~6 МБ),
       // позволяя слать большие фото, видео и архивы.
+      console.log(`[CHAT] sendMessage: ${selectedImages.length} files to upload`);
       for (const img of selectedImages) {
         if (!img.file) {
-          // Старый формат без File-объекта — fallback на base64
+          console.log('[CHAT] No File object — using base64 fallback');
           fallbackBase64.push(img.dataUrl);
           fallbackNames.push(img.fileName);
           continue;
         }
+        const contentType = img.file.type || 'application/octet-stream';
+        console.log(`[CHAT] Uploading "${img.fileName}" (${img.file.size} bytes, ${contentType})`);
         try {
-          const contentType = img.file.type || 'application/octet-stream';
           const presignUrl = `${CHAT_API}?action=get_upload_url&photographer_id=${photographerId}&file_name=${encodeURIComponent(img.fileName)}&content_type=${encodeURIComponent(contentType)}`;
           const presignResp = await fetch(presignUrl);
           if (!presignResp.ok) {
-            throw new Error(`presign HTTP ${presignResp.status}`);
+            const t = await presignResp.text().catch(() => '');
+            throw new Error(`presign HTTP ${presignResp.status}: ${t.slice(0, 200)}`);
           }
           const presignData = await presignResp.json();
           if (!presignData.upload_url || !presignData.cdn_url) {
             throw new Error('Некорректный ответ presigned URL');
           }
+          console.log('[CHAT] Got presigned URL, doing PUT to S3...');
 
           const putResp = await fetch(presignData.upload_url, {
             method: 'PUT',
-            headers: {
-              'Content-Type': contentType,
-              'x-amz-acl': 'public-read',
-            },
+            headers: { 'Content-Type': contentType },
             body: img.file,
           });
           if (!putResp.ok) {
-            throw new Error(`S3 PUT HTTP ${putResp.status}`);
+            const t = await putResp.text().catch(() => '');
+            throw new Error(`S3 PUT HTTP ${putResp.status}: ${t.slice(0, 200)}`);
           }
+          console.log(`[CHAT] Uploaded successfully: ${presignData.cdn_url}`);
           uploadedUrls.push(presignData.cdn_url);
         } catch (uploadErr) {
-          console.error('Direct S3 upload failed, fallback to base64:', uploadErr);
+          console.error('[CHAT] Direct S3 upload failed:', uploadErr);
           // Если файл маленький — пробуем по старой схеме через бэк
           if (img.dataUrl.length < 5_500_000) {
+            console.log('[CHAT] Falling back to base64 (file is small)');
             fallbackBase64.push(img.dataUrl);
             fallbackNames.push(img.fileName);
           } else {
-            throw new Error(`Не удалось загрузить файл «${img.fileName}». Попробуйте ещё раз или проверьте интернет.`);
+            const errMsg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+            throw new Error(`Не удалось загрузить файл «${img.fileName}»: ${errMsg}`);
           }
         }
       }

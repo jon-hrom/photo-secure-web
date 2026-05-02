@@ -63,13 +63,17 @@ def handler(event: dict, context) -> dict:
                 
                 s3_key = f"chat/{photographer_id}/{uuid.uuid4()}_{file_name}"
                 
+                # ВАЖНО: НЕ включаем ACL в подпись — иначе фронт обязан
+                # слать заголовок x-amz-acl, который бакет должен явно
+                # разрешить в CORS. Чтобы избежать CORS-преград, оставляем
+                # только Content-Type. Доступ public-read настроен на
+                # самом бакете (bucket policy).
                 presigned_url = s3.generate_presigned_url(
                     'put_object',
                     Params={
                         'Bucket': chat_bucket,
                         'Key': s3_key,
                         'ContentType': content_type,
-                        'ACL': 'public-read'
                     },
                     ExpiresIn=300
                 )
