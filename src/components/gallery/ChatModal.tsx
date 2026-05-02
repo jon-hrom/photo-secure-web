@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import { enableNotificationSound } from '@/utils/notificationSound';
 import ChatMessageList from './ChatMessageList';
 import ChatInput from './ChatInput';
-import FullscreenImage from './FullscreenImage';
+import GalleryPhotoViewer from './GalleryPhotoViewer';
 import MessageContextMenu from './chat/MessageContextMenu';
 import ChatSelectionBar from './chat/ChatSelectionBar';
 import ChatModalLayout from './chat/ChatModalLayout';
@@ -42,6 +43,35 @@ export default function ChatModal({
     galleryPhotos,
     onMessageSent,
   });
+
+  // Собираем все вложения чата (фото и видео) в один список —
+  // полноэкранный просмотр сможет листать стрелками между ними.
+  const chatPhotos = useMemo(() => {
+    return api.messages
+      .filter((m) => m.image_url || m.video_url)
+      .map((m) => {
+        const url = (m.video_url || m.image_url) as string;
+        const rawName = decodeURIComponent(url.split('/').pop() || '');
+        const fileName = rawName.replace(/^[0-9a-f-]{8,}_/, '').trim() || 'Файл';
+        return {
+          id: m.id,
+          file_name: fileName,
+          photo_url: url,
+          thumbnail_url: m.thumbnail_url || m.image_url || undefined,
+          file_size: 0,
+          is_video: !!m.video_url,
+        };
+      });
+  }, [api.messages]);
+
+  // По URL находим id сообщения, чтобы открыть просмотрщик именно на нём.
+  const initialPhotoId = useMemo(() => {
+    if (!api.fullscreenImage) return 0;
+    const found = api.messages.find(
+      (m) => m.image_url === api.fullscreenImage || m.video_url === api.fullscreenImage,
+    );
+    return found ? found.id : (chatPhotos[0]?.id || 0);
+  }, [api.fullscreenImage, api.messages, chatPhotos]);
 
   if (!isOpen) return null;
 
@@ -106,19 +136,30 @@ export default function ChatModal({
     />
   );
 
+  const viewer = api.fullscreenImage && chatPhotos.length > 0 ? (
+    <GalleryPhotoViewer
+      photos={chatPhotos}
+      initialPhotoId={initialPhotoId}
+      onClose={() => api.setFullscreenImage(null)}
+    />
+  ) : null;
+
   if (embedded) {
     return (
-      <ChatModalLayout
-        embedded
-        title={title}
-        onClose={onClose}
-        selectionBar={selectionBar}
-        input={input}
-        containerRef={api.messageContainerRef}
-      >
-        <ChatMessageList variant="embedded" {...listProps} ref={api.messagesEndRef} />
-        {contextMenu}
-      </ChatModalLayout>
+      <>
+        <ChatModalLayout
+          embedded
+          title={title}
+          onClose={onClose}
+          selectionBar={selectionBar}
+          input={input}
+          containerRef={api.messageContainerRef}
+        >
+          <ChatMessageList variant="embedded" {...listProps} ref={api.messagesEndRef} />
+          {contextMenu}
+        </ChatModalLayout>
+        {viewer}
+      </>
     );
   }
 
@@ -137,13 +178,7 @@ export default function ChatModal({
       </ChatModalLayout>
 
       {contextMenu}
-
-      {api.fullscreenImage && (
-        <FullscreenImage
-          imageUrl={api.fullscreenImage}
-          onClose={() => api.setFullscreenImage(null)}
-        />
-      )}
+      {viewer}
     </>
   );
 }
