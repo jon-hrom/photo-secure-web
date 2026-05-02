@@ -220,7 +220,7 @@ export default function ChatMessage({
               )}
               {message.image_url && !message.video_url && (
                 <img
-                  src={message.image_url}
+                  src={message.thumbnail_url || message.image_url}
                   alt="Изображение"
                   className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity touch-manipulation"
                   onClick={(e) => {
@@ -236,7 +236,7 @@ export default function ChatMessage({
                 <div className="relative mb-2">
                   <video
                     src={message.video_url}
-                    poster={message.image_url}
+                    poster={message.thumbnail_url || message.image_url}
                     controls
                     playsInline
                     className="rounded-lg max-w-full"

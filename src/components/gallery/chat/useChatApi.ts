@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { enableNotificationSound } from '@/utils/notificationSound';
 import { copyTextToBuffer } from './clipboardBuffer';
+import { generateAndUploadThumbnail } from './generateThumbnail';
 import type { ChatAction, ChatMessageData } from './types';
 
 export type Message = ChatMessageData;
@@ -187,6 +188,7 @@ export function useChatApi({
     try {
       setSending(true);
       const uploadedUrls: string[] = [];
+      const uploadedThumbs: (string | null)[] = [];
       const fallbackBase64: string[] = [];
       const fallbackNames: string[] = [];
 
@@ -216,10 +218,20 @@ export function useChatApi({
           }
           console.log('[CHAT] Got presigned URL, doing PUT to S3...');
 
-          // Используем XHR (как в CameraUploadLogic) — он надёжнее
-          // для PUT в Yandex S3, не добавляет лишних заголовков и
-          // не модифицирует Content-Type, что критично для подписи.
-          await new Promise<void>((resolve, reject) => {
+          // Параллельно: для картинок генерируем thumbnail и грузим в S3
+          const thumbPromise: Promise<string | null> =
+            contentType.startsWith('image/') &&
+            presignData.thumbnail_upload_url &&
+            presignData.thumbnail_cdn_url
+              ? generateAndUploadThumbnail(
+                  img.file,
+                  presignData.thumbnail_upload_url as string,
+                  presignData.thumbnail_cdn_url as string,
+                )
+              : Promise.resolve(null);
+
+          // Основной файл — XHR (надёжнее для Yandex S3, не модифицирует Content-Type)
+          const mainPromise = new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', presignData.upload_url);
             xhr.setRequestHeader('Content-Type', contentType);
@@ -242,11 +254,18 @@ export function useChatApi({
             xhr.onabort = () => reject(new Error('Загрузка отменена'));
             xhr.send(img.file);
           });
-          console.log(`[CHAT] Uploaded successfully: ${presignData.cdn_url}`);
+
+          await mainPromise;
+          const thumbUrl = await thumbPromise.catch((err) => {
+            console.warn('[CHAT] Thumbnail upload failed (non-fatal):', err);
+            return null;
+          });
+
+          console.log(`[CHAT] Uploaded successfully: ${presignData.cdn_url}, thumb: ${thumbUrl}`);
           uploadedUrls.push(presignData.cdn_url);
+          uploadedThumbs.push(thumbUrl);
         } catch (uploadErr) {
           console.error('[CHAT] Direct S3 upload failed:', uploadErr);
-          // Если файл маленький — пробуем по старой схеме через бэк
           if (img.dataUrl.length < 5_500_000) {
             console.log('[CHAT] Falling back to base64 (file is small)');
             fallbackBase64.push(img.dataUrl);
@@ -275,6 +294,8 @@ export function useChatApi({
       if (replyTo) body.reply_to_id = replyTo.id;
       if (uploadedUrls.length > 0) {
         body.image_urls = uploadedUrls;
+        // Передаём миниатюры в той же последовательности (null если не сгенерирована)
+        body.thumbnail_urls = uploadedThumbs;
       }
       if (fallbackBase64.length > 0) {
         body.images_base64 = fallbackBase64;

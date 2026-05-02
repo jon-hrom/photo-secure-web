@@ -61,12 +61,12 @@ def handler(event: dict, context) -> dict:
                 )
                 chat_bucket = 'foto-mix'
                 
-                s3_key = f"chat/{photographer_id}/{uuid.uuid4()}_{file_name}"
+                file_uid = str(uuid.uuid4())
+                s3_key = f"chat/{photographer_id}/{file_uid}_{file_name}"
+                # Ключ для миниатюры (всегда JPEG, маленькая)
+                thumb_key = f"chat-thumb/{photographer_id}/{file_uid}.jpg"
                 
-                # Подписываем PUT URL ровно так же, как рабочая функция
-                # upload-url (которая успешно используется в фотобанке).
-                # Без ACL и Metadata — только Bucket/Key/ContentType.
-                # Доступ public-read настроен на самом бакете.
+                # Оригинал
                 presigned_url = s3.generate_presigned_url(
                     'put_object',
                     Params={
@@ -76,8 +76,19 @@ def handler(event: dict, context) -> dict:
                     },
                     ExpiresIn=900
                 )
+                # Превью (генерирует фронт, грузит параллельно)
+                thumb_presigned_url = s3.generate_presigned_url(
+                    'put_object',
+                    Params={
+                        'Bucket': chat_bucket,
+                        'Key': thumb_key,
+                        'ContentType': 'image/jpeg',
+                    },
+                    ExpiresIn=900
+                )
                 
                 cdn_url = f"https://storage.yandexcloud.net/{chat_bucket}/{s3_key}"
+                thumb_cdn_url = f"https://storage.yandexcloud.net/{chat_bucket}/{thumb_key}"
                 
                 cur.close()
                 conn.close()
@@ -88,7 +99,9 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({
                         'upload_url': presigned_url,
                         'cdn_url': cdn_url,
-                        's3_key': s3_key
+                        's3_key': s3_key,
+                        'thumbnail_upload_url': thumb_presigned_url,
+                        'thumbnail_cdn_url': thumb_cdn_url,
                     }),
                     'isBase64Encoded': False
                 }
@@ -386,7 +399,8 @@ def handler(event: dict, context) -> dict:
                 SELECT m.id, m.client_id, m.photographer_id, m.content as message, 
                        m.sender_type, m.is_read, m.created_at, m.image_url, m.is_delivered, m.video_url,
                        m.is_edited, m.edited_at, m.reply_to_id, m.removed_for_all,
-                       r.content, r.sender_type, r.image_url, r.video_url
+                       r.content, r.sender_type, r.image_url, r.video_url,
+                       m.thumbnail_url, r.thumbnail_url
                 FROM t_p28211681_photo_secure_web.client_messages m
                 LEFT JOIN t_p28211681_photo_secure_web.client_messages r ON r.id = m.reply_to_id
                 WHERE m.client_id = %s AND m.photographer_id = %s AND m.{hidden_col} = FALSE
@@ -402,12 +416,14 @@ def handler(event: dict, context) -> dict:
                     reply_sender = row[15]
                     reply_img = row[16]
                     reply_vid = row[17]
+                    reply_thumb = row[19] if len(row) > 19 else None
                     reply_payload = {
                         'id': row[12],
                         'message': '' if not reply_text else (reply_text[:120] + ('…' if len(reply_text) > 120 else '')),
                         'sender_type': reply_sender,
                         'image_url': reply_img,
                         'video_url': reply_vid,
+                        'thumbnail_url': reply_thumb,
                     }
                 messages.append({
                     'id': row[0],
@@ -425,6 +441,7 @@ def handler(event: dict, context) -> dict:
                     'reply_to_id': row[12],
                     'reply_to': None if removed else reply_payload,
                     'removed_for_all': bool(removed),
+                    'thumbnail_url': None if removed else (row[18] if len(row) > 18 else None),
                 })
             
             cur.close()
@@ -449,6 +466,7 @@ def handler(event: dict, context) -> dict:
             images_base64 = body.get('images_base64', [])
             file_names = body.get('file_names', [])
             image_urls = body.get('image_urls', [])  # Новый формат: готовые CDN URLs
+            thumbnail_urls = body.get('thumbnail_urls', [])  # Параллельно: миниатюры (фронт сгенерил)
             reply_to_id = body.get('reply_to_id')
             try:
                 reply_to_id = int(reply_to_id) if reply_to_id else None
@@ -658,29 +676,31 @@ def handler(event: dict, context) -> dict:
             first_media = final_image_urls[0] if final_image_urls else None
             first_image = first_media if first_media and not isinstance(first_media, dict) else (first_media.get('image_url') if isinstance(first_media, dict) else None)
             first_video = first_media.get('video_url') if isinstance(first_media, dict) else None
+            first_thumb = thumbnail_urls[0] if thumbnail_urls and len(thumbnail_urls) > 0 else None
 
             cur.execute('''
                 INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url, reply_to_id)
-                VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s, %s)
+                (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url, reply_to_id, thumbnail_url)
+                VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s, %s, %s)
                 RETURNING id, created_at
-            ''', (client_id, photographer_id, message or '', sender_type, author_name, first_image, first_video, reply_to_id))
+            ''', (client_id, photographer_id, message or '', sender_type, author_name, first_image, first_video, reply_to_id, first_thumb))
             result = cur.fetchone()
             message_ids.append(result[0])
             created_timestamps.append(result[1])
-            print(f'[POST] Inserted main message id={result[0]} with image={first_image}, video={first_video}', flush=True)
+            print(f'[POST] Inserted main message id={result[0]} with image={first_image}, video={first_video}, thumb={first_thumb}', flush=True)
 
             # Остальные изображения как отдельные сообщения
-            for media in final_image_urls[1:]:
+            for idx, media in enumerate(final_image_urls[1:], start=1):
                 media_image = media if not isinstance(media, dict) else media.get('image_url')
                 media_video = media.get('video_url') if isinstance(media, dict) else None
+                media_thumb = thumbnail_urls[idx] if thumbnail_urls and idx < len(thumbnail_urls) else None
 
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url)
-                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s)
+                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url, thumbnail_url)
+                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s, %s)
                     RETURNING id, created_at
-                ''', (client_id, photographer_id, '', sender_type, author_name, media_image, media_video))
+                ''', (client_id, photographer_id, '', sender_type, author_name, media_image, media_video, media_thumb))
                 result = cur.fetchone()
                 message_ids.append(result[0])
                 created_timestamps.append(result[1])

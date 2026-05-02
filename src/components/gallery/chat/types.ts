@@ -4,6 +4,7 @@ export interface ReplyPreview {
   sender_type: 'client' | 'photographer';
   image_url?: string | null;
   video_url?: string | null;
+  thumbnail_url?: string | null;
 }
 
 export interface ChatMessageData {
@@ -15,6 +16,7 @@ export interface ChatMessageData {
   is_delivered: boolean;
   image_url?: string;
   video_url?: string;
+  thumbnail_url?: string | null;
   is_edited?: boolean;
   edited_at?: string | null;
   reply_to_id?: number | null;
